@@ -1,0 +1,43 @@
+# Ambiente local opcional com Docker (alternativa ao `pnpm db:local`).
+#   docker compose -f docker/docker-compose.dev.yml up --build
+# Produção NÃO usa compose: web e worker são Applications no Dokploy com imagens do GHCR.
+name: organizeup-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: organizeup
+    ports:
+      - "54329:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+
+  worker:
+    build: { context: .., target: worker, args: { GIT_SHA: dev-compose } }
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      MIGRATION_DATABASE_URL: postgres://postgres:postgres@postgres:5432/organizeup
+      DATABASE_URL: postgres://ou_worker:dev-worker-pass@postgres:5432/organizeup
+      OU_APP_DB_PASSWORD: dev-app-pass
+      OU_WORKER_DB_PASSWORD: dev-worker-pass
+      OU_ADMIN_DB_PASSWORD: dev-admin-pass
+
+  web:
+    build: { context: .., target: web, args: { GIT_SHA: dev-compose } }
+    depends_on: [worker]
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://ou_app:dev-app-pass@postgres:5432/organizeup
+      BETTER_AUTH_SECRET: dev-only-secret-change-me-0123456789abcdef
+      BETTER_AUTH_URL: http://localhost:3000
+
+volumes:
+  pgdata:

@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/* Tokens de design (ADR-0003). Componentes usam só estes tokens. */
+@theme {
+  --color-brand-50: #eef6f1;
+  --color-brand-100: #d6eadd;
+  --color-brand-500: #2f7a5b;
+  --color-brand-700: #1f5641;
+  --color-brand-900: #183c32;
+  --color-ink: #17201c;
+  --color-muted: #5b6b63;
+  --color-surface: #f6f5f0;
+  --color-card: #ffffff;
+  --color-line: #e2e4dc;
+  --color-danger: #b42318;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ink: #e8eee9;
+    --color-muted: #a3b2aa;
+    --color-surface: #0f1714;
+    --color-card: #17221d;
+    --color-line: #2a3a33;
+    --color-brand-50: #1b2b24;
+    --color-brand-100: #22382e;
+  }
+}
+
+html,
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}

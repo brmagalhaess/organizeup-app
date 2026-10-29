@@ -1,0 +1,71 @@
+name: risk
+
+# Classifica o risco do PR pelos CAMINHOS alterados (determinístico, não pela opinião do agente).
+# pull_request_target roda a versão deste arquivo do branch base: um PR não consegue alterá-lo.
+# Não faz checkout do código do PR.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  risk:
+    name: risk
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v8
+        env:
+          FOUNDER_LOGIN: ${{ vars.FOUNDER_LOGIN }}
+        with:
+          script: |
+            const HIGH = [
+              /^\.github\//,
+              /^packages\/db\//,
+              /^packages\/domain\//,
+              /^apps\/web\/src\/lib\/(auth|auth-client|permissions|session|ops-auth)\./,
+              /^apps\/web\/next\.config\./,
+              /^Dockerfile$/,
+              /^docker\//,
+              /^paperclip\//,
+              /^AGENTS\.md$/,
+              /^eslint\.config\./,
+              /^pnpm-workspace\.yaml$/,
+            ];
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pr.number, per_page: 100,
+            });
+            const touched = files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean));
+            const highFiles = touched.filter((p) => HIGH.some((r) => r.test(p)));
+            const depsChanged = touched.some((p) => /(^|\/)package\.json$|^pnpm-lock\.yaml$/.test(p));
+            const level = highFiles.length ? "high" : depsChanged ? "medium" : "low";
+            const labels = {
+              high: { color: "b60205", description: "Exige revisão do fundador (CODEOWNERS)" },
+              medium: { color: "fbca04", description: "Dependências alteradas" },
+              low: { color: "0e8a16", description: "Pode ser mesclado pelo Reviewer/QA após CI verde" },
+            };
+            for (const [name, meta] of Object.entries(labels)) {
+              try { await github.rest.issues.getLabel({ owner, repo, name: `risk:${name}` }); }
+              catch { await github.rest.issues.createLabel({ owner, repo, name: `risk:${name}`, ...meta }); }
+            }
+            for (const name of Object.keys(labels).filter((n) => n !== level)) {
+              try { await github.rest.issues.removeLabel({ owner, repo, issue_number: pr.number, name: `risk:${name}` }); } catch {}
+            }
+            await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: [`risk:${level}`] });
+
+            await core.summary
+              .addHeading(`Risco: ${level}`)
+              .addList(highFiles.length ? highFiles : ["nenhum caminho de alto risco"])
+              .write();
+
+            const founder = (process.env.FOUNDER_LOGIN || owner).toLowerCase();
+            const author = pr.user.login.toLowerCase();
+            if (touched.some((p) => p.startsWith(".github/")) && author !== founder) {
+              core.setFailed(`Só ${founder} pode alterar .github/** (autor: ${author}).`);
+            }

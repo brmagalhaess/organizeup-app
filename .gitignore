@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# env / secrets (nunca versionar)
+.env
+.env.*
+!.env.example
+
+# logs e temporários
+*.log
+.DS_Store
+Thumbs.db
+
+# testes
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# postgres embutido para dev/testes locais
+.pg/

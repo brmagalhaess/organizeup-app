@@ -1,0 +1,63 @@
+name: deploy
+
+# Roda depois do CI verde em `main`. Único lugar com a API key do Dokploy
+# (secret do Environment "production", restrito ao branch main).
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      DOKPLOY_URL: ${{ vars.DOKPLOY_URL }}
+      DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+      WORKER_APP_ID: ${{ vars.DOKPLOY_WORKER_APP_ID }}
+      WEB_APP_ID: ${{ vars.DOKPLOY_WEB_APP_ID }}
+      APP_URL: ${{ vars.APP_URL }}
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Confere configuração
+        run: |
+          for v in DOKPLOY_URL DOKPLOY_API_KEY WORKER_APP_ID WEB_APP_ID APP_URL; do
+            if [ -z "${!v}" ]; then echo "::error::$v não configurada (ver docs/runbooks/bootstrap.md)"; exit 1; fi
+          done
+
+      - name: Deploy do worker (roda as migrações antes de iniciar)
+        run: |
+          curl -fsS -X POST "$DOKPLOY_URL/api/application.deploy" \
+            -H "x-api-key: $DOKPLOY_API_KEY" -H "Content-Type: application/json" \
+            -d "{\"applicationId\":\"$WORKER_APP_ID\"}"
+          # Aguarda o worker subir. A web só sobe depois, com o schema já migrado.
+          sleep 60
+
+      - name: Deploy da web
+        run: |
+          curl -fsS -X POST "$DOKPLOY_URL/api/application.deploy" \
+            -H "x-api-key: $DOKPLOY_API_KEY" -H "Content-Type: application/json" \
+            -d "{\"applicationId\":\"$WEB_APP_ID\"}"
+
+      - name: Verifica que produção roda o commit esperado
+        run: |
+          for i in $(seq 1 60); do
+            body=$(curl -fsS "$APP_URL/api/health" || true)
+            echo "$body"
+            if echo "$body" | grep -q "\"commit\":\"$EXPECTED_SHA\"" && echo "$body" | grep -q '"status":"ok"'; then
+              echo "Produção saudável em $EXPECTED_SHA"; exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Produção não respondeu com o commit $EXPECTED_SHA. Ver docs/runbooks/rollback.md"
+          exit 1

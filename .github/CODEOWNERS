@@ -1,0 +1,18 @@
+# Caminhos de alto risco exigem revisão do fundador (conta humana).
+# Substitua @SEU_USUARIO_GITHUB pelo seu login do GitHub (ver docs/runbooks/bootstrap.md).
+# Requer GitHub Pro/Team para valer em repositório privado.
+
+/.github/                       @SEU_USUARIO_GITHUB
+/packages/db/                   @SEU_USUARIO_GITHUB
+/packages/domain/               @SEU_USUARIO_GITHUB
+/apps/web/src/lib/auth.ts       @SEU_USUARIO_GITHUB
+/apps/web/src/lib/auth-client.ts @SEU_USUARIO_GITHUB
+/apps/web/src/lib/permissions.ts @SEU_USUARIO_GITHUB
+/apps/web/src/lib/session.ts    @SEU_USUARIO_GITHUB
+/apps/web/src/lib/ops-auth.ts   @SEU_USUARIO_GITHUB
+/apps/web/next.config.ts        @SEU_USUARIO_GITHUB
+/Dockerfile                     @SEU_USUARIO_GITHUB
+/docker/                        @SEU_USUARIO_GITHUB
+/paperclip/                     @SEU_USUARIO_GITHUB
+/AGENTS.md                      @SEU_USUARIO_GITHUB
+/eslint.config.mjs              @SEU_USUARIO_GITHUB

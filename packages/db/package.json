@@ -1,0 +1,26 @@
+{
+  "name": "@organizeup/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth-db": "./src/auth-db.ts",
+    "./migrator": "./src/migrator.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "migrate": "tsx scripts/migrate.ts",
+    "local-pg": "tsx scripts/local-pg.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.4",
+    "pg-boss": "12.38.0",
+    "postgres": "3.4.9"
+  },
+  "devDependencies": {
+    "embedded-postgres": "18.4.0-beta.17"
+  }
+}
