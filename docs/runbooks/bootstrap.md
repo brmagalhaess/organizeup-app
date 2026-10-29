@@ -6,8 +6,8 @@ Ordem: GitHub → GHCR → Dokploy → primeiro deploy. Nada aqui é feito por a
 
 1. Assine **GitHub Pro** (ou crie uma organização com plano Team). Sem isso, rulesets e CODEOWNERS
    não valem em repositório privado.
-2. Crie o repositório privado `organizeup` e faça o push inicial de `main`.
-3. Em `.github/CODEOWNERS`, troque `@SEU_USUARIO_GITHUB` pelo seu login e faça commit.
+2. Repositório privado: `brmagalhaess/organizeup-v3` (o nome `organizeup` já pertence a um projeto antigo).
+3. `.github/CODEOWNERS` já aponta para `@brmagalhaess`.
 4. **Settings → Actions → General → Workflow permissions**: "Read repository contents" (padrão
    read-only para `GITHUB_TOKEN`).
 5. **Settings → Rules → Rulesets → New branch ruleset** para `main`:
