@@ -25,9 +25,17 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 FROM deps AS build
+ARG GIT_SHA=dev
 COPY . .
 RUN pnpm --filter @organizeup/web build \
  && pnpm --filter @organizeup/worker build
+# O Dokploy não passa GIT_SHA: nesse caso o commit vem do .git do clone.
+RUN commit="$GIT_SHA"; \
+    if [ "$commit" = dev ] && [ -f .git/HEAD ]; then \
+      commit=$(cat .git/HEAD); \
+      case "$commit" in "ref: "*) commit=$(cat ".git/${commit#ref: }" 2>/dev/null || echo dev) ;; esac; \
+    fi; \
+    printf '%s' "$commit" > COMMIT
 
 # ---------- runtime comum ----------
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
@@ -46,6 +54,7 @@ WORKDIR /app
 FROM runtime AS web
 COPY --from=build --chown=node:node /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /repo/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=node:node /repo/COMMIT ./COMMIT
 USER node
 ENV PORT=3000 \
     HOSTNAME=0.0.0.0
@@ -54,12 +63,13 @@ EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:3000/api/health?probe=live" || exit 1
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "apps/web/server.js"]
+CMD ["sh", "-c", "export APP_COMMIT=$(cat COMMIT); exec node apps/web/server.js"]
 
 # ---------- worker (bundle único + migrations) ----------
 FROM runtime AS worker
 COPY --from=build --chown=node:node /repo/apps/worker/dist ./
+COPY --from=build --chown=node:node /repo/COMMIT ./COMMIT
 USER node
 ENV MIGRATIONS_DIR=/app/migrations
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "--enable-source-maps", "main.js"]
+CMD ["sh", "-c", "export APP_COMMIT=$(cat COMMIT); exec node --enable-source-maps main.js"]

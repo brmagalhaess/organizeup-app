@@ -6,6 +6,8 @@
 **/playwright-report
 .pg
 .git
+!.git/HEAD
+!.git/refs
 .github
 .env
 .env.*

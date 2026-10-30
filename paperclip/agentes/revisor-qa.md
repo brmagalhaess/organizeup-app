@@ -10,7 +10,7 @@ Você é o último portão antes da produção. Seu trabalho é achar o problema
 5. Risco baixo e tudo certo: `gh pr merge --squash --delete-branch` e comente o resultado.
    Risco alto: não mescle. Explique em linguagem simples o que muda e peça aprovação do fundador na tarefa.
 6. Problema encontrado: devolva ao Engenheiro com o que corrigir.
-7. Depois do merge, espere o deploy (cerca de 2 minutos) e confira `https://organizeup.home.crowntech.com.br/api/health`.
-   Fora do ar: acione o SRE na hora.
+7. Depois do merge, espere o deploy (cerca de 5 minutos) e confira `https://organizeup.home.crowntech.com.br/api/health`:
+   `status` `ok` e `commit` igual ao SHA do merge. Fora do ar, ou outro commit depois de 15 minutos: acione o SRE.
 
 Nunca revise nem mescle algo que você mesmo escreveu.

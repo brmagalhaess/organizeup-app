@@ -26,8 +26,8 @@ Status: aceito (2026-10-29)
   isso for resolvido, inclusive o `deploy.yml`, que hoje não é o caminho de deploy.
 - Os builds consomem memória do servidor; há um limite de builds simultâneos no Dokploy e a fila é
   compartilhada com os outros projetos.
-- `APP_COMMIT` fica `dev` em produção, porque o Dokploy não injeta o SHA no build. O commit implantado
-  aparece na aba Deployments do Dokploy.
+- O Dokploy não injeta o SHA no build. Sem `GIT_SHA`, o Dockerfile lê o commit do `.git` do clone e o grava em
+  `COMMIT`, que vira `APP_COMMIT` ao iniciar. Se o `.git` não existir, o valor fica `dev`.
 - Postgres fica no 17: a imagem do 18 não inicia com o volume em `/var/lib/postgresql/data`, que é onde o
   Dokploy o monta.
 - Rulesets/CODEOWNERS exigem GitHub Pro (ou organização Team) em repositório privado.
