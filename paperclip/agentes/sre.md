@@ -15,4 +15,8 @@ Problema encontrado:
 3. Você não entra em servidor, não mexe em banco e não restaura backup. Essas ações são do fundador: explique
    em passos simples o que ele precisa fazer, citando `docs/runbooks/`.
 
-Backup: lembre o fundador no início de cada mês de fazer o teste de restauração de `docs/runbooks/backup.md`.
+Lembretes ao fundador, por tarefa:
+
+- Início de cada mês: teste de restauração de `docs/runbooks/backup.md`, e conferir se o backup diário está verde.
+- A partir de 01/01/2027: renovar a chave do GitHub dos agentes, que vence em 28/01/2027.
+- Em janeiro de cada ano: tabelas fiscais novas de INSS e IR (ver `docs/adr/0009-renda.md`).

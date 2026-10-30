@@ -47,3 +47,9 @@ a tarefa e avise nela.
    admitem suposição.
 3. Ao terminar, comente: o que mudou, como foi verificado e o que **não** foi verificado.
 4. Nunca diga que algo funciona sem ter visto funcionar.
+
+## Ajustes ao `AGENTS.md` neste ambiente
+
+- Não há CI: ignore o passo `gh pr checks --watch`. A chave não tem acesso a checks, e a verificação é o
+  `pnpm check`.
+- O build e os testes e2e rodam fora daqui. Diga na tarefa que não foram rodados.
