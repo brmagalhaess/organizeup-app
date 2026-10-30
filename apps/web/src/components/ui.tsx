@@ -4,16 +4,30 @@ import { X } from "lucide-react";
 import {
   cloneElement,
   isValidElement,
+  startTransition,
   useEffect,
   useId,
   useRef,
   type ButtonHTMLAttributes,
+  type FormEvent,
   type InputHTMLAttributes,
   type ReactElement,
   type ReactNode,
   type SelectHTMLAttributes,
 } from "react";
 import { buttonClass, cx, type ButtonVariant } from "./styles";
+
+/**
+ * Envia o formulário sem o reset automático do React: com erro de validação, os campos continuam
+ * preenchidos. Use no lugar de action={action}.
+ */
+export function submitKeeping(action: (form: FormData) => void) {
+  return (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    startTransition(() => action(form));
+  };
+}
 
 export function Button({
   variant = "primary",

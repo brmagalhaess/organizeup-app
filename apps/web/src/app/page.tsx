@@ -55,7 +55,7 @@ const modules = [
     ready: true,
   },
   { name: "Reserva e patrimônio", text: "Sua segurança e a evolução do que é seu.", ready: true },
-  { name: "Investimentos", text: "Carteira, proventos e classes de ativos.", ready: false },
+  { name: "Investimentos", text: "Carteira, proventos e classes de ativos.", ready: true },
   {
     name: "Aposentadoria",
     text: "Aporte necessário e cenários com premissas claras.",

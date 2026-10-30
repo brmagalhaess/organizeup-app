@@ -1304,6 +1304,131 @@ describe("memória e relatórios dos agentes", () => {
   });
 });
 
+describe("isolamento de investimentos", () => {
+  const { investments, investmentTrades, dividends, investmentTargets, dividendGoals } = db;
+  let holdingB = "";
+
+  const seed =
+    (householdId: string, ticker: string) =>
+    async (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => {
+      const [holding] = await tx
+        .insert(investments)
+        .values({ householdId, name: "Ação", ticker, assetClass: "acao", currentPrice: "10" })
+        .returning({ id: investments.id });
+      await tx.insert(investmentTrades).values({
+        householdId,
+        investmentId: holding!.id,
+        side: "compra",
+        occurredOn: "2026-01-10",
+        quantity: "10",
+        unitPrice: "8",
+      });
+      await tx.insert(dividends).values({
+        householdId,
+        investmentId: holding!.id,
+        kind: "dividendo",
+        paidOn: "2026-02-10",
+        gross: "5.00",
+      });
+      await tx.insert(investmentTargets).values({ householdId, assetClass: "acao", percent: "50" });
+      await tx.insert(dividendGoals).values({ householdId, monthlyAmount: "100.00" });
+      return holding!.id;
+    };
+
+  beforeAll(async () => {
+    await db.withHousehold(await ctxFor(A.owner, A.household), seed(A.household, "AAAA3"));
+    holdingB = await db.withHousehold(
+      await ctxFor(B.owner, B.household),
+      seed(B.household, "BBBB3"),
+    );
+  });
+
+  it("não lê investimentos, operações, proventos nem metas de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    const seen = await db.withHousehold(ctx, async (tx) => ({
+      investments: await tx.select().from(investments),
+      trades: await tx.select().from(investmentTrades),
+      dividends: await tx.select().from(dividends),
+      targets: await tx.select().from(investmentTargets),
+      goals: await tx.select().from(dividendGoals),
+    }));
+    for (const rows of Object.values(seen)) {
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.householdId).toBe(A.household);
+    }
+  });
+
+  it("não altera nem apaga investimento de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      const changed = await tx
+        .update(investments)
+        .set({ name: "Invadido" })
+        .where(eq(investments.id, holdingB))
+        .returning({ id: investments.id });
+      const removed = await tx
+        .delete(investments)
+        .where(eq(investments.id, holdingB))
+        .returning({ id: investments.id });
+      expect(changed).toHaveLength(0);
+      expect(removed).toHaveLength(0);
+    });
+  });
+
+  it("FK composta impede operação e provento em investimento alheio", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(investmentTrades).values({
+          householdId: A.household,
+          investmentId: holdingB,
+          side: "compra",
+          occurredOn: "2026-01-10",
+          quantity: "1",
+          unitPrice: "1",
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(dividends).values({
+          householdId: A.household,
+          investmentId: holdingB,
+          kind: "jcp",
+          paidOn: "2026-02-10",
+          gross: "1.00",
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não registra", async () => {
+    const ctx = await ctxFor(A.viewer, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(investments).values({
+          householdId: A.household,
+          name: "Fundo",
+          assetClass: "fundo",
+        }),
+      ),
+    ).rejects.toThrow();
+    const rows = await db.withHousehold(ctx, (tx) => tx.select().from(investments));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("apagar o investimento leva operações e proventos, e o patrimônio soma a carteira", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      const input = await db.netWorthInputs(tx);
+      expect(input.investments[0]!.trades).toHaveLength(1);
+      await tx.delete(investments);
+      expect(await tx.select().from(investmentTrades)).toHaveLength(0);
+      expect(await tx.select().from(dividends)).toHaveLength(0);
+    });
+  });
+});
+
 describe("exportação e exclusão da família", () => {
   it("a exportação cobre toda tabela com household_id", async () => {
     const owner = await ctxFor(A.owner, A.household);

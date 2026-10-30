@@ -13,6 +13,7 @@ import {
   Input,
   Select,
   Sheet,
+  submitKeeping,
 } from "@/components/ui";
 import { ROLE_HINT, ROLE_LABEL } from "@/lib/invites";
 import { cancelInvite, inviteMember, leaveFamily, removeMember } from "./actions";
@@ -41,7 +42,7 @@ function InviteForm({ onDone }: { onDone: () => void }) {
     if (state.ok) onDone();
   }, [state, onDone]);
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <Field
         label="E-mail da pessoa"
         hint="Ela precisa entrar com este e-mail para aceitar."

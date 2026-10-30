@@ -57,6 +57,8 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { href: "/app/reserva", label: "Reserva", icon: PiggyBank },
       { href: "/app/patrimonio", label: "Patrimônio", icon: Gem },
+      { href: "/app/investimentos", label: "Investimentos", icon: TrendingUp },
+      { href: "/app/proventos", label: "Proventos", icon: HandCoins },
     ],
   },
   {
@@ -69,8 +71,6 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
 ];
 
 const soon: Array<{ label: string; icon: LucideIcon }> = [
-  { label: "Investimentos", icon: TrendingUp },
-  { label: "Proventos", icon: HandCoins },
   { label: "Aposentadoria", icon: Sunset },
   { label: "Viagens", icon: Palmtree },
 ];

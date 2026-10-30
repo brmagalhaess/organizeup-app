@@ -13,53 +13,62 @@ import {
   debts,
   household,
   householdSettings,
+  investments,
+  investmentTrades,
   netWorthSnapshots,
 } from "./schema";
 import type { TenantTx } from "./tenant";
 
 /** Tudo que entra na conta do patrimônio líquido. */
 export async function netWorthInputs(tx: TenantTx) {
-  const [accountRows, assetRows, debtRows, cards, purchases, payments] = await Promise.all([
-    tx
-      .select({
-        id: accounts.id,
-        name: accounts.name,
-        archived: accounts.archived,
-        balance: sql<string>`(${accounts.openingBalance} + coalesce((
+  const [accountRows, assetRows, debtRows, cards, purchases, payments, holdings, trades] =
+    await Promise.all([
+      tx
+        .select({
+          id: accounts.id,
+          name: accounts.name,
+          archived: accounts.archived,
+          balance: sql<string>`(${accounts.openingBalance} + coalesce((
           select sum(case when t.kind = 'receita' then t.amount else -t.amount end)
           from transactions t
           where t.account_id = accounts.id and t.status = 'realizado'
         ), 0))::text`,
-      })
-      .from(accounts)
-      .orderBy(accounts.createdAt),
-    tx.select({ id: assets.id, value: assets.value }).from(assets),
-    tx
-      .select({
-        id: debts.id,
-        name: debts.name,
-        archived: debts.archived,
-        balance: sql<string>`coalesce((
+        })
+        .from(accounts)
+        .orderBy(accounts.createdAt),
+      tx.select({ id: assets.id, value: assets.value }).from(assets),
+      tx
+        .select({
+          id: debts.id,
+          name: debts.name,
+          archived: debts.archived,
+          balance: sql<string>`coalesce((
           select sum(i.principal) from debt_installments i
           where i.debt_id = debts.id and i.transaction_id is null
         ), 0)::text`,
-      })
-      .from(debts)
-      .orderBy(debts.createdAt),
-    tx
-      .select({
-        id: creditCards.id,
-        name: creditCards.name,
-        closingDay: creditCards.closingDay,
-        dueDay: creditCards.dueDay,
-      })
-      .from(creditCards),
-    tx.select().from(cardPurchases),
-    tx.select().from(cardStatementPayments),
-  ]);
+        })
+        .from(debts)
+        .orderBy(debts.createdAt),
+      tx
+        .select({
+          id: creditCards.id,
+          name: creditCards.name,
+          closingDay: creditCards.closingDay,
+          dueDay: creditCards.dueDay,
+        })
+        .from(creditCards),
+      tx.select().from(cardPurchases),
+      tx.select().from(cardStatementPayments),
+      tx.select().from(investments),
+      tx.select().from(investmentTrades),
+    ]);
   return {
     accounts: accountRows,
     assets: assetRows,
+    investments: holdings.map((holding) => ({
+      ...holding,
+      trades: trades.filter((trade) => trade.investmentId === holding.id),
+    })),
     debts: debtRows,
     cards,
     purchases,

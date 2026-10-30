@@ -10,6 +10,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   smallint,
   text,
   timestamp,
@@ -512,3 +513,114 @@ export const incomeReceipts = pgTable(
     }).onDelete("cascade"),
   ],
 );
+
+export const INVESTMENT_CLASSES = [
+  "acao",
+  "fii",
+  "etf_bdr",
+  "renda_fixa",
+  "fundo",
+  "previdencia",
+  "exterior",
+  "outro",
+] as const;
+export type InvestmentClass = (typeof INVESTMENT_CLASSES)[number];
+export const TRADE_SIDES = ["compra", "venda"] as const;
+export const DIVIDEND_KINDS = ["dividendo", "jcp", "rendimento"] as const;
+
+const quantity = (name: string) => numeric(name, { precision: 20, scale: 8 });
+
+export const investments = pgTable(
+  "investments",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    ticker: text("ticker"),
+    assetClass: text("asset_class", { enum: INVESTMENT_CLASSES }).notNull(),
+    currentPrice: quantity("current_price"),
+    currentValue: amount("current_value"),
+    valuedOn: date("valued_on", { mode: "string" }),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    unique().on(t.householdId, t.ticker),
+    index("investments_household_id_idx").on(t.householdId),
+  ],
+);
+
+export const investmentTrades = pgTable(
+  "investment_trades",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    investmentId: text("investment_id").notNull(),
+    side: text("side", { enum: TRADE_SIDES }).notNull(),
+    occurredOn: date("occurred_on", { mode: "string" }).notNull(),
+    quantity: quantity("quantity").notNull(),
+    unitPrice: quantity("unit_price").notNull(),
+    fees: amount("fees").notNull().default("0"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("investment_trades_investment_idx").on(t.householdId, t.investmentId),
+    foreignKey({
+      columns: [t.householdId, t.investmentId],
+      foreignColumns: [investments.householdId, investments.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+export const dividends = pgTable(
+  "dividends",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    investmentId: text("investment_id").notNull(),
+    kind: text("kind", { enum: DIVIDEND_KINDS }).notNull(),
+    paidOn: date("paid_on", { mode: "string" }).notNull(),
+    gross: amount("gross").notNull(),
+    withheld: amount("withheld").notNull().default("0"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("dividends_household_paid_idx").on(t.householdId, t.paidOn),
+    foreignKey({
+      columns: [t.householdId, t.investmentId],
+      foreignColumns: [investments.householdId, investments.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+export const investmentTargets = pgTable(
+  "investment_targets",
+  {
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    assetClass: text("asset_class", { enum: INVESTMENT_CLASSES }).notNull(),
+    percent: numeric("percent", { precision: 5, scale: 2 }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.householdId, t.assetClass] })],
+);
+
+export const dividendGoals = pgTable("dividend_goals", {
+  householdId: text("household_id")
+    .primaryKey()
+    .references(() => household.id, { onDelete: "cascade" }),
+  monthlyAmount: amount("monthly_amount").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});

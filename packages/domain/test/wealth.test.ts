@@ -108,6 +108,7 @@ describe("patrimônio líquido", () => {
     cards: [],
     purchases: [],
     paidStatements: [],
+    investments: [],
   };
   const card = { id: "k", name: "Cartão", closingDay: 25, dueDay: 5 };
   const purchase = {

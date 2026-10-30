@@ -1,5 +1,6 @@
 // Reserva de emergência e patrimônio. Puro: recebe valores e devolve o que a tela mostra.
 import { purchaseLines, linesTotal, type CardTerms, type PurchaseInput } from "./card";
+import { summarizePortfolio, type InvestmentInput } from "./investment";
 import { money, toDbAmount } from "./money";
 
 export const DEFAULT_RESERVE_MONTHS = 6;
@@ -100,6 +101,7 @@ export interface NetWorthCard extends CardTerms {
 export interface NetWorthInput {
   accounts: NetWorthAccount[];
   assets: NetWorthAsset[];
+  investments: InvestmentInput[];
   debts: NetWorthDebt[];
   cards: NetWorthCard[];
   purchases: PurchaseInput[];
@@ -110,6 +112,7 @@ export interface NetWorthInput {
 export interface NetWorthSummary {
   accounts: string;
   assets: string;
+  investments: string;
   debts: string;
   cards: string;
   owned: string;
@@ -121,7 +124,7 @@ export interface NetWorthSummary {
 const sumOf = (values: string[]) => values.reduce((acc, value) => acc.plus(value), money(0));
 
 /**
- * Patrimônio líquido: contas ativas e bens, menos dívidas ativas e tudo que ainda vai sair dos
+ * Patrimônio líquido: contas ativas, bens e investimentos, menos dívidas ativas e tudo que ainda vai sair dos
  * cartões, inclusive parcelas futuras. Compra parcelada já é uma obrigação assumida.
  */
 export function summarizeNetWorth(input: NetWorthInput): NetWorthSummary {
@@ -138,13 +141,15 @@ export function summarizeNetWorth(input: NetWorthInput): NetWorthSummary {
 
   const accounts = sumOf(input.accounts.filter((a) => !a.archived).map((a) => a.balance));
   const assets = sumOf(input.assets.map((a) => a.value));
+  const investments = summarizePortfolio(input.investments).total;
   const debts = sumOf(input.debts.filter((d) => !d.archived).map((d) => d.balance));
   const cards = sumOf(cardBalances.map((c) => c.balance));
-  const owned = accounts.plus(assets);
+  const owned = accounts.plus(assets).plus(investments);
   const owed = debts.plus(cards);
   return {
     accounts: toDbAmount(accounts),
     assets: toDbAmount(assets),
+    investments,
     debts: toDbAmount(debts),
     cards: toDbAmount(cards),
     owned: toDbAmount(owned),

@@ -2,7 +2,7 @@
 import { Building2, Car, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { formatBRL } from "@organizeup/domain";
+import { formatBRL, money } from "@organizeup/domain";
 import {
   Button,
   Card,
@@ -170,6 +170,17 @@ export function NetWorthBoard({ data, writable }: { data: Data; writable: boolea
               <Row key={account.id} name={account.name} value={account.balance} />
             ))}
           </ul>
+
+          {money(summary.investments).gt(0) ? (
+            <>
+              <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">
+                Investimentos
+              </h3>
+              <ul aria-label="Investimentos" className="m-0 list-none divide-y divide-line p-0">
+                <Row name="Carteira" value={summary.investments} />
+              </ul>
+            </>
+          ) : null}
 
           <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Bens</h3>
           {data.assets.length === 0 ? (
