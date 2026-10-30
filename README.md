@@ -7,6 +7,16 @@ sistema e uma equipe de agentes (Paperclip + Codex) que opera e evolui o produto
 > isolamento por RLS testado e deploy pelo Dokploy. Plano completo em
 > [docs/plano-mestre.md](docs/plano-mestre.md).
 
+## O que já funciona
+
+Conforme os módulos marcados como disponíveis na página inicial:
+
+- **Família e configurações:** pessoas, cidade e fuso do seu plano.
+- **Receitas e despesas:** lançamentos, importação de extrato, salário líquido, 13º, férias e resumo do mês.
+- **Calendário:** vencimentos, compromissos e saldo previsto de cada dia.
+- **Dívidas e cartões:** faturas, parcelas, juros e ordem para quitar.
+- **Reserva e patrimônio:** sua segurança e a evolução do que é seu.
+
 ## Rodando localmente (Windows, macOS ou Linux, sem Docker)
 
 Requisitos: Node 24+, pnpm (via `corepack enable`).
