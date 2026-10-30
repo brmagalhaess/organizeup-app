@@ -1,5 +1,15 @@
 "use client";
-import { AlertCircle, CalendarX2, Check, Clock, Pencil, Repeat, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  CalendarX2,
+  Check,
+  Clock,
+  Pencil,
+  Repeat,
+  Trash2,
+} from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatBRL, formatShortDate, type MonthEntry } from "@organizeup/domain";
 import { useEntryDialog } from "@/components/shell/entry-context";
@@ -68,10 +78,22 @@ function RowActions({
           </Button>
         </form>
       ) : null}
-      <IconButton label={`Editar ${entry.description}`} onClick={() => onEdit(entry)}>
-        <Pencil className="size-4" aria-hidden="true" />
-      </IconButton>
-      {entry.source === "lancamento" ? (
+      {entry.source === "parcela" || entry.source === "fatura" ? (
+        <Link
+          href={entry.source === "parcela" ? "/app/dividas" : "/app/cartoes"}
+          aria-label={`Abrir ${entry.description}`}
+          title="Abrir"
+          className="inline-flex size-9 items-center justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-ink"
+        >
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </Link>
+      ) : (
+        <IconButton label={`Editar ${entry.description}`} onClick={() => onEdit(entry)}>
+          <Pencil className="size-4" aria-hidden="true" />
+        </IconButton>
+      )}
+      {entry.source === "parcela" || entry.source === "fatura" ? null : entry.source ===
+        "lancamento" ? (
         <IconButton label={`Excluir ${entry.description}`} onClick={() => onRemove(entry)}>
           <Trash2 className="size-4" aria-hidden="true" />
         </IconButton>

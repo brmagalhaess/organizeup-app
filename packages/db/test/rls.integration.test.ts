@@ -293,7 +293,7 @@ describe("isolamento do financeiro", () => {
       categories: await tx.select().from(categories),
     }));
     expect(created.accounts).toHaveLength(1);
-    expect(created.categories).toHaveLength(15);
+    expect(created.categories).toHaveLength(17);
   });
 
   it("não lê lançamentos, contas nem categorias de outra família", async () => {
@@ -416,6 +416,265 @@ describe("isolamento do financeiro", () => {
         tx.insert(categoryTemplates).values({ id: "x", name: "Global", kind: "despesa" }),
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe("isolamento de cartões e dívidas", () => {
+  const {
+    accounts,
+    categories,
+    creditCards,
+    cardPurchases,
+    cardStatementPayments,
+    debts,
+    debtInstallments,
+    transactions,
+  } = db;
+  let ctxA: Awaited<ReturnType<typeof ctxFor>>;
+  let ctxB: Awaited<ReturnType<typeof ctxFor>>;
+  let accountA: string;
+  let categoryA: string;
+  let categoryB: string;
+  let cardA: string;
+  let debtA: string;
+  let installmentA: string;
+
+  beforeAll(async () => {
+    ctxA = await ctxFor(A.owner, A.household);
+    ctxB = await ctxFor(B.owner, B.household);
+    const seed = (ctx: typeof ctxA) =>
+      db.withHousehold(ctx, async (tx) => {
+        await db.ensureFinanceDefaults(tx, ctx.householdId);
+        const [account] = await tx.select({ id: accounts.id }).from(accounts).limit(1);
+        const [category] = await tx
+          .select({ id: categories.id })
+          .from(categories)
+          .where(eq(categories.name, "Compras"));
+        return { account: account!.id, category: category!.id };
+      });
+    const a = await seed(ctxA);
+    const b = await seed(ctxB);
+    accountA = a.account;
+    categoryA = a.category;
+    categoryB = b.category;
+
+    await db.withHousehold(ctxA, async (tx) => {
+      const [card] = await tx
+        .insert(creditCards)
+        .values({
+          householdId: A.household,
+          name: "Cartão A",
+          closingDay: 25,
+          dueDay: 5,
+          payingAccountId: accountA,
+        })
+        .returning({ id: creditCards.id });
+      cardA = card!.id;
+      await tx.insert(cardPurchases).values({
+        householdId: A.household,
+        cardId: cardA,
+        categoryId: categoryA,
+        description: "Compra secreta",
+        amount: "300.00",
+        installments: 3,
+        purchasedOn: "2026-10-10",
+      });
+      const [debt] = await tx
+        .insert(debts)
+        .values({
+          householdId: A.household,
+          accountId: accountA,
+          name: "Dívida secreta",
+          system: "price",
+          monthlyRate: "2",
+          originalBalance: "1000.00",
+        })
+        .returning({ id: debts.id });
+      debtA = debt!.id;
+      const [installment] = await tx
+        .insert(debtInstallments)
+        .values({
+          householdId: A.household,
+          debtId: debtA,
+          number: 1,
+          dueDate: "2026-11-10",
+          amount: "100.00",
+          principal: "80.00",
+          interest: "20.00",
+        })
+        .returning({ id: debtInstallments.id });
+      installmentA = installment!.id;
+    });
+  });
+
+  it("não lê cartões, compras, dívidas nem parcelas de outra família", async () => {
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(creditCards)).toHaveLength(0);
+      expect(await tx.select().from(cardPurchases)).toHaveLength(0);
+      expect(await tx.select().from(cardStatementPayments)).toHaveLength(0);
+      expect(await tx.select().from(debts)).toHaveLength(0);
+      expect(await tx.select().from(debtInstallments)).toHaveLength(0);
+    });
+  });
+
+  it("não altera nem apaga cartão e dívida de outra família", async () => {
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(
+        await tx
+          .update(creditCards)
+          .set({ name: "Invadido" })
+          .where(eq(creditCards.id, cardA))
+          .returning({ id: creditCards.id }),
+      ).toHaveLength(0);
+      expect(
+        await tx.delete(debts).where(eq(debts.id, debtA)).returning({ id: debts.id }),
+      ).toHaveLength(0);
+    });
+  });
+
+  it("FK composta impede apontar para conta, cartão ou dívida alheia", async () => {
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(creditCards).values({
+          householdId: B.household,
+          name: "Forjado",
+          closingDay: 1,
+          dueDay: 10,
+          payingAccountId: accountA,
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(cardPurchases).values({
+          householdId: B.household,
+          cardId: cardA,
+          categoryId: categoryB,
+          description: "Forjada",
+          amount: "1.00",
+          purchasedOn: "2026-10-10",
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(debtInstallments).values({
+          householdId: B.household,
+          debtId: debtA,
+          number: 2,
+          dueDate: "2026-12-10",
+          amount: "1.00",
+          principal: "1.00",
+          interest: "0.00",
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(debts).values({
+          householdId: B.household,
+          accountId: accountA,
+          name: "Forjada",
+          system: "manual",
+          originalBalance: "1.00",
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não registra compra", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    await db.withHousehold(viewer, async (tx) => {
+      expect(await tx.select().from(creditCards)).toHaveLength(1);
+    });
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        tx.insert(cardPurchases).values({
+          householdId: A.household,
+          cardId: cardA,
+          categoryId: categoryA,
+          description: "Sem permissão",
+          amount: "1.00",
+          purchasedOn: "2026-10-10",
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("apagar o lançamento reabre a parcela e a fatura", async () => {
+    await db.withHousehold(ctxA, async (tx) => {
+      const [paid] = await tx
+        .insert(transactions)
+        .values({
+          householdId: A.household,
+          accountId: accountA,
+          categoryId: categoryA,
+          kind: "despesa",
+          description: "Pagamento",
+          amount: "100.00",
+          occurredOn: "2026-11-10",
+        })
+        .returning({ id: transactions.id });
+      await tx
+        .update(debtInstallments)
+        .set({ transactionId: paid!.id })
+        .where(eq(debtInstallments.id, installmentA));
+      await tx.insert(cardStatementPayments).values({
+        householdId: A.household,
+        cardId: cardA,
+        statementMonth: "2026-11",
+        transactionId: paid!.id,
+      });
+      await tx.delete(transactions).where(eq(transactions.id, paid!.id));
+
+      const [installment] = await tx
+        .select()
+        .from(debtInstallments)
+        .where(eq(debtInstallments.id, installmentA));
+      expect(installment!.transactionId).toBeNull();
+      expect(installment!.householdId).toBe(A.household);
+      expect(await tx.select().from(cardStatementPayments)).toHaveLength(0);
+    });
+  });
+
+  it("uma fatura só pode ser paga uma vez", async () => {
+    await expect(
+      db.withHousehold(ctxA, async (tx) => {
+        const [paid] = await tx
+          .insert(transactions)
+          .values({
+            householdId: A.household,
+            accountId: accountA,
+            categoryId: categoryA,
+            kind: "despesa",
+            description: "Pagamento",
+            amount: "100.00",
+            occurredOn: "2026-11-10",
+          })
+          .returning({ id: transactions.id });
+        const payment = {
+          householdId: A.household,
+          cardId: cardA,
+          statementMonth: "2026-12",
+          transactionId: paid!.id,
+        };
+        await tx.insert(cardStatementPayments).values(payment);
+        await tx.insert(cardStatementPayments).values(payment);
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("famílias antigas recebem as categorias do sistema", async () => {
+    await db.withHousehold(ctxB, async (tx) => {
+      await db.ensureFinanceDefaults(tx, B.household);
+      const rows = await tx
+        .select({ name: categories.name })
+        .from(categories)
+        .where(eq(categories.kind, "despesa"));
+      expect(rows.map((r) => r.name)).toEqual(
+        expect.arrayContaining(["Cartão de crédito", "Dívidas e empréstimos"]),
+      );
+    });
   });
 });
 

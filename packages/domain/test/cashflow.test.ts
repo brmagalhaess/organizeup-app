@@ -13,6 +13,7 @@ import {
   percentChange,
   percentOf,
   recentMonths,
+  spendingByCategory,
   occurrenceDate,
   summarizeMonth,
   type PlanInput,
@@ -193,6 +194,39 @@ describe("painel", () => {
     expect(percentChange("150.00", "100.00")).toBe(50);
     expect(percentChange("50.00", "100.00")).toBe(-50);
     expect(percentChange("50.00", "0.00")).toBeNull();
+  });
+});
+
+describe("compromissos no mês", () => {
+  const fatura = {
+    key: "f:k1:2026-11",
+    source: "fatura" as const,
+    id: "k1",
+    description: "Fatura",
+    amount: "400.00",
+    date: "2026-11-05",
+    categoryId: "cartao",
+    accountId: "a1",
+  };
+
+  it("fatura em aberto entra como previsão no mês do vencimento", () => {
+    const entries = buildMonthEntries("2026-11", [], [], [fatura]);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ status: "previsto", kind: "despesa", source: "fatura" });
+    expect(summarizeMonth(entries).plannedExpense).toBe("400.00");
+    expect(buildMonthEntries("2026-12", [], [], [fatura])).toEqual([]);
+  });
+
+  it("abre a fatura por categoria sem contar duas vezes", () => {
+    const entries = buildMonthEntries("2026-11", [], [], [fatura]);
+    const lines = [
+      { categoryId: "mercado", amount: "300.00" },
+      { categoryId: "lazer", amount: "100.00" },
+    ];
+    expect(spendingByCategory(entries, lines, "cartao")).toEqual([
+      { categoryId: "mercado", amount: "300.00" },
+      { categoryId: "lazer", amount: "100.00" },
+    ]);
   });
 });
 

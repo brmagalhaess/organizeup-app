@@ -18,18 +18,19 @@ import {
 import {
   addMonths,
   buildMonthEntries,
-  expensesByCategory,
   isYearMonth,
   money,
   monthBounds,
   monthlySeries,
   pendingEntries,
   recentMonths,
+  spendingByCategory,
   summarizeMonth,
   toDbAmount,
   todayIn,
   yearMonthOf,
 } from "@organizeup/domain";
+import { loadCommitments } from "./commitments";
 
 /** Carrega o necessário para a tela de lançamentos. Transação curta, sem chamadas externas. */
 export async function loadMonth(ctx: TenantContext, requestedMonth?: string | null) {
@@ -54,7 +55,8 @@ export async function loadMonth(ctx: TenantContext, requestedMonth?: string | nu
       .from(transactions)
       .where(and(gte(transactions.occurredOn, first), lte(transactions.occurredOn, last)));
 
-    const entries = buildMonthEntries(month, planRows, transactionRows);
+    const { scheduled } = await loadCommitments(tx);
+    const entries = buildMonthEntries(month, planRows, transactionRows, scheduled);
     return {
       month,
       today,
@@ -119,11 +121,13 @@ export async function loadOverview(ctx: TenantContext) {
         ),
       );
 
+    const { scheduled, cardLines, cardCategoryId } = await loadCommitments(tx);
     const inMonth = (ym: string) =>
       buildMonthEntries(
         ym,
         planRows,
         transactionRows.filter((t) => yearMonthOf(t.occurredOn) === ym),
+        scheduled,
       );
     const current = inMonth(month);
     const previous = inMonth(addMonths(month, -1));
@@ -140,7 +144,11 @@ export async function loadOverview(ctx: TenantContext) {
       summary: summarizeMonth(current),
       previousSummary: summarizeMonth(previous),
       series: monthlySeries(months, planRows, transactionRows),
-      byCategory: expensesByCategory(current),
+      byCategory: spendingByCategory(
+        current,
+        cardLines.filter((line) => line.statementMonth === month),
+        cardCategoryId,
+      ),
       categoryNames: new Map(categoryRows.map((c) => [c.id, c.name])),
       pending: pendingEntries([...previous, ...current, ...next], today, 6),
       checklist: {

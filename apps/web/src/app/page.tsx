@@ -44,7 +44,11 @@ const modules = [
     text: "Lançamentos, categorias e o resumo do mês.",
     ready: true,
   },
-  { name: "Dívidas", text: "Parcelas, juros e a melhor ordem para quitar.", ready: false },
+  {
+    name: "Dívidas e cartões",
+    text: "Faturas, parcelas, juros e a melhor ordem para quitar.",
+    ready: true,
+  },
   { name: "Reserva e patrimônio", text: "Sua segurança e a evolução do que é seu.", ready: false },
   { name: "Investimentos", text: "Carteira, proventos e classes de ativos.", ready: false },
   {

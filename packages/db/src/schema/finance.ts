@@ -143,3 +143,153 @@ export const transactions = pgTable(
     }),
   ],
 );
+
+export const DEBT_SYSTEMS = ["price", "sac", "manual"] as const;
+export type DebtSystem = (typeof DEBT_SYSTEMS)[number];
+
+export const creditCards = pgTable(
+  "credit_cards",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    limitAmount: amount("limit_amount"),
+    closingDay: smallint("closing_day").notNull(),
+    dueDay: smallint("due_day").notNull(),
+    payingAccountId: text("paying_account_id").notNull(),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("credit_cards_household_id_idx").on(t.householdId),
+    foreignKey({
+      columns: [t.householdId, t.payingAccountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+    }),
+  ],
+);
+
+export const cardPurchases = pgTable(
+  "card_purchases",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    cardId: text("card_id").notNull(),
+    categoryId: text("category_id").notNull(),
+    description: text("description").notNull(),
+    amount: amount("amount").notNull(),
+    installments: smallint("installments").notNull().default(1),
+    purchasedOn: date("purchased_on", { mode: "string" }).notNull(),
+    createdBy: text("created_by"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("card_purchases_household_card_idx").on(t.householdId, t.cardId),
+    foreignKey({
+      columns: [t.householdId, t.cardId],
+      foreignColumns: [creditCards.householdId, creditCards.id],
+    }),
+    foreignKey({
+      columns: [t.householdId, t.categoryId],
+      foreignColumns: [categories.householdId, categories.id],
+    }),
+  ],
+);
+
+export const cardStatementPayments = pgTable(
+  "card_statement_payments",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    cardId: text("card_id").notNull(),
+    statementMonth: char("statement_month", { length: 7 }).notNull(),
+    transactionId: text("transaction_id").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.cardId, t.statementMonth),
+    foreignKey({
+      columns: [t.householdId, t.cardId],
+      foreignColumns: [creditCards.householdId, creditCards.id],
+    }),
+    foreignKey({
+      columns: [t.householdId, t.transactionId],
+      foreignColumns: [transactions.householdId, transactions.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+export const debts = pgTable(
+  "debts",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    name: text("name").notNull(),
+    system: text("system", { enum: DEBT_SYSTEMS }).notNull(),
+    monthlyRate: numeric("monthly_rate", { precision: 7, scale: 4 }).notNull().default("0"),
+    originalBalance: amount("original_balance").notNull(),
+    archived: boolean("archived").notNull().default(false),
+    createdBy: text("created_by"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("debts_household_id_idx").on(t.householdId),
+    foreignKey({
+      columns: [t.householdId, t.accountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+    }),
+  ],
+);
+
+export const debtInstallments = pgTable(
+  "debt_installments",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    debtId: text("debt_id").notNull(),
+    number: smallint("number").notNull(),
+    dueDate: date("due_date", { mode: "string" }).notNull(),
+    amount: amount("amount").notNull(),
+    principal: amount("principal").notNull(),
+    interest: amount("interest").notNull(),
+    transactionId: text("transaction_id"),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    unique().on(t.householdId, t.debtId, t.number),
+    index("debt_installments_household_due_idx").on(t.householdId, t.dueDate),
+    foreignKey({
+      columns: [t.householdId, t.debtId],
+      foreignColumns: [debts.householdId, debts.id],
+    }).onDelete("cascade"),
+    // Na migração é SET NULL só de transaction_id, para não apagar household_id.
+    foreignKey({
+      columns: [t.householdId, t.transactionId],
+      foreignColumns: [transactions.householdId, transactions.id],
+    }),
+  ],
+);

@@ -2,6 +2,7 @@
 import {
   ArrowLeftRight,
   CalendarDays,
+  CreditCard,
   HandCoins,
   LayoutDashboard,
   Landmark,
@@ -40,6 +41,8 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
       { href: "/app", label: "Painel", icon: LayoutDashboard },
       { href: "/app/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
       { href: "/app/contas", label: "Contas", icon: Landmark },
+      { href: "/app/cartoes", label: "Cartões", icon: CreditCard },
+      { href: "/app/dividas", label: "Dívidas", icon: WalletCards },
       { href: "/app/categorias", label: "Categorias", icon: Tags },
     ],
   },
@@ -53,7 +56,6 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
 ];
 
 const soon: Array<{ label: string; icon: LucideIcon }> = [
-  { label: "Dívidas", icon: WalletCards },
   { label: "Calendário", icon: CalendarDays },
   { label: "Reserva", icon: PiggyBank },
   { label: "Investimentos", icon: TrendingUp },
@@ -211,6 +213,7 @@ export function AppShell({
   today,
   accounts,
   categories,
+  cards,
 }: {
   children: ReactNode;
   userName: string;
@@ -219,11 +222,16 @@ export function AppShell({
   today: string;
   accounts: EntryOptions["accounts"];
   categories: EntryOptions["categories"];
+  cards: EntryOptions["cards"];
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <EntryDialogProvider writable={writable} today={today} options={{ accounts, categories }}>
+    <EntryDialogProvider
+      writable={writable}
+      today={today}
+      options={{ accounts, categories, cards }}
+    >
       <div className="min-h-dvh lg:grid lg:grid-cols-[16.5rem_minmax(0,1fr)]">
         <aside className="sticky top-0 hidden h-dvh flex-col gap-6 overflow-y-auto bg-pine p-4 lg:flex">
           <Link href="/app" className="px-3 pt-2 font-display text-xl font-semibold text-white">

@@ -33,9 +33,12 @@ export interface TransactionInput {
 }
 
 export interface MonthEntry {
-  /** `t:<id>` para lançamento; `p:<id>` para previsão ainda não confirmada. */
+  /**
+   * `t:<id>` lançamento; `p:<id>` previsão recorrente; `d:<id>` parcela de dívida;
+   * `f:<cartão>:<mês>` fatura de cartão. Só lançamentos e previsões se editam aqui.
+   */
   key: string;
-  source: "lancamento" | "previsao";
+  source: "lancamento" | "previsao" | "parcela" | "fatura";
   id: string;
   kind: EntryKind;
   description: string;
@@ -46,6 +49,9 @@ export interface MonthEntry {
   accountId: string;
   recurring: boolean;
 }
+
+/** Compromisso já calculado (parcela ou fatura em aberto) que entra no mês pelo vencimento. */
+export type ScheduledEntry = Omit<MonthEntry, "status" | "recurring" | "kind">;
 
 export interface MonthSummary {
   received: string;
@@ -109,6 +115,7 @@ export function buildMonthEntries(
   ym: YearMonth,
   plans: PlanInput[],
   transactions: TransactionInput[],
+  scheduled: ScheduledEntry[] = [],
 ): MonthEntry[] {
   const confirmed = new Set(
     transactions.filter((t) => t.planId && t.planMonth === ym).map((t) => t.planId),
@@ -141,7 +148,10 @@ export function buildMonthEntries(
       accountId: plan.accountId,
       recurring: true,
     }));
-  return [...fromTransactions, ...fromPlans].sort(
+  const fromScheduled: MonthEntry[] = scheduled
+    .filter((entry) => yearMonthOf(entry.date) === ym)
+    .map((entry) => ({ ...entry, kind: "despesa", status: "previsto", recurring: false }));
+  return [...fromTransactions, ...fromPlans, ...fromScheduled].sort(
     (a, b) => a.date.localeCompare(b.date) || a.description.localeCompare(b.description, "pt-BR"),
   );
 }
@@ -173,6 +183,28 @@ export function expensesByCategory(entries: MonthEntry[]) {
     if (entry.kind !== "despesa") continue;
     totals.set(entry.categoryId, (totals.get(entry.categoryId) ?? money(0)).plus(entry.amount));
   }
+  return [...totals.entries()]
+    .map(([categoryId, value]) => ({ categoryId, amount: toDbAmount(value) }))
+    .sort((a, b) => money(b.amount).comparedTo(money(a.amount)));
+}
+
+/**
+ * Como `expensesByCategory`, mas abre a fatura: no lugar da categoria do cartão entram as
+ * compras do mês, cada uma na sua categoria. Assim a fatura paga não some nem conta duas vezes.
+ */
+export function spendingByCategory(
+  entries: MonthEntry[],
+  cardLines: Array<{ categoryId: string; amount: string }>,
+  cardCategoryId: string | undefined,
+) {
+  const totals = new Map<string, MoneyValue>();
+  const add = (categoryId: string, amount: string) =>
+    totals.set(categoryId, (totals.get(categoryId) ?? money(0)).plus(amount));
+  for (const entry of entries) {
+    if (entry.kind === "despesa" && entry.categoryId !== cardCategoryId)
+      add(entry.categoryId, entry.amount);
+  }
+  for (const line of cardLines) add(line.categoryId, line.amount);
   return [...totals.entries()]
     .map(([categoryId, value]) => ({ categoryId, amount: toDbAmount(value) }))
     .sort((a, b) => money(b.amount).comparedTo(money(a.amount)));

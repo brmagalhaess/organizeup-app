@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useEffect, useState } from "react";
+import { CARD_CATEGORY, type MonthEntry } from "@organizeup/domain";
 import { saveEntry, type EntryFormState } from "@/app/app/(painel)/lancamentos/actions";
 import { cx } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select } from "@/components/ui";
@@ -9,36 +10,45 @@ const initial: EntryFormState = { ok: false, message: null };
 export interface EntryOptions {
   accounts: Array<{ id: string; name: string; archived: boolean }>;
   categories: Array<{ id: string; name: string; kind: "receita" | "despesa"; archived: boolean }>;
+  cards: Array<{ id: string; name: string }>;
 }
 
-export interface EditableEntry {
-  key: string;
-  kind: "receita" | "despesa";
-  description: string;
-  amount: string;
-  date: string;
-  status: "previsto" | "realizado";
-  categoryId: string;
-  accountId: string;
-  source: "lancamento" | "previsao";
-}
+export type EditableEntry = Pick<
+  MonthEntry,
+  | "key"
+  | "kind"
+  | "description"
+  | "amount"
+  | "date"
+  | "status"
+  | "categoryId"
+  | "accountId"
+  | "source"
+>;
 
 export function EntryForm({
   today,
   options,
   initialKind,
+  initialCard,
   entry,
   onDone,
 }: {
   today: string;
   options: EntryOptions;
   initialKind: "receita" | "despesa";
+  initialCard: string | null;
   entry: EditableEntry | null;
   onDone: () => void;
 }) {
   const [state, action, pending] = useActionState(saveEntry, initial);
   const [kind, setKind] = useState(initialKind);
+  const [paidWith, setPaidWith] = useState(
+    initialCard ? `card:${initialCard}` : (entry?.accountId ?? options.accounts[0]?.id ?? ""),
+  );
   const isPlan = entry?.source === "previsao";
+  const showCards = !entry && kind === "despesa" && options.cards.length > 0;
+  const onCard = showCards && paidWith.startsWith("card:");
 
   useEffect(() => {
     if (state.ok) onDone();
@@ -108,7 +118,11 @@ export function EntryForm({
           defaultValue={kind === entry?.kind ? entry.categoryId : undefined}
         >
           {options.categories
-            .filter((c) => c.kind === kind && (!c.archived || c.id === entry?.categoryId))
+            .filter(
+              (c) =>
+                c.kind === kind &&
+                (c.id === entry?.categoryId || (!c.archived && c.name !== CARD_CATEGORY)),
+            )
             .map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -116,8 +130,13 @@ export function EntryForm({
             ))}
         </Select>
       </Field>
-      <Field label="Conta" error={state.fieldErrors?.accountId}>
-        <Select name="accountId" required defaultValue={entry?.accountId}>
+      <Field label={showCards ? "Conta ou cartão" : "Conta"} error={state.fieldErrors?.accountId}>
+        <Select
+          name="accountId"
+          required
+          value={paidWith}
+          onChange={(event) => setPaidWith(event.target.value)}
+        >
           {options.accounts
             .filter((a) => !a.archived || a.id === entry?.accountId)
             .map((account) => (
@@ -125,10 +144,28 @@ export function EntryForm({
                 {account.name}
               </option>
             ))}
+          {showCards ? (
+            <optgroup label="Cartões">
+              {options.cards.map((card) => (
+                <option key={card.id} value={`card:${card.id}`}>
+                  {card.name}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
         </Select>
       </Field>
+      {onCard ? (
+        <Field
+          label="Parcelas"
+          hint="Cada parcela entra numa fatura."
+          error={state.fieldErrors?.installments}
+        >
+          <Input name="installments" type="number" min={1} max={72} required defaultValue={1} />
+        </Field>
+      ) : null}
 
-      {!isPlan ? (
+      {!isPlan && !onCard ? (
         <label className="flex min-h-10 items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -139,7 +176,7 @@ export function EntryForm({
           {kind === "despesa" ? "Já foi pago" : "Já foi recebido"}
         </label>
       ) : null}
-      {!entry ? (
+      {!entry && !onCard ? (
         <label className="flex min-h-10 items-center gap-2 text-sm">
           <input type="checkbox" name="repeat" className="size-5 accent-brand-500" />
           Repete todo mês
