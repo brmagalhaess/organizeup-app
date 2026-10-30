@@ -17,6 +17,7 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import { household } from "./auth";
+import { people } from "./tenant";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const amount = (name: string) => numeric(name, { precision: 14, scale: 2 });
@@ -671,5 +672,121 @@ export const householdReports = pgTable(
   (t) => [
     unique().on(t.householdId, t.kind, t.period),
     index("household_reports_recent_idx").on(t.householdId, t.createdAt),
+  ],
+);
+
+const percent = (name: string) => numeric(name, { precision: 5, scale: 2 });
+
+/** Premissas de um cenário. O resultado é recalculado, nunca gravado. */
+export const retirementScenarios = pgTable(
+  "retirement_scenarios",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    personId: text("person_id").notNull(),
+    name: text("name").notNull(),
+    targetAge: smallint("target_age").notNull(),
+    lifeExpectancy: smallint("life_expectancy").notNull(),
+    targetIncome: amount("target_income").notNull(),
+    otherIncome: amount("other_income").notNull().default("0"),
+    monthlyContribution: amount("monthly_contribution").notNull().default("0"),
+    /** Null usa o valor da carteira. */
+    saved: amount("saved"),
+    returnBefore: percent("return_before").notNull(),
+    returnAfter: percent("return_after").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("retirement_scenarios_household_id_idx").on(t.householdId),
+    foreignKey({
+      columns: [t.householdId, t.personId],
+      foreignColumns: [people.householdId, people.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+export const trips = pgTable(
+  "trips",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    destination: text("destination").notNull(),
+    startOn: date("start_on", { mode: "string" }).notNull(),
+    endOn: date("end_on", { mode: "string" }),
+    saved: amount("saved").notNull().default("0"),
+    calendarEventId: text("calendar_event_id"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("trips_household_id_idx").on(t.householdId),
+    // Na migração é SET NULL só de calendar_event_id, para não apagar household_id.
+    foreignKey({
+      columns: [t.householdId, t.calendarEventId],
+      foreignColumns: [calendarEvents.householdId, calendarEvents.id],
+    }),
+  ],
+);
+
+export const TRIP_COST_KINDS = [
+  "passagem",
+  "hospedagem",
+  "alimentacao",
+  "transporte",
+  "passeios",
+  "outros",
+] as const;
+
+export const tripCosts = pgTable(
+  "trip_costs",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    tripId: text("trip_id").notNull(),
+    kind: text("kind", { enum: TRIP_COST_KINDS }).notNull(),
+    amount: amount("amount").notNull(),
+    perPerson: boolean("per_person").notNull().default(false),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("trip_costs_trip_idx").on(t.householdId, t.tripId),
+    foreignKey({
+      columns: [t.householdId, t.tripId],
+      foreignColumns: [trips.householdId, trips.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+export const tripPeople = pgTable(
+  "trip_people",
+  {
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    tripId: text("trip_id").notNull(),
+    personId: text("person_id").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.householdId, t.tripId, t.personId] }),
+    foreignKey({
+      columns: [t.householdId, t.tripId],
+      foreignColumns: [trips.householdId, trips.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [t.householdId, t.personId],
+      foreignColumns: [people.householdId, people.id],
+    }).onDelete("cascade"),
   ],
 );

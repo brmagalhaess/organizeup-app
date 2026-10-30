@@ -59,6 +59,8 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
       { href: "/app/patrimonio", label: "Patrimônio", icon: Gem },
       { href: "/app/investimentos", label: "Investimentos", icon: TrendingUp },
       { href: "/app/proventos", label: "Proventos", icon: HandCoins },
+      { href: "/app/aposentadoria", label: "Aposentadoria", icon: Sunset },
+      { href: "/app/viagens", label: "Viagens", icon: Palmtree },
     ],
   },
   {
@@ -68,11 +70,6 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
       { href: "/app/configuracoes", label: "Configurações", icon: Settings },
     ],
   },
-];
-
-const soon: Array<{ label: string; icon: LucideIcon }> = [
-  { label: "Aposentadoria", icon: Sunset },
-  { label: "Viagens", icon: Palmtree },
 ];
 
 function initials(name: string) {
@@ -116,19 +113,6 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           </ul>
         </div>
       ))}
-      <div>
-        <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/70">
-          Em construção
-        </p>
-        <ul className="m-0 list-none space-y-0.5 p-0">
-          {soon.map(({ label, icon: Icon }) => (
-            <li key={label} className="flex min-h-9 items-center gap-3 px-3 text-sm text-white/70">
-              <Icon className="size-4.5 shrink-0" aria-hidden="true" />
-              {label}
-            </li>
-          ))}
-        </ul>
-      </div>
     </nav>
   );
 }

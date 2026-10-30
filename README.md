@@ -16,6 +16,9 @@ Conforme os módulos marcados como disponíveis na página inicial:
 - **Calendário:** vencimentos, compromissos e saldo previsto de cada dia.
 - **Dívidas e cartões:** faturas, parcelas, juros e ordem para quitar.
 - **Reserva e patrimônio:** sua segurança e a evolução do que é seu.
+- **Investimentos:** carteira, proventos e classes de ativos.
+- **Aposentadoria:** aporte necessário e cenários com premissas claras.
+- **Viagens e objetivos:** sonhos com data, custo e aporte mensal.
 
 ## Rodando localmente (Windows, macOS ou Linux, sem Docker)
 

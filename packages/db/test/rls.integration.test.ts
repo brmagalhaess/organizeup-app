@@ -1519,6 +1519,97 @@ describe("memória e relatórios do agente de categorização", () => {
   });
 });
 
+describe("isolamento de aposentadoria e viagens", () => {
+  const { retirementScenarios, trips, tripCosts, tripPeople } = db;
+  const scenario = (householdId: string, personId: string) => ({
+    householdId,
+    personId,
+    name: "Base",
+    targetAge: 65,
+    lifeExpectancy: 90,
+    targetIncome: "5000.00",
+    returnBefore: "4.00",
+    returnAfter: "2.00",
+  });
+  let tripB = "";
+
+  beforeAll(async () => {
+    const seed =
+      (householdId: string, personId: string) =>
+      async (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => {
+        await tx.insert(retirementScenarios).values(scenario(householdId, personId));
+        const [trip] = await tx
+          .insert(trips)
+          .values({ householdId, destination: "Destino", startOn: "2027-01-10" })
+          .returning({ id: trips.id });
+        await tx.insert(tripCosts).values({
+          householdId,
+          tripId: trip!.id,
+          kind: "passagem",
+          amount: "100.00",
+        });
+        await tx.insert(tripPeople).values({ householdId, tripId: trip!.id, personId });
+        return trip!.id;
+      };
+    await db.withHousehold(await ctxFor(A.owner, A.household), seed(A.household, personA));
+    tripB = await db.withHousehold(await ctxFor(B.owner, B.household), seed(B.household, personB));
+  });
+
+  it("não lê cenário nem viagem de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      for (const table of [retirementScenarios, trips, tripCosts, tripPeople]) {
+        const rows = await tx.select().from(table as typeof trips);
+        expect(rows.map((row) => row.householdId)).toEqual([A.household]);
+      }
+    });
+  });
+
+  it("não altera nem apaga viagem de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      const changed = await tx
+        .update(trips)
+        .set({ destination: "Invadido" })
+        .where(eq(trips.id, tripB))
+        .returning({ id: trips.id });
+      const removed = await tx.delete(trips).where(eq(trips.id, tripB)).returning({ id: trips.id });
+      expect(changed).toHaveLength(0);
+      expect(removed).toHaveLength(0);
+    });
+  });
+
+  it("FK composta impede pessoa ou viagem de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(retirementScenarios).values(scenario(A.household, personB)),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(tripCosts).values({
+          householdId: A.household,
+          tripId: tripB,
+          kind: "outros",
+          amount: "1.00",
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não planeja", async () => {
+    const ctx = await ctxFor(A.viewer, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(retirementScenarios).values(scenario(A.household, personA)),
+      ),
+    ).rejects.toThrow();
+    const rows = await db.withHousehold(ctx, (tx) => tx.select().from(trips));
+    expect(rows).toHaveLength(1);
+  });
+});
+
 describe("exportação e exclusão da família", () => {
   it("a exportação cobre toda tabela com household_id", async () => {
     const owner = await ctxFor(A.owner, A.household);

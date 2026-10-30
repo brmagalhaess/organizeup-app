@@ -59,9 +59,9 @@ const modules = [
   {
     name: "Aposentadoria",
     text: "Aporte necessário e cenários com premissas claras.",
-    ready: false,
+    ready: true,
   },
-  { name: "Viagens e objetivos", text: "Sonhos com data, custo e aporte mensal.", ready: false },
+  { name: "Viagens e objetivos", text: "Sonhos com data, custo e aporte mensal.", ready: true },
   { name: "Assistente da família", text: "Tira dúvidas e explica o seu plano.", ready: false },
 ];
 

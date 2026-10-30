@@ -27,7 +27,11 @@ import {
   investmentTrades,
   netWorthSnapshots,
   people,
+  retirementScenarios,
   transactions,
+  tripCosts,
+  tripPeople,
+  trips,
 } from "./schema";
 import type { TenantTx } from "./tenant";
 
@@ -58,6 +62,10 @@ const HOUSEHOLD_TABLES = {
   dividend_goals: dividendGoals,
   category_memory: categoryMemory,
   household_reports: householdReports,
+  retirement_scenarios: retirementScenarios,
+  trips,
+  trip_costs: tripCosts,
+  trip_people: tripPeople,
   audit_log: auditLog,
 };
 

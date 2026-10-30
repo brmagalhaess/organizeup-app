@@ -4,6 +4,8 @@ import { defineConfig, devices } from "@playwright/test";
 // no CI pelo workflow (imagem Docker); localmente com `pnpm db:local`, worker e `next start`.
 export default defineConfig({
   testDir: "./e2e",
+  // Fluxos longos, com duas famílias, passam de 30 s quando os testes rodam em paralelo.
+  timeout: 90_000,
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",

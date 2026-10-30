@@ -22,7 +22,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Finanças:</strong> o que você informa ou importa, como contas, lançamentos,
-          cartões, dívidas, renda, reserva, bens, investimentos, proventos e eventos do calendário.
+          cartões, dívidas, renda, reserva, bens, investimentos, proventos, planos de aposentadoria, viagens e eventos do calendário.
         </li>
         <li>
           <strong>Uso:</strong> endereço IP e navegador da sessão, e um registro das ações feitas na
