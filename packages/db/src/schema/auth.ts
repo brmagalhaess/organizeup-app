@@ -1,7 +1,7 @@
 // Tabelas do Better Auth. As CHAVES TypeScript seguem os nomes de campo que o Better Auth
 // espera (ex.: `organizationId`); os nomes de coluna no banco são os da migration 0001.
 // Mudanças aqui exigem migration SQL nova em packages/db/migrations (ver AGENTS.md).
-import { boolean, index, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { boolean, index, pgTable, primaryKey, text, timestamp, unique } from "drizzle-orm/pg-core";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
@@ -115,6 +115,19 @@ export const householdInvitation = pgTable(
     createdAt: ts("created_at").notNull().defaultNow(),
   },
   (t) => [index("household_invitation_household_id_idx").on(t.organizationId)],
+);
+
+/** Aceite dos Termos e da Privacidade: uma linha por versão aceita. Não faz parte do Better Auth. */
+export const legalAcceptance = pgTable(
+  "legal_acceptance",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    version: text("version").notNull(),
+    acceptedAt: ts("accepted_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.version] })],
 );
 
 /** Mapa no formato que o adapter Drizzle do Better Auth espera (nomes de modelo padrão). */

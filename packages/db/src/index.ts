@@ -16,6 +16,7 @@ export {
   type TenantTx,
 } from "./tenant";
 export { withAdmin } from "./admin";
+export { exportHousehold } from "./export";
 export { ensureFinanceDefaults } from "./finance";
 export { householdTimezone, listHouseholdIds, netWorthInputs, recordNetWorth } from "./wealth";
 export {

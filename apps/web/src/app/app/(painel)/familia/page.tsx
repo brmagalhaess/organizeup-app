@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import {
   asc,
   canWrite,
@@ -9,14 +10,27 @@ import {
   withHousehold,
 } from "@organizeup/db";
 import { ageFromBirth, todayIn } from "@organizeup/domain";
-import { Card, PageHeader } from "@/components/ui";
+import { PageHeader } from "@/components/ui";
+import { getAuth } from "@/lib/auth";
 import { requireTenant } from "@/lib/session";
+import { MembersBoard } from "./members-board";
 import { PeopleBoard } from "./people-board";
 
 export const metadata: Metadata = { title: "Família" };
 
 export default async function FamilyPage() {
-  const { ctx } = await requireTenant();
+  const { session, ctx } = await requireTenant();
+  const isOwner = ctx.role === "owner";
+  const requestHeaders = await headers();
+  const auth = getAuth();
+  const query = { organizationId: ctx.householdId };
+  const { members: memberRows } = await auth.api.listMembers({ headers: requestHeaders, query });
+  const pending = isOwner
+    ? (await auth.api.listInvitations({ headers: requestHeaders, query })).filter(
+        (invite) => invite.status === "pending" && invite.expiresAt > new Date(),
+      )
+    : [];
+  const origin = process.env.BETTER_AUTH_URL ?? "";
   const data = await withHousehold(ctx, async (tx) => {
     const [family] = await tx
       .select({ name: household.name })
@@ -30,6 +44,21 @@ export default async function FamilyPage() {
     return { family, settings, rows };
   });
   const [year, month] = todayIn(data.settings?.timezone).split("-").map(Number) as [number, number];
+  const dateFormat = new Intl.DateTimeFormat("pt-BR", { timeZone: data.settings?.timezone });
+  const members = memberRows.map((member) => ({
+    id: member.id,
+    name: member.user.name,
+    email: member.user.email,
+    role: member.role,
+    self: member.userId === session.user.id,
+  }));
+  const invites = pending.map((invite) => ({
+    id: invite.id,
+    email: invite.email,
+    role: invite.role ?? "",
+    expires: dateFormat.format(invite.expiresAt),
+    link: `${origin}/convite/${invite.id}`,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,12 +76,7 @@ export default async function FamilyPage() {
                 : null,
           }))}
         />
-        <Card title="Usar junto" description="Em construção.">
-          <p className="text-sm text-muted">
-            Em breve você poderá convidar outra pessoa para acessar a mesma família, cada uma com
-            seu login.
-          </p>
-        </Card>
+        <MembersBoard members={members} invites={invites} isOwner={isOwner} />
       </div>
     </div>
   );

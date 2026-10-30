@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Button, Field, FormMessage, Input } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
 
-export function SignUpForm() {
+export function SignUpForm({ invite }: { invite: string | null }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -19,11 +19,14 @@ export function SignUpForm() {
       return;
     }
     setPending(true);
-    const { error: signUpError } = await authClient.signUp.email({
+    // termsAccepted é conferido no hook de cadastro; o cliente tipado não o conhece.
+    const input = {
       name: String(form.get("name") ?? "").trim(),
       email: String(form.get("email") ?? "").trim(),
       password,
-    });
+      termsAccepted: form.get("terms") === "on",
+    };
+    const { error: signUpError } = await authClient.signUp.email(input);
     if (signUpError) {
       setPending(false);
       setError(
@@ -35,7 +38,7 @@ export function SignUpForm() {
       );
       return;
     }
-    router.replace("/app/novo-household");
+    router.replace(invite ? `/convite/${invite}` : "/app/novo-household");
     router.refresh();
   }
 
@@ -59,6 +62,20 @@ export function SignUpForm() {
       <Field label="Confirmar senha">
         <Input name="confirm" type="password" autoComplete="new-password" minLength={10} required />
       </Field>
+      <label className="flex items-start gap-2 text-sm">
+        <input name="terms" type="checkbox" required className="mt-0.5 size-5 shrink-0" />
+        <span>
+          Li e aceito os{" "}
+          <a href="/termos" target="_blank" className="font-semibold text-brand-700 underline">
+            Termos de Uso
+          </a>{" "}
+          e a{" "}
+          <a href="/privacidade" target="_blank" className="font-semibold text-brand-700 underline">
+            Política de Privacidade
+          </a>
+          .
+        </span>
+      </label>
       <FormMessage message={error} />
       <Button type="submit" disabled={pending}>
         {pending ? "Criando…" : "Criar conta"}

@@ -1,17 +1,14 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { canWrite, eq, householdSettings, withHousehold } from "@organizeup/db";
+import { buttonClass } from "@/components/styles";
 import { Card, PageHeader } from "@/components/ui";
+import { ROLE_LABEL } from "@/lib/invites";
 import { requireTenant } from "@/lib/session";
+import { DeleteAccount } from "./delete-account";
 import { SettingsForm } from "./settings-form";
 
 export const metadata: Metadata = { title: "Configurações" };
-
-const ROLE_LABEL: Record<string, string> = {
-  owner: "Responsável",
-  adult: "Adulto",
-  child: "Criança",
-  viewer: "Só leitura",
-};
 
 export default async function SettingsPage() {
   const { session, ctx } = await requireTenant();
@@ -47,6 +44,27 @@ export default async function SettingsPage() {
               <dd className="m-0 font-medium">{ROLE_LABEL[ctx.role] ?? ctx.role}</dd>
             </div>
           </dl>
+        </Card>
+        <Card title="Seus dados" description="Eles são seus: leve ou apague quando quiser.">
+          <div className="flex flex-wrap gap-2">
+            {ctx.role === "owner" ? (
+              <a href="/app/exportar" download className={buttonClass("secondary", true)}>
+                Baixar dados da família
+              </a>
+            ) : null}
+            <DeleteAccount />
+          </div>
+          <p className="mt-4 text-sm text-muted">
+            Veja os{" "}
+            <Link href="/termos" className="font-semibold text-brand-700 underline">
+              Termos de Uso
+            </Link>{" "}
+            e a{" "}
+            <Link href="/privacidade" className="font-semibold text-brand-700 underline">
+              Política de Privacidade
+            </Link>
+            .
+          </p>
         </Card>
       </div>
     </div>

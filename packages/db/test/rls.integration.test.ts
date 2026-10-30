@@ -1304,6 +1304,81 @@ describe("memória e relatórios dos agentes", () => {
   });
 });
 
+describe("exportação e exclusão da família", () => {
+  it("a exportação cobre toda tabela com household_id", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const exported = await db.withHousehold(owner, (tx) => db.exportHousehold(tx));
+    const raw = postgres(urls.admin, { max: 1 });
+    try {
+      const rows = await raw<{ table_name: string }[]>`
+        select table_name from information_schema.columns
+        where table_schema = 'public' and column_name = 'household_id'
+          and table_name not in ('household_member', 'household_invitation')`;
+      expect(Object.keys(exported).sort()).toEqual(rows.map((r) => r.table_name).sort());
+    } finally {
+      await raw.end();
+    }
+  });
+
+  it("a exportação traz só a própria família", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const exported = await db.withHousehold(owner, (tx) => db.exportHousehold(tx));
+    const ids = (exported.people as { householdId: string }[]).map((p) => p.householdId);
+    expect(new Set(ids)).toEqual(new Set([A.household]));
+  });
+
+  it("apagar a família remove os dados em cascata pela conexão da aplicação", async () => {
+    const id = "hh-apagar";
+    await db.withAdmin("seed da exclusão", async (admin) => {
+      await admin.insert(household).values({ id, name: "Família C", slug: "familia-apagar" });
+      await admin
+        .insert(householdMember)
+        .values({ id: "m-apagar", organizationId: id, userId: B.owner, role: "owner" });
+    });
+    const ctx = await ctxFor(B.owner, id);
+    await db.withHousehold(ctx, async (tx) => {
+      await db.ensureFinanceDefaults(tx, id);
+      const [account] = await tx.select({ id: db.accounts.id }).from(db.accounts).limit(1);
+      const [category] = await tx
+        .select({ id: db.categories.id })
+        .from(db.categories)
+        .where(eq(db.categories.kind, "despesa"))
+        .limit(1);
+      await tx.insert(db.transactions).values({
+        householdId: id,
+        accountId: account!.id,
+        categoryId: category!.id,
+        kind: "despesa",
+        description: "Compra",
+        amount: "10.00",
+        occurredOn: "2026-10-01",
+      });
+      await tx.insert(people).values({ householdId: id, name: "Cida", relation: "titular" });
+    });
+
+    const raw = postgres(urls.app, { max: 1 });
+    try {
+      await raw`delete from household where id = ${id}`;
+    } finally {
+      await raw.end();
+    }
+
+    const owner = postgres(urls.admin, { max: 1 });
+    try {
+      const tables = await owner<{ table_name: string }[]>`
+        select table_name from information_schema.columns
+        where table_schema = 'public' and column_name = 'household_id'`;
+      for (const { table_name } of tables) {
+        const [row] = await owner<{ n: number }[]>`
+          select count(*)::int as n from ${owner(table_name)} where household_id = ${id}`;
+        expect(row!.n).toBe(0);
+      }
+    } finally {
+      await owner.end();
+    }
+  });
+});
+
 describe("ops", () => {
   it("registra e lista deploys sem tenant", async () => {
     await db.recordDeployment({ service: "web", commit: "abc1234", hostname: "test" });

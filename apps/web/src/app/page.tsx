@@ -378,6 +378,14 @@ export default function Home() {
             movimenta dinheiro e não faz recomendação de investimento. Fotos ilustrativas, de bancos
             de imagem; as pessoas retratadas não são clientes.
           </p>
+          <nav aria-label="Documentos" className="flex shrink-0 flex-col gap-2">
+            <Link href="/termos" className="underline">
+              Termos de Uso
+            </Link>
+            <Link href="/privacidade" className="underline">
+              Política de Privacidade
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>
