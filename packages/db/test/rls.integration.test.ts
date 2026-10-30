@@ -221,6 +221,204 @@ describe("isolamento entre households (RLS)", () => {
   });
 });
 
+describe("isolamento do financeiro", () => {
+  const { accounts, categories, cashflowPlans, transactions, categoryTemplates } = db;
+  let accountA = "";
+  let categoryA = "";
+  let accountB = "";
+  let categoryB = "";
+  let transactionB = "";
+
+  const firstIds = (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
+    Promise.all([
+      tx.select({ id: accounts.id }).from(accounts).limit(1),
+      tx
+        .select({ id: categories.id })
+        .from(categories)
+        .where(eq(categories.kind, "despesa"))
+        .limit(1),
+    ]);
+
+  beforeAll(async () => {
+    const ctxA = await ctxFor(A.owner, A.household);
+    [accountA, categoryA] = await db.withHousehold(ctxA, async (tx) => {
+      await db.ensureFinanceDefaults(tx, A.household);
+      const [a, c] = await firstIds(tx);
+      return [a[0]!.id, c[0]!.id];
+    });
+    const ctxB = await ctxFor(B.owner, B.household);
+    [accountB, categoryB, transactionB] = await db.withHousehold(ctxB, async (tx) => {
+      await db.ensureFinanceDefaults(tx, B.household);
+      const [a, c] = await firstIds(tx);
+      const [t] = await tx
+        .insert(transactions)
+        .values({
+          householdId: B.household,
+          accountId: a[0]!.id,
+          categoryId: c[0]!.id,
+          kind: "despesa",
+          description: "Segredo da família B",
+          amount: "99.90",
+          occurredOn: "2026-03-05",
+        })
+        .returning({ id: transactions.id });
+      return [a[0]!.id, c[0]!.id, t!.id];
+    });
+  });
+
+  it("dados iniciais são idempotentes", async () => {
+    const ctxA = await ctxFor(A.owner, A.household);
+    const count = await db.withHousehold(ctxA, async (tx) => {
+      await db.ensureFinanceDefaults(tx, A.household);
+      return (await tx.select().from(accounts)).length;
+    });
+    expect(count).toBe(1);
+  });
+
+  it("dados iniciais suportam requisições simultâneas da primeira tela", async () => {
+    await db.withAdmin("seed do teste de concorrência", async (admin) => {
+      await admin.insert(household).values({ id: "hh-c", name: "Família C", slug: "familia-c" });
+      await admin
+        .insert(householdMember)
+        .values({ id: "m5", organizationId: "hh-c", userId: B.owner, role: "owner" });
+    });
+    const ctxC = await ctxFor(B.owner, "hh-c");
+    await Promise.all(
+      Array.from({ length: 6 }, () =>
+        db.withHousehold(ctxC, (tx) => db.ensureFinanceDefaults(tx, "hh-c")),
+      ),
+    );
+    const created = await db.withHousehold(ctxC, async (tx) => ({
+      accounts: await tx.select().from(accounts),
+      categories: await tx.select().from(categories),
+    }));
+    expect(created.accounts).toHaveLength(1);
+    expect(created.categories).toHaveLength(15);
+  });
+
+  it("não lê lançamentos, contas nem categorias de outra família", async () => {
+    const ctxA = await ctxFor(A.owner, A.household);
+    const seen = await db.withHousehold(ctxA, async (tx) => ({
+      transactions: await tx.select().from(transactions),
+      accounts: await tx.select().from(accounts),
+      categories: await tx.select().from(categories),
+    }));
+    expect(seen.transactions).toHaveLength(0);
+    expect(seen.accounts.every((a) => a.householdId === A.household)).toBe(true);
+    expect(seen.categories.every((c) => c.householdId === A.household)).toBe(true);
+  });
+
+  it("não altera nem apaga lançamento de outra família", async () => {
+    const ctxA = await ctxFor(A.owner, A.household);
+    const result = await db.withHousehold(ctxA, async (tx) => ({
+      updated: await tx
+        .update(transactions)
+        .set({ amount: "1.00" })
+        .where(eq(transactions.id, transactionB))
+        .returning(),
+      deleted: await tx.delete(transactions).where(eq(transactions.id, transactionB)).returning(),
+    }));
+    expect(result.updated).toHaveLength(0);
+    expect(result.deleted).toHaveLength(0);
+  });
+
+  it("FK composta impede lançamento e previsão com conta ou categoria alheia", async () => {
+    const ctxA = await ctxFor(A.owner, A.household);
+    const base = {
+      householdId: A.household,
+      kind: "despesa" as const,
+      description: "Forjado",
+      amount: "10.00",
+    };
+    await expect(
+      db.withHousehold(ctxA, (tx) =>
+        tx.insert(transactions).values({
+          ...base,
+          accountId: accountB,
+          categoryId: categoryA,
+          occurredOn: "2026-03-05",
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxA, (tx) =>
+        tx.insert(transactions).values({
+          ...base,
+          accountId: accountA,
+          categoryId: categoryB,
+          occurredOn: "2026-03-05",
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxA, (tx) =>
+        tx.insert(cashflowPlans).values({
+          ...base,
+          accountId: accountB,
+          categoryId: categoryA,
+          dayOfMonth: 5,
+          startMonth: "2026-03",
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("previsão gera no máximo um lançamento por mês", async () => {
+    const ctxA = await ctxFor(A.owner, A.household);
+    const base = {
+      householdId: A.household,
+      accountId: accountA,
+      categoryId: categoryA,
+      kind: "despesa" as const,
+      description: "Aluguel",
+      amount: "1500.00",
+    };
+    const planId = await db.withHousehold(ctxA, async (tx) => {
+      const [plan] = await tx
+        .insert(cashflowPlans)
+        .values({ ...base, dayOfMonth: 10, startMonth: "2026-03" })
+        .returning({ id: cashflowPlans.id });
+      await tx
+        .insert(transactions)
+        .values({ ...base, occurredOn: "2026-03-10", planId: plan!.id, planMonth: "2026-03" });
+      return plan!.id;
+    });
+    await expect(
+      db.withHousehold(ctxA, (tx) =>
+        tx
+          .insert(transactions)
+          .values({ ...base, occurredOn: "2026-03-11", planId, planMonth: "2026-03" }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não lança", async () => {
+    const ctxV = await ctxFor(A.viewer, A.household);
+    await expect(
+      db.withHousehold(ctxV, (tx) =>
+        tx.insert(transactions).values({
+          householdId: A.household,
+          accountId: accountA,
+          categoryId: categoryA,
+          kind: "despesa",
+          description: "Viewer",
+          amount: "1.00",
+          occurredOn: "2026-03-05",
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("modelos de categoria são somente leitura para a aplicação", async () => {
+    const ctxA = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(ctxA, (tx) =>
+        tx.insert(categoryTemplates).values({ id: "x", name: "Global", kind: "despesa" }),
+      ),
+    ).rejects.toThrow();
+  });
+});
+
 describe("ops", () => {
   it("registra e lista deploys sem tenant", async () => {
     await db.recordDeployment({ service: "web", commit: "abc1234", hostname: "test" });

@@ -3,8 +3,8 @@
 Gestão financeira pessoal e aposentadoria para famílias, com um assistente que vive dentro do
 sistema e uma equipe de agentes (Paperclip + Codex) que opera e evolui o produto.
 
-> Estado: **Fase 0 — esqueleto andante.** Cadastro, família (household), pessoas, configurações,
-> isolamento por RLS testado, health/Ops API, Docker, CI e deploy. Plano completo em
+> Estado: **Fase 2 em andamento.** Landing, cadastro, família, contas, categorias, receitas e despesas,
+> isolamento por RLS testado e deploy pelo Dokploy. Plano completo em
 > [docs/plano-mestre.md](docs/plano-mestre.md).
 
 ## Rodando localmente (Windows, macOS ou Linux, sem Docker)

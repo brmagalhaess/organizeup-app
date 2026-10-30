@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   asc,
   canWrite,
@@ -8,8 +9,9 @@ import {
   people,
   withHousehold,
 } from "@organizeup/db";
-import { ageFromBirth, todayIn } from "@organizeup/domain";
+import { ageFromBirth, formatBRL, formatYearMonth, todayIn } from "@organizeup/domain";
 import { Card } from "@/components/ui";
+import { loadMonth } from "@/lib/month";
 import { requireTenant } from "@/lib/session";
 import { AddPersonForm } from "./add-person-form";
 import { SettingsForm } from "./settings-form";
@@ -43,6 +45,7 @@ export default async function AppHome() {
   const today = todayIn(timezone);
   const [year, month] = today.split("-").map(Number) as [number, number];
   const writable = canWrite(ctx);
+  const current = await loadMonth(ctx);
 
   return (
     <div className="flex flex-col gap-6">
@@ -58,6 +61,28 @@ export default async function AppHome() {
             : ""}
         </p>
       </div>
+
+      <Card
+        title={`Resumo de ${formatYearMonth(current.month)}`}
+        actions={
+          <Link href="/app/mes" className="text-sm font-semibold text-brand-700 underline">
+            Abrir o mês
+          </Link>
+        }
+      >
+        <dl className="m-0 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {[
+            ["Entrou", current.summary.received],
+            ["Saiu", current.summary.spent],
+            ["Previsão para o fim do mês", current.summary.projectedBalance],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-xs text-muted">{label}</dt>
+              <dd className="m-0 mt-1 text-lg font-semibold tabular-nums">{formatBRL(value!)}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <Card title="Pessoas da família">
@@ -101,8 +126,8 @@ export default async function AppHome() {
 
       <Card title="Próximos módulos">
         <p className="text-sm text-muted">
-          Receitas e despesas, dívidas, reserva, investimentos, aposentadoria e viagens chegam nas
-          próximas fases — todos usando estas pessoas e configurações.
+          Dívidas, reserva, investimentos, aposentadoria e viagens chegam nas próximas etapas, todos
+          usando estas pessoas e configurações.
         </p>
       </Card>
     </div>

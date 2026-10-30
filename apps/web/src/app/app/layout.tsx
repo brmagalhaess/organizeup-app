@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/session";
+import { AppNav } from "./app-nav";
 import { SignOutButton } from "./sign-out-button";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">{children}</main>
+      <AppNav />
+      <main className="mx-auto max-w-5xl px-4 pb-24 pt-6 sm:px-6 md:pb-10">{children}</main>
     </div>
   );
 }

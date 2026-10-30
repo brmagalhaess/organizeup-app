@@ -16,6 +16,7 @@ export {
   type TenantTx,
 } from "./tenant";
 export { withAdmin } from "./admin";
+export { ensureFinanceDefaults } from "./finance";
 export {
   databaseStatus,
   listDeployments,

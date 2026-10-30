@@ -13,7 +13,17 @@
   --color-card: #ffffff;
   --color-line: #e2e4dc;
   --color-danger: #b42318;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Marketing: não mudam no modo escuro (a landing é sempre clara). */
+  --color-night: #15231d;
+  --color-pine: #1d4235;
+  --color-sand-50: #faf6ee;
+  --color-sand-100: #f1e9db;
+  --color-sand-200: #e4d8c4;
+  --color-clay: #a84c2a;
+  --color-peach: #f6c9a8;
+  --color-stone: #4f5d55;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
 }
 
 @media (prefers-color-scheme: dark) {
