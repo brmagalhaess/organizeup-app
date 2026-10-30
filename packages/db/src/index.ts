@@ -19,11 +19,15 @@ export { withAdmin } from "./admin";
 export { ensureFinanceDefaults } from "./finance";
 export { householdTimezone, listHouseholdIds, netWorthInputs, recordNetWorth } from "./wealth";
 export {
+  addAgentMemory,
   databaseStatus,
+  findAgentMemories,
   listDeployments,
+  listReports,
   listWorkerHeartbeats,
   recordDeployment,
   recordWorkerHeartbeat,
+  saveReport,
 } from "./ops";
 export { JOB_QUEUES, PGBOSS_SCHEMA, type JobQueue } from "./jobs";
 export { closeAllPools } from "./client";

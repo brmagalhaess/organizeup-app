@@ -116,6 +116,7 @@ async function applyGrants(sql: postgres.Sql) {
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.
     GRANT SELECT ON ALL TABLES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
     GRANT INSERT ON ops.deployments TO ${app}, ${worker};
+    GRANT INSERT, UPDATE ON ops.agent_memory, ops.reports TO ${app};
     GRANT INSERT, UPDATE ON ops.worker_heartbeats TO ${worker};
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
     GRANT ALL ON ALL TABLES IN SCHEMA ops TO ${admin};

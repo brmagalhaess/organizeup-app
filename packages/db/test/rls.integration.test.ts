@@ -1241,6 +1241,69 @@ describe("isolamento da renda", () => {
   });
 });
 
+describe("memória e relatórios dos agentes", () => {
+  it("guarda e acha memória em português, inclusive por outra forma da palavra", async () => {
+    await db.addAgentMemory({
+      agent: "sre",
+      kind: "licao",
+      content: "Reiniciar o worker libera as filas travadas.",
+      sourceIssue: "ORG-1",
+    });
+    const found = await db.findAgentMemories({ agent: "sre", query: "fila travada" });
+    expect(found.map((m) => m.sourceIssue)).toContain("ORG-1");
+  });
+
+  it("memória substituída sai das buscas", async () => {
+    const old = await db.addAgentMemory({
+      agent: "qa",
+      kind: "fato",
+      content: "Limite antigo de lote",
+    });
+    await db.addAgentMemory({
+      agent: "qa",
+      kind: "fato",
+      content: "Limite novo de lote",
+      supersedes: old.id,
+    });
+    const found = await db.findAgentMemories({ agent: "qa" });
+    expect(found.map((m) => m.content)).toEqual(["Limite novo de lote"]);
+  });
+
+  it("memória de um agente não aparece filtrando por outro", async () => {
+    await db.addAgentMemory({
+      agent: "engenheiro",
+      kind: "decisao",
+      content: "Usar fila do pgboss",
+    });
+    expect(await db.findAgentMemories({ agent: "tech-lead" })).toEqual([]);
+  });
+
+  it("reenviar o relatório do período atualiza em vez de duplicar", async () => {
+    const report = {
+      kind: "saude" as const,
+      period: "2026-10-30",
+      agent: "sre",
+      title: "Saúde do dia",
+      body: "Tudo no ar.",
+    };
+    await db.saveReport(report);
+    await db.saveReport({ ...report, body: "Queda de 2 minutos." });
+    const rows = await db.listReports({ kind: "saude" });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.body).toBe("Queda de 2 minutos.");
+  });
+
+  it("a aplicação não apaga memória nem relatório", async () => {
+    const raw = postgres(urls.app, { max: 1 });
+    try {
+      await expect(raw`delete from ops.agent_memory`).rejects.toThrow();
+      await expect(raw`delete from ops.reports`).rejects.toThrow();
+    } finally {
+      await raw.end();
+    }
+  });
+});
+
 describe("ops", () => {
   it("registra e lista deploys sem tenant", async () => {
     await db.recordDeployment({ service: "web", commit: "abc1234", hostname: "test" });

@@ -24,6 +24,22 @@ Mudanças em qualquer destes caminhos são **risco alto** e só entram com aprov
 O resto é **risco baixo**. Não há proteção automática no GitHub nem CI ativo: esta regra e o `pnpm check` são o
 único portão, e todo merge em `main` vai para produção sozinho.
 
+## Memória e relatórios
+
+Sua memória fica no banco, não na sua cabeça. Use `$OPS_TOKEN` (detalhes em `docs/ops-api.md`):
+
+```bash
+# Ao acordar: situação da produção, relatórios e o que a equipe já aprendeu
+curl -s -H "Authorization: Bearer $OPS_TOKEN" "$OPS_URL/context?agent=<seu-slug>&q=<assunto da tarefa>"
+
+# Ao terminar, se aprendeu algo útil para o futuro
+curl -s -X POST -H "Authorization: Bearer $OPS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"agent":"<seu-slug>","kind":"licao","content":"...","sourceIssue":"ORG-1"}' "$OPS_URL/memory"
+```
+
+Guarde só o que evita repetir erro ou trabalho, em uma ou duas frases. Se a API estiver fora do ar, siga
+a tarefa e avise nela.
+
 ## Como trabalhar
 
 1. Uma tarefa por vez. Faça o mínimo que resolve. Não aproveite para refatorar.
