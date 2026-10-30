@@ -3,14 +3,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   accounts,
-  and,
   canWrite,
   cardPurchases,
   cardStatementPayments,
   cashflowPlans,
   categories,
   creditCards,
-  debtInstallments,
   ENTRY_KINDS,
   eq,
   transactions,
@@ -20,16 +18,13 @@ import {
   addMonths,
   formatYearMonth,
   isYearMonth,
-  linesTotal,
-  occurrenceDate,
   parseBRL,
   purchaseLines,
-  statementDueDate,
   toDbAmount,
   yearMonthOf,
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
-import { openInstallment, systemCategories } from "@/lib/commitments";
+import { confirmCommitment } from "@/lib/confirm-entry";
 import { requireTenant } from "@/lib/session";
 
 export interface EntryFormState {
@@ -220,115 +215,13 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
   return { ok: true, message: "Lançamento salvo." };
 }
 
-/**
- * Marca como pago/recebido. `key` é `t:<lançamento>`, `p:<previsão>` (com `month`),
- * `d:<parcela>` ou `f:<cartão>:<mês>`.
- */
+/** Marca como pago ou recebido a partir das telas. */
 export async function confirmEntry(form: FormData): Promise<void> {
   const { ctx } = await requireTenant();
   if (!canWrite(ctx)) return;
   const key = String(form.get("key") ?? "");
   const month = String(form.get("month") ?? "");
-  const id = key.slice(2);
-
-  await withHousehold(ctx, async (tx) => {
-    if (key.startsWith("t:")) {
-      await tx
-        .update(transactions)
-        .set({ status: "realizado", updatedAt: new Date() })
-        .where(eq(transactions.id, id));
-      await audit(tx, ctx, "confirm", "transactions", id);
-    } else if (key.startsWith("p:") && isYearMonth(month)) {
-      const [plan] = await tx.select().from(cashflowPlans).where(eq(cashflowPlans.id, id));
-      if (!plan) return;
-      await tx
-        .insert(transactions)
-        .values({
-          householdId: ctx.householdId,
-          accountId: plan.accountId,
-          categoryId: plan.categoryId,
-          kind: plan.kind,
-          description: plan.description,
-          amount: plan.amount,
-          occurredOn: occurrenceDate(plan.dayOfMonth, month),
-          status: "realizado",
-          planId: plan.id,
-          planMonth: month,
-          createdBy: ctx.userId,
-        })
-        .onConflictDoNothing();
-      await audit(tx, ctx, "confirm", "cashflow_plans", id);
-    } else if (key.startsWith("d:")) {
-      const open = await openInstallment(tx, id);
-      const { debt: categoryId } = await systemCategories(tx);
-      if (!open || !categoryId) return;
-      const { installment, debt, total } = open;
-      const [created] = await tx
-        .insert(transactions)
-        .values({
-          householdId: ctx.householdId,
-          accountId: debt.accountId,
-          categoryId,
-          kind: "despesa",
-          description: `${debt.name} (${installment.number}/${total})`,
-          amount: installment.amount,
-          occurredOn: installment.dueDate,
-          status: "realizado",
-          createdBy: ctx.userId,
-        })
-        .returning({ id: transactions.id });
-      await tx
-        .update(debtInstallments)
-        .set({ transactionId: created!.id })
-        .where(eq(debtInstallments.id, id));
-      await audit(tx, ctx, "confirm", "debt_installments", id);
-    } else if (key.startsWith("f:")) {
-      const [, cardId = "", statementMonth = ""] = key.split(":");
-      if (!isYearMonth(statementMonth)) return;
-      const [card] = await tx.select().from(creditCards).where(eq(creditCards.id, cardId));
-      const { card: categoryId } = await systemCategories(tx);
-      if (!card || !categoryId) return;
-      const [paid] = await tx
-        .select({ id: cardStatementPayments.id })
-        .from(cardStatementPayments)
-        .where(
-          and(
-            eq(cardStatementPayments.cardId, cardId),
-            eq(cardStatementPayments.statementMonth, statementMonth),
-          ),
-        );
-      if (paid) return;
-      const purchases = await tx
-        .select()
-        .from(cardPurchases)
-        .where(eq(cardPurchases.cardId, cardId));
-      const lines = purchases
-        .flatMap((purchase) => purchaseLines(purchase, card))
-        .filter((line) => line.statementMonth === statementMonth);
-      if (lines.length === 0) return;
-      const [created] = await tx
-        .insert(transactions)
-        .values({
-          householdId: ctx.householdId,
-          accountId: card.payingAccountId,
-          categoryId,
-          kind: "despesa",
-          description: `Fatura ${card.name}`,
-          amount: linesTotal(lines),
-          occurredOn: statementDueDate(statementMonth, card),
-          status: "realizado",
-          createdBy: ctx.userId,
-        })
-        .returning({ id: transactions.id });
-      await tx.insert(cardStatementPayments).values({
-        householdId: ctx.householdId,
-        cardId,
-        statementMonth,
-        transactionId: created!.id,
-      });
-      await audit(tx, ctx, "confirm", "card_statement_payments", cardId);
-    }
-  });
+  await withHousehold(ctx, (tx) => confirmCommitment(tx, ctx, key, month));
   revalidatePath("/app", "layout");
 }
 

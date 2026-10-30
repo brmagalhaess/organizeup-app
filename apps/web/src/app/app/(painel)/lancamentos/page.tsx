@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { addMonths, formatBRL, formatYearMonth } from "@organizeup/domain";
@@ -27,6 +27,10 @@ export default async function EntriesPage({
         description="Tudo o que entrou, saiu e ainda vai vencer neste mês."
         actions={
           <>
+            <Link href="/app/importar" className={buttonClass("secondary")}>
+              <Upload className="size-4" aria-hidden="true" />
+              Importar extrato
+            </Link>
             <Link
               href={`/app/lancamentos?m=${addMonths(data.month, -1)}`}
               aria-label="Mês anterior"

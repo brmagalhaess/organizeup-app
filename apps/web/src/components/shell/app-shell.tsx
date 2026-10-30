@@ -15,6 +15,7 @@ import {
   Sunset,
   Tags,
   TrendingUp,
+  Upload,
   Users,
   WalletCards,
   type LucideIcon,
@@ -40,6 +41,7 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { href: "/app", label: "Painel", icon: LayoutDashboard },
       { href: "/app/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
+      { href: "/app/importar", label: "Importar extrato", icon: Upload },
       { href: "/app/contas", label: "Contas", icon: Landmark },
       { href: "/app/cartoes", label: "Cartões", icon: CreditCard },
       { href: "/app/dividas", label: "Dívidas", icon: WalletCards },

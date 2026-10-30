@@ -678,6 +678,133 @@ describe("isolamento de cartões e dívidas", () => {
   });
 });
 
+describe("isolamento da importação", () => {
+  const { accounts, categories, importBatches, transactions } = db;
+  let ctxA: Awaited<ReturnType<typeof ctxFor>>;
+  let ctxB: Awaited<ReturnType<typeof ctxFor>>;
+  let accountA: string;
+  let accountB: string;
+  let categoryA: string;
+  let batchA: string;
+
+  const batch = (householdId: string, accountId: string) => ({
+    householdId,
+    accountId,
+    source: "ofx" as const,
+    rowCount: 1,
+    periodStart: "2026-10-01",
+    periodEnd: "2026-10-31",
+  });
+  const line = (fingerprint: string) => ({
+    householdId: A.household,
+    accountId: accountA,
+    categoryId: categoryA,
+    kind: "despesa" as const,
+    description: "Linha de extrato",
+    amount: "10.00",
+    occurredOn: "2026-10-05",
+    importFingerprint: fingerprint,
+  });
+
+  beforeAll(async () => {
+    ctxA = await ctxFor(A.owner, A.household);
+    ctxB = await ctxFor(B.owner, B.household);
+    const seed = (ctx: typeof ctxA) =>
+      db.withHousehold(ctx, async (tx) => {
+        await db.ensureFinanceDefaults(tx, ctx.householdId);
+        const [account] = await tx.select({ id: accounts.id }).from(accounts).limit(1);
+        const [category] = await tx.select({ id: categories.id }).from(categories).limit(1);
+        return { account: account!.id, category: category!.id };
+      });
+    const a = await seed(ctxA);
+    const b = await seed(ctxB);
+    accountA = a.account;
+    categoryA = a.category;
+    accountB = b.account;
+    await db.withHousehold(ctxA, async (tx) => {
+      const [created] = await tx
+        .insert(importBatches)
+        .values(batch(A.household, accountA))
+        .returning({ id: importBatches.id });
+      batchA = created!.id;
+    });
+  });
+
+  it("não lê nem apaga lote de outra família", async () => {
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(importBatches)).toHaveLength(0);
+      expect(
+        await tx
+          .delete(importBatches)
+          .where(eq(importBatches.id, batchA))
+          .returning({ id: importBatches.id }),
+      ).toHaveLength(0);
+    });
+  });
+
+  it("FK composta impede lote em conta alheia e lançamento em lote alheio", async () => {
+    await expect(
+      db.withHousehold(ctxB, (tx) => tx.insert(importBatches).values(batch(B.household, accountA))),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxB, async (tx) => {
+        const [category] = await tx.select({ id: categories.id }).from(categories).limit(1);
+        await tx.insert(transactions).values({
+          householdId: B.household,
+          accountId: accountB,
+          categoryId: category!.id,
+          kind: "despesa",
+          description: "Forjada",
+          amount: "1.00",
+          occurredOn: "2026-10-05",
+          importBatchId: batchA,
+        });
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não importa", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        tx.insert(importBatches).values(batch(A.household, accountA)),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("a mesma linha não entra duas vezes na conta", async () => {
+    await db.withHousehold(ctxA, async (tx) => {
+      await tx.insert(transactions).values(line("ofx:id:R1#0"));
+      const again = await tx
+        .insert(transactions)
+        .values(line("ofx:id:R1#0"))
+        .onConflictDoNothing()
+        .returning({ id: transactions.id });
+      expect(again).toHaveLength(0);
+    });
+  });
+
+  it("lançamentos manuais não colidem entre si", async () => {
+    await db.withHousehold(ctxA, async (tx) => {
+      await tx.insert(transactions).values({ ...line("x"), importFingerprint: null });
+      await tx.insert(transactions).values({ ...line("x"), importFingerprint: null });
+    });
+  });
+
+  it("apagar o lote mantém o lançamento e a família dele", async () => {
+    await db.withHousehold(ctxA, async (tx) => {
+      const [created] = await tx
+        .insert(transactions)
+        .values({ ...line("ofx:id:R2#0"), importBatchId: batchA })
+        .returning({ id: transactions.id });
+      await tx.delete(importBatches).where(eq(importBatches.id, batchA));
+      const [kept] = await tx.select().from(transactions).where(eq(transactions.id, created!.id));
+      expect(kept!.importBatchId).toBeNull();
+      expect(kept!.householdId).toBe(A.household);
+    });
+  });
+});
+
 describe("ops", () => {
   it("registra e lista deploys sem tenant", async () => {
     await db.recordDeployment({ service: "web", commit: "abc1234", hostname: "test" });

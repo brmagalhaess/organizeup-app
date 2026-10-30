@@ -23,6 +23,10 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.resolve(process.cwd(), "../.."),
   transpilePackages: ["@organizeup/db", "@organizeup/domain"],
   poweredByHeader: false,
+  experimental: {
+    // Importação de extrato: até 2.000 linhas por envio (ADR-0006).
+    serverActions: { bodySizeLimit: "3mb" },
+  },
   async redirects() {
     return [{ source: "/app/mes", destination: "/app/lancamentos", permanent: true }];
   },

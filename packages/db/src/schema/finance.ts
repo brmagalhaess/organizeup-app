@@ -6,6 +6,7 @@ import {
   date,
   foreignKey,
   index,
+  integer,
   numeric,
   pgTable,
   smallint,
@@ -103,6 +104,35 @@ export const cashflowPlans = pgTable(
   ],
 );
 
+export const IMPORT_SOURCES = ["ofx", "csv"] as const;
+
+export const importBatches = pgTable(
+  "import_batches",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    source: text("source", { enum: IMPORT_SOURCES }).notNull(),
+    rowCount: integer("row_count").notNull(),
+    periodStart: date("period_start", { mode: "string" }).notNull(),
+    periodEnd: date("period_end", { mode: "string" }).notNull(),
+    createdBy: text("created_by"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("import_batches_household_id_idx").on(t.householdId),
+    foreignKey({
+      columns: [t.householdId, t.accountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+    }),
+  ],
+);
+
 export const transactions = pgTable(
   "transactions",
   {
@@ -121,6 +151,8 @@ export const transactions = pgTable(
     status: text("status", { enum: ENTRY_STATUSES }).notNull().default("realizado"),
     planId: text("plan_id"),
     planMonth: char("plan_month", { length: 7 }),
+    importFingerprint: text("import_fingerprint"),
+    importBatchId: text("import_batch_id"),
     createdBy: text("created_by"),
     createdAt: ts("created_at").notNull().defaultNow(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -128,6 +160,11 @@ export const transactions = pgTable(
   (t) => [
     unique().on(t.householdId, t.id),
     unique().on(t.householdId, t.planId, t.planMonth),
+    unique("transactions_import_fingerprint_key").on(
+      t.householdId,
+      t.accountId,
+      t.importFingerprint,
+    ),
     index("transactions_household_date_idx").on(t.householdId, t.occurredOn),
     foreignKey({
       columns: [t.householdId, t.accountId],
