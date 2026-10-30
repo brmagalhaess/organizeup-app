@@ -177,3 +177,81 @@ export function expensesByCategory(entries: MonthEntry[]) {
     .map(([categoryId, value]) => ({ categoryId, amount: toDbAmount(value) }))
     .sort((a, b) => money(b.amount).comparedTo(money(a.amount)));
 }
+
+export interface MonthPoint {
+  month: YearMonth;
+  received: string;
+  spent: string;
+  balance: string;
+}
+
+/** Os últimos `count` meses terminando em `ym`, do mais antigo para o mais novo. */
+export function recentMonths(ym: YearMonth, count: number): YearMonth[] {
+  return Array.from({ length: count }, (_, index) => addMonths(ym, index - count + 1));
+}
+
+/** Entradas e saídas já realizadas em cada mês, para gráficos de evolução. */
+export function monthlySeries(
+  months: YearMonth[],
+  plans: PlanInput[],
+  transactions: TransactionInput[],
+): MonthPoint[] {
+  return months.map((month) => {
+    const inMonth = transactions.filter((t) => yearMonthOf(t.occurredOn) === month);
+    const summary = summarizeMonth(buildMonthEntries(month, plans, inMonth));
+    return {
+      month,
+      received: summary.received,
+      spent: summary.spent,
+      balance: summary.balance,
+    };
+  });
+}
+
+/** Contas e receitas ainda em aberto, das mais antigas para as mais novas. */
+export function pendingEntries(entries: MonthEntry[], today: string, limit = 6) {
+  return entries
+    .filter((entry) => entry.status === "previsto")
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, limit)
+    .map((entry) => ({ ...entry, overdue: entry.date < today }));
+}
+
+/** Variação percentual entre dois valores; null quando não há base de comparação. */
+export function percentChange(current: string, previous: string): number | null {
+  const base = money(previous);
+  if (base.isZero()) return null;
+  return money(current).minus(base).dividedBy(base).times(100).toDecimalPlaces(0).toNumber();
+}
+
+/** Quanto `part` representa de `whole`, em %, para barras e proporções. */
+export function percentOf(part: string, whole: string): number {
+  const base = money(whole);
+  if (base.isZero()) return 0;
+  return money(part).dividedBy(base).times(100).toDecimalPlaces(1).toNumber();
+}
+
+/** Topo redondo do eixo de um gráfico: o menor 1, 2, 2,5, 5 ou 10 × 10ⁿ acima do maior valor. */
+export function axisCeiling(values: string[]): string {
+  const peak = values.reduce((acc, value) => {
+    const current = money(value).abs();
+    return current.gt(acc) ? current : acc;
+  }, money(0));
+  if (peak.isZero()) return toDbAmount(peak);
+  const magnitude = money(10).pow(peak.e);
+  const ceiling = [1, 2, 2.5, 5, 10].map((s) => magnitude.times(s)).find((c) => c.gte(peak));
+  return toDbAmount(ceiling ?? peak);
+}
+
+/** Mês abreviado para eixos ("out"). */
+export function formatMonthShort(ym: YearMonth): string {
+  const [year, month] = ym.split("-").map(Number) as [number, number];
+  return new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" })
+    .format(new Date(Date.UTC(year, month - 1, 1)))
+    .replace(".", "");
+}
+
+/** Dia e mês para listas ("05/10"). */
+export function formatShortDate(date: string): string {
+  return `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}

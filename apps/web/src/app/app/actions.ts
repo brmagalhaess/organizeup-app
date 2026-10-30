@@ -5,6 +5,7 @@ import {
   and,
   eq,
   isNull,
+  ne,
   auditLog,
   canWrite,
   householdSettings,
@@ -118,7 +119,7 @@ export async function bootstrapHousehold(input: {
     }
     await audit(tx, ctx, "bootstrap", "household", ctx.householdId);
   });
-  revalidatePath("/app");
+  revalidatePath("/app", "layout");
   return { ok: true, message: null };
 }
 
@@ -157,8 +158,23 @@ export async function addPerson(_prev: ActionState, formData: FormData): Promise
       .returning({ id: people.id });
     await audit(tx, ctx, "create", "people", person!.id);
   });
-  revalidatePath("/app");
+  revalidatePath("/app", "layout");
   return { ok: true, message: "Pessoa adicionada." };
+}
+
+/** Remove uma pessoa cadastrada. O titular não sai por aqui. */
+export async function removePerson(formData: FormData): Promise<void> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx)) return;
+  const id = String(formData.get("id") ?? "");
+  await withHousehold(ctx, async (tx) => {
+    const removed = await tx
+      .delete(people)
+      .where(and(eq(people.id, id), ne(people.relation, "titular")))
+      .returning({ id: people.id });
+    if (removed.length > 0) await audit(tx, ctx, "delete", "people", id);
+  });
+  revalidatePath("/app", "layout");
 }
 
 export async function updateSettings(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -182,6 +198,6 @@ export async function updateSettings(_prev: ActionState, formData: FormData): Pr
       });
     await audit(tx, ctx, "update", "household_settings", ctx.householdId);
   });
-  revalidatePath("/app");
+  revalidatePath("/app", "layout");
   return { ok: true, message: "Configurações salvas." };
 }

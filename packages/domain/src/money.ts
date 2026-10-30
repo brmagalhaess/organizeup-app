@@ -68,3 +68,15 @@ export function splitInstallments(total: MoneyInput, count: number): MoneyValue[
   parts[count - 1] = base.plus(remainder);
   return parts;
 }
+
+const brlCompact = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+/** Formato curto para eixos de gráfico ("R$ 8 mil"). */
+export function formatBRLCompact(value: MoneyInput): string {
+  return brlCompact.format(toCents(value).toNumber());
+}

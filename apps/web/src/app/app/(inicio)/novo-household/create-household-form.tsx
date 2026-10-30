@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Field, FormMessage, Input } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
-import { bootstrapHousehold } from "../actions";
+import { bootstrapHousehold } from "../../actions";
 
 function slugify(name: string): string {
   const base = name

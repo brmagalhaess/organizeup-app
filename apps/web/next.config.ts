@@ -23,6 +23,9 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.resolve(process.cwd(), "../.."),
   transpilePackages: ["@organizeup/db", "@organizeup/domain"],
   poweredByHeader: false,
+  async redirects() {
+    return [{ source: "/app/mes", destination: "/app/lancamentos", permanent: true }];
+  },
   async headers() {
     return [
       {

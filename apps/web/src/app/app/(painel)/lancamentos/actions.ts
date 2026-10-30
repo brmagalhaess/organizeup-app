@@ -31,6 +31,7 @@ export interface EntryFormState {
 const READ_ONLY = "Seu papel nesta família não permite alterações.";
 
 const entrySchema = z.object({
+  key: z.string(),
   kind: z.enum(ENTRY_KINDS, { message: "Escolha receita ou despesa." }),
   description: z.string().trim().min(1, "Informe a descrição.").max(120),
   amount: z.string().transform((value, ctx) => {
@@ -53,11 +54,13 @@ const entrySchema = z.object({
   repeat: z.boolean(),
 });
 
-export async function addEntry(_prev: EntryFormState, form: FormData): Promise<EntryFormState> {
+/** Cria um lançamento ou edita o da `key` (`t:<lançamento>` ou `p:<previsão>`). */
+export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<EntryFormState> {
   const { ctx } = await requireTenant();
   if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
 
   const parsed = entrySchema.safeParse({
+    key: form.get("key") ?? "",
     kind: form.get("kind"),
     description: form.get("description") ?? "",
     amount: form.get("amount") ?? "",
@@ -73,6 +76,7 @@ export async function addEntry(_prev: EntryFormState, form: FormData): Promise<E
     return { ok: false, message: null, fieldErrors };
   }
   const data = parsed.data;
+  const id = data.key.slice(2);
 
   const failure = await withHousehold(ctx, async (tx) => {
     const [category] = await tx
@@ -95,6 +99,37 @@ export async function addEntry(_prev: EntryFormState, form: FormData): Promise<E
       amount: data.amount,
     };
     const month = yearMonthOf(data.date);
+
+    if (data.key.startsWith("t:")) {
+      const [current] = await tx.select().from(transactions).where(eq(transactions.id, id));
+      if (!current) return "Lançamento não encontrado.";
+      // A previsão só some do mês do lançamento ligado a ela; trocar de mês a faria voltar.
+      if (current.planId && current.planMonth !== month)
+        return "Lançamento de conta recorrente precisa continuar no mesmo mês.";
+      await tx
+        .update(transactions)
+        .set({
+          ...common,
+          occurredOn: data.date,
+          status: data.done ? "realizado" : "previsto",
+          updatedAt: new Date(),
+        })
+        .where(eq(transactions.id, id));
+      await audit(tx, ctx, "update", "transactions", id);
+      return null;
+    }
+
+    if (data.key.startsWith("p:")) {
+      const updated = await tx
+        .update(cashflowPlans)
+        .set({ ...common, dayOfMonth: Number(data.date.slice(8, 10)) })
+        .where(eq(cashflowPlans.id, id))
+        .returning({ id: cashflowPlans.id });
+      if (updated.length === 0) return "Previsão não encontrada.";
+      await audit(tx, ctx, "update", "cashflow_plans", id);
+      return null;
+    }
+
     let planId: string | null = null;
     if (data.repeat) {
       const [plan] = await tx
