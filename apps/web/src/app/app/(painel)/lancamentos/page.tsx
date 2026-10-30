@@ -49,8 +49,8 @@ export default async function EntriesPage({
         }
       />
       <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatTile label="Entrou" value={formatBRL(data.summary.received)} />
-        <StatTile label="Saiu" value={formatBRL(data.summary.spent)} />
+        <StatTile label="Entrou" tone="receita" value={formatBRL(data.summary.received)} />
+        <StatTile label="Saiu" tone="despesa" value={formatBRL(data.summary.spent)} />
         <StatTile label="Sobrou até agora" value={formatBRL(data.summary.balance)} />
         <StatTile
           label="Previsão para o fim do mês"

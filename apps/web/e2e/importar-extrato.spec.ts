@@ -145,6 +145,24 @@ test("importa CSV com acentos em Windows-1252 e confere as colunas", async ({ pa
   await expect(row).toContainText("45,90");
 });
 
+test("página desatualizada oferece recarregar", async ({ page }) => {
+  await signUp(page, "Ivo");
+  await page.goto("/app/importar");
+  await upload(
+    page,
+    "extrato.csv",
+    ["Data;Histórico;Valor", `${brazilian};Farmácia exemplo;-45,90`].join("\n"),
+  );
+  await page.route("**/app/importar", (route) =>
+    route.request().method() === "POST" ? route.abort() : route.continue(),
+  );
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await expect(page.getByText(/Esta página ficou desatualizada/)).toBeVisible();
+  await page.unroute("**/app/importar");
+  await page.getByRole("button", { name: "Recarregar página" }).click();
+  await expect(page.getByRole("heading", { name: "Escolha o extrato" })).toBeVisible();
+});
+
 test("recusa arquivo que não é extrato", async ({ page }) => {
   await signUp(page, "Yara");
   await page.goto("/app/importar");

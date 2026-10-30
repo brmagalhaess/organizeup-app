@@ -3,6 +3,10 @@ export function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+/** Cor do valor: receita e despesa têm cor própria em todo o sistema. */
+export const amountClass = (kind: "receita" | "despesa") =>
+  kind === "receita" ? "text-income" : "text-expense";
+
 export type ButtonVariant = "primary" | "accent" | "secondary" | "ghost" | "danger";
 
 const buttonVariants: Record<ButtonVariant, string> = {

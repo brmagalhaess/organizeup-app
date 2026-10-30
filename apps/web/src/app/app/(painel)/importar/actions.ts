@@ -175,7 +175,17 @@ export async function prepareImport(
         ? { ...row, ...proposal, categoryId: fallback, newCategory: null }
         : { ...row, ...proposal };
     });
+  }).catch((error: unknown) => {
+    // Só nome e código: a mensagem do banco pode trazer dados da família.
+    const { name, code } = error as { name?: string; code?: string };
+    console.error(JSON.stringify({ level: "error", msg: "prepare_import_failed", name, code }));
+    return "falhou" as const;
   });
+  if (prepared === "falhou")
+    return {
+      ok: false,
+      message: "O servidor falhou ao conferir este extrato. Tente de novo; se repetir, nos avise.",
+    };
   if (!prepared) return { ok: false, message: "Escolha uma conta válida." };
   return { ok: true, rows: prepared };
 }

@@ -12,7 +12,7 @@ import {
   toDbAmount,
   yearMonthOf,
 } from "@organizeup/domain";
-import { buttonClass } from "@/components/styles";
+import { amountClass, buttonClass, cx } from "@/components/styles";
 import { Badge, Button, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
 import { loadOverview } from "@/lib/finance-data";
 import { requireTenant } from "@/lib/session";
@@ -94,11 +94,13 @@ export default async function OverviewPage() {
         />
         <StatTile
           label="Entrou"
+          tone="receita"
           value={formatBRL(data.summary.received)}
           hint={comparison(data.summary.received, data.previousSummary.received)}
         />
         <StatTile
           label="Saiu"
+          tone="despesa"
           value={formatBRL(data.summary.spent)}
           hint={comparison(data.summary.spent, data.previousSummary.spent)}
         />
@@ -176,7 +178,7 @@ export default async function OverviewPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{entry.description}</p>
-                    <p className="text-xs tabular-nums text-muted">
+                    <p className={cx("text-xs font-medium tabular-nums", amountClass(entry.kind))}>
                       {entry.kind === "receita" ? "+ " : "− "}
                       {formatBRL(entry.amount)}
                     </p>

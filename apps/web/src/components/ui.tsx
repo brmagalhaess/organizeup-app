@@ -15,7 +15,7 @@ import {
   type ReactNode,
   type SelectHTMLAttributes,
 } from "react";
-import { buttonClass, cx, type ButtonVariant } from "./styles";
+import { amountClass, buttonClass, cx, type ButtonVariant } from "./styles";
 
 /**
  * Envia o formulário sem o reset automático do React: com erro de validação, os campos continuam
@@ -184,16 +184,23 @@ export function StatTile({
   label,
   value,
   hint,
+  tone,
 }: {
   label: string;
   value: string;
   hint?: ReactNode;
+  tone?: "receita" | "despesa";
 }) {
   return (
     <div className="min-w-0 rounded-2xl border border-line bg-card p-4 shadow-card sm:p-5">
       <dt className="text-sm text-muted">{label}</dt>
       <dd className="m-0 mt-2">
-        <span className="block whitespace-nowrap text-lg font-semibold tabular-nums tracking-tight sm:text-2xl">
+        <span
+          className={cx(
+            "block whitespace-nowrap text-lg font-semibold tabular-nums tracking-tight sm:text-2xl",
+            tone && amountClass(tone),
+          )}
+        >
           {value}
         </span>
         {hint ? <span className="mt-1 block text-xs text-muted">{hint}</span> : null}

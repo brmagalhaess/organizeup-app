@@ -22,7 +22,7 @@ import {
   type CalendarItem,
 } from "@organizeup/domain";
 import { useEntryDialog } from "@/components/shell/entry-context";
-import { buttonClass, cx } from "@/components/styles";
+import { amountClass, buttonClass, cx } from "@/components/styles";
 import {
   Badge,
   Button,
@@ -119,7 +119,7 @@ function DayItem({
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{item.title}</p>
         {item.type === "lancamento" ? (
-          <p className="text-xs tabular-nums text-muted">
+          <p className={cx("text-xs font-medium tabular-nums", amountClass(item.kind))}>
             {item.kind === "receita" ? "+ " : "− "}
             {formatBRL(item.amount)}
           </p>
@@ -366,8 +366,8 @@ export function CalendarBoard({ data, writable }: { data: Data; writable: boolea
           </>
         ) : (
           <>
-            <StatTile label="Entrou" value={formatBRL(summary.received)} />
-            <StatTile label="Saiu" value={formatBRL(summary.spent)} />
+            <StatTile label="Entrou" tone="receita" value={formatBRL(summary.received)} />
+            <StatTile label="Saiu" tone="despesa" value={formatBRL(summary.spent)} />
           </>
         )}
       </dl>

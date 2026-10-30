@@ -26,7 +26,7 @@ import {
   type StatementRow,
   type StatementSource,
 } from "@organizeup/domain";
-import { buttonClass } from "@/components/styles";
+import { amountClass, buttonClass, cx } from "@/components/styles";
 import {
   Badge,
   Button,
@@ -47,6 +47,9 @@ const counted = (value: number, one: string, many: string) =>
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS = 2000;
+// Cada publicação troca os endereços internos, e uma página já aberta deixa de alcançar o servidor.
+const OUTDATED =
+  "Esta página ficou desatualizada, ou a conexão caiu. Recarregue e escolha o arquivo de novo.";
 
 interface Option {
   id: string;
@@ -191,7 +194,9 @@ function CsvMapper({
               <span className="min-w-0 truncate">
                 {formatShortDate(row.date)} · {row.description}
               </span>
-              <span className="whitespace-nowrap font-medium tabular-nums">
+              <span
+                className={cx("whitespace-nowrap font-medium tabular-nums", amountClass(row.kind))}
+              >
                 {row.kind === "receita" ? "+ " : "− "}
                 {formatBRL(row.amount)}
               </span>
@@ -208,6 +213,24 @@ function CsvMapper({
         </Button>
       </div>
     </Card>
+  );
+}
+
+function Problem({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <FormMessage message={message} />
+      {message === OUTDATED ? <ReloadButton /> : null}
+    </div>
+  );
+}
+
+function ReloadButton() {
+  return (
+    <Button variant="secondary" small onClick={() => window.location.reload()}>
+      Recarregar página
+    </Button>
   );
 }
 
@@ -410,7 +433,12 @@ function Review({
                   <AgentBadge row={row} />
                 </div>
               </div>
-              <span className="col-start-3 row-start-1 whitespace-nowrap text-right text-sm font-semibold tabular-nums md:col-start-5">
+              <span
+                className={cx(
+                  "col-start-3 row-start-1 whitespace-nowrap text-right text-sm font-semibold tabular-nums md:col-start-5",
+                  amountClass(row.kind),
+                )}
+              >
                 {row.kind === "receita" ? "+ " : "− "}
                 {formatBRL(row.amount)}
               </span>
@@ -470,7 +498,7 @@ function Review({
         </Button>
       </div>
       <div className="mt-2">
-        <FormMessage message={message} />
+        <Problem message={message} />
       </div>
     </Card>
   );
@@ -511,8 +539,6 @@ export function ImportWizard({
     setFileKey((key) => key + 1);
   };
 
-  const unavailable = "Não conseguimos falar com o servidor. Recarregue a página e tente de novo.";
-
   const review = (nextSource: StatementSource, parsed: StatementRow[]) => {
     if (parsed.length === 0) {
       setMessage("Não encontramos lançamentos neste arquivo. Baixe de novo em OFX ou CSV.");
@@ -524,7 +550,7 @@ export function ImportWizard({
     }
     startTransition(async () => {
       const result = await prepareImport({ accountId, source: nextSource, rows: parsed }).catch(
-        () => ({ ok: false as const, message: unavailable }),
+        () => ({ ok: false as const, message: OUTDATED }),
       );
       if (!result.ok) {
         setMessage(result.message);
@@ -633,7 +659,7 @@ export function ImportWizard({
     startTransition(async () => {
       const result = await commitImport({ accountId, source, rows: chosen }).catch(() => ({
         ok: false as const,
-        message: unavailable,
+        message: OUTDATED,
       }));
       if (!result.ok) {
         setMessage(result.message);
@@ -724,9 +750,13 @@ export function ImportWizard({
                   <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden="true" />
                   {message}
                 </p>
-                <Button variant="secondary" small onClick={reset}>
-                  Escolher outro arquivo
-                </Button>
+                {message === OUTDATED ? (
+                  <ReloadButton />
+                ) : (
+                  <Button variant="secondary" small onClick={reset}>
+                    Escolher outro arquivo
+                  </Button>
+                )}
               </div>
             ) : null}
             {busy || reading ? (
@@ -738,7 +768,7 @@ export function ImportWizard({
         </Card>
       )}
 
-      {message && (csv || done) ? <FormMessage message={message} /> : null}
+      {csv || done ? <Problem message={message} /> : null}
 
       <Card
         title="Importações recentes"

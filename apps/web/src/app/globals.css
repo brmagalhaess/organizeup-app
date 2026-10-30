@@ -21,8 +21,8 @@
   --color-success-soft: #e4f3ea;
 
   /* Séries de gráfico, validadas para daltonismo (tema claro). */
-  --color-income: #1273a8;
-  --color-expense: #d9622b;
+  --color-income: #b42318;
+  --color-expense: #1273a8;
 
   /* Marca: não mudam no modo escuro. */
   --color-night: #15231d;
@@ -57,8 +57,8 @@
     --color-warning-soft: #33290f;
     --color-success: #7fd0a9;
     --color-success-soft: #17322a;
-    --color-income: #2a9fd0;
-    --color-expense: #d9702f;
+    --color-income: #f0897e;
+    --color-expense: #2a9fd0;
   }
 }
 

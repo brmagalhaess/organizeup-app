@@ -1,4 +1,5 @@
 "use client";
+import { amountClass, cx } from "@/components/styles";
 import {
   AlertCircle,
   ArrowRight,
@@ -281,7 +282,12 @@ export function EntriesTable({
                   <td className="hidden px-3 py-3 align-top sm:table-cell">
                     <StatusBadge entry={entry} today={today} />
                   </td>
-                  <td className="whitespace-nowrap py-3 pl-3 pr-5 text-right align-top font-semibold tabular-nums sm:pr-3">
+                  <td
+                    className={cx(
+                      "whitespace-nowrap py-3 pl-3 pr-5 text-right align-top font-semibold tabular-nums sm:pr-3",
+                      amountClass(entry.kind),
+                    )}
+                  >
                     {entry.kind === "receita" ? "+ " : "− "}
                     {formatBRL(entry.amount)}
                   </td>
