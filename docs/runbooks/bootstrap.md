@@ -24,4 +24,4 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
 4. **Domínios da web**: `organizeup.home.crowntech.com.br` (HTTPS, Let's Encrypt) e `organizeup.com.br`
    (preparado, sem HTTPS, ver `cutover-dominio.md`).
 5. **Ordem do primeiro deploy**: `ou3-db`, depois `ou3-worker` (cria tabelas, papéis e filas), depois `ou3-web`.
-6. **Backups**: Database → Backups com destino S3 (ainda sem destino configurado; pendente antes da Fase 2).
+6. **Backups**: Database → Backups com destino S3. Ativo no Cloudflare R2; ver [backup.md](backup.md).

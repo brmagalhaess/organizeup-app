@@ -1,5 +1,7 @@
 # Restore do banco (testar mensalmente)
 
+O jeito simples, pelo painel, está em [backup.md](backup.md). Abaixo, o processo manual.
+
 1. Baixe o backup mais recente do bucket (R2) configurado no Dokploy.
 2. Suba um Postgres vazio isolado (local: `pnpm db:local` com outra porta, ou um container
    `pgvector/pgvector:pg17`).
