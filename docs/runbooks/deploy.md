@@ -1,19 +1,24 @@
 # Deploy
 
-Automático: merge em `main` → workflow `ci` (checks, imagem, e2e, publica `:<sha>` e `:main` no GHCR)
-→ workflow `deploy` (Environment `production`):
+Painel: https://dokploy.home.crowntech.com.br, projeto **OrganizeUp v3** (`ou3-db`, `ou3-worker`, `ou3-web`).
+Produção: https://organizeup.home.crowntech.com.br
 
-1. `application.deploy` do **worker**: o container novo roda as migrações com a credencial do dono e
-   depois inicia o pg-boss como `ou_worker`.
-2. Espera 60 s e faz `application.deploy` da **web**.
-3. Verifica `GET $APP_URL/api/health` até `status: ok` com o `commit` do merge (até 10 min).
+Automático: push em `main` → o Dokploy recebe o webhook do GitHub ("Git Bruno") e constrói `ou3-worker` e
+`ou3-web` no servidor. Como o GitHub Actions está sem execução, rode `pnpm check` antes de enviar.
 
-Conferir manualmente:
+Ordem quando houver migração nova: o worker aplica as migrações ao iniciar, e a web pode subir um pouco
+antes dele. Migrações são aditivas, então o código antigo continua funcionando nesse intervalo. Se a
+mudança da web depender da migração, faça o deploy do worker primeiro e o da web depois, pelo painel.
+
+Conferir:
 
 ```bash
-curl -s https://<domínio>/api/health
-curl -s -H "Authorization: Bearer <token-ops>" https://<domínio>/api/ops/deployments
+curl -s https://organizeup.home.crowntech.com.br/api/health
+curl -s -H "Authorization: Bearer <token-ops>" https://organizeup.home.crowntech.com.br/api/ops/deployments
 ```
 
-Falhou? Veja os logs das Applications no Dokploy e siga `rollback.md`.
-Deploy manual (emergência, sem agentes): no Dokploy, Application → Deploy (worker primeiro).
+`schemaVersion` deve mostrar a última migração. `commit` aparece como `dev`: o SHA implantado está na aba
+Deployments de cada serviço.
+
+Falhou? Veja a aba Logs do serviço e siga `rollback.md`. A fila de builds é compartilhada com os outros
+projetos; um deploy pode demorar a aparecer em Deployments enquanto outro projeto constrói.

@@ -32,7 +32,9 @@ pnpm dev:worker       # worker
 pnpm format           # prettier
 ```
 
-Build e e2e completos rodam **no CI**, não no servidor dos agentes.
+Produção é construída pelo Dokploy (`dokploy.home.crowntech.com.br`) a cada push em `main`. O GitHub
+Actions está sem execução no momento, então `pnpm check` local é o único portão antes do push. Nunca crie
+nada no Dokploy `2.24.94.160` sem pedido do fundador.
 
 ## Regras invioláveis (o CI e a revisão bloqueiam)
 

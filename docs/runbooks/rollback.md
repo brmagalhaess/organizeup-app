@@ -2,18 +2,18 @@
 
 ## Caminho preferido: `git revert`
 
-Abra um PR revertendo o merge problemático (`git revert <sha>`). O CI publica uma imagem nova e o
-deploy segue o fluxo normal. É o caminho que o agente SRE usa.
+Reverta o commit problemático e envie para `main` (`git revert <sha>`). O Dokploy reconstrói e publica.
+É o caminho que o agente SRE usa.
 
-## Caminho rápido (humano): reimplantar a imagem anterior
+## Caminho rápido (humano)
 
-1. Encontre o último SHA saudável (`GET /api/ops/deployments` ou histórico do workflow `deploy`).
-2. No Dokploy, Application **web** → Provider → troque a tag `:main` por `:<sha-anterior>` → Deploy.
-3. Se o problema envolveu migração, **não** volte o worker para uma imagem mais antiga que o schema:
-   migrações são aditivas, então código antigo continua compatível com o schema novo.
-4. Depois que o `git revert` estiver em `main`, volte a tag para `:main`.
+Na aba **Deployments** do serviço, use **Rollback** se estiver habilitado em Configure Rollbacks. Sem isso,
+use o `git revert` acima.
+
+Se o problema envolveu migração, não remova nem edite a migração: elas são aditivas, então o código
+antigo continua compatível com o schema novo.
 
 ## Automático
 
-O health check do Swarm (`?probe=live`) com `FailureAction: rollback` reverte containers que não sobem.
-Ele não detecta erro de negócio — por isso o `deploy` também confere `/api/health` completo.
+O health check do container (`?probe=live`) reinicia a web quando o processo não responde. Ele não detecta
+erro de negócio; por isso confira `/api/health` completo depois de cada deploy.

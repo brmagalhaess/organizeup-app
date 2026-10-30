@@ -13,14 +13,21 @@ Status: aceito (2026-10-29)
 - **Better Auth** (e-mail/senha; plugin `organization` = household). 2FA entra na Fase 7.
 - **TypeScript 6** (o TypeScript 7 nativo ainda não é suportado pelo typescript-eslint), ESLint 9,
   Vitest, Playwright (+ axe), fast-check.
-- **Entrega**: o CI constrói duas imagens (`web`, `worker`) a partir do mesmo `Dockerfile`, testa a imagem
-  com e2e, publica no GHCR (`:<sha>` e `:main`) e o workflow `deploy` chama a API do Dokploy.
-  O Dokploy **não** builda (economiza RAM do VPS e garante que a imagem de produção é a testada).
-- **Sem staging** até haver usuário real: produção usa os mesmos portões (CI, revisão, health check).
+- **Entrega** (revisado em 2026-10-30, decisão do fundador): o GitHub só guarda o código. O Dokploy
+  (`dokploy.home.crowntech.com.br`) puxa o branch `main` a cada push e constrói as duas imagens no próprio
+  servidor, pelo mesmo `Dockerfile`, com `Docker Build Stage` = `worker` e `web`. O Dokploy em
+  `2.24.94.160` não é mais usado para nada novo.
+- **Sem staging** até haver usuário real.
 
 ## Consequências
 
-- O VPS só puxa imagens; builds pesados ficam no GitHub Actions.
-- Rollback = reimplantar a tag `:<sha>` anterior (ver `docs/runbooks/rollback.md`).
-- Requer GitHub Pro (ou organização Team) para rulesets/CODEOWNERS valerem em repositório privado.
-- Ações do GitHub estão fixadas por major; Dependabot abre atualizações mensais agrupadas.
+- Antes de enviar para `main`, rode `pnpm check` localmente: o GitHub Actions da conta está sem
+  execução (cobrança), então nenhum CI protege o push. Os workflows ficam no repositório para quando
+  isso for resolvido, inclusive o `deploy.yml`, que hoje não é o caminho de deploy.
+- Os builds consomem memória do servidor; há um limite de builds simultâneos no Dokploy e a fila é
+  compartilhada com os outros projetos.
+- `APP_COMMIT` fica `dev` em produção, porque o Dokploy não injeta o SHA no build. O commit implantado
+  aparece na aba Deployments do Dokploy.
+- Postgres fica no 17: a imagem do 18 não inicia com o volume em `/var/lib/postgresql/data`, que é onde o
+  Dokploy o monta.
+- Rulesets/CODEOWNERS exigem GitHub Pro (ou organização Team) em repositório privado.
