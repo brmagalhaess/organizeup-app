@@ -1,0 +1,13 @@
+import type { Metadata } from "next";
+import { canWrite } from "@organizeup/db";
+import { loadIncome } from "@/lib/income-data";
+import { requireTenant } from "@/lib/session";
+import { IncomeBoard } from "./income-board";
+
+export const metadata: Metadata = { title: "Renda" };
+
+export default async function IncomePage() {
+  const { ctx } = await requireTenant();
+  const data = await loadIncome(ctx);
+  return <IncomeBoard data={data} writable={canWrite(ctx)} />;
+}

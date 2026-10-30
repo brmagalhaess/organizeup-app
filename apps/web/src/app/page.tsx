@@ -41,7 +41,7 @@ const modules = [
   { name: "Família e configurações", text: "Pessoas, cidade e fuso do seu plano.", ready: true },
   {
     name: "Receitas e despesas",
-    text: "Lançamentos, categorias, importação de extrato e o resumo do mês.",
+    text: "Lançamentos, importação de extrato, salário líquido, 13º, férias e o resumo do mês.",
     ready: true,
   },
   {

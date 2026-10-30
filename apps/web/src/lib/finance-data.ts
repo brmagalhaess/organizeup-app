@@ -8,6 +8,7 @@ import {
   eq,
   gte,
   householdSettings,
+  incomeSources,
   lte,
   people,
   sql,
@@ -55,7 +56,7 @@ export async function loadMonth(ctx: TenantContext, requestedMonth?: string | nu
       .from(transactions)
       .where(and(gte(transactions.occurredOn, first), lte(transactions.occurredOn, last)));
 
-    const { scheduled } = await loadCommitments(tx);
+    const { scheduled } = await loadCommitments(tx, { from: month, to: month });
     const entries = buildMonthEntries(month, planRows, transactionRows, scheduled);
     return {
       month,
@@ -106,6 +107,9 @@ export async function loadOverview(ctx: TenantContext) {
 
     const categoryRows = await tx.select().from(categories);
     const planRows = await tx.select().from(cashflowPlans);
+    const [sourceCount] = await tx
+      .select({ total: sql<number>`count(*)::int` })
+      .from(incomeSources);
     const [peopleCount] = await tx.select({ total: sql<number>`count(*)::int` }).from(people);
     const [incomeCount] = await tx
       .select({ total: sql<number>`count(*)::int` })
@@ -121,7 +125,10 @@ export async function loadOverview(ctx: TenantContext) {
         ),
       );
 
-    const { scheduled, cardLines, cardCategoryId } = await loadCommitments(tx);
+    const { scheduled, cardLines, cardCategoryId } = await loadCommitments(tx, {
+      from: addMonths(month, -1),
+      to: addMonths(month, 1),
+    });
     const inMonth = (ym: string) =>
       buildMonthEntries(
         ym,
@@ -152,7 +159,10 @@ export async function loadOverview(ctx: TenantContext) {
       categoryNames: new Map(categoryRows.map((c) => [c.id, c.name])),
       pending: pendingEntries([...previous, ...current, ...next], today, 6),
       checklist: {
-        income: (incomeCount?.total ?? 0) > 0 || planRows.some((p) => p.kind === "receita"),
+        income:
+          (incomeCount?.total ?? 0) > 0 ||
+          (sourceCount?.total ?? 0) > 0 ||
+          planRows.some((p) => p.kind === "receita"),
         recurring: planRows.some((p) => p.kind === "despesa"),
         balance: balances.some((b) => !money(b.openingBalance).isZero()),
         family: (peopleCount?.total ?? 0) > 1,

@@ -111,6 +111,7 @@ async function applyGrants(sql: postgres.Sql) {
     REVOKE UPDATE, DELETE ON public.audit_log FROM ${app}, ${worker};
     -- Modelos globais são somente leitura para a aplicação.
     REVOKE INSERT, UPDATE, DELETE ON public.category_templates FROM ${app}, ${worker};
+    REVOKE INSERT, UPDATE, DELETE ON public.fiscal_parameters FROM ${app}, ${worker};
 
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.
     GRANT SELECT ON ALL TABLES IN SCHEMA ops TO ${app}, ${worker}, ${admin};

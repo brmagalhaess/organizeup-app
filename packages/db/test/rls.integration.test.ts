@@ -1068,6 +1068,179 @@ describe("isolamento do calendário", () => {
   });
 });
 
+describe("isolamento da renda", () => {
+  const { accounts, categories, fiscalParameters, incomeReceipts, incomeSources, transactions } =
+    db;
+  let ctxA: Awaited<ReturnType<typeof ctxFor>>;
+  let ctxB: Awaited<ReturnType<typeof ctxFor>>;
+  let accountA: string;
+  let accountB: string;
+  let categoryA: string;
+  let categoryB: string;
+  let sourceA: string;
+
+  const income = (householdId: string, accountId: string, categoryId: string) => ({
+    householdId,
+    accountId,
+    categoryId,
+    name: "Empresa secreta",
+    kind: "clt" as const,
+    amount: "6000.00",
+    isGross: true,
+    payDay: 5,
+    startMonth: "2026-10",
+  });
+
+  beforeAll(async () => {
+    ctxA = await ctxFor(A.owner, A.household);
+    ctxB = await ctxFor(B.owner, B.household);
+    const seed = (ctx: typeof ctxA) =>
+      db.withHousehold(ctx, async (tx) => {
+        await db.ensureFinanceDefaults(tx, ctx.householdId);
+        const [account] = await tx.select({ id: accounts.id }).from(accounts).limit(1);
+        const [category] = await tx
+          .select({ id: categories.id })
+          .from(categories)
+          .where(eq(categories.name, "Salário"));
+        return { account: account!.id, category: category!.id };
+      });
+    const a = await seed(ctxA);
+    const b = await seed(ctxB);
+    accountA = a.account;
+    categoryA = a.category;
+    accountB = b.account;
+    categoryB = b.category;
+    await db.withHousehold(ctxA, async (tx) => {
+      const [created] = await tx
+        .insert(incomeSources)
+        .values(income(A.household, accountA, categoryA))
+        .returning({ id: incomeSources.id });
+      sourceA = created!.id;
+    });
+  });
+
+  it("não lê, altera nem apaga renda de outra família", async () => {
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(incomeSources)).toHaveLength(0);
+      expect(await tx.select().from(incomeReceipts)).toHaveLength(0);
+      expect(
+        await tx
+          .update(incomeSources)
+          .set({ name: "Invadido" })
+          .where(eq(incomeSources.id, sourceA))
+          .returning({ id: incomeSources.id }),
+      ).toHaveLength(0);
+      expect(
+        await tx
+          .delete(incomeSources)
+          .where(eq(incomeSources.id, sourceA))
+          .returning({ id: incomeSources.id }),
+      ).toHaveLength(0);
+    });
+  });
+
+  it("FK composta impede renda com conta, categoria ou pessoa alheia", async () => {
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(incomeSources).values(income(B.household, accountA, categoryB)),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(incomeSources).values(income(B.household, accountB, categoryA)),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx
+          .insert(incomeSources)
+          .values({ ...income(B.household, accountB, categoryB), personId: personA }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não cadastra renda", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    await db.withHousehold(viewer, async (tx) => {
+      expect(await tx.select().from(incomeSources)).toHaveLength(1);
+    });
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        tx.insert(incomeSources).values(income(A.household, accountA, categoryA)),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("apagar o lançamento devolve a previsão, e o recebimento não repete", async () => {
+    await db.withHousehold(ctxA, async (tx) => {
+      const [received] = await tx
+        .insert(transactions)
+        .values({
+          householdId: A.household,
+          accountId: accountA,
+          categoryId: categoryA,
+          kind: "receita",
+          description: "Salário recebido",
+          amount: "4973.39",
+          occurredOn: "2026-10-05",
+        })
+        .returning({ id: transactions.id });
+      await tx.insert(incomeReceipts).values({
+        householdId: A.household,
+        incomeSourceId: sourceA,
+        month: "2026-10",
+        part: "salario",
+        transactionId: received!.id,
+      });
+      await tx.delete(transactions).where(eq(transactions.id, received!.id));
+      expect(await tx.select().from(incomeReceipts)).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(ctxA, async (tx) => {
+        const [received] = await tx
+          .insert(transactions)
+          .values({
+            householdId: A.household,
+            accountId: accountA,
+            categoryId: categoryA,
+            kind: "receita",
+            description: "Salário recebido",
+            amount: "4973.39",
+            occurredOn: "2026-10-05",
+          })
+          .returning({ id: transactions.id });
+        const receipt = {
+          householdId: A.household,
+          incomeSourceId: sourceA,
+          month: "2026-11",
+          part: "salario" as const,
+          transactionId: received!.id,
+        };
+        await tx.insert(incomeReceipts).values(receipt);
+        await tx.insert(incomeReceipts).values(receipt);
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("tabelas fiscais são públicas e somente leitura para a aplicação", async () => {
+    await db.withHousehold(ctxB, async (tx) => {
+      const [row] = await tx.select().from(fiscalParameters);
+      const params = row!.params as { inss: Array<{ upTo: string }>; dependentDeduction: string };
+      expect(row!.validFrom).toBe("2026-01");
+      expect(params.inss.at(-1)!.upTo).toBe("8475.55");
+      expect(params.dependentDeduction).toBe("189.59");
+    });
+    await expect(
+      db.withHousehold(ctxA, (tx) =>
+        tx.insert(fiscalParameters).values({ validFrom: "2099-01", source: "x", params: {} }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxA, (tx) => tx.update(fiscalParameters).set({ source: "alterado" })),
+    ).rejects.toThrow();
+  });
+});
+
 describe("ops", () => {
   it("registra e lista deploys sem tenant", async () => {
     await db.recordDeployment({ service: "web", commit: "abc1234", hostname: "test" });

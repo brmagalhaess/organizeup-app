@@ -31,6 +31,13 @@ interface Named {
   name: string;
 }
 
+/** Previsões que vêm de outra tela: lá é que se edita. */
+const SCHEDULED_PAGES: Partial<Record<MonthEntry["source"], string>> = {
+  parcela: "/app/dividas",
+  fatura: "/app/cartoes",
+  renda: "/app/renda",
+};
+
 function StatusBadge({ entry, today }: { entry: MonthEntry; today: string }) {
   if (entry.status === "realizado")
     return (
@@ -78,9 +85,9 @@ function RowActions({
           </Button>
         </form>
       ) : null}
-      {entry.source === "parcela" || entry.source === "fatura" ? (
+      {SCHEDULED_PAGES[entry.source] ? (
         <Link
-          href={entry.source === "parcela" ? "/app/dividas" : "/app/cartoes"}
+          href={SCHEDULED_PAGES[entry.source]!}
           aria-label={`Abrir ${entry.description}`}
           title="Abrir"
           className="inline-flex size-9 items-center justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-ink"
@@ -92,8 +99,7 @@ function RowActions({
           <Pencil className="size-4" aria-hidden="true" />
         </IconButton>
       )}
-      {entry.source === "parcela" || entry.source === "fatura" ? null : entry.source ===
-        "lancamento" ? (
+      {SCHEDULED_PAGES[entry.source] ? null : entry.source === "lancamento" ? (
         <IconButton label={`Excluir ${entry.description}`} onClick={() => onRemove(entry)}>
           <Trash2 className="size-4" aria-hidden="true" />
         </IconButton>

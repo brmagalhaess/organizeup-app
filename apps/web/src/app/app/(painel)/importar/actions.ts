@@ -100,7 +100,7 @@ export async function prepareImport(
       .from(transactions)
       .where(and(gte(transactions.occurredOn, from), lte(transactions.occurredOn, to)));
     const planRows = await tx.select().from(cashflowPlans);
-    const { scheduled } = await loadCommitments(tx);
+    const { scheduled } = await loadCommitments(tx, { from: firstMonth, to: lastMonth });
 
     const forecasts: KnownEntry[] = [];
     for (let month = firstMonth; month <= lastMonth; month = addMonths(month, 1)) {

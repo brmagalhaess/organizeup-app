@@ -7,6 +7,7 @@ import {
   creditCards,
   debtInstallments,
   eq,
+  incomeReceipts,
   transactions,
   type TenantContext,
   type TenantTx,
@@ -20,6 +21,7 @@ import {
 } from "@organizeup/domain";
 import { audit } from "./audit";
 import { openInstallment, systemCategories } from "./commitments";
+import { incomeOccurrence } from "./income-data";
 
 /** Liga o lançamento à linha do extrato que deu a baixa. */
 export interface ImportMark {
@@ -29,7 +31,7 @@ export interface ImportMark {
 
 /**
  * Marca como pago ou recebido. `key` é `t:<lançamento>`, `p:<previsão>` (com `month`),
- * `d:<parcela>` ou `f:<cartão>:<mês>`. Devolve se algo foi confirmado.
+ * `d:<parcela>`, `f:<cartão>:<mês>` ou `r:<renda>:<mês>:<parte>`. Devolve se algo foi confirmado.
  */
 export async function confirmCommitment(
   tx: TenantTx,
@@ -148,6 +150,49 @@ export async function confirmCommitment(
       transactionId: created!.id,
     });
     await audit(tx, ctx, "confirm", "card_statement_payments", cardId);
+    return true;
+  }
+
+  if (key.startsWith("r:")) {
+    const [, sourceId = "", incomeMonth = "", part = ""] = key.split(":");
+    if (!isYearMonth(incomeMonth)) return false;
+    const found = await incomeOccurrence(tx, sourceId, incomeMonth, part);
+    if (!found) return false;
+    const [received] = await tx
+      .select({ id: incomeReceipts.id })
+      .from(incomeReceipts)
+      .where(
+        and(
+          eq(incomeReceipts.incomeSourceId, sourceId),
+          eq(incomeReceipts.month, incomeMonth),
+          eq(incomeReceipts.part, found.part),
+        ),
+      );
+    if (received) return false;
+    const { source, entry } = found;
+    const [created] = await tx
+      .insert(transactions)
+      .values({
+        householdId: ctx.householdId,
+        accountId: source.accountId,
+        categoryId: source.categoryId,
+        kind: "receita",
+        description: entry.description,
+        amount: entry.amount,
+        occurredOn: entry.date,
+        status: "realizado",
+        createdBy: ctx.userId,
+        ...mark,
+      })
+      .returning({ id: transactions.id });
+    await tx.insert(incomeReceipts).values({
+      householdId: ctx.householdId,
+      incomeSourceId: sourceId,
+      month: incomeMonth,
+      part: found.part,
+      transactionId: created!.id,
+    });
+    await audit(tx, ctx, "confirm", "income_receipts", sourceId);
     return true;
   }
 

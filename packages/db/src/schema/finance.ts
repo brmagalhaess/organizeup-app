@@ -7,6 +7,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   smallint,
@@ -427,5 +428,87 @@ export const calendarEvents = pgTable(
   (t) => [
     unique().on(t.householdId, t.id),
     index("calendar_events_household_date_idx").on(t.householdId, t.eventDate),
+  ],
+);
+
+export const fiscalParameters = pgTable("fiscal_parameters", {
+  validFrom: char("valid_from", { length: 7 }).primaryKey(),
+  source: text("source").notNull(),
+  params: jsonb("params").notNull(),
+});
+
+export const INCOME_KINDS = [
+  "clt",
+  "pj_autonomo",
+  "aposentadoria_pensao",
+  "aluguel",
+  "outro",
+] as const;
+export const INCOME_PARTS = ["salario", "ferias", "13-1", "13-2"] as const;
+
+export const incomeSources = pgTable(
+  "income_sources",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    personId: text("person_id"),
+    accountId: text("account_id").notNull(),
+    categoryId: text("category_id").notNull(),
+    name: text("name").notNull(),
+    kind: text("kind", { enum: INCOME_KINDS }).notNull(),
+    amount: amount("amount").notNull(),
+    isGross: boolean("is_gross").notNull().default(false),
+    dependents: smallint("dependents").notNull().default(0),
+    pensionAmount: amount("pension_amount").notNull().default("0"),
+    otherDiscounts: amount("other_discounts").notNull().default("0"),
+    vacationMonth: smallint("vacation_month"),
+    payDay: smallint("pay_day").notNull(),
+    startMonth: char("start_month", { length: 7 }).notNull(),
+    endMonth: char("end_month", { length: 7 }),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("income_sources_household_id_idx").on(t.householdId),
+    foreignKey({
+      columns: [t.householdId, t.accountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+    }),
+    foreignKey({
+      columns: [t.householdId, t.categoryId],
+      foreignColumns: [categories.householdId, categories.id],
+    }),
+  ],
+);
+
+export const incomeReceipts = pgTable(
+  "income_receipts",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    incomeSourceId: text("income_source_id").notNull(),
+    month: char("month", { length: 7 }).notNull(),
+    part: text("part", { enum: INCOME_PARTS }).notNull(),
+    transactionId: text("transaction_id").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.incomeSourceId, t.month, t.part),
+    foreignKey({
+      columns: [t.householdId, t.incomeSourceId],
+      foreignColumns: [incomeSources.householdId, incomeSources.id],
+    }),
+    foreignKey({
+      columns: [t.householdId, t.transactionId],
+      foreignColumns: [transactions.householdId, transactions.id],
+    }).onDelete("cascade"),
   ],
 );

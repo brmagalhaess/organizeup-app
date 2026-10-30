@@ -30,7 +30,9 @@ import {
   yearMonthOf,
   type ScheduledEntry,
   type StatementLine,
+  type YearMonth,
 } from "@organizeup/domain";
+import { scheduledIncome } from "./income-data";
 
 /** Id das categorias do sistema, garantidas por `ensureFinanceDefaults`. */
 export async function systemCategories(tx: TenantTx) {
@@ -60,8 +62,11 @@ async function cardBook(tx: TenantTx) {
   }));
 }
 
-/** Faturas e parcelas em aberto, prontas para entrar no fluxo do mês. */
-export async function loadCommitments(tx: TenantTx) {
+/**
+ * Faturas, parcelas e rendas em aberto, prontas para entrar no fluxo do mês. A renda não tem fim
+ * definido, por isso é calculada só para os meses pedidos.
+ */
+export async function loadCommitments(tx: TenantTx, months: { from: YearMonth; to: YearMonth }) {
   const book = await cardBook(tx);
   const category = await systemCategories(tx);
 
@@ -104,7 +109,11 @@ export async function loadCommitments(tx: TenantTx) {
     }));
 
   return {
-    scheduled: [...statements, ...installments],
+    scheduled: [
+      ...statements,
+      ...installments,
+      ...(await scheduledIncome(tx, months.from, months.to)),
+    ],
     cardLines: book.flatMap(({ lines }) => lines),
     cardCategoryId: category.card,
   };

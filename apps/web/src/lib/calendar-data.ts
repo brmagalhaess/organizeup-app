@@ -53,7 +53,7 @@ export async function loadCalendar(ctx: TenantContext, requested?: string | null
           lte(transactions.occurredOn, monthBounds(month).last),
         ),
       );
-    const { scheduled } = await loadCommitments(tx);
+    const { scheduled } = await loadCommitments(tx, { from: firstMonth, to: month });
     const entriesOf = (ym: string) =>
       buildMonthEntries(
         ym,

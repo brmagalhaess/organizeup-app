@@ -1,6 +1,7 @@
 "use client";
 import {
   ArrowLeftRight,
+  BadgeDollarSign,
   CalendarDays,
   CreditCard,
   Gem,
@@ -43,6 +44,7 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
       { href: "/app", label: "Painel", icon: LayoutDashboard },
       { href: "/app/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
       { href: "/app/calendario", label: "Calendário", icon: CalendarDays },
+      { href: "/app/renda", label: "Renda", icon: BadgeDollarSign },
       { href: "/app/importar", label: "Importar extrato", icon: Upload },
       { href: "/app/contas", label: "Contas", icon: Landmark },
       { href: "/app/cartoes", label: "Cartões", icon: CreditCard },

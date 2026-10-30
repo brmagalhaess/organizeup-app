@@ -68,7 +68,7 @@ export async function loadReserve(ctx: TenantContext) {
           lte(transactions.occurredOn, monthBounds(month).last),
         ),
       );
-    const { scheduled, cardLines } = await loadCommitments(tx);
+    const { scheduled, cardLines } = await loadCommitments(tx, { from: month, to: month });
     const essentialLines = cardLines.filter((line) => essential.has(line.categoryId));
     const sum = (values: string[]) =>
       toDbAmount(values.reduce((acc, value) => acc.plus(value), money(0)));

@@ -20,9 +20,9 @@ export function FirstSteps({
       done: checklist.income,
       hint: "Salário, aluguel recebido ou outra entrada.",
       action: (
-        <button type="button" className={actionClass} onClick={() => openNew("receita")}>
-          Lance sua renda
-        </button>
+        <Link href="/app/renda" className={actionClass}>
+          Cadastre sua renda
+        </Link>
       ),
     },
     {

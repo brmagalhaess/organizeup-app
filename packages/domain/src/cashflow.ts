@@ -35,10 +35,11 @@ export interface TransactionInput {
 export interface MonthEntry {
   /**
    * `t:<id>` lançamento; `p:<id>` previsão recorrente; `d:<id>` parcela de dívida;
-   * `f:<cartão>:<mês>` fatura de cartão. Só lançamentos e previsões se editam aqui.
+   * `f:<cartão>:<mês>` fatura de cartão; `r:<renda>:<mês>:<parte>` renda.
+   * Só lançamentos e previsões se editam aqui.
    */
   key: string;
-  source: "lancamento" | "previsao" | "parcela" | "fatura";
+  source: "lancamento" | "previsao" | "parcela" | "fatura" | "renda";
   id: string;
   kind: EntryKind;
   description: string;
@@ -51,7 +52,10 @@ export interface MonthEntry {
 }
 
 /** Compromisso já calculado (parcela ou fatura em aberto) que entra no mês pelo vencimento. */
-export type ScheduledEntry = Omit<MonthEntry, "status" | "recurring" | "kind">;
+export type ScheduledEntry = Omit<MonthEntry, "status" | "recurring" | "kind"> & {
+  /** Parcelas e faturas são despesas; renda é receita. */
+  kind?: EntryKind;
+};
 
 export interface MonthSummary {
   received: string;
@@ -150,7 +154,12 @@ export function buildMonthEntries(
     }));
   const fromScheduled: MonthEntry[] = scheduled
     .filter((entry) => yearMonthOf(entry.date) === ym)
-    .map((entry) => ({ ...entry, kind: "despesa", status: "previsto", recurring: false }));
+    .map((entry) => ({
+      ...entry,
+      kind: entry.kind ?? "despesa",
+      status: "previsto",
+      recurring: false,
+    }));
   return [...fromTransactions, ...fromPlans, ...fromScheduled].sort(
     (a, b) => a.date.localeCompare(b.date) || a.description.localeCompare(b.description, "pt-BR"),
   );
