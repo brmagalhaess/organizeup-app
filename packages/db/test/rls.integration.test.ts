@@ -1429,6 +1429,96 @@ describe("isolamento de investimentos", () => {
   });
 });
 
+describe("memória e relatórios do agente de categorização", () => {
+  const { categories, categoryMemory, householdReports } = db;
+  let categoryA = "";
+  let categoryB = "";
+
+  beforeAll(async () => {
+    const seed =
+      (householdId: string) =>
+      async (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => {
+        await db.ensureFinanceDefaults(tx, householdId);
+        const [category] = await tx.select({ id: categories.id }).from(categories).limit(1);
+        await tx.insert(categoryMemory).values({
+          householdId,
+          kind: "despesa",
+          merchant: "padaria exemplo",
+          categoryId: category!.id,
+          source: "agente",
+        });
+        await tx.insert(householdReports).values({
+          householdId,
+          agent: "categorizacao",
+          kind: "importacao",
+          period: "lote-1",
+          title: "Extrato",
+          summary: "Segredo do relatório",
+        });
+        return category!.id;
+      };
+    categoryA = await db.withHousehold(await ctxFor(A.owner, A.household), seed(A.household));
+    categoryB = await db.withHousehold(await ctxFor(B.owner, B.household), seed(B.household));
+  });
+
+  it("não lê memória nem relatório de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      const memory = await tx.select().from(categoryMemory);
+      const reports = await tx.select().from(householdReports);
+      expect(memory.map((row) => row.householdId)).toEqual([A.household]);
+      expect(reports.map((row) => row.householdId)).toEqual([A.household]);
+    });
+  });
+
+  it("FK composta impede guardar categoria de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(categoryMemory).values({
+          householdId: A.household,
+          kind: "despesa",
+          merchant: "invasao",
+          categoryId: categoryB,
+          source: "agente",
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não grava", async () => {
+    const ctx = await ctxFor(A.viewer, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(categoryMemory).values({
+          householdId: A.household,
+          kind: "despesa",
+          merchant: "leitura",
+          categoryId: categoryA,
+          source: "agente",
+        }),
+      ),
+    ).rejects.toThrow();
+    const rows = await db.withHousehold(ctx, (tx) => tx.select().from(householdReports));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("as contagens para a equipe somam por dia, sem nada da família", async () => {
+    const counts = {
+      rowCount: 10,
+      fromMemory: 4,
+      fromWords: 3,
+      unmatched: 3,
+      corrected: 1,
+      categoriesCreated: 2,
+    };
+    await db.recordCategorizationStats("2026-10-30", counts);
+    await db.recordCategorizationStats("2026-10-30", counts);
+    const [row] = await db.listCategorizationStats(1);
+    expect(row).toMatchObject({ day: "2026-10-30", imports: 2, rowCount: 20, unmatched: 6 });
+  });
+});
+
 describe("exportação e exclusão da família", () => {
   it("a exportação cobre toda tabela com household_id", async () => {
     const owner = await ctxFor(A.owner, A.household);

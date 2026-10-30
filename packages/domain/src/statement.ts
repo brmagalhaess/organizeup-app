@@ -392,101 +392,46 @@ export function reconcileRows(
   );
 }
 
-interface CategoryOption {
-  id: string;
-  name: string;
-  kind: StatementKind;
+const MONEY = /[-+]?\s*(?:R\$\s*)?[-+]?\d{1,3}(?:\.\d{3})*,\d{2}(?:\s*[-+DC])?(?![\d,])/g;
+const INCOME_WORDS =
+  /recebid|credito|deposito|salario|rendimento|estorno|reembolso|resgate|\bted rec|\bpix rec/;
+
+function pdfAmount(token: string, description: string): MoneyValue | null {
+  const value = parseStatementAmount(token.replace(/\s+/g, " ").replace(/^\+\s*/, ""));
+  if (!value) return null;
+  const signed = /-|\bD$/i.test(token) || /\bC$/i.test(token) || token.trim().startsWith("+");
+  if (signed) return value;
+  // Sem sinal, a descrição decide. A família confere antes de importar.
+  return INCOME_WORDS.test(normalizeDescription(description)) ? value : value.negated();
 }
 
-/** Palavras frequentes em extratos, por nome de categoria padrão. */
-const KEYWORDS: Record<StatementKind, Array<[string, string[]]>> = {
-  despesa: [
-    [
-      "Mercado",
-      ["mercado", "supermerc", "atacad", "assai", "carrefour", "hortifruti", "pao de acucar"],
-    ],
-    [
-      "Luz, água e internet",
-      [
-        "enel",
-        "cemig",
-        "copel",
-        "sabesp",
-        "cpfl",
-        "energia",
-        "saneamento",
-        "vivo",
-        "claro",
-        "internet",
-        "telefonica",
-      ],
-    ],
-    [
-      "Transporte",
-      [
-        "uber",
-        "posto",
-        "combustivel",
-        "shell",
-        "ipiranga",
-        "estacionamento",
-        "pedagio",
-        "sem parar",
-        "metro",
-      ],
-    ],
-    [
-      "Saúde",
-      [
-        "farmacia",
-        "drogaria",
-        "droga",
-        "unimed",
-        "amil",
-        "hospital",
-        "clinica",
-        "laboratorio",
-        "dentista",
-      ],
-    ],
-    ["Moradia", ["aluguel", "condominio", "iptu"]],
-    ["Educação", ["escola", "colegio", "faculdade", "universidade", "curso", "mensalidade"]],
-    [
-      "Assinaturas",
-      ["netflix", "spotify", "prime video", "disney", "hbo", "youtube", "icloud", "google one"],
-    ],
-    ["Lazer", ["cinema", "ingresso", "restaurante", "ifood", "lanchonete", "bar "]],
-    ["Compras", ["magazine", "mercado livre", "shopee", "amazon", "americanas", "renner"]],
-  ],
-  receita: [
-    ["Salário", ["salario", "folha", "vencimentos", "pagamento de salario"]],
-    ["Rendimentos", ["rendimento", "dividendo", "juros"]],
-    ["Aluguel recebido", ["aluguel"]],
-  ],
-};
-
 /**
- * Sugere a categoria: primeiro o que a família já usou para a mesma descrição, depois palavras
- * conhecidas, por fim "Outras". O usuário sempre revisa antes de importar.
+ * Extrato em PDF: cada linha com data no início e valor no fim vira lançamento. Com dois valores
+ * no fim, o último é o saldo. Data sem ano usa `year`. Linhas de saldo e totais ficam de fora.
  */
-export function suggestCategory(
-  row: Pick<StatementRow, "description" | "kind">,
-  categories: CategoryOption[],
-  history: Map<string, string>,
-): string | null {
-  const name = normalizeDescription(row.description);
-  const usable = categories.filter((category) => category.kind === row.kind);
-  const remembered = history.get(`${row.kind}:${name}`);
-  if (remembered && usable.some((category) => category.id === remembered)) return remembered;
-
-  const byName = (target: string) => usable.find((category) => category.name === target)?.id;
-  for (const [category, words] of KEYWORDS[row.kind]) {
-    if (words.some((word) => ` ${name} `.includes(word))) {
-      const id = byName(category);
-      if (id) return id;
+export function parsePdfLines(lines: string[], year: number): ParsedStatement {
+  const rows: StatementRow[] = [];
+  let skipped = 0;
+  for (const raw of lines) {
+    const line = raw.replace(/\s+/g, " ").trim();
+    const date = line.match(/^(\d{2})[/.-](\d{2})(?:[/.-](\d{4}|\d{2}))?\b/);
+    if (!date) continue;
+    const tokens = [...line.matchAll(MONEY)];
+    const first = tokens.length >= 2 ? tokens.at(-2)! : tokens.at(-1);
+    if (!first) continue;
+    const description = line.slice(date[0].length, first.index).trim();
+    if (!description || /^(saldo|total|s\s*a\s*l\s*d\s*o)\b/i.test(description)) {
+      skipped += 1;
+      continue;
     }
+    const full = date[3] ?? String(year);
+    const row = buildRow(
+      parseStatementDate(`${date[1]}/${date[2]}/${full}`),
+      description,
+      pdfAmount(first[0], description),
+    );
+    if (row) rows.push(row);
+    else skipped += 1;
   }
-  return (
-    byName(row.kind === "despesa" ? "Outras despesas" : "Outras receitas") ?? usable[0]?.id ?? null
-  );
+  return { rows, skipped };
 }

@@ -1,5 +1,14 @@
 // Schema `ops`: dados operacionais SEM PII (lidos pelos agentes via Ops API).
-import { bigint, jsonb, pgSchema, text, timestamp, unique } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  date,
+  integer,
+  jsonb,
+  pgSchema,
+  text,
+  timestamp,
+  unique,
+} from "drizzle-orm/pg-core";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
@@ -47,3 +56,15 @@ export const reports = opsSchema.table(
   },
   (t) => [unique().on(t.kind, t.period)],
 );
+
+/** Contagens diárias do agente de categorização, sem família nem descrição. */
+export const categorizationStats = opsSchema.table("categorization_stats", {
+  day: date("day", { mode: "string" }).primaryKey(),
+  imports: integer("imports").notNull().default(0),
+  rowCount: integer("row_count").notNull().default(0),
+  fromMemory: integer("from_memory").notNull().default(0),
+  fromWords: integer("from_words").notNull().default(0),
+  unmatched: integer("unmatched").notNull().default(0),
+  corrected: integer("corrected").notNull().default(0),
+  categoriesCreated: integer("categories_created").notNull().default(0),
+});

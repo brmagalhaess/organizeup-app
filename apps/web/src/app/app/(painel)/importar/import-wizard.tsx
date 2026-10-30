@@ -1,5 +1,14 @@
 "use client";
-import { CheckCircle2, CircleAlert, CircleCheck, Copy, FileUp, Undo2 } from "lucide-react";
+import {
+  Brain,
+  CheckCircle2,
+  CircleAlert,
+  CircleCheck,
+  Copy,
+  FileUp,
+  Sparkles,
+  Undo2,
+} from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useTransition, type ChangeEvent } from "react";
 import {
@@ -8,8 +17,10 @@ import {
   detectCsvMapping,
   formatBRL,
   formatShortDate,
+  merchantKey,
   parseCsvTable,
   parseOfx,
+  parsePdfLines,
   yearMonthOf,
   type CsvMapping,
   type StatementRow,
@@ -25,8 +36,10 @@ import {
   Field,
   FormMessage,
   IconButton,
+  Input,
   Select,
 } from "@/components/ui";
+import { readPdfLines, readSpreadsheet } from "@/lib/statement-files";
 import { commitImport, prepareImport, undoImport, type PreparedRow } from "./actions";
 
 const counted = (value: number, one: string, many: string) =>
@@ -50,6 +63,7 @@ interface BatchRow {
   periodStart: string;
   periodEnd: string;
   createdAt: string;
+  summary: string | null;
 }
 
 interface CsvState {
@@ -57,7 +71,20 @@ interface CsvState {
   mapping: CsvMapping;
 }
 
-type Choice = { selected: boolean; categoryId: string | null };
+type Choice = {
+  selected: boolean;
+  categoryId: string | null;
+  /** Nome da categoria que será criada ao importar. */
+  newCategory: string | null;
+  essential: boolean;
+  /** A família está digitando o nome. */
+  typing: boolean;
+};
+
+const ANOTHER = "__outra";
+const newValue = (name: string) => `new:${name}`;
+const choiceValue = (choice: Choice) =>
+  choice.typing ? ANOTHER : (choice.categoryId ?? newValue(choice.newCategory ?? ""));
 
 function ColumnSelect({
   label,
@@ -209,7 +236,34 @@ function RowBadge({ row }: { row: PreparedRow }) {
   return null;
 }
 
+function AgentBadge({ row }: { row: PreparedRow }) {
+  if (row.state === "importado" || row.state === "previsto") return null;
+  if (row.source === "memoria")
+    return (
+      <Badge>
+        <Brain className="size-3" aria-hidden="true" />
+        Memória da família
+      </Badge>
+    );
+  if (row.source === "nova")
+    return (
+      <Badge tone="success">
+        <Sparkles className="size-3" aria-hidden="true" />
+        Categoria nova
+      </Badge>
+    );
+  if (row.source === "revisar")
+    return (
+      <Badge tone="warning">
+        <CircleAlert className="size-3" aria-hidden="true" />
+        Revisar
+      </Badge>
+    );
+  return null;
+}
+
 function Review({
+  notice,
   rows,
   categories,
   busy,
@@ -217,6 +271,7 @@ function Review({
   onSubmit,
   onCancel,
 }: {
+  notice: string | null;
   rows: PreparedRow[];
   categories: CategoryOption[];
   busy: boolean;
@@ -231,6 +286,9 @@ function Review({
         {
           selected: row.state === "novo" || row.state === "previsto",
           categoryId: row.categoryId,
+          newCategory: row.newCategory?.name ?? null,
+          essential: row.newCategory?.essential ?? false,
+          typing: false,
         },
       ]),
     ),
@@ -242,12 +300,58 @@ function Review({
       ...current,
       [fingerprint]: { ...current[fingerprint]!, ...change },
     }));
+  /** Trocar a categoria vale para o mesmo estabelecimento nas outras linhas do extrato. */
+  const pick = (row: PreparedRow, value: string) => {
+    const change: Partial<Choice> =
+      value === ANOTHER
+        ? { categoryId: null, newCategory: "", essential: false, typing: true }
+        : value.startsWith("new:")
+          ? {
+              categoryId: null,
+              newCategory: value.slice(4),
+              essential: proposals.find((p) => p.name === value.slice(4))?.essential ?? false,
+              typing: false,
+            }
+          : { categoryId: value, newCategory: null, typing: false };
+    const merchant = merchantKey(row.description);
+    setChoices((current) => {
+      const next = { ...current };
+      for (const other of rows) {
+        const same =
+          other.fingerprint === row.fingerprint ||
+          (merchant !== "" &&
+            other.kind === row.kind &&
+            other.state !== "importado" &&
+            merchantKey(other.description) === merchant);
+        if (same) next[other.fingerprint] = { ...next[other.fingerprint]!, ...change };
+      }
+      return next;
+    });
+  };
+  const proposals = [
+    ...new Map(
+      rows.flatMap((row) =>
+        row.newCategory ? [[row.newCategory.name, { ...row.newCategory, kind: row.kind }]] : [],
+      ) as Array<[string, { name: string; essential: boolean; kind: string }]>,
+    ).values(),
+  ];
+  const agent = (source: PreparedRow["source"]) =>
+    rows.filter((r) => r.source === source && r.state !== "importado").length;
+  const unnamed = rows.some((row) => {
+    const choice = choices[row.fingerprint]!;
+    return choice.selected && !choice.categoryId && !choice.newCategory?.trim();
+  });
 
   return (
     <Card
       title="Revise antes de importar"
       description="Nada foi gravado ainda. Desmarque o que não quiser e ajuste as categorias."
     >
+      {notice ? (
+        <p className="mb-3 text-sm font-medium text-warning" role="status">
+          {notice}
+        </p>
+      ) : null}
       <dl className="m-0 grid grid-cols-2 gap-3 rounded-xl bg-card-soft p-4 text-sm lg:grid-cols-4">
         {(
           [
@@ -263,6 +367,18 @@ function Review({
           </div>
         ))}
       </dl>
+
+      <p className="mt-3 flex items-start gap-2 text-sm text-muted" role="status">
+        <Sparkles className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        <span>
+          O agente categorizou {agent("memoria") + agent("palavra") + agent("nova")}{" "}
+          {agent("memoria") + agent("palavra") + agent("nova") === 1 ? "lançamento" : "lançamentos"}
+          {proposals.length > 0
+            ? ` e propôs ${counted(proposals.length, "categoria nova", "categorias novas")}`
+            : ""}
+          . {agent("revisar") > 0 ? `Sem pista em ${agent("revisar")}: confira os marcados.` : ""}
+        </span>
+      </p>
 
       <ul aria-label="Lançamentos do extrato" className="m-0 mt-4 list-none p-0">
         {rows.map((row) => {
@@ -289,8 +405,9 @@ function Review({
                 <p className="text-xs tabular-nums text-muted md:hidden">
                   {formatShortDate(row.date)}
                 </p>
-                <div className="mt-1 empty:hidden">
+                <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
                   <RowBadge row={row} />
+                  <AgentBadge row={row} />
                 </div>
               </div>
               <span className="col-start-3 row-start-1 whitespace-nowrap text-right text-sm font-semibold tabular-nums md:col-start-5">
@@ -299,21 +416,40 @@ function Review({
               </span>
               <div className="col-span-2 col-start-2 min-w-0 md:col-span-1 md:col-start-4 md:row-start-1">
                 {row.state === "previsto" || locked ? null : (
-                  <Select
-                    aria-label={`Categoria de ${row.description}`}
-                    value={choice.categoryId ?? ""}
-                    onChange={(event) =>
-                      update(row.fingerprint, { categoryId: event.target.value })
-                    }
-                  >
-                    {categories
-                      .filter((category) => category.kind === row.kind)
-                      .map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                  </Select>
+                  <div className="flex flex-col gap-1.5">
+                    <Select
+                      aria-label={`Categoria de ${row.description}`}
+                      value={choiceValue(choice)}
+                      onChange={(event) => pick(row, event.target.value)}
+                    >
+                      {categories
+                        .filter((category) => category.kind === row.kind)
+                        .map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      {proposals
+                        .filter((proposal) => proposal.kind === row.kind)
+                        .map((proposal) => (
+                          <option key={proposal.name} value={newValue(proposal.name)}>
+                            Criar: {proposal.name}
+                          </option>
+                        ))}
+                      <option value={ANOTHER}>Criar outra categoria…</option>
+                    </Select>
+                    {choice.typing ? (
+                      <Input
+                        aria-label={`Nome da nova categoria de ${row.description}`}
+                        maxLength={60}
+                        placeholder="Nome da categoria"
+                        value={choice.newCategory ?? ""}
+                        onChange={(event) =>
+                          update(row.fingerprint, { newCategory: event.target.value })
+                        }
+                      />
+                    ) : null}
+                  </div>
                 )}
               </div>
             </li>
@@ -322,7 +458,7 @@ function Review({
       </ul>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button disabled={selected === 0 || busy} onClick={() => onSubmit(choices)}>
+        <Button disabled={selected === 0 || busy || unnamed} onClick={() => onSubmit(choices)}>
           {busy
             ? "Importando…"
             : selected === 1
@@ -354,7 +490,13 @@ export function ImportWizard({
   const [source, setSource] = useState<StatementSource>("csv");
   const [csv, setCsv] = useState<CsvState | null>(null);
   const [rows, setRows] = useState<PreparedRow[] | null>(null);
-  const [done, setDone] = useState<{ imported: number; settled: number } | null>(null);
+  const [done, setDone] = useState<{
+    imported: number;
+    settled: number;
+    summary: string;
+  } | null>(null);
+  const [reading, setReading] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [undoing, setUndoing] = useState<BatchRow | null>(null);
   const [fileKey, setFileKey] = useState(0);
   const [busy, startTransition] = useTransition();
@@ -364,12 +506,16 @@ export function ImportWizard({
     setRows(null);
     setDone(null);
     setMessage(null);
+    setNotice(null);
+    setReading(null);
     setFileKey((key) => key + 1);
   };
 
+  const unavailable = "Não conseguimos falar com o servidor. Recarregue a página e tente de novo.";
+
   const review = (nextSource: StatementSource, parsed: StatementRow[]) => {
     if (parsed.length === 0) {
-      setMessage("Não encontramos lançamentos neste arquivo.");
+      setMessage("Não encontramos lançamentos neste arquivo. Baixe de novo em OFX ou CSV.");
       return;
     }
     if (parsed.length > MAX_ROWS) {
@@ -377,7 +523,9 @@ export function ImportWizard({
       return;
     }
     startTransition(async () => {
-      const result = await prepareImport({ accountId, source: nextSource, rows: parsed });
+      const result = await prepareImport({ accountId, source: nextSource, rows: parsed }).catch(
+        () => ({ ok: false as const, message: unavailable }),
+      );
       if (!result.ok) {
         setMessage(result.message);
         return;
@@ -396,14 +544,43 @@ export function ImportWizard({
       setMessage("O arquivo passa de 5 MB. Exporte um período menor.");
       return;
     }
-    if (!/\.(ofx|qfx|csv|txt)$/i.test(file.name)) {
+    if (/\.xls$/i.test(file.name)) {
       setMessage(
-        "Use um arquivo OFX ou CSV. Excel e PDF não são lidos: exporte de novo pelo banco.",
+        "Este Excel é do formato antigo (.xls). Abra e salve como .xlsx, ou baixe em CSV ou OFX.",
       );
       return;
     }
-    const text = decodeStatement(new Uint8Array(await file.arrayBuffer()));
+    if (!/\.(ofx|qfx|csv|txt|xlsx|pdf)$/i.test(file.name)) {
+      setMessage("Este tipo de arquivo não é lido. Use OFX, CSV, Excel (.xlsx) ou PDF.");
+      return;
+    }
+    setReading(file.name);
     try {
+      if (/\.pdf$/i.test(file.name)) {
+        const parsed = parsePdfLines(await readPdfLines(file), new Date().getFullYear());
+        if (parsed.rows.length === 0) {
+          setMessage(
+            "Não achamos lançamentos neste PDF. Ele pode ser uma imagem. Baixe o extrato em OFX ou CSV.",
+          );
+          return;
+        }
+        setNotice(
+          "PDF não diz sempre o que é entrada e saída. Confira os valores antes de importar.",
+        );
+        review("csv", parsed.rows);
+        return;
+      }
+      if (/\.xlsx$/i.test(file.name)) {
+        const table = await readSpreadsheet(file);
+        const mapping = detectCsvMapping(table);
+        if (!mapping) {
+          setMessage("Não reconhecemos as colunas desta planilha. Veja se ela tem data e valor.");
+          return;
+        }
+        setCsv({ table, mapping });
+        return;
+      }
+      const text = decodeStatement(new Uint8Array(await file.arrayBuffer()));
       if (/\.(ofx|qfx)$/i.test(file.name) || /<OFX/i.test(text)) {
         review("ofx", parseOfx(text).rows);
         return;
@@ -416,7 +593,13 @@ export function ImportWizard({
       }
       setCsv({ table, mapping });
     } catch (error) {
-      setMessage(error instanceof RangeError ? error.message : "Não conseguimos ler este arquivo.");
+      setMessage(
+        error instanceof RangeError
+          ? error.message
+          : "Não conseguimos ler este arquivo. Baixe o extrato em OFX ou CSV.",
+      );
+    } finally {
+      setReading(null);
     }
   };
 
@@ -424,7 +607,7 @@ export function ImportWizard({
     if (!rows) return;
     const chosen = rows.flatMap((row) => {
       const choice = choices[row.fingerprint];
-      if (!choice?.selected || !choice.categoryId) return [];
+      if (!choice?.selected || (!choice.categoryId && !choice.newCategory?.trim())) return [];
       const settles = row.state === "previsto" && row.match;
       return [
         {
@@ -434,20 +617,32 @@ export function ImportWizard({
           kind: row.kind,
           fingerprint: row.fingerprint,
           categoryId: choice.categoryId,
+          newCategory:
+            !choice.categoryId && choice.newCategory
+              ? { name: choice.newCategory.trim(), essential: choice.essential }
+              : null,
+          source: row.source,
+          corrected:
+            choice.categoryId !== row.categoryId ||
+            (choice.newCategory ?? null) !== (row.newCategory?.name ?? null),
           matchKey: settles ? row.match!.key : null,
           matchMonth: settles ? yearMonthOf(row.match!.date) : null,
         },
       ];
     });
     startTransition(async () => {
-      const result = await commitImport({ accountId, source, rows: chosen });
+      const result = await commitImport({ accountId, source, rows: chosen }).catch(() => ({
+        ok: false as const,
+        message: unavailable,
+      }));
       if (!result.ok) {
         setMessage(result.message);
         return;
       }
       setRows(null);
       setMessage(null);
-      setDone({ imported: result.imported, settled: result.settled });
+      setNotice(null);
+      setDone({ imported: result.imported, settled: result.settled, summary: result.summary });
     });
   };
 
@@ -464,6 +659,7 @@ export function ImportWizard({
               {counted(done.imported, "novo lançamento", "novos lançamentos")} e{" "}
               {counted(done.settled, "previsão baixada", "previsões baixadas")}.
             </p>
+            {done.summary ? <p className="max-w-xl text-sm text-muted">{done.summary}</p> : null}
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <Link href="/app/lancamentos" className={buttonClass()}>
                 Ver lançamentos
@@ -476,6 +672,7 @@ export function ImportWizard({
         </Card>
       ) : rows ? (
         <Review
+          notice={notice}
           rows={rows}
           categories={categories}
           busy={busy}
@@ -494,7 +691,7 @@ export function ImportWizard({
       ) : (
         <Card
           title="Escolha o extrato"
-          description="Baixe no site ou app do banco, em OFX ou CSV. O arquivo é lido aqui no navegador e não fica guardado."
+          description="Baixe no site ou app do banco. O arquivo é lido aqui no navegador e não fica guardado. Assim que escolher, ele abre sozinho para você revisar."
         >
           <div className="grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Conta do extrato">
@@ -506,22 +703,35 @@ export function ImportWizard({
                 ))}
               </Select>
             </Field>
-            <Field label="Arquivo" hint="OFX ou CSV, até 5 MB.">
+            <Field label="Arquivo" hint="OFX, CSV, Excel (.xlsx) ou PDF, até 5 MB.">
               <input
                 key={fileKey}
                 type="file"
-                accept=".ofx,.qfx,.csv,.txt"
-                disabled={busy || !accountId}
+                accept=".ofx,.qfx,.csv,.txt,.xlsx,.xls,.pdf"
+                disabled={busy || reading !== null || !accountId}
                 onChange={onFile}
                 className="min-h-11 w-full min-w-0 rounded-xl border border-dashed border-line bg-card p-2 text-sm text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
               />
             </Field>
           </div>
           <div className="mt-3">
-            <FormMessage message={message} />
-            {busy ? (
+            {message ? (
+              <div
+                role="alert"
+                className="flex flex-col items-start gap-3 rounded-xl border border-danger bg-card-soft p-4 text-sm"
+              >
+                <p className="flex items-start gap-2 font-medium">
+                  <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden="true" />
+                  {message}
+                </p>
+                <Button variant="secondary" small onClick={reset}>
+                  Escolher outro arquivo
+                </Button>
+              </div>
+            ) : null}
+            {busy || reading ? (
               <p className="text-sm text-muted" role="status">
-                Conferindo com seus lançamentos…
+                {reading ? `Lendo ${reading}…` : "Conferindo com seus lançamentos…"}
               </p>
             ) : null}
           </div>
@@ -553,6 +763,7 @@ export function ImportWizard({
                     {formatShortDate(batch.periodEnd)} · importado em{" "}
                     {formatShortDate(batch.createdAt)}
                   </p>
+                  {batch.summary ? <p className="text-xs text-muted">{batch.summary}</p> : null}
                 </div>
                 <IconButton
                   label={`Desfazer importação de ${batch.rowCount} lançamentos`}

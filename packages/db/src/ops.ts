@@ -1,7 +1,7 @@
 // Helpers do schema `ops` (sem PII; sem RLS de tenant).
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { appPool } from "./client";
-import { agentMemory, deployments, reports, workerHeartbeats } from "./schema";
+import { agentMemory, categorizationStats, deployments, reports, workerHeartbeats } from "./schema";
 
 export async function recordDeployment(input: {
   service: "web" | "worker";
@@ -131,4 +131,44 @@ export async function databaseStatus(): Promise<{ ok: true; schemaVersion: strin
   const rows = await appPool().sql<{ version: string | null }[]>`
     select max(version) as version from public.schema_migrations`;
   return { ok: true, schemaVersion: rows[0]?.version ?? null };
+}
+
+export type CategorizationCounts = {
+  rowCount: number;
+  fromMemory: number;
+  fromWords: number;
+  unmatched: number;
+  corrected: number;
+  categoriesCreated: number;
+};
+
+/** Soma uma importação ao dia. Só contagens: nada identifica a família. */
+export async function recordCategorizationStats(
+  day: string,
+  counts: CategorizationCounts,
+): Promise<void> {
+  const t = categorizationStats;
+  await appPool()
+    .db.insert(t)
+    .values({ day, imports: 1, ...counts })
+    .onConflictDoUpdate({
+      target: t.day,
+      set: {
+        imports: sql`${t.imports} + 1`,
+        rowCount: sql`${t.rowCount} + ${counts.rowCount}`,
+        fromMemory: sql`${t.fromMemory} + ${counts.fromMemory}`,
+        fromWords: sql`${t.fromWords} + ${counts.fromWords}`,
+        unmatched: sql`${t.unmatched} + ${counts.unmatched}`,
+        corrected: sql`${t.corrected} + ${counts.corrected}`,
+        categoriesCreated: sql`${t.categoriesCreated} + ${counts.categoriesCreated}`,
+      },
+    });
+}
+
+export async function listCategorizationStats(limit = 14) {
+  return appPool()
+    .db.select()
+    .from(categorizationStats)
+    .orderBy(desc(categorizationStats.day))
+    .limit(Math.min(Math.max(limit, 1), 90));
 }

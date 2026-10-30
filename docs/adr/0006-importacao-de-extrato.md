@@ -18,13 +18,12 @@ Status: aceito (2026-10-30)
   - `novo`: entra como lançamento realizado.
 - **Baixa usa o mesmo caminho do botão Pagar** (`lib/confirm-entry.ts`), então parcela e fatura ficam ligadas
   ao lançamento da mesma forma.
-- **Categorias** são sugestão (`suggestCategory`): primeiro o que a família já usou para aquela descrição,
-  depois palavras conhecidas, por fim "Outras". A categoria do cartão fica de fora.
+- **Categorias** são sugestão do agente de categorização (ADR-0013). A categoria do cartão fica de fora.
 - **Desfazer por lote** (`import_batches`): apaga o que o lote criou, inclusive o que foi editado depois.
   Lançamento que já existia e só recebeu a baixa volta a ser previsto, e parcelas e faturas reabrem pela FK.
 - **Limites**: 5 MB e 2.000 linhas por arquivo. `serverActions.bodySizeLimit` em 3 MB comporta o pior caso.
 
 ## Fora do escopo por enquanto
 
-Fatura de cartão, Excel e PDF. Transferência entre contas da própria família aparece como despesa numa e
+Fatura de cartão. Transferência entre contas da própria família aparece como despesa numa e
 receita noutra. Conta de valor variável, como luz, não dá baixa sozinha, porque a regra exige valor igual.

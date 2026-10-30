@@ -624,3 +624,52 @@ export const dividendGoals = pgTable("dividend_goals", {
   monthlyAmount: amount("monthly_amount").notNull(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
+
+export const MEMORY_SOURCES = ["agente", "familia"] as const;
+
+/** O que o agente de categorização aprendeu, por estabelecimento. */
+export const categoryMemory = pgTable(
+  "category_memory",
+  {
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ENTRY_KINDS }).notNull(),
+    merchant: text("merchant").notNull(),
+    categoryId: text("category_id").notNull(),
+    source: text("source", { enum: MEMORY_SOURCES }).notNull(),
+    hits: integer("hits").notNull().default(1),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.householdId, t.kind, t.merchant] }),
+    foreignKey({
+      columns: [t.householdId, t.categoryId],
+      foreignColumns: [categories.householdId, categories.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+/** Relatórios dos agentes do produto, para consulta futura do assistente da família. */
+export const householdReports = pgTable(
+  "household_reports",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    agent: text("agent").notNull(),
+    kind: text("kind", { enum: ["importacao"] }).notNull(),
+    period: text("period").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull(),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.kind, t.period),
+    index("household_reports_recent_idx").on(t.householdId, t.createdAt),
+  ],
+);

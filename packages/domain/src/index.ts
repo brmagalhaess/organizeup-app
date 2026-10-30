@@ -4,6 +4,7 @@ export * from "./cashflow";
 export * from "./card";
 export * from "./debt";
 export * from "./statement";
+export * from "./categorize";
 export * from "./wealth";
 export * from "./calendar";
 export * from "./income";

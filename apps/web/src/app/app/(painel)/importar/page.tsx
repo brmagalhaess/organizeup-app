@@ -6,6 +6,7 @@ import {
   categories,
   desc,
   eq,
+  householdReports,
   householdSettings,
   importBatches,
   withHousehold,
@@ -34,20 +35,27 @@ export default async function ImportPage() {
       .from(importBatches)
       .orderBy(desc(importBatches.createdAt))
       .limit(10);
+    const reportRows = await tx
+      .select({ period: householdReports.period, summary: householdReports.summary })
+      .from(householdReports)
+      .where(eq(householdReports.kind, "importacao"))
+      .orderBy(desc(householdReports.createdAt))
+      .limit(50);
     const [settings] = await tx
       .select({ timezone: householdSettings.timezone })
       .from(householdSettings)
       .where(eq(householdSettings.householdId, ctx.householdId));
-    return { accountRows, categoryRows, batchRows, timezone: settings?.timezone };
+    return { accountRows, categoryRows, batchRows, reportRows, timezone: settings?.timezone };
   });
   const accountName = new Map(data.accountRows.map((a) => [a.id, a.name]));
+  const reportOf = new Map(data.reportRows.map((r) => [r.period, r.summary]));
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Importar extrato"
         title="Traga o extrato do banco"
-        description="Você revisa tudo antes. O que já foi importado não entra de novo."
+        description="O agente categoriza cada lançamento, e você revisa antes de gravar."
       />
       {canWrite(ctx) ? (
         <ImportWizard
@@ -63,6 +71,7 @@ export default async function ImportPage() {
             periodStart: batch.periodStart,
             periodEnd: batch.periodEnd,
             createdAt: todayIn(data.timezone, batch.createdAt),
+            summary: reportOf.get(batch.id) ?? null,
           }))}
         />
       ) : (

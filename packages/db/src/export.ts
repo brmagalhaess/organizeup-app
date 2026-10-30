@@ -9,6 +9,7 @@ import {
   cardStatementPayments,
   cashflowPlans,
   categories,
+  categoryMemory,
   creditCards,
   debtInstallments,
   debts,
@@ -16,6 +17,7 @@ import {
   dividends,
   earmarks,
   emergencyFund,
+  householdReports,
   householdSettings,
   importBatches,
   incomeReceipts,
@@ -54,6 +56,8 @@ const HOUSEHOLD_TABLES = {
   investment_targets: investmentTargets,
   dividends,
   dividend_goals: dividendGoals,
+  category_memory: categoryMemory,
+  household_reports: householdReports,
   audit_log: auditLog,
 };
 

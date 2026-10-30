@@ -22,13 +22,13 @@ node -e "const c=require('crypto');const t=c.randomBytes(32).toString('base64url
 Tudo no schema `ops`, sem dados pessoais. Escrita com aparência de e-mail, CPF, CNPJ, telefone ou cartão
 recebe 422; `@example.com` é permitido. É uma barreira de melhor esforço, não substitui a regra.
 
-| Rota                                      | O que faz                                                                |
-| ----------------------------------------- | ------------------------------------------------------------------------ |
-| `GET /api/ops/context?agent=<slug>&q=...` | Ao acordar: produção, relatórios recentes, memórias próprias e da equipe |
-| `GET /api/ops/memory?agent=&q=`           | Busca em português; sem `q`, as mais recentes                            |
-| `POST /api/ops/memory`                    | `{agent, kind, content, sourceIssue?, supersedes?}`                      |
-| `GET /api/ops/reports?kind=&limit=`       | Relatórios mais recentes                                                 |
-| `POST /api/ops/reports`                   | `{kind, period, agent, title, body}`; mesmo tipo e período atualiza      |
+| Rota                                      | O que faz                                                                        |
+| ----------------------------------------- | -------------------------------------------------------------------------------- |
+| `GET /api/ops/context?agent=<slug>&q=...` | Ao acordar: produção, relatórios recentes, memórias e contagens da categorização |
+| `GET /api/ops/memory?agent=&q=`           | Busca em português; sem `q`, as mais recentes                                    |
+| `POST /api/ops/memory`                    | `{agent, kind, content, sourceIssue?, supersedes?}`                              |
+| `GET /api/ops/reports?kind=&limit=`       | Relatórios mais recentes                                                         |
+| `POST /api/ops/reports`                   | `{kind, period, agent, title, body}`; mesmo tipo e período atualiza              |
 
 `kind` de memória: `fato`, `decisao`, `licao`, `preferencia`. De relatório: `saude`, `semanal`, `incidente`,
 `custos`, `produto`. A aplicação não apaga memória nem relatório.

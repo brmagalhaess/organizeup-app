@@ -6,10 +6,10 @@ import {
   detectCsvMapping,
   parseCsvTable,
   parseOfx,
+  parsePdfLines,
   parseStatementAmount,
   parseStatementDate,
   reconcileRows,
-  suggestCategory,
   withFingerprints,
   type KnownEntry,
   type StatementRow,
@@ -282,36 +282,30 @@ describe("conciliação", () => {
   });
 });
 
-describe("sugestão de categoria", () => {
-  const categories = [
-    { id: "m", name: "Mercado", kind: "despesa" as const },
-    { id: "o", name: "Outras despesas", kind: "despesa" as const },
-    { id: "s", name: "Salário", kind: "receita" as const },
-    { id: "x", name: "Outras receitas", kind: "receita" as const },
-    { id: "l", name: "Lazer", kind: "despesa" as const },
-  ];
-  const none = new Map<string, string>();
-
-  it("reconhece palavras conhecidas, sem acento e sem caixa", () => {
-    expect(suggestCategory(row({ description: "SUPERMERCADO BOM PREÇO" }), categories, none)).toBe(
-      "m",
+describe("extrato em PDF", () => {
+  it("lê data, descrição e valor, com ou sem saldo no fim", () => {
+    const { rows, skipped } = parsePdfLines(
+      [
+        "Extrato de conta corrente",
+        "15/10/2026 PADARIA EXEMPLO -12,34 1.000,00",
+        "16/10/2026 PIX RECEBIDO MARIA 1.500,00 2.500,00",
+        "17/10 LOJA EXEMPLO 45,90 D",
+        "18/10/26 Compra sem sinal 20,00",
+        "19/10/2026 SALDO DO DIA 2.000,00",
+        "Página 1 de 2",
+      ],
+      2026,
     );
-    expect(
-      suggestCategory(row({ description: "PAGTO SALÁRIO", kind: "receita" }), categories, none),
-    ).toBe("s");
+    expect(rows).toEqual([
+      { date: "2026-10-15", description: "PADARIA EXEMPLO", amount: "12.34", kind: "despesa" },
+      { date: "2026-10-16", description: "PIX RECEBIDO MARIA", amount: "1500.00", kind: "receita" },
+      { date: "2026-10-17", description: "LOJA EXEMPLO", amount: "45.90", kind: "despesa" },
+      { date: "2026-10-18", description: "Compra sem sinal", amount: "20.00", kind: "despesa" },
+    ]);
+    expect(skipped).toBe(1);
   });
 
-  it("o histórico da família vem antes das palavras", () => {
-    const history = new Map([["despesa:supermercado", "l"]]);
-    expect(suggestCategory(row({ description: "Supermercado 123" }), categories, history)).toBe(
-      "l",
-    );
-  });
-
-  it("sem pista, usa a categoria de outras", () => {
-    expect(suggestCategory(row({ description: "XPTO" }), categories, none)).toBe("o");
-    expect(suggestCategory(row({ description: "XPTO", kind: "receita" }), categories, none)).toBe(
-      "x",
-    );
+  it("não acha nada em texto sem lançamentos", () => {
+    expect(parsePdfLines(["Bem-vindo ao seu banco"], 2026).rows).toEqual([]);
   });
 });

@@ -1,6 +1,7 @@
 import {
   databaseStatus,
   findAgentMemories,
+  listCategorizationStats,
   listDeployments,
   listReports,
   listWorkerHeartbeats,
@@ -20,19 +21,21 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const agent = params.get("agent") ?? undefined;
   const query = params.get("q") ?? undefined;
-  const [database, deployments, workers, reports, own, team] = await Promise.all([
+  const [database, deployments, workers, reports, own, team, categorization] = await Promise.all([
     databaseStatus(),
     listDeployments(5),
     listWorkerHeartbeats(),
     listReports({ limit: 5 }),
     agent ? findAgentMemories({ agent, query }) : Promise.resolve([]),
     findAgentMemories({ query, limit: 10 }),
+    listCategorizationStats(14),
   ]);
   return Response.json(
     {
       production: { commit: process.env.APP_COMMIT ?? "dev", database, deployments, workers },
       reports,
       memories: { own, team },
+      categorization,
     },
     { headers: { "Cache-Control": "no-store" } },
   );
