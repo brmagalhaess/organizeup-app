@@ -16,6 +16,7 @@ import { buttonClass } from "@/components/styles";
 import { Badge, Button, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
 import { loadOverview } from "@/lib/finance-data";
 import { requireTenant } from "@/lib/session";
+import { loadNetWorth, loadReserve } from "@/lib/wealth";
 import { CashflowChart } from "./cashflow-chart";
 import { FirstSteps } from "./first-steps";
 import { confirmEntry } from "./lancamentos/actions";
@@ -46,7 +47,11 @@ function DueBadge({ overdue }: { overdue: boolean }) {
 
 export default async function OverviewPage() {
   const { session, ctx } = await requireTenant();
-  const data = await loadOverview(ctx);
+  const [data, reserve, wealth] = await Promise.all([
+    loadOverview(ctx),
+    loadReserve(ctx),
+    loadNetWorth(ctx, { record: false }),
+  ]);
   const writable = canWrite(ctx);
   const firstName = session.user.name.split(" ")[0];
   const dateLabel = new Date(`${data.today}T12:00:00Z`).toLocaleDateString("pt-BR", {
@@ -103,6 +108,39 @@ export default async function OverviewPage() {
           hint="Resultado de entradas e saídas do mês."
         />
       </dl>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Link
+          href="/app/reserva"
+          className="rounded-2xl border border-line bg-card p-5 shadow-card transition hover:border-brand-500"
+        >
+          <p className="text-sm text-muted">Reserva de emergência</p>
+          {reserve.baseline.basis === "sem_dados" ? (
+            <p className="mt-2 text-sm font-medium">Defina sua reserva</p>
+          ) : (
+            <>
+              <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">
+                {reserve.status.percent}%
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {formatBRL(reserve.status.saved)} de {formatBRL(reserve.status.target)}
+              </p>
+            </>
+          )}
+        </Link>
+        <Link
+          href="/app/patrimonio"
+          className="rounded-2xl border border-line bg-card p-5 shadow-card transition hover:border-brand-500"
+        >
+          <p className="text-sm text-muted">Patrimônio líquido</p>
+          <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">
+            {formatBRL(wealth.summary.net)}
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Tem {formatBRL(wealth.summary.owned)} · deve {formatBRL(wealth.summary.owed)}
+          </p>
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card title="Entradas e saídas" description="Últimos 6 meses, só o que já aconteceu.">

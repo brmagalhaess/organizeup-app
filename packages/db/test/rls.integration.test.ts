@@ -805,6 +805,216 @@ describe("isolamento da importação", () => {
   });
 });
 
+describe("isolamento de reserva e patrimônio", () => {
+  const { accounts, assets, debts, earmarks, emergencyFund, netWorthSnapshots } = db;
+  let ctxA: Awaited<ReturnType<typeof ctxFor>>;
+  let ctxB: Awaited<ReturnType<typeof ctxFor>>;
+  let accountA: string;
+  let debtA: string;
+
+  beforeAll(async () => {
+    ctxA = await ctxFor(A.owner, A.household);
+    ctxB = await ctxFor(B.owner, B.household);
+    await db.withHousehold(ctxB, (tx) => db.ensureFinanceDefaults(tx, B.household));
+    await db.withHousehold(ctxA, async (tx) => {
+      await db.ensureFinanceDefaults(tx, A.household);
+      const [account] = await tx.select({ id: accounts.id }).from(accounts).limit(1);
+      accountA = account!.id;
+      const [debt] = await tx
+        .insert(debts)
+        .values({
+          householdId: A.household,
+          accountId: accountA,
+          name: "Dívida do bem",
+          system: "manual",
+          originalBalance: "10.00",
+        })
+        .returning({ id: debts.id });
+      debtA = debt!.id;
+      await tx.insert(emergencyFund).values({ householdId: A.household, targetMonths: 6 });
+      await tx
+        .insert(earmarks)
+        .values({ householdId: A.household, accountId: accountA, purpose: "reserva" });
+      await tx.insert(assets).values({
+        householdId: A.household,
+        name: "Imóvel secreto",
+        kind: "imovel",
+        value: "1000.00",
+        valuedOn: "2026-10-30",
+        linkedDebtId: debtA,
+      });
+      await db.recordNetWorth(tx, A.household, "2026-10", {
+        owned: "1000.00",
+        owed: "0.00",
+        net: "1000.00",
+      });
+    });
+  });
+
+  it("não lê meta, contas marcadas, bens nem fotos de outra família", async () => {
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(emergencyFund)).toHaveLength(0);
+      expect(await tx.select().from(earmarks)).toHaveLength(0);
+      expect(await tx.select().from(assets)).toHaveLength(0);
+      expect(await tx.select().from(netWorthSnapshots)).toHaveLength(0);
+    });
+  });
+
+  it("FK composta impede marcar conta alheia e ligar bem a dívida alheia", async () => {
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx
+          .insert(earmarks)
+          .values({ householdId: B.household, accountId: accountA, purpose: "reserva" }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(assets).values({
+          householdId: B.household,
+          name: "Forjado",
+          kind: "outro",
+          value: "1.00",
+          valuedOn: "2026-10-30",
+          linkedDebtId: debtA,
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não grava", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    await db.withHousehold(viewer, async (tx) => {
+      expect(await tx.select().from(assets)).toHaveLength(1);
+    });
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        db.recordNetWorth(tx, A.household, "2026-11", { owned: "1", owed: "0", net: "1" }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("a foto do mês é substituída, não repetida", async () => {
+    await db.withHousehold(ctxA, async (tx) => {
+      await db.recordNetWorth(tx, A.household, "2026-10", {
+        owned: "2000.00",
+        owed: "0.00",
+        net: "2000.00",
+      });
+      const rows = await tx.select().from(netWorthSnapshots);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.net).toBe("2000.00");
+    });
+  });
+
+  it("apagar a dívida mantém o bem e a família dele", async () => {
+    await db.withHousehold(ctxA, async (tx) => {
+      await tx.delete(debts).where(eq(debts.id, debtA));
+      const [asset] = await tx.select().from(assets);
+      expect(asset!.linkedDebtId).toBeNull();
+      expect(asset!.householdId).toBe(A.household);
+    });
+  });
+
+  it("o saldo soma movimentos realizados e a dívida soma parcelas em aberto", async () => {
+    const { categories, debtInstallments, transactions } = db;
+    await db.withHousehold(ctxB, async (tx) => {
+      const [account] = await tx
+        .insert(accounts)
+        .values({ householdId: B.household, name: "Conta da conta", openingBalance: "100.00" })
+        .returning({ id: accounts.id });
+      const [category] = await tx
+        .select({ id: categories.id })
+        .from(categories)
+        .where(eq(categories.kind, "despesa"))
+        .limit(1);
+      const move = (
+        amount: string,
+        status: "realizado" | "previsto",
+        kind: "receita" | "despesa",
+      ) => ({
+        householdId: B.household,
+        accountId: account!.id,
+        categoryId: category!.id,
+        kind,
+        description: "Movimento",
+        amount,
+        occurredOn: "2026-10-05",
+        status,
+      });
+      await tx
+        .insert(transactions)
+        .values([
+          move("40.00", "realizado", "despesa"),
+          move("15.00", "realizado", "receita"),
+          move("999.00", "previsto", "despesa"),
+        ]);
+      const [debt] = await tx
+        .insert(debts)
+        .values({
+          householdId: B.household,
+          accountId: account!.id,
+          name: "Dívida da conta",
+          system: "manual",
+          originalBalance: "300.00",
+        })
+        .returning({ id: debts.id });
+      const [paid] = await tx
+        .insert(transactions)
+        .values(move("100.00", "realizado", "despesa"))
+        .returning({ id: transactions.id });
+      await tx.insert(debtInstallments).values(
+        [1, 2, 3].map((number) => ({
+          householdId: B.household,
+          debtId: debt!.id,
+          number,
+          dueDate: "2026-11-10",
+          amount: "100.00",
+          principal: "90.00",
+          interest: "10.00",
+          transactionId: number === 1 ? paid!.id : null,
+        })),
+      );
+
+      const input = await db.netWorthInputs(tx);
+      expect(input.accounts.find((a) => a.id === account!.id)?.balance).toBe("-25.00");
+      expect(input.debts.find((d) => d.id === debt!.id)?.balance).toBe("180.00");
+    });
+  });
+
+  it("os dados do patrimônio respeitam a família do contexto", async () => {
+    const seen = await db.withHousehold(ctxB, (tx) => db.netWorthInputs(tx));
+    expect(seen.assets).toHaveLength(0);
+    expect(seen.accounts.map((account) => account.name)).not.toContain("Dívida do bem");
+    expect(seen.debts.map((debt) => debt.name)).not.toContain("Dívida do bem");
+    const own = await db.withHousehold(ctxA, (tx) => db.netWorthInputs(tx));
+    expect(own.assets).toHaveLength(1);
+  });
+
+  it("worker grava a foto só da família do job", async () => {
+    const raw = postgres(urls.worker, { max: 1 });
+    try {
+      await raw.begin(async (tx) => {
+        await tx`select set_config('app.household_id', ${B.household}, true), set_config('app.role', 'system', true)`;
+        await tx`insert into net_worth_snapshots (household_id, month, owned, owed, net) values (${B.household}, '2026-10', 1, 0, 1)`;
+      });
+      await expect(
+        raw.begin(async (tx) => {
+          await tx`select set_config('app.household_id', ${B.household}, true), set_config('app.role', 'system', true)`;
+          await tx`insert into net_worth_snapshots (household_id, month, owned, owed, net) values (${A.household}, '2026-09', 1, 0, 1)`;
+        }),
+      ).rejects.toThrow();
+    } finally {
+      await raw.end();
+    }
+  });
+
+  it("lista as famílias sem expor dados delas", async () => {
+    const ids = await db.listHouseholdIds();
+    expect(ids).toEqual(expect.arrayContaining([A.household, B.household]));
+  });
+});
+
 describe("ops", () => {
   it("registra e lista deploys sem tenant", async () => {
     await db.recordDeployment({ service: "web", commit: "abc1234", hostname: "test" });

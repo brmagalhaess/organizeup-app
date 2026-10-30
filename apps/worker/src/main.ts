@@ -12,6 +12,7 @@ import {
   recordWorkerHeartbeat,
 } from "@organizeup/db";
 import { migrate, migrateOptionsFromEnv } from "@organizeup/db/migrator";
+import { snapshotNetWorth } from "./net-worth";
 
 process.env.OU_PROCESS ??= "organizeup-worker";
 
@@ -51,6 +52,13 @@ async function main() {
     });
   });
   await boss.schedule(JOB_QUEUES.opsHeartbeat, "*/5 * * * *", null, { tz: "America/Sao_Paulo" });
+
+  // Atualiza todo dia a foto do mês: a última de cada mês fica como o fechamento dele.
+  await boss.work(JOB_QUEUES.netWorthSnapshot, () => snapshotNetWorth(log));
+  await boss.schedule(JOB_QUEUES.netWorthSnapshot, "30 2 * * *", null, {
+    tz: "America/Sao_Paulo",
+  });
+  await boss.send(JOB_QUEUES.netWorthSnapshot, null);
 
   log.info({ commit, workerId }, "worker pronto");
 

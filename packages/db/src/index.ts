@@ -17,6 +17,7 @@ export {
 } from "./tenant";
 export { withAdmin } from "./admin";
 export { ensureFinanceDefaults } from "./finance";
+export { householdTimezone, listHouseholdIds, netWorthInputs, recordNetWorth } from "./wealth";
 export {
   databaseStatus,
   listDeployments,

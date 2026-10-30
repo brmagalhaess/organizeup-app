@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   CalendarDays,
   CreditCard,
+  Gem,
   HandCoins,
   LayoutDashboard,
   Landmark,
@@ -49,6 +50,13 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
     ],
   },
   {
+    title: "Patrimônio",
+    items: [
+      { href: "/app/reserva", label: "Reserva", icon: PiggyBank },
+      { href: "/app/patrimonio", label: "Patrimônio", icon: Gem },
+    ],
+  },
+  {
     title: "Família",
     items: [
       { href: "/app/familia", label: "Pessoas", icon: Users },
@@ -59,7 +67,6 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
 
 const soon: Array<{ label: string; icon: LucideIcon }> = [
   { label: "Calendário", icon: CalendarDays },
-  { label: "Reserva", icon: PiggyBank },
   { label: "Investimentos", icon: TrendingUp },
   { label: "Proventos", icon: HandCoins },
   { label: "Aposentadoria", icon: Sunset },
@@ -235,12 +242,12 @@ export function AppShell({
       options={{ accounts, categories, cards }}
     >
       <div className="min-h-dvh lg:grid lg:grid-cols-[16.5rem_minmax(0,1fr)]">
-        <aside className="sticky top-0 hidden h-dvh flex-col gap-6 overflow-y-auto bg-pine p-4 lg:flex">
+        <aside className="sticky top-0 hidden h-dvh flex-col gap-4 bg-pine p-4 lg:flex">
           <Link href="/app" className="px-3 pt-2 font-display text-xl font-semibold text-white">
             OrganizeUp
           </Link>
           <QuickAdd className="w-full" />
-          <div className="flex-1">
+          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-color:rgb(255_255_255/0.3)_transparent] [scrollbar-width:thin]">
             <Navigation />
           </div>
           <UserFooter userName={userName} familyName={familyName} />

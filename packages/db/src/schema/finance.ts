@@ -330,3 +330,81 @@ export const debtInstallments = pgTable(
     }),
   ],
 );
+
+export const emergencyFund = pgTable("emergency_fund", {
+  householdId: text("household_id")
+    .primaryKey()
+    .references(() => household.id, { onDelete: "cascade" }),
+  targetMonths: smallint("target_months").notNull().default(6),
+  monthlyAmount: amount("monthly_amount"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const earmarks = pgTable(
+  "earmarks",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    purpose: text("purpose", { enum: ["reserva"] }).notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.accountId, t.purpose),
+    foreignKey({
+      columns: [t.householdId, t.accountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+    }),
+  ],
+);
+
+export const ASSET_KINDS = ["imovel", "veiculo", "outro"] as const;
+
+export const assets = pgTable(
+  "assets",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: text("kind", { enum: ASSET_KINDS }).notNull(),
+    value: amount("value").notNull(),
+    valuedOn: date("valued_on", { mode: "string" }).notNull(),
+    linkedDebtId: text("linked_debt_id"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("assets_household_id_idx").on(t.householdId),
+    // Na migração é SET NULL só de linked_debt_id, para não apagar household_id.
+    foreignKey({
+      columns: [t.householdId, t.linkedDebtId],
+      foreignColumns: [debts.householdId, debts.id],
+    }),
+  ],
+);
+
+export const netWorthSnapshots = pgTable(
+  "net_worth_snapshots",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    month: char("month", { length: 7 }).notNull(),
+    owned: numeric("owned", { precision: 16, scale: 2 }).notNull(),
+    owed: numeric("owed", { precision: 16, scale: 2 }).notNull(),
+    net: numeric("net", { precision: 16, scale: 2 }).notNull(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.householdId, t.month)],
+);
