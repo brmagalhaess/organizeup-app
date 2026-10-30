@@ -42,6 +42,7 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { href: "/app", label: "Painel", icon: LayoutDashboard },
       { href: "/app/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
+      { href: "/app/calendario", label: "Calendário", icon: CalendarDays },
       { href: "/app/importar", label: "Importar extrato", icon: Upload },
       { href: "/app/contas", label: "Contas", icon: Landmark },
       { href: "/app/cartoes", label: "Cartões", icon: CreditCard },
@@ -66,7 +67,6 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
 ];
 
 const soon: Array<{ label: string; icon: LucideIcon }> = [
-  { label: "Calendário", icon: CalendarDays },
   { label: "Investimentos", icon: TrendingUp },
   { label: "Proventos", icon: HandCoins },
   { label: "Aposentadoria", icon: Sunset },

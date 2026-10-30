@@ -45,6 +45,11 @@ const modules = [
     ready: true,
   },
   {
+    name: "Calendário",
+    text: "Vencimentos, compromissos e o saldo previsto de cada dia.",
+    ready: true,
+  },
+  {
     name: "Dívidas e cartões",
     text: "Faturas, parcelas, juros e a melhor ordem para quitar.",
     ready: true,

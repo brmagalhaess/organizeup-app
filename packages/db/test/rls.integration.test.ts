@@ -1015,6 +1015,59 @@ describe("isolamento de reserva e patrimônio", () => {
   });
 });
 
+describe("isolamento do calendário", () => {
+  const { calendarEvents } = db;
+  const event = (householdId: string) => ({
+    householdId,
+    title: "Consulta secreta",
+    eventDate: "2026-11-15",
+  });
+
+  it("não lê, altera nem apaga compromisso de outra família", async () => {
+    const ctxA = await ctxFor(A.owner, A.household);
+    const ctxB = await ctxFor(B.owner, B.household);
+    const [created] = await db.withHousehold(ctxA, (tx) =>
+      tx.insert(calendarEvents).values(event(A.household)).returning({ id: calendarEvents.id }),
+    );
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(calendarEvents)).toHaveLength(0);
+      expect(
+        await tx
+          .update(calendarEvents)
+          .set({ title: "Invadido" })
+          .where(eq(calendarEvents.id, created!.id))
+          .returning({ id: calendarEvents.id }),
+      ).toHaveLength(0);
+      expect(
+        await tx
+          .delete(calendarEvents)
+          .where(eq(calendarEvents.id, created!.id))
+          .returning({ id: calendarEvents.id }),
+      ).toHaveLength(0);
+    });
+    await db.withHousehold(ctxA, async (tx) => {
+      expect(await tx.select().from(calendarEvents)).toHaveLength(1);
+    });
+  });
+
+  it("não grava compromisso com a família de outra pessoa", async () => {
+    const ctxB = await ctxFor(B.owner, B.household);
+    await expect(
+      db.withHousehold(ctxB, (tx) => tx.insert(calendarEvents).values(event(A.household))),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não marca compromisso", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    await db.withHousehold(viewer, async (tx) => {
+      expect(await tx.select().from(calendarEvents)).toHaveLength(1);
+    });
+    await expect(
+      db.withHousehold(viewer, (tx) => tx.insert(calendarEvents).values(event(A.household))),
+    ).rejects.toThrow();
+  });
+});
+
 describe("ops", () => {
   it("registra e lista deploys sem tenant", async () => {
     await db.recordDeployment({ service: "web", commit: "abc1234", hostname: "test" });

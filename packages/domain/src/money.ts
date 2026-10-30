@@ -80,3 +80,15 @@ const brlCompact = new Intl.NumberFormat("pt-BR", {
 export function formatBRLCompact(value: MoneyInput): string {
   return brlCompact.format(toCents(value).toNumber());
 }
+
+const brlWhole = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  maximumFractionDigits: 0,
+});
+
+/** Formato curto para espaços pequenos: reais inteiros até mil ("R$ 390"), depois "R$ 2,4 mil". */
+export function formatBRLShort(value: MoneyInput): string {
+  const cents = toCents(value);
+  return cents.abs().lt(1000) ? brlWhole.format(cents.toNumber()) : formatBRLCompact(cents);
+}

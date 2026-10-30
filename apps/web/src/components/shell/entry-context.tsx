@@ -4,7 +4,7 @@ import { Sheet } from "@/components/ui";
 import { EntryForm, type EditableEntry, type EntryOptions } from "./entry-form";
 
 interface EntryDialog {
-  openNew: (kind?: "receita" | "despesa", cardId?: string) => void;
+  openNew: (kind?: "receita" | "despesa", cardId?: string, date?: string) => void;
   openEdit: (entry: EditableEntry) => void;
   writable: boolean;
 }
@@ -22,6 +22,7 @@ interface DialogState {
   nonce: number;
   kind: "receita" | "despesa";
   cardId: string | null;
+  date: string | null;
   entry: EditableEntry | null;
 }
 
@@ -42,23 +43,32 @@ export function EntryDialogProvider({
     nonce: 0,
     kind: "despesa",
     cardId: null,
+    date: null,
     entry: null,
   });
 
   const openNew = useCallback(
-    (kind: "receita" | "despesa" = "despesa", cardId?: string) =>
+    (kind: "receita" | "despesa" = "despesa", cardId?: string, date?: string) =>
       setState((s) => ({
         open: true,
         nonce: s.nonce + 1,
         kind,
         cardId: cardId ?? null,
+        date: date ?? null,
         entry: null,
       })),
     [],
   );
   const openEdit = useCallback(
     (entry: EditableEntry) =>
-      setState((s) => ({ open: true, nonce: s.nonce + 1, kind: entry.kind, cardId: null, entry })),
+      setState((s) => ({
+        open: true,
+        nonce: s.nonce + 1,
+        kind: entry.kind,
+        cardId: null,
+        date: null,
+        entry,
+      })),
     [],
   );
   const close = useCallback(() => setState((s) => ({ ...s, open: false })), []);
@@ -75,7 +85,7 @@ export function EntryDialogProvider({
       >
         <EntryForm
           key={state.nonce}
-          today={today}
+          today={state.date ?? today}
           options={options}
           initialKind={state.kind}
           initialCard={state.cardId}

@@ -408,3 +408,24 @@ export const netWorthSnapshots = pgTable(
   },
   (t) => [unique().on(t.householdId, t.month)],
 );
+
+export const calendarEvents = pgTable(
+  "calendar_events",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    eventDate: date("event_date", { mode: "string" }).notNull(),
+    yearly: boolean("yearly").notNull().default(false),
+    createdBy: text("created_by"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("calendar_events_household_date_idx").on(t.householdId, t.eventDate),
+  ],
+);

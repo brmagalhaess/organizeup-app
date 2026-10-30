@@ -147,7 +147,18 @@ export default async function OverviewPage() {
           <CashflowChart series={data.series} />
         </Card>
 
-        <Card title="Próximos vencimentos" description="O que ainda está em aberto.">
+        <Card
+          title="Próximos vencimentos"
+          description="O que ainda está em aberto."
+          actions={
+            <Link
+              href="/app/calendario"
+              className="text-sm font-medium underline-offset-2 hover:underline"
+            >
+              Ver calendário
+            </Link>
+          }
+        >
           {data.pending.length === 0 ? (
             <EmptyState
               title="Nada em aberto"

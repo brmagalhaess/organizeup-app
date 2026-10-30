@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { formatBRL, money, parseBRL, splitInstallments, toCents, toDbAmount } from "../src/money";
+import {
+  formatBRL,
+  formatBRLShort,
+  money,
+  parseBRL,
+  splitInstallments,
+  toCents,
+  toDbAmount,
+} from "../src/money";
+
+describe("formato curto", () => {
+  it("arredonda abaixo de mil e abrevia acima", () => {
+    expect(formatBRLShort("389.90").replace(/\s/g, " ")).toBe("R$ 390");
+    expect(formatBRLShort("-389.90").replace(/\s/g, " ")).toBe("-R$ 390");
+    expect(formatBRLShort("2400.00").replace(/\s/g, " ")).toBe("R$ 2,4 mil");
+  });
+});
 
 describe("money", () => {
   it("evita erro de ponto flutuante", () => {
