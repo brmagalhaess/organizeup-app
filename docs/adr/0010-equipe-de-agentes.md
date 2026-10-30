@@ -18,6 +18,9 @@ Status: aceito (2026-10-30)
   segredos cifrados do Paperclip, entregues pelo ambiente do projeto.
 - **Criar agente**: só o Gestor, e toda contratação depende de aprovação do fundador
   (`requireBoardApprovalForNewAgents`). O padrão do Paperclip dava a permissão a todos; foi retirada.
+- **Encerrar agente**: só o fundador. O Paperclip recusa `terminate` vindo de agente (403, testado em ORG-5). O
+  Gestor pede por confirmação na tarefa. Dar acesso de board a ele resolveria, mas abriria o Paperclip inteiro
+  a um agente, então não foi feito.
 - **Memória e relatórios no banco** (`ops.agent_memory`, `ops.reports`), pela Ops API. Sem dados pessoais: a
   rota recusa texto com aparência de e-mail, CPF, CNPJ, telefone ou cartão, e a aplicação não apaga nada.
 
