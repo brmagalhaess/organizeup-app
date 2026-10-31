@@ -49,6 +49,7 @@ export {
 } from "./wealth";
 export {
   addAgentMemory,
+  aiMonthTotals,
   databaseStatus,
   findAgentMemories,
   hasAgentRunToday,
@@ -61,12 +62,14 @@ export {
   listWorkerHeartbeats,
   recordAdminAccess,
   recordAgentRun,
+  recordAiStats,
   recordCategorizationStats,
   recordDeployment,
   recordPlatformStats,
   recordWorkerHeartbeat,
   saveReport,
   type AgentRunCounts,
+  type AiUsageCounts,
   type CategorizationCounts,
   type MemoryKind,
   type PlatformCounts,

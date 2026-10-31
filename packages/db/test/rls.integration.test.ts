@@ -2740,6 +2740,230 @@ describe("gerência do painel do serviço", () => {
   });
 });
 
+describe("assistente com IA (ADR-0018)", () => {
+  const { aiStats, aiUsage, assistantMessages, assistantThreads } = db;
+  const SPOUSE = "user-a-conjuge-ia";
+  let threadId = "";
+
+  const addThread = (ctx: Awaited<ReturnType<typeof ctxFor>>, userId: string, household: string) =>
+    db.withHousehold(ctx, async (tx) => {
+      const [row] = await tx
+        .insert(assistantThreads)
+        .values({ householdId: household, userId, title: "Conversa de teste" })
+        .returning({ id: assistantThreads.id });
+      return row!.id;
+    });
+
+  beforeAll(async () => {
+    await db.withAdmin("seed do teste do assistente", async (admin) => {
+      await admin.insert(user).values({ id: SPOUSE, name: "Cida", email: "cida@example.com" });
+      await admin
+        .insert(householdMember)
+        .values({ id: "m-ia", organizationId: A.household, userId: SPOUSE, role: "adult" });
+    });
+    threadId = await addThread(await ctxFor(A.owner, A.household), A.owner, A.household);
+    await db.withHousehold(await ctxFor(A.owner, A.household), (tx) =>
+      tx.insert(assistantMessages).values({
+        householdId: A.household,
+        userId: A.owner,
+        threadId,
+        role: "user",
+        content: { text: "Quanto gastei?" },
+      }),
+    );
+  });
+
+  it("consentimento e autonomia têm padrão e valores fechados", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    const [row] = await db.withHousehold(ctx, (tx) =>
+      tx
+        .select({ at: householdSettings.aiConsentAt, autonomy: householdSettings.aiAutonomy })
+        .from(householdSettings),
+    );
+    expect(row).toEqual({ at: null, autonomy: "organizar" });
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.execute(sql`update household_settings set ai_autonomy = 'total'`),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("outra família não vê a conversa nem o uso", async () => {
+    const ctxB = await ctxFor(B.owner, B.household);
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(assistantThreads)).toHaveLength(0);
+      expect(await tx.select().from(assistantMessages)).toHaveLength(0);
+      expect(await tx.select().from(aiUsage)).toHaveLength(0);
+    });
+    await expect(addThread(ctxB, B.owner, A.household)).rejects.toThrow();
+  });
+
+  it("na mesma família, cada pessoa só vê as próprias conversas", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const spouse = await ctxFor(SPOUSE, A.household);
+    await db.withHousehold(owner, async (tx) => {
+      expect(await tx.select().from(assistantThreads)).toHaveLength(1);
+      expect(await tx.select().from(assistantMessages)).toHaveLength(1);
+    });
+    await db.withHousehold(spouse, async (tx) => {
+      expect(await tx.select().from(assistantThreads)).toHaveLength(0);
+      expect(await tx.select().from(assistantMessages)).toHaveLength(0);
+      const updated = await tx
+        .update(assistantThreads)
+        .set({ title: "Troquei" })
+        .where(eq(assistantThreads.id, threadId))
+        .returning({ id: assistantThreads.id });
+      expect(updated).toHaveLength(0);
+      const deleted = await tx
+        .delete(assistantThreads)
+        .where(eq(assistantThreads.id, threadId))
+        .returning({ id: assistantThreads.id });
+      expect(deleted).toHaveLength(0);
+    });
+    await expect(addThread(spouse, A.owner, A.household)).rejects.toThrow();
+  });
+
+  it("a FK não deixa pôr mensagem na conversa de outra pessoa", async () => {
+    const spouse = await ctxFor(SPOUSE, A.household);
+    await expect(
+      db.withHousehold(spouse, (tx) =>
+        tx.insert(assistantMessages).values({
+          householdId: A.household,
+          userId: SPOUSE,
+          threadId,
+          role: "user",
+          content: { text: "Entrei na conversa dela" },
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("mensagem não muda e some com a conversa", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    await db.withHousehold(owner, async (tx) => {
+      expect(
+        await tx
+          .update(assistantMessages)
+          .set({ content: { text: "reescrita" } })
+          .returning({ id: assistantMessages.id }),
+      ).toHaveLength(0);
+      expect(await tx.delete(assistantMessages).returning({ id: assistantMessages.id })).toEqual(
+        [],
+      );
+    });
+    const other = await addThread(owner, A.owner, A.household);
+    await db.withHousehold(owner, async (tx) => {
+      await tx.insert(assistantMessages).values({
+        householdId: A.household,
+        userId: A.owner,
+        threadId: other,
+        role: "assistant",
+        content: { text: "Oi" },
+      });
+      await tx.delete(assistantThreads).where(eq(assistantThreads.id, other));
+      expect(
+        await tx.select().from(assistantMessages).where(eq(assistantMessages.threadId, other)),
+      ).toHaveLength(0);
+    });
+  });
+
+  it("papel viewer e modo manutenção não conversam; o worker não lê conversa", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    await expect(addThread(viewer, A.viewer, A.household)).rejects.toThrow();
+    const readOnly = db.readOnlyContext(await ctxFor(A.owner, A.household));
+    await expect(addThread(readOnly, A.owner, A.household)).rejects.toThrow();
+    // A web usa ou_app: o papel 'system' não abre leitura de conversa alheia.
+    await db.withHousehold(db.fromJob({ householdId: A.household }), async (tx) => {
+      expect(await tx.select().from(assistantThreads)).toHaveLength(0);
+    });
+  });
+
+  it("ai_usage é por família, não aceita texto em rota ou modelo e soma por dia", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    await db.withHousehold(owner, async (tx) => {
+      await tx.insert(aiUsage).values({
+        householdId: A.household,
+        day: "2026-10-31",
+        route: "chat",
+        model: "claude-opus-5-5",
+        calls: 1,
+        inputTokens: 100,
+        outputTokens: 20,
+        cacheReadTokens: 900,
+        cacheWriteTokens: 50,
+        costUsd: "0.001234",
+      });
+      const rows = await tx.select().from(aiUsage);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.costUsd).toBe("0.001234");
+    });
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.insert(aiUsage).values({
+          householdId: A.household,
+          day: "2026-10-31",
+          route: "Quanto gastei em outubro?",
+          model: "claude-opus-5-5",
+        }),
+      ),
+    ).rejects.toThrow();
+    const viewer = await ctxFor(A.viewer, A.household);
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        tx
+          .insert(aiUsage)
+          .values({ householdId: A.household, day: "2026-10-30", route: "chat", model: "m" }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("ops.ai_stats soma por dia e rota, só a web grava e não há coluna de família", async () => {
+    const counts = {
+      calls: 2,
+      inputTokens: 10,
+      outputTokens: 5,
+      cacheReadTokens: 100,
+      cacheWriteTokens: 7,
+      costUsd: "1.250000",
+    };
+    await db.recordAiStats("2026-09-02", "chat", counts);
+    await db.recordAiStats("2026-09-02", "chat", counts);
+    await db.recordAiStats("2026-09-30", "chat", counts);
+    await db.recordAiStats("2026-10-01", "chat", counts);
+    const month = await db.aiMonthTotals("2026-09");
+    expect(month).toMatchObject({ calls: 6, cacheReadTokens: 300 });
+    expect(Number(month.costUsd)).toBeCloseTo(3.75);
+    expect((await db.aiMonthTotals("2020-01")).calls).toBe(0);
+
+    expect(Object.keys(aiStats)).not.toContain("householdId");
+    const raw = postgres(urls.worker, { max: 1 });
+    try {
+      await expect(
+        raw`insert into ops.ai_stats (day, route) values ('2026-09-03', 'chat')`,
+      ).rejects.toThrow();
+    } finally {
+      await raw.end();
+    }
+  });
+
+  it("apagar a conta leva só as conversas daquela pessoa", async () => {
+    const id = "user-a-sai-ia";
+    await db.withAdmin("seed do teste do assistente", async (admin) => {
+      await admin.insert(user).values({ id, name: "Edu", email: "edu@example.com" });
+      await admin
+        .insert(householdMember)
+        .values({ id: "m-ia-2", organizationId: A.household, userId: id, role: "adult" });
+    });
+    await addThread(await ctxFor(id, A.household), id, A.household);
+    await db.withAdmin("limpeza do teste do assistente", (admin) =>
+      admin.delete(user).where(eq(user.id, id)),
+    );
+    const owner = await ctxFor(A.owner, A.household);
+    const rows = await db.withHousehold(owner, (tx) => tx.select().from(assistantThreads));
+    expect(rows.map((row) => row.id)).toEqual([threadId]);
+  });
+});
+
 describe("exportação e exclusão da família", () => {
   it("a exportação cobre toda tabela com household_id", async () => {
     const owner = await ctxFor(A.owner, A.household);

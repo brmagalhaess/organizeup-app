@@ -58,6 +58,10 @@ export const people = pgTable(
   (t) => [unique().on(t.householdId, t.id), index("people_household_id_idx").on(t.householdId)],
 );
 
+/** Nível de autonomia do assistente, escolhido na ativação (ADR-0018). */
+export const AI_AUTONOMY_LEVELS = ["sugerir", "organizar", "completo"] as const;
+export type AiAutonomy = (typeof AI_AUTONOMY_LEVELS)[number];
+
 export const householdSettings = pgTable(
   "household_settings",
   {
@@ -85,6 +89,11 @@ export const householdSettings = pgTable(
     weddingEventId: text("wedding_event_id"),
     onboardingVersion: smallint("onboarding_version").notNull().default(0),
     onboardingCompletedAt: ts("onboarding_completed_at"),
+    // Assistente com IA (ADR-0018). Sem ai_consent_at, nenhuma chamada ao modelo.
+    aiConsentAt: ts("ai_consent_at"),
+    aiConsentVersion: text("ai_consent_version"),
+    aiConsentBy: text("ai_consent_by").references(() => user.id, { onDelete: "set null" }),
+    aiAutonomy: text("ai_autonomy", { enum: AI_AUTONOMY_LEVELS }).notNull().default("organizar"),
     createdAt: ts("created_at").notNull().defaultNow(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },

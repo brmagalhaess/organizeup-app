@@ -66,6 +66,8 @@ export async function suspendedHouseholdIds(ids: string[]): Promise<Set<string>>
 export const FLAG_KEYS = {
   maintenance: "manutencao",
   signupClosed: "cadastro_fechado",
+  /** Assistente com IA. Linha ausente: ligado. `enabled = false`: desligado pelo painel. */
+  ai: "ai",
   agentOff: (agent: string) => `agente_desligado:${agent}`,
   notice: (id: string) => `aviso:${id}`,
 } as const;
@@ -86,6 +88,7 @@ export interface PlatformFlags {
   maintenance: boolean;
   maintenanceMessage: string | null;
   signupClosed: boolean;
+  aiEnabled: boolean;
   disabledAgents: string[];
   notices: PlatformNotice[];
 }
@@ -94,6 +97,7 @@ export const NO_FLAGS: PlatformFlags = {
   maintenance: false,
   maintenanceMessage: null,
   signupClosed: false,
+  aiEnabled: true,
   disabledAgents: [],
   notices: [],
 };
@@ -114,6 +118,8 @@ export function parsePlatformFlags(rows: FlagRow[]): PlatformFlags {
       flags.maintenanceMessage = enabled ? text(value.message) : null;
     } else if (key === FLAG_KEYS.signupClosed) {
       flags.signupClosed = enabled;
+    } else if (key === FLAG_KEYS.ai) {
+      flags.aiEnabled = enabled;
     } else if (key.startsWith(AGENT_PREFIX) && enabled) {
       flags.disabledAgents.push(key.slice(AGENT_PREFIX.length));
     } else if (key.startsWith(NOTICE_PREFIX) && enabled && text(value.text)) {

@@ -6,6 +6,7 @@ import {
   adminAccess,
   agentMemory,
   agentRuns,
+  aiStats,
   categorizationStats,
   deployments,
   platformStats,
@@ -293,6 +294,73 @@ export async function listPlatformStats(limit = 84) {
         .limit(Math.min(Math.max(limit, 1), 400)),
     [],
   );
+}
+
+export interface AiUsageCounts {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  /** Decimal em string, como vem do numeric. */
+  costUsd: string;
+}
+
+/** Soma o uso do dia e da rota. Sem família: é a base do teto mensal. */
+export async function recordAiStats(
+  day: string,
+  route: string,
+  counts: AiUsageCounts,
+): Promise<void> {
+  await appPool()
+    .db.insert(aiStats)
+    .values({ day, route, ...counts })
+    .onConflictDoUpdate({
+      target: [aiStats.day, aiStats.route],
+      set: {
+        calls: sql`${aiStats.calls} + excluded.calls`,
+        inputTokens: sql`${aiStats.inputTokens} + excluded.input_tokens`,
+        outputTokens: sql`${aiStats.outputTokens} + excluded.output_tokens`,
+        cacheReadTokens: sql`${aiStats.cacheReadTokens} + excluded.cache_read_tokens`,
+        cacheWriteTokens: sql`${aiStats.cacheWriteTokens} + excluded.cache_write_tokens`,
+        costUsd: sql`${aiStats.costUsd} + excluded.cost_usd`,
+        updatedAt: sql`now()`,
+      },
+    });
+}
+
+/** Somas do mês (`AAAA-MM`) para o teto e para o painel. Sem a tabela ainda, tudo zero. */
+export async function aiMonthTotals(month: string): Promise<AiUsageCounts> {
+  const empty: AiUsageCounts = {
+    calls: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    costUsd: "0",
+  };
+  return tolerateSchemaLag(async () => {
+    const [row] = await appPool()
+      .db.select({
+        calls: sql<number>`coalesce(sum(${aiStats.calls}), 0)::int`,
+        inputTokens: sql<number>`coalesce(sum(${aiStats.inputTokens}), 0)::bigint`,
+        outputTokens: sql<number>`coalesce(sum(${aiStats.outputTokens}), 0)::bigint`,
+        cacheReadTokens: sql<number>`coalesce(sum(${aiStats.cacheReadTokens}), 0)::bigint`,
+        cacheWriteTokens: sql<number>`coalesce(sum(${aiStats.cacheWriteTokens}), 0)::bigint`,
+        costUsd: sql<string>`coalesce(sum(${aiStats.costUsd}), 0)::text`,
+      })
+      .from(aiStats)
+      .where(sql`to_char(${aiStats.day}, 'YYYY-MM') = ${month}`);
+    if (!row) return empty;
+    return {
+      calls: Number(row.calls),
+      inputTokens: Number(row.inputTokens),
+      outputTokens: Number(row.outputTokens),
+      cacheReadTokens: Number(row.cacheReadTokens),
+      cacheWriteTokens: Number(row.cacheWriteTokens),
+      costUsd: row.costUsd,
+    };
+  }, empty);
 }
 
 export interface QueueCount {
