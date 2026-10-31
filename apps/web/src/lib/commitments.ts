@@ -1,180 +1,33 @@
 import "server-only";
+import { cardBook } from "@organizeup/agents";
 import {
   accounts,
   and,
   asc,
-  cardPurchases,
-  cardStatementPayments,
   categories,
-  creditCards,
   debtInstallments,
   debts,
   eq,
   goalContributions,
   goals,
   householdSettings,
-  inArray,
   isNull,
   withHousehold,
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
 import {
-  CARD_CATEGORY,
-  CONTRIBUTION_CATEGORY,
-  DEBT_CATEGORY,
-  GOAL_CATEGORY,
   linesTotal,
   money,
-  occurrenceDate,
-  purchaseLines,
-  statementDueDate,
   statementMonthOf,
   toDbAmount,
   todayIn,
   yearMonthOf,
-  type ScheduledEntry,
   type StatementLine,
   type YearMonth,
 } from "@organizeup/domain";
-import { scheduledIncome } from "./income-data";
 
-/** Id das categorias do sistema, garantidas por `ensureFinanceDefaults`. */
-export async function systemCategories(tx: TenantTx) {
-  const rows = await tx
-    .select({ id: categories.id, name: categories.name, kind: categories.kind })
-    .from(categories)
-    .where(
-      inArray(categories.name, [
-        CARD_CATEGORY,
-        DEBT_CATEGORY,
-        GOAL_CATEGORY,
-        CONTRIBUTION_CATEGORY,
-      ]),
-    );
-  // "Metas e objetivos" existe como despesa e como receita.
-  const find = (kind: "despesa" | "receita", name: string) =>
-    rows.find((row) => row.kind === kind && row.name === name)?.id;
-  return {
-    card: find("despesa", CARD_CATEGORY),
-    debt: find("despesa", DEBT_CATEGORY),
-    goal: find("despesa", GOAL_CATEGORY),
-    goalIncome: find("receita", GOAL_CATEGORY),
-    contribution: find("despesa", CONTRIBUTION_CATEGORY),
-  };
-}
-
-export const goalEntryDescription = (name: string, number: number, total: number) =>
-  `Meta: ${name} (${number}/${total})`;
-
-/** Parcelas de meta ainda não confirmadas. Meta sem conta de origem fica fora: não há de onde sair. */
-async function goalEntries(tx: TenantTx, categoryId: string | undefined) {
-  const rows = await tx
-    .select({ contribution: goalContributions, goal: goals })
-    .from(goalContributions)
-    .innerJoin(goals, eq(goalContributions.goalId, goals.id))
-    .orderBy(asc(goalContributions.month));
-  const position = new Map<string, number>();
-  const totals = new Map<string, number>();
-  for (const { contribution } of rows) {
-    const number = (totals.get(contribution.goalId) ?? 0) + 1;
-    totals.set(contribution.goalId, number);
-    position.set(contribution.id, number);
-  }
-  return rows.flatMap(({ contribution, goal }): ScheduledEntry[] => {
-    const active = goal.status !== "pausada" && goal.status !== "concluida";
-    if (contribution.transactionId !== null || !goal.accountId || !active) return [];
-    return [
-      {
-        key: `g:${goal.id}:${contribution.month}`,
-        source: "meta",
-        id: goal.id,
-        kind: "despesa",
-        description: goalEntryDescription(
-          goal.name,
-          position.get(contribution.id)!,
-          totals.get(goal.id)!,
-        ),
-        amount: contribution.amount,
-        date: occurrenceDate(goal.planDay, contribution.month),
-        categoryId: categoryId ?? "",
-        accountId: goal.accountId,
-      },
-    ];
-  });
-}
-
-/** Cartões com as parcelas calculadas e os meses de fatura já pagos. */
-async function cardBook(tx: TenantTx) {
-  const cards = await tx.select().from(creditCards).orderBy(asc(creditCards.createdAt));
-  const purchases = await tx.select().from(cardPurchases).orderBy(asc(cardPurchases.purchasedOn));
-  const payments = await tx.select().from(cardStatementPayments);
-  return cards.map((card) => ({
-    card,
-    lines: purchases
-      .filter((purchase) => purchase.cardId === card.id)
-      .flatMap((purchase) => purchaseLines(purchase, card)),
-    paid: new Set(payments.filter((p) => p.cardId === card.id).map((p) => p.statementMonth)),
-  }));
-}
-
-/**
- * Faturas, parcelas, metas e rendas em aberto, prontas para entrar no fluxo do mês. A renda não tem fim
- * definido, por isso é calculada só para os meses pedidos.
- */
-export async function loadCommitments(tx: TenantTx, months: { from: YearMonth; to: YearMonth }) {
-  const book = await cardBook(tx);
-  const category = await systemCategories(tx);
-
-  const statements: ScheduledEntry[] = book.flatMap(({ card, lines, paid }) => {
-    const open = [...new Set(lines.map((line) => line.statementMonth))].filter(
-      (month) => !paid.has(month),
-    );
-    return open.map((month) => ({
-      key: `f:${card.id}:${month}`,
-      source: "fatura",
-      id: card.id,
-      description: `Fatura ${card.name}`,
-      amount: linesTotal(lines.filter((line) => line.statementMonth === month)),
-      date: statementDueDate(month, card),
-      categoryId: category.card ?? "",
-      accountId: card.payingAccountId,
-    }));
-  });
-
-  const rows = await tx
-    .select({ installment: debtInstallments, debt: debts })
-    .from(debtInstallments)
-    .innerJoin(debts, eq(debtInstallments.debtId, debts.id))
-    .where(eq(debts.archived, false));
-  const totals = new Map<string, number>();
-  for (const { installment } of rows)
-    totals.set(installment.debtId, (totals.get(installment.debtId) ?? 0) + 1);
-
-  const installments: ScheduledEntry[] = rows
-    .filter(({ installment }) => installment.transactionId === null)
-    .map(({ installment, debt }) => ({
-      key: `d:${installment.id}`,
-      source: "parcela",
-      id: installment.id,
-      description: `${debt.name} (${installment.number}/${totals.get(debt.id)})`,
-      amount: installment.amount,
-      date: installment.dueDate,
-      categoryId: category.debt ?? "",
-      accountId: debt.accountId,
-    }));
-
-  return {
-    scheduled: [
-      ...statements,
-      ...installments,
-      ...(await goalEntries(tx, category.goal)),
-      ...(await scheduledIncome(tx, months.from, months.to)),
-    ],
-    cardLines: book.flatMap(({ lines }) => lines),
-    cardCategoryId: category.card,
-  };
-}
+export { goalEntryDescription, loadCommitments, systemCategories } from "@organizeup/agents";
 
 async function todayOf(tx: TenantTx, householdId: string) {
   const [settings] = await tx

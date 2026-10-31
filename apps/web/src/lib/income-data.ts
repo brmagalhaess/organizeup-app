@@ -1,4 +1,5 @@
 import "server-only";
+import { loadFiscalTables } from "@organizeup/agents";
 import {
   accounts,
   and,
@@ -6,7 +7,6 @@ import {
   cashflowPlans,
   categories,
   eq,
-  fiscalParameters,
   gte,
   householdTimezone,
   incomeReceipts,
@@ -25,8 +25,6 @@ import {
   CARD_CATEGORY,
   DEBT_CATEGORY,
   fiscalTableFor,
-  incomeBetween,
-  incomeKey,
   isPayroll,
   money,
   monthIncome,
@@ -34,36 +32,12 @@ import {
   toDbAmount,
   todayIn,
   yearMonthOf,
-  type FiscalTable,
   type IncomePart,
   type IncomeSourceInput,
-  type ScheduledEntry,
   type YearMonth,
 } from "@organizeup/domain";
 
-export async function loadFiscalTables(tx: TenantTx): Promise<FiscalTable[]> {
-  const rows = await tx.select().from(fiscalParameters);
-  return rows.map((row) => ({
-    ...(row.params as Omit<FiscalTable, "validFrom">),
-    validFrom: row.validFrom,
-  }));
-}
-
-/** Previsões de renda dos meses pedidos, sem as que já foram recebidas. */
-export async function scheduledIncome(
-  tx: TenantTx,
-  from: YearMonth,
-  to: YearMonth,
-): Promise<ScheduledEntry[]> {
-  const sources = await tx.select().from(incomeSources);
-  if (sources.length === 0) return [];
-  const tables = await loadFiscalTables(tx);
-  const receipts = await tx.select().from(incomeReceipts);
-  const received = new Set(
-    receipts.map((r) => incomeKey(r.incomeSourceId, r.month, r.part as IncomePart)),
-  );
-  return incomeBetween(sources, tables, from, to).filter((entry) => !received.has(entry.key));
-}
+export { loadFiscalTables };
 
 /** Uma previsão específica, para dar baixa nela. */
 export async function incomeOccurrence(

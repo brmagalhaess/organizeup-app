@@ -25,8 +25,17 @@ export {
   type MarketRunResult,
 } from "./run-mercado";
 export {
+  cardBook,
+  goalEntryDescription,
+  loadCommitments,
+  scheduledIncome,
+  systemCategories,
+} from "./commitments";
+export { currentDividendPlan } from "./retirement-view";
+export {
   DEFAULT_RETIREMENT_AGE,
   dividendPlanInputs,
+  loadFiscalTables,
   reserveInputs,
   savingsCategoryIds,
   surplusInputs,
