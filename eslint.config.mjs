@@ -11,6 +11,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/coverage/**",
       ".pg/**",
+      ".claude/**",
       "**/playwright-report/**",
       "**/test-results/**",
       "**/next-env.d.ts",

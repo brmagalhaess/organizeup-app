@@ -68,8 +68,8 @@ produção sozinho. Nunca crie nada no Dokploy `2.24.94.160` sem pedido do funda
 9. **Agentes diários do produto** rodam no worker com `fromJob()` e `withHousehold()`, uma família por
    transação, um agente por transação; são idempotentes (rodar duas vezes no dia dá o mesmo resultado); só
    gravam dado derivado ou sugestão (regra 7); logam só id da família, agente e código do erro; para o schema
-   `ops` enviam apenas contagens (`ops.agent_runs`). `DAILY_AGENTS_ENABLED=false` desliga todos. Sem modelo
-   de IA e sem cotação externa.
+   `ops` enviam apenas contagens (`ops.agent_runs`). `DAILY_AGENTS_ENABLED=false` desliga todos. Chamada
+   externa nunca dentro de `withHousehold`: cotações rodam no job de mercado (ADR-0017).
 
 ## Fluxo de trabalho (agentes)
 

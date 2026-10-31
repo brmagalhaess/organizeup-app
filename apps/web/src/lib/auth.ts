@@ -87,6 +87,8 @@ function createAuth() {
       maxPasswordLength: 128,
       // A confirmação de e-mail é enviada no cadastro, mas não impede de entrar.
       requireEmailVerification: false,
+      // Trocar a senha derruba quem estiver dentro da conta.
+      revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: RESET_LINK_HOURS * 60 * 60,
       sendResetPassword: ({ user, token }) =>
         sendEmailInBackground({
