@@ -34,7 +34,11 @@ export function SignUpForm({ invite }: { invite: string | null }) {
           ? "Já existe uma conta com este e-mail."
           : signUpError.code === "PASSWORD_TOO_SHORT"
             ? "A senha precisa ter pelo menos 10 caracteres."
-            : "Não foi possível criar a conta. Tente novamente.",
+            : signUpError.message === "SIGNUP_CLOSED"
+              ? "Os cadastros estão fechados no momento."
+              : signUpError.message === "MAINTENANCE"
+                ? "O sistema está em manutenção. Tente de novo mais tarde."
+                : "Não foi possível criar a conta. Tente novamente.",
       );
       return;
     }

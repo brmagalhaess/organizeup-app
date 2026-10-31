@@ -50,15 +50,16 @@ function getPool(envVar: string, applicationName: string, options: PoolOptions):
 }
 
 const appMax = () => Number(process.env.DATABASE_POOL_MAX ?? 10);
+const adminMax = () => Number(process.env.ADMIN_DATABASE_POOL_MAX ?? 2);
 
 /** Conexão da aplicação (web: ou_app; worker: ou_worker). Sujeita à RLS. */
 export function appPool(): Pool {
   return getPool("DATABASE_URL", process.env.OU_PROCESS ?? "organizeup", { max: appMax() });
 }
 
-/** Conexão administrativa (ou_admin, BYPASSRLS) com escrita. Uso restrito e auditado. */
+/** Conexão administrativa (ou_admin, BYPASSRLS) com escrita. Poucas conexões; uso restrito e auditado. */
 export function adminPool(): Pool {
-  return getPool("ADMIN_DATABASE_URL", "organizeup-admin", { max: appMax() });
+  return getPool("ADMIN_DATABASE_URL", "organizeup-admin", { max: adminMax() });
 }
 
 /**
@@ -67,7 +68,7 @@ export function adminPool(): Pool {
  */
 export function adminReadPool(): Pool {
   return getPool("ADMIN_DATABASE_URL", "organizeup-admin-ro", {
-    max: Number(process.env.ADMIN_DATABASE_POOL_MAX ?? 2),
+    max: adminMax(),
     readOnly: true,
   });
 }

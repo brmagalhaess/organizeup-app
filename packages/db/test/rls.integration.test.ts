@@ -2300,6 +2300,7 @@ describe("ops dos agentes diários e do painel do serviço", () => {
       "members",
       "name",
       "onboardingVersion",
+      "suspendedAt",
     ]);
     const b = rows.find((row) => row.id === B.household);
     expect(b).toMatchObject({ members: 1, onboardingVersion: 0 });
@@ -2316,11 +2317,9 @@ describe("ops dos agentes diários e do painel do serviço", () => {
   });
 
   it("o e-mail do responsável sai só por ação registrada em ops.admin_access", async () => {
-    const email = await db.adminHouseholdOwnerEmail(B.household, { adminUserId: A.owner });
-    expect(email).toBe("beto@example.com");
-    expect(
-      await db.adminHouseholdOwnerEmail("hh-inexistente", { adminUserId: A.owner }),
-    ).toBeNull();
+    const owner = await db.adminHouseholdOwner(B.household, { adminUserId: A.owner });
+    expect(owner).toEqual({ name: "Beto", email: "beto@example.com" });
+    expect(await db.adminHouseholdOwner("hh-inexistente", { adminUserId: A.owner })).toBeNull();
     await db.recordAdminAccess({ adminUserId: A.owner, action: "familias:lista" });
     const raw = postgres(urls.admin, { max: 1 });
     try {
@@ -2347,10 +2346,13 @@ describe("ops dos agentes diários e do painel do serviço", () => {
     // B não tem household_settings; A já completou a versão 1.
     expect(counts.onboardingPending).toBeGreaterThanOrEqual(1);
     expect(Object.keys(counts).sort()).toEqual([
+      "active30d",
+      "blocked",
       "households",
       "newHouseholds30d",
       "newHouseholds7d",
       "onboardingPending",
+      "suspended",
       "users",
     ]);
   });
@@ -2367,6 +2369,374 @@ describe("ops dos agentes diários e do painel do serviço", () => {
       admin.select().from(household),
     );
     expect(all.map((row) => row.id)).not.toContain("hh-ro");
+  });
+});
+
+describe("gerência do painel do serviço", () => {
+  const { session } = db;
+  const admin = { adminUserId: "user-painel" };
+  const S = {
+    household: "hh-s",
+    solo: "hh-solo",
+    owner: "user-s-owner",
+    member: "user-s-member",
+    alone: "user-s-alone",
+  };
+
+  async function asWorker<T>(fn: () => Promise<T>): Promise<T> {
+    const previous = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = urls.worker;
+    try {
+      return await fn();
+    } finally {
+      process.env.DATABASE_URL = previous;
+    }
+  }
+
+  const sessionsOf = (userId: string) =>
+    db.withAdmin("verificação do teste", (conn) =>
+      conn.select().from(session).where(eq(session.userId, userId)),
+    );
+
+  async function openSession(userId: string) {
+    const id = crypto.randomUUID();
+    await db.withAdmin("seed de sessão do teste", (conn) =>
+      conn.insert(session).values({
+        id,
+        token: id,
+        userId,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      }),
+    );
+  }
+
+  async function auditActions(target: string) {
+    const rows = await db.adminAccessList({ target, limit: 50 });
+    return rows.map((row) => row.action);
+  }
+
+  beforeAll(async () => {
+    await db.withAdmin("seed do painel", async (conn) => {
+      await conn.insert(user).values([
+        { id: "user-painel", name: "Painel", email: "painel@example.com" },
+        { id: S.owner, name: "Sara", email: "sara@example.com" },
+        { id: S.member, name: "Sol", email: "sol@example.com" },
+        { id: S.alone, name: "Sami", email: "sami@example.com" },
+      ]);
+      await conn.insert(household).values([
+        { id: S.household, name: "Família S", slug: "familia-s" },
+        { id: S.solo, name: "Família Solo", slug: "familia-solo" },
+      ]);
+      await conn.insert(householdMember).values([
+        { id: "m-s1", organizationId: S.household, userId: S.owner, role: "owner" },
+        { id: "m-s2", organizationId: S.household, userId: S.member, role: "adult" },
+        { id: "m-s3", organizationId: S.solo, userId: S.alone, role: "owner" },
+      ]);
+    });
+    await openSession(S.owner);
+    await openSession(S.member);
+  });
+
+  it("suspender corta as sessões, tira a família da rodada e reativar devolve", async () => {
+    expect(await db.listActiveHouseholdIds(60)).toContain(S.household);
+
+    expect(await db.adminSetHouseholdSuspended(admin, S.household, true)).toBe("ok");
+    expect(await db.householdIsSuspended(S.household)).toBe(true);
+    expect(await sessionsOf(S.owner)).toEqual([]);
+    expect(await sessionsOf(S.member)).toEqual([]);
+
+    await openSession(S.owner);
+    expect(await db.listActiveHouseholdIds(60)).not.toContain(S.household);
+    const suspended = await db.adminHouseholdList({ status: "suspensas" });
+    expect(suspended.map((row) => row.id)).toContain(S.household);
+    expect((await db.adminHouseholdList({ status: "ativas" })).map((row) => row.id)).not.toContain(
+      S.household,
+    );
+    expect(await db.suspendedHouseholdIds([S.household, A.household])).toEqual(
+      new Set([S.household]),
+    );
+    expect((await db.adminOverviewCounts({ onboardingVersion: 1 })).suspended).toBe(1);
+
+    expect(await db.adminSetHouseholdSuspended(admin, S.household, false)).toBe("ok");
+    expect(await db.householdIsSuspended(S.household)).toBe(false);
+    expect(await db.listActiveHouseholdIds(60)).toContain(S.household);
+    expect(await auditActions(S.household)).toEqual(["familia:reativar", "familia:suspender"]);
+  });
+
+  it("administrador não suspende nem exclui a própria família", async () => {
+    const self = { adminUserId: S.owner };
+    expect(await db.adminSetHouseholdSuspended(self, S.household, true)).toBe("own_family");
+    expect(await db.adminDeleteHousehold(self, S.household, "Família S")).toBe("own_family");
+    expect(await db.householdIsSuspended(S.household)).toBe(false);
+    expect(await db.adminSetHouseholdSuspended(admin, "hh-inexistente", true)).toBe("not_found");
+  });
+
+  it("o detalhe traz papéis e módulos, sem nome nem e-mail de pessoas", async () => {
+    const detail = await db.adminHouseholdDetail(S.household);
+    expect(detail).toMatchObject({
+      name: "Família S",
+      pendingInvites: 0,
+      modules: {
+        entries: false,
+        investments: false,
+        goals: false,
+        trips: false,
+        retirement: false,
+      },
+    });
+    expect(detail!.members.map((member) => member.role).sort()).toEqual(["adult", "owner"]);
+    expect(Object.keys(detail!.members[0]!).sort()).toEqual([
+      "blockedAt",
+      "joinedAt",
+      "lastAccessAt",
+      "role",
+      "userId",
+    ]);
+    expect(JSON.stringify(detail)).not.toContain("example.com");
+    expect(await db.adminHouseholdDetail("hh-inexistente")).toBeNull();
+  });
+
+  it("bloquear corta as sessões e desbloquear libera; a própria conta não", async () => {
+    await openSession(S.member);
+    expect(await db.adminSetUserBlocked(admin, S.member, true)).toBe("ok");
+    expect(await db.userIsBlocked(S.member)).toBe(true);
+    expect(await sessionsOf(S.member)).toEqual([]);
+    const blocked = await db.adminUserList({ status: "bloqueados" });
+    expect(blocked.map((row) => row.id)).toEqual([S.member]);
+    expect(JSON.stringify(blocked)).not.toContain("example.com");
+
+    expect(await db.adminSetUserBlocked(admin, S.member, false)).toBe("ok");
+    expect(await db.userIsBlocked(S.member)).toBe(false);
+    expect(await db.adminSetUserBlocked(admin, admin.adminUserId, true)).toBe("self");
+    expect(await db.adminEndUserSessions(admin, admin.adminUserId)).toBe("self");
+    expect(await db.adminDeleteUser(admin, admin.adminUserId)).toBe("self");
+    expect(await db.userIsBlocked(admin.adminUserId)).toBe(false);
+  });
+
+  it("encerrar sessões e achar por e-mail exato ou id, nunca por parte dele", async () => {
+    await openSession(S.alone);
+    expect(await db.adminEndUserSessions(admin, S.alone)).toBe("ok");
+    expect(await sessionsOf(S.alone)).toEqual([]);
+    expect(await auditActions(S.alone)).toContain("usuario:encerrar_sessoes");
+
+    expect((await db.adminUserList({ q: "SAMI@example.com" })).map((row) => row.id)).toEqual([
+      S.alone,
+    ]);
+    expect((await db.adminUserList({ q: S.alone })).map((row) => row.id)).toEqual([S.alone]);
+    expect(await db.adminUserList({ q: "sami" })).toEqual([]);
+    const [row] = await db.adminUserList({ q: S.owner });
+    expect(row).toMatchObject({ households: 1, isOwner: true, emailVerified: false });
+  });
+
+  it("nome e e-mail só saem de responsável, com registro", async () => {
+    expect(await db.adminRevealUser(admin, S.owner)).toEqual({
+      name: "Sara",
+      email: "sara@example.com",
+    });
+    expect(await db.adminRevealUser(admin, S.member)).toBe("not_allowed");
+    expect(await db.adminRevealUser(admin, "user-inexistente")).toBe("not_found");
+    expect(await auditActions(S.member)).toContain("usuario:revelar");
+    expect((await db.adminUserDetail(S.member))?.canReveal).toBe(false);
+    expect((await db.adminUserDetail(S.owner))?.canReveal).toBe(true);
+    expect(await db.adminPasswordResetTarget(admin, S.owner)).toBe("sara@example.com");
+    expect(await auditActions(S.owner)).toContain("usuario:redefinir_senha");
+  });
+
+  it("excluir família confere o nome e apaga em cascata", async () => {
+    expect(await db.adminDeleteHousehold(admin, S.solo, "família solo")).toBe("name_mismatch");
+    expect(await db.adminHouseholdDetail(S.solo)).not.toBeNull();
+    const ctx = await ctxFor(S.alone, S.solo);
+    await db.withHousehold(ctx, (tx) =>
+      tx.insert(people).values({ householdId: S.solo, name: "Sami", relation: "titular" }),
+    );
+    expect(await db.adminDeleteHousehold(admin, S.solo, " Família Solo ")).toBe("ok");
+    expect(await db.adminHouseholdDetail(S.solo)).toBeNull();
+    const left = await db.withAdmin("verificação do teste", (conn) =>
+      conn.select().from(people).where(eq(people.householdId, S.solo)),
+    );
+    expect(left).toEqual([]);
+    expect(await auditActions(S.solo)).toContain("familia:excluir");
+  });
+
+  it("excluir conta segue a regra de apagar a própria conta", async () => {
+    expect(await db.adminDeleteUser(admin, S.owner)).toBe("family_has_members");
+    expect(await db.adminUserDetail(S.owner)).not.toBeNull();
+
+    await db.withAdmin("seed da exclusão de conta", async (conn) => {
+      await conn.insert(household).values({ id: "hh-sami", name: "Sami", slug: "familia-sami" });
+      await conn
+        .insert(householdMember)
+        .values({ id: "m-sami", organizationId: "hh-sami", userId: S.alone, role: "owner" });
+    });
+    expect(await db.adminDeleteUser(admin, S.alone)).toBe("ok");
+    expect(await db.adminUserDetail(S.alone)).toBeNull();
+    expect(await db.adminHouseholdDetail("hh-sami")).toBeNull();
+    expect(await db.adminDeleteUser(admin, S.alone)).toBe("not_found");
+  });
+
+  it("as chaves são lidas por web e worker e só o admin grava", async () => {
+    expect(await db.readPlatformFlags()).toEqual(db.NO_FLAGS);
+
+    const raw = postgres(urls.app, { max: 1 });
+    try {
+      await expect(
+        raw`insert into ops.feature_flags (key, enabled) values ('manutencao', true)`,
+      ).rejects.toThrow();
+    } finally {
+      await raw.end();
+    }
+
+    await db.adminSetFlag(admin, {
+      key: db.FLAG_KEYS.maintenance,
+      enabled: true,
+      value: { message: "Voltamos logo." },
+      action: "controle:manutencao_ligar",
+    });
+    await db.adminSetFlag(admin, {
+      key: db.FLAG_KEYS.signupClosed,
+      enabled: true,
+      action: "controle:cadastro_fechar",
+    });
+    await db.adminSetFlag(admin, {
+      key: db.FLAG_KEYS.agentOff("metas"),
+      enabled: true,
+      action: "agente:desligar:metas",
+    });
+    const flags = await asWorker(() => db.readPlatformFlags());
+    expect(flags).toMatchObject({
+      maintenance: true,
+      maintenanceMessage: "Voltamos logo.",
+      signupClosed: true,
+      disabledAgents: ["metas"],
+    });
+
+    await db.adminSetFlag(admin, {
+      key: db.FLAG_KEYS.maintenance,
+      enabled: false,
+      action: "controle:manutencao_desligar",
+    });
+    await db.adminSetFlag(admin, {
+      key: db.FLAG_KEYS.agentOff("metas"),
+      enabled: false,
+      action: "agente:ligar:metas",
+    });
+    await db.adminSetFlag(admin, {
+      key: db.FLAG_KEYS.signupClosed,
+      enabled: false,
+      action: "controle:cadastro_abrir",
+    });
+    expect(await db.readPlatformFlags()).toEqual(db.NO_FLAGS);
+    const actions = await db.adminAccessList({ actions: ["agente:desligar:metas"] });
+    expect(actions).toHaveLength(1);
+  });
+
+  it("aviso vale só entre o início e o fim", async () => {
+    const now = new Date("2026-10-31T12:00:00Z");
+    await db.adminSetFlag(admin, {
+      key: db.FLAG_KEYS.notice("abc123abc123"),
+      enabled: true,
+      value: {
+        text: "Parada programada",
+        startsAt: "2026-10-31T10:00:00.000Z",
+        endsAt: "2026-10-31T14:00:00.000Z",
+      },
+      action: "controle:aviso_criar",
+    });
+    const flags = await db.readPlatformFlags();
+    expect(db.activeNotices(flags, now).map((notice) => notice.text)).toEqual([
+      "Parada programada",
+    ]);
+    expect(db.activeNotices(flags, new Date("2026-10-31T09:59:00Z"))).toEqual([]);
+    expect(db.activeNotices(flags, new Date("2026-10-31T14:00:00Z"))).toEqual([]);
+    await db.adminRemoveNotice(admin, "abc123abc123");
+    expect((await db.readPlatformFlags()).notices).toEqual([]);
+  });
+
+  it("modo manutenção: o contexto só leitura é recusado pelo banco", async () => {
+    const ctx = db.readOnlyContext(await ctxFor(S.owner, S.household));
+    expect(db.canWrite(ctx)).toBe(false);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(people).values({ householdId: S.household, name: "X", relation: "outro" }),
+      ),
+    ).rejects.toThrow();
+    const rows = await db.withHousehold(ctx, (tx) => tx.select().from(people));
+    expect(rows).toEqual([]);
+  });
+
+  it("a estatística soma módulos sem dado de família e só o worker grava", async () => {
+    const ctx = await ctxFor(S.owner, S.household);
+    await db.withHousehold(ctx, async (tx) => {
+      await db.ensureFinanceDefaults(tx, S.household);
+      const [account] = await tx.select({ id: db.accounts.id }).from(db.accounts).limit(1);
+      const [category] = await tx
+        .select({ id: db.categories.id })
+        .from(db.categories)
+        .where(eq(db.categories.kind, "despesa"))
+        .limit(1);
+      await tx.insert(db.transactions).values({
+        householdId: S.household,
+        accountId: account!.id,
+        categoryId: category!.id,
+        kind: "despesa",
+        description: "Compra",
+        amount: "10.00",
+        occurredOn: "2026-10-01",
+      });
+    });
+    expect((await db.adminHouseholdDetail(S.household))?.modules.entries).toBe(true);
+
+    const errors: object[] = [];
+    const log = { error: (data: object) => errors.push(data) };
+    const day = "2026-10-31";
+    const first = await asWorker(() => db.collectPlatformStats(day, log));
+    expect(errors).toEqual([]);
+    expect(first.useEntries).toBeGreaterThanOrEqual(1);
+    expect(first.households).toBeGreaterThanOrEqual(3);
+    expect(first.users).toBeGreaterThanOrEqual(5);
+    expect(first.active30d).toBeGreaterThanOrEqual(1);
+
+    await asWorker(() => db.collectPlatformStats(day, log));
+    const rows = await db.listPlatformStats(10);
+    expect(rows.filter((row) => row.day === day)).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ day, useEntries: first.useEntries });
+
+    await expect(db.recordPlatformStats("2026-10-30", first)).rejects.toThrow();
+  });
+
+  it("crescimento, migrações e filas leem só o que é da plataforma", async () => {
+    const growth = await db.adminGrowth(12);
+    expect(growth).toHaveLength(12);
+    expect(growth.at(-1)!.households).toBeGreaterThanOrEqual(3);
+    expect(growth.at(-1)!.newUsers).toBeGreaterThanOrEqual(1);
+    expect(growth[0]!.week < growth.at(-1)!.week).toBe(true);
+
+    const migrations = await db.adminMigrations();
+    expect(migrations.some((migration) => migration.version === "0018_admin")).toBe(true);
+
+    const queues = await db.listQueueCounts();
+    expect(queues.map((queue) => queue.name)).toContain(db.JOB_QUEUES.platformStats);
+  });
+
+  it("coluna ou tabela nova faltando não derruba o portão", async () => {
+    const lag = { cause: { code: "42703" } };
+    expect(db.isSchemaLag(lag)).toBe(true);
+    expect(db.isSchemaLag({ code: "42P01" })).toBe(true);
+    expect(db.isSchemaLag({ code: "23505" })).toBe(false);
+    expect(
+      await db.tolerateSchemaLag(() => Promise.reject(new Error("x", { cause: lag.cause })), "ok"),
+    ).toBe("ok");
+    await expect(
+      db.tolerateSchemaLag(() => Promise.reject(new Error("outro")), "ok"),
+    ).rejects.toThrow("outro");
+    // O erro real do banco, do jeito que o Drizzle entrega.
+    const missing = (query: ReturnType<typeof sql>) =>
+      db.tolerateSchemaLag<unknown>(
+        () => db.withAdminRead("teste de atraso do schema", (conn) => conn.execute(query)),
+        "tolerado",
+      );
+    expect(await missing(sql`select coluna_nova from "user"`)).toBe("tolerado");
+    expect(await missing(sql`select 1 from ops.tabela_nova`)).toBe("tolerado");
   });
 });
 

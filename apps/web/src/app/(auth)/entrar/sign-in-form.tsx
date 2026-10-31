@@ -20,7 +20,11 @@ export function SignInForm({ invite }: { invite: string | null }) {
     });
     if (signInError) {
       setPending(false);
-      setError("E-mail ou senha incorretos.");
+      setError(
+        signInError.message === "ACCOUNT_BLOCKED"
+          ? "Esta conta está bloqueada. Fale com o suporte do OrganizeUp."
+          : "E-mail ou senha incorretos.",
+      );
       return;
     }
     router.replace(invite ? `/convite/${invite}` : "/app/escolher");

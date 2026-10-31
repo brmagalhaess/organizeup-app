@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Landmark,
   LogOut,
+  Megaphone,
   Menu,
   Palmtree,
   PiggyBank,
@@ -47,6 +48,13 @@ export interface ShellNotice {
   text: string;
   href: string;
   linkLabel: string;
+}
+
+/** Faixa do serviço, escrita no painel: manutenção ou aviso para todos. */
+export interface ShellBanner {
+  key: string;
+  text: string;
+  dismissible: boolean;
 }
 
 const SUGGESTIONS_HREF = "/app/sugestoes";
@@ -259,6 +267,25 @@ function NoticeBanner({ notice }: { notice: ShellNotice }) {
   );
 }
 
+function ServiceBanner({ banner }: { banner: ShellBanner }) {
+  return (
+    <section role="region" aria-label="Aviso do serviço" className="bg-brand-100 text-ink">
+      <div className="flex items-center gap-3 px-4 py-2 text-sm sm:px-6 lg:px-10 2xl:px-14">
+        <Megaphone className="size-4 shrink-0" aria-hidden="true" />
+        <p className="min-w-0 flex-1">{banner.text}</p>
+        {banner.dismissible ? (
+          <form action={dismissNotice}>
+            <input type="hidden" name="key" value={banner.key} />
+            <IconButton type="submit" label="Fechar aviso" className="text-ink">
+              <X className="size-4" aria-hidden="true" />
+            </IconButton>
+          </form>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function AppShell({
   children,
   userName,
@@ -269,6 +296,7 @@ export function AppShell({
   categories,
   cards,
   notice = null,
+  banners = [],
   pendingSuggestions,
 }: {
   children: ReactNode;
@@ -280,6 +308,7 @@ export function AppShell({
   categories: EntryOptions["categories"];
   cards: EntryOptions["cards"];
   notice?: ShellNotice | null;
+  banners?: ShellBanner[];
   pendingSuggestions: number;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -309,6 +338,9 @@ export function AppShell({
             </Link>
             <span className="truncate text-sm text-white/85">{familyName}</span>
           </header>
+          {banners.map((banner) => (
+            <ServiceBanner key={banner.key} banner={banner} />
+          ))}
           {notice ? <NoticeBanner notice={notice} /> : null}
           <main className="flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8 2xl:px-14">
             {children}

@@ -26,6 +26,21 @@ export const household = pgTable("household", {
   updatedAt: ts("updated_at"),
 });
 
+/**
+ * Colunas de acesso de `user` e `household` (migração 0018), de propósito fora das tabelas acima: o
+ * Better Auth e o adapter leem TODAS as colunas declaradas nelas, e uma coluna nova ali derrubaria o
+ * login enquanto a migração não chega. Mesmas tabelas; só `access.ts` e o painel usam estas colunas.
+ */
+export const userAccess = pgTable("user", {
+  id: text("id").primaryKey(),
+  blockedAt: ts("blocked_at"),
+});
+
+export const householdAccess = pgTable("household", {
+  id: text("id").primaryKey(),
+  suspendedAt: ts("suspended_at"),
+});
+
 export const session = pgTable(
   "session",
   {

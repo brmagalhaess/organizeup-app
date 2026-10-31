@@ -30,7 +30,7 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
    - Web: `DATABASE_URL` (ou_app), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `OPS_TOKEN_HASHES`,
      `ADMIN_USER_IDS` (ids da tabela `user` que podem abrir `/admin`, separados por vírgula; cada um copia o
      seu em Configurações › "ID da conta"), `ADMIN_DATABASE_URL` (conexão `ou_admin`, usada só pelo painel
-     `/admin` em modo somente leitura), `ADMIN_DATABASE_POOL_MAX` (opcional; padrão 2).
+     `/admin`, com leitura somente leitura e ações registradas), `ADMIN_DATABASE_POOL_MAX` (opcional; padrão 2).
      `BREVO_API_KEY` (chave da API v3 da Brevo; sem ela nenhum e-mail sai e a web loga `email_disabled`),
      `EMAIL_FROM_NAME` e `EMAIL_FROM_ADDRESS` (opcionais; o padrão é
      `OrganizeUp <notificacoes@organizeup.com.br>`, remetente já verificado na Brevo).

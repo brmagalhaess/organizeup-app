@@ -1,10 +1,23 @@
 import "server-only";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
-import { and, eq, household, householdMember, inArray, legalAcceptance, ne } from "@organizeup/db";
+import {
+  and,
+  eq,
+  gt,
+  household,
+  householdInvitation,
+  householdMember,
+  inArray,
+  legalAcceptance,
+  ne,
+  readPlatformFlags,
+  sql,
+  userIsBlocked,
+} from "@organizeup/db";
 import { authDb, betterAuthSchema } from "@organizeup/db/auth-db";
 import { sendEmailInBackground } from "./email";
 import {
@@ -40,6 +53,30 @@ async function closeOwnHouseholds(userId: string) {
   await db.delete(household).where(inArray(household.id, ids));
 }
 
+/** Com o cadastro fechado, só entra quem tem convite ainda válido para o e-mail informado. */
+async function hasPendingInvite(email: string) {
+  const [invite] = await authDb()
+    .select({ id: householdInvitation.id })
+    .from(householdInvitation)
+    .where(
+      and(
+        sql`lower(${householdInvitation.email}) = ${email.trim().toLowerCase()}`,
+        eq(householdInvitation.status, "pending"),
+        gt(householdInvitation.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+  return Boolean(invite);
+}
+
+/** Rotas que escrevem e ficam fechadas na manutenção. Entrar, sair e abrir a família continuam. */
+const writesInMaintenance = (path: string) =>
+  path === "/sign-up/email" ||
+  path === "/delete-user" ||
+  path === "/update-user" ||
+  (path.startsWith("/organization/") &&
+    !["/organization/set-active", "/organization/list"].includes(path));
+
 function createAuth() {
   return betterAuth({
     appName: "OrganizeUp",
@@ -73,8 +110,13 @@ function createAuth() {
       user: {
         create: {
           before: async (_user, ctx) => {
-            if (ctx?.path === "/sign-up/email" && ctx.body?.termsAccepted !== true) {
+            if (ctx?.path !== "/sign-up/email") return;
+            if (ctx.body?.termsAccepted !== true) {
               throw new APIError("BAD_REQUEST", { message: "TERMS_REQUIRED" });
+            }
+            const closed = (await readPlatformFlags()).signupClosed;
+            if (closed && !(await hasPendingInvite(String(ctx.body?.email ?? "")))) {
+              throw new APIError("FORBIDDEN", { message: "SIGNUP_CLOSED" });
             }
           },
           after: async (user) => {
@@ -84,6 +126,24 @@ function createAuth() {
           },
         },
       },
+      // Toda forma de entrar passa por aqui: conta bloqueada não ganha sessão.
+      session: {
+        create: {
+          before: async (session) => {
+            if (await userIsBlocked(session.userId)) {
+              throw new APIError("FORBIDDEN", { message: "ACCOUNT_BLOCKED" });
+            }
+          },
+        },
+      },
+    },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (!writesInMaintenance(ctx.path)) return;
+        if ((await readPlatformFlags()).maintenance) {
+          throw new APIError("SERVICE_UNAVAILABLE", { message: "MAINTENANCE" });
+        }
+      }),
     },
     session: {
       expiresIn: 60 * 60 * 24 * 14,

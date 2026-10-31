@@ -1,6 +1,7 @@
 "use client";
 // Kit de componentes (ADR-0003). Toda tela usa estes blocos para manter o sistema consistente.
 import { X } from "lucide-react";
+import { useFormStatus } from "react-dom";
 import {
   cloneElement,
   isValidElement,
@@ -8,6 +9,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type FormEvent,
   type InputHTMLAttributes,
@@ -139,7 +141,7 @@ export function Card({
     >
       {title || actions ? (
         <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1 basis-60">
             {title ? <h2 className="text-base font-semibold">{title}</h2> : null}
             {description ? <p className="mt-0.5 text-sm text-muted">{description}</p> : null}
           </div>
@@ -317,7 +319,20 @@ export function Sheet({
   );
 }
 
-/** Pede confirmação antes de uma ação que não pode ser desfeita. */
+function ConfirmButton({ label, blocked }: { label: string; blocked: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="danger" className="flex-1" disabled={pending || blocked}>
+      {label}
+    </Button>
+  );
+}
+
+/**
+ * Pede confirmação antes de uma ação que não pode ser desfeita. Com `typeToConfirm`, o botão só
+ * libera depois de digitar o texto pedido; o valor vai no campo `confirm` do formulário, e o servidor
+ * deve conferir de novo. `children` são campos extras do formulário.
+ */
 export function ConfirmSheet({
   open,
   onClose,
@@ -326,6 +341,8 @@ export function ConfirmSheet({
   confirmLabel,
   action,
   hidden,
+  typeToConfirm,
+  children,
 }: {
   open: boolean;
   onClose: () => void;
@@ -334,26 +351,47 @@ export function ConfirmSheet({
   confirmLabel: string;
   action: (form: FormData) => void | Promise<void>;
   hidden: Record<string, string>;
+  typeToConfirm?: { label: string; value: string } | undefined;
+  children?: ReactNode;
 }) {
+  const [typed, setTyped] = useState("");
+  const close = () => {
+    setTyped("");
+    onClose();
+  };
   return (
-    <Sheet open={open} onClose={onClose} title={title}>
+    <Sheet open={open} onClose={close} title={title}>
       <p className="text-sm text-muted">{text}</p>
       <form
         action={async (form) => {
           await action(form);
-          onClose();
+          close();
         }}
-        className="mt-6 flex gap-2"
+        className="mt-6 flex flex-col gap-4"
       >
         {Object.entries(hidden).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
         ))}
-        <Button type="submit" variant="danger" className="flex-1">
-          {confirmLabel}
-        </Button>
-        <Button type="button" variant="secondary" onClick={onClose}>
-          Cancelar
-        </Button>
+        {children}
+        {typeToConfirm ? (
+          <Field label={typeToConfirm.label}>
+            <Input
+              name="confirm"
+              autoComplete="off"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+            />
+          </Field>
+        ) : null}
+        <div className="flex gap-2">
+          <ConfirmButton
+            label={confirmLabel}
+            blocked={Boolean(typeToConfirm) && typed.trim() !== typeToConfirm?.value}
+          />
+          <Button type="button" variant="secondary" onClick={close}>
+            Cancelar
+          </Button>
+        </div>
       </form>
     </Sheet>
   );

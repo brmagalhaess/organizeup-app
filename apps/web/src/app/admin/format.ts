@@ -16,6 +16,20 @@ export const formatDateTime = (value: Date) => dateTimeFormat.format(value);
 /** "2026-10-31" → "31/10/2026", sem passar por Date para não mudar de dia com o fuso. */
 export const formatDay = (day: string) => day.split("-").reverse().join("/");
 
+/** Id encurtado para reconhecer uma conta sem mostrar nome nem e-mail. */
+export const shortId = (id: string) => id.slice(0, 8);
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: "Responsável",
+  adult: "Adulto",
+  child: "Criança",
+  viewer: "Leitura",
+};
+export const roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
+
+/** Dia e mês curtos, para eixos de gráfico: "2026-10-26" → "26/10". */
+export const formatDayShort = (day: string) => day.slice(5).split("-").reverse().join("/");
+
 /** Minutos desde `value`, para a idade do último sinal de um worker. */
 export const minutesSince = (value: Date) =>
   Math.max(0, Math.floor((Date.now() - value.getTime()) / 60_000));

@@ -1,23 +1,36 @@
 import "server-only";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { fromSession, type TenantContext } from "@organizeup/db";
+import { cache } from "react";
+import {
+  fromSession,
+  householdIsSuspended,
+  readOnlyContext,
+  readPlatformFlags,
+  userIsBlocked,
+  type TenantContext,
+} from "@organizeup/db";
 import { getAuth } from "./auth";
 
 export async function getSession() {
   return getAuth().api.getSession({ headers: await headers() });
 }
 
-/** Exige usuário autenticado; redireciona para /entrar caso contrário. */
+/** Chaves do sistema, lidas uma vez por requisição. */
+export const platformFlags = cache(readPlatformFlags);
+
+/** Exige usuário autenticado e não bloqueado; redireciona para /entrar caso contrário. */
 export async function requireSession() {
   const session = await getSession();
   if (!session) redirect("/entrar");
+  if (await userIsBlocked(session.user.id)) redirect("/conta-bloqueada");
   return session;
 }
 
 /**
- * Exige usuário autenticado COM household ativo e filiação válida.
- * Devolve a sessão e o TenantContext para usar com withHousehold().
+ * Exige usuário autenticado COM household ativo, filiação válida e família não suspensa.
+ * Devolve a sessão e o TenantContext para usar com withHousehold(). No modo manutenção o contexto
+ * vem só leitura: canWrite() responde não e a RLS recusa a escrita.
  */
 export async function requireTenant(): Promise<{
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
@@ -26,7 +39,9 @@ export async function requireTenant(): Promise<{
   const session = await requireSession();
   const ctx = await fromSession(session);
   if (!ctx) redirect("/app/escolher");
-  return { session, ctx };
+  if (await householdIsSuspended(ctx.householdId)) redirect("/app/suspensa");
+  const { maintenance } = await platformFlags();
+  return { session, ctx: maintenance ? readOnlyContext(ctx) : ctx };
 }
 
 const envList = (value: string | undefined) =>

@@ -5,6 +5,7 @@
 import {
   householdTimezone,
   listActiveHouseholdIds,
+  readPlatformFlags,
   recordAgentRun,
   withWorkerHousehold,
   type TenantTx,
@@ -39,8 +40,9 @@ export const DAILY_AGENTS = [
   METAS_AGENT,
 ] as const;
 
-/** Agente cuja execução marca "a rodada de hoje aconteceu" (o último da ordem). */
-export const DAILY_AGENTS_SENTINEL = METAS_AGENT;
+/** Agente cuja execução marca "a rodada de hoje aconteceu": o último ligado, ou nenhum. */
+export const dailyAgentsSentinel = (disabled: string[]) =>
+  DAILY_AGENTS.findLast((agent) => !disabled.includes(agent)) ?? null;
 
 /** Famílias com sessão nos últimos N dias recebem a rodada. */
 export const ACTIVE_DAYS = 60;
@@ -56,10 +58,18 @@ interface Counts {
 const emptyCounts = (): Counts => ({ households: 0, ok: 0, failed: 0, suggestions: 0, applied: 0 });
 
 export async function runDailyAgents(log: Log): Promise<void> {
+  // Modo manutenção: as famílias estão só leitura, então o agente também não grava. Agente
+  // desligado no painel não roda; viagens e metas seguem como quando a aposentadoria falha.
+  const flags = await readPlatformFlags();
+  if (flags.maintenance) {
+    log.info({}, "agentes diários pulados: modo manutenção");
+    return;
+  }
+  const enabled = DAILY_AGENTS.filter((agent) => !flags.disabledAgents.includes(agent));
   const startedAt = Date.now();
   const day = todayIn();
   const ids = await listActiveHouseholdIds(ACTIVE_DAYS);
-  const counts = new Map<string, Counts>(DAILY_AGENTS.map((agent) => [agent, emptyCounts()]));
+  const counts = new Map<string, Counts>(enabled.map((agent) => [agent, emptyCounts()]));
 
   for (const householdId of ids) {
     let today = day;
@@ -77,7 +87,8 @@ export async function runDailyAgents(log: Log): Promise<void> {
       agent: string,
       fn: (tx: TenantTx) => Promise<AgentResult>,
     ): Promise<AgentResult | null> => {
-      const count = counts.get(agent)!;
+      const count = counts.get(agent);
+      if (!count) return null;
       count.households += 1;
       try {
         const result = await withWorkerHousehold(householdId, fn);
@@ -107,7 +118,7 @@ export async function runDailyAgents(log: Log): Promise<void> {
   }
 
   const durationMs = Date.now() - startedAt;
-  for (const agent of DAILY_AGENTS) {
+  for (const agent of enabled) {
     const count = counts.get(agent)!;
     try {
       await recordAgentRun(day, agent, { ...count, durationMs });

@@ -1,5 +1,6 @@
 import {
   accounts,
+  activeNotices,
   asc,
   canWrite,
   categories,
@@ -13,9 +14,9 @@ import {
 } from "@organizeup/db";
 import { todayIn } from "@organizeup/domain";
 import { cookies } from "next/headers";
-import { AppShell, type ShellNotice } from "@/components/shell/app-shell";
+import { AppShell, type ShellBanner, type ShellNotice } from "@/components/shell/app-shell";
 import { onboardingStatus } from "@/lib/onboarding";
-import { requireTenant } from "@/lib/session";
+import { platformFlags, requireTenant } from "@/lib/session";
 import { countPending, noticeCookie, tolerateSchemaLag } from "@/lib/suggestions";
 
 const ONBOARDING_NOTICE: ShellNotice = {
@@ -39,10 +40,30 @@ async function shellStatus(ctx: TenantContext, writable: boolean) {
   );
 }
 
+const MAINTENANCE_TEXT =
+  "Estamos em manutenção. Você pode consultar tudo, mas as alterações estão desligadas por enquanto.";
+
+/** Faixas do serviço: manutenção (sempre visível) e avisos valendo agora, que dá para dispensar. */
+async function platformBanners(): Promise<ShellBanner[]> {
+  const flags = await platformFlags();
+  const store = await cookies();
+  const banners: ShellBanner[] = activeNotices(flags)
+    .map((notice) => ({ key: `aviso-${notice.id}`, text: notice.text, dismissible: true }))
+    .filter((banner) => !store.has(noticeCookie(banner.key)));
+  if (flags.maintenance) {
+    banners.unshift({
+      key: "manutencao",
+      text: flags.maintenanceMessage ?? MAINTENANCE_TEXT,
+      dismissible: false,
+    });
+  }
+  return banners;
+}
+
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const { session, ctx } = await requireTenant();
   const writable = canWrite(ctx);
-  const status = await shellStatus(ctx, writable);
+  const [status, banners] = await Promise.all([shellStatus(ctx, writable), platformBanners()]);
   const data = await withHousehold(ctx, async (tx) => {
     if (writable) await ensureFinanceDefaults(tx, ctx.householdId);
     const [family] = await tx
@@ -90,6 +111,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       categories={data.categories}
       cards={data.cards}
       notice={status.notice}
+      banners={banners}
       pendingSuggestions={status.pendingSuggestions}
     >
       {children}

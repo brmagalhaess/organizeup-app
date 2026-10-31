@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useActionState } from "react";
 import {
   Badge,
@@ -8,73 +9,40 @@ import {
   Field,
   FormMessage,
   Input,
+  Select,
   submitKeeping,
 } from "@/components/ui";
-import { browseFamilies, revealOwnerEmail } from "./actions";
-import type { FamiliesState, FamilyRow } from "./data";
+import { AdminTable, Monogram, type Column } from "../kit";
+import { browseFamilies } from "./actions";
+import type { FamiliesState } from "./data";
 
-function OwnerEmail({ id, family }: { id: string; family: string }) {
-  const [state, action, pending] = useActionState(revealOwnerEmail, { email: null, message: null });
-  if (state.email) {
-    return (
-      <p className="text-sm">
-        <span className="text-muted">Responsável: </span>
-        <span className="break-all">{state.email}</span>
-      </p>
-    );
-  }
-  return (
-    <form action={action} className="flex flex-col gap-1">
-      <input type="hidden" name="id" value={id} />
-      <Button
-        type="submit"
-        variant="secondary"
-        small
-        disabled={pending}
-        aria-label={`Ver e-mail do responsável de ${family}`}
-      >
-        Ver e-mail do responsável
-      </Button>
-      <FormMessage message={state.message} />
-    </form>
-  );
-}
-
-function Detail({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="m-0 tabular-nums">{children}</dd>
-    </div>
-  );
-}
-
-function Family({ row }: { row: FamilyRow }) {
-  return (
-    <li className="flex flex-col gap-3 border-b border-line py-4 last:border-0 md:flex-row md:items-center md:justify-between">
-      <div className="min-w-0 flex-1">
-        <p className="font-medium break-words">{row.name}</p>
-        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:grid-cols-4">
-          <Detail label="Criada em">{row.createdAt}</Detail>
-          <Detail label="Membros">{row.members}</Detail>
-          <Detail label="Última sessão">{row.lastSession}</Detail>
-          <Detail label="Cadastro complementar">
-            <Badge tone={row.onboardingDone ? "success" : "warning"}>
-              {row.onboardingDone ? "Completo" : "Pendente"}
-            </Badge>
-          </Detail>
-        </dl>
-      </div>
-      <OwnerEmail id={row.id} family={row.name} />
-    </li>
-  );
-}
+const columns: Column[] = [
+  { key: "name", label: "Família", primary: true },
+  { key: "status", label: "Situação" },
+  { key: "members", label: "Membros", align: "right" },
+  { key: "onboarding", label: "Cadastro" },
+  { key: "lastSession", label: "Última sessão" },
+  { key: "createdAt", label: "Criada em" },
+];
 
 export function FamiliesBoard({ initial }: { initial: FamiliesState }) {
   const [state, action, pending] = useActionState(browseFamilies, initial);
+  const filtered =
+    state.q !== "" ||
+    state.filters.status !== "todas" ||
+    state.filters.onboarding !== "todos" ||
+    state.filters.activity !== "todas";
+  const hiddenFilters = (
+    <>
+      <input type="hidden" name="q" value={state.q} />
+      <input type="hidden" name="status" value={state.filters.status} />
+      <input type="hidden" name="onboarding" value={state.filters.onboarding} />
+      <input type="hidden" name="activity" value={state.filters.activity} />
+    </>
+  );
   const pageForm = (page: number, label: string) => (
     <form onSubmit={submitKeeping(action)}>
-      <input type="hidden" name="q" value={state.q} />
+      {hiddenFilters}
       <input type="hidden" name="page" value={page} />
       <Button type="submit" variant="secondary" small disabled={pending}>
         {label}
@@ -83,39 +51,87 @@ export function FamiliesBoard({ initial }: { initial: FamiliesState }) {
   );
 
   return (
-    <Card title="Famílias">
+    <Card>
       <form
         role="search"
         onSubmit={submitKeeping(action)}
-        className="flex flex-col gap-3 sm:flex-row sm:items-end"
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto] xl:items-start"
       >
         <input type="hidden" name="page" value="0" />
-        <div className="min-w-0 flex-1">
-          <Field label="Buscar" hint="Nome da família ou e-mail exato de um membro.">
-            <Input name="q" type="search" maxLength={200} autoComplete="off" />
-          </Field>
-        </div>
-        <Button type="submit" disabled={pending} className="sm:mb-5">
+        <Field label="Buscar" hint="Nome da família ou e-mail exato de um membro.">
+          <Input name="q" type="search" maxLength={200} autoComplete="off" defaultValue={state.q} />
+        </Field>
+        <Field label="Situação">
+          <Select name="status" defaultValue={state.filters.status}>
+            <option value="todas">Todas</option>
+            <option value="ativas">Em uso</option>
+            <option value="suspensas">Suspensas</option>
+          </Select>
+        </Field>
+        <Field label="Cadastro complementar">
+          <Select name="onboarding" defaultValue={state.filters.onboarding}>
+            <option value="todos">Todos</option>
+            <option value="completo">Completo</option>
+            <option value="pendente">Pendente</option>
+          </Select>
+        </Field>
+        <Field label="Atividade">
+          <Select name="activity" defaultValue={state.filters.activity}>
+            <option value="todas">Todas</option>
+            <option value="recentes">Ativa em 30 dias</option>
+            <option value="paradas">Parada há 30 dias</option>
+          </Select>
+        </Field>
+        <Button type="submit" disabled={pending} className="xl:mt-6.5">
           {pending ? "Buscando…" : "Buscar"}
         </Button>
       </form>
-      <div className="mt-4">
+      <div className="mt-3">
         <FormMessage message={state.message} />
       </div>
 
       {state.rows.length === 0 ? (
-        <div className="mt-4">
+        <div className="mt-3">
           <EmptyState
-            title={state.q ? "Nenhuma família encontrada" : "Nenhuma família ainda"}
-            text={state.q ? "Confira o nome ou o e-mail buscado." : undefined}
+            title={filtered ? "Nenhuma família encontrada" : "Nenhuma família ainda"}
+            text={filtered ? "Confira o que foi buscado ou limpe os filtros." : undefined}
           />
         </div>
       ) : (
-        <ul aria-label="Famílias" className="mt-2">
-          {state.rows.map((row) => (
-            <Family key={row.id} row={row} />
-          ))}
-        </ul>
+        <div className="mt-3">
+          <AdminTable
+            caption="Famílias"
+            columns={columns}
+            rows={state.rows.map((row) => ({
+              id: row.id,
+              cells: {
+                name: (
+                  <Monogram name={row.name}>
+                    <Link
+                      href={`/admin/familias/${row.id}`}
+                      className="font-medium text-brand-700 underline-offset-2 hover:underline"
+                    >
+                      {row.name}
+                    </Link>
+                  </Monogram>
+                ),
+                status: row.suspended ? (
+                  <Badge tone="danger">Suspensa</Badge>
+                ) : (
+                  <Badge tone="success">Em uso</Badge>
+                ),
+                members: row.members,
+                onboarding: (
+                  <Badge tone={row.onboardingDone ? "success" : "warning"}>
+                    {row.onboardingDone ? "Completo" : "Pendente"}
+                  </Badge>
+                ),
+                lastSession: row.lastSession,
+                createdAt: row.createdAt,
+              },
+            }))}
+          />
+        </div>
       )}
 
       {state.page > 0 || state.hasNext ? (

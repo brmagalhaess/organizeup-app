@@ -7,6 +7,7 @@ export {
   fromSession,
   getMembership,
   listMemberships,
+  readOnlyContext,
   withHousehold,
   withWorkerHousehold,
   type HouseholdRole,
@@ -16,14 +17,27 @@ export {
   type TenantTx,
 } from "./tenant";
 export {
-  adminHouseholdList,
-  adminHouseholdOwnerEmail,
-  adminOverviewCounts,
-  withAdmin,
-  withAdminRead,
-  type AdminHouseholdRow,
-  type AdminOverviewCounts,
-} from "./admin";
+  FLAG_KEYS,
+  NO_FLAGS,
+  activeNotices,
+  householdIsSuspended,
+  isSchemaLag,
+  parsePlatformFlags,
+  readPlatformFlags,
+  suspendedHouseholdIds,
+  tolerateSchemaLag,
+  userIsBlocked,
+  type PlatformFlags,
+  type PlatformNotice,
+} from "./access";
+export * from "./admin";
+export {
+  PLATFORM_MODULES,
+  collectPlatformStats,
+  householdModuleUsage,
+  type ModuleUsage,
+  type PlatformModule,
+} from "./platform";
 export { exportHousehold } from "./export";
 export { SYSTEM_TEMPLATES, ensureCategory, ensureFinanceDefaults } from "./finance";
 export {
@@ -41,17 +55,22 @@ export {
   listAgentRuns,
   listCategorizationStats,
   listDeployments,
+  listPlatformStats,
+  listQueueCounts,
   listReports,
   listWorkerHeartbeats,
   recordAdminAccess,
   recordAgentRun,
   recordCategorizationStats,
   recordDeployment,
+  recordPlatformStats,
   recordWorkerHeartbeat,
   saveReport,
   type AgentRunCounts,
   type CategorizationCounts,
   type MemoryKind,
+  type PlatformCounts,
+  type QueueCount,
   type ReportKind,
 } from "./ops";
 export {
@@ -65,7 +84,7 @@ export {
   type MarketDividendRow,
   type MarketQuoteRow,
 } from "./market";
-export { JOB_QUEUES, PGBOSS_SCHEMA, type JobQueue } from "./jobs";
+export { JOB_QUEUES, PGBOSS_SCHEMA, dailyAgentsKey, type JobQueue } from "./jobs";
 export { closeAllPools } from "./client";
 // Operadores de consulta reexportados para que apps usem a MESMA instância do drizzle-orm.
 export { and, asc, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";

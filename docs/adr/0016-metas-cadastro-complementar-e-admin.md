@@ -70,27 +70,60 @@ cálculos estão no ADR-0015. A especificação completa está em `docs/specs/ag
 - **Identidade por id de usuário** em `ADMIN_USER_IDS`. `ADMIN_EMAILS` só em desenvolvimento e e2e: e-mail
   sem conta pode ser tomado por quem se cadastrar com ele. O gate `requireAdmin()` fica em
   `apps/web/src/lib/session.ts`, caminho já protegido; quem não está na lista recebe 404.
-- **Só leitura.** A conexão admin da web abre com `default_transaction_read_only` e no máximo
-  `ADMIN_DATABASE_POOL_MAX` conexões (padrão 2). Nenhuma página do admin escreve em dados de família.
-- **Cada acesso é registrado** em `ops.admin_access` (quando, quem, qual ação, qual família se houver). O
-  texto da busca nunca é guardado.
-- **Dados pessoais mínimos.** A lista de famílias mostra nome, data de criação, membros, última sessão e
-  cadastro complementar. O e-mail do responsável só aparece ao expandir uma linha, e isso é uma ação
-  registrada. Busca por nome ou por e-mail exato de um membro, devolvendo só aquela família.
-- **Métricas agregadas**: famílias, usuários, novas em 7 e 30 dias, ativas em 30 dias, cadastros pendentes,
-  tabela dos agentes diários (7 dias) e saúde (commit da web e do worker, último heartbeat, versão do schema).
+- **Leitura e escrita separadas.** Tudo o que só lê vai por `withAdminRead`, conexão com
+  `default_transaction_read_only`. Ação vai por `withAdmin`, dentro de uma transação que grava também o
+  registro em `ops.admin_access`: a mudança e o registro entram juntos. As duas conexões respeitam
+  `ADMIN_DATABASE_POOL_MAX` (padrão 2).
+- **`requireAdmin()` em toda página e em cada server action.** `admin-guard.test.ts` reprova o arquivo de
+  ações que esquecer.
+- **Cada acesso e cada ação são registrados** em `ops.admin_access` (quando, quem, qual ação, qual família ou
+  conta). Nunca guarda o texto da busca, nem nome, nem e-mail. Busca sempre por POST: e-mail não vai para URL.
+- **Dados pessoais mínimos.** Lista e detalhe de família mostram nome da família, datas, papéis e módulos
+  usados (sim ou não). Conta aparece por um código curto. Nome e e-mail só de quem é responsável de família (ou
+  de conta sem família), por ação explícita e registrada. Sem valores, sem lançamentos, sem "entrar como
+  usuário". Busca de família por nome ou e-mail exato; de conta só por e-mail exato ou id.
+- **Telas**: visão geral, famílias, usuários, agentes, sistema, controles e auditoria, com menu lateral próprio
+  e barra no celular.
+- **Métricas**: as contagens de `user` e `household` saem na hora, só de tabelas de auth. Adoção por módulo e
+  atividade vêm de `ops.platform_stats`: fila `platform-stats` às 03:15 e no boot, uma família por transação
+  com RLS, soma e grava só números. Fila própria porque a contagem não pode depender dos agentes estarem ligados.
+- **Suspender família e bloquear conta** usam `household.suspended_at` e `user.blocked_at`, conferidos em
+  `requireTenant`, `requireSession` e no hook de criação de sessão do Better Auth. As duas ações encerram as
+  sessões na hora. Família suspensa entra mas vê `/app/suspensa`; conta bloqueada não entra. Nenhum administrador
+  age sobre a própria conta ou sobre a família de que participa. A suspensão também tira a família da rodada dos
+  agentes.
+- **Essas colunas ficam fora de `user` e `household` no Drizzle** (`userAccess`, `householdAccess`, mesmas
+  tabelas): o Better Auth lê todas as colunas declaradas, e o login cairia até a migração chegar. O portão tolera
+  `42703` e `42P01`, valendo "liberado", porque a web pode subir antes do worker.
+- **Excluir** usa o mesmo `DELETE` em cascata. Família exige digitar o nome, conferido de novo no servidor. Conta
+  exige digitar EXCLUIR e segue a regra de "apagar minha conta": famílias só dela somem junto; família com mais
+  gente impede.
+- **Redefinição de senha** chama a mesma API do Better Auth. Sem envio de e-mail configurado, o pedido fica
+  registrado e a tela avisa.
+- **Chaves do sistema em `ops.feature_flags`**, tudo desligado por padrão: `manutencao`, `cadastro_fechado`,
+  `agente_desligado:<agente>` e `aviso:<id>`. Só `ou_admin` grava; web e worker leem.
+  - Manutenção: faixa no app e `requireTenant` devolve contexto de papel `viewer`, então `canWrite()` responde
+    não em todas as ações e a RLS recusa a escrita. Rotas de escrita do Better Auth (cadastro, família, conta)
+    respondem 503. O worker pula agentes e foto do patrimônio. A rodada perdida não é refeita sozinha.
+  - Cadastro fechado: quem tem convite pendente para o e-mail ainda se cadastra.
+  - Agente desligado não roda nem grava `ops.agent_runs`. Sem a aposentadoria, viagens e metas seguem como quando
+    ela falha.
+- **"Rodar agora" enfileira na mesma fila `daily-agents`**, com `singletonKey` do dia e janela de 5 minutos. Em
+  fila `standard` do pg-boss a chave sozinha não evita duplicata; quem evita é o par chave e janela.
 
 ## Fora do escopo por enquanto
 
-2FA do admin. Escrita pelo admin. Importar metas dos sistemas antigos. E-mail avisando das sugestões.
+2FA do admin. Importar metas dos sistemas antigos. E-mail avisando das sugestões.
 Parcelas de proventos previstos no calendário. `projection_snapshots` (descartado no ADR-0014; o relatório
 diário em `household_reports` cumpre o papel de histórico).
 
 ## Riscos aceitos
 
-- **Admin sem 2FA.** Quem tiver a senha de um id em `ADMIN_USER_IDS` vê dados agregados e, por ação explícita,
-  o e-mail do responsável de uma família. Mitigação: só leitura, acesso registrado, e a lista é por id, não por
-  e-mail.
+- **Admin sem 2FA, agora com escrita.** Quem tiver a senha de um id em `ADMIN_USER_IDS` pode suspender, bloquear
+  e excluir, e vê por ação explícita o contato do responsável. Mitigação: tudo registrado na mesma transação da
+  ação, confirmação em toda ação destrutiva, exclusão só digitando, e a lista é por id, não por e-mail. 2FA do
+  admin passa a ser a próxima prioridade de segurança.
+- **Suspender derruba a sessão também nas outras famílias do membro.** Ele só precisa entrar de novo.
 - **Dia do casamento é dado além do mínimo.** Aceito porque é opcional e tem a mesma finalidade de um evento
   do calendário criado pela família.
 - **Plano de meta muda todo dia.** A família pode estranhar a parcela mudar quando a renda muda. Mitigação:
