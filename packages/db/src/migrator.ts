@@ -131,6 +131,8 @@ async function applyGrants(sql: postgres.Sql) {
     -- Agentes diários: só o worker registra rodadas; só a web registra acessos do painel.
     GRANT INSERT, UPDATE ON ops.agent_runs, ops.platform_stats TO ${worker};
     GRANT INSERT ON ops.admin_access TO ${app};
+    -- Diagnósticos: web e worker registram e a Ops API marca resolvido; ninguém apaga.
+    GRANT INSERT, UPDATE ON ops.diagnostics TO ${app}, ${worker};
     -- ops.feature_flags: só ou_admin grava (GRANT ALL abaixo); web e worker só leem.
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
     GRANT ALL ON ALL TABLES IN SCHEMA ops TO ${admin};
