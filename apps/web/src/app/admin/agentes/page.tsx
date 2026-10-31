@@ -160,8 +160,8 @@ export default async function AdminAgentsPage() {
           </li>
         </ul>
         <p className="text-xs text-muted">
-          Cada quadrado é um dia, do mais antigo ao de hoje. Escuro: rodou. Com exclamação: houve
-          falha. Claro: não rodou.
+          Cada quadrado é um dia, do mais antigo ao de hoje. Verde: rodou. Com exclamação: houve
+          falha. Apagado: não rodou.
         </p>
       </section>
 
