@@ -27,10 +27,15 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      `ADMIN_USER_IDS` (ids da tabela `user` que podem abrir `/admin`, separados por vírgula; cada um copia o
      seu em Configurações › "ID da conta"), `ADMIN_DATABASE_URL` (conexão `ou_admin`, usada só pelo painel
      `/admin` em modo somente leitura), `ADMIN_DATABASE_POOL_MAX` (opcional; padrão 2).
+     `BREVO_API_KEY` (chave da API v3 da Brevo; sem ela nenhum e-mail sai e a web loga `email_disabled`),
+     `EMAIL_FROM_NAME` e `EMAIL_FROM_ADDRESS` (opcionais; o padrão é
+     `OrganizeUp <notificacoes@organizeup.com.br>`, remetente já verificado na Brevo).
      `ADMIN_EMAILS` **não** vai para produção: só desenvolvimento e e2e, porque um e-mail sem conta pode
      ser tomado por quem se cadastrar com ele (ADR-0016).
    - E2E (fora do Dokploy): `E2E_ADMIN_EMAIL` liga o spec `admin.spec.ts`; o servidor de teste sobe com
-     `ADMIN_EMAILS` igual a esse valor.
+     `ADMIN_EMAILS` igual a esse valor. `EMAIL_CAPTURE_FILE` liga `recuperar-senha.spec.ts`: o servidor
+     grava os e-mails nesse arquivo em vez de enviar. Como `NODE_ENV=production` desliga a captura, esse
+     spec roda contra `next dev`, com a mesma variável no servidor e no Playwright.
 4. **Domínios da web**: `organizeup.crowntech.com.br` (HTTPS, Let's Encrypt) e `organizeup.com.br`
    (preparado, sem HTTPS, ver `cutover-dominio.md`).
 5. **Ordem do primeiro deploy**: `ou3-db`, depois `ou3-worker` (cria tabelas, papéis e filas), depois `ou3-web`.

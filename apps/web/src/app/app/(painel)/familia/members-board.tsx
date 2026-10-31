@@ -145,7 +145,8 @@ export function MembersBoard({
         <div className="mt-4 border-t border-line pt-4">
           <h3 className="text-sm font-semibold">Convites aguardando</h3>
           <p className="mt-0.5 text-xs text-muted">
-            Copie o link e envie para a pessoa, por mensagem. Ainda não enviamos e-mail.
+            Enviamos o convite para o e-mail da pessoa. Se não chegar, copie o link e mande por
+            mensagem.
           </p>
           <ul aria-label="Convites aguardando" className="m-0 mt-2 list-none p-0">
             {invites.map((invite) => (

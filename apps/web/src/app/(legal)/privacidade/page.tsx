@@ -45,6 +45,10 @@ export default function PrivacyPage() {
           Prestar o serviço que você contratou ao criar a conta, incluindo montar os planos de
           aposentadoria, metas e viagens (LGPD, art. 7º, V).
         </li>
+        <li>
+          Enviar os e-mails do serviço: confirmar seu e-mail, trocar a senha, avisar que a senha
+          mudou e entregar convites para a família (art. 7º, V).
+        </li>
         <li>Manter o sistema seguro e prevenir fraude e acesso indevido (art. 7º, IX).</li>
         <li>Cumprir obrigações legais (art. 7º, II).</li>
       </ul>
@@ -83,6 +87,11 @@ export default function PrivacyPage() {
         <li>
           Cloudflare, que guarda as cópias de segurança e pode intermediar o acesso ao site. Esses
           dados podem ser tratados fora do Brasil.
+        </li>
+        <li>
+          Brevo, que entrega os e-mails do serviço. Ela recebe o endereço de e-mail, o nome e o
+          texto da mensagem, que nos convites traz o nome de quem convidou e o da família. Dados
+          financeiros não vão nesses e-mails. Esses dados podem ser tratados fora do Brasil.
         </li>
       </ul>
       <p>
