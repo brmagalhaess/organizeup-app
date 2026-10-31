@@ -9,6 +9,7 @@ export * from "./wealth";
 export * from "./calendar";
 export * from "./income";
 export * from "./investment";
+export * from "./market";
 export * from "./retirement";
 export * from "./trip";
 export * from "./surplus";
