@@ -112,12 +112,16 @@ async function applyGrants(sql: postgres.Sql) {
     -- Modelos globais são somente leitura para a aplicação.
     REVOKE INSERT, UPDATE, DELETE ON public.category_templates FROM ${app}, ${worker};
     REVOKE INSERT, UPDATE, DELETE ON public.fiscal_parameters FROM ${app}, ${worker};
+    REVOKE INSERT, UPDATE, DELETE ON public.trip_destination_templates FROM ${app}, ${worker};
 
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.
     GRANT SELECT ON ALL TABLES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
     GRANT INSERT ON ops.deployments TO ${app}, ${worker};
     GRANT INSERT, UPDATE ON ops.agent_memory, ops.reports, ops.categorization_stats TO ${app};
     GRANT INSERT, UPDATE ON ops.worker_heartbeats TO ${worker};
+    -- Agentes diários: só o worker registra rodadas; só a web registra acessos do painel.
+    GRANT INSERT, UPDATE ON ops.agent_runs TO ${worker};
+    GRANT INSERT ON ops.admin_access TO ${app};
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
     GRANT ALL ON ALL TABLES IN SCHEMA ops TO ${admin};
   `);

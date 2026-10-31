@@ -2,6 +2,8 @@
 export const JOB_QUEUES = {
   opsHeartbeat: "ops-heartbeat",
   netWorthSnapshot: "net-worth-snapshot",
+  /** Agentes diários do produto (categorias, investimentos, aposentadoria, viagens, metas). */
+  dailyAgents: "daily-agents",
 } as const;
 
 export type JobQueue = (typeof JOB_QUEUES)[keyof typeof JOB_QUEUES];
