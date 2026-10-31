@@ -33,7 +33,11 @@ export function CreateHouseholdForm() {
     });
     if (createError || !data) {
       setPending(false);
-      setError("Não foi possível criar a família. Tente novamente.");
+      setError(
+        createError?.message === "MAINTENANCE"
+          ? "O sistema está em manutenção. Tente de novo mais tarde."
+          : "Não foi possível criar a família. Tente novamente.",
+      );
       return;
     }
     const { error: activeError } = await authClient.organization.setActive({

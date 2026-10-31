@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { fromSession, listMemberships } from "@organizeup/db";
+import { fromSession, listMemberships, suspendedHouseholdIds } from "@organizeup/db";
 import { requireSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Escolher família" };
@@ -21,6 +21,7 @@ export default async function ChooseHouseholdPage() {
   if (memberships.length === 1) {
     redirect(`/app/escolher/abrir?id=${encodeURIComponent(memberships[0]!.householdId)}`);
   }
+  const suspended = await suspendedHouseholdIds(memberships.map((m) => m.householdId));
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
       <h1 className="text-2xl font-bold">Qual família você quer abrir?</h1>
@@ -33,7 +34,9 @@ export default async function ChooseHouseholdPage() {
               className="flex min-h-11 items-center justify-between rounded-lg border border-line bg-card px-4 text-sm font-semibold hover:bg-brand-50"
             >
               <span>{m.name}</span>
-              <span className="text-xs text-muted">{ROLE_LABEL[m.role] ?? m.role}</span>
+              <span className="text-xs text-muted">
+                {suspended.has(m.householdId) ? "Suspensa" : (ROLE_LABEL[m.role] ?? m.role)}
+              </span>
             </Link>
           </li>
         ))}
