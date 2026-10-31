@@ -74,8 +74,11 @@ export default function PrivacyPage() {
       </p>
       <p>
         Para dar suporte, a administração do serviço vê o nome da família, as datas de criação e de
-        último acesso e o número de pessoas com acesso. O e-mail do responsável só aparece quando
-        pedido, e cada acesso fica registrado. Dados financeiros não aparecem nesse painel.
+        último acesso, as pessoas com acesso pelo papel de cada uma e quais áreas do sistema a
+        família usa, sem nenhum valor. Nome e e-mail do responsável só aparecem quando pedidos, e
+        cada acesso fica registrado. Dados financeiros não aparecem nesse painel. A administração
+        também pode suspender o acesso de uma família, bloquear uma conta ou excluí-las, por exemplo
+        em caso de abuso ou a pedido; essas ações ficam registradas.
       </p>
       <p>Usamos fornecedores para funcionar:</p>
       <ul>

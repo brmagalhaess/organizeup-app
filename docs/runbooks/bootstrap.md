@@ -26,7 +26,7 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
    - Web: `DATABASE_URL` (ou_app), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `OPS_TOKEN_HASHES`,
      `ADMIN_USER_IDS` (ids da tabela `user` que podem abrir `/admin`, separados por vírgula; cada um copia o
      seu em Configurações › "ID da conta"), `ADMIN_DATABASE_URL` (conexão `ou_admin`, usada só pelo painel
-     `/admin` em modo somente leitura), `ADMIN_DATABASE_POOL_MAX` (opcional; padrão 2).
+     `/admin`, com leitura somente leitura e ações registradas), `ADMIN_DATABASE_POOL_MAX` (opcional; padrão 2).
      `ADMIN_EMAILS` **não** vai para produção: só desenvolvimento e e2e, porque um e-mail sem conta pode
      ser tomado por quem se cadastrar com ele (ADR-0016).
    - E2E (fora do Dokploy): `E2E_ADMIN_EMAIL` liga o spec `admin.spec.ts`; o servidor de teste sobe com
