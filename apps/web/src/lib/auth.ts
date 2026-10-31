@@ -6,6 +6,16 @@ import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
 import { and, eq, household, householdMember, inArray, legalAcceptance, ne } from "@organizeup/db";
 import { authDb, betterAuthSchema } from "@organizeup/db/auth-db";
+import { sendEmailInBackground } from "./email";
+import {
+  INVITE_LINK_DAYS,
+  invitationEmail,
+  passwordChangedEmail,
+  RESET_LINK_HOURS,
+  resetPasswordEmail,
+  VERIFY_LINK_HOURS,
+  verifyEmail,
+} from "./email-templates";
 import { LEGAL_VERSION } from "./legal";
 import { ac, roles } from "./permissions";
 
@@ -38,8 +48,23 @@ function createAuth() {
       enabled: true,
       minPasswordLength: 10,
       maxPasswordLength: 128,
-      // Verificação de e-mail entra com o SMTP (Fase 2).
+      // A confirmação de e-mail é enviada no cadastro, mas não impede de entrar.
       requireEmailVerification: false,
+      resetPasswordTokenExpiresIn: RESET_LINK_HOURS * 60 * 60,
+      sendResetPassword: ({ user, token }) =>
+        sendEmailInBackground({
+          to: user.email,
+          ...resetPasswordEmail({ name: user.name, token }),
+        }),
+      onPasswordReset: ({ user }) =>
+        sendEmailInBackground({ to: user.email, ...passwordChangedEmail({ name: user.name }) }),
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      expiresIn: VERIFY_LINK_HOURS * 60 * 60,
+      sendVerificationEmail: ({ user, token }) =>
+        sendEmailInBackground({ to: user.email, ...verifyEmail({ name: user.name, token }) }),
     },
     user: {
       deleteUser: { enabled: true, beforeDelete: (user) => closeOwnHouseholds(user.id) },
@@ -79,11 +104,21 @@ function createAuth() {
         allowUserToCreateOrganization: true,
         organizationLimit: 5,
         membershipLimit: 12,
-        // Sem e-mail ainda: o responsável envia o link, e o id aleatório (UUID v4) faz papel de
-        // segredo. Quem tem o link e o e-mail convidado entra. Com SMTP, passa a exigir verificação.
+        // Continua desligado mesmo com e-mail: quem chega pelo convite aceita logo depois de criar a
+        // conta, ainda sem confirmar, e as contas antigas nunca receberam confirmação. O id
+        // aleatório (UUID v4) faz papel de segredo: quem tem o link e o e-mail convidado entra.
         requireEmailVerificationOnInvitation: false,
-        invitationExpiresIn: 60 * 60 * 24 * 7,
+        invitationExpiresIn: INVITE_LINK_DAYS * 60 * 60 * 24,
         cancelPendingInvitationsOnReInvite: true,
+        sendInvitationEmail: ({ id, email, organization, inviter }) =>
+          sendEmailInBackground({
+            to: email,
+            ...invitationEmail({
+              id,
+              familyName: organization.name,
+              inviterName: inviter.user.name,
+            }),
+          }),
       }),
       nextCookies(),
     ],
