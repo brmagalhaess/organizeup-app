@@ -10,6 +10,8 @@ import {
   debtInstallments,
   debts,
   eq,
+  goalContributions,
+  goals,
   householdSettings,
   inArray,
   isNull,
@@ -19,9 +21,12 @@ import {
 } from "@organizeup/db";
 import {
   CARD_CATEGORY,
+  CONTRIBUTION_CATEGORY,
   DEBT_CATEGORY,
+  GOAL_CATEGORY,
   linesTotal,
   money,
+  occurrenceDate,
   purchaseLines,
   statementDueDate,
   statementMonthOf,
@@ -37,15 +42,66 @@ import { scheduledIncome } from "./income-data";
 /** Id das categorias do sistema, garantidas por `ensureFinanceDefaults`. */
 export async function systemCategories(tx: TenantTx) {
   const rows = await tx
-    .select({ id: categories.id, name: categories.name })
+    .select({ id: categories.id, name: categories.name, kind: categories.kind })
     .from(categories)
     .where(
-      and(eq(categories.kind, "despesa"), inArray(categories.name, [CARD_CATEGORY, DEBT_CATEGORY])),
+      inArray(categories.name, [
+        CARD_CATEGORY,
+        DEBT_CATEGORY,
+        GOAL_CATEGORY,
+        CONTRIBUTION_CATEGORY,
+      ]),
     );
+  // "Metas e objetivos" existe como despesa e como receita.
+  const find = (kind: "despesa" | "receita", name: string) =>
+    rows.find((row) => row.kind === kind && row.name === name)?.id;
   return {
-    card: rows.find((row) => row.name === CARD_CATEGORY)?.id,
-    debt: rows.find((row) => row.name === DEBT_CATEGORY)?.id,
+    card: find("despesa", CARD_CATEGORY),
+    debt: find("despesa", DEBT_CATEGORY),
+    goal: find("despesa", GOAL_CATEGORY),
+    goalIncome: find("receita", GOAL_CATEGORY),
+    contribution: find("despesa", CONTRIBUTION_CATEGORY),
   };
+}
+
+export const goalEntryDescription = (name: string, number: number, total: number) =>
+  `Meta: ${name} (${number}/${total})`;
+
+/** Parcelas de meta ainda não confirmadas. Meta sem conta de origem fica fora: não há de onde sair. */
+async function goalEntries(tx: TenantTx, categoryId: string | undefined) {
+  const rows = await tx
+    .select({ contribution: goalContributions, goal: goals })
+    .from(goalContributions)
+    .innerJoin(goals, eq(goalContributions.goalId, goals.id))
+    .orderBy(asc(goalContributions.month));
+  const position = new Map<string, number>();
+  const totals = new Map<string, number>();
+  for (const { contribution } of rows) {
+    const number = (totals.get(contribution.goalId) ?? 0) + 1;
+    totals.set(contribution.goalId, number);
+    position.set(contribution.id, number);
+  }
+  return rows.flatMap(({ contribution, goal }): ScheduledEntry[] => {
+    const active = goal.status !== "pausada" && goal.status !== "concluida";
+    if (contribution.transactionId !== null || !goal.accountId || !active) return [];
+    return [
+      {
+        key: `g:${goal.id}:${contribution.month}`,
+        source: "meta",
+        id: goal.id,
+        kind: "despesa",
+        description: goalEntryDescription(
+          goal.name,
+          position.get(contribution.id)!,
+          totals.get(goal.id)!,
+        ),
+        amount: contribution.amount,
+        date: occurrenceDate(goal.planDay, contribution.month),
+        categoryId: categoryId ?? "",
+        accountId: goal.accountId,
+      },
+    ];
+  });
 }
 
 /** Cartões com as parcelas calculadas e os meses de fatura já pagos. */
@@ -63,7 +119,7 @@ async function cardBook(tx: TenantTx) {
 }
 
 /**
- * Faturas, parcelas e rendas em aberto, prontas para entrar no fluxo do mês. A renda não tem fim
+ * Faturas, parcelas, metas e rendas em aberto, prontas para entrar no fluxo do mês. A renda não tem fim
  * definido, por isso é calculada só para os meses pedidos.
  */
 export async function loadCommitments(tx: TenantTx, months: { from: YearMonth; to: YearMonth }) {
@@ -112,6 +168,7 @@ export async function loadCommitments(tx: TenantTx, months: { from: YearMonth; t
     scheduled: [
       ...statements,
       ...installments,
+      ...(await goalEntries(tx, category.goal)),
       ...(await scheduledIncome(tx, months.from, months.to)),
     ],
     cardLines: book.flatMap(({ lines }) => lines),
@@ -237,6 +294,31 @@ export async function loadDebts(ctx: TenantContext) {
       },
     };
   });
+}
+
+/** Parcela de meta em aberto e a meta, travadas para não serem confirmadas duas vezes. */
+export async function openGoalContribution(tx: TenantTx, goalId: string, month: YearMonth) {
+  const [contribution] = await tx
+    .select()
+    .from(goalContributions)
+    .where(
+      and(
+        eq(goalContributions.goalId, goalId),
+        eq(goalContributions.month, month),
+        isNull(goalContributions.transactionId),
+      ),
+    )
+    .for("update");
+  if (!contribution) return null;
+  const [goal] = await tx.select().from(goals).where(eq(goals.id, goalId)).for("update");
+  if (!goal) return null;
+  const months = await tx
+    .select({ month: goalContributions.month })
+    .from(goalContributions)
+    .where(eq(goalContributions.goalId, goalId))
+    .orderBy(asc(goalContributions.month));
+  const number = months.findIndex((row) => row.month === month) + 1;
+  return { contribution, goal, number, total: months.length };
 }
 
 /** Parcela em aberto, travada para não ser paga duas vezes. */

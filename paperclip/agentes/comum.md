@@ -18,11 +18,30 @@ comentários em português do Brasil. O fundador não é técnico: escreva para 
 
 ## Risco
 
-Mudanças em qualquer destes caminhos são **risco alto** e só entram com aprovação do fundador na tarefa:
-`.github/**`, `AGENTS.md`, `Dockerfile`, `packages/db/**`, `packages/domain/**`, autenticação
-(`apps/web/src/lib/auth*`, `apps/web/src/lib/session*`, `apps/web/src/lib/permissions*`), `paperclip/**`.
-O resto é **risco baixo**. Não há proteção automática no GitHub nem CI ativo: esta regra e o `pnpm check` são o
-único portão, e todo merge em `main` vai para produção sozinho.
+Mudanças em qualquer destes caminhos são **risco alto** e só entram com aprovação do fundador na tarefa. A
+lista é a mesma de `.github/workflows/risk-label.yml`; se os dois divergirem, vale a do arquivo `.yml`:
+
+- `.github/**`
+- `packages/db/**`
+- `packages/domain/**`
+- `apps/web/src/lib/auth.*`, `apps/web/src/lib/auth-client.*`, `apps/web/src/lib/permissions.*`,
+  `apps/web/src/lib/session.*`, `apps/web/src/lib/ops-auth.*`
+- `apps/web/next.config.*`
+- `Dockerfile`, `docker/**`
+- `paperclip/**`
+- `AGENTS.md`
+- `eslint.config.*`
+- `pnpm-workspace.yaml`
+
+Mudar `package.json` ou `pnpm-lock.yaml` é **risco médio**: o Revisor/QA mescla, mas diz na tarefa qual
+dependência mudou. O resto é **risco baixo**.
+
+Não há proteção automática no GitHub nem CI ativo: esta regra e o `pnpm check` são o único portão, e todo
+merge em `main` vai para produção sozinho.
+
+**Rotina diária** (ver `tech-lead.md`): risco alto **nunca** entra na rotina. Se um reparo exigir tocar um
+caminho da lista, o Tech Lead abre tarefa para o fundador e para ali. A rotina também **não abre
+funcionalidade nova**: só repara o que já existe.
 
 ## Memória e relatórios
 
@@ -48,8 +67,11 @@ a tarefa e avise nela.
 3. Ao terminar, comente: o que mudou, como foi verificado e o que **não** foi verificado.
 4. Nunca diga que algo funciona sem ter visto funcionar.
 
-## Ajustes ao `AGENTS.md` neste ambiente
+## O que roda aqui e o que não roda
 
-- Não há CI: ignore o passo `gh pr checks --watch`. A chave não tem acesso a checks, e a verificação é o
-  `pnpm check`.
-- O build e os testes e2e rodam fora daqui. Diga na tarefa que não foram rodados.
+- Não há CI. A verificação é o `pnpm check` (lint, typecheck, testes de unidade e de integração de `db` e
+  `agents`). O Engenheiro roda antes de abrir o PR; o Revisor/QA repete em checkout limpo antes de mesclar.
+- Ninguém roda o build da web aqui. O build é verificado pelo deploy: depois do merge, `/api/health` deve
+  mostrar o `commit` do merge, e `/api/ops/deployments` mostra o que subiu. Se o deploy não acompanhou `main`
+  em 30 minutos, é tarefa para o SRE.
+- Os testes e2e rodam fora daqui. Diga na tarefa que não foram rodados.

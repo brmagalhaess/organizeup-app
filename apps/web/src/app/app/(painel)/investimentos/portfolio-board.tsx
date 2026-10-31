@@ -20,6 +20,12 @@ import {
   submitKeeping,
 } from "@/components/ui";
 import type { loadPortfolio } from "@/lib/investments";
+import type { PendingItem } from "@/lib/suggestions";
+import {
+  DecisionButtons,
+  SuggestionFeedback,
+  useSuggestionActions,
+} from "../sugestoes/suggestion-controls";
 import {
   addTrade,
   deleteInvestment,
@@ -51,6 +57,8 @@ const quantityText = (value: string) => money(value).toNumber().toLocaleString("
 const toInput = (value: string | null) =>
   value === null ? "" : money(value).toString().replace(".", ",");
 const percentText = (value: number) => `${value.toLocaleString("pt-BR")}%`;
+const daysSince = (date: string, today: string) =>
+  Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86_400_000);
 
 function useCloseOnSuccess(state: FormState, onDone: () => void) {
   useEffect(() => {
@@ -103,7 +111,7 @@ function TradeForm({ row, today, onDone }: { row: Row; today: string; onDone: ()
       <div className="grid grid-cols-2 gap-3">
         <Field label="Operação">
           <Select name="side" defaultValue="compra">
-            <option value="compra">{unit ? "Compra" : "Aporte"}</option>
+            <option value="compra">{unit ? "Compra" : "Aplicação"}</option>
             <option value="venda">{unit ? "Venda" : "Resgate"}</option>
           </Select>
         </Field>
@@ -268,7 +276,7 @@ function History_({
           <li key={trade.id} className="flex items-center gap-3 py-2 text-sm">
             <div className="min-w-0 flex-1">
               <p className="font-medium">
-                {unit ? (buying ? "Compra" : "Venda") : buying ? "Aporte" : "Resgate"} de{" "}
+                {unit ? (buying ? "Compra" : "Venda") : buying ? "Aplicação" : "Resgate"} de{" "}
                 {unit
                   ? `${quantityText(trade.quantity)} a ${formatBRL(trade.unitPrice)}`
                   : formatBRL(total)}
@@ -290,6 +298,28 @@ function History_({
   );
 }
 
+/** Avisos do assistente. Fica montado depois da última decisão para mostrar a mensagem. */
+function PortfolioSuggestions({ items, writable }: { items: PendingItem[]; writable: boolean }) {
+  const actions = useSuggestionActions();
+  if (items.length === 0) return <SuggestionFeedback result={actions.result} />;
+  return (
+    <Card title="Sugestões do assistente">
+      <SuggestionFeedback result={actions.result} />
+      <ul aria-label="Sugestões do assistente" className="m-0 list-none divide-y divide-line p-0">
+        {items.map((item) => (
+          <li key={item.id} className="py-3 first:pt-0 last:pb-0">
+            <p className="text-sm font-medium">{item.title}</p>
+            <p className="mt-1 text-sm text-muted">{item.body}</p>
+            {writable ? (
+              <DecisionButtons id={item.id} title={item.title} actions={actions} />
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 type Sheet_ =
   | { type: "new" | "targets"; nonce: number }
   | { type: "edit" | "trade" | "value" | "history"; nonce: number; id: string };
@@ -303,7 +333,18 @@ const TITLES: Record<Sheet_["type"], string> = {
   history: "Operações",
 };
 
-export function PortfolioBoard({ data, writable }: { data: Data; writable: boolean }) {
+export function PortfolioBoard({
+  data,
+  suggestions,
+  stalePriceDays,
+  writable,
+}: {
+  data: Data;
+  suggestions: PendingItem[];
+  /** A partir de quantos dias o valor informado conta como velho. */
+  stalePriceDays: number;
+  writable: boolean;
+}) {
   const [sheet, setSheet] = useState<Sheet_ | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
   const [removingTrade, setRemovingTrade] = useState<Trade | null>(null);
@@ -331,6 +372,8 @@ export function PortfolioBoard({ data, writable }: { data: Data; writable: boole
           ) : null
         }
       />
+
+      <PortfolioSuggestions items={suggestions} writable={writable} />
 
       {data.rows.length === 0 ? (
         <Card>
@@ -381,6 +424,8 @@ export function PortfolioBoard({ data, writable }: { data: Data; writable: boole
                 {data.rows.map((row) => {
                   const unit = isUnitPriced(row.assetClass);
                   const rowGain = money(row.gain);
+                  const priceAge =
+                    row.valuedOn && !row.estimated ? daysSince(row.valuedOn, data.today) : 0;
                   return (
                     <li key={row.id} className="py-3 first:pt-0">
                       <div className="flex items-start gap-3">
@@ -391,6 +436,9 @@ export function PortfolioBoard({ data, writable }: { data: Data; writable: boole
                           <p className="flex flex-wrap items-center gap-2 font-medium">
                             {row.name}
                             {row.ticker ? <Badge>{row.ticker}</Badge> : null}
+                            {priceAge > stalePriceDays ? (
+                              <Badge tone="warning">preço de há {priceAge} dias</Badge>
+                            ) : null}
                           </p>
                           <p className="text-xs text-muted">
                             {CLASS_LABEL[row.assetClass]}

@@ -1,7 +1,15 @@
 // Helpers do schema `ops` (sem PII; sem RLS de tenant).
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { appPool } from "./client";
-import { agentMemory, categorizationStats, deployments, reports, workerHeartbeats } from "./schema";
+import {
+  adminAccess,
+  agentMemory,
+  agentRuns,
+  categorizationStats,
+  deployments,
+  reports,
+  workerHeartbeats,
+} from "./schema";
 
 export async function recordDeployment(input: {
   service: "web" | "worker";
@@ -171,4 +179,78 @@ export async function listCategorizationStats(limit = 14) {
     .from(categorizationStats)
     .orderBy(desc(categorizationStats.day))
     .limit(Math.min(Math.max(limit, 1), 90));
+}
+
+export type AgentRunCounts = {
+  households: number;
+  ok: number;
+  failed: number;
+  suggestions: number;
+  applied: number;
+  durationMs?: number | null | undefined;
+};
+
+/**
+ * Registra a rodada de um agente diário no dia (`YYYY-MM-DD`). Repetir no mesmo dia SUBSTITUI as
+ * contagens e soma 1 em `runs`. Só o worker (ou_worker) tem permissão de gravar.
+ */
+export async function recordAgentRun(
+  day: string,
+  agent: string,
+  counts: AgentRunCounts,
+): Promise<void> {
+  const t = agentRuns;
+  const values = {
+    households: counts.households,
+    ok: counts.ok,
+    failed: counts.failed,
+    suggestions: counts.suggestions,
+    applied: counts.applied,
+    durationMs: counts.durationMs ?? null,
+  };
+  await appPool()
+    .db.insert(t)
+    .values({ day, agent, runs: 1, ...values })
+    .onConflictDoUpdate({
+      target: [t.day, t.agent],
+      set: { ...values, runs: sql`${t.runs} + 1`, finishedAt: sql`now()` },
+    });
+}
+
+/** Rodadas dos últimos `limit` dias com execução (todos os agentes), do mais recente ao mais antigo. */
+export async function listAgentRuns(limit = 14) {
+  const t = agentRuns;
+  const { db } = appPool();
+  const recentDays = db
+    .select({ day: t.day })
+    .from(t)
+    .groupBy(t.day)
+    .orderBy(desc(t.day))
+    .limit(Math.min(Math.max(limit, 1), 90));
+  return db.select().from(t).where(inArray(t.day, recentDays)).orderBy(desc(t.day), asc(t.agent));
+}
+
+/** Diz se o agente já rodou no dia (usado no boot do worker para não repetir a rodada). */
+export async function hasAgentRunToday(day: string, agent: string): Promise<boolean> {
+  const rows = await appPool()
+    .db.select({ day: agentRuns.day })
+    .from(agentRuns)
+    .where(and(eq(agentRuns.day, day), eq(agentRuns.agent, agent)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/** Registra um acesso do painel do serviço. Nunca receba o texto da busca aqui. */
+export async function recordAdminAccess(input: {
+  adminUserId: string;
+  action: string;
+  targetHouseholdId?: string | null | undefined;
+}): Promise<void> {
+  await appPool()
+    .db.insert(adminAccess)
+    .values({
+      adminUserId: input.adminUserId,
+      action: input.action,
+      targetHouseholdId: input.targetHouseholdId ?? null,
+    });
 }

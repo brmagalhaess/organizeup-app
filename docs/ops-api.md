@@ -22,16 +22,37 @@ node -e "const c=require('crypto');const t=c.randomBytes(32).toString('base64url
 Tudo no schema `ops`, sem dados pessoais. Escrita com aparência de e-mail, CPF, CNPJ, telefone ou cartão
 recebe 422; `@example.com` é permitido. É uma barreira de melhor esforço, não substitui a regra.
 
-| Rota                                      | O que faz                                                                        |
-| ----------------------------------------- | -------------------------------------------------------------------------------- |
-| `GET /api/ops/context?agent=<slug>&q=...` | Ao acordar: produção, relatórios recentes, memórias e contagens da categorização |
-| `GET /api/ops/memory?agent=&q=`           | Busca em português; sem `q`, as mais recentes                                    |
-| `POST /api/ops/memory`                    | `{agent, kind, content, sourceIssue?, supersedes?}`                              |
-| `GET /api/ops/reports?kind=&limit=`       | Relatórios mais recentes                                                         |
-| `POST /api/ops/reports`                   | `{kind, period, agent, title, body}`; mesmo tipo e período atualiza              |
+| Rota                                      | O que faz                                                                                     |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `GET /api/ops/context?agent=<slug>&q=...` | Ao acordar: produção, relatórios recentes, memórias, contagens da categorização e `agentRuns` |
+| `GET /api/ops/memory?agent=&q=`           | Busca em português; sem `q`, as mais recentes                                                 |
+| `POST /api/ops/memory`                    | `{agent, kind, content, sourceIssue?, supersedes?}`                                           |
+| `GET /api/ops/reports?kind=&limit=`       | Relatórios mais recentes                                                                      |
+| `POST /api/ops/reports`                   | `{kind, period, agent, title, body}`; mesmo tipo e período atualiza                           |
 
 `kind` de memória: `fato`, `decisao`, `licao`, `preferencia`. De relatório: `saude`, `semanal`, `incidente`,
 `custos`, `produto`. A aplicação não apaga memória nem relatório.
+
+## Agentes diários do produto (`agentRuns`)
+
+`GET /api/ops/context` devolve `agentRuns`: os últimos 14 dias de `ops.agent_runs`, uma linha por dia e
+agente (`categorias`, `investimentos`, `aposentadoria`, `viagens`, `metas`). O worker grava ao terminar cada
+agente; rodar de novo no mesmo dia substitui as contagens e soma 1 em `runs`. Só números, nunca uma família.
+
+| Campo         | Significado                                                        |
+| ------------- | ------------------------------------------------------------------ |
+| `day`         | Dia da execução (`YYYY-MM-DD`, fuso America/Sao_Paulo)             |
+| `agent`       | Nome do agente                                                     |
+| `runs`        | Quantas vezes rodou nesse dia                                      |
+| `households`  | Famílias ativas percorridas (sessão nos últimos 60 dias)           |
+| `ok`          | Famílias em que o agente terminou sem erro                         |
+| `failed`      | Famílias em que o agente falhou (a família seguinte não é afetada) |
+| `suggestions` | Sugestões pendentes criadas ou atualizadas                         |
+| `applied`     | Alterações automáticas aplicadas (dado derivado, com Desfazer)     |
+| `durationMs`  | Duração da última execução, em milissegundos                       |
+
+Quem lê: Tech Lead na rotina das 06:00 (abre reparo se `failed > 0`) e SRE às 07:30. `failed > 0` ou dia sem
+linha depois das 06:00 é tarefa. O painel `/admin` mostra os mesmos 7 últimos dias para o responsável.
 
 ## Próxima
 

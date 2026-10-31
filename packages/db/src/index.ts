@@ -15,22 +15,44 @@ export {
   type TenantRole,
   type TenantTx,
 } from "./tenant";
-export { withAdmin } from "./admin";
+export {
+  adminHouseholdList,
+  adminHouseholdOwnerEmail,
+  adminOverviewCounts,
+  withAdmin,
+  withAdminRead,
+  type AdminHouseholdRow,
+  type AdminOverviewCounts,
+} from "./admin";
 export { exportHousehold } from "./export";
-export { ensureFinanceDefaults } from "./finance";
-export { householdTimezone, listHouseholdIds, netWorthInputs, recordNetWorth } from "./wealth";
+export { SYSTEM_TEMPLATES, ensureCategory, ensureFinanceDefaults } from "./finance";
+export {
+  householdTimezone,
+  listActiveHouseholdIds,
+  listHouseholdIds,
+  netWorthInputs,
+  recordNetWorth,
+} from "./wealth";
 export {
   addAgentMemory,
   databaseStatus,
   findAgentMemories,
+  hasAgentRunToday,
+  listAgentRuns,
   listCategorizationStats,
   listDeployments,
   listReports,
   listWorkerHeartbeats,
+  recordAdminAccess,
+  recordAgentRun,
   recordCategorizationStats,
   recordDeployment,
   recordWorkerHeartbeat,
   saveReport,
+  type AgentRunCounts,
+  type CategorizationCounts,
+  type MemoryKind,
+  type ReportKind,
 } from "./ops";
 export { JOB_QUEUES, PGBOSS_SCHEMA, type JobQueue } from "./jobs";
 export { closeAllPools } from "./client";

@@ -16,6 +16,17 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import { isValidTimezone } from "@organizeup/domain";
+import {
+  adultProfileShape,
+  birthField,
+  birthParts,
+  isPlanAdult,
+  optionalInt,
+  patchSettings,
+  planShape,
+  saveWedding,
+  weddingSchema,
+} from "@/lib/onboarding";
 import { requireTenant } from "@/lib/session";
 
 export interface ActionState {
@@ -126,40 +137,87 @@ export async function bootstrapHousehold(input: {
 const personSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome.").max(120),
   relation: z.enum(PERSON_RELATIONS, { message: "Escolha a relação." }),
-  birth: z
-    .string()
-    .trim()
-    .transform((v) => (v === "" ? null : v))
-    .refine((v) => v === null || /^\d{4}-\d{2}$/.test(v), "Use mês/ano válidos."),
+  birth: birthField,
+  ...adultProfileShape,
+  retirementAge: optionalInt(40, 100, "Informe uma idade de 40 a 100 anos."),
 });
+
+const NO_SECOND_TITULAR = { relation: "Escolha a relação." };
+
+function readPerson(formData: FormData) {
+  const text = (name: string) => String(formData.get(name) ?? "");
+  return personSchema.safeParse({
+    name: text("name"),
+    relation: text("relation"),
+    birth: text("birth"),
+    workStatus: text("workStatus"),
+    inssContributor: text("inssContributor"),
+    expectedPension: text("expectedPension"),
+    retirementAge: text("retirementAge"),
+  });
+}
+
+/** Colunas da pessoa. Quem não entra no plano fica sem dados de trabalho e previdência. */
+function personValues(data: z.output<typeof personSchema>, relation: string) {
+  const adult = isPlanAdult(relation);
+  return {
+    name: data.name,
+    ...birthParts(data.birth),
+    workStatus: adult ? data.workStatus : null,
+    inssContributor: adult ? data.inssContributor : null,
+    expectedPension: adult ? data.expectedPension : null,
+    retirementAge: adult ? data.retirementAge : null,
+  };
+}
 
 export async function addPerson(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { ctx } = await requireTenant();
   if (!canWrite(ctx))
     return { ok: false, message: "Seu papel nesta família não permite alterações." };
-  const parsed = personSchema.safeParse({
-    name: formData.get("name") ?? "",
-    relation: formData.get("relation") ?? "",
-    birth: formData.get("birth") ?? "",
-  });
+  const parsed = readPerson(formData);
   if (!parsed.success) return { ok: false, message: null, fieldErrors: fieldErrors(parsed.error) };
-  const [year, month] = parsed.data.birth ? parsed.data.birth.split("-").map(Number) : [null, null];
+  const { relation } = parsed.data;
+  if (relation === "titular") return { ok: false, message: null, fieldErrors: NO_SECOND_TITULAR };
 
   await withHousehold(ctx, async (tx) => {
     const [person] = await tx
       .insert(people)
-      .values({
-        householdId: ctx.householdId,
-        name: parsed.data.name,
-        relation: parsed.data.relation,
-        birthYear: year ?? null,
-        birthMonth: month ?? null,
-      })
+      .values({ householdId: ctx.householdId, relation, ...personValues(parsed.data, relation) })
       .returning({ id: people.id });
     await audit(tx, ctx, "create", "people", person!.id);
   });
   revalidatePath("/app", "layout");
   return { ok: true, message: "Pessoa adicionada." };
+}
+
+/** Edita uma pessoa. O titular continua titular e ninguém vira titular por aqui. */
+export async function updatePerson(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx))
+    return { ok: false, message: "Seu papel nesta família não permite alterações." };
+  const id = String(formData.get("id") ?? "");
+  const parsed = readPerson(formData);
+  if (!parsed.success) return { ok: false, message: null, fieldErrors: fieldErrors(parsed.error) };
+
+  const failure = await withHousehold(ctx, async (tx) => {
+    const [current] = await tx
+      .select({ relation: people.relation })
+      .from(people)
+      .where(eq(people.id, id));
+    if (!current) return "Essa pessoa não está mais na família.";
+    const titular = current.relation === "titular";
+    if (!titular && parsed.data.relation === "titular") return "Escolha a relação.";
+    const relation = titular ? "titular" : parsed.data.relation;
+    await tx
+      .update(people)
+      .set({ relation, ...personValues(parsed.data, relation), updatedAt: new Date() })
+      .where(eq(people.id, id));
+    await audit(tx, ctx, "update", "people", id);
+    return null;
+  });
+  if (failure) return { ok: false, message: failure };
+  revalidatePath("/app", "layout");
+  return { ok: true, message: "Pessoa atualizada." };
 }
 
 /** Remove uma pessoa cadastrada. O titular não sai por aqui. */
@@ -200,4 +258,48 @@ export async function updateSettings(_prev: ActionState, formData: FormData): Pr
   });
   revalidatePath("/app", "layout");
   return { ok: true, message: "Configurações salvas." };
+}
+
+export async function updateWedding(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx))
+    return { ok: false, message: "Seu papel nesta família não permite alterações." };
+  const parsed = weddingSchema.safeParse({
+    weddingDay: String(formData.get("weddingDay") ?? ""),
+    weddingMonth: String(formData.get("weddingMonth") ?? ""),
+    weddingYear: String(formData.get("weddingYear") ?? ""),
+  });
+  if (!parsed.success) return { ok: false, message: null, fieldErrors: fieldErrors(parsed.error) };
+
+  await withHousehold(ctx, async (tx) => {
+    await saveWedding(tx, ctx, parsed.data);
+    await audit(tx, ctx, "update", "household_settings", ctx.householdId);
+  });
+  revalidatePath("/app", "layout");
+  return { ok: true, message: "Casamento salvo." };
+}
+
+const planSchema = z.object(planShape);
+
+export async function updatePlan(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx))
+    return { ok: false, message: "Seu papel nesta família não permite alterações." };
+  const parsed = planSchema.safeParse({
+    retirementYear: String(formData.get("retirementYear") ?? ""),
+    tripsPerYear: String(formData.get("tripsPerYear") ?? ""),
+    tripDays: String(formData.get("tripDays") ?? ""),
+  });
+  if (!parsed.success) return { ok: false, message: null, fieldErrors: fieldErrors(parsed.error) };
+
+  await withHousehold(ctx, async (tx) => {
+    await patchSettings(tx, ctx, {
+      retirementYear: parsed.data.retirementYear,
+      tripsPerYear: parsed.data.tripsPerYear ?? 0,
+      tripDays: parsed.data.tripDays,
+    });
+    await audit(tx, ctx, "update", "household_settings", ctx.householdId);
+  });
+  revalidatePath("/app", "layout");
+  return { ok: true, message: "Plano salvo." };
 }

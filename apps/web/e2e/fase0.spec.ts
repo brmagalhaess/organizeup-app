@@ -66,7 +66,7 @@ test("fluxo da família e isolamento entre famílias", async ({ page, browser })
   expect(a11y.violations.map((v) => v.id)).toEqual([]);
 
   // Sair e entrar de novo volta para a mesma família.
-  const more = page.getByRole("button", { name: "Mais" });
+  const more = page.getByRole("button", { name: "Mais", exact: true });
   if (await more.isVisible()) await more.click();
   await page.getByRole("button", { name: "Sair" }).locator("visible=true").click();
   await expect(page).toHaveURL(/\/entrar$/);

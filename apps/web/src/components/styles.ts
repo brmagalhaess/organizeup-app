@@ -1,4 +1,6 @@
 // Classes compartilhadas. Sem "use client": telas do servidor e do navegador usam as mesmas.
+import type { MonthEntry } from "@organizeup/domain";
+
 export function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -6,6 +8,21 @@ export function cx(...classes: Array<string | false | null | undefined>) {
 /** Cor do valor: receita e despesa têm cor própria em todo o sistema. */
 export const amountClass = (kind: "receita" | "despesa") =>
   kind === "receita" ? "text-income" : "text-expense";
+
+/** Verbo do botão que confirma: meta guarda, receita entra, despesa sai. */
+export function confirmLabel(entry: Pick<MonthEntry, "kind" | "source">): string {
+  if (entry.source === "meta") return "Guardar";
+  return entry.kind === "receita" ? "Receber" : "Pagar";
+}
+
+/** Rótulo do que já foi confirmado. */
+export function doneLabel(entry: Pick<MonthEntry, "kind" | "source">): string {
+  if (entry.source === "meta") return "Guardado";
+  return entry.kind === "receita" ? "Recebido" : "Pago";
+}
+
+/** Parcela de meta confirmada vira lançamento comum; só a descrição ainda diz de onde veio. */
+export const isGoalEntry = (description: string) => description.startsWith("Meta: ");
 
 export type ButtonVariant = "primary" | "accent" | "secondary" | "ghost" | "danger";
 

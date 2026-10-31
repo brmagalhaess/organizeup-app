@@ -1,6 +1,6 @@
 // Projeção de aposentadoria. Puro. Tudo em reais de hoje, com retorno real (acima da inflação),
 // para o número fazer sentido sem adivinhar a inflação de décadas. É estimativa, não promessa.
-import { money, toDbAmount, type MoneyValue } from "./money";
+import { money, toDbAmount, type MoneyInput, type MoneyValue } from "./money";
 
 export interface RetirementInput {
   /** Idade hoje, em meses. */
@@ -38,17 +38,18 @@ export interface RetirementResult {
   series: Array<{ age: number; value: string }>;
 }
 
-const monthlyRate = (annualPercent: string): MoneyValue =>
+/** Taxa mensal equivalente a uma taxa anual em % ("6" = 6% a.a. → 0,4868% a.m.), como fração. */
+export const monthlyRate = (annualPercent: MoneyInput): MoneyValue =>
   money(1).plus(money(annualPercent).dividedBy(100)).pow(money(1).dividedBy(12)).minus(1);
 
-/** Quanto R$ 1 por mês acumula em `months` meses. */
-function accumulationFactor(rate: MoneyValue, months: number): MoneyValue {
+/** Quanto R$ 1 por mês acumula em `months` meses, à taxa mensal `rate` (fração). */
+export function accumulationFactor(rate: MoneyValue, months: number): MoneyValue {
   if (rate.isZero()) return money(months);
   return rate.plus(1).pow(months).minus(1).dividedBy(rate);
 }
 
-/** Valor hoje de R$ 1 por mês durante `months` meses. */
-function annuityFactor(rate: MoneyValue, months: number): MoneyValue {
+/** Valor hoje de R$ 1 por mês durante `months` meses, à taxa mensal `rate` (fração). */
+export function annuityFactor(rate: MoneyValue, months: number): MoneyValue {
   if (rate.isZero()) return money(months);
   return money(1).minus(rate.plus(1).pow(-months)).dividedBy(rate);
 }

@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -56,6 +57,33 @@ export const reports = opsSchema.table(
   },
   (t) => [unique().on(t.kind, t.period)],
 );
+
+/** Uma linha por dia e agente diário do produto. Só contagens; só o worker grava. */
+export const agentRuns = opsSchema.table(
+  "agent_runs",
+  {
+    day: date("day", { mode: "string" }).notNull(),
+    agent: text("agent").notNull(),
+    runs: integer("runs").notNull().default(1),
+    households: integer("households").notNull().default(0),
+    ok: integer("ok").notNull().default(0),
+    failed: integer("failed").notNull().default(0),
+    suggestions: integer("suggestions").notNull().default(0),
+    applied: integer("applied").notNull().default(0),
+    durationMs: integer("duration_ms"),
+    finishedAt: ts("finished_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.day, t.agent] })],
+);
+
+/** Cada acesso do painel do serviço. Nunca guarda o texto da busca; só a web grava. */
+export const adminAccess = opsSchema.table("admin_access", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  at: ts("at").notNull().defaultNow(),
+  adminUserId: text("admin_user_id").notNull(),
+  action: text("action").notNull(),
+  targetHouseholdId: text("target_household_id"),
+});
 
 /** Contagens diárias do agente de categorização, sem família nem descrição. */
 export const categorizationStats = opsSchema.table("categorization_stats", {

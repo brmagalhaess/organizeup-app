@@ -182,6 +182,19 @@ export function NetWorthBoard({ data, writable }: { data: Data; writable: boolea
             </>
           ) : null}
 
+          {money(summary.goals).gt(0) ? (
+            <>
+              <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">
+                <Link href="/app/metas" className="underline-offset-2 hover:underline">
+                  Metas
+                </Link>
+              </h3>
+              <ul aria-label="Metas" className="m-0 list-none divide-y divide-line p-0">
+                <Row name="Guardado para metas" value={summary.goals} />
+              </ul>
+            </>
+          ) : null}
+
           <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Bens</h3>
           {data.assets.length === 0 ? (
             <div className="mt-2 flex flex-col items-start gap-2 text-sm text-muted">

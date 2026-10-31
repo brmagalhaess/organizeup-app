@@ -98,6 +98,14 @@ export interface NetWorthCard extends CardTerms {
   name: string;
 }
 
+export interface NetWorthGoal {
+  id: string;
+  /** Quanto a família já guardou para a meta. */
+  saved: string;
+  /** Com conta destino o dinheiro já está no saldo da conta e não conta de novo. */
+  hasDestination: boolean;
+}
+
 export interface NetWorthInput {
   accounts: NetWorthAccount[];
   assets: NetWorthAsset[];
@@ -107,6 +115,8 @@ export interface NetWorthInput {
   purchases: PurchaseInput[];
   /** Faturas pagas, como `cartão:mês`. */
   paidStatements: string[];
+  /** Metas da família (ADR-0016). Opcional para quem ainda não as carrega. */
+  goals?: NetWorthGoal[];
 }
 
 export interface NetWorthSummary {
@@ -115,6 +125,8 @@ export interface NetWorthSummary {
   investments: string;
   debts: string;
   cards: string;
+  /** "Guardado para metas": só o das metas sem conta destino. */
+  goals: string;
   owned: string;
   owed: string;
   net: string;
@@ -124,8 +136,9 @@ export interface NetWorthSummary {
 const sumOf = (values: string[]) => values.reduce((acc, value) => acc.plus(value), money(0));
 
 /**
- * Patrimônio líquido: contas ativas, bens e investimentos, menos dívidas ativas e tudo que ainda vai sair dos
- * cartões, inclusive parcelas futuras. Compra parcelada já é uma obrigação assumida.
+ * Patrimônio líquido: contas ativas, bens, investimentos e o guardado para metas fora das contas,
+ * menos dívidas ativas e tudo que ainda vai sair dos cartões, inclusive parcelas futuras. Compra
+ * parcelada já é uma obrigação assumida.
  */
 export function summarizeNetWorth(input: NetWorthInput): NetWorthSummary {
   const paid = new Set(input.paidStatements);
@@ -144,7 +157,12 @@ export function summarizeNetWorth(input: NetWorthInput): NetWorthSummary {
   const investments = summarizePortfolio(input.investments).total;
   const debts = sumOf(input.debts.filter((d) => !d.archived).map((d) => d.balance));
   const cards = sumOf(cardBalances.map((c) => c.balance));
-  const owned = accounts.plus(assets).plus(investments);
+  const goals = sumOf(
+    (input.goals ?? [])
+      .filter((goal) => !goal.hasDestination && money(goal.saved).gt(0))
+      .map((goal) => goal.saved),
+  );
+  const owned = accounts.plus(assets).plus(investments).plus(goals);
   const owed = debts.plus(cards);
   return {
     accounts: toDbAmount(accounts),
@@ -152,6 +170,7 @@ export function summarizeNetWorth(input: NetWorthInput): NetWorthSummary {
     investments,
     debts: toDbAmount(debts),
     cards: toDbAmount(cards),
+    goals: toDbAmount(goals),
     owned: toDbAmount(owned),
     owed: toDbAmount(owed),
     net: toDbAmount(owned.minus(owed)),

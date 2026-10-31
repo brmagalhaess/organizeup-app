@@ -6,7 +6,7 @@ import { Card, PageHeader } from "@/components/ui";
 import { ROLE_LABEL } from "@/lib/invites";
 import { requireTenant } from "@/lib/session";
 import { DeleteAccount } from "./delete-account";
-import { SettingsForm } from "./settings-form";
+import { PlanForm, SettingsForm } from "./settings-form";
 
 export const metadata: Metadata = { title: "Configurações" };
 
@@ -29,6 +29,16 @@ export default async function SettingsPage() {
             }}
           />
         </Card>
+        <Card title="Plano" description="Base da aposentadoria e das sugestões de viagem.">
+          <PlanForm
+            disabled={!canWrite(ctx)}
+            values={{
+              retirementYear: settings?.retirementYear ?? null,
+              tripsPerYear: settings?.tripsPerYear ?? 0,
+              tripDays: settings?.tripDays ?? null,
+            }}
+          />
+        </Card>
         <Card title="Sua conta">
           <dl className="m-0 grid gap-3 text-sm">
             <div>
@@ -42,6 +52,10 @@ export default async function SettingsPage() {
             <div>
               <dt className="text-muted">Seu papel na família</dt>
               <dd className="m-0 font-medium">{ROLE_LABEL[ctx.role] ?? ctx.role}</dd>
+            </div>
+            <div>
+              <dt className="text-muted">ID da conta</dt>
+              <dd className="m-0 select-all break-all font-mono text-xs">{session.user.id}</dd>
             </div>
           </dl>
         </Card>

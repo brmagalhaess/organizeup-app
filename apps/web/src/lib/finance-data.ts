@@ -32,6 +32,7 @@ import {
   yearMonthOf,
 } from "@organizeup/domain";
 import { loadCommitments } from "./commitments";
+import { onboardingStatus } from "./onboarding";
 
 /** Carrega o necessário para a tela de lançamentos. Transação curta, sem chamadas externas. */
 export async function loadMonth(ctx: TenantContext, requestedMonth?: string | null) {
@@ -140,6 +141,7 @@ export async function loadOverview(ctx: TenantContext) {
     const previous = inMonth(addMonths(month, -1));
     const next = inMonth(addMonths(month, 1));
 
+    const onboarding = await onboardingStatus(tx);
     const active = balances.filter((b) => !b.archived);
     return {
       month,
@@ -159,6 +161,7 @@ export async function loadOverview(ctx: TenantContext) {
       categoryNames: new Map(categoryRows.map((c) => [c.id, c.name])),
       pending: pendingEntries([...previous, ...current, ...next], today, 6),
       checklist: {
+        onboarding: !onboarding.pending,
         income:
           (incomeCount?.total ?? 0) > 0 ||
           (sourceCount?.total ?? 0) > 0 ||

@@ -2,7 +2,7 @@
 import { Plus, Target, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { formatBRL, money, netDividend } from "@organizeup/domain";
+import { formatBRL, formatYearMonth, money, netDividend } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import {
   Badge,
@@ -23,9 +23,11 @@ import {
 import type { loadDividends } from "@/lib/investments";
 import { addDividend, deleteDividend, saveGoal, type FormState } from "./actions";
 import { DividendsChart } from "./dividends-chart";
+import type { loadDividendOutlook } from "./outlook";
 
 type Data = Awaited<ReturnType<typeof loadDividends>>;
 type Row = Data["rows"][number];
+type Outlook = NonNullable<Awaited<ReturnType<typeof loadDividendOutlook>>>;
 
 const KIND_LABEL: Record<string, string> = {
   dividendo: "Dividendo",
@@ -105,7 +107,114 @@ function GoalForm({ data, onDone }: { data: Data; onDone: () => void }) {
   );
 }
 
-export function DividendsBoard({ data, writable }: { data: Data; writable: boolean }) {
+const TARGET_BASIS: Record<Outlook["targetBasis"], string> = {
+  informado: "Você informou este valor.",
+  gasto_medio: "Igual ao seu gasto médio.",
+  essencial_120: "Seu gasto essencial mais 20%.",
+  sem_dados: "",
+};
+
+function yieldHint(outlook: Outlook) {
+  switch (outlook.yieldBasis) {
+    case "observado_12m":
+      return "Pelos proventos dos últimos 12 meses.";
+    case "observado_anualizado":
+      return `Baseado em ${outlook.yieldMonthsBasis ?? 0} meses.`;
+    case "informado":
+      return "Informado por você.";
+    case "suspeito":
+      return "Os proventos registrados parecem fora do normal. Confira os valores.";
+    default:
+      return "Registre proventos para calcular.";
+  }
+}
+
+function OutlookTiles({ outlook }: { outlook: Outlook }) {
+  return (
+    <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-3">
+      <StatTile
+        label="Rendimento anual da carteira"
+        value={
+          outlook.yieldUsed === null
+            ? "Sem dados"
+            : `${money(outlook.yieldUsed).toDecimalPlaces(1).toNumber().toLocaleString("pt-BR")}%`
+        }
+        hint={yieldHint(outlook)}
+      />
+      <StatTile
+        label="Renda mensal atual"
+        value={formatBRL(outlook.currentIncome)}
+        hint="Proventos de 12 meses divididos por 12."
+      />
+      <StatTile
+        label="Renda alvo"
+        value={outlook.targetIncome ? formatBRL(outlook.targetIncome) : "Sem dados"}
+        hint={
+          outlook.targetIncome ? (
+            `${TARGET_BASIS[outlook.targetBasis]} A carteira já cobre ${outlook.coverage}% do que falta.`
+          ) : (
+            <>
+              Defina em{" "}
+              <Link href="/app/aposentadoria" className="font-medium underline">
+                Aposentadoria
+              </Link>
+              .
+            </>
+          )
+        }
+      />
+    </dl>
+  );
+}
+
+function ForecastCard({ months }: { months: Outlook["forecast"] }) {
+  return (
+    <Card
+      title="Previsto por mês"
+      description="Cada valor é uma previsão pelo histórico; não é garantia."
+    >
+      {months.length === 0 ? (
+        <p className="text-sm text-muted">
+          A previsão aparece quando houver proventos nos últimos 12 meses.
+        </p>
+      ) : (
+        <table className="w-full text-sm">
+          <caption className="sr-only">Proventos previstos por mês</caption>
+          <thead>
+            <tr className="text-left text-muted">
+              <th scope="col" className="py-1.5 font-medium">
+                Mês
+              </th>
+              <th scope="col" className="py-1.5 text-right font-medium">
+                Previsto
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {months.map((row) => (
+              <tr key={row.month}>
+                <td className="py-1.5 first-letter:uppercase">{formatYearMonth(row.month)}</td>
+                <td className="py-1.5 text-right font-medium tabular-nums">
+                  {formatBRL(row.amount)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Card>
+  );
+}
+
+export function DividendsBoard({
+  data,
+  outlook,
+  writable,
+}: {
+  data: Data;
+  outlook: Outlook | null;
+  writable: boolean;
+}) {
   const [sheet, setSheet] = useState<{ type: "new" | "goal"; nonce: number } | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
   const close = () => setSheet(null);
@@ -166,6 +275,8 @@ export function DividendsBoard({ data, writable }: { data: Data; writable: boole
             />
           </dl>
 
+          {outlook ? <OutlookTiles outlook={outlook} /> : null}
+
           <Card
             title="Mês a mês"
             actions={
@@ -179,6 +290,8 @@ export function DividendsBoard({ data, writable }: { data: Data; writable: boole
           >
             <DividendsChart points={summary.months} />
           </Card>
+
+          {outlook ? <ForecastCard months={outlook.forecast} /> : null}
 
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
             <Card title="Recebidos">

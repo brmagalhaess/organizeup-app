@@ -10,14 +10,16 @@ Plano completo e fases: `docs/plano-mestre.md`. Decisões: `docs/adr/`.
 
 ## Mapa do repositório
 
-| Caminho           | O quê                                                                           |
-| ----------------- | ------------------------------------------------------------------------------- |
-| `apps/web`        | Next.js 16 (App Router). UI pt-BR, Route Handlers (`/api/*`), Server Actions    |
-| `apps/worker`     | Worker pg-boss. No boot roda as migrações (credencial do dono) e processa filas |
-| `packages/db`     | Schema Drizzle, migrações SQL, RLS, `withHousehold`, Ops helpers, migrador      |
-| `packages/domain` | Regras financeiras puras (decimal.js). Sem I/O                                  |
-| `docs/`           | ADRs, runbooks, custos, plano-mestre                                            |
-| `.github/`        | CI, risco por caminho, deploy. **Só o fundador altera**                         |
+| Caminho           | O quê                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| `apps/web`        | Next.js 16 (App Router). UI pt-BR, Route Handlers (`/api/*`), Server Actions                     |
+| `apps/worker`     | Worker pg-boss. No boot roda as migrações (credencial do dono) e processa filas                  |
+| `packages/db`     | Schema Drizzle, migrações SQL, RLS, `withHousehold`, Ops helpers, migrador                       |
+| `packages/domain` | Regras financeiras puras (decimal.js). Sem I/O                                                   |
+| `packages/agents` | Agentes diários do produto: leem e gravam dentro do tx da família; usados pelo worker e pela web |
+| `docs/`           | ADRs, runbooks, custos, plano-mestre, specs                                                      |
+| `paperclip/`      | Instruções da equipe de agentes do Paperclip. **Só o fundador altera**                           |
+| `.github/`        | Lista de risco por caminho (CI desligado). **Só o fundador altera**                              |
 
 ## Comandos
 
@@ -25,18 +27,18 @@ Plano completo e fases: `docs/plano-mestre.md`. Decisões: `docs/adr/`.
 pnpm install --frozen-lockfile
 pnpm check            # lint + typecheck + unit + integração (RLS) — rode antes de abrir PR
 pnpm test             # unit
-pnpm test:integration # sobe Postgres embutido (ou usa TEST_DATABASE_OWNER_URL)
+pnpm test:integration # db (RLS) e agents, em sequência; sobe Postgres embutido (ou usa TEST_DATABASE_OWNER_URL)
 pnpm db:local         # Postgres local persistente em 127.0.0.1:54329 com migrações
 pnpm dev              # web em http://localhost:3000 (precisa de .env — ver .env.example)
 pnpm dev:worker       # worker
 pnpm format           # prettier
 ```
 
-Produção é construída pelo Dokploy (`dokploy.home.crowntech.com.br`) a cada push em `main`. O GitHub
-Actions está sem execução no momento, então `pnpm check` local é o único portão antes do push. Nunca crie
-nada no Dokploy `2.24.94.160` sem pedido do fundador.
+Produção é construída pelo Dokploy (`dokploy.home.crowntech.com.br`) a cada push em `main`. Não há CI nem
+proteção de branch: `pnpm check` local é o único portão antes do push, e todo merge em `main` vai para
+produção sozinho. Nunca crie nada no Dokploy `2.24.94.160` sem pedido do fundador.
 
-## Regras invioláveis (o CI e a revisão bloqueiam)
+## Regras invioláveis (a revisão bloqueia)
 
 1. **Isolamento por household.** Dados de domínio só são lidos/gravados dentro de
    `withHousehold(ctx, tx => ...)` com `ctx` vindo de `fromSession()` (web) ou `fromJob()` (worker).
@@ -52,21 +54,39 @@ nada no Dokploy `2.24.94.160` sem pedido do fundador.
 5. **Sem PII fora do lugar.** Nada de dados pessoais em logs, no schema `ops`, em mensagens de erro, em
    issues/comentários do Paperclip ou em fixtures. Use dados fictícios (`@example.com`).
 6. **Segredos** nunca no repositório. Novas variáveis: documente em `.env.example` e no runbook de bootstrap.
-7. **IA no produto** (Fase 3+): tool que altera dados só cria `suggestion`; aplicar é ação do usuário na UI.
-8. **Não altere** `.github/**`, `AGENTS.md`, `Dockerfile`, `packages/db/**`, `packages/domain/**` e auth
-   sem que a issue peça explicitamente — esses caminhos exigem revisão do fundador (CODEOWNERS).
+7. **Dado informado × dado derivado.** O que a família informou (valor e data da meta, categoria escolhida,
+   custos de uma viagem, renda alvo, aporte digitado) só muda por **sugestão aceita na UI**. O que o sistema
+   calcula a partir disso (plano mensal da meta, aporte sugerido, destino sugerido, projeção de aposentadoria,
+   categoria de lançamento que ficou "para revisar" na importação) é **dado derivado**: o worker recalcula e
+   sobrescreve todos os dias, e o relatório diário diz o que mudou. Toda alteração automática fica em
+   `household_suggestions` com `status = 'aplicada'`, `applied_by = 'agente'` e o estado anterior no
+   `payload`, com **Desfazer**. Desfazer bloqueia aquela alteração automática para sempre
+   (`status = 'desfeita'`). Detalhes: ADR-0015.
+8. **Não altere** `.github/**`, `AGENTS.md`, `Dockerfile`, `packages/db/**`, `packages/domain/**`,
+   `paperclip/**` e auth sem que a issue peça explicitamente — esses caminhos exigem revisão do fundador
+   (lista completa em `.github/workflows/risk-label.yml`).
+9. **Agentes diários do produto** rodam no worker com `fromJob()` e `withHousehold()`, uma família por
+   transação, um agente por transação; são idempotentes (rodar duas vezes no dia dá o mesmo resultado); só
+   gravam dado derivado ou sugestão (regra 7); logam só id da família, agente e código do erro; para o schema
+   `ops` enviam apenas contagens (`ops.agent_runs`). `DAILY_AGENTS_ENABLED=false` desliga todos. Sem modelo
+   de IA e sem cotação externa.
 
 ## Fluxo de trabalho (agentes)
 
-1. Leia a issue e o contexto (`GET /api/ops/context` quando existir; hoje `GET /api/ops/deployments`).
+1. Leia a issue e o contexto: `GET /api/ops/context` (produção, relatórios, memórias, `agentRuns`) e
+   `GET /api/ops/deployments`.
 2. Crie um branch `agente/<issue>-<resumo>` a partir de `main`. Nunca faça push em `main`.
 3. Implemente com testes. Rode `pnpm check`. Commits pequenos, mensagem em português no imperativo
    (`corrige ...`, `adiciona ...`). Nunca `--no-verify`, nunca force-push em branch compartilhado.
-4. `gh pr create --fill --base main`, depois `gh pr checks --watch`. Cole a URL do PR na issue.
-5. CI vermelho: corrija no mesmo branch. Não desative testes, regras de lint ou checks.
-6. O rótulo `risk:*` é automático. `risk:high` espera o fundador; `risk:low` pode ser mesclado pelo
-   Reviewer/QA após CI verde.
-7. Depois do merge, confirme o deploy: `GET /api/health` deve mostrar o `commit` do merge.
+4. `gh pr create --fill --base main`. Cole a URL do PR na issue. Não há CI: `pnpm check` local verde é o
+   portão, e o Revisor/QA repete em checkout limpo.
+5. `pnpm check` vermelho: corrija no mesmo branch. Não desative testes, regras de lint ou checks.
+6. O risco é definido pela lista de caminhos de `.github/workflows/risk-label.yml` (repetida em
+   `paperclip/agentes/comum.md`), não por opinião. Risco baixo: o Revisor/QA mescla. Risco alto: espera a
+   aprovação do fundador na issue.
+7. Depois do merge, confirme o deploy: `GET /api/health` deve mostrar o `commit` do merge (o SHA real, desde
+   `c9f23d0`). Quando a versão adiciona coluna lida pelo layout da web, o worker sobe antes ou a web tolera
+   `42703`/`42P01` até ele subir.
 
 ## UI
 

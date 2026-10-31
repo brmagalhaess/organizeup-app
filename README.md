@@ -17,8 +17,18 @@ Conforme os módulos marcados como disponíveis na página inicial:
 - **Dívidas e cartões:** faturas, parcelas, juros e ordem para quitar.
 - **Reserva e patrimônio:** sua segurança e a evolução do que é seu.
 - **Investimentos:** carteira, proventos e classes de ativos.
-- **Aposentadoria:** aporte necessário e cenários com premissas claras.
-- **Viagens e objetivos:** sonhos com data, custo e aporte mensal.
+- **Aposentadoria:** viver dos rendimentos da carteira, com quanto guardar por mês; o cenário de gastar o
+  que guardou fica como comparação.
+- **Viagens:** sonhos com data, custo e aporte mensal, e sugestões de destino para o próximo ano.
+- **Metas:** carro, casa, reforma, estudos ou qualquer compra, com parcela mensal calculada e encaixada no
+  calendário.
+- **Sugestões do assistente:** o que o assistente notou de madrugada para você aceitar, ignorar ou desfazer.
+- **Cadastro complementar:** quatro passos opcionais (família, aposentadoria, viagens, primeira meta) que
+  alimentam o plano.
+- **Painel do serviço** (`/admin`): para o responsável acompanhar famílias, agentes diários e saúde, só
+  leitura e com cada acesso registrado.
+- **Agentes diários:** cinco rotinas no worker, toda madrugada, por regras e sem IA, que recalculam planos e
+  deixam sugestões (ADR-0015).
 
 ## Rodando localmente (Windows, macOS ou Linux, sem Docker)
 

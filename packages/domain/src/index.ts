@@ -11,3 +11,8 @@ export * from "./income";
 export * from "./investment";
 export * from "./retirement";
 export * from "./trip";
+export * from "./surplus";
+export * from "./allocation";
+export * from "./dividend-retirement";
+export * from "./goal";
+export * from "./trip-suggest";

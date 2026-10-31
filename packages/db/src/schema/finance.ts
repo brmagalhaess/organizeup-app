@@ -15,7 +15,9 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { household } from "./auth";
 import { people } from "./tenant";
 
@@ -28,6 +30,9 @@ export const ACCOUNT_TYPES = ["corrente", "poupanca", "dinheiro", "investimento"
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 export const ENTRY_STATUSES = ["previsto", "realizado"] as const;
 export type EntryStatus = (typeof ENTRY_STATUSES)[number];
+/** Quem escolheu a categoria do lançamento (ADR-0015). Null = lançamento antigo. */
+export const CATEGORY_SOURCES = ["familia", "importacao", "revisar", "agente"] as const;
+export type CategorySourceKind = (typeof CATEGORY_SOURCES)[number];
 
 export const categoryTemplates = pgTable("category_templates", {
   id: text("id").primaryKey(),
@@ -156,6 +161,7 @@ export const transactions = pgTable(
     planMonth: char("plan_month", { length: 7 }),
     importFingerprint: text("import_fingerprint"),
     importBatchId: text("import_batch_id"),
+    categorySource: text("category_source", { enum: CATEGORY_SOURCES }),
     createdBy: text("created_by"),
     createdAt: ts("created_at").notNull().defaultNow(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -339,7 +345,10 @@ export const emergencyFund = pgTable("emergency_fund", {
     .primaryKey()
     .references(() => household.id, { onDelete: "cascade" }),
   targetMonths: smallint("target_months").notNull().default(6),
+  /** Gasto essencial informado pela família. Não é o aporte. */
   monthlyAmount: amount("monthly_amount"),
+  /** Aporte mensal planejado para a reserva. Null = usa o sugerido pelo agente. */
+  contribution: amount("contribution"),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
@@ -651,6 +660,17 @@ export const categoryMemory = pgTable(
   ],
 );
 
+/** Tipos de relatório por família. `importacao` é por lote; os demais são diários (period = dia). */
+export const REPORT_KINDS = [
+  "importacao",
+  "categorias",
+  "investimentos",
+  "aposentadoria",
+  "viagens",
+  "metas",
+] as const;
+export type HouseholdReportKind = (typeof REPORT_KINDS)[number];
+
 /** Relatórios dos agentes do produto, para consulta futura do assistente da família. */
 export const householdReports = pgTable(
   "household_reports",
@@ -662,7 +682,7 @@ export const householdReports = pgTable(
       .notNull()
       .references(() => household.id, { onDelete: "cascade" }),
     agent: text("agent").notNull(),
-    kind: text("kind", { enum: ["importacao"] }).notNull(),
+    kind: text("kind", { enum: REPORT_KINDS }).notNull(),
     period: text("period").notNull(),
     title: text("title").notNull(),
     summary: text("summary").notNull(),
@@ -790,3 +810,197 @@ export const tripPeople = pgTable(
     }).onDelete("cascade"),
   ],
 );
+
+// ---------- Agentes diários, metas e plano por proventos (migração 0016; ADR-0015/0016) ----------
+
+/** Plano de aposentadoria por renda de proventos (1:1). Null = o agente deriva. */
+export const retirementPlan = pgTable("retirement_plan", {
+  householdId: text("household_id")
+    .primaryKey()
+    .references(() => household.id, { onDelete: "cascade" }),
+  targetIncome: amount("target_income"),
+  expectedYield: percent("expected_yield"),
+  dividendGrowth: percent("dividend_growth").notNull().default("0"),
+  monthlyContribution: amount("monthly_contribution"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const GOAL_KINDS = [
+  "veiculo",
+  "imovel",
+  "reforma",
+  "educacao",
+  "compra",
+  "evento",
+  "outro",
+] as const;
+export type GoalKind = (typeof GOAL_KINDS)[number];
+export const GOAL_STATUSES = ["planejando", "juntando", "concluida", "pausada"] as const;
+export type GoalStatus = (typeof GOAL_STATUSES)[number];
+
+/** Metas da família. Colunas `plan*` são derivadas: o agente recalcula todo dia. */
+export const goals = pgTable(
+  "goals",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: text("kind", { enum: GOAL_KINDS }).notNull(),
+    targetAmount: amount("target_amount").notNull(),
+    saved: amount("saved").notNull().default("0"),
+    desiredMonth: char("desired_month", { length: 7 }),
+    priority: smallint("priority").notNull().default(3),
+    status: text("status", { enum: GOAL_STATUSES }).notNull().default("planejando"),
+    planDay: smallint("plan_day").notNull().default(5),
+    /** De onde sai a parcela. Obrigatória para haver parcelas. */
+    accountId: text("account_id"),
+    /** Onde o dinheiro fica (opcional). Com destino, o guardado já está no saldo da conta. */
+    destinationAccountId: text("destination_account_id"),
+    planStart: char("plan_start", { length: 7 }),
+    planEnd: char("plan_end", { length: 7 }),
+    planMonthly: amount("plan_monthly"),
+    planNote: text("plan_note"),
+    planUpdatedAt: ts("plan_updated_at"),
+    createdBy: text("created_by"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("goals_household_id_idx").on(t.householdId),
+    // Na migração é SET NULL só de account_id / destination_account_id, para não apagar household_id.
+    foreignKey({
+      columns: [t.householdId, t.accountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+    }),
+    foreignKey({
+      columns: [t.householdId, t.destinationAccountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+    }),
+  ],
+);
+
+/** Parcelas do plano. Sem `transactionId` é previsão do agente; com, a família confirmou. */
+export const goalContributions = pgTable(
+  "goal_contributions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    goalId: text("goal_id").notNull(),
+    month: char("month", { length: 7 }).notNull(),
+    amount: amount("amount").notNull(),
+    transactionId: text("transaction_id"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    unique().on(t.householdId, t.goalId, t.month),
+    index("goal_contributions_goal_idx").on(t.householdId, t.goalId),
+    foreignKey({
+      columns: [t.householdId, t.goalId],
+      foreignColumns: [goals.householdId, goals.id],
+    }).onDelete("cascade"),
+    // Na migração é SET NULL só de transaction_id, para não apagar household_id.
+    foreignKey({
+      columns: [t.householdId, t.transactionId],
+      foreignColumns: [transactions.householdId, transactions.id],
+    }),
+  ],
+);
+
+export const SUGGESTION_KINDS = [
+  "categoria",
+  "fusao_categoria",
+  "aporte_reserva",
+  "aporte_divida",
+  "aporte_investimento",
+  "viagem",
+  "meta",
+  "investimento",
+  "lembrete",
+] as const;
+export type SuggestionKind = (typeof SUGGESTION_KINDS)[number];
+export const SUGGESTION_STATUSES = ["pendente", "aplicada", "ignorada", "desfeita"] as const;
+export type SuggestionStatus = (typeof SUGGESTION_STATUSES)[number];
+export const SUGGESTION_APPLIERS = ["familia", "agente"] as const;
+export type SuggestionApplier = (typeof SUGGESTION_APPLIERS)[number];
+
+/**
+ * Sugestões dos agentes. Alteração automática também fica aqui (`aplicada` por `agente`, estado
+ * anterior no payload) para Desfazer. Upsert pelo índice parcial:
+ * `.onConflictDoUpdate({ target: [householdId, dedupeKey], targetWhere: sql`status = 'pendente'`, set })`.
+ */
+export const householdSuggestions = pgTable(
+  "household_suggestions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    agent: text("agent").notNull(),
+    kind: text("kind", { enum: SUGGESTION_KINDS }).notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+    status: text("status", { enum: SUGGESTION_STATUSES }).notNull().default("pendente"),
+    appliedBy: text("applied_by", { enum: SUGGESTION_APPLIERS }).notNull().default("familia"),
+    dedupeKey: text("dedupe_key").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    decidedAt: ts("decided_at"),
+    decidedBy: text("decided_by"),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    uniqueIndex("household_suggestions_pending_dedupe")
+      .on(t.householdId, t.dedupeKey)
+      .where(sql`status = 'pendente'`),
+    index("household_suggestions_status_idx").on(t.householdId, t.status, t.createdAt),
+    index("household_suggestions_dedupe_idx").on(t.householdId, t.dedupeKey, t.status),
+  ],
+);
+
+export const DESTINATION_REGIONS = [
+  "brasil_perto",
+  "brasil",
+  "america_sul",
+  "america_norte",
+  "europa",
+  "asia_oceania",
+] as const;
+export type DestinationRegion = (typeof DESTINATION_REGIONS)[number];
+export const DESTINATION_CONFIDENCES = ["baixa", "media"] as const;
+export type DestinationConfidence = (typeof DESTINATION_CONFIDENCES)[number];
+
+/**
+ * Referência global de custo por destino (somente leitura para a aplicação). Cada linha cita a
+ * fonte real e o mês/ano em `source`. Hospedagem é por noite para até 4 pessoas; alimentação e
+ * transporte por pessoa e dia; passagem ida e volta por pessoa saindo do Brasil. Passeios não
+ * são estimados.
+ */
+export const tripDestinationTemplates = pgTable("trip_destination_templates", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  country: char("country", { length: 2 }).notNull(),
+  region: text("region", { enum: DESTINATION_REGIONS }).notNull(),
+  lodgingPerNight: amount("lodging_per_night").notNull(),
+  foodPerPersonDay: amount("food_per_person_day").notNull(),
+  localTransportPerPersonDay: amount("local_transport_per_person_day").notNull(),
+  flightPerPerson: amount("flight_per_person").notNull(),
+  minDays: smallint("min_days").notNull().default(3),
+  kidsFriendly: boolean("kids_friendly").notNull().default(true),
+  /** Meses bons para ir, separados por vírgula (ex.: "1,2,7,12"). Vazio = qualquer mês. */
+  bestMonths: text("best_months").notNull().default(""),
+  source: text("source").notNull(),
+  confidence: text("confidence", { enum: DESTINATION_CONFIDENCES }).notNull(),
+  position: smallint("position").notNull().default(0),
+});

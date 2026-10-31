@@ -1,3 +1,3 @@
 // Versão dos Termos e da Privacidade gravada no aceite. Mudou o texto: mude as duas.
-export const LEGAL_VERSION = "2026-10-30";
-export const LEGAL_UPDATED = "30 de outubro de 2026";
+export const LEGAL_VERSION = "2026-10-31";
+export const LEGAL_UPDATED = "31 de outubro de 2026";

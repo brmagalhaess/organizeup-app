@@ -1,7 +1,7 @@
 "use client";
 import { useActionState } from "react";
-import { updateSettings, type ActionState } from "@/app/app/actions";
-import { Button, Field, FormMessage, Input, Select } from "@/components/ui";
+import { updatePlan, updateSettings, type ActionState } from "@/app/app/actions";
+import { Button, Field, FormMessage, Input, Select, submitKeeping } from "@/components/ui";
 
 const initial: ActionState = { ok: false, message: null };
 
@@ -52,6 +52,58 @@ export function SettingsForm({
         </Field>
         <Button type="submit" disabled={pending || disabled}>
           {pending ? "Salvando…" : "Salvar configurações"}
+        </Button>
+      </fieldset>
+      <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
+    </form>
+  );
+}
+
+export function PlanForm({
+  values,
+  disabled,
+}: {
+  values: { retirementYear: number | null; tripsPerYear: number; tripDays: number | null };
+  disabled: boolean;
+}) {
+  const [state, action, pending] = useActionState(updatePlan, initial);
+  return (
+    <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
+      <fieldset disabled={disabled} className="contents">
+        <Field label="Ano em que querem parar" error={state.fieldErrors?.retirementYear}>
+          <Input
+            name="retirementYear"
+            type="number"
+            inputMode="numeric"
+            min={1950}
+            max={2150}
+            defaultValue={values.retirementYear ?? ""}
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Viagens por ano" error={state.fieldErrors?.tripsPerYear}>
+            <Input
+              name="tripsPerYear"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={12}
+              defaultValue={values.tripsPerYear}
+            />
+          </Field>
+          <Field label="Dias de cada viagem" error={state.fieldErrors?.tripDays}>
+            <Input
+              name="tripDays"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={60}
+              defaultValue={values.tripDays ?? ""}
+            />
+          </Field>
+        </div>
+        <Button type="submit" disabled={pending || disabled}>
+          {pending ? "Salvando…" : "Salvar plano"}
         </Button>
       </fieldset>
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />

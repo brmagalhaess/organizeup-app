@@ -68,6 +68,17 @@ function ReserveForm({ data, onDone }: { data: Data; onDone: () => void }) {
           defaultValue={data.informedMonthly?.replace(".", ",")}
         />
       </Field>
+      <Field
+        label="Quanto guardar por mês"
+        hint="Opcional, em reais. É o que você separa para a reserva, não o que você gasta."
+      >
+        <Input
+          name="contribution"
+          inputMode="decimal"
+          placeholder="0,00"
+          defaultValue={data.contribution?.replace(".", ",")}
+        />
+      </Field>
       <fieldset>
         <legend className="mb-1.5 text-sm font-medium">Contas que guardam a reserva</legend>
         <div className="flex flex-col gap-1">
@@ -95,7 +106,7 @@ function ReserveForm({ data, onDone }: { data: Data; onDone: () => void }) {
 }
 
 function TimeToGoal({ data }: { data: Data }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(data.contribution?.replace(".", ",") ?? "");
   const answer = useMemo(() => {
     if (!text.trim()) return null;
     try {
@@ -254,7 +265,7 @@ export function ReserveBoard({ data, writable }: { data: Data; writable: boolean
                 </p>
               </Card>
             ) : (
-              <TimeToGoal data={data} />
+              <TimeToGoal key={data.contribution} data={data} />
             )}
           </div>
         </>

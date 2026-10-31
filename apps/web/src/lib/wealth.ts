@@ -109,6 +109,7 @@ export async function loadReserve(ctx: TenantContext) {
       month,
       targetMonths,
       informedMonthly: fund?.monthlyAmount ?? null,
+      contribution: fund?.contribution ?? null,
       baseline,
       accounts: active.map((account) => ({ ...account, selected: marked.has(account.id) })),
       status: reserveStatus(sum(selected.map((a) => a.balance)), baseline.monthly, targetMonths),

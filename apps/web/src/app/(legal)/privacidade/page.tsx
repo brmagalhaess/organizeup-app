@@ -17,12 +17,21 @@ export default function PrivacyPage() {
           <strong>Conta:</strong> nome, e-mail e senha, guardada de forma que não pode ser lida.
         </li>
         <li>
-          <strong>Família:</strong> nomes, relação entre as pessoas, mês e ano de nascimento,
-          cidade.
+          <strong>Família:</strong> nomes, relação entre as pessoas, mês e ano de nascimento, cidade
+          e, se você quiser informar, dia, mês e ano do casamento.
+        </li>
+        <li>
+          <strong>Trabalho e previdência dos adultos do plano:</strong> situação de trabalho, se
+          contribui para o INSS, benefício mensal esperado e idade em que pretende parar.
         </li>
         <li>
           <strong>Finanças:</strong> o que você informa ou importa, como contas, lançamentos,
-          cartões, dívidas, renda, reserva, bens, investimentos, proventos, planos de aposentadoria, viagens e eventos do calendário.
+          cartões, dívidas, renda, reserva, bens, investimentos, proventos, metas, planos de
+          aposentadoria, viagens e eventos do calendário.
+        </li>
+        <li>
+          <strong>Gerado pelo sistema:</strong> plano de cada meta, projeção de aposentadoria,
+          destinos de viagem sugeridos e os relatórios e sugestões do assistente.
         </li>
         <li>
           <strong>Uso:</strong> endereço IP e navegador da sessão, e um registro das ações feitas na
@@ -32,7 +41,10 @@ export default function PrivacyPage() {
 
       <h2>Para que usamos</h2>
       <ul>
-        <li>Prestar o serviço que você contratou ao criar a conta (LGPD, art. 7º, V).</li>
+        <li>
+          Prestar o serviço que você contratou ao criar a conta, incluindo montar os planos de
+          aposentadoria, metas e viagens (LGPD, art. 7º, V).
+        </li>
         <li>Manter o sistema seguro e prevenir fraude e acesso indevido (art. 7º, IX).</li>
         <li>Cumprir obrigações legais (art. 7º, II).</li>
       </ul>
@@ -41,11 +53,29 @@ export default function PrivacyPage() {
         publicidade.
       </p>
 
+      <h2>Assistentes automáticos</h2>
+      <p>
+        Todos os dias, assistentes automáticos revisam categorias, investimentos, aposentadoria,
+        viagens e metas da sua família e deixam sugestões para você decidir. Eles seguem regras
+        fixas, sem inteligência artificial, rodam dentro do banco de dados da sua família e nada sai
+        para terceiros.
+      </p>
+      <p>
+        O que você informou só muda com o seu aceite. O que o sistema calcula, como o plano de uma
+        meta, é refeito todo dia. Quando um assistente move um lançamento que ficou para revisar, a
+        mudança aparece em Sugestões, e você pode desfazer.
+      </p>
+
       <h2>Quem vê seus dados</h2>
       <p>
         Dentro do sistema, cada família tem seus dados separados, e só quem foi convidado para ela
-        tem acesso. Os agentes automáticos que cuidam do sistema não têm acesso aos dados das
+        tem acesso. A equipe automática que faz a manutenção do sistema não tem acesso aos dados das
         famílias.
+      </p>
+      <p>
+        Para dar suporte, a administração do serviço vê o nome da família, as datas de criação e de
+        último acesso e o número de pessoas com acesso. O e-mail do responsável só aparece quando
+        pedido, e cada acesso fica registrado. Dados financeiros não aparecem nesse painel.
       </p>
       <p>Usamos fornecedores para funcionar:</p>
       <ul>
@@ -62,8 +92,8 @@ export default function PrivacyPage() {
 
       <h2>Cookies</h2>
       <p>
-        Usamos apenas o cookie necessário para manter você conectado. Não usamos cookies de
-        publicidade.
+        Usamos apenas o cookie necessário para manter você conectado e um cookie que lembra, até o
+        fim do dia, que você fechou um aviso. Não usamos cookies de publicidade.
       </p>
 
       <h2>Por quanto tempo</h2>

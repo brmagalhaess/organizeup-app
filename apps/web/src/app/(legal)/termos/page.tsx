@@ -14,16 +14,17 @@ export default function TermsPage() {
       <h2>O que é o OrganizeUp</h2>
       <p>
         É uma ferramenta para organizar as finanças da família: contas, lançamentos, cartões,
-        dívidas, renda, reserva, patrimônio, investimentos e calendário. Não é banco, corretora nem
-        instituição de pagamento. Não movimenta dinheiro e não acessa sua conta bancária.
+        dívidas, renda, reserva, patrimônio, investimentos, metas, aposentadoria, viagens e
+        calendário. Não é banco, corretora nem instituição de pagamento. Não movimenta dinheiro e
+        não acessa sua conta bancária.
       </p>
 
       <h2>Não é recomendação financeira</h2>
       <p>
-        Cálculos, simulações e previsões são estimativas feitas a partir do que você informa, e
-        podem estar diferentes do valor real. Eles não são recomendação de investimento nem
-        orientação jurídica, contábil ou tributária. As decisões são suas. Confira valores
-        importantes na fonte oficial.
+        Cálculos, simulações, previsões e sugestões do assistente são estimativas feitas a partir do
+        que você informa, e podem estar diferentes do valor real. Eles não são recomendação de
+        investimento nem orientação jurídica, contábil ou tributária. As decisões são suas. Confira
+        valores importantes na fonte oficial.
       </p>
 
       <h2>Sua conta</h2>

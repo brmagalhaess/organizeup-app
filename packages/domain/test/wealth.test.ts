@@ -169,4 +169,17 @@ describe("patrimônio líquido", () => {
   it("cartão sem saldo não aparece na lista", () => {
     expect(summarizeNetWorth({ ...empty, cards: [card] }).cardBalances).toEqual([]);
   });
+
+  it("guardado para metas conta só quando não está numa conta destino", () => {
+    const result = summarizeNetWorth({
+      ...empty,
+      accounts: [{ id: "a", name: "Banco", balance: "1000.00", archived: false }],
+      goals: [
+        { id: "g1", saved: "500.00", hasDestination: false },
+        { id: "g2", saved: "300.00", hasDestination: true },
+      ],
+    });
+    expect(result).toMatchObject({ goals: "500.00", owned: "1500.00", net: "1500.00" });
+    expect(summarizeNetWorth(empty).goals).toBe("0.00");
+  });
 });

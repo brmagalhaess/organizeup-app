@@ -9,6 +9,7 @@ import {
   categories,
   categoryMemory,
   desc,
+  ensureCategory,
   eq,
   gte,
   householdReports,
@@ -41,7 +42,7 @@ import {
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
 import { loadCommitments } from "@/lib/commitments";
-import { confirmCommitment } from "@/lib/confirm-entry";
+import { confirmCommitment, goalEntryLink, reverseGoalSaved } from "@/lib/confirm-entry";
 import { requireTenant } from "@/lib/session";
 
 const READ_ONLY = "Seu papel nesta família não permite alterações.";
@@ -223,28 +224,21 @@ export async function commitImport(
     for (const row of parsed.data.rows) {
       if (row.categoryId || !row.newCategory) continue;
       const name = row.newCategory.name;
-      const known = categoryRows.find(
-        (c) => c.kind === row.kind && normalizeDescription(c.name) === normalizeDescription(name),
+      const result = await ensureCategory(
+        tx,
+        ctx.householdId,
+        row.kind,
+        name,
+        row.newCategory.essential,
       );
-      if (known) {
-        if (known.archived) {
-          await tx.update(categories).set({ archived: false }).where(eq(categories.id, known.id));
-          known.archived = false;
-        }
-        continue;
+      if (result.created) {
+        await audit(tx, ctx, "create", "categories", result.id);
+        categoryRows.push({ id: result.id, name, kind: row.kind, archived: false });
+        created.push(name);
+      } else {
+        const known = categoryRows.find((c) => c.id === result.id);
+        if (known) known.archived = false;
       }
-      const [category] = await tx
-        .insert(categories)
-        .values({
-          householdId: ctx.householdId,
-          name,
-          kind: row.kind,
-          essential: row.newCategory.essential,
-        })
-        .returning({ id: categories.id });
-      await audit(tx, ctx, "create", "categories", category!.id);
-      categoryRows.push({ id: category!.id, name, kind: row.kind, archived: false });
-      created.push(name);
     }
     const idOf = (kind: string, name: string) =>
       categoryRows.find(
@@ -299,6 +293,13 @@ export async function commitImport(
                 status: "realizado" as const,
                 importFingerprint: row.fingerprint,
                 importBatchId: batchId,
+                // Quem escolheu a categoria: a família (corrigiu), ninguém (caiu em "revisar")
+                // ou o agente da importação. O agente diário só mexe no que ficou para revisar.
+                categorySource: row.corrected
+                  ? ("familia" as const)
+                  : row.source === "revisar"
+                    ? ("revisar" as const)
+                    : ("importacao" as const),
                 createdBy: ctx.userId,
               })),
             )
@@ -415,7 +416,14 @@ export async function undoImport(form: FormData): Promise<void> {
         })
         .where(inArray(transactions.id, existed));
     }
-    if (created.length > 0) await tx.delete(transactions).where(inArray(transactions.id, created));
+    // Parcela de meta baixada pelo extrato: a receita espelho sai junto e o guardado volta.
+    const links = (await Promise.all(created.map((row) => goalEntryLink(tx, row)))).filter(
+      (link) => link !== null,
+    );
+    const removing = new Set([...created, ...links.flatMap((link) => link.transactionIds)]);
+    if (removing.size > 0)
+      await tx.delete(transactions).where(inArray(transactions.id, [...removing]));
+    for (const link of links) await reverseGoalSaved(tx, ctx, link);
     await tx.delete(importBatches).where(eq(importBatches.id, id));
     await tx
       .update(householdReports)

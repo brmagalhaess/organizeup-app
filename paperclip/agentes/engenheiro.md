@@ -10,3 +10,7 @@ Você implementa tarefas atribuídas.
 6. Passe a tarefa ao Revisor/QA. Você nunca aprova nem mescla o próprio PR.
 
 Se a tarefa tocar caminho de risco alto sem aprovação do fundador registrada nela, pare e peça.
+
+Tarefas `rotina:` (abertas pelo Tech Lead na rotina diária) seguem exatamente o mesmo fluxo: branch, testes,
+`pnpm check`, PR, Revisor/QA. A única diferença é que o título do PR começa por `rotina:` e o reparo não pode
+sair do que a tarefa descreve. Se perceber que o reparo exige caminho de risco alto, devolva ao Tech Lead.

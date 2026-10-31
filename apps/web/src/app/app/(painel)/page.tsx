@@ -12,10 +12,11 @@ import {
   toDbAmount,
   yearMonthOf,
 } from "@organizeup/domain";
-import { amountClass, buttonClass, cx } from "@/components/styles";
+import { amountClass, buttonClass, confirmLabel, cx } from "@/components/styles";
 import { Badge, Button, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
 import { loadOverview } from "@/lib/finance-data";
 import { requireTenant } from "@/lib/session";
+import { loadTopSuggestions } from "@/lib/suggestions";
 import { loadNetWorth, loadReserve } from "@/lib/wealth";
 import { CashflowChart } from "./cashflow-chart";
 import { FirstSteps } from "./first-steps";
@@ -47,10 +48,11 @@ function DueBadge({ overdue }: { overdue: boolean }) {
 
 export default async function OverviewPage() {
   const { session, ctx } = await requireTenant();
-  const [data, reserve, wealth] = await Promise.all([
+  const [data, reserve, wealth, suggestions] = await Promise.all([
     loadOverview(ctx),
     loadReserve(ctx),
     loadNetWorth(ctx, { record: false }),
+    loadTopSuggestions(ctx),
   ]);
   const writable = canWrite(ctx);
   const firstName = session.user.name.split(" ")[0];
@@ -110,6 +112,33 @@ export default async function OverviewPage() {
           hint="Resultado de entradas e saídas do mês."
         />
       </dl>
+
+      <Card
+        title="Sugestões do assistente"
+        actions={
+          <Link
+            href="/app/sugestoes"
+            className="text-sm font-medium underline-offset-2 hover:underline"
+          >
+            {suggestions.total > 0 ? `Ver todas (${suggestions.total})` : "Abrir sugestões"}
+          </Link>
+        }
+      >
+        {suggestions.items.length === 0 ? (
+          <p className="text-sm text-muted">Nada para revisar por enquanto.</p>
+        ) : (
+          <ul
+            aria-label="Sugestões do assistente"
+            className="m-0 list-none divide-y divide-line p-0"
+          >
+            {suggestions.items.map((item) => (
+              <li key={item.id} className="py-2 text-sm font-medium first:pt-0 last:pb-0">
+                {item.title}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Link
@@ -194,7 +223,7 @@ export default async function OverviewPage() {
                       <input type="hidden" name="key" value={entry.key} />
                       <input type="hidden" name="month" value={yearMonthOf(entry.date)} />
                       <Button type="submit" variant="secondary" small>
-                        {entry.kind === "receita" ? "Receber" : "Pagar"}
+                        {confirmLabel(entry)}
                       </Button>
                     </form>
                   ) : null}

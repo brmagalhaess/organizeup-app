@@ -1,5 +1,5 @@
 "use client";
-import { amountClass, cx } from "@/components/styles";
+import { amountClass, confirmLabel, cx, doneLabel, isGoalEntry } from "@/components/styles";
 import {
   AlertCircle,
   ArrowRight,
@@ -26,6 +26,7 @@ import {
   Select,
 } from "@/components/ui";
 import { confirmEntry, deleteEntry, stopPlan } from "./actions";
+import { PlanLink } from "./plan-link";
 
 interface Named {
   id: string;
@@ -37,6 +38,7 @@ const SCHEDULED_PAGES: Partial<Record<MonthEntry["source"], string>> = {
   parcela: "/app/dividas",
   fatura: "/app/cartoes",
   renda: "/app/renda",
+  meta: "/app/metas",
 };
 
 function StatusBadge({ entry, today }: { entry: MonthEntry; today: string }) {
@@ -44,7 +46,10 @@ function StatusBadge({ entry, today }: { entry: MonthEntry; today: string }) {
     return (
       <Badge tone="success">
         <Check className="size-3" aria-hidden="true" />
-        {entry.kind === "receita" ? "Recebido" : "Pago"}
+        {doneLabel({
+          kind: entry.kind,
+          source: isGoalEntry(entry.description) ? "meta" : entry.source,
+        })}
       </Badge>
     );
   if (entry.date < today)
@@ -82,11 +87,13 @@ function RowActions({
           <input type="hidden" name="key" value={entry.key} />
           <input type="hidden" name="month" value={month} />
           <Button type="submit" variant="secondary" small>
-            {entry.kind === "receita" ? "Receber" : "Pagar"}
+            {confirmLabel(entry)}
           </Button>
         </form>
       ) : null}
-      {SCHEDULED_PAGES[entry.source] ? (
+      {entry.source === "meta" ? (
+        <PlanLink description={entry.description} />
+      ) : SCHEDULED_PAGES[entry.source] ? (
         <Link
           href={SCHEDULED_PAGES[entry.source]!}
           aria-label={`Abrir ${entry.description}`}

@@ -1,4 +1,5 @@
 "use server";
+import { createTrip } from "@organizeup/agents";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -56,6 +57,9 @@ const tripSchema = z
     message: "A volta não pode ser antes da ida.",
   });
 
+/** Erros de validação do `createTrip`, já em português. */
+const TRIP_ERRORS = new Set(["Escolha quem vai.", "Escolha pessoas da família."]);
+
 /** Cria uma viagem ou edita a do `id`. A data vai junto para o calendário. */
 export async function saveTrip(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireTenant();
@@ -73,54 +77,41 @@ export async function saveTrip(_prev: FormState, form: FormData): Promise<FormSt
   const title = `Viagem: ${destination}`;
 
   const failure = await withHousehold(ctx, async (tx) => {
+    if (!id) {
+      try {
+        await createTrip(tx, ctx, { destination, startOn, endOn, personIds, costs: [] });
+        return null;
+      } catch (error) {
+        // Erro de banco nunca vira texto de tela: pode carregar dados da consulta.
+        if (error instanceof Error && TRIP_ERRORS.has(error.message)) return error.message;
+        throw error;
+      }
+    }
+
     const known = await tx
       .select({ id: people.id })
       .from(people)
       .where(inArray(people.id, personIds));
     if (known.length !== personIds.length) return "Escolha pessoas da família.";
-
-    let tripId = id;
-    if (id) {
-      const [trip] = await tx
-        .update(trips)
-        .set({ destination, startOn, endOn })
-        .where(eq(trips.id, id))
-        .returning({ calendarEventId: trips.calendarEventId });
-      if (!trip) return "Viagem não encontrada.";
-      if (trip.calendarEventId) {
-        await tx
-          .update(calendarEvents)
-          .set({ title, eventDate: startOn })
-          .where(eq(calendarEvents.id, trip.calendarEventId));
-      }
-      await tx.delete(tripPeople).where(eq(tripPeople.tripId, id));
-      await audit(tx, ctx, "update", "trips", id);
-    } else {
-      const [event] = await tx
-        .insert(calendarEvents)
-        .values({
-          householdId: ctx.householdId,
-          title,
-          eventDate: startOn,
-          createdBy: ctx.userId,
-        })
-        .returning({ id: calendarEvents.id });
-      const [created] = await tx
-        .insert(trips)
-        .values({
-          householdId: ctx.householdId,
-          destination,
-          startOn,
-          endOn,
-          calendarEventId: event!.id,
-        })
-        .returning({ id: trips.id });
-      tripId = created!.id;
-      await audit(tx, ctx, "create", "trips", tripId);
+    const [trip] = await tx
+      .update(trips)
+      .set({ destination, startOn, endOn })
+      .where(eq(trips.id, id))
+      .returning({ calendarEventId: trips.calendarEventId });
+    if (!trip) return "Viagem não encontrada.";
+    if (trip.calendarEventId) {
+      await tx
+        .update(calendarEvents)
+        .set({ title, eventDate: startOn })
+        .where(eq(calendarEvents.id, trip.calendarEventId));
     }
+    await tx.delete(tripPeople).where(eq(tripPeople.tripId, id));
+    await audit(tx, ctx, "update", "trips", id);
     await tx
       .insert(tripPeople)
-      .values(personIds.map((personId) => ({ householdId: ctx.householdId, tripId, personId })));
+      .values(
+        personIds.map((personId) => ({ householdId: ctx.householdId, tripId: id, personId })),
+      );
     return null;
   });
   if (failure) return { ok: false, message: failure };

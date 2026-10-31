@@ -1,7 +1,7 @@
 // Teste de isolamento entre households (obrigatório no CI — ver ADR-0002).
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import postgres from "postgres";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 const urls = inject("dbUrls");
 process.env.DATABASE_URL = urls.app;
@@ -293,7 +293,8 @@ describe("isolamento do financeiro", () => {
       categories: await tx.select().from(categories),
     }));
     expect(created.accounts).toHaveLength(1);
-    expect(created.categories).toHaveLength(17);
+    // 17 modelos até a 0005 + 3 de metas e aportes (0016).
+    expect(created.categories).toHaveLength(20);
   });
 
   it("não lê lançamentos, contas nem categorias de outra família", async () => {
@@ -1607,6 +1608,625 @@ describe("isolamento de aposentadoria e viagens", () => {
     ).rejects.toThrow();
     const rows = await db.withHousehold(ctx, (tx) => tx.select().from(trips));
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("isolamento de metas, sugestões e plano por proventos", () => {
+  const {
+    accounts,
+    calendarEvents,
+    categories,
+    emergencyFund,
+    goalContributions,
+    goals,
+    householdReports,
+    householdSuggestions,
+    retirementPlan,
+    transactions,
+    tripDestinationTemplates,
+  } = db;
+  type Tx = Parameters<Parameters<typeof db.withHousehold>[1]>[0];
+  let goalA = "";
+  let goalB = "";
+  let accountB = "";
+
+  beforeAll(async () => {
+    const seed = (householdId: string) => async (tx: Tx) => {
+      await db.ensureFinanceDefaults(tx, householdId);
+      const [account] = await tx.select({ id: accounts.id }).from(accounts).limit(1);
+      await tx
+        .insert(retirementPlan)
+        .values({ householdId, targetIncome: "6000.00", expectedYield: "6.00" })
+        .onConflictDoNothing();
+      const [goal] = await tx
+        .insert(goals)
+        .values({
+          householdId,
+          name: "Carro",
+          kind: "veiculo",
+          targetAmount: "30000.00",
+          accountId: account!.id,
+        })
+        .returning({ id: goals.id });
+      await tx.insert(goalContributions).values({
+        householdId,
+        goalId: goal!.id,
+        month: "2027-01",
+        amount: "500.00",
+      });
+      await tx.insert(householdSuggestions).values({
+        householdId,
+        agent: "metas",
+        kind: "meta",
+        title: "Ajuste da meta",
+        body: "Segredo da sugestão",
+        dedupeKey: "meta:carro:2027-01",
+      });
+      return { goalId: goal!.id, accountId: account!.id };
+    };
+    const a = await db.withHousehold(await ctxFor(A.owner, A.household), seed(A.household));
+    goalA = a.goalId;
+    const b = await db.withHousehold(await ctxFor(B.owner, B.household), seed(B.household));
+    goalB = b.goalId;
+    accountB = b.accountId;
+  });
+
+  it("não lê plano, metas, parcelas nem sugestões de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      for (const table of [retirementPlan, goals, goalContributions, householdSuggestions]) {
+        const rows = await tx.select().from(table as typeof goals);
+        expect(rows.map((row) => row.householdId)).toEqual([A.household]);
+      }
+    });
+  });
+
+  it("não altera nem apaga meta ou sugestão de outra família; plano 1:1 não se apaga", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      const changed = await tx
+        .update(goals)
+        .set({ name: "Invadido" })
+        .where(eq(goals.id, goalB))
+        .returning({ id: goals.id });
+      const removed = await tx.delete(goals).where(eq(goals.id, goalB)).returning({ id: goals.id });
+      const decided = await tx
+        .update(householdSuggestions)
+        .set({ status: "ignorada" })
+        .where(eq(householdSuggestions.householdId, B.household))
+        .returning({ id: householdSuggestions.id });
+      expect(changed).toHaveLength(0);
+      expect(removed).toHaveLength(0);
+      expect(decided).toHaveLength(0);
+      // Sem policy DELETE: nem a própria família apaga o plano (como household_settings).
+      const plan = await tx
+        .delete(retirementPlan)
+        .where(eq(retirementPlan.householdId, A.household))
+        .returning({ id: retirementPlan.householdId });
+      expect(plan).toHaveLength(0);
+      expect(await tx.select().from(retirementPlan)).toHaveLength(1);
+    });
+  });
+
+  it("FK composta impede conta, meta ou lançamento de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(goals).values({
+          householdId: A.household,
+          name: "Casa",
+          kind: "imovel",
+          targetAmount: "1.00",
+          accountId: accountB,
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(goalContributions).values({
+          householdId: A.household,
+          goalId: goalB,
+          month: "2027-03",
+          amount: "1.00",
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não cria meta nem decide sugestão", async () => {
+    const ctx = await ctxFor(A.viewer, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(goals).values({
+          householdId: A.household,
+          name: "Viagem",
+          kind: "outro",
+          targetAmount: "10.00",
+        }),
+      ),
+    ).rejects.toThrow();
+    await db.withHousehold(ctx, async (tx) => {
+      const decided = await tx
+        .update(householdSuggestions)
+        .set({ status: "aplicada" })
+        .returning({ id: householdSuggestions.id });
+      expect(decided).toHaveLength(0);
+      expect(await tx.select().from(goals)).toHaveLength(1);
+    });
+  });
+
+  it("upsert pelo índice parcial mantém uma pendente por chave e não toca nas decididas", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    const key = "aporte_reserva:2026-11";
+    const upsert = (tx: Tx, title: string) =>
+      tx
+        .insert(householdSuggestions)
+        .values({
+          householdId: A.household,
+          agent: "aposentadoria",
+          kind: "aporte_reserva",
+          title,
+          body: "Guarde um pouco mais na reserva.",
+          dedupeKey: key,
+        })
+        .onConflictDoUpdate({
+          target: [householdSuggestions.householdId, householdSuggestions.dedupeKey],
+          targetWhere: sql`status = 'pendente'`,
+          set: { title },
+        });
+    await db.withHousehold(ctx, async (tx) => {
+      await upsert(tx, "Primeira");
+      await upsert(tx, "Segunda");
+      const pending = await tx
+        .select()
+        .from(householdSuggestions)
+        .where(eq(householdSuggestions.dedupeKey, key));
+      expect(pending).toHaveLength(1);
+      expect(pending[0]!.title).toBe("Segunda");
+      expect(pending[0]!.status).toBe("pendente");
+      expect(pending[0]!.appliedBy).toBe("familia");
+
+      await tx
+        .update(householdSuggestions)
+        .set({ status: "ignorada", decidedAt: new Date(), decidedBy: A.owner })
+        .where(eq(householdSuggestions.dedupeKey, key));
+      await upsert(tx, "Terceira");
+      const rows = await tx
+        .select({ status: householdSuggestions.status, title: householdSuggestions.title })
+        .from(householdSuggestions)
+        .where(eq(householdSuggestions.dedupeKey, key));
+      expect(rows.map((row) => row.status).sort()).toEqual(["ignorada", "pendente"]);
+    });
+  });
+
+  it("worker grava parcelas e sugestões só da família do job", async () => {
+    const raw = postgres(urls.worker, { max: 1 });
+    try {
+      await raw.begin(async (tx) => {
+        await tx`select set_config('app.household_id', ${A.household}, true), set_config('app.role', 'system', true)`;
+        await tx`insert into goal_contributions (household_id, goal_id, month, amount) values (${A.household}, ${goalA}, '2027-02', 100)`;
+        await tx`insert into household_suggestions (household_id, agent, kind, title, body, dedupe_key, status, applied_by)
+          values (${A.household}, 'categorias', 'categoria', 'Movemos 2 lançamentos', 'Para Mercado', 'categoria:despesa:padaria:x', 'aplicada', 'agente')`;
+      });
+      await expect(
+        raw.begin(async (tx) => {
+          await tx`select set_config('app.household_id', ${A.household}, true), set_config('app.role', 'system', true)`;
+          await tx`insert into goal_contributions (household_id, goal_id, month, amount) values (${B.household}, ${goalB}, '2027-02', 100)`;
+        }),
+      ).rejects.toThrow();
+    } finally {
+      await raw.end();
+    }
+    const ctx = await ctxFor(A.owner, A.household);
+    const rows = await db.withHousehold(ctx, (tx) =>
+      tx.select().from(goalContributions).where(eq(goalContributions.goalId, goalA)),
+    );
+    expect(rows.map((row) => row.month).sort()).toEqual(["2027-01", "2027-02"]);
+  });
+
+  it("worker lê a auditoria da família em contexto; na web, 'system' e adulto continuam sem ver", async () => {
+    const raw = postgres(urls.worker, { max: 1 });
+    try {
+      const rows = await raw.begin(async (tx) => {
+        await tx`select set_config('app.household_id', ${A.household}, true), set_config('app.role', 'system', true)`;
+        return tx<{ household_id: string }[]>`select distinct household_id from audit_log`;
+      });
+      expect(rows.map((row) => row.household_id)).toEqual([A.household]);
+    } finally {
+      await raw.end();
+    }
+    const viaWeb = await db.withHousehold(db.fromJob({ householdId: A.household }), (tx) =>
+      tx.select().from(auditLog),
+    );
+    expect(viaWeb).toHaveLength(0);
+    const asAdult = await db.withHousehold(await ctxFor(A.adult, A.household), (tx) =>
+      tx.select().from(auditLog),
+    );
+    expect(asAdult).toHaveLength(0);
+  });
+
+  it("colunas novas do cadastro complementar aceitam e validam valores", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      await tx
+        .update(householdSettings)
+        .set({
+          retirementYear: 2050,
+          tripsPerYear: 2,
+          tripDays: 7,
+          weddingMonth: 5,
+          weddingYear: 2015,
+          onboardingVersion: 1,
+          onboardingCompletedAt: new Date(),
+        })
+        .where(eq(householdSettings.householdId, A.household));
+      await tx
+        .update(people)
+        .set({
+          workStatus: "clt",
+          inssContributor: true,
+          expectedPension: "2500.00",
+          retirementAge: 65,
+        })
+        .where(eq(people.id, personA));
+      await tx
+        .insert(emergencyFund)
+        .values({ householdId: A.household, contribution: "300.00" })
+        .onConflictDoUpdate({ target: emergencyFund.householdId, set: { contribution: "300.00" } });
+      const [account] = await tx.select({ id: accounts.id }).from(accounts).limit(1);
+      const [category] = await tx
+        .select({ id: categories.id })
+        .from(categories)
+        .where(eq(categories.kind, "despesa"))
+        .limit(1);
+      const [entry] = await tx
+        .insert(transactions)
+        .values({
+          householdId: A.household,
+          accountId: account!.id,
+          categoryId: category!.id,
+          kind: "despesa",
+          description: "Compra para revisar",
+          amount: "10.00",
+          occurredOn: "2026-10-01",
+          categorySource: "revisar",
+        })
+        .returning({ categorySource: transactions.categorySource });
+      expect(entry!.categorySource).toBe("revisar");
+      const [settings] = await tx.select().from(householdSettings);
+      expect(settings).toMatchObject({
+        retirementYear: 2050,
+        tripsPerYear: 2,
+        onboardingVersion: 1,
+      });
+      const [person] = await tx.select().from(people).where(eq(people.id, personA));
+      expect(person).toMatchObject({ workStatus: "clt", expectedPension: "2500.00" });
+      const [fund] = await tx.select().from(emergencyFund);
+      expect(fund!.contribution).toBe("300.00");
+    });
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx
+          .update(householdSettings)
+          .set({ tripsPerYear: 13 })
+          .where(eq(householdSettings.householdId, A.household)),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.execute(sql`update people set work_status = 'freelancer' where id = ${personA}`),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("o evento de casamento só aponta para evento da própria família", async () => {
+    const ctxB = await ctxFor(B.owner, B.household);
+    const eventB = await db.withHousehold(ctxB, async (tx) => {
+      const [row] = await tx
+        .insert(calendarEvents)
+        .values({
+          householdId: B.household,
+          title: "Aniversário",
+          eventDate: "2015-05-10",
+          yearly: true,
+        })
+        .returning({ id: calendarEvents.id });
+      return row!.id;
+    });
+    const ctx = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx
+          .update(householdSettings)
+          .set({ weddingEventId: eventB })
+          .where(eq(householdSettings.householdId, A.household)),
+      ),
+    ).rejects.toThrow();
+    await db.withHousehold(ctx, async (tx) => {
+      const [own] = await tx
+        .insert(calendarEvents)
+        .values({
+          householdId: A.household,
+          title: "Aniversário de casamento",
+          eventDate: "2015-05-10",
+          yearly: true,
+        })
+        .returning({ id: calendarEvents.id });
+      await tx
+        .update(householdSettings)
+        .set({ weddingEventId: own!.id })
+        .where(eq(householdSettings.householdId, A.household));
+      await tx.delete(calendarEvents).where(eq(calendarEvents.id, own!.id));
+      const [settings] = await tx.select().from(householdSettings);
+      expect(settings!.weddingEventId).toBeNull();
+      expect(settings!.householdId).toBe(A.household);
+    });
+  });
+
+  it("relatórios aceitam os tipos dos agentes diários e recusam outros", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, (tx) =>
+      tx.insert(householdReports).values({
+        householdId: A.household,
+        agent: "metas",
+        kind: "metas",
+        period: "2026-10-31",
+        title: "Metas de hoje",
+        summary: "Plano recalculado.",
+      }),
+    );
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.execute(sql`insert into household_reports (household_id, agent, kind, period, title, summary)
+          values (${A.household}, 'x', 'inventado', 'p', 't', 's')`),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("a tabela de destinos é global, cita fonte em toda linha e é somente leitura", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    const rows = await db.withHousehold(ctx, (tx) => tx.select().from(tripDestinationTemplates));
+    expect(rows.length).toBeGreaterThanOrEqual(12);
+    for (const row of rows) {
+      expect(row.source).toMatch(/20\d\d/);
+      expect(["baixa", "media"]).toContain(row.confidence);
+      expect(Number(row.flightPerPerson) % 100).toBe(0);
+      expect(Number(row.lodgingPerNight) % 100).toBe(0);
+    }
+    expect(new Set(rows.map((row) => row.region))).toEqual(
+      expect.objectContaining(
+        new Set(["brasil", "america_sul", "america_norte", "europa", "asia_oceania"]),
+      ),
+    );
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(tripDestinationTemplates).values({
+          id: "x",
+          name: "Lugar",
+          country: "BR",
+          region: "brasil",
+          lodgingPerNight: "1.00",
+          foodPerPersonDay: "1.00",
+          localTransportPerPersonDay: "1.00",
+          flightPerPerson: "1.00",
+          source: "fonte inventada 2026",
+          confidence: "baixa",
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.update(tripDestinationTemplates).set({ flightPerPerson: "1.00" }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("ensureCategory acha por nome normalizado, desarquiva e só cria quando não existe", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      const [market] = await tx
+        .select({ id: categories.id })
+        .from(categories)
+        .where(and(eq(categories.kind, "despesa"), eq(categories.name, "Mercado")));
+      const found = await db.ensureCategory(tx, A.household, "despesa", "  MÉRCADO ", false);
+      expect(found).toEqual({ id: market!.id, created: false });
+
+      await tx.update(categories).set({ archived: true }).where(eq(categories.id, market!.id));
+      await db.ensureCategory(tx, A.household, "despesa", "mercado", false);
+      const [after] = await tx.select().from(categories).where(eq(categories.id, market!.id));
+      expect(after!.archived).toBe(false);
+
+      const first = await db.ensureCategory(tx, A.household, "despesa", "Pet shop", false);
+      const again = await db.ensureCategory(tx, A.household, "despesa", "pet-shop", true);
+      expect(first.created).toBe(true);
+      expect(again).toEqual({ id: first.id, created: false });
+      // Receita com o mesmo nome é outra categoria.
+      const income = await db.ensureCategory(tx, A.household, "receita", "Pet shop", false);
+      expect(income.created).toBe(true);
+    });
+  });
+
+  it("famílias antigas recebem as categorias de metas e aportes", async () => {
+    const ctx = await ctxFor(B.owner, B.household);
+    await db.withHousehold(ctx, async (tx) => {
+      await db.ensureFinanceDefaults(tx, B.household);
+      const rows = await tx
+        .select({ name: categories.name, kind: categories.kind })
+        .from(categories);
+      const goalKinds = rows
+        .filter((row) => row.name === "Metas e objetivos")
+        .map((row) => row.kind)
+        .sort();
+      expect(goalKinds).toEqual(["despesa", "receita"]);
+      expect(rows.map((row) => row.name)).toContain("Aportes e investimentos");
+    });
+    expect(db.SYSTEM_TEMPLATES).toEqual(
+      expect.arrayContaining(["d-metas", "r-metas", "d-aportes"]),
+    );
+  });
+});
+
+describe("ops dos agentes diários e do painel do serviço", () => {
+  const { session } = db;
+
+  /** Helpers de ops usam DATABASE_URL; o worker é quem grava rodadas. */
+  async function asWorker<T>(fn: () => Promise<T>): Promise<T> {
+    const previous = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = urls.worker;
+    try {
+      return await fn();
+    } finally {
+      process.env.DATABASE_URL = previous;
+    }
+  }
+
+  beforeAll(async () => {
+    const day = 24 * 60 * 60 * 1000;
+    await db.withAdmin("seed de sessões do teste", async (admin) => {
+      await admin.insert(session).values([
+        {
+          id: "sess-a",
+          token: "tok-a",
+          userId: A.owner,
+          expiresAt: new Date(Date.now() + 7 * day),
+          updatedAt: new Date(),
+        },
+        {
+          id: "sess-b",
+          token: "tok-b",
+          userId: B.owner,
+          expiresAt: new Date(Date.now() + 7 * day),
+          createdAt: new Date(Date.now() - 100 * day),
+          updatedAt: new Date(Date.now() - 100 * day),
+        },
+      ]);
+    });
+  });
+
+  it("o worker registra a rodada; repetir no dia substitui as contagens e soma runs", async () => {
+    const counts = {
+      households: 3,
+      ok: 3,
+      failed: 0,
+      suggestions: 2,
+      applied: 1,
+      durationMs: 1200,
+    };
+    await asWorker(() => db.recordAgentRun("2026-10-31", "metas", counts));
+    await asWorker(() => db.recordAgentRun("2026-10-31", "metas", { ...counts, ok: 2, failed: 1 }));
+    await asWorker(() => db.recordAgentRun("2026-10-30", "viagens", counts));
+    const rows = await db.listAgentRuns(7);
+    expect(rows.map((row) => `${row.day}:${row.agent}`)).toEqual([
+      "2026-10-31:metas",
+      "2026-10-30:viagens",
+    ]);
+    expect(rows[0]).toMatchObject({ runs: 2, households: 3, ok: 2, failed: 1, suggestions: 2 });
+    expect(await db.listAgentRuns(1)).toHaveLength(1);
+    expect(await db.hasAgentRunToday("2026-10-31", "metas")).toBe(true);
+    expect(await db.hasAgentRunToday("2026-10-31", "viagens")).toBe(false);
+  });
+
+  it("a web não grava rodadas de agente", async () => {
+    await expect(
+      db.recordAgentRun("2026-10-29", "metas", {
+        households: 0,
+        ok: 0,
+        failed: 0,
+        suggestions: 0,
+        applied: 0,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("famílias ativas são as com sessão recente", async () => {
+    const recent = await db.listActiveHouseholdIds(60);
+    expect(recent).toContain(A.household);
+    expect(recent).not.toContain(B.household);
+    expect(await db.listActiveHouseholdIds(365)).toEqual(
+      expect.arrayContaining([A.household, B.household]),
+    );
+  });
+
+  it("o painel lista famílias com contagens, sem nome nem e-mail de pessoas", async () => {
+    const rows = await db.adminHouseholdList({ limit: 50 });
+    const a = rows.find((row) => row.id === A.household);
+    expect(a).toMatchObject({ name: "Família A", members: 3, onboardingVersion: 1 });
+    expect(a!.createdAt).toBeInstanceOf(Date);
+    expect(a!.lastSessionAt).toBeInstanceOf(Date);
+    expect(Object.keys(a!).sort()).toEqual([
+      "createdAt",
+      "id",
+      "lastSessionAt",
+      "members",
+      "name",
+      "onboardingVersion",
+    ]);
+    const b = rows.find((row) => row.id === B.household);
+    expect(b).toMatchObject({ members: 1, onboardingVersion: 0 });
+
+    expect((await db.adminHouseholdList({ q: "família a" })).map((row) => row.id)).toEqual([
+      A.household,
+    ]);
+    // E-mail exato devolve só as famílias daquele membro (B.owner também entrou em hh-c).
+    const byEmail = (await db.adminHouseholdList({ q: "Beto@example.com" })).map((row) => row.id);
+    expect(byEmail).toContain(B.household);
+    expect(byEmail).not.toContain(A.household);
+    expect(await db.adminHouseholdList({ q: "ninguem@example.com" })).toEqual([]);
+    expect(await db.adminHouseholdList({ q: "%" })).toEqual([]);
+  });
+
+  it("o e-mail do responsável sai só por ação registrada em ops.admin_access", async () => {
+    const email = await db.adminHouseholdOwnerEmail(B.household, { adminUserId: A.owner });
+    expect(email).toBe("beto@example.com");
+    expect(
+      await db.adminHouseholdOwnerEmail("hh-inexistente", { adminUserId: A.owner }),
+    ).toBeNull();
+    await db.recordAdminAccess({ adminUserId: A.owner, action: "familias:lista" });
+    const raw = postgres(urls.admin, { max: 1 });
+    try {
+      const rows = await raw<{ action: string; target_household_id: string | null }[]>`
+        select action, target_household_id from ops.admin_access where admin_user_id = ${A.owner}
+        order by id`;
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          { action: "familia:email_responsavel", target_household_id: B.household },
+          { action: "familias:lista", target_household_id: null },
+        ]),
+      );
+    } finally {
+      await raw.end();
+    }
+  });
+
+  it("as contagens do painel não identificam família", async () => {
+    const counts = await db.adminOverviewCounts({ onboardingVersion: 1 });
+    expect(counts.households).toBeGreaterThanOrEqual(2);
+    expect(counts.users).toBeGreaterThanOrEqual(4);
+    expect(counts.newHouseholds7d).toBeGreaterThanOrEqual(2);
+    expect(counts.newHouseholds30d).toBeGreaterThanOrEqual(counts.newHouseholds7d);
+    // B não tem household_settings; A já completou a versão 1.
+    expect(counts.onboardingPending).toBeGreaterThanOrEqual(1);
+    expect(Object.keys(counts).sort()).toEqual([
+      "households",
+      "newHouseholds30d",
+      "newHouseholds7d",
+      "onboardingPending",
+      "users",
+    ]);
+  });
+
+  it("o acesso de leitura do admin recusa qualquer escrita", async () => {
+    const error: unknown = await db
+      .withAdminRead("teste do pool de leitura", (admin) =>
+        admin.insert(household).values({ id: "hh-ro", name: "Família RO", slug: "familia-ro" }),
+      )
+      .catch((err: unknown) => err);
+    // 25006 = read_only_sql_transaction: o banco recusou, não a aplicação.
+    expect((error as { cause?: { code?: string } }).cause?.code).toBe("25006");
+    const all = await db.withAdmin("verificação do teste", (admin) =>
+      admin.select().from(household),
+    );
+    expect(all.map((row) => row.id)).not.toContain("hh-ro");
   });
 });
 

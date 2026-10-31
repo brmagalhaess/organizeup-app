@@ -11,7 +11,6 @@ import {
   FormMessage,
   IconButton,
   Input,
-  PageHeader,
   Select,
   Sheet,
   submitKeeping,
@@ -250,61 +249,79 @@ function ScenarioCard({
   );
 }
 
-export function RetirementBoard({ data, writable }: { data: Data; writable: boolean }) {
+export function RetirementBoard({
+  data,
+  writable,
+  startOpen,
+}: {
+  data: Data;
+  writable: boolean;
+  /** Sem plano de rendimentos válido, ou com cenários já criados, a comparação começa aberta. */
+  startOpen: boolean;
+}) {
   const [editing, setEditing] = useState<{ nonce: number; scenario: Scenario | null } | null>(null);
   const [removing, setRemoving] = useState<Scenario | null>(null);
+  const [expanded, setExpanded] = useState(startOpen);
   const close = () => setEditing(null);
   const open = (scenario: Scenario | null) =>
     setEditing((s) => ({ nonce: (s?.nonce ?? 0) + 1, scenario }));
+  const untilAge = data.scenarios[0]?.lifeExpectancy ?? 90;
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Aposentadoria"
-        title="Quanto guardar para parar"
-        description="Tudo em dinheiro de hoje. Compare cenários mudando idade, renda e aporte."
-        actions={
-          writable ? (
-            <Button variant="secondary" onClick={() => open(null)}>
-              <Plus className="size-4" aria-hidden="true" />
-              Novo cenário
-            </Button>
-          ) : null
-        }
-      />
+    <div>
+      <details open={expanded} onToggle={(event) => setExpanded(event.currentTarget.open)}>
+        <summary className="cursor-pointer rounded-2xl border border-line bg-card p-4 shadow-card sm:px-6">
+          <span className="font-semibold">Comparar: gastar o que guardou</span>
+          <span className="mt-0.5 block text-sm text-muted">
+            Outro jeito de ver: o dinheiro vai sendo usado até os {untilAge} anos. Só comparação.
+          </span>
+        </summary>
 
-      {data.scenarios.length === 0 ? (
-        <Card>
-          <EmptyState
-            title="Monte o primeiro cenário"
-            text="Diga com que idade quer parar e quanto quer receber. Mostramos quanto guardar por mês."
-            action={
-              writable ? (
-                <Button variant="secondary" small onClick={() => open(null)}>
-                  Criar cenário
-                </Button>
-              ) : undefined
-            }
-          />
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
-          {data.scenarios.map((scenario) => (
-            <ScenarioCard
-              key={scenario.id}
-              scenario={scenario}
-              writable={writable}
-              onEdit={() => open(scenario)}
-              onRemove={() => setRemoving(scenario)}
-            />
-          ))}
+        <div className="mt-4 flex flex-col gap-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted">Compare cenários mudando idade, renda e aporte.</p>
+            {writable ? (
+              <Button variant="secondary" onClick={() => open(null)}>
+                <Plus className="size-4" aria-hidden="true" />
+                Novo cenário
+              </Button>
+            ) : null}
+          </div>
+
+          {data.scenarios.length === 0 ? (
+            <Card>
+              <EmptyState
+                title="Monte o primeiro cenário"
+                text="Diga com que idade quer parar e quanto quer receber. Mostramos quanto guardar por mês."
+                action={
+                  writable ? (
+                    <Button variant="secondary" small onClick={() => open(null)}>
+                      Criar cenário
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
+              {data.scenarios.map((scenario) => (
+                <ScenarioCard
+                  key={scenario.id}
+                  scenario={scenario}
+                  writable={writable}
+                  onEdit={() => open(scenario)}
+                  onRemove={() => setRemoving(scenario)}
+                />
+              ))}
+            </div>
+          )}
+
+          <p className="text-xs text-muted">
+            Estimativa feita com os dados e premissas que você informou. Não é promessa de resultado
+            nem recomendação de investimento.
+          </p>
         </div>
-      )}
-
-      <p className="text-xs text-muted">
-        Estimativa feita com os dados e premissas que você informou. Não é promessa de resultado nem
-        recomendação de investimento.
-      </p>
+      </details>
 
       <Sheet
         open={editing !== null}

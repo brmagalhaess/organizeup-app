@@ -16,6 +16,7 @@
     "local-pg": "tsx scripts/local-pg.ts"
   },
   "dependencies": {
+    "@organizeup/domain": "workspace:*",
     "drizzle-orm": "0.45.4",
     "pg-boss": "12.38.0",
     "postgres": "3.4.9"

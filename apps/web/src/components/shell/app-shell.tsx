@@ -14,19 +14,24 @@ import {
   PiggyBank,
   Plus,
   Settings,
+  Sparkles,
   Sunset,
   Tags,
+  Target,
   TrendingUp,
   Upload,
   Users,
   WalletCards,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { skipOnboarding } from "@/app/app/(inicio)/completar/actions";
+import { dismissNotice } from "@/app/app/(painel)/sugestoes/actions";
 import { cx } from "@/components/styles";
-import { Button, Sheet } from "@/components/ui";
+import { Button, IconButton, Sheet } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
 import { EntryDialogProvider, useEntryDialog } from "./entry-context";
 import type { EntryOptions } from "./entry-form";
@@ -37,11 +42,21 @@ interface NavItem {
   icon: LucideIcon;
 }
 
+export interface ShellNotice {
+  key: string;
+  text: string;
+  href: string;
+  linkLabel: string;
+}
+
+const SUGGESTIONS_HREF = "/app/sugestoes";
+
 const groups: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Dia a dia",
     items: [
       { href: "/app", label: "Painel", icon: LayoutDashboard },
+      { href: SUGGESTIONS_HREF, label: "Sugestões", icon: Sparkles },
       { href: "/app/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
       { href: "/app/calendario", label: "Calendário", icon: CalendarDays },
       { href: "/app/renda", label: "Renda", icon: BadgeDollarSign },
@@ -59,6 +74,7 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
       { href: "/app/patrimonio", label: "Patrimônio", icon: Gem },
       { href: "/app/investimentos", label: "Investimentos", icon: TrendingUp },
       { href: "/app/proventos", label: "Proventos", icon: HandCoins },
+      { href: "/app/metas", label: "Metas", icon: Target },
       { href: "/app/aposentadoria", label: "Aposentadoria", icon: Sunset },
       { href: "/app/viagens", label: "Viagens", icon: Palmtree },
     ],
@@ -81,7 +97,13 @@ function initials(name: string) {
     .join("");
 }
 
-function Navigation({ onNavigate }: { onNavigate?: () => void }) {
+function Navigation({
+  pendingSuggestions,
+  onNavigate,
+}: {
+  pendingSuggestions: number;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   return (
     <nav aria-label="Módulos" className="flex flex-col gap-6">
@@ -106,6 +128,19 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
                   >
                     <Icon className="size-4.5 shrink-0" aria-hidden="true" />
                     {label}
+                    {href === SUGGESTIONS_HREF && pendingSuggestions > 0 ? (
+                      <span
+                        role="img"
+                        aria-label={
+                          pendingSuggestions === 1
+                            ? "1 sugestão pendente"
+                            : `${pendingSuggestions} sugestões pendentes`
+                        }
+                        className="ml-auto min-w-5 rounded-full bg-peach px-1.5 text-center text-xs font-semibold text-night"
+                      >
+                        {pendingSuggestions}
+                      </span>
+                    ) : null}
                   </Link>
                 </li>
               );
@@ -200,6 +235,30 @@ function MobileBar({ onMore }: { onMore: () => void }) {
   );
 }
 
+function NoticeBanner({ notice }: { notice: ShellNotice }) {
+  return (
+    <section role="region" aria-label="Aviso" className="bg-warning-soft text-ink">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-sm sm:px-6 lg:px-10 2xl:px-14">
+        <p className="min-w-0 flex-1 basis-60">{notice.text}</p>
+        <Link href={notice.href} className="font-semibold underline underline-offset-2">
+          {notice.linkLabel}
+        </Link>
+        <form action={skipOnboarding}>
+          <Button type="submit" variant="ghost" small>
+            Não mostrar mais
+          </Button>
+        </form>
+        <form action={dismissNotice}>
+          <input type="hidden" name="key" value={notice.key} />
+          <IconButton type="submit" label="Fechar aviso" className="text-ink">
+            <X className="size-4" aria-hidden="true" />
+          </IconButton>
+        </form>
+      </div>
+    </section>
+  );
+}
+
 export function AppShell({
   children,
   userName,
@@ -209,6 +268,8 @@ export function AppShell({
   accounts,
   categories,
   cards,
+  notice = null,
+  pendingSuggestions,
 }: {
   children: ReactNode;
   userName: string;
@@ -218,6 +279,8 @@ export function AppShell({
   accounts: EntryOptions["accounts"];
   categories: EntryOptions["categories"];
   cards: EntryOptions["cards"];
+  notice?: ShellNotice | null;
+  pendingSuggestions: number;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -234,7 +297,7 @@ export function AppShell({
           </Link>
           <QuickAdd className="w-full" />
           <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-color:rgb(255_255_255/0.3)_transparent] [scrollbar-width:thin]">
-            <Navigation />
+            <Navigation pendingSuggestions={pendingSuggestions} />
           </div>
           <UserFooter userName={userName} familyName={familyName} />
         </aside>
@@ -246,6 +309,7 @@ export function AppShell({
             </Link>
             <span className="truncate text-sm text-white/85">{familyName}</span>
           </header>
+          {notice ? <NoticeBanner notice={notice} /> : null}
           <main className="flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8 2xl:px-14">
             {children}
           </main>
@@ -255,7 +319,10 @@ export function AppShell({
       <MobileBar onMore={() => setMenuOpen(true)} />
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu">
         <div className="-m-5 flex min-h-full flex-col gap-6 bg-pine p-5">
-          <Navigation onNavigate={() => setMenuOpen(false)} />
+          <Navigation
+            pendingSuggestions={pendingSuggestions}
+            onNavigate={() => setMenuOpen(false)}
+          />
           <UserFooter userName={userName} familyName={familyName} />
         </div>
       </Sheet>

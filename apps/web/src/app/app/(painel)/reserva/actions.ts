@@ -27,6 +27,7 @@ const schema = z.object({
     .min(1, "Informe de 1 a 60 meses.")
     .max(60, "Informe de 1 a 60 meses."),
   monthly: z.string().trim(),
+  contribution: z.string().trim(),
   accountIds: z.array(z.string()).max(100),
 });
 
@@ -41,6 +42,7 @@ export async function saveReserve(
   const parsed = schema.safeParse({
     targetMonths: form.get("targetMonths"),
     monthly: form.get("monthly") ?? "",
+    contribution: form.get("contribution") ?? "",
     accountIds: form.getAll("accountIds").map(String),
   });
   if (!parsed.success)
@@ -58,13 +60,24 @@ export async function saveReserve(
     }
   }
 
+  let contribution: string | null = null;
+  if (parsed.data.contribution) {
+    try {
+      const value = parseBRL(parsed.data.contribution);
+      if (value.lte(0) || value.gte("1000000000000")) throw new RangeError("fora do limite");
+      contribution = toDbAmount(value);
+    } catch {
+      return { ok: false, message: "Informe quanto guardar por mês como 500,00." };
+    }
+  }
+
   await withHousehold(ctx, async (tx) => {
     await tx
       .insert(emergencyFund)
-      .values({ householdId: ctx.householdId, targetMonths, monthlyAmount })
+      .values({ householdId: ctx.householdId, targetMonths, monthlyAmount, contribution })
       .onConflictDoUpdate({
         target: emergencyFund.householdId,
-        set: { targetMonths, monthlyAmount, updatedAt: new Date() },
+        set: { targetMonths, monthlyAmount, contribution, updatedAt: new Date() },
       });
     await tx.delete(earmarks).where(eq(earmarks.purpose, "reserva"));
     if (accountIds.length > 0) {

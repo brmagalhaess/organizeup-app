@@ -6,12 +6,15 @@ import { PgBoss } from "pg-boss";
 import pino from "pino";
 import {
   closeAllPools,
+  hasAgentRunToday,
   JOB_QUEUES,
   PGBOSS_SCHEMA,
   recordDeployment,
   recordWorkerHeartbeat,
 } from "@organizeup/db";
 import { migrate, migrateOptionsFromEnv } from "@organizeup/db/migrator";
+import { todayIn } from "@organizeup/domain";
+import { DAILY_AGENTS_SENTINEL, runDailyAgents } from "./daily-agents";
 import { snapshotNetWorth } from "./net-worth";
 
 process.env.OU_PROCESS ??= "organizeup-worker";
@@ -59,6 +62,20 @@ async function main() {
     tz: "America/Sao_Paulo",
   });
   await boss.send(JOB_QUEUES.netWorthSnapshot, null);
+
+  // Agentes diários do produto (ADR-0015): todo dia às 04:00 e no boot, se ainda não rodaram hoje.
+  // DAILY_AGENTS_ENABLED=false desliga (e remove o agendamento que tenha ficado).
+  if (process.env.DAILY_AGENTS_ENABLED === "false") {
+    await boss.unschedule(JOB_QUEUES.dailyAgents);
+    log.info("agentes diários desligados (DAILY_AGENTS_ENABLED=false)");
+  } else {
+    await boss.work(JOB_QUEUES.dailyAgents, () => runDailyAgents(log));
+    await boss.schedule(JOB_QUEUES.dailyAgents, "0 4 * * *", null, { tz: "America/Sao_Paulo" });
+    const today = todayIn();
+    if (!(await hasAgentRunToday(today, DAILY_AGENTS_SENTINEL))) {
+      await boss.send(JOB_QUEUES.dailyAgents, null, { singletonKey: `daily:${today}` });
+    }
+  }
 
   log.info({ commit, workerId }, "worker pronto");
 

@@ -44,6 +44,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@organizeup/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
       '@organizeup/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -99,6 +102,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@organizeup/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
       '@organizeup/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -116,8 +122,30 @@ importers:
         specifier: 0.28.2
         version: 0.28.2
 
+  packages/agents:
+    dependencies:
+      '@organizeup/db':
+        specifier: workspace:*
+        version: link:../db
+      '@organizeup/domain':
+        specifier: workspace:*
+        version: link:../domain
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      embedded-postgres:
+        specifier: 18.4.0-beta.17
+        version: 18.4.0-beta.17
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
   packages/db:
     dependencies:
+      '@organizeup/domain':
+        specifier: workspace:*
+        version: link:../domain
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(@opentelemetry/api@1.10.0)(kysely@0.29.7)(pg@8.23.1)(postgres@3.4.9)

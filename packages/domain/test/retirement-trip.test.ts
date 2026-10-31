@@ -1,6 +1,14 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { money, planTrip, projectRetirement, type RetirementInput } from "../src";
+import {
+  accumulationFactor,
+  annuityFactor,
+  money,
+  monthlyRate,
+  planTrip,
+  projectRetirement,
+  type RetirementInput,
+} from "../src";
 
 // (1,01^12 − 1) em % ao ano: dá exatamente 1% ao mês, a taxa das tabelas de matemática financeira.
 const onePercentMonthly = "12.682503013196972";
@@ -16,6 +24,17 @@ const base: RetirementInput = {
   returnBefore: onePercentMonthly,
   returnAfter: onePercentMonthly,
 };
+
+describe("fatores financeiros", () => {
+  it("taxa mensal, acumulação e anuidade batem com as tabelas", () => {
+    const rate = monthlyRate(onePercentMonthly);
+    expect(rate.times(100).toNumber()).toBeCloseTo(1, 8);
+    // Tabelas de matemática financeira a 1% a.m.: FAC(12) = 12,6825; FVA(12) = 11,25508.
+    expect(accumulationFactor(rate, 12).toNumber()).toBeCloseTo(12.6825, 3);
+    expect(annuityFactor(rate, 12).toNumber()).toBeCloseTo(11.25508, 4);
+    expect(accumulationFactor(money(0), 12).toNumber()).toBe(12);
+  });
+});
 
 describe("aposentadoria", () => {
   it("capital necessário bate com o valor presente de série uniforme", () => {

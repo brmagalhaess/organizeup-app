@@ -11,6 +11,7 @@ import {
   creditCards,
   ENTRY_KINDS,
   eq,
+  inArray,
   transactions,
   withHousehold,
 } from "@organizeup/db";
@@ -24,7 +25,7 @@ import {
   yearMonthOf,
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
-import { confirmCommitment } from "@/lib/confirm-entry";
+import { confirmCommitment, goalEntryLink, reverseGoalSaved } from "@/lib/confirm-entry";
 import { requireTenant } from "@/lib/session";
 
 export interface EntryFormState {
@@ -159,10 +160,17 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
       // A previsão só some do mês do lançamento ligado a ela; trocar de mês a faria voltar.
       if (current.planId && current.planMonth !== month)
         return "Lançamento de conta recorrente precisa continuar no mesmo mês.";
+      const changed =
+        current.amount !== data.amount ||
+        current.description !== data.description ||
+        current.occurredOn !== data.date;
+      if (changed && (await goalEntryLink(tx, id)))
+        return "Este lançamento guarda dinheiro para uma meta. Para mudar, exclua e confirme de novo.";
       await tx
         .update(transactions)
         .set({
           ...common,
+          categorySource: "familia",
           occurredOn: data.date,
           status: data.done ? "realizado" : "previsto",
           updatedAt: new Date(),
@@ -198,6 +206,7 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
         .insert(transactions)
         .values({
           ...common,
+          categorySource: "familia",
           occurredOn: data.date,
           status: data.done ? "realizado" : "previsto",
           planId,
@@ -230,11 +239,15 @@ export async function deleteEntry(form: FormData): Promise<void> {
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
+    // Lê antes de apagar: a ligação com a parcela da meta some junto com o lançamento.
+    const link = await goalEntryLink(tx, id);
     const removed = await tx
       .delete(transactions)
-      .where(eq(transactions.id, id))
+      .where(inArray(transactions.id, link?.transactionIds ?? [id]))
       .returning({ id: transactions.id });
-    if (removed.length > 0) await audit(tx, ctx, "delete", "transactions", id);
+    if (removed.length === 0) return;
+    await audit(tx, ctx, "delete", "transactions", id);
+    if (link) await reverseGoalSaved(tx, ctx, link);
   });
   revalidatePath("/app", "layout");
 }

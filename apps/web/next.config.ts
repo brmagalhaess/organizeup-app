@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Monorepo: o tracing precisa enxergar a raiz para copiar os pacotes do workspace.
   outputFileTracingRoot: path.resolve(process.cwd(), "../.."),
-  transpilePackages: ["@organizeup/db", "@organizeup/domain"],
+  transpilePackages: ["@organizeup/agents", "@organizeup/db", "@organizeup/domain"],
   poweredByHeader: false,
   experimental: {
     // Importação de extrato: até 2.000 linhas por envio (ADR-0006).

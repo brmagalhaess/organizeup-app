@@ -16,7 +16,15 @@ Preencha os valores reais; os agentes e o fundador revisam este arquivo todo mê
 
 ## Regras
 
-- Heartbeat por intervalo **desligado** em todos os agentes; só atribuição, webhook e no máximo um
-  cron diário para Tech Lead e SRE.
+- Heartbeat por intervalo **desligado** em todos os agentes; só atribuição, webhook e os crons abaixo.
+- Crons fixos (America/Sao_Paulo), e nenhum outro sem decisão do fundador:
+  - Tech Lead: rotina diária às **06:00** (até 3 tarefas de reparo por dia) e resumo semanal na **segunda às
+    08:00**;
+  - SRE: rotina diária às **07:30**.
+- O Engenheiro e o Revisor/QA acordam só por atribuição, então o custo diário de Codex é limitado pelas
+  tarefas que a rotina abre (no máximo 3 por dia).
+- Os agentes diários do produto rodam no worker (04:00) e **não custam IA**: são regras, sem modelo nem
+  cotação externa (ADR-0015). O custo deles é só tempo de CPU e banco já pagos no VPS.
 - Antes da Fase 3: fixar preço do plano e meta "custo de IA ≤ 20–25% do preço" medida por `ai_usage`.
-- Relatórios automáticos só para households ativos nos últimos 30 dias.
+- Relatórios e sugestões automáticos só para households ativos: 60 dias para os agentes diários do produto
+  (ADR-0015), 30 dias para o assistente com IA da Fase 3.

@@ -35,11 +35,12 @@ export interface TransactionInput {
 export interface MonthEntry {
   /**
    * `t:<id>` lançamento; `p:<id>` previsão recorrente; `d:<id>` parcela de dívida;
-   * `f:<cartão>:<mês>` fatura de cartão; `r:<renda>:<mês>:<parte>` renda.
+   * `f:<cartão>:<mês>` fatura de cartão; `r:<renda>:<mês>:<parte>` renda;
+   * `g:<meta>:<mês>` parcela planejada de uma meta (ADR-0016).
    * Só lançamentos e previsões se editam aqui.
    */
   key: string;
-  source: "lancamento" | "previsao" | "parcela" | "fatura" | "renda";
+  source: "lancamento" | "previsao" | "parcela" | "fatura" | "renda" | "meta";
   id: string;
   kind: EntryKind;
   description: string;

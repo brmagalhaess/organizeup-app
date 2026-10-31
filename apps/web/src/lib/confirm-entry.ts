@@ -7,6 +7,8 @@ import {
   creditCards,
   debtInstallments,
   eq,
+  goalContributions,
+  goals,
   incomeReceipts,
   transactions,
   type TenantContext,
@@ -15,12 +17,19 @@ import {
 import {
   isYearMonth,
   linesTotal,
+  money,
   occurrenceDate,
   purchaseLines,
   statementDueDate,
+  toDbAmount,
 } from "@organizeup/domain";
 import { audit } from "./audit";
-import { openInstallment, systemCategories } from "./commitments";
+import {
+  goalEntryDescription,
+  openGoalContribution,
+  openInstallment,
+  systemCategories,
+} from "./commitments";
 import { incomeOccurrence } from "./income-data";
 
 /** Liga o lançamento à linha do extrato que deu a baixa. */
@@ -31,7 +40,8 @@ export interface ImportMark {
 
 /**
  * Marca como pago ou recebido. `key` é `t:<lançamento>`, `p:<previsão>` (com `month`),
- * `d:<parcela>`, `f:<cartão>:<mês>` ou `r:<renda>:<mês>:<parte>`. Devolve se algo foi confirmado.
+ * `d:<parcela>`, `f:<cartão>:<mês>`, `r:<renda>:<mês>:<parte>` ou `g:<meta>:<mês>`. Devolve se algo
+ * foi confirmado.
  */
 export async function confirmCommitment(
   tx: TenantTx,
@@ -153,6 +163,52 @@ export async function confirmCommitment(
     return true;
   }
 
+  if (key.startsWith("g:")) {
+    const [, goalId = "", goalMonth = ""] = key.split(":");
+    if (!isYearMonth(goalMonth)) return false;
+    const open = await openGoalContribution(tx, goalId, goalMonth);
+    const { goal: categoryId, goalIncome } = await systemCategories(tx);
+    if (!open || !categoryId) return false;
+    const { contribution, goal, number, total } = open;
+    const { accountId } = goal;
+    if (!accountId || (goal.destinationAccountId && !goalIncome)) return false;
+    const common = {
+      householdId: ctx.householdId,
+      description: goalEntryDescription(goal.name, number, total),
+      amount: contribution.amount,
+      occurredOn: occurrenceDate(goal.planDay, goalMonth),
+      status: "realizado" as const,
+      createdBy: ctx.userId,
+    };
+    const [created] = await tx
+      .insert(transactions)
+      .values({ ...common, accountId, categoryId, kind: "despesa", ...mark })
+      .returning({ id: transactions.id });
+    if (goal.destinationAccountId && goalIncome) {
+      await tx.insert(transactions).values({
+        ...common,
+        accountId: goal.destinationAccountId,
+        categoryId: goalIncome,
+        kind: "receita",
+      });
+    }
+    await tx
+      .update(goalContributions)
+      .set({ transactionId: created!.id })
+      .where(eq(goalContributions.id, contribution.id));
+    const saved = money(goal.saved).plus(contribution.amount);
+    await tx
+      .update(goals)
+      .set({
+        saved: toDbAmount(saved),
+        status: saved.gte(goal.targetAmount) ? "concluida" : goal.status,
+        updatedAt: new Date(),
+      })
+      .where(eq(goals.id, goal.id));
+    await audit(tx, ctx, "confirm", "goal_contributions", contribution.id);
+    return true;
+  }
+
   if (key.startsWith("r:")) {
     const [, sourceId = "", incomeMonth = "", part = ""] = key.split(":");
     if (!isYearMonth(incomeMonth)) return false;
@@ -197,4 +253,67 @@ export async function confirmCommitment(
   }
 
   return false;
+}
+
+/**
+ * Se o lançamento veio de uma parcela de meta, diz qual meta e quanto, e devolve os dois lados: a
+ * despesa ligada à parcela e a receita espelho na conta destino, que não tem ligação própria e é
+ * achada pela mesma descrição, valor e data.
+ */
+export async function goalEntryLink(tx: TenantTx, id: string) {
+  const [entry] = await tx.select().from(transactions).where(eq(transactions.id, id));
+  if (!entry) return null;
+  const { goal, goalIncome } = await systemCategories(tx);
+  const twin = async (kind: "despesa" | "receita", categoryId: string | undefined) => {
+    if (!categoryId) return undefined;
+    const [row] = await tx
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.kind, kind),
+          eq(transactions.categoryId, categoryId),
+          eq(transactions.description, entry.description),
+          eq(transactions.amount, entry.amount),
+          eq(transactions.occurredOn, entry.occurredOn),
+        ),
+      );
+    return row?.id;
+  };
+
+  const isIncome = entry.kind === "receita";
+  if (isIncome && entry.categoryId !== goalIncome) return null;
+  const expenseId = isIncome ? await twin("despesa", goal) : entry.id;
+  if (!expenseId) return null;
+  const [contribution] = await tx
+    .select({ goalId: goalContributions.goalId, amount: goalContributions.amount })
+    .from(goalContributions)
+    .where(eq(goalContributions.transactionId, expenseId));
+  if (!contribution) return null;
+  const incomeId = isIncome ? entry.id : await twin("receita", goalIncome);
+  return {
+    ...contribution,
+    transactionIds: incomeId ? [expenseId, incomeId] : [expenseId],
+  };
+}
+
+/** Devolve à meta o que saiu com um lançamento de parcela apagado. */
+export async function reverseGoalSaved(
+  tx: TenantTx,
+  ctx: TenantContext,
+  link: { goalId: string; amount: string },
+): Promise<void> {
+  const [goal] = await tx.select().from(goals).where(eq(goals.id, link.goalId)).for("update");
+  if (!goal) return;
+  const rest = money(goal.saved).minus(link.amount);
+  const saved = rest.gt(0) ? rest : money(0);
+  await tx
+    .update(goals)
+    .set({
+      saved: toDbAmount(saved),
+      status: goal.status === "concluida" && saved.lt(goal.targetAmount) ? "juntando" : goal.status,
+      updatedAt: new Date(),
+    })
+    .where(eq(goals.id, goal.id));
+  await audit(tx, ctx, "update", "goals", goal.id);
 }

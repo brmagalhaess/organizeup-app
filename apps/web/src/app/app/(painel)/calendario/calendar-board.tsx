@@ -22,7 +22,14 @@ import {
   type CalendarItem,
 } from "@organizeup/domain";
 import { useEntryDialog } from "@/components/shell/entry-context";
-import { amountClass, buttonClass, cx } from "@/components/styles";
+import {
+  amountClass,
+  buttonClass,
+  confirmLabel,
+  cx,
+  doneLabel,
+  isGoalEntry,
+} from "@/components/styles";
 import {
   Badge,
   Button,
@@ -38,6 +45,7 @@ import {
 } from "@/components/ui";
 import type { loadCalendar } from "@/lib/calendar-data";
 import { confirmEntry } from "../lancamentos/actions";
+import { PlanLink } from "../lancamentos/plan-link";
 import { deleteEvent, saveEvent, type EventFormState } from "./actions";
 
 type Data = Awaited<ReturnType<typeof loadCalendar>>;
@@ -86,7 +94,7 @@ function ItemStatus({ item, today }: { item: CalendarItem; today: string }) {
     return (
       <Badge tone="success">
         <Check className="size-3" aria-hidden="true" />
-        {item.kind === "receita" ? "Recebido" : "Pago"}
+        {doneLabel({ kind: item.kind, source: isGoalEntry(item.title) ? "meta" : item.source })}
       </Badge>
     );
   if (item.date < today)
@@ -124,8 +132,11 @@ function DayItem({
             {formatBRL(item.amount)}
           </p>
         ) : null}
-        <div className="mt-1">
+        <div className="mt-1 flex items-center gap-2">
           <ItemStatus item={item} today={today} />
+          {item.type === "lancamento" && item.source === "meta" ? (
+            <PlanLink description={item.title} />
+          ) : null}
         </div>
       </div>
       {writable && open ? (
@@ -133,7 +144,7 @@ function DayItem({
           <input type="hidden" name="key" value={item.key} />
           <input type="hidden" name="month" value={yearMonthOf(item.date)} />
           <Button type="submit" variant="secondary" small>
-            {item.kind === "receita" ? "Receber" : "Pagar"}
+            {confirmLabel(item)}
           </Button>
         </form>
       ) : null}

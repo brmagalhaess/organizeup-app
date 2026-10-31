@@ -12,10 +12,25 @@ const actionClass = "text-left text-sm font-medium underline-offset-2 hover:unde
 export function FirstSteps({
   checklist,
 }: {
-  checklist: { income: boolean; recurring: boolean; balance: boolean; family: boolean };
+  checklist: {
+    onboarding: boolean;
+    income: boolean;
+    recurring: boolean;
+    balance: boolean;
+    family: boolean;
+  };
 }) {
   const { openNew, writable } = useEntryDialog();
   const steps: Array<{ done: boolean; hint: string; action: ReactNode }> = [
+    {
+      done: checklist.onboarding,
+      hint: "Aposentadoria, viagens e metas dependem disso. Leva 3 minutos.",
+      action: (
+        <Link href="/app/completar" className={actionClass}>
+          Complete o cadastro da família
+        </Link>
+      ),
+    },
     {
       done: checklist.income,
       hint: "Salário, aluguel recebido ou outra entrada.",
@@ -58,7 +73,7 @@ export function FirstSteps({
 
   return (
     <Card title="Primeiros passos" description={`${done} de ${steps.length} concluídos`}>
-      <ol className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 2xl:grid-cols-4">
+      <ol className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 2xl:grid-cols-5">
         {steps.map((step, index) => (
           <li
             key={index}

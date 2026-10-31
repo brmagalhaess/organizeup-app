@@ -19,7 +19,9 @@ import {
   submitKeeping,
 } from "@/components/ui";
 import type { loadTrips } from "@/lib/planning";
+import type { TripSuggestions as TripSuggestionsData } from "@/lib/suggestions";
 import { addCost, addSaved, deleteCost, deleteTrip, saveTrip, type FormState } from "./actions";
+import { TripSuggestions } from "./trip-suggestions";
 
 type Data = Awaited<ReturnType<typeof loadTrips>>;
 type Trip = Data["trips"][number];
@@ -267,7 +269,15 @@ const TITLES: Record<Open["type"], string> = {
   saved: "Valor guardado",
 };
 
-export function TripsBoard({ data, writable }: { data: Data; writable: boolean }) {
+export function TripsBoard({
+  data,
+  suggestions,
+  writable,
+}: {
+  data: Data;
+  suggestions: TripSuggestionsData | null;
+  writable: boolean;
+}) {
   const [sheet, setSheet] = useState<Open | null>(null);
   const [removing, setRemoving] = useState<Trip | null>(null);
   const [removingCost, setRemovingCost] = useState<Cost | null>(null);
@@ -341,6 +351,8 @@ export function TripsBoard({ data, writable }: { data: Data; writable: boolean }
           </div>
         </>
       )}
+
+      {suggestions ? <TripSuggestions data={suggestions} writable={writable} /> : null}
 
       <Sheet open={sheet !== null} onClose={close} title={sheet ? TITLES[sheet.type] : ""}>
         {sheet?.type === "new" ? (

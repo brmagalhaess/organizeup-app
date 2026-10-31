@@ -154,7 +154,7 @@ test("categorias e contas podem ser criadas e arquivadas", async ({ page }) => {
 test("no celular o menu abre pela barra inferior", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await signUp(page, "Nina");
-  await page.getByRole("button", { name: "Mais" }).click();
+  await page.getByRole("button", { name: "Mais", exact: true }).click();
   await page
     .getByRole("dialog", { name: "Menu" })
     .getByRole("link", { name: "Categorias" })
