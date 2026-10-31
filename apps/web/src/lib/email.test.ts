@@ -83,6 +83,26 @@ describe("sendEmail", () => {
     );
   });
 
+  it("EMAIL_ENABLED=false desliga o envio mesmo com a chave", async () => {
+    vi.stubEnv("EMAIL_ENABLED", "false");
+
+    await expect(sendEmail(message)).resolves.toBe(false);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("aceita os nomes BREVO_SENDER_NAME e BREVO_SENDER_EMAIL", async () => {
+    vi.stubEnv("EMAIL_FROM_NAME", "");
+    vi.stubEnv("EMAIL_FROM_ADDRESS", "");
+    vi.stubEnv("BREVO_SENDER_NAME", "Nome Brevo");
+    vi.stubEnv("BREVO_SENDER_EMAIL", "brevo@example.com");
+
+    await sendEmail(message);
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body));
+    expect(body.sender).toEqual({ name: "Nome Brevo", email: "brevo@example.com" });
+  });
+
   it("falha da Brevo loga só modelo e status, mesmo se a resposta repetir os dados", async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ message: "ana@example.com recusado" }), { status: 400 }),

@@ -10,6 +10,7 @@ import {
 import { Boxes, Database, Globe, Server } from "lucide-react";
 import type { Metadata } from "next";
 import { Badge, Card, EmptyState } from "@/components/ui";
+import { emailConfigured } from "@/lib/email";
 import { requireAdmin } from "@/lib/session";
 import { WORKER_STALE_MINUTES } from "../alertas";
 import { formatAge, formatCount, formatDateTime, minutesSince } from "../format";
@@ -62,9 +63,51 @@ export default async function AdminSystemPage() {
   const webCommit = process.env.APP_COMMIT ?? "dev";
   const freshest = workers[0] ? minutesSince(workers[0].lastSeenAt) : null;
   const workerOk = freshest !== null && freshest <= WORKER_STALE_MINUTES;
+  const workerInfo = (workers[0]?.info ?? {}) as { brapi?: boolean; dailyAgents?: boolean };
+  const integrations = [
+    { name: "E-mail (Brevo)", where: "ou3-web", on: emailConfigured(), hint: "BREVO_API_KEY" },
+    {
+      name: "Cotações (brapi)",
+      where: "ou3-worker",
+      on: workerInfo.brapi === true,
+      hint: "BRAPI_TOKEN",
+    },
+    {
+      name: "Agentes diários",
+      where: "ou3-worker",
+      on: workerInfo.dailyAgents !== false,
+      hint: "DAILY_AGENTS_ENABLED",
+    },
+    {
+      name: "Inteligência artificial",
+      where: "ou3-web e ou3-worker",
+      on: Boolean(process.env.ANTHROPIC_API_KEY),
+      hint: "ANTHROPIC_API_KEY",
+    },
+  ];
 
   return (
     <AdminPage title="Sistema" description="Como o serviço está rodando agora.">
+      <Card
+        title="Integrações"
+        description="Só diz se a chave está no ar; o valor nunca aparece aqui."
+      >
+        <ul className="divide-y divide-line">
+          {integrations.map((item) => (
+            <li key={item.name} className="flex flex-wrap items-center justify-between gap-2 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{item.name}</p>
+                <p className="text-xs text-muted">
+                  {item.hint} em {item.where}
+                </p>
+              </div>
+              <Badge tone={item.on ? "success" : "warning"}>
+                {item.on ? "Ativa" : "Falta configurar"}
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      </Card>
       <section aria-labelledby="saude">
         <h2 id="saude" className="sr-only">
           Saúde

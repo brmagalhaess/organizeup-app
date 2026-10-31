@@ -28,6 +28,8 @@ const log = pino({ base: { service: "worker" } });
 const commit = process.env.APP_COMMIT ?? "dev";
 const workerId = `${hostname()}:${process.pid}`;
 const dailyAgentsOn = process.env.DAILY_AGENTS_ENABLED !== "false";
+/** O painel do serviço mostra só se existe: nunca o valor. */
+const integrations = { dailyAgents: dailyAgentsOn, brapi: Boolean(process.env.BRAPI_TOKEN) };
 
 async function main() {
   if (process.env.MIGRATION_DATABASE_URL && process.env.RUN_MIGRATIONS !== "false") {
@@ -43,7 +45,7 @@ async function main() {
   await recordWorkerHeartbeat({
     workerId,
     commit,
-    info: { startedAt: new Date().toISOString(), dailyAgents: dailyAgentsOn },
+    info: { startedAt: new Date().toISOString(), ...integrations },
   });
 
   const boss = new PgBoss({
@@ -61,7 +63,7 @@ async function main() {
     await recordWorkerHeartbeat({
       workerId,
       commit,
-      info: { lastJobAt: new Date().toISOString(), dailyAgents: dailyAgentsOn },
+      info: { lastJobAt: new Date().toISOString(), ...integrations },
     });
   });
   await boss.schedule(JOB_QUEUES.opsHeartbeat, "*/5 * * * *", null, { tz: "America/Sao_Paulo" });
@@ -101,7 +103,8 @@ async function main() {
     await boss.work(JOB_QUEUES.dailyAgents, () => runDailyAgents(log));
     await boss.schedule(JOB_QUEUES.dailyAgents, "0 4 * * *", null, { tz: "America/Sao_Paulo" });
     const today = todayIn();
-    if (!(await hasAgentRunToday(today, MERCADO_AGENT))) {
+    // Com chave, o boot atualiza já: quem acabou de colar o token não espera o próximo pregão.
+    if (integrations.brapi || !(await hasAgentRunToday(today, MERCADO_AGENT))) {
       await boss.send(JOB_QUEUES.marketData, null, { singletonKey: `market:${today}` });
     }
     const sentinel = dailyAgentsSentinel((await readPlatformFlags()).disabledAgents);
@@ -110,7 +113,7 @@ async function main() {
     }
   }
 
-  log.info({ commit, workerId }, "worker pronto");
+  log.info({ commit, workerId, integrations }, "worker pronto");
 
   let stopping = false;
   const shutdown = async (signal: string) => {

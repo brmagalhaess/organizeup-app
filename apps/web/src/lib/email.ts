@@ -25,6 +25,10 @@ function logFailure(template: EmailTemplate, status: number | string) {
   console.error(JSON.stringify({ level: "error", msg: "email_failed", template, status }));
 }
 
+/** O painel do serviço mostra só isto: nunca o valor da chave. */
+export const emailConfigured = () =>
+  Boolean(process.env.BREVO_API_KEY) && process.env.EMAIL_ENABLED !== "false";
+
 /** Envia pela API da Brevo. Nunca lança: e-mail fora do ar não pode derrubar quem chamou. */
 export async function sendEmail(message: EmailMessage): Promise<boolean> {
   const { to, subject, html, text, template } = message;
@@ -39,7 +43,7 @@ export async function sendEmail(message: EmailMessage): Promise<boolean> {
     }
   }
   const apiKey = process.env.BREVO_API_KEY;
-  if (!apiKey) {
+  if (!apiKey || !emailConfigured()) {
     console.warn(JSON.stringify({ level: "warn", msg: "email_disabled", template }));
     return false;
   }
@@ -53,8 +57,11 @@ export async function sendEmail(message: EmailMessage): Promise<boolean> {
       },
       body: JSON.stringify({
         sender: {
-          name: process.env.EMAIL_FROM_NAME || "OrganizeUp",
-          email: process.env.EMAIL_FROM_ADDRESS || "notificacoes@organizeup.com.br",
+          name: process.env.EMAIL_FROM_NAME || process.env.BREVO_SENDER_NAME || "OrganizeUp",
+          email:
+            process.env.EMAIL_FROM_ADDRESS ||
+            process.env.BREVO_SENDER_EMAIL ||
+            "notificacoes@organizeup.com.br",
         },
         to: [{ email: to }],
         subject,
