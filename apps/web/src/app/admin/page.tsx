@@ -1,164 +1,234 @@
 import {
+  adminAccessList,
+  adminGrowth,
   adminOverviewCounts,
-  databaseStatus,
-  listActiveHouseholdIds,
   listAgentRuns,
+  listDeployments,
+  listPlatformStats,
+  listQueueCounts,
   listWorkerHeartbeats,
 } from "@organizeup/db";
+import { todayIn } from "@organizeup/domain";
+import { Activity, CircleCheck, Clock, Sparkles, UserPlus, UserRound, Users } from "lucide-react";
 import type { Metadata } from "next";
-import { Badge, Card, FormMessage, StatTile } from "@/components/ui";
+import Link from "next/link";
+import { Card, EmptyState, FormMessage } from "@/components/ui";
 import { ONBOARDING_VERSION } from "@/lib/onboarding";
-import { requireAdmin } from "@/lib/session";
-import { formatAge, formatCount, formatDay, minutesSince } from "./format";
+import { platformFlags, requireAdmin } from "@/lib/session";
+import { buildAlerts } from "./alertas";
+import { actionLabel, AUDIT_VISITS } from "./auditoria/labels";
+import { ActivityChart, AdoptionBars, GrowthChart } from "./charts";
+import { formatCount, formatDateTime, formatDay, formatDayShort } from "./format";
+import { DAILY_AGENTS_INFO } from "./agentes/info";
+import { AdminPage, AlertList, Tile } from "./kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "./painel";
 
 export const metadata: Metadata = { title: "Painel do serviço" };
 
-/** O heartbeat roda a cada 5 minutos: acima disso por três ciclos, o worker parou. */
-const WORKER_STALE_MINUTES = 15;
+const brasiliaHour = () =>
+  Number(
+    new Intl.DateTimeFormat("pt-BR", {
+      hour: "numeric",
+      hourCycle: "h23",
+      timeZone: "America/Sao_Paulo",
+    }).format(new Date()),
+  );
 
-const shortCommit = (commit: string) => commit.slice(0, 7);
+const suspendedHint = (total: number) =>
+  total === 0 ? undefined : total === 1 ? "1 suspensa" : `${formatCount(total)} suspensas`;
+const blockedHint = (total: number) =>
+  total === 0 ? undefined : total === 1 ? "1 bloqueado" : `${formatCount(total)} bloqueados`;
 
-const headerCell = "whitespace-nowrap px-3 py-2 text-xs font-semibold text-muted";
-const numberCell = "px-3 py-2 text-right tabular-nums";
+/** Última contagem de cada semana (a semana corrente fecha hoje), das 12 mais recentes. */
+function weeklyActivity(stats: Array<{ day: string; active7d: number }>) {
+  const weeks = new Map<string, { day: string; active: number }>();
+  for (const row of stats) {
+    const date = new Date(`${row.day}T12:00:00Z`);
+    const monday = new Date(date.getTime() - ((date.getUTCDay() + 6) % 7) * 86_400_000);
+    const week = monday.toISOString().slice(0, 10);
+    // `stats` vem do dia mais novo para o mais antigo: a primeira linha da semana é a que vale.
+    if (!weeks.has(week)) weeks.set(week, { day: row.day, active: row.active7d });
+  }
+  return [...weeks.values()]
+    .slice(0, 12)
+    .reverse()
+    .map((week) => ({ label: formatDayShort(week.day), active: week.active }));
+}
 
-export default async function AdminPage() {
+export default async function AdminOverviewPage() {
   const session = await requireAdmin();
   await noteAdminAccess(session.user.id, "painel:visao_geral");
 
-  const [counts, active, runs, database, workers] = await Promise.all([
-    hasAdminDatabase() ? adminOverviewCounts({ onboardingVersion: ONBOARDING_VERSION }) : null,
-    listActiveHouseholdIds(30),
-    listAgentRuns(7),
-    databaseStatus(),
-    listWorkerHeartbeats(),
-  ]);
+  if (!hasAdminDatabase()) {
+    return (
+      <AdminPage title="Visão geral">
+        <Card>
+          <FormMessage message={ADMIN_DB_MISSING} />
+        </Card>
+      </AdminPage>
+    );
+  }
+
+  const [counts, growth, stats, runs, workers, deployments, queues, flags, recent] =
+    await Promise.all([
+      adminOverviewCounts({ onboardingVersion: ONBOARDING_VERSION }),
+      adminGrowth(12),
+      listPlatformStats(84),
+      listAgentRuns(1),
+      listWorkerHeartbeats(),
+      listDeployments(10),
+      listQueueCounts(),
+      platformFlags(),
+      adminAccessList({ limit: 6, excludeActions: AUDIT_VISITS }),
+    ]);
+
+  const latest = stats[0] ?? null;
+  const today = todayIn();
+  const alerts = buildAlerts({
+    now: new Date(),
+    today,
+    hour: brasiliaHour(),
+    runs,
+    workers,
+    deployments,
+    queues,
+    statsDay: latest?.day ?? null,
+    maintenance: flags.maintenance,
+    signupClosed: flags.signupClosed,
+    allAgentsOff: flags.disabledAgents.length >= DAILY_AGENTS_INFO.length,
+  });
+  const growthPoints = growth.map((week) => ({
+    label: formatDayShort(week.week),
+    households: week.households,
+    users: week.users,
+  }));
 
   return (
-    <>
-      <section aria-labelledby="numeros" className="flex flex-col gap-3">
-        <h2 id="numeros" className="text-base font-semibold">
+    <AdminPage
+      title="Visão geral"
+      description={
+        alerts.length === 0
+          ? "Tudo certo por aqui: nenhum alerta agora."
+          : alerts.length === 1
+            ? "1 ponto pede sua atenção."
+            : `${alerts.length} pontos pedem sua atenção.`
+      }
+    >
+      {alerts.length > 0 ? (
+        <AlertList alerts={alerts} />
+      ) : (
+        <p className="m-0 flex items-center gap-2 rounded-2xl bg-success-soft px-4 py-3 text-sm font-medium text-success">
+          <CircleCheck className="size-5 shrink-0" aria-hidden="true" />
+          Agentes, worker e deploy sem nada pendente.
+        </p>
+      )}
+
+      <section aria-labelledby="numeros">
+        <h2 id="numeros" className="sr-only">
           Números do serviço
         </h2>
-        {counts ? null : <FormMessage message={ADMIN_DB_MISSING} />}
-        <dl className="grid grid-cols-2 gap-4 xl:grid-cols-3">
-          {counts ? (
-            <>
-              <StatTile label="Famílias" value={formatCount(counts.households)} />
-              <StatTile label="Usuários" value={formatCount(counts.users)} />
-              <StatTile label="Novas em 7 dias" value={formatCount(counts.newHouseholds7d)} />
-              <StatTile label="Novas em 30 dias" value={formatCount(counts.newHouseholds30d)} />
-            </>
-          ) : null}
-          <StatTile label="Ativas em 30 dias" value={formatCount(active.length)} />
-          {counts ? (
-            <StatTile label="Cadastros pendentes" value={formatCount(counts.onboardingPending)} />
-          ) : null}
+        <dl className="m-0 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3 2xl:grid-cols-6">
+          <Tile
+            label="Famílias"
+            value={formatCount(counts.households)}
+            icon={Users}
+            trend={growth.map((week) => week.households)}
+            hint={suspendedHint(counts.suspended)}
+          />
+          <Tile
+            label="Usuários"
+            value={formatCount(counts.users)}
+            icon={UserRound}
+            trend={growth.map((week) => week.users)}
+            hint={blockedHint(counts.blocked)}
+          />
+          <Tile
+            label="Novas em 7 dias"
+            value={formatCount(counts.newHouseholds7d)}
+            icon={UserPlus}
+          />
+          <Tile
+            label="Novas em 30 dias"
+            value={formatCount(counts.newHouseholds30d)}
+            icon={UserPlus}
+          />
+          <Tile label="Ativas em 30 dias" value={formatCount(counts.active30d)} icon={Activity} />
+          <Tile
+            label="Cadastros pendentes"
+            value={formatCount(counts.onboardingPending)}
+            icon={Clock}
+          />
         </dl>
       </section>
 
-      <Card title="Agentes diários" description="Últimos 7 dias com rodada.">
-        {runs.length === 0 ? (
-          <p role="status" className="text-sm text-muted">
-            Nenhuma rodada registrada ainda.
-          </p>
-        ) : (
-          <div
-            role="region"
-            aria-label="Rodadas dos agentes diários"
-            tabIndex={0}
-            className="-mx-5 overflow-x-auto sm:-mx-6"
-          >
-            <table className="w-full border-collapse text-sm">
-              <caption className="sr-only">Rodadas dos agentes diários por dia</caption>
-              <thead>
-                <tr className="border-b border-line">
-                  <th scope="col" className={`${headerCell} pl-5 text-left sm:pl-6`}>
-                    Dia
-                  </th>
-                  <th scope="col" className={`${headerCell} text-left`}>
-                    Agente
-                  </th>
-                  <th scope="col" className={`${headerCell} text-right`}>
-                    Famílias
-                  </th>
-                  <th scope="col" className={`${headerCell} text-right`}>
-                    Ok
-                  </th>
-                  <th scope="col" className={`${headerCell} text-right`}>
-                    Falhas
-                  </th>
-                  <th scope="col" className={`${headerCell} text-right`}>
-                    Sugestões
-                  </th>
-                  <th scope="col" className={`${headerCell} pr-5 text-right sm:pr-6`}>
-                    Aplicadas
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.map((run) => (
-                  <tr
-                    key={`${run.day}:${run.agent}`}
-                    className="border-b border-line last:border-0"
-                  >
-                    <td className="whitespace-nowrap px-3 py-2 pl-5 tabular-nums sm:pl-6">
-                      {formatDay(run.day)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2">{run.agent}</td>
-                    <td className={numberCell}>{formatCount(run.households)}</td>
-                    <td className={numberCell}>{formatCount(run.ok)}</td>
-                    <td className={numberCell}>
-                      {run.failed > 0 ? (
-                        <Badge tone="danger">{formatCount(run.failed)}</Badge>
-                      ) : (
-                        formatCount(run.failed)
-                      )}
-                    </td>
-                    <td className={numberCell}>{formatCount(run.suggestions)}</td>
-                    <td className={`${numberCell} pr-5 sm:pr-6`}>{formatCount(run.applied)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card title="Crescimento" description="Total acumulado nas últimas 12 semanas.">
+          <GrowthChart points={growthPoints} />
+        </Card>
+        <Card title="Atividade" description="Famílias ativas em 7 dias, semana a semana.">
+          <ActivityChart points={weeklyActivity(stats)} />
+        </Card>
+      </div>
 
-      <Card title="Saúde">
-        <dl className="grid gap-4 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-muted">Commit da web</dt>
-            <dd className="m-0 mt-1 font-mono">{shortCommit(process.env.APP_COMMIT ?? "dev")}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">Versão do schema</dt>
-            <dd className="m-0 mt-1 font-mono break-all">
-              {database.schemaVersion ?? "Nenhuma migração"}
-            </dd>
-          </div>
-        </dl>
-        <h3 className="mt-5 text-sm font-semibold">Workers</h3>
-        {workers.length === 0 ? (
-          <p role="status" className="mt-2 text-sm text-muted">
-            Nenhum worker enviou sinal ainda.
-          </p>
-        ) : (
-          <ul className="mt-2 flex flex-col gap-2 text-sm">
-            {workers.map((worker) => {
-              const minutes = minutesSince(worker.lastSeenAt);
-              return (
-                <li key={worker.workerId} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className="min-w-0 font-mono break-all">{worker.workerId}</span>
-                  <span className="font-mono text-muted">{shortCommit(worker.commit)}</span>
-                  <span className="text-muted">Último sinal {formatAge(minutes)}</span>
-                  {minutes > WORKER_STALE_MINUTES ? <Badge tone="warning">Sem sinal</Badge> : null}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card
+          title="Adoção por módulo"
+          description={
+            latest
+              ? `Contagem do worker em ${formatDay(latest.day)}. Só números, sem dado de família.`
+              : "Contagem diária do worker. Só números, sem dado de família."
+          }
+        >
+          {latest ? (
+            <AdoptionBars
+              total={latest.households}
+              items={[
+                { label: "Lançamentos", families: latest.useEntries },
+                { label: "Investimentos", families: latest.useInvestments },
+                { label: "Metas", families: latest.useGoals },
+                { label: "Viagens", families: latest.useTrips },
+                { label: "Aposentadoria", families: latest.useRetirement },
+              ]}
+            />
+          ) : (
+            <EmptyState
+              title="Aguardando a primeira contagem"
+              text="O worker conta os módulos às 03:15 e sempre que sobe."
+            />
+          )}
+        </Card>
+        <Card
+          title="Últimas ações"
+          description="O que foi feito no painel."
+          actions={
+            <Link
+              href="/admin/auditoria"
+              className="text-sm font-semibold text-brand-700 underline underline-offset-2"
+            >
+              Ver auditoria
+            </Link>
+          }
+        >
+          {recent.length === 0 ? (
+            <EmptyState
+              title="Nenhuma ação ainda"
+              text="Suspensões, bloqueios e controles aparecem aqui."
+            />
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-3 p-0 text-sm">
+              {recent.map((entry) => (
+                <li key={entry.id} className="flex items-start gap-3">
+                  <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-500" aria-hidden="true" />
+                  <span className="min-w-0 flex-1">{actionLabel(entry.action)}</span>
+                  <time className="shrink-0 tabular-nums text-muted">
+                    {formatDateTime(entry.at)}
+                  </time>
                 </li>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
-    </>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+    </AdminPage>
   );
 }
