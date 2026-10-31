@@ -2,7 +2,7 @@
 // As contas ficam em @organizeup/domain (summarizeNetWorth); aqui só saem os dados.
 // Nas subconsultas, a tabela vai escrita: `${tabela.coluna}` num select de uma tabela só sai sem
 // prefixo, e o banco resolveria a coluna na tabela interna.
-import { eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { appPool } from "./client";
 import {
   accounts,
@@ -13,6 +13,7 @@ import {
   debts,
   goals,
   household,
+  householdAccess,
   householdMember,
   householdSettings,
   investments,
@@ -119,7 +120,7 @@ export async function listHouseholdIds(): Promise<string[]> {
 
 /**
  * Famílias "ativas": algum membro com sessão atualizada nos últimos `days` dias (tabelas de auth,
- * sem RLS). É o critério dos agentes diários do worker e do painel do serviço. Só identificadores.
+ * sem RLS) e sem suspensão. É o critério dos agentes diários do worker. Só identificadores.
  */
 export async function listActiveHouseholdIds(days = 60): Promise<string[]> {
   const since = new Date(Date.now() - Math.max(days, 1) * 24 * 60 * 60 * 1000);
@@ -127,6 +128,7 @@ export async function listActiveHouseholdIds(days = 60): Promise<string[]> {
     .db.selectDistinct({ id: householdMember.organizationId })
     .from(householdMember)
     .innerJoin(session, eq(session.userId, householdMember.userId))
-    .where(gte(session.updatedAt, since));
+    .innerJoin(household, eq(household.id, householdMember.organizationId))
+    .where(and(gte(session.updatedAt, since), isNull(householdAccess.suspendedAt)));
   return rows.map((row) => row.id);
 }

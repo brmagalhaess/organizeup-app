@@ -1,5 +1,6 @@
 // Helpers do schema `ops` (sem PII; sem RLS de tenant).
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
 import {
   adminAccess,
@@ -7,6 +8,7 @@ import {
   agentRuns,
   categorizationStats,
   deployments,
+  platformStats,
   reports,
   workerHeartbeats,
 } from "./schema";
@@ -245,6 +247,7 @@ export async function recordAdminAccess(input: {
   adminUserId: string;
   action: string;
   targetHouseholdId?: string | null | undefined;
+  targetUserId?: string | null | undefined;
 }): Promise<void> {
   await appPool()
     .db.insert(adminAccess)
@@ -252,5 +255,83 @@ export async function recordAdminAccess(input: {
       adminUserId: input.adminUserId,
       action: input.action,
       targetHouseholdId: input.targetHouseholdId ?? null,
+      targetUserId: input.targetUserId ?? null,
     });
+}
+
+export type PlatformCounts = {
+  households: number;
+  users: number;
+  active7d: number;
+  active30d: number;
+  useEntries: number;
+  useInvestments: number;
+  useGoals: number;
+  useTrips: number;
+  useRetirement: number;
+};
+
+/** Grava a fotografia do dia; repetir substitui. Só o worker (ou_worker) tem permissão. */
+export async function recordPlatformStats(day: string, counts: PlatformCounts): Promise<void> {
+  await appPool()
+    .db.insert(platformStats)
+    .values({ day, ...counts })
+    .onConflictDoUpdate({
+      target: platformStats.day,
+      set: { ...counts, computedAt: sql`now()` },
+    });
+}
+
+/** Linhas diárias, da mais recente para a mais antiga. */
+export async function listPlatformStats(limit = 84) {
+  return tolerateSchemaLag(
+    () =>
+      appPool()
+        .db.select()
+        .from(platformStats)
+        .orderBy(desc(platformStats.day))
+        .limit(Math.min(Math.max(limit, 1), 400)),
+    [],
+  );
+}
+
+export interface QueueCount {
+  name: string;
+  waiting: number;
+  active: number;
+  completed: number;
+  failed: number;
+  lastFinishedAt: Date | null;
+}
+
+/**
+ * Contagens das filas do pg-boss. Vai direto em pgboss.job porque os totais de pgboss.queue dependem
+ * da supervisão, desligada aqui (o worker roda sem DDL).
+ */
+export async function listQueueCounts(): Promise<QueueCount[]> {
+  const rows = await appPool().sql<
+    {
+      name: string;
+      waiting: number;
+      active: number;
+      completed: number;
+      failed: number;
+      last_finished: Date | null;
+    }[]
+  >`
+    select q.name,
+      count(j.id) filter (where j.state in ('created', 'retry'))::int as waiting,
+      count(j.id) filter (where j.state = 'active')::int as active,
+      count(j.id) filter (where j.state = 'completed')::int as completed,
+      count(j.id) filter (where j.state = 'failed')::int as failed,
+      max(j.completed_on) as last_finished
+    from pgboss.queue q
+    left join pgboss.job j on j.name = q.name
+    where q.name not like '\_\_pgboss%'
+    group by q.name
+    order by q.name`;
+  return rows.map(({ last_finished, ...row }) => ({
+    ...row,
+    lastFinishedAt: last_finished ? new Date(last_finished) : null,
+  }));
 }

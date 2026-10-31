@@ -113,6 +113,14 @@ export function withWorkerHousehold<T>(
   return withHousehold(fromJob({ householdId }), fn);
 }
 
+/**
+ * Mesmo contexto em modo leitura, para a manutenção do serviço. A RLS recusa escrita do papel
+ * 'viewer', e as telas e ações que olham canWrite() mudam sozinhas.
+ */
+export function readOnlyContext(ctx: TenantContext): TenantContext {
+  return ctx.role === "system" ? ctx : issue(ctx.householdId, ctx.userId, "viewer");
+}
+
 /** Papéis que podem alterar dados do household. */
 export function canWrite(ctx: TenantContext): boolean {
   return ctx.role === "owner" || ctx.role === "adult" || ctx.role === "system";

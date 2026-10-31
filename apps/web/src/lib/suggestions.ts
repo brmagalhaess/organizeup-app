@@ -15,6 +15,7 @@ import {
   householdSuggestions,
   people,
   sql,
+  tolerateSchemaLag,
   withHousehold,
   type SuggestionKind,
   type TenantContext,
@@ -81,31 +82,7 @@ const pendingColumns = {
   payload: householdSuggestions.payload,
 };
 
-/** Coluna ou tabela que ainda não existe: a web subiu antes de o worker migrar. */
-export function isSchemaLag(error: unknown): boolean {
-  for (
-    let current = error;
-    typeof current === "object" && current !== null;
-    current = (current as { cause?: unknown }).cause
-  ) {
-    const code = (current as { code?: unknown }).code;
-    if (code === "42703" || code === "42P01") return true;
-  }
-  return false;
-}
-
-/**
- * Roda uma leitura em transação própria e cai em `fallback` enquanto a migração não chegou. A leitura
- * precisa ser separada: um erro de SQL aborta a transação inteira.
- */
-export async function tolerateSchemaLag<T>(load: () => Promise<T>, fallback: T): Promise<T> {
-  try {
-    return await load();
-  } catch (error) {
-    if (isSchemaLag(error)) return fallback;
-    throw error;
-  }
-}
+export { tolerateSchemaLag } from "@organizeup/db";
 
 export const noticeCookie = (key: string) => `ou_notice_${key}`;
 

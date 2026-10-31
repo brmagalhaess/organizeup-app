@@ -1,6 +1,7 @@
 // Schema `ops`: dados operacionais SEM PII (lidos pelos agentes via Ops API).
 import {
   bigint,
+  boolean,
   date,
   integer,
   jsonb,
@@ -83,6 +84,31 @@ export const adminAccess = opsSchema.table("admin_access", {
   adminUserId: text("admin_user_id").notNull(),
   action: text("action").notNull(),
   targetHouseholdId: text("target_household_id"),
+  targetUserId: text("target_user_id"),
+});
+
+/** Chaves do sistema. Tudo desligado por padrão; só o painel grava, web e worker leem. */
+export const featureFlags = opsSchema.table("feature_flags", {
+  key: text("key").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  value: jsonb("value").$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  updatedBy: text("updated_by"),
+});
+
+/** Fotografia diária da plataforma, só contagens. Só o worker grava. */
+export const platformStats = opsSchema.table("platform_stats", {
+  day: date("day", { mode: "string" }).primaryKey(),
+  households: integer("households").notNull().default(0),
+  users: integer("users").notNull().default(0),
+  active7d: integer("active_7d").notNull().default(0),
+  active30d: integer("active_30d").notNull().default(0),
+  useEntries: integer("use_entries").notNull().default(0),
+  useInvestments: integer("use_investments").notNull().default(0),
+  useGoals: integer("use_goals").notNull().default(0),
+  useTrips: integer("use_trips").notNull().default(0),
+  useRetirement: integer("use_retirement").notNull().default(0),
+  computedAt: ts("computed_at").notNull().defaultNow(),
 });
 
 /** Contagens diárias do agente de categorização, sem família nem descrição. */
