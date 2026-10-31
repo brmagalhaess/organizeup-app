@@ -2,7 +2,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-const password = "senha-segura-123";
+const password = "senha-segura-123!";
 
 function uniqueEmail(prefix: string) {
   return `${prefix}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@example.com`;
@@ -28,6 +28,37 @@ async function signUpAndCreateFamily(page: Page, name: string, family: string) {
   await expect(page.getByText(family).locator("visible=true").first()).toBeVisible();
   return email;
 }
+
+test("senha precisa de letra, número e caractere especial, na tela e no servidor", async ({
+  page,
+  request,
+}) => {
+  const direct = await request.post("/api/auth/sign-up/email", {
+    data: {
+      name: "Sem Regra",
+      email: uniqueEmail("regra"),
+      password: "abcdefgh12",
+      termsAccepted: true,
+    },
+  });
+  expect(direct.status()).toBe(400);
+
+  await page.goto("/cadastro");
+  await page.getByLabel("Seu nome").fill("Rita");
+  await page.getByLabel("E-mail").fill(uniqueEmail("rita"));
+  await page.getByLabel("Senha", { exact: true }).fill("abc123");
+  await page.getByLabel("Confirmar senha").fill("abc123");
+  await page.getByRole("checkbox", { name: /Li e aceito/ }).check();
+  await page.getByRole("button", { name: "Criar conta" }).click();
+  await expect(
+    page.getByText("A senha precisa ter letras, números e um caractere especial."),
+  ).toBeVisible();
+
+  await page.getByLabel("Senha", { exact: true }).fill("a1!");
+  await page.getByLabel("Confirmar senha").fill("a1!");
+  await page.getByRole("button", { name: "Criar conta" }).click();
+  await expect(page).toHaveURL(/\/app\/novo-household$/);
+});
 
 test("health devolve o commit e o estado do banco", async ({ request }) => {
   const res = await request.get("/api/health");

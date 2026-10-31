@@ -6,7 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 const adminEmail = process.env.E2E_ADMIN_EMAIL ?? "";
-const password = "senha-segura-123";
+const password = "senha-segura-123!";
 
 test.skip(!adminEmail, "Defina E2E_ADMIN_EMAIL e suba o servidor com ADMIN_EMAILS igual.");
 

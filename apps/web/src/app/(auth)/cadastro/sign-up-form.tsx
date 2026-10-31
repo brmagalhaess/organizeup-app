@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Field, FormMessage, Input } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
+import { isValidPassword, PASSWORD_ERROR, PASSWORD_HINT } from "@/lib/password";
 
 export function SignUpForm({ invite }: { invite: string | null }) {
   const router = useRouter();
@@ -16,6 +17,10 @@ export function SignUpForm({ invite }: { invite: string | null }) {
     const password = String(form.get("password") ?? "");
     if (password !== String(form.get("confirm") ?? "")) {
       setError("As senhas não conferem.");
+      return;
+    }
+    if (!isValidPassword(password)) {
+      setError(PASSWORD_ERROR);
       return;
     }
     setPending(true);
@@ -32,8 +37,8 @@ export function SignUpForm({ invite }: { invite: string | null }) {
       setError(
         signUpError.code?.startsWith("USER_ALREADY_EXISTS") || signUpError.status === 422
           ? "Já existe uma conta com este e-mail."
-          : signUpError.code === "PASSWORD_TOO_SHORT"
-            ? "A senha precisa ter pelo menos 10 caracteres."
+          : signUpError.message === "WEAK_PASSWORD"
+            ? PASSWORD_ERROR
             : signUpError.message === "SIGNUP_CLOSED"
               ? "Os cadastros estão fechados no momento."
               : signUpError.message === "MAINTENANCE"
@@ -54,17 +59,11 @@ export function SignUpForm({ invite }: { invite: string | null }) {
       <Field label="E-mail">
         <Input name="email" type="email" autoComplete="email" required />
       </Field>
-      <Field label="Senha" hint="Mínimo de 10 caracteres.">
-        <Input
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          minLength={10}
-          required
-        />
+      <Field label="Senha" hint={PASSWORD_HINT}>
+        <Input name="password" type="password" autoComplete="new-password" required />
       </Field>
       <Field label="Confirmar senha">
-        <Input name="confirm" type="password" autoComplete="new-password" minLength={10} required />
+        <Input name="confirm" type="password" autoComplete="new-password" required />
       </Field>
       <label className="flex items-start gap-2 text-sm">
         <input name="terms" type="checkbox" required className="mt-0.5 size-5 shrink-0" />

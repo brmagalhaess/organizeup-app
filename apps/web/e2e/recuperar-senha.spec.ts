@@ -5,7 +5,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const captureFile = process.env.EMAIL_CAPTURE_FILE;
-const password = "senha-segura-123";
+const password = "senha-segura-123!";
 const newPassword = "senha-nova-456789";
 
 type CapturedEmail = { to: string; subject: string; text: string; html: string; template: string };

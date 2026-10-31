@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { Button, Field, FormMessage, Input } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
+import { isValidPassword, PASSWORD_ERROR, PASSWORD_HINT } from "@/lib/password";
 
 function Notice({
   title,
@@ -45,6 +46,10 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
       setError("As senhas não conferem.");
       return;
     }
+    if (!isValidPassword(newPassword)) {
+      setError(PASSWORD_ERROR);
+      return;
+    }
     setPending(true);
     const { error: resetError } = await authClient.resetPassword({
       newPassword,
@@ -57,8 +62,8 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
       setExpired(true);
     } else {
       setError(
-        resetError.code === "PASSWORD_TOO_SHORT"
-          ? "A senha precisa ter pelo menos 10 caracteres."
+        resetError.message === "WEAK_PASSWORD"
+          ? PASSWORD_ERROR
           : "Não foi possível trocar a senha. Tente novamente.",
       );
     }
@@ -93,12 +98,11 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
         <p className="text-sm text-muted">Depois disso, a senha antiga deixa de valer.</p>
       </div>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <Field label="Nova senha" hint="Mínimo de 10 caracteres.">
+        <Field label="Nova senha" hint={PASSWORD_HINT}>
           <Input
             name="password"
             type="password"
             autoComplete="new-password"
-            minLength={10}
             maxLength={128}
             required
           />
@@ -108,7 +112,6 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
             name="confirm"
             type="password"
             autoComplete="new-password"
-            minLength={10}
             maxLength={128}
             required
           />

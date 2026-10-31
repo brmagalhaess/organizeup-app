@@ -30,6 +30,7 @@ import {
   verifyEmail,
 } from "./email-templates";
 import { LEGAL_VERSION } from "./legal";
+import { isValidPassword } from "./password";
 import { ac, roles } from "./permissions";
 
 /**
@@ -83,7 +84,8 @@ function createAuth() {
     database: drizzleAdapter(authDb(), { provider: "pg", schema: betterAuthSchema }),
     emailAndPassword: {
       enabled: true,
-      minPasswordLength: 10,
+      // Sem tamanho mínimo, por decisão do fundador: vale a regra de lib/password.ts.
+      minPasswordLength: 1,
       maxPasswordLength: 128,
       // A confirmação de e-mail é enviada no cadastro, mas não impede de entrar.
       requireEmailVerification: false,
@@ -141,6 +143,12 @@ function createAuth() {
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        // Senha nova passa pela regra aqui: o formulário sozinho pode ser contornado.
+        const body = ctx.body as { password?: unknown; newPassword?: unknown } | undefined;
+        const password = ctx.path === "/sign-up/email" ? body?.password : body?.newPassword;
+        if (typeof password === "string" && !isValidPassword(password)) {
+          throw new APIError("BAD_REQUEST", { message: "WEAK_PASSWORD" });
+        }
         if (!writesInMaintenance(ctx.path)) return;
         if ((await readPlatformFlags()).maintenance) {
           throw new APIError("SERVICE_UNAVAILABLE", { message: "MAINTENANCE" });

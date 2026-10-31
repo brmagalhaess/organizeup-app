@@ -2,7 +2,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-const password = "senha-segura-123";
+const password = "senha-segura-123!";
 
 async function signUp(page: Page, name: string) {
   const email = `${name}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@example.com`;
