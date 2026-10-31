@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { recordDividendRemoval } from "@organizeup/agents";
 import {
   canWrite,
   DIVIDEND_KINDS,
@@ -86,11 +87,21 @@ export async function deleteDividend(form: FormData): Promise<void> {
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
-    const removed = await tx
-      .delete(dividends)
-      .where(eq(dividends.id, id))
-      .returning({ id: dividends.id });
-    if (removed.length > 0) await audit(tx, ctx, "delete", "dividends", id);
+    const [removed] = await tx.delete(dividends).where(eq(dividends.id, id)).returning({
+      id: dividends.id,
+      investmentId: dividends.investmentId,
+      marketDividendId: dividends.marketDividendId,
+    });
+    if (!removed) return;
+    await audit(tx, ctx, "delete", "dividends", id);
+    // Provento automático excluído não volta na próxima rodada (ADR-0017).
+    if (removed.marketDividendId) {
+      await recordDividendRemoval(tx, ctx, {
+        dividendId: removed.id,
+        investmentId: removed.investmentId,
+        marketDividendId: removed.marketDividendId,
+      });
+    }
   });
   revalidatePath("/app", "layout");
 }

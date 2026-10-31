@@ -84,6 +84,43 @@ function DividendForm({ data, onDone }: { data: Data; onDone: () => void }) {
   );
 }
 
+function DividendLine({
+  row,
+  writable,
+  onRemove,
+}: {
+  row: Row;
+  writable: boolean;
+  onRemove: (row: Row) => void;
+}) {
+  return (
+    <li className="flex items-center gap-3 py-2 text-sm">
+      <div className="min-w-0 flex-1">
+        <p className="flex flex-wrap items-center gap-2 font-medium">
+          {row.label}
+          <Badge>{KIND_LABEL[row.kind]}</Badge>
+          {row.source === "agente" ? <Badge tone="success">automático</Badge> : null}
+        </p>
+        <p className="text-xs text-muted">
+          {fullDate(row.paidOn)}
+          {money(row.withheld).gt(0) ? ` · bruto de ${formatBRL(row.gross)}` : ""}
+          {row.market
+            ? ` · data-com ${fullDate(row.market.comDate)} · fonte: ${row.market.source}`
+            : ""}
+        </p>
+      </div>
+      <span className="whitespace-nowrap font-medium tabular-nums">
+        {formatBRL(netDividend(row))}
+      </span>
+      {writable ? (
+        <IconButton label={`Excluir provento de ${row.label}`} onClick={() => onRemove(row)}>
+          <Trash2 className="size-4" aria-hidden="true" />
+        </IconButton>
+      ) : null}
+    </li>
+  );
+}
+
 function GoalForm({ data, onDone }: { data: Data; onDone: () => void }) {
   const [state, action, pending] = useActionState(saveGoal, initial);
   useEffect(() => {
@@ -293,12 +330,28 @@ export function DividendsBoard({
 
           {outlook ? <ForecastCard months={outlook.forecast} /> : null}
 
+          {data.upcoming.length > 0 ? (
+            <Card
+              title="A receber"
+              description={`${formatBRL(data.upcomingNet)} já anunciados, sem o imposto. Só entram nos totais na data do pagamento.`}
+            >
+              <ul
+                aria-label="Proventos a receber"
+                className="m-0 list-none divide-y divide-line p-0"
+              >
+                {data.upcoming.map((row) => (
+                  <DividendLine key={row.id} row={row} writable={writable} onRemove={setRemoving} />
+                ))}
+              </ul>
+            </Card>
+          ) : null}
+
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
             <Card title="Recebidos">
               {data.rows.length === 0 ? (
                 <EmptyState
                   title="Nenhum provento ainda"
-                  text="Registre dividendos, JCP e rendimentos conforme caem na conta."
+                  text="Com o código do ativo preenchido em Investimentos, eles aparecem sozinhos. Também dá para registrar à mão."
                 />
               ) : (
                 <ul
@@ -306,29 +359,12 @@ export function DividendsBoard({
                   className="m-0 list-none divide-y divide-line p-0"
                 >
                   {data.rows.map((row) => (
-                    <li key={row.id} className="flex items-center gap-3 py-2 text-sm">
-                      <div className="min-w-0 flex-1">
-                        <p className="flex flex-wrap items-center gap-2 font-medium">
-                          {row.label}
-                          <Badge>{KIND_LABEL[row.kind]}</Badge>
-                        </p>
-                        <p className="text-xs text-muted">
-                          {fullDate(row.paidOn)}
-                          {money(row.withheld).gt(0) ? ` · bruto de ${formatBRL(row.gross)}` : ""}
-                        </p>
-                      </div>
-                      <span className="whitespace-nowrap font-medium tabular-nums">
-                        {formatBRL(netDividend(row))}
-                      </span>
-                      {writable ? (
-                        <IconButton
-                          label={`Excluir provento de ${row.label}`}
-                          onClick={() => setRemoving(row)}
-                        >
-                          <Trash2 className="size-4" aria-hidden="true" />
-                        </IconButton>
-                      ) : null}
-                    </li>
+                    <DividendLine
+                      key={row.id}
+                      row={row}
+                      writable={writable}
+                      onRemove={setRemoving}
+                    />
                   ))}
                 </ul>
               )}
@@ -362,6 +398,11 @@ export function DividendsBoard({
               )}
             </Card>
           </div>
+          <p className="text-xs text-muted">
+            Proventos automáticos usam a quantidade que você registrou na data-com e o imposto
+            previsto em lei. Confira sempre no extrato da corretora; quando o imposto não é certo, o
+            provento fica para você lançar.
+          </p>
         </>
       )}
 
@@ -379,7 +420,11 @@ export function DividendsBoard({
         open={removing !== null}
         onClose={() => setRemoving(null)}
         title="Excluir provento"
-        text={`O provento de ${removing?.label ?? ""} sai do histórico.`}
+        text={
+          removing?.source === "agente"
+            ? `O provento automático de ${removing.label} sai do histórico e não volta sozinho.`
+            : `O provento de ${removing?.label ?? ""} sai do histórico.`
+        }
         confirmLabel="Excluir"
         action={deleteDividend}
         hidden={{ id: removing?.id ?? "" }}

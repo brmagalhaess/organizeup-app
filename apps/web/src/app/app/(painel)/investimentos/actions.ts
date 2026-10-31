@@ -234,7 +234,7 @@ export async function updateValue(_prev: FormState, form: FormData): Promise<For
       .update(investments)
       .set(
         isUnitPriced(investment.assetClass)
-          ? { currentPrice: value.data, valuedOn: valuedOn.data }
+          ? { currentPrice: value.data, valuedOn: valuedOn.data, priceSource: "familia" }
           : { currentValue: toDbAmount(value.data), valuedOn: valuedOn.data },
       )
       .where(eq(investments.id, id));
