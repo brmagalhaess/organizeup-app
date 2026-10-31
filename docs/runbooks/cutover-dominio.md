@@ -7,7 +7,7 @@ continua no sistema antigo, em `2.24.94.160`.
 
 - DNS de `organizeup.com.br` e `www`: Hostinger (`byte.dns-parking.com`, `pixel.dns-parking.com`), apontando
   para `2.24.94.160`. Esse domínio **não** está no Cloudflare; `crowntech.com.br` está.
-- Novo sistema: `https://organizeup.home.crowntech.com.br`, servidor `169.58.235.246`.
+- Novo sistema: `https://organizeup.crowntech.com.br`, servidor `169.58.235.246`.
 - O domínio `organizeup.com.br` já está cadastrado no `ou3-web`, sem HTTPS, e não recebe tráfego.
 
 ## Passos
@@ -29,9 +29,9 @@ continua no sistema antigo, em `2.24.94.160`.
 8. Em `ou3-web` → Environment, troque `BETTER_AUTH_URL=https://organizeup.com.br`, clique em Save e faça o
    Deploy. Sem isso, o login recusa a origem nova.
 9. Teste `/api/health`, cadastro e login no domínio novo.
-10. Mantenha `organizeup.home.crowntech.com.br` com redirecionamento até confirmar que ninguém o usa.
+10. Mantenha `organizeup.crowntech.com.br` com redirecionamento até confirmar que ninguém o usa.
     Sessões abertas no domínio antigo terminam; os usuários entram de novo.
 
 ## Volta atrás
 
-Reaponte o DNS para `2.24.94.160` e restaure `BETTER_AUTH_URL=https://organizeup.home.crowntech.com.br`.
+Reaponte o DNS para `2.24.94.160` e restaure `BETTER_AUTH_URL=https://organizeup.crowntech.com.br`.

@@ -1,7 +1,7 @@
 # Deploy
 
 Painel: https://dokploy.home.crowntech.com.br, projeto **OrganizeUp v3** (`ou3-db`, `ou3-worker`, `ou3-web`).
-Produção: https://organizeup.home.crowntech.com.br
+Produção: https://organizeup.crowntech.com.br
 
 Automático: push em `main` → o Dokploy recebe o webhook do GitHub ("Git Bruno") e constrói `ou3-worker` e
 `ou3-web` no servidor. Como o GitHub Actions está sem execução, rode `pnpm check` antes de enviar.
@@ -18,8 +18,8 @@ tolerar os erros `42703` (coluna não existe) e `42P01` (tabela não existe) at�
 Conferir:
 
 ```bash
-curl -s https://organizeup.home.crowntech.com.br/api/health
-curl -s -H "Authorization: Bearer <token-ops>" https://organizeup.home.crowntech.com.br/api/ops/deployments
+curl -s https://organizeup.crowntech.com.br/api/health
+curl -s -H "Authorization: Bearer <token-ops>" https://organizeup.crowntech.com.br/api/ops/deployments
 ```
 
 `schemaVersion` deve mostrar a última migração. `commit` mostra o SHA real publicado (desde `c9f23d0`); deve

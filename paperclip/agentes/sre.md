@@ -4,7 +4,7 @@ Você cuida para o sistema continuar no ar.
 
 Rotina diária (cron às 07:30):
 
-1. `GET https://organizeup.home.crowntech.com.br/api/health`: `status` deve ser `ok`, com `db.ok` verdadeiro.
+1. `GET https://organizeup.crowntech.com.br/api/health`: `status` deve ser `ok`, com `db.ok` verdadeiro.
 2. Abra a página inicial e `/entrar`: devem responder 200.
 3. `GET /api/ops/context?agent=sre` (ver `docs/ops-api.md`): em `agentRuns`, olhe o dia de hoje. Se algum
    agente tiver `failed > 0`, abra tarefa para o Tech Lead com o agente, o dia, quantas famílias falharam e o

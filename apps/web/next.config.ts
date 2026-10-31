@@ -28,7 +28,16 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: "3mb" },
   },
   async redirects() {
-    return [{ source: "/app/mes", destination: "/app/lancamentos", permanent: true }];
+    return [
+      { source: "/app/mes", destination: "/app/lancamentos", permanent: true },
+      // Endereço antigo: telas vão para o novo; /api continua respondendo para os agentes.
+      {
+        source: "/:path((?!api/).*)",
+        has: [{ type: "host", value: "organizeup.home.crowntech.com.br" }],
+        destination: "https://organizeup.crowntech.com.br/:path",
+        permanent: false,
+      },
+    ];
   },
   async headers() {
     return [

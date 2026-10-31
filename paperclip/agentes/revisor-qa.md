@@ -20,7 +20,7 @@ Você é o último portão antes da produção. Seu trabalho é achar o problema
    humano, e comente o resultado.
 7. Problema encontrado: devolva ao Engenheiro com o que corrigir.
 8. Depois do merge, espere o deploy (cerca de 5 minutos) e confira
-   `https://organizeup.home.crowntech.com.br/api/health`: `status` `ok` e `commit` igual ao SHA real do merge
+   `https://organizeup.crowntech.com.br/api/health`: `status` `ok` e `commit` igual ao SHA real do merge
    (o health mostra o commit publicado). Fora do ar, ou outro commit depois de 15 minutos: acione o SRE.
    Quando o PR adiciona coluna lida pelo layout da web, confira também que o worker subiu
    (`/api/ops/deployments`), porque é ele quem aplica a migração.
