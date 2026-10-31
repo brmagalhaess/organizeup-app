@@ -18,6 +18,11 @@ export default async function SignInPage({
         <p className="text-sm text-muted">Entre para acessar o plano da sua família.</p>
       </div>
       <SignInForm invite={invite} />
+      <p className="text-sm">
+        <Link href="/esqueci-senha" className="font-semibold text-brand-700 underline">
+          Esqueci minha senha
+        </Link>
+      </p>
       <p className="text-sm text-muted">
         Ainda não tem conta?{" "}
         <Link
