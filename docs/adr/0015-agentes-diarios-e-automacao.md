@@ -1,6 +1,6 @@
 # ADR-0015 — Agentes diários do produto e automação da equipe
 
-Status: aceito (2026-10-31)
+Status: aceito (2026-10-31). Cotação externa e aviso de preço velho: ver ADR-0017.
 
 Substitui em parte o ADR-0010 (rotina e merge da equipe do Paperclip), o ADR-0013 (o agente de categorias
 passa a aplicar sozinho um caso bem delimitado) e o ADR-0014 (aposentadoria por acumulação deixa de ser o
