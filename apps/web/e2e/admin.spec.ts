@@ -113,6 +113,14 @@ test("administrador navega por todas as telas, sem violação de acessibilidade"
     await expectNoSideScroll(page);
   }
 
+  // No celular, as seções que não cabem na barra ficam em Mais.
+  const more = page.getByRole("button", { name: "Mais" });
+  if (await more.isVisible()) {
+    await more.click();
+    await page.getByRole("dialog").getByRole("link", { name: "Controles" }).click();
+    await expect(page).toHaveURL(/\/admin\/controles$/);
+  }
+
   await page.goto("/admin/agentes");
   for (const name of ["Categorias", "Investimentos", "Aposentadoria", "Viagens", "Metas"]) {
     await expect(page.getByRole("heading", { level: 3, name })).toBeVisible();

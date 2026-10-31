@@ -2589,6 +2589,14 @@ describe("gerência do painel do serviço", () => {
     await expect(
       db.tolerateSchemaLag(() => Promise.reject(new Error("outro")), "ok"),
     ).rejects.toThrow("outro");
+    // O erro real do banco, do jeito que o Drizzle entrega.
+    const missing = (query: ReturnType<typeof sql>) =>
+      db.tolerateSchemaLag<unknown>(
+        () => db.withAdminRead("teste de atraso do schema", (conn) => conn.execute(query)),
+        "tolerado",
+      );
+    expect(await missing(sql`select coluna_nova from "user"`)).toBe("tolerado");
+    expect(await missing(sql`select 1 from ops.tabela_nova`)).toBe("tolerado");
   });
 });
 

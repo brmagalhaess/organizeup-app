@@ -282,7 +282,7 @@ export type DayStatus = "ok" | "falha" | "sem";
 
 const dayCell: Record<DayStatus, string> = {
   ok: "bg-brand-500",
-  falha: "bg-danger text-white",
+  falha: "bg-danger text-white dark:text-night",
   sem: "bg-brand-50",
 };
 
