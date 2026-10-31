@@ -113,6 +113,15 @@ async function applyGrants(sql: postgres.Sql) {
     REVOKE INSERT, UPDATE, DELETE ON public.category_templates FROM ${app}, ${worker};
     REVOKE INSERT, UPDATE, DELETE ON public.fiscal_parameters FROM ${app}, ${worker};
     REVOKE INSERT, UPDATE, DELETE ON public.trip_destination_templates FROM ${app}, ${worker};
+    -- Dados de mercado: todos leem; só o worker grava, e nada é apagado (ADR-0017).
+    REVOKE INSERT, UPDATE, DELETE
+      ON public.market_quotes, public.market_dividends, public.market_indices,
+         public.market_tickers, public.market_usage
+      FROM ${app}, ${admin};
+    REVOKE DELETE
+      ON public.market_quotes, public.market_dividends, public.market_indices,
+         public.market_tickers, public.market_usage
+      FROM ${worker};
 
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.
     GRANT SELECT ON ALL TABLES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
