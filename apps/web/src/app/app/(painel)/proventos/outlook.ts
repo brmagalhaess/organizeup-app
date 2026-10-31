@@ -6,6 +6,7 @@ import {
   forecastDividends,
   money,
   planDividendRetirement,
+  receivedDividends,
   toDbAmount,
   todayIn,
   yearMonthOf,
@@ -21,7 +22,7 @@ export async function loadDividendOutlook(ctx: TenantContext) {
       withHousehold(ctx, async (tx) => {
         const today = todayIn(await householdTimezone(tx, ctx.householdId));
         const { input } = await dividendPlanInputs(tx, { today });
-        const paid = await tx.select().from(dividends);
+        const paid = receivedDividends(await tx.select().from(dividends), today);
 
         const plan = planDividendRetirement(input);
         // Sem renda alvo o plano para antes do rendimento, mas ele só depende da carteira.

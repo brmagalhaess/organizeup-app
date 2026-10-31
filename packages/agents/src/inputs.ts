@@ -44,6 +44,7 @@ import {
   monthsToReserve,
   normalizeDescription,
   purchaseLines,
+  receivedDividends,
   recentMonths,
   reserveStatus,
   summarizeDividends,
@@ -345,11 +346,13 @@ export async function dividendPlanInputs(
       ? input.averageExpenses12
       : (await surplusInputs(tx, { today })).averageExpenses12;
 
-  const [holdings, trades, paid] = await Promise.all([
+  const [holdings, trades, allDividends] = await Promise.all([
     tx.select().from(investments).orderBy(asc(investments.createdAt)),
     tx.select().from(investmentTrades),
     tx.select().from(dividends),
   ]);
+  // O rendimento observado usa o que caiu na conta: "a receber" fica fora até o pagamento (ADR-0017).
+  const paid = receivedDividends(allDividends, today);
   const portfolio = summarizePortfolio(
     holdings.map((holding) => ({
       ...holding,

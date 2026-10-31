@@ -2021,6 +2021,146 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
     ).rejects.toThrow();
   });
 
+  describe("tabelas de mercado (ADR-0017)", () => {
+    const { dividends, investments, marketDividends, marketIndices, marketQuotes, marketUsage } =
+      db;
+    const worker = () => postgres(urls.worker, { max: 1, onnotice: () => {} });
+    const dividendRow = {
+      ticker: "PETR4",
+      kind: "jcp",
+      com_date: "2026-08-21",
+      pay_date: "2026-09-21",
+      rate_per_share: "0.67407131",
+      source: "teste",
+    };
+
+    it("só o worker grava; web lê; ninguém apaga", async () => {
+      const raw = worker();
+      try {
+        await raw`insert into market_quotes (ticker, price, quoted_at, source)
+                  values ('PETR4', '52.71', now(), 'teste')`;
+        await raw`insert into market_dividends ${raw(dividendRow)}`;
+        await raw`insert into market_indices (code, date, value) values ('IPCA', '2026-09-01', '-0.32')`;
+        await raw`insert into market_tickers (ticker, status) values ('PETR4', 'ok')`;
+        await raw`insert into market_usage (day, calls) values ('2026-10-31', 1)`;
+        await raw`update market_quotes set price = '53' where ticker = 'PETR4'`;
+        await expect(raw`delete from market_quotes`).rejects.toThrow(/permission denied/);
+      } finally {
+        await raw.end();
+      }
+
+      const ctx = await ctxFor(A.owner, A.household);
+      const quotes = await db.withHousehold(ctx, (tx) => tx.select().from(marketQuotes));
+      expect(quotes.map((row) => row.ticker)).toEqual(["PETR4"]);
+      const indices = await db.withHousehold(ctx, (tx) => tx.select().from(marketIndices));
+      expect(indices[0]!.value).toBe("-0.32000000");
+
+      for (const write of [
+        (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
+          tx.update(marketQuotes).set({ price: "1" }),
+        (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
+          tx.insert(marketUsage).values({ day: "2026-11-01", calls: 1 }),
+        (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => tx.delete(marketDividends),
+      ]) {
+        await expect(db.withHousehold(ctx, write)).rejects.toThrow();
+      }
+      await expect(
+        db.withAdmin("confere o grant de mercado", (admin) =>
+          admin.update(marketQuotes).set({ price: "1" }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it("a tabela global não guarda vínculo com família", async () => {
+      const raw = postgres(urls.owner, { max: 1, onnotice: () => {} });
+      try {
+        const columns = await raw<{ table_name: string }[]>`
+          select table_name from information_schema.columns
+          where column_name = 'household_id'
+            and table_name in ('market_quotes', 'market_dividends', 'market_indices',
+                               'market_tickers', 'market_usage')`;
+        expect(columns).toHaveLength(0);
+      } finally {
+        await raw.end();
+      }
+    });
+
+    it("o mesmo provento de mercado cabe uma vez por investimento e por família", async () => {
+      const ctx = await ctxFor(A.owner, A.household);
+      const ctxB = await ctxFor(B.owner, B.household);
+      const [market] = await db.withHousehold(ctx, (tx) =>
+        tx.select({ id: marketDividends.id }).from(marketDividends).limit(1),
+      );
+      const create = (householdId: string, role: typeof ctx) =>
+        db.withHousehold(role, async (tx) => {
+          const [holding] = await tx
+            .insert(investments)
+            .values({ householdId, name: "Petrobras", ticker: "PETR4", assetClass: "acao" })
+            .returning({ id: investments.id });
+          return holding!.id;
+        });
+      const holdingA = await create(A.household, ctx);
+      const holdingB = await create(B.household, ctxB);
+      const row = (householdId: string, investmentId: string) => ({
+        householdId,
+        investmentId,
+        kind: "jcp" as const,
+        paidOn: "2026-09-21",
+        gross: "67.41",
+        withheld: "11.80",
+        source: "agente" as const,
+        marketDividendId: market!.id,
+      });
+      await db.withHousehold(ctx, (tx) => tx.insert(dividends).values(row(A.household, holdingA)));
+      await db.withHousehold(ctxB, (tx) => tx.insert(dividends).values(row(B.household, holdingB)));
+      await expect(
+        db.withHousehold(ctx, (tx) => tx.insert(dividends).values(row(A.household, holdingA))),
+      ).rejects.toThrow();
+      // Cada família só vê o próprio.
+      const seen = await db.withHousehold(ctxB, (tx) => tx.select().from(dividends));
+      expect(seen.every((item) => item.householdId === B.household)).toBe(true);
+      // Lançamento à mão, sem vínculo, pode repetir.
+      const manual = {
+        ...row(A.household, holdingA),
+        source: "familia" as const,
+        marketDividendId: null,
+      };
+      await db.withHousehold(ctx, async (tx) => {
+        await tx.insert(dividends).values(manual);
+        await tx.insert(dividends).values(manual);
+      });
+      await db.withHousehold(ctx, async (tx) => {
+        await tx.delete(investments).where(eq(investments.id, holdingA));
+      });
+      await db.withHousehold(ctxB, async (tx) => {
+        await tx.delete(investments).where(eq(investments.id, holdingB));
+      });
+    });
+
+    it("investimento e provento novos nascem como da família", async () => {
+      const ctx = await ctxFor(A.owner, A.household);
+      await db.withHousehold(ctx, async (tx) => {
+        const [holding] = await tx
+          .insert(investments)
+          .values({ householdId: A.household, name: "Novo", assetClass: "acao" })
+          .returning();
+        expect(holding!.priceSource).toBe("familia");
+        const [row] = await tx
+          .insert(dividends)
+          .values({
+            householdId: A.household,
+            investmentId: holding!.id,
+            kind: "dividendo",
+            paidOn: "2026-09-21",
+            gross: "1.00",
+          })
+          .returning();
+        expect(row).toMatchObject({ source: "familia", marketDividendId: null });
+        await tx.delete(investments).where(eq(investments.id, holding!.id));
+      });
+    });
+  });
+
   it("ensureCategory acha por nome normalizado, desarquiva e só cria quando não existe", async () => {
     const ctx = await ctxFor(A.owner, A.household);
     await db.withHousehold(ctx, async (tx) => {

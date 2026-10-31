@@ -1,6 +1,6 @@
 # ADR-0012 — Investimentos e proventos
 
-Status: aceito (2026-10-30)
+Status: aceito (2026-10-30). Cotação, proventos e índices do Banco Central automáticos: ver ADR-0017.
 
 ## Decisão
 

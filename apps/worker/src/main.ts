@@ -12,9 +12,11 @@ import {
   recordDeployment,
   recordWorkerHeartbeat,
 } from "@organizeup/db";
+import { MERCADO_AGENT } from "@organizeup/agents";
 import { migrate, migrateOptionsFromEnv } from "@organizeup/db/migrator";
 import { todayIn } from "@organizeup/domain";
 import { DAILY_AGENTS_SENTINEL, runDailyAgents } from "./daily-agents";
+import { MARKET_SCHEDULES, runMarketDataJob } from "./market-data";
 import { snapshotNetWorth } from "./net-worth";
 
 process.env.OU_PROCESS ??= "organizeup-worker";
@@ -65,13 +67,22 @@ async function main() {
 
   // Agentes diários do produto (ADR-0015): todo dia às 04:00 e no boot, se ainda não rodaram hoje.
   // DAILY_AGENTS_ENABLED=false desliga (e remove o agendamento que tenha ficado).
+  // O mesmo interruptor para a coleta de mercado (ADR-0017), que roda antes deles.
   if (process.env.DAILY_AGENTS_ENABLED === "false") {
     await boss.unschedule(JOB_QUEUES.dailyAgents);
+    for (const { key } of MARKET_SCHEDULES) await boss.unschedule(JOB_QUEUES.marketData, key);
     log.info("agentes diários desligados (DAILY_AGENTS_ENABLED=false)");
   } else {
+    await boss.work(JOB_QUEUES.marketData, () => runMarketDataJob(log));
+    for (const { key, cron } of MARKET_SCHEDULES) {
+      await boss.schedule(JOB_QUEUES.marketData, cron, null, { tz: "America/Sao_Paulo", key });
+    }
     await boss.work(JOB_QUEUES.dailyAgents, () => runDailyAgents(log));
     await boss.schedule(JOB_QUEUES.dailyAgents, "0 4 * * *", null, { tz: "America/Sao_Paulo" });
     const today = todayIn();
+    if (!(await hasAgentRunToday(today, MERCADO_AGENT))) {
+      await boss.send(JOB_QUEUES.marketData, null, { singletonKey: `market:${today}` });
+    }
     if (!(await hasAgentRunToday(today, DAILY_AGENTS_SENTINEL))) {
       await boss.send(JOB_QUEUES.dailyAgents, null, { singletonKey: `daily:${today}` });
     }

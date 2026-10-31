@@ -1,4 +1,5 @@
-// Núcleo financeiro. Todas com RLS (exceto category_templates, global e somente leitura).
+// Núcleo financeiro. Todas com RLS, exceto as globais: category_templates, a tabela de destinos e as
+// de mercado.
 // Ver migrations/0004_financas.sql. Valores trafegam como string (numeric(14,2)).
 import {
   boolean,
@@ -537,6 +538,12 @@ export const INVESTMENT_CLASSES = [
 export type InvestmentClass = (typeof INVESTMENT_CLASSES)[number];
 export const TRADE_SIDES = ["compra", "venda"] as const;
 export const DIVIDEND_KINDS = ["dividendo", "jcp", "rendimento"] as const;
+export const PRICE_SOURCES = ["familia", "mercado"] as const;
+export const DIVIDEND_SOURCES = ["familia", "agente"] as const;
+export const MARKET_INDEX_CODES = ["CDI", "SELIC", "IPCA"] as const;
+export type MarketIndexCode = (typeof MARKET_INDEX_CODES)[number];
+export const MARKET_TICKER_STATUSES = ["ok", "desconhecido", "sem_plano", "falha"] as const;
+export type MarketTickerStatus = (typeof MARKET_TICKER_STATUSES)[number];
 
 const quantity = (name: string) => numeric(name, { precision: 20, scale: 8 });
 
@@ -555,6 +562,8 @@ export const investments = pgTable(
     currentPrice: quantity("current_price"),
     currentValue: amount("current_value"),
     valuedOn: date("valued_on", { mode: "string" }),
+    /** Quem informou o preço atual (ADR-0017). */
+    priceSource: text("price_source", { enum: PRICE_SOURCES }).notNull().default("familia"),
     createdAt: ts("created_at").notNull().defaultNow(),
   },
   (t) => [
@@ -604,10 +613,16 @@ export const dividends = pgTable(
     paidOn: date("paid_on", { mode: "string" }).notNull(),
     gross: amount("gross").notNull(),
     withheld: amount("withheld").notNull().default("0"),
+    /** `agente` = criado a partir de market_dividends (ADR-0017). */
+    source: text("source", { enum: DIVIDEND_SOURCES }).notNull().default("familia"),
+    marketDividendId: text("market_dividend_id").references(() => marketDividends.id),
     createdAt: ts("created_at").notNull().defaultNow(),
   },
   (t) => [
     index("dividends_household_paid_idx").on(t.householdId, t.paidOn),
+    uniqueIndex("dividends_market_dividend_unique")
+      .on(t.householdId, t.investmentId, t.marketDividendId)
+      .where(sql`market_dividend_id IS NOT NULL`),
     foreignKey({
       columns: [t.householdId, t.investmentId],
       foreignColumns: [investments.householdId, investments.id],
@@ -633,6 +648,71 @@ export const dividendGoals = pgTable("dividend_goals", {
     .references(() => household.id, { onDelete: "cascade" }),
   monthlyAmount: amount("monthly_amount").notNull(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/**
+ * Tabelas de mercado (ADR-0017): globais, sem household_id e sem RLS de tenant. Guardam fatos públicos
+ * da bolsa e do Banco Central. Todos leem; só ou_worker grava (grants no migrador).
+ */
+export const marketQuotes = pgTable("market_quotes", {
+  ticker: text("ticker").primaryKey(),
+  price: quantity("price").notNull(),
+  changePercent: numeric("change_percent", { precision: 10, scale: 4 }),
+  quotedAt: ts("quoted_at").notNull(),
+  source: text("source").notNull(),
+  /** Último desdobramento, grupamento ou bonificação; o sistema ainda não ajusta a quantidade. */
+  lastStockEventOn: date("last_stock_event_on", { mode: "string" }),
+  lastStockEventNote: text("last_stock_event_note"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** `ratePerShare` é o valor pago na data, sem o ajuste por desdobramento que a fonte aplica. */
+export const marketDividends = pgTable(
+  "market_dividends",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    ticker: text("ticker").notNull(),
+    kind: text("kind", { enum: DIVIDEND_KINDS }).notNull(),
+    comDate: date("com_date", { mode: "string" }).notNull(),
+    exDate: date("ex_date", { mode: "string" }),
+    payDate: date("pay_date", { mode: "string" }).notNull(),
+    ratePerShare: quantity("rate_per_share").notNull(),
+    seq: smallint("seq").notNull().default(1),
+    source: text("source").notNull(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.ticker, t.kind, t.comDate, t.payDate, t.seq),
+    index("market_dividends_ticker_idx").on(t.ticker, t.comDate),
+  ],
+);
+
+export const marketIndices = pgTable(
+  "market_indices",
+  {
+    code: text("code", { enum: MARKET_INDEX_CODES }).notNull(),
+    date: date("date", { mode: "string" }).notNull(),
+    value: quantity("value").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.code, t.date] })],
+);
+
+/** Situação de cada ticker consultado, sem dizer quem o tem. */
+export const marketTickers = pgTable("market_tickers", {
+  ticker: text("ticker").primaryKey(),
+  status: text("status", { enum: MARKET_TICKER_STATUSES }).notNull(),
+  checkedAt: ts("checked_at").notNull().defaultNow(),
+  retryOn: date("retry_on", { mode: "string" }),
+  dividendsRetryOn: date("dividends_retry_on", { mode: "string" }),
+  errorCode: text("error_code"),
+});
+
+/** Chamadas à cota da brapi por dia, somando rodadas e reinícios do worker. */
+export const marketUsage = pgTable("market_usage", {
+  day: date("day", { mode: "string" }).primaryKey(),
+  calls: integer("calls").notNull().default(0),
 });
 
 export const MEMORY_SOURCES = ["agente", "familia"] as const;

@@ -54,6 +54,17 @@ export {
   type MemoryKind,
   type ReportKind,
 } from "./ops";
+export {
+  addMarketCalls,
+  listMarketTickers,
+  marketCallsOn,
+  saveMarketDividends,
+  saveMarketIndices,
+  saveMarketQuote,
+  saveMarketTicker,
+  type MarketDividendRow,
+  type MarketQuoteRow,
+} from "./market";
 export { JOB_QUEUES, PGBOSS_SCHEMA, type JobQueue } from "./jobs";
 export { closeAllPools } from "./client";
 // Operadores de consulta reexportados para que apps usem a MESMA instância do drizzle-orm.

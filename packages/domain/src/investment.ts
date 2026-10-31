@@ -235,6 +235,14 @@ export interface DividendSummary {
   goalPercent: number | null;
 }
 
+/** Provento com pagamento até hoje. O que vem depois é "a receber" e fica fora de toda soma. */
+export const receivedDividends = <T extends { paidOn: string }>(rows: T[], today: string): T[] =>
+  rows.filter((row) => row.paidOn <= today);
+
+/** Provento anunciado com pagamento depois de hoje, do mais próximo ao mais distante. */
+export const upcomingDividends = <T extends { paidOn: string }>(rows: T[], today: string): T[] =>
+  rows.filter((row) => row.paidOn > today).sort((a, b) => a.paidOn.localeCompare(b.paidOn));
+
 export function summarizeDividends(
   rows: DividendInput[],
   currentMonth: string,

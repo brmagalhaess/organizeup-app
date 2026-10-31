@@ -60,6 +60,44 @@ const percentText = (value: number) => `${value.toLocaleString("pt-BR")}%`;
 const daysSince = (date: string, today: string) =>
   Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86_400_000);
 
+/** Linha sob o investimento dizendo de onde vem o preço, ou o que falta para ele vir sozinho. */
+function QuoteNote({ row, today }: { row: Row; today: string }) {
+  switch (row.quoteState) {
+    case "automatico": {
+      const age = row.quoteDate ? daysSince(row.quoteDate, today) : 0;
+      return (
+        <p className="text-xs text-muted">
+          Atualizado automaticamente em {fullDate(row.valuedOn ?? today)}
+          {row.quoteSource ? ` · fonte: ${row.quoteSource}` : ""}
+          {age > 0 ? ` · cotação de há ${age === 1 ? "1 dia" : `${age} dias`}` : " · com atraso"}
+        </p>
+      );
+    }
+    case "sem_ticker":
+      return (
+        <p className="text-xs text-muted">
+          Preencha o código em Editar para o preço e os proventos virem sozinhos.
+        </p>
+      );
+    case "ticker_invalido":
+      return (
+        <p className="text-xs text-danger">
+          Não encontramos o código {row.ticker}. Corrija em Editar; sem ele, nada vem sozinho.
+        </p>
+      );
+    case "aguardando":
+      return <p className="text-xs text-muted">O preço automático chega na próxima atualização.</p>;
+    case "sem_plano":
+      return (
+        <p className="text-xs text-muted">
+          Este ativo ainda não tem cotação automática. Atualize o valor por aqui.
+        </p>
+      );
+    default:
+      return null;
+  }
+}
+
 function useCloseOnSuccess(state: FormState, onDone: () => void) {
   useEffect(() => {
     if (state.ok) onDone();
@@ -90,7 +128,10 @@ function InvestmentForm({ row, onDone }: { row: Row | null; onDone: () => void }
           ))}
         </Select>
       </Field>
-      <Field label="Código" hint="Opcional. Ex.: PETR4, HGLG11.">
+      <Field
+        label="Código"
+        hint="Ex.: PETR4, HGLG11. Em ações, fundos imobiliários, ETFs e BDRs, é o que traz o preço e os proventos sozinhos."
+      >
         <Input name="ticker" maxLength={12} defaultValue={row?.ticker ?? ""} />
       </Field>
       <FormMessage message={state.message} />
@@ -158,7 +199,13 @@ function ValueForm({ row, today, onDone }: { row: Row; today: string; onDone: ()
       <div className="grid grid-cols-[3fr_2fr] gap-3">
         <Field
           label={unit ? "Preço de hoje (R$)" : "Valor total hoje (R$)"}
-          hint={unit ? "Preço de uma unidade." : "Como aparece no extrato."}
+          hint={
+            row.quoteState === "automatico" || row.quoteState === "informado"
+              ? "Vale até a próxima cotação automática."
+              : unit
+                ? "Preço de uma unidade."
+                : "Como aparece no extrato."
+          }
         >
           <Input
             name="value"
@@ -424,8 +471,12 @@ export function PortfolioBoard({
                 {data.rows.map((row) => {
                   const unit = isUnitPriced(row.assetClass);
                   const rowGain = money(row.gain);
+                  // Com cotação automática, o aviso de preço velho não vale.
+                  const hasQuote = row.quoteState === "automatico";
                   const priceAge =
-                    row.valuedOn && !row.estimated ? daysSince(row.valuedOn, data.today) : 0;
+                    row.valuedOn && !row.estimated && !hasQuote
+                      ? daysSince(row.valuedOn, data.today)
+                      : 0;
                   return (
                     <li key={row.id} className="py-3 first:pt-0">
                       <div className="flex items-start gap-3">
@@ -455,9 +506,10 @@ export function PortfolioBoard({
                             <p className="text-xs text-muted">
                               Sem valor atual: mostrando o custo.
                             </p>
-                          ) : row.valuedOn ? (
+                          ) : row.valuedOn && !hasQuote ? (
                             <p className="text-xs text-muted">Valor de {fullDate(row.valuedOn)}</p>
                           ) : null}
+                          <QuoteNote row={row} today={data.today} />
                         </div>
                         <div className="text-right text-sm">
                           <p className="whitespace-nowrap font-medium tabular-nums">
@@ -541,8 +593,10 @@ export function PortfolioBoard({
       )}
 
       <p className="text-xs text-muted">
-        Valores informados por você. O OrganizeUp organiza e compara, e não recomenda compra ou
-        venda de investimentos. Veja também os{" "}
+        Ações, fundos imobiliários, ETFs e BDRs com código válido têm preço automático, atualizado
+        depois do fechamento da bolsa e sempre com atraso. O resto é informado por você. O
+        OrganizeUp organiza e compara, e não recomenda compra ou venda de investimentos. Veja também
+        os{" "}
         <Link href="/app/proventos" className="font-semibold text-brand-700 underline">
           proventos
         </Link>
