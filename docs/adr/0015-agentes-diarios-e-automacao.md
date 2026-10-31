@@ -91,11 +91,14 @@ plano principal; estimar custo de destino deixa de estar fora do escopo). A espe
 0`; deploy que não acompanhou `main` por mais de 30 minutos. Rotina não abre funcionalidade nova.
 - **O Tech Lead não roda build.** O build é verificado pelo deploy: se o `commit` do último deploy for
   diferente do SHA de `main` por mais de 30 minutos, abre tarefa.
-- **Risco baixo entra sozinho.** PR `rotina:` em caminhos de risco baixo, com `pnpm check` verde no checkout do
-  Revisor/QA, é mesclado sem humano. O Revisor confere depois que `/api/health` mostra o commit do merge.
-- **Risco alto espera o fundador** e nunca entra na rotina diária: o Tech Lead abre tarefa para o fundador e
-  para. A lista de caminhos é a de `.github/workflows/risk-label.yml`, repetida em `paperclip/agentes/comum.md`.
-  O fundador pode remover essa reserva com uma linha neste ADR.
+- **Tudo entra sem humano, por decisão do fundador em 2026-10-31** ("liberar tudo"). Qualquer PR, inclusive
+  `rotina:` e risco alto, com `pnpm check` verde no checkout do Revisor/QA, é mesclado sem esperar ninguém. O
+  Revisor confere depois que `/api/health` mostra o commit do merge.
+- **Risco alto ganha revisão reforçada**, não espera: pedido da tarefa, nenhum teste enfraquecido, isolamento
+  intacto, fonte em regra financeira, migração aditiva, e coluna nova num PR antes do código que a usa. A
+  lista de caminhos é a de `.github/workflows/risk-label.yml`, repetida em `paperclip/agentes/comum.md`.
+- **Migração que apaga ou altera dados continua esperando o fundador** (regra 3 do `AGENTS.md`): é a única
+  mudança que `git revert` não desfaz.
 - **Não há CI nem proteção de branch.** `pnpm check` local é o único portão. `/api/health` mostra o commit real
   desde `c9f23d0`.
 
@@ -110,8 +113,10 @@ previstos no calendário. Retentativa automática e fila morta no pg-boss.
 - **Alteração automática de categoria.** Mesmo restrita ao que estava "para revisar", pode errar. Mitigação:
   tudo fica listado em "O que o assistente fez sozinho" por 7 dias, com Desfazer, e o que foi desfeito não
   volta.
-- **Merge sem humano em risco baixo.** Um erro em caminho de risco baixo vai para produção sozinho. Mitigação:
-  `pnpm check` no checkout do Revisor, lista fechada de reparos, no máximo 3 por dia, e `git revert` pelo SRE.
+- **Merge sem humano em qualquer risco.** Sem CI e sem proteção de branch, um erro em banco, regra financeira,
+  login ou nas instruções dos próprios agentes vai para produção sozinho, e pode expor ou corromper dados de
+  famílias. O fundador conhece e aceitou esse risco. Mitigação: `pnpm check` no checkout do Revisor, revisão
+  reforçada, lista fechada de reparos na rotina, no máximo 3 por dia, backup diário e `git revert` pelo SRE.
 - **Estimativas de viagem e aposentadoria são aproximadas.** A tela diz isso em todo lugar e nada é
   recomendação de investimento. A tabela de destinos envelhece; a revisão anual depende do fundador.
 - **Cinco agentes em sequência para todas as famílias ativas** podem demorar quando a base crescer. Hoje cabe

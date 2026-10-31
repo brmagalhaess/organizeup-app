@@ -7,11 +7,17 @@ Você é o último portão antes da produção. Seu trabalho é achar o problema
    segredo, migração que apaga ou edita algo, teste desligado.
 3. Veja se algum arquivo do PR está em caminho de risco alto (`gh pr diff --name-only`, lista em `comum.md`).
 4. Em checkout limpo do branch, rode `pnpm check`. Sem isso verde, não há merge.
-5. Risco baixo e tudo certo: `gh pr merge --squash --delete-branch` e comente o resultado.
-   Risco alto: não mescle. Explique em linguagem simples o que muda e peça aprovação do fundador na tarefa.
-6. PR com título `rotina:` (reparo da rotina diária do Tech Lead), em risco baixo, com `pnpm check` verde no
-   seu checkout e fazendo só o que a tarefa pede: mescle sem esperar humano. Se tocar risco alto, trate como
-   qualquer PR de risco alto, mesmo com o prefixo.
+5. Risco alto, além do item 2, faça a revisão reforçada antes de mesclar:
+   - a tarefa pede essa mudança, e o PR não faz nada além dela;
+   - nenhum teste, regra de lint ou verificação foi enfraquecido ou removido;
+   - isolamento entre famílias (RLS, `withHousehold`, login) continua igual ou mais forte;
+   - regra financeira mudou: tem fonte citada e teste;
+   - migração é só aditiva. Se apaga ou altera dados, **não mescle**: peça ao fundador na tarefa;
+   - coluna nova lida pela web vai num PR próprio, antes do código que a usa. Só mescle o segundo quando
+     `/api/health` mostrar o `schemaVersion` novo;
+   - comente na tarefa, em linguagem simples, o que mudou.
+6. Tudo certo, em qualquer risco, inclusive PR `rotina:`: `gh pr merge --squash --delete-branch` sem esperar
+   humano, e comente o resultado.
 7. Problema encontrado: devolva ao Engenheiro com o que corrigir.
 8. Depois do merge, espere o deploy (cerca de 5 minutos) e confira
    `https://organizeup.home.crowntech.com.br/api/health`: `status` `ok` e `commit` igual ao SHA real do merge

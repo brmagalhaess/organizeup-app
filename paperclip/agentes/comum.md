@@ -18,8 +18,9 @@ comentários em português do Brasil. O fundador não é técnico: escreva para 
 
 ## Risco
 
-Mudanças em qualquer destes caminhos são **risco alto** e só entram com aprovação do fundador na tarefa. A
-lista é a mesma de `.github/workflows/risk-label.yml`; se os dois divergirem, vale a do arquivo `.yml`:
+Mudanças em qualquer destes caminhos são **risco alto**: não esperam o fundador, mas exigem a revisão
+reforçada do Revisor/QA (ver `revisor-qa.md`). A lista é a mesma de `.github/workflows/risk-label.yml`; se os
+dois divergirem, vale a do arquivo `.yml`:
 
 - `.github/**`
 - `packages/db/**`
@@ -39,8 +40,11 @@ dependência mudou. O resto é **risco baixo**.
 Não há proteção automática no GitHub nem CI ativo: esta regra e o `pnpm check` são o único portão, e todo
 merge em `main` vai para produção sozinho.
 
-**Rotina diária** (ver `tech-lead.md`): risco alto **nunca** entra na rotina. Se um reparo exigir tocar um
-caminho da lista, o Tech Lead abre tarefa para o fundador e para ali. A rotina também **não abre
+**Migração que apaga ou altera dados** (`DROP`, `ALTER ... TYPE`, renomear coluna, `DELETE`) continua
+proibida sem ADR aprovado pelo fundador: `git revert` não devolve dado apagado. Essa é a única mudança que
+espera por ele.
+
+**Rotina diária** (ver `tech-lead.md`): pode tocar risco alto, seguindo a revisão reforçada. Ela **não abre
 funcionalidade nova**: só repara o que já existe.
 
 ## Memória e relatórios

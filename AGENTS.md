@@ -18,8 +18,8 @@ Plano completo e fases: `docs/plano-mestre.md`. Decisões: `docs/adr/`.
 | `packages/domain` | Regras financeiras puras (decimal.js). Sem I/O                                                   |
 | `packages/agents` | Agentes diários do produto: leem e gravam dentro do tx da família; usados pelo worker e pela web |
 | `docs/`           | ADRs, runbooks, custos, plano-mestre, specs                                                      |
-| `paperclip/`      | Instruções da equipe de agentes do Paperclip. **Só o fundador altera**                           |
-| `.github/`        | Lista de risco por caminho (CI desligado). **Só o fundador altera**                              |
+| `paperclip/`      | Instruções da equipe de agentes do Paperclip. **Risco alto**                                     |
+| `.github/`        | Lista de risco por caminho (CI desligado). **Risco alto**                                        |
 
 ## Comandos
 
@@ -62,9 +62,9 @@ produção sozinho. Nunca crie nada no Dokploy `2.24.94.160` sem pedido do funda
    `household_suggestions` com `status = 'aplicada'`, `applied_by = 'agente'` e o estado anterior no
    `payload`, com **Desfazer**. Desfazer bloqueia aquela alteração automática para sempre
    (`status = 'desfeita'`). Detalhes: ADR-0015.
-8. **Não altere** `.github/**`, `AGENTS.md`, `Dockerfile`, `packages/db/**`, `packages/domain/**`,
-   `paperclip/**` e auth sem que a issue peça explicitamente — esses caminhos exigem revisão do fundador
-   (lista completa em `.github/workflows/risk-label.yml`).
+8. **Risco alto** (`.github/**`, `AGENTS.md`, `Dockerfile`, `packages/db/**`, `packages/domain/**`,
+   `paperclip/**` e auth; lista completa em `.github/workflows/risk-label.yml`) só muda quando a issue pede
+   explicitamente, e exige a revisão reforçada do Revisor/QA. Não espera o fundador (ADR-0015).
 9. **Agentes diários do produto** rodam no worker com `fromJob()` e `withHousehold()`, uma família por
    transação, um agente por transação; são idempotentes (rodar duas vezes no dia dá o mesmo resultado); só
    gravam dado derivado ou sugestão (regra 7); logam só id da família, agente e código do erro; para o schema
@@ -82,8 +82,9 @@ produção sozinho. Nunca crie nada no Dokploy `2.24.94.160` sem pedido do funda
    portão, e o Revisor/QA repete em checkout limpo.
 5. `pnpm check` vermelho: corrija no mesmo branch. Não desative testes, regras de lint ou checks.
 6. O risco é definido pela lista de caminhos de `.github/workflows/risk-label.yml` (repetida em
-   `paperclip/agentes/comum.md`), não por opinião. Risco baixo: o Revisor/QA mescla. Risco alto: espera a
-   aprovação do fundador na issue.
+   `paperclip/agentes/comum.md`), não por opinião. O Revisor/QA mescla qualquer risco sem esperar humano;
+   em risco alto, faz antes a revisão reforçada de `paperclip/agentes/revisor-qa.md`. A única exceção é
+   migração destrutiva (regra 3), que continua dependendo de ADR aprovado pelo fundador.
 7. Depois do merge, confirme o deploy: `GET /api/health` deve mostrar o `commit` do merge (o SHA real, desde
    `c9f23d0`). Quando a versão adiciona coluna lida pelo layout da web, o worker sobe antes ou a web tolera
    `42703`/`42P01` até ele subir.
