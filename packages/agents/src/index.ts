@@ -1,5 +1,29 @@
 // API pública dos agentes do produto (ADR-0015/0016). Tudo roda dentro de um TenantTx recebido.
-export { applySuggestion, dismissSuggestion, undoSuggestion, type ApplyResult } from "./apply";
+export {
+  applySuggestion,
+  dismissSuggestion,
+  recordDividendRemoval,
+  undoSuggestion,
+  type ApplyResult,
+} from "./apply";
+export {
+  BRAPI_SOURCE,
+  fetchBrapiQuote,
+  fetchFiiDividends,
+  fetchSgsSeries,
+  KEYLESS_TICKERS,
+  MarketError,
+  SGS_SERIES,
+  type BrapiQuote,
+  type MarketErrorCode,
+} from "./market";
+export {
+  DEFAULT_MAX_CALLS_PER_DAY,
+  MERCADO_AGENT,
+  runMarketData,
+  type MarketRunOptions,
+  type MarketRunResult,
+} from "./run-mercado";
 export {
   DEFAULT_RETIREMENT_AGE,
   dividendPlanInputs,
@@ -52,7 +76,9 @@ export {
   categoriaPayloadSchema,
   DEDUPE,
   fusaoCategoriaPayloadSchema,
+  investimentoPayloadSchema,
   linkPayloadSchema,
+  marketChangesSchema,
   metaPayloadSchema,
   parsePayload,
   SUGGESTION_PAYLOADS,
@@ -64,7 +90,9 @@ export {
   type AporteReservaPayload,
   type CategoriaPayload,
   type FusaoCategoriaPayload,
+  type InvestimentoPayload,
   type LinkPayload,
+  type MarketChanges,
   type MetaPayload,
   type SuggestionPayload,
   type ViagemPayload,

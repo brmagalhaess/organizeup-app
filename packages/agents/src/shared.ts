@@ -33,6 +33,8 @@ export interface AgentResult {
   report: { title: string; summary: string; data: Record<string, unknown> };
 }
 
+export const INVESTIMENTOS_AGENT = "investimentos";
+
 /** Dias em que uma sugestão ignorada pela família não volta. */
 export const IGNORED_DAYS = 30;
 /** Dias de lançamentos revisados pelo agente de categorias. */

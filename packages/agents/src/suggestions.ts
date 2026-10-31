@@ -116,6 +116,51 @@ export const linkPayloadSchema = z.object({
   investmentId: z.string().min(1).optional(),
 });
 
+const priceSourceSchema = z.enum(["familia", "mercado"]);
+const dividendKindSchema = z.enum(["dividendo", "jcp", "rendimento"]);
+const proventoRefSchema = z.object({
+  investmentId: z.string().min(1),
+  marketDividendId: z.string().min(1),
+});
+
+/** O que a atualização automática de um dia mudou, com o estado anterior, para desfazer (ADR-0017). */
+export const marketChangesSchema = z.object({
+  prices: z.array(
+    z.object({
+      investmentId: z.string().min(1),
+      quoteDate: z.string().min(1),
+      price: z.string().min(1),
+      previous: z.object({
+        price: z.string().nullable(),
+        valuedOn: z.string().nullable(),
+        source: priceSourceSchema,
+      }),
+    }),
+  ),
+  created: z.array(proventoRefSchema.extend({ dividendId: z.string().min(1) })),
+  adjusted: z.array(
+    proventoRefSchema.extend({
+      dividendId: z.string().min(1),
+      gross: amountSchema,
+      withheld: nonNegativeAmountSchema,
+      previous: z.object({ gross: amountSchema, withheld: nonNegativeAmountSchema }),
+    }),
+  ),
+  removed: z.array(
+    proventoRefSchema.extend({
+      kind: dividendKindSchema,
+      paidOn: z.string().min(1),
+      gross: amountSchema,
+      withheld: nonNegativeAmountSchema,
+    }),
+  ),
+});
+
+/** Aviso com link. A atualização automática do dia acrescenta `market`. */
+export const investimentoPayloadSchema = linkPayloadSchema.extend({
+  market: marketChangesSchema.optional(),
+});
+
 export const SUGGESTION_PAYLOADS = {
   categoria: categoriaPayloadSchema,
   fusao_categoria: fusaoCategoriaPayloadSchema,
@@ -124,7 +169,7 @@ export const SUGGESTION_PAYLOADS = {
   aporte_investimento: aporteInvestimentoPayloadSchema,
   viagem: viagemPayloadSchema,
   meta: metaPayloadSchema,
-  investimento: linkPayloadSchema,
+  investimento: investimentoPayloadSchema,
   lembrete: linkPayloadSchema,
 } as const satisfies Record<SuggestionKind, z.ZodType>;
 
@@ -136,6 +181,8 @@ export type AporteInvestimentoPayload = z.infer<typeof aporteInvestimentoPayload
 export type ViagemPayload = z.infer<typeof viagemPayloadSchema>;
 export type MetaPayload = z.infer<typeof metaPayloadSchema>;
 export type LinkPayload = z.infer<typeof linkPayloadSchema>;
+export type MarketChanges = z.infer<typeof marketChangesSchema>;
+export type InvestimentoPayload = z.infer<typeof investimentoPayloadSchema>;
 
 export type SuggestionPayload = {
   categoria: CategoriaPayload;
@@ -145,7 +192,7 @@ export type SuggestionPayload = {
   aporte_investimento: AporteInvestimentoPayload;
   viagem: ViagemPayload;
   meta: MetaPayload;
-  investimento: LinkPayload;
+  investimento: InvestimentoPayload;
   lembrete: LinkPayload;
 };
 
@@ -156,6 +203,8 @@ export function parsePayload<K extends SuggestionKind>(
 ): SuggestionPayload[K] {
   return SUGGESTION_PAYLOADS[kind].parse(payload) as SuggestionPayload[K];
 }
+
+export const MARKET_DEDUPE_PREFIX = "mercado:";
 
 /** Chaves de dedupe: uma pendente por chave (índice parcial `household_suggestions_pending_dedupe`). */
 export const DEDUPE = {
@@ -173,4 +222,13 @@ export const DEDUPE = {
   investimentoClasse: (assetClass: string, month: string) =>
     `investimento:classe:${assetClass}:${month}`,
   lembreteAposentadoria: () => "lembrete:aposentadoria",
+  /** Desdobramento, grupamento ou bonificação: o aviso sai uma vez por evento. */
+  investimentoEvento: (investmentId: string, eventOn: string) =>
+    `investimento:evento:${investmentId}:${eventOn}`,
+  investimentoConferir: (month: string) => `investimento:conferir:${month}`,
+  /** Uma alteração automática de cotações e proventos por dia. */
+  mercadoDia: (day: string) => `${MARKET_DEDUPE_PREFIX}dia:${day}`,
+  /** Marca de provento automático excluído pela família. */
+  mercadoProvento: (investmentId: string, marketDividendId: string) =>
+    `${MARKET_DEDUPE_PREFIX}provento:${investmentId}:${marketDividendId}`,
 } as const;

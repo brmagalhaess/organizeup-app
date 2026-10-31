@@ -17,10 +17,23 @@ export type ReportInvestimentos = {
   yield12: number | null;
   dividends12: string;
   byMonth: Array<{ month: string; net: string }>;
-  /** Ids dos investimentos com preço de mais de 30 dias (ou sem preço). */
+  /** Ids dos investimentos sem cotação automática com preço de mais de 30 dias (ou sem preço). */
   stale: string[];
   /** Proventos previstos por mês, somados os ativos. */
   forecast: Array<{ month: string; amount: string }>;
+  /** O que a atualização automática fez hoje (ADR-0017). */
+  market: {
+    prices: number;
+    created: number;
+    adjusted: number;
+    removed: number;
+    /** Já lançados pela família. */
+    skippedFamily: number;
+    /** Ativos com provento fora por imposto incerto. */
+    skippedTax: number;
+  };
+  /** Líquido dos proventos anunciados com pagamento depois de hoje. */
+  upcomingNet: string;
 };
 
 /** Excedente usado na divisão, com a base de onde veio. */

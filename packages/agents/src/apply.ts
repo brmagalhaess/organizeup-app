@@ -9,6 +9,7 @@ import {
   cashflowPlans,
   categories,
   categoryMemory,
+  dividends,
   emergencyFund,
   ensureCategory,
   eq,
@@ -16,6 +17,7 @@ import {
   householdSuggestions,
   inArray,
   incomeSources,
+  investments,
   retirementPlan,
   trips,
   type TenantContext,
@@ -23,8 +25,8 @@ import {
 } from "@organizeup/db";
 import { transactions } from "@organizeup/db";
 import { daysInMonth } from "@organizeup/domain";
-import { parsePayload, type SuggestionPayload } from "./suggestions";
-import { recordAudit } from "./shared";
+import { DEDUPE, parsePayload, type MarketChanges, type SuggestionPayload } from "./suggestions";
+import { INVESTIMENTOS_AGENT, recordAudit } from "./shared";
 import { createTrip } from "./trips";
 
 export interface ApplyResult {
@@ -182,6 +184,11 @@ export async function undoSuggestion(
     case "meta":
       outcome = await undoMeta(tx, payload as SuggestionPayload["meta"]);
       break;
+    case "investimento": {
+      const market = (payload as SuggestionPayload["investimento"]).market;
+      outcome = market ? await undoMercado(tx, ctx, market) : { message: "Desfeito." };
+      break;
+    }
     default:
       outcome = { message: "Desfeito." };
   }
@@ -189,6 +196,95 @@ export async function undoSuggestion(
   await decide(tx, ctx, id, "desfeita");
   await recordAudit(tx, ctx, "undo", "household_suggestions", id, { kind: row.kind });
   return { ok: true, message: outcome.message };
+}
+
+// ---------- cotações e proventos (ADR-0017) ----------
+
+/**
+ * Devolve o que a atualização de um dia mudou. Só toca o que continua como o sistema deixou: preço que
+ * a família mudou depois, ou que uma cotação mais nova substituiu, fica. A linha `desfeita` guarda a
+ * lista, e é ela que bloqueia cada alteração para sempre.
+ */
+async function undoMercado(
+  tx: TenantTx,
+  ctx: TenantContext,
+  market: MarketChanges,
+): Promise<{ message: string }> {
+  for (const change of market.prices) {
+    await tx
+      .update(investments)
+      .set({
+        currentPrice: change.previous.price,
+        valuedOn: change.previous.valuedOn,
+        priceSource: change.previous.source,
+      })
+      .where(
+        and(
+          eq(investments.id, change.investmentId),
+          eq(investments.priceSource, "mercado"),
+          eq(investments.valuedOn, change.quoteDate),
+        ),
+      );
+  }
+  const created = market.created.map((item) => item.dividendId);
+  if (created.length > 0) {
+    await tx
+      .delete(dividends)
+      .where(and(inArray(dividends.id, created), eq(dividends.source, "agente")));
+  }
+  for (const item of market.adjusted) {
+    await tx
+      .update(dividends)
+      .set(item.previous)
+      .where(
+        and(
+          eq(dividends.id, item.dividendId),
+          eq(dividends.source, "agente"),
+          eq(dividends.gross, item.gross),
+        ),
+      );
+  }
+  for (const { investmentId, marketDividendId, ...row } of market.removed) {
+    await tx
+      .insert(dividends)
+      .values({
+        householdId: ctx.householdId,
+        investmentId,
+        marketDividendId,
+        source: "agente",
+        ...row,
+      })
+      .onConflictDoNothing();
+  }
+  return {
+    message:
+      "Desfeito. Esses proventos não voltam sozinhos; o preço volta com a próxima cotação nova.",
+  };
+}
+
+/**
+ * A família excluiu um provento automático. Fica a marca `desfeita`, que o agente lê para não recriá-lo.
+ * Rode na mesma transação da exclusão.
+ */
+export async function recordDividendRemoval(
+  tx: TenantTx,
+  ctx: TenantContext,
+  removed: { dividendId: string; investmentId: string; marketDividendId: string },
+): Promise<void> {
+  const market: MarketChanges = { prices: [], created: [removed], adjusted: [], removed: [] };
+  await tx.insert(householdSuggestions).values({
+    householdId: ctx.householdId,
+    agent: INVESTIMENTOS_AGENT,
+    kind: "investimento",
+    title: "Provento automático excluído",
+    body: "Você excluiu este provento, e ele não volta sozinho.",
+    payload: { href: "/app/proventos", market },
+    status: "desfeita",
+    appliedBy: "familia",
+    dedupeKey: DEDUPE.mercadoProvento(removed.investmentId, removed.marketDividendId),
+    decidedAt: new Date(),
+    decidedBy: ctx.userId,
+  });
 }
 
 // ---------- categoria ----------
