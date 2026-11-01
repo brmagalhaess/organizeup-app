@@ -1,4 +1,5 @@
 // Regras do fluxo de caixa do mês. Puras: recebem dados e devolvem o que a tela mostra.
+import type { FxCurrency } from "./fx";
 import { money, toDbAmount, type MoneyValue } from "./money";
 
 export type EntryKind = "receita" | "despesa";
@@ -30,6 +31,10 @@ export interface TransactionInput {
   accountId: string;
   planId: string | null;
   planMonth: YearMonth | null;
+  /** Em conta estrangeira, o que foi digitado; `amount` segue em reais (ADR-0020). */
+  originalAmount?: string | null;
+  originalCurrency?: FxCurrency | null;
+  fxRate?: string | null;
 }
 
 export interface MonthEntry {
@@ -50,6 +55,10 @@ export interface MonthEntry {
   categoryId: string;
   accountId: string;
   recurring: boolean;
+  /** Só em lançamento de conta estrangeira. */
+  originalAmount?: string;
+  originalCurrency?: FxCurrency;
+  fxRate?: string;
 }
 
 /** Compromisso já calculado (parcela ou fatura em aberto) que entra no mês pelo vencimento. */
@@ -137,6 +146,13 @@ export function buildMonthEntries(
     categoryId: t.categoryId,
     accountId: t.accountId,
     recurring: t.planId !== null,
+    ...(t.originalAmount && t.originalCurrency && t.fxRate
+      ? {
+          originalAmount: t.originalAmount,
+          originalCurrency: t.originalCurrency,
+          fxRate: t.fxRate,
+        }
+      : {}),
   }));
   const fromPlans: MonthEntry[] = plans
     .filter((plan) => planIsActiveIn(plan, ym) && !confirmed.has(plan.id))

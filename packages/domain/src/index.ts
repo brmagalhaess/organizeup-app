@@ -1,4 +1,5 @@
 export * from "./money";
+export * from "./fx";
 export * from "./rebalance";
 export * from "./monthly-plan";
 export * from "./dates";
