@@ -5,6 +5,7 @@ import { assistantConfigured, modelBaseUrl, workspaceHeaders } from "../src/clie
 import { SYSTEM_PROMPT, turnContext } from "../src/instructions";
 import { echoContent, requestParams } from "../src/loop";
 import { NIGHT_ROUTE } from "../src/insights/nightly";
+import { MAX_STRICT_TOOLS } from "../src/tools/registry";
 import { CHAT_ROUTE, costUsd, MODEL, PRICES, usageOf } from "../src/models";
 import { createPrivacyFilter, personLabels, untrusted } from "../src/privacy";
 import { ALL_TOOLS, apiToolsFor, toolsFor } from "../src/tools";
@@ -211,9 +212,17 @@ describe("ferramentas", () => {
     expect(toolsFor(NIGHT_ROUTE).every((tool) => tool.kind !== "escrita")).toBe(true);
   });
 
-  it("todo esquema é estrito e só usa o que a API aceita", () => {
+  it("ferramenta com entrada é estrita, dentro do limite da API", () => {
+    const tools = apiToolsFor(CHAT_ROUTE);
+    expect(tools.filter((tool) => tool.strict).length).toBeLessThanOrEqual(MAX_STRICT_TOOLS);
+    for (const tool of tools) {
+      const hasInput = Object.keys(tool.input_schema.properties).length > 0;
+      expect(tool.strict === true).toBe(hasInput);
+    }
+  });
+
+  it("todo esquema só usa o que a API aceita", () => {
     for (const tool of apiToolsFor(CHAT_ROUTE)) {
-      expect(tool.strict).toBe(true);
       expect(tool.input_schema.type).toBe("object");
       expect(tool.input_schema.additionalProperties).toBe(false);
       expect(tool.description.length).toBeGreaterThan(40);

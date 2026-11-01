@@ -83,17 +83,21 @@ function clean(value: unknown): unknown {
   return value;
 }
 
-/** Definição da ferramenta para a API: `strict` com `additionalProperties: false`. */
+/** A API aceita até 20 ferramentas com `strict`. Quem não recebe nada não precisa dele. */
+export const MAX_STRICT_TOOLS = 20;
+
+/** Definição da ferramenta para a API. `executeTool` valida a entrada de todas com o zod. */
 export function toApiTool(tool: AssistantTool) {
+  const inputSchema = clean(z.toJSONSchema(tool.input)) as {
+    type: "object";
+    properties: Record<string, unknown>;
+    required?: string[];
+    additionalProperties: false;
+  };
   return {
     name: tool.name,
     description: tool.description,
-    strict: true,
-    input_schema: clean(z.toJSONSchema(tool.input)) as {
-      type: "object";
-      properties: Record<string, unknown>;
-      required?: string[];
-      additionalProperties: false;
-    },
+    ...(Object.keys(inputSchema.properties).length > 0 ? { strict: true } : {}),
+    input_schema: inputSchema,
   };
 }
