@@ -113,8 +113,11 @@ fica para a Fase 6.
 - **Datas e números das telas traduzidas** passam por `i18n/format.ts`, com `Intl` e o idioma da pessoa. Nunca `pt-BR`
   escrito no código de tela traduzida. Dinheiro nessas telas sai com o formato do idioma e continua em reais, porque
  em espanhol).
-- **Validação no servidor** continua com a mensagem em português nos esquemas, que telas não traduzidas usam. A action
-  de tela traduzida troca a mensagem pelo campo. Some quando todas as telas forem traduzidas.
+- **Validação no servidor** continua com a mensagem em português nos esquemas compartilhados, que telas não traduzidas
+  usam. A action de tela traduzida troca a mensagem pelo campo, ou pela frase com `knownText`. Esquema que só uma tela usa
+  já nasce com o texto do catálogo. Some quando todas as telas forem traduzidas.
+- **Confirmar compromisso** passa por `ConfirmEntryButton`. Em conta estrangeira sem cotação nada é gravado, e um aviso
+  abre por cima da tela dizendo a moeda e a data.
 - **Termos e Privacidade continuam em português**, com aviso curto no idioma da pessoa dizendo que é a versão que vale.
   Tradução de cortesia só com revisão jurídica de cada país.
 
@@ -191,8 +194,6 @@ Fases 2, 3 e 6 da especificação: demais telas, agentes e e-mails com chave e v
 
 - **Lançamento previsto com data futura** fica com a última cotação na criação e não muda ao ser confirmado. A conta na
   moeda original é exata; os reais podem diferir da cotação do dia em que o pagamento aconteceu. Editar a data recalcula.
-- **Confirmar um compromisso em conta estrangeira sem nenhuma cotação** não faz nada e não dá mensagem, porque o botão não
-  tem retorno. Só acontece antes da primeira rodada do job, ou em data anterior a 10 anos.
 - **Reais de um mês antigo não acompanham o câmbio**, e o saldo em reais, sim. Por isso a soma dos lançamentos em reais não
   fecha com o saldo de conta estrangeira. A tela de Contas explica em uma linha.
 
@@ -203,4 +204,8 @@ Fases 2, 3 e 6 da especificação: demais telas, agentes e e-mails com chave e v
   não entrou, mas é mais trabalho no servidor do que antes.
 - **Formato pelo idioma, não pelo país.** `en` usa data americana e `es` usa o espanhol geral do Intl. Quem precisar de
   outro formato vai pedir variante; o desenho aceita (`en-GB`, `es-MX`), mas não há seletor para isso.
-- **Campos de valor seguem no formato brasileiro** até as telas com digitação de dinheiro serem traduzidas, com `parseMoney`.
+- **Campos de valor seguem no formato brasileiro** nas telas ainda não traduzidas. As do dia a dia já usam `parseMoney`.
+- **Texto que chega pronto em português até a Fase 3.** Agentes e domínio devolvem frase, não chave. `knownText` acha a frase
+  no catálogo e troca pelo idioma da pessoa; um teste confere se as frases do catálogo ainda são as dos agentes. Frase nova fica em
+  português até entrar no catálogo. O que já foi gravado continua como foi: sugestões, relatório de importação e
+  descrições do sistema, como "Fatura Nubank" e "Meta: Carro (1/10)". Esses textos vão marcados com `lang="pt-BR"`.

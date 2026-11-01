@@ -67,7 +67,20 @@ export interface ShellBanner {
 const SUGGESTIONS_HREF = "/app/sugestoes";
 
 /** Telas já traduzidas. As outras seguem em português e avisam isso ao leitor de tela. */
-const TRANSLATED_SCREENS = new Set(["/app", "/app/configuracoes"]);
+const TRANSLATED_SCREENS = new Set([
+  "/app",
+  "/app/configuracoes",
+  "/app/lancamentos",
+  "/app/contas",
+  "/app/cartoes",
+  "/app/dividas",
+  "/app/dividas/importar",
+  "/app/categorias",
+  "/app/importar",
+  "/app/renda",
+  "/app/calendario",
+  "/app/sugestoes",
+]);
 
 const groups: Array<{ title: keyof Messages["shell"]["groups"]; items: NavItem[] }> = [
   {
