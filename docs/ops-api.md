@@ -43,7 +43,7 @@ aparece em `agentRuns`. Resposta: `{queued, agent, day, reason}`, com `reason` n
 ## Agentes diários do produto (`agentRuns`)
 
 `GET /api/ops/context` devolve `agentRuns`: os últimos 14 dias de `ops.agent_runs`, uma linha por dia e
-agente (`categorias`, `investimentos`, `aposentadoria`, `viagens`, `metas`). O worker grava ao terminar cada
+agente (`categorias`, `investimentos`, `dividas`, `aposentadoria`, `viagens`, `metas`). O worker grava ao terminar cada
 agente; rodar de novo no mesmo dia substitui as contagens e soma 1 em `runs`. Só números, nunca uma família.
 
 | Campo         | Significado                                                        |

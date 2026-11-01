@@ -94,7 +94,7 @@ assistente cria só meta.
 
 ## 5. Orquestração noturna
 
-Depois dos cinco agentes de regras e da atualização de mercado:
+Depois dos agentes de regras e da atualização de mercado:
 
 1. **Orquestrador** recebe os relatórios do dia e decide qual especialista olhar.
 2. **Especialistas** (Finanças, Aposentadoria, Investimentos, Metas, Viagens) como persona + conjunto

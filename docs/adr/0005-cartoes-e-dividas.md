@@ -22,6 +22,8 @@ Status: aceito (2026-10-30)
 - **Ordem de quitação** (`simulatePayoff`) é estimativa mês a mês com a parcela atual como mínimo. Não altera
   nenhuma parcela. Em dívidas com parcela informada os juros já estão embutidos, então a taxa só ordena.
 
+Arquivos das dívidas e plano de saída: ver ADR-0019, que também tirou o arredondamento mensal de `simulatePayoff`.
+
 ## Fora do escopo por enquanto
 
 Estorno e crédito na fatura, pagamento parcial de fatura, juros de fatura atrasada, amortização extra de
