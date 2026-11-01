@@ -2740,6 +2740,59 @@ describe("gerência do painel do serviço", () => {
   });
 });
 
+describe("dicas por tela", () => {
+  const { householdInsights } = db;
+  const row = (household: string, title: string) => ({
+    householdId: household,
+    screen: "metas" as const,
+    destination: "metas" as const,
+    title,
+    body: "Texto",
+    why: "Motivo",
+    day: "2026-11-01",
+    expiresOn: "2026-11-08",
+    dedupeKey: title,
+  });
+
+  it("outra família não lê nem grava; quem só vê não decide", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const ctxB = await ctxFor(B.owner, B.household);
+    await db.withHousehold(owner, (tx) =>
+      tx.insert(householdInsights).values(row(A.household, "Dica A")),
+    );
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(householdInsights)).toHaveLength(0);
+      const changed = await tx
+        .update(householdInsights)
+        .set({ status: "feita" })
+        .returning({ id: householdInsights.id });
+      expect(changed).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(householdInsights).values(row(A.household, "Forjada")),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold({ ...owner, role: "viewer" }, (tx) =>
+        tx.insert(householdInsights).values(row(A.household, "Sem permissão")),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("não aceita tela fora da lista", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.execute(
+          sql`insert into household_insights (household_id, screen, destination, title, body, why, day, expires_on, dedupe_key)
+               values (${A.household}, 'admin', 'metas', 't', 'b', 'w', '2026-11-01', '2026-11-02', 'x')`,
+        ),
+      ),
+    ).rejects.toThrow();
+  });
+});
+
 describe("assistente com IA (ADR-0018)", () => {
   const { aiStats, aiUsage, assistantMessages, assistantThreads } = db;
   const SPOUSE = "user-a-conjuge-ia";
@@ -2917,7 +2970,7 @@ describe("assistente com IA (ADR-0018)", () => {
     ).rejects.toThrow();
   });
 
-  it("ops.ai_stats soma por dia e rota, só a web grava e não há coluna de família", async () => {
+  it("ops.ai_stats soma por dia e rota, web e worker gravam, ninguém apaga e não há coluna de família", async () => {
     const counts = {
       calls: 2,
       inputTokens: 10,
@@ -2938,9 +2991,8 @@ describe("assistente com IA (ADR-0018)", () => {
     expect(Object.keys(aiStats)).not.toContain("householdId");
     const raw = postgres(urls.worker, { max: 1 });
     try {
-      await expect(
-        raw`insert into ops.ai_stats (day, route) values ('2026-09-03', 'chat')`,
-      ).rejects.toThrow();
+      await raw`insert into ops.ai_stats (day, route) values ('2026-09-03', 'noite')`;
+      await expect(raw`delete from ops.ai_stats`).rejects.toThrow();
     } finally {
       await raw.end();
     }

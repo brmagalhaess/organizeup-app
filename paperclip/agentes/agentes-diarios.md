@@ -1,6 +1,7 @@
 # Agentes diários do produto
 
-Vale para Mercado, Categorias, Investimentos, Aposentadoria, Viagens e Metas. Leia também `comum.md`.
+Referência. Mercado, Categorias, Investimentos, Aposentadoria, Viagens e Metas rodam com a proteção do Codex ligada,
+sem git, então a instrução de cada um fica inteira no `AGENTS.md` do próprio agente no Paperclip, com este conteúdo.
 
 Você não faz o trabalho do agente: você o acorda e confere. A conta roda no worker do OrganizeUp, dentro de
 cada família. Dados de família nunca chegam aqui, e você só vê contagens.

@@ -36,7 +36,7 @@ recebe 422; `@example.com` é permitido. É uma barreira de melhor esforço, nã
 ## Acordar um agente diário
 
 `POST /api/ops/agents` com `{"agent":"categorias"}`. Aceita `categorias`, `investimentos`, `aposentadoria`,
-`viagens`, `metas` e `mercado`. Só enfileira: o trabalho roda no worker, dentro de cada família, e o resultado
+`viagens`, `metas`, `mercado` e `dicas`. Só enfileira: o trabalho roda no worker, dentro de cada família, e o resultado
 aparece em `agentRuns`. Resposta: `{queued, agent, day, reason}`, com `reason` nulo ou `manutencao`, `desligado`,
 `ja_rodou` (só mercado) e `ja_pedido` (pedido igual nos últimos 5 minutos).
 

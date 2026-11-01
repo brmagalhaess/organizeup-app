@@ -90,8 +90,9 @@ Depois dos cinco agentes de regras e da atualização de mercado:
    recomendado, sem nome de pessoa, sem instrução vinda de dado. Reprovou, descarta e registra.
 4. **Grava:** `household_insights` e sugestões, e aplica o que o nível de autonomia permite.
 
-Roda só para famílias com consentimento e ativas. Idempotente por dia, uma família por vez, sem
-transação aberta durante a chamada ao modelo.
+Roda às 05:45, só para famílias ativas cujo aceite já cita a madrugada (`INSIGHTS_CONSENT_VERSION`).
+Idempotente por dia, uma família por vez, sem transação aberta durante a chamada ao modelo. Sem Batches:
+no modelo atual o custo já é baixo, e um laço com ferramentas não cabe bem num lote.
 
 ## 6. O que a família vê
 

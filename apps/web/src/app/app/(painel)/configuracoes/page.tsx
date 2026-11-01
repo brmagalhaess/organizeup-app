@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { canUseAssistant } from "@organizeup/ai";
+import { canUseAssistant, INSIGHTS_CONSENT_VERSION } from "@organizeup/ai";
 import { canWrite, eq, householdSettings, withHousehold } from "@organizeup/db";
 import { AssistantSettings } from "@/components/assistant/assistant-settings";
 import { buttonClass } from "@/components/styles";
@@ -43,7 +43,7 @@ export default async function SettingsPage() {
         </Card>
         <Card
           title="Assistente"
-          description="Conversa com seus dados. O envio para a Anthropic só acontece com a sua autorização."
+          description="Conversa com seus dados e deixa dicas nas telas, só com a sua autorização."
         >
           <AssistantSettings
             active={Boolean(settings?.aiConsentAt)}
@@ -52,6 +52,7 @@ export default async function SettingsPage() {
             }
             autonomy={settings?.aiAutonomy ?? "organizar"}
             canManage={canUseAssistant(ctx)}
+            needsInsightsConsent={(settings?.aiConsentVersion ?? "") < INSIGHTS_CONSENT_VERSION}
           />
         </Card>
         <Card title="Sua conta">

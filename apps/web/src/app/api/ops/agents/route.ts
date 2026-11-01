@@ -2,13 +2,13 @@ import { hasAgentRunToday, readPlatformFlags } from "@organizeup/db";
 import { todayIn } from "@organizeup/domain";
 import { z } from "zod";
 import { DAILY_AGENTS_INFO } from "@/app/admin/agentes/info";
-import { MERCADO_AGENT, queueAgent } from "@/app/admin/fila";
+import { DICAS_AGENT, MERCADO_AGENT, queueAgent } from "@/app/admin/fila";
 import { isAuthorizedOpsRequest } from "@/lib/ops-auth";
 
 export const dynamic = "force-dynamic";
 
 const body = z.strictObject({
-  agent: z.enum([...DAILY_AGENTS_INFO.map((agent) => agent.id), MERCADO_AGENT]),
+  agent: z.enum([...DAILY_AGENTS_INFO.map((agent) => agent.id), MERCADO_AGENT, DICAS_AGENT]),
 });
 
 /**

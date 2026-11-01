@@ -1,6 +1,6 @@
 "use client";
 import { Pause, Pencil, PiggyBank, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, type ReactNode } from "react";
 import { formatBRL, formatYearMonth } from "@organizeup/domain";
 import {
   Badge,
@@ -338,7 +338,15 @@ const TITLES: Record<Open["type"], string> = {
   saved: "Valor guardado",
 };
 
-export function GoalsBoard({ data, writable }: { data: Data; writable: boolean }) {
+export function GoalsBoard({
+  data,
+  writable,
+  insights,
+}: {
+  data: Data;
+  writable: boolean;
+  insights: ReactNode;
+}) {
   const [sheet, setSheet] = useState<Open | null>(null);
   const [removing, setRemoving] = useState<Goal | null>(null);
   const close = () => setSheet(null);
@@ -361,6 +369,7 @@ export function GoalsBoard({ data, writable }: { data: Data; writable: boolean }
           ) : null
         }
       />
+      {insights}
 
       {data.goals.length === 0 ? (
         <Card>

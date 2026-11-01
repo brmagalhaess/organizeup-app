@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({ hasAgentRunToday: vi.fn(), readPlatformFlags: vi.fn() }));
-const fila = vi.hoisted(() => ({ MERCADO_AGENT: "mercado", queueAgent: vi.fn() }));
+const fila = vi.hoisted(() => ({
+  DICAS_AGENT: "dicas",
+  MERCADO_AGENT: "mercado",
+  queueAgent: vi.fn(),
+}));
 vi.mock("@organizeup/db", () => db);
 vi.mock("@/app/admin/fila", () => fila);
 

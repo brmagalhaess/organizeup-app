@@ -109,3 +109,4 @@ export {
   type ViagemPayload,
 } from "./suggestions";
 export { createTrip, type CreateTripInput, type TripCostKind } from "./trips";
+export { shiftDays } from "./shared";

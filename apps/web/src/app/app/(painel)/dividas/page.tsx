@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { canWrite } from "@organizeup/db";
 import { formatBRL, formatMonthShort, yearMonthOf } from "@organizeup/domain";
 import { PageHeader, StatTile } from "@/components/ui";
+import { Insights } from "@/components/insights/insights";
 import { loadDebts } from "@/lib/commitments";
 import { requireTenant } from "@/lib/session";
 import { DebtsBoard } from "./debts-board";
@@ -22,6 +23,7 @@ export default async function DebtsPage() {
         title="Dívidas e empréstimos"
         description="Saiba quanto falta, quando termina e o que pagar primeiro."
       />
+      <Insights screen="dividas" />
       {open.length > 0 ? (
         <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
           <StatTile label="Falta pagar" value={formatBRL(data.summary.balance)} />

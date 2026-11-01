@@ -4,6 +4,7 @@ import Link from "next/link";
 import { addMonths, formatBRL, formatYearMonth } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import { PageHeader, StatTile } from "@/components/ui";
+import { Insights } from "@/components/insights/insights";
 import { loadMonth } from "@/lib/finance-data";
 import { requireTenant } from "@/lib/session";
 import { EntriesTable } from "./entries-table";
@@ -48,6 +49,7 @@ export default async function EntriesPage({
           </>
         }
       />
+      <Insights screen="lancamentos" />
       <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatTile label="Entrou" tone="receita" value={formatBRL(data.summary.received)} />
         <StatTile label="Saiu" tone="despesa" value={formatBRL(data.summary.spent)} />

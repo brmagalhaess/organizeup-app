@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { canWrite } from "@organizeup/db";
+import { Insights } from "@/components/insights/insights";
 import { loadCalendar } from "@/lib/calendar-data";
 import { requireTenant } from "@/lib/session";
 import { CalendarBoard } from "./calendar-board";
@@ -14,5 +15,11 @@ export default async function CalendarPage({
   const { ctx } = await requireTenant();
   const { m } = await searchParams;
   const data = await loadCalendar(ctx, m);
-  return <CalendarBoard data={data} writable={canWrite(ctx)} />;
+  return (
+    <CalendarBoard
+      data={data}
+      writable={canWrite(ctx)}
+      insights={<Insights screen="calendario" />}
+    />
+  );
 }

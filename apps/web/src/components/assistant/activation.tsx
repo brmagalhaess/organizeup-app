@@ -32,7 +32,8 @@ export function Activation({ headingId }: { headingId: string }) {
       </div>
       <Topic title="O que ele usa">
         Sua pergunta e, quando ela precisar, lançamentos, renda, reserva, dívidas, investimentos,
-        metas, viagens e calendário. As descrições vão como estão no extrato.
+        metas, viagens e calendário. As descrições vão como estão no extrato. De madrugada, ele usa
+        os mesmos dados para preparar dicas em cada tela.
       </Topic>
       <Topic title="O que fica de fora">
         Nomes, e-mails, CPF e senhas. Ele não acessa banco nenhum e não move dinheiro.

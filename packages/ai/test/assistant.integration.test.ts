@@ -872,3 +872,78 @@ describe("loop da conversa", () => {
     expect((await ai.readAssistantSettings(ownerCtx))!.consentAt).toBeNull();
   });
 });
+
+describe("rotina da madrugada", () => {
+  const night = "2026-09-15";
+  const good = {
+    tela: "metas",
+    titulo: "Revise a meta do carro",
+    texto: "Vale conferir a parcela da meta nesta semana.",
+    porque: "O plano da meta mudou nos relatórios de hoje.",
+    destino: "metas",
+    prioridade: 1,
+  };
+  const reply = (value: unknown) => textReply(JSON.stringify(value));
+  const script = () => [
+    reply({ especialistas: ["metas"] }),
+    modelMessage([toolCall("listar_metas", {})], "tool_use"),
+    reply({
+      dicas: [good, { ...good, titulo: "Valor inventado", texto: "Guarde R$ 98.765,43 agora." }],
+    }),
+  ];
+  const insights = () => db.withHousehold(ownerCtx, (tx) => tx.select().from(db.householdInsights));
+
+  it("sem o aceite da madrugada, não chama o modelo", async () => {
+    await ai.activateAssistant(ownerCtx, { autonomy: "organizar", version: "2026-10-31.4" });
+    const { client, calls } = fakeClient([]);
+    const run = await ai.runNightlyInsights({ ctx: ownerCtx, client, day: night, limits });
+    expect(run.gate).toBe("sem_aceite");
+    expect(calls).toHaveLength(0);
+  });
+
+  const accept = () =>
+    ai.activateAssistant(ownerCtx, { autonomy: "organizar", version: ai.INSIGHTS_CONSENT_VERSION });
+
+  it("grava o que passou no verificador, descarta o resto e não repete no dia", async () => {
+    await accept();
+    const { client, calls } = fakeClient(script());
+    const run = await ai.runNightlyInsights({ ctx: ownerCtx, client, day: night, limits });
+    expect(run).toMatchObject({ gate: "pronto", specialists: 1, created: 1, discarded: 1 });
+    expect(calls[0]?.output_config).toMatchObject({ format: { type: "json_schema" } });
+    expect(await insights()).toEqual([
+      expect.objectContaining({ title: good.titulo, screen: "metas", status: "ativa" }),
+    ]);
+
+    const again = fakeClient([]);
+    const second = await ai.runNightlyInsights({
+      ctx: ownerCtx,
+      client: again.client,
+      day: night,
+      limits,
+    });
+    expect(second.gate).toBe("ja_rodou");
+    expect(again.calls).toHaveLength(0);
+  });
+
+  it("resposta fora do formato não vira dica", async () => {
+    await accept();
+    const { client } = fakeClient([
+      textReply("não sei"),
+      reply({ dicas: [] }),
+      reply({ dicas: [] }),
+    ]);
+    const run = await ai.runNightlyInsights({ ctx: ownerCtx, client, day: "2026-09-16", limits });
+    expect(run).toMatchObject({ specialists: 2, created: 0 });
+  });
+
+  it("dica dispensada não volta por 30 dias", async () => {
+    await accept();
+    await db.withHousehold(ownerCtx, (tx) =>
+      tx.update(db.householdInsights).set({ status: "dispensada" }),
+    );
+    const { client } = fakeClient(script());
+    const run = await ai.runNightlyInsights({ ctx: ownerCtx, client, day: "2026-09-20", limits });
+    expect(run.created).toBe(0);
+    await ai.deactivateAssistant(ownerCtx);
+  });
+});

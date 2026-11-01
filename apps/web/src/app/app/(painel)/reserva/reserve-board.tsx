@@ -1,6 +1,6 @@
 "use client";
 import { ShieldCheck } from "lucide-react";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   addMonths,
   formatBRL,
@@ -143,7 +143,15 @@ function TimeToGoal({ data }: { data: Data }) {
   );
 }
 
-export function ReserveBoard({ data, writable }: { data: Data; writable: boolean }) {
+export function ReserveBoard({
+  data,
+  writable,
+  insights,
+}: {
+  data: Data;
+  writable: boolean;
+  insights: ReactNode;
+}) {
   const [editing, setEditing] = useState<number | null>(null);
   const close = () => setEditing(null);
   const open = () => setEditing((nonce) => (nonce ?? 0) + 1);
@@ -166,6 +174,7 @@ export function ReserveBoard({ data, writable }: { data: Data; writable: boolean
           ) : null
         }
       />
+      {insights}
 
       {noBaseline ? (
         <Card>

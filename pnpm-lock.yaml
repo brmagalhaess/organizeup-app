@@ -114,6 +114,9 @@ importers:
       '@organizeup/agents':
         specifier: workspace:*
         version: link:../../packages/agents
+      '@organizeup/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@organizeup/db':
         specifier: workspace:*
         version: link:../../packages/db

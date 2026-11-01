@@ -10,7 +10,7 @@ import { DayStrip, type DayStatus } from "../charts";
 import { formatCount, formatDay } from "../format";
 import { AdminPage } from "../kit";
 import { noteAdminAccess } from "../painel";
-import { recountPlatform, runAgentsNow, toggleAgent } from "./actions";
+import { recountPlatform, runAgentsNow, runInsightsNow, toggleAgent } from "./actions";
 import { DAILY_AGENTS_INFO, PAPERCLIP_URL } from "./info";
 
 export const metadata: Metadata = { title: "Agentes" };
@@ -84,6 +84,7 @@ export default async function AdminAgentsPage() {
             action={runAgentsNow}
             variant="primary"
           />
+          <RunAction label="Gerar dicas agora" pendingLabel="Pedindo…" action={runInsightsNow} />
           <RunAction
             label="Recalcular contagens"
             pendingLabel="Pedindo…"

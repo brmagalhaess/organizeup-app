@@ -6,6 +6,8 @@ export const JOB_QUEUES = {
   dailyAgents: "daily-agents",
   /** Cotações, proventos e índices públicos, gravados nas tabelas globais de mercado (ADR-0017). */
   marketData: "market-data",
+  /** Dicas por tela, com IA, depois dos agentes de regras. */
+  aiInsights: "ai-insights",
   /** Contagens diárias da plataforma (ops.platform_stats). */
   platformStats: "platform-stats",
 } as const;

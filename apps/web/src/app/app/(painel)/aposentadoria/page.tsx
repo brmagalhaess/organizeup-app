@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { canWrite } from "@organizeup/db";
 import { PageHeader } from "@/components/ui";
+import { Insights } from "@/components/insights/insights";
 import { loadDividendPlan, loadRetirement } from "@/lib/planning";
 import { requireTenant } from "@/lib/session";
 import { DividendPlan } from "./dividend-plan";
@@ -19,6 +20,7 @@ export default async function RetirementPage() {
         title="Quanto guardar para parar"
         description="Tudo em dinheiro de hoje."
       />
+      <Insights screen="aposentadoria" />
       <DividendPlan data={dividendPlan} writable={writable} />
       <RetirementBoard
         data={data}

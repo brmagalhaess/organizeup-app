@@ -10,7 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   addMonths,
   formatBRL,
@@ -307,7 +307,15 @@ function DayCell({
   );
 }
 
-export function CalendarBoard({ data, writable }: { data: Data; writable: boolean }) {
+export function CalendarBoard({
+  data,
+  writable,
+  insights,
+}: {
+  data: Data;
+  writable: boolean;
+  insights: ReactNode;
+}) {
   const [openDay, setOpenDay] = useState<string | null>(null);
   const { month, cells, summary, lowest, closing } = data;
   const goesNegative = lowest !== null && money(lowest.balance).lt(0);
@@ -344,6 +352,7 @@ export function CalendarBoard({ data, writable }: { data: Data; writable: boolea
           </>
         }
       />
+      {insights}
 
       {goesNegative ? (
         <div

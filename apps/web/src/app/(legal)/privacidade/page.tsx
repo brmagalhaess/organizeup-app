@@ -35,7 +35,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Assistente:</strong> se a família ativar, as conversas de cada pessoa, que só ela
-          vê, e a quantidade de uso por dia, sem nenhum texto.
+          vê, as dicas preparadas para a família e a quantidade de uso por dia, sem nenhum texto.
         </li>
         <li>
           <strong>Uso:</strong> endereço IP e navegador da sessão, e um registro das ações feitas na
@@ -86,9 +86,10 @@ export default function PrivacyPage() {
       </p>
       <ul>
         <li>
-          <strong>O que vai:</strong> o que você escreve e, só quando a pergunta precisa, dados das
+          <strong>O que vai:</strong> o que você escreve e, quando a pergunta precisa, dados das
           suas finanças, como lançamentos e suas descrições, categorias, renda, reserva, dívidas,
-          investimentos, proventos, metas, viagens e calendário.
+          investimentos, proventos, metas, viagens e calendário. De madrugada, os mesmos dados são
+          usados para preparar as dicas que aparecem em cada tela, sem que ninguém pergunte.
         </li>
         <li>
           <strong>O que não vai:</strong> nomes, e-mails, CPF e senhas. As pessoas aparecem como

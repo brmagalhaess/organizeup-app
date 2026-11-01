@@ -9,6 +9,7 @@ import {
   numeric,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   unique,
@@ -17,6 +18,49 @@ import { household, user } from "./auth";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const tokens = (name: string) => bigint(name, { mode: "number" }).notNull().default(0);
+
+export const INSIGHT_SCREENS = [
+  "painel",
+  "lancamentos",
+  "calendario",
+  "metas",
+  "viagens",
+  "investimentos",
+  "proventos",
+  "aposentadoria",
+  "reserva",
+  "dividas",
+] as const;
+export type InsightScreen = (typeof INSIGHT_SCREENS)[number];
+
+/** Dicas da rotina da madrugada, já aprovadas pelo verificador. Ver migrations/0022_dicas.sql. */
+export const householdInsights = pgTable(
+  "household_insights",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    screen: text("screen", { enum: INSIGHT_SCREENS }).notNull(),
+    destination: text("destination", { enum: INSIGHT_SCREENS }).notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    why: text("why").notNull(),
+    priority: smallint("priority").notNull().default(2),
+    status: text("status", { enum: ["ativa", "feita", "dispensada", "vencida"] })
+      .notNull()
+      .default("ativa"),
+    day: date("day", { mode: "string" }).notNull(),
+    expiresOn: date("expires_on", { mode: "string" }).notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    decidedAt: ts("decided_at"),
+    decidedBy: text("decided_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (t) => [unique().on(t.householdId, t.id), unique().on(t.householdId, t.day, t.dedupeKey)],
+);
 
 export const ASSISTANT_ROLES = ["user", "assistant"] as const;
 export type AssistantRole = (typeof ASSISTANT_ROLES)[number];

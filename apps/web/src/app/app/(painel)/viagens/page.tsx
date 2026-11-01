@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { canWrite } from "@organizeup/db";
+import { Insights } from "@/components/insights/insights";
 import { loadTrips } from "@/lib/planning";
 import { requireTenant } from "@/lib/session";
 import { loadTripSuggestions } from "@/lib/suggestions";
@@ -10,5 +11,12 @@ export const metadata: Metadata = { title: "Viagens" };
 export default async function TripsPage() {
   const { ctx } = await requireTenant();
   const [data, suggestions] = await Promise.all([loadTrips(ctx), loadTripSuggestions(ctx)]);
-  return <TripsBoard data={data} suggestions={suggestions} writable={canWrite(ctx)} />;
+  return (
+    <TripsBoard
+      data={data}
+      suggestions={suggestions}
+      writable={canWrite(ctx)}
+      insights={<Insights screen="viagens" />}
+    />
+  );
 }

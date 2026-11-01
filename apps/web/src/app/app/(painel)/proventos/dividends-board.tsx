@@ -1,7 +1,7 @@
 "use client";
 import { Plus, Target, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, type ReactNode } from "react";
 import { formatBRL, formatYearMonth, money, netDividend } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import {
@@ -247,10 +247,12 @@ export function DividendsBoard({
   data,
   outlook,
   writable,
+  insights,
 }: {
   data: Data;
   outlook: Outlook | null;
   writable: boolean;
+  insights: ReactNode;
 }) {
   const [sheet, setSheet] = useState<{ type: "new" | "goal"; nonce: number } | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
@@ -274,6 +276,7 @@ export function DividendsBoard({
           ) : null
         }
       />
+      {insights}
 
       {data.investments.length === 0 ? (
         <Card>

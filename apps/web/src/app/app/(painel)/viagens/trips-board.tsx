@@ -1,6 +1,6 @@
 "use client";
 import { Pencil, PiggyBank, Plus, Trash2 } from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, type ReactNode } from "react";
 import { formatBRL, money, toDbAmount } from "@organizeup/domain";
 import {
   Badge,
@@ -273,10 +273,12 @@ export function TripsBoard({
   data,
   suggestions,
   writable,
+  insights,
 }: {
   data: Data;
   suggestions: TripSuggestionsData | null;
   writable: boolean;
+  insights: ReactNode;
 }) {
   const [sheet, setSheet] = useState<Open | null>(null);
   const [removing, setRemoving] = useState<Trip | null>(null);
@@ -304,6 +306,7 @@ export function TripsBoard({
           ) : null
         }
       />
+      {insights}
 
       {data.trips.length === 0 ? (
         <Card>

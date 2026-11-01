@@ -46,6 +46,27 @@ export async function activate(
   return { ok: true, message: null };
 }
 
+/** Quem aceitou antes das dicas da madrugada aceita de novo, mantendo o nível escolhido. */
+export async function acceptInsights(
+  _previous: AssistantActionState,
+  form: FormData,
+): Promise<AssistantActionState> {
+  const { ctx } = await requireTenant();
+  if (!canUseAssistant(ctx)) return { ok: false, message: NOT_ALLOWED };
+  if (form.get("consent") !== "on") {
+    return { ok: false, message: "Para ligar as dicas, marque que você autoriza." };
+  }
+  const level = autonomy.safeParse(form.get("autonomy"));
+  if (!level.success) return { ok: false, message: FAILED };
+  try {
+    await activateAssistant(ctx, { autonomy: level.data, version: LEGAL_VERSION });
+  } catch {
+    return { ok: false, message: FAILED };
+  }
+  refresh();
+  return { ok: true, message: "Dicas ligadas. A primeira rodada sai na próxima madrugada." };
+}
+
 export async function deactivate(): Promise<void> {
   const { ctx } = await requireTenant();
   if (!canUseAssistant(ctx)) return;

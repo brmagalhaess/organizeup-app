@@ -3,7 +3,7 @@ import { adminRecordAction, adminSetFlag, FLAG_KEYS } from "@organizeup/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { platformFlags, requireAdmin } from "@/lib/session";
-import { queueDailyAgents, queuePlatformStats } from "../fila";
+import { DICAS_AGENT, queueAgent, queueDailyAgents, queuePlatformStats } from "../fila";
 import { runAdminAction } from "../painel";
 import { done, failed, type AdminResult } from "../painel-result";
 import { DAILY_AGENTS_INFO } from "./info";
@@ -45,6 +45,21 @@ export async function runAgentsNow(): Promise<AdminResult> {
     return job
       ? done("Rodada pedida. O worker começa em instantes.")
       : done("Já existe uma rodada pedida há pouco.");
+  });
+}
+
+/** Mesma rotina da madrugada. Família que já recebeu dicas hoje fica de fora. */
+export async function runInsightsNow(): Promise<AdminResult> {
+  const session = await requireAdmin();
+  if ((await platformFlags()).maintenance) {
+    return failed("Com o modo manutenção ligado, as dicas não rodam.");
+  }
+  return runAdminAction("admin_insights_run_failed", async () => {
+    await adminRecordAction({ adminUserId: session.user.id }, "agentes:dicas");
+    const job = await queueAgent(DICAS_AGENT);
+    return job
+      ? done("Dicas pedidas. O worker começa em instantes.")
+      : done("Já existe um pedido de dicas há pouco.");
   });
 }
 

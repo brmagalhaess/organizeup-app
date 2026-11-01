@@ -92,16 +92,19 @@ export function echoContent(content: ContentBlock[]): ContentBlock[] {
   );
 }
 
+export type OutputFormat = NonNullable<NonNullable<StreamParams["output_config"]>["format"]>;
+
 /** Parâmetros estáveis primeiro: ferramentas e instruções formam o prefixo do cache. */
 export function requestParams(
   route: AiRoute,
   messages: MessageParam[],
   withTools: boolean,
+  format?: OutputFormat,
 ): StreamParams {
   return {
     model: MODEL,
     max_tokens: route.maxTokens,
-    output_config: { effort: route.effort },
+    output_config: format ? { effort: route.effort, format } : { effort: route.effort },
     // Marca fixa nas instruções e cache automático para a parte que cresce.
     cache_control: { type: "ephemeral" },
     system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],

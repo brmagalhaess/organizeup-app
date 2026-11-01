@@ -14,6 +14,7 @@ import {
 } from "@organizeup/domain";
 import { amountClass, buttonClass, confirmLabel, cx } from "@/components/styles";
 import { Badge, Button, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
+import { Insights } from "@/components/insights/insights";
 import { loadOverview } from "@/lib/finance-data";
 import { requireTenant } from "@/lib/session";
 import { loadTopSuggestions } from "@/lib/suggestions";
@@ -85,6 +86,8 @@ export default async function OverviewPage() {
           </Link>
         }
       />
+
+      <Insights screen="painel" />
 
       <FirstSteps checklist={data.checklist} />
 

@@ -2,6 +2,7 @@
 // 1) Se MIGRATION_DATABASE_URL existir, roda as migrações (credencial do dono, só aqui).
 // 2) Conecta como ou_worker (DATABASE_URL), registra o deploy e processa filas do pg-boss.
 import { hostname } from "node:os";
+import { assistantConfigured } from "@organizeup/ai";
 import { PgBoss } from "pg-boss";
 import pino from "pino";
 import {
@@ -22,6 +23,7 @@ import { todayIn } from "@organizeup/domain";
 import { dailyAgentsSentinel, runDailyAgents } from "./daily-agents";
 import { reportingFailures, reportJobFailure } from "./diagnostics";
 import { MARKET_SCHEDULES, runMarketDataJob } from "./market-data";
+import { runInsightsJob } from "./insights";
 import { snapshotNetWorth } from "./net-worth";
 
 process.env.OU_PROCESS ??= "organizeup-worker";
@@ -31,7 +33,11 @@ const commit = process.env.APP_COMMIT ?? "dev";
 const workerId = `${hostname()}:${process.pid}`;
 const dailyAgentsOn = process.env.DAILY_AGENTS_ENABLED !== "false";
 /** O painel do serviço mostra só se existe: nunca o valor. */
-const integrations = { dailyAgents: dailyAgentsOn, brapi: Boolean(process.env.BRAPI_TOKEN) };
+const integrations = {
+  dailyAgents: dailyAgentsOn,
+  brapi: Boolean(process.env.BRAPI_TOKEN),
+  ai: assistantConfigured(),
+};
 
 async function main() {
   if (process.env.MIGRATION_DATABASE_URL && process.env.RUN_MIGRATIONS !== "false") {
@@ -129,6 +135,12 @@ async function main() {
       { missingOnly: true },
       { tz: "America/Sao_Paulo" },
     );
+    // Dicas por tela: depois da rede de segurança das 05:30.
+    await boss.work(
+      JOB_QUEUES.aiInsights,
+      reportingFailures(JOB_QUEUES.aiInsights, () => runInsightsJob(log)),
+    );
+    await boss.schedule(JOB_QUEUES.aiInsights, "45 5 * * *", null, { tz: "America/Sao_Paulo" });
     const today = todayIn();
     // Com chave, o boot atualiza já: quem acabou de colar o token não espera o próximo pregão.
     if (integrations.brapi || !(await hasAgentRunToday(today, MERCADO_AGENT))) {

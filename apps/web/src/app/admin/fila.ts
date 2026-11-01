@@ -13,6 +13,7 @@ import { logAdminFailure } from "./painel";
 const SINGLETON_SECONDS = 300;
 
 export const MERCADO_AGENT = "mercado";
+export const DICAS_AGENT = "dicas";
 
 async function withBoss<T>(fn: (boss: PgBoss) => Promise<T>): Promise<T> {
   const connectionString = process.env.DATABASE_URL;
@@ -50,8 +51,8 @@ export function queueDailyAgents() {
 export function queueAgent(agent: string) {
   const singletonKey = agentWakeKey(todayIn(), agent);
   return withBoss((boss) =>
-    agent === MERCADO_AGENT
-      ? boss.send(JOB_QUEUES.marketData, null, {
+    agent === MERCADO_AGENT || agent === DICAS_AGENT
+      ? boss.send(agent === DICAS_AGENT ? JOB_QUEUES.aiInsights : JOB_QUEUES.marketData, null, {
           singletonKey,
           singletonSeconds: SINGLETON_SECONDS,
         })

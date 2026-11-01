@@ -1,6 +1,7 @@
 import { STALE_PRICE_DAYS } from "@organizeup/agents";
 import type { Metadata } from "next";
 import { canWrite } from "@organizeup/db";
+import { Insights } from "@/components/insights/insights";
 import { loadPortfolio } from "@/lib/investments";
 import { requireTenant } from "@/lib/session";
 import { loadPendingOfKind } from "@/lib/suggestions";
@@ -20,6 +21,7 @@ export default async function InvestmentsPage() {
       suggestions={suggestions}
       stalePriceDays={STALE_PRICE_DAYS}
       writable={canWrite(ctx)}
+      insights={<Insights screen="investimentos" />}
     />
   );
 }

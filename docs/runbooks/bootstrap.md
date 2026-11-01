@@ -36,7 +36,7 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      `OrganizeUp <notificacoes@organizeup.com.br>`, remetente já verificado na Brevo).
      `ADMIN_EMAILS` **não** vai para produção: só desenvolvimento e e2e, porque um e-mail sem conta pode
      ser tomado por quem se cadastrar com ele (ADR-0016).
-     `ANTHROPIC_API_KEY` (chave da API da Anthropic, só no `ou3-web`, nunca com `NEXT_PUBLIC`; vazia, o assistente
+     `ANTHROPIC_API_KEY` (chave da API da Anthropic, no `ou3-web` e no `ou3-worker`, nunca com `NEXT_PUBLIC`; vazia, o assistente
      aparece como indisponível e o resto segue igual), `ANTHROPIC_WORKSPACE_ID` (`wrkspc_...`, obrigatório quando a
      chave não pertence a um workspace; o botão **Testar a IA** em `/admin/sistema` avisa), `AI_MONTHLY_BUDGET_USD` (opcional; padrão 50, teto do
      serviço no mês) e `AI_FAMILY_DAILY_TOKENS` (opcional; padrão 200000, teto por família e dia). Ao bater o teto

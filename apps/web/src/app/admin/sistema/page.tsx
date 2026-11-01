@@ -86,7 +86,11 @@ export default async function AdminSystemPage() {
   const webCommit = process.env.APP_COMMIT ?? "dev";
   const freshest = workers[0] ? minutesSince(workers[0].lastSeenAt) : null;
   const workerOk = freshest !== null && freshest <= WORKER_STALE_MINUTES;
-  const workerInfo = (workers[0]?.info ?? {}) as { brapi?: boolean; dailyAgents?: boolean };
+  const workerInfo = (workers[0]?.info ?? {}) as {
+    ai?: boolean;
+    brapi?: boolean;
+    dailyAgents?: boolean;
+  };
   const integrations = [
     { name: "E-mail (Brevo)", where: "ou3-web", on: emailConfigured(), hint: "BREVO_API_KEY" },
     {
@@ -106,6 +110,12 @@ export default async function AdminSystemPage() {
       where: "ou3-web",
       on: assistantConfigured(),
       hint: "ANTHROPIC_API_KEY",
+    },
+    {
+      name: "Dicas da madrugada",
+      where: "ou3-worker",
+      on: workerInfo.ai === true,
+      hint: "ANTHROPIC_API_KEY e ANTHROPIC_WORKSPACE_ID",
     },
   ];
 

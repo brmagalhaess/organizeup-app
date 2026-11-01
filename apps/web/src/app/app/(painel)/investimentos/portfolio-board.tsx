@@ -1,7 +1,7 @@
 "use client";
 import { History, Pencil, Plus, Tag, Target, Trash2, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, type ReactNode } from "react";
 import { formatBRL, isUnitPriced, money } from "@organizeup/domain";
 import {
   Badge,
@@ -385,12 +385,14 @@ export function PortfolioBoard({
   suggestions,
   stalePriceDays,
   writable,
+  insights,
 }: {
   data: Data;
   suggestions: PendingItem[];
   /** A partir de quantos dias o valor informado conta como velho. */
   stalePriceDays: number;
   writable: boolean;
+  insights: ReactNode;
 }) {
   const [sheet, setSheet] = useState<Sheet_ | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
@@ -419,6 +421,7 @@ export function PortfolioBoard({
           ) : null
         }
       />
+      {insights}
 
       <PortfolioSuggestions items={suggestions} writable={writable} />
 

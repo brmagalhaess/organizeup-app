@@ -23,6 +23,13 @@ export {
 } from "./client";
 export { checkModel, type ModelCheck } from "./check";
 export { activateAssistant, deactivateAssistant, setAssistantAutonomy } from "./consent";
+export {
+  INSIGHTS_CONSENT_VERSION,
+  NIGHT_ROUTE,
+  runNightlyInsights,
+  type InsightRun,
+} from "./insights/nightly";
+export { rejectionOf } from "./insights/verify";
 export { SYSTEM_PROMPT } from "./instructions";
 export {
   echoContent,
