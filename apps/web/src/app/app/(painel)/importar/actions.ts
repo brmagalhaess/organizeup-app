@@ -43,6 +43,7 @@ import {
 import { audit } from "@/lib/audit";
 import { loadCommitments } from "@/lib/commitments";
 import { confirmCommitment, goalEntryLink, reverseGoalSaved } from "@/lib/confirm-entry";
+import { reportActionFailure } from "@/lib/diagnostics";
 import { requireTenant } from "@/lib/session";
 
 const READ_ONLY = "Seu papel nesta família não permite alterações.";
@@ -180,6 +181,7 @@ export async function prepareImport(
     // Só nome e código: a mensagem do banco pode trazer dados da família.
     const { name, code } = error as { name?: string; code?: string };
     console.error(JSON.stringify({ level: "error", msg: "prepare_import_failed", name, code }));
+    reportActionFailure("prepare_import_failed", error);
     return "falhou" as const;
   });
   if (prepared === "falhou")

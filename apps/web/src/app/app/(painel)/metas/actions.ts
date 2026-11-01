@@ -18,6 +18,7 @@ import {
 } from "@organizeup/db";
 import { isYearMonth, money, parseBRL, toDbAmount, todayIn } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
+import { reportActionFailure } from "@/lib/diagnostics";
 import { requireTenant } from "@/lib/session";
 
 export interface FormState {
@@ -116,6 +117,7 @@ export async function saveGoal(_prev: FormState, form: FormData): Promise<FormSt
   await replan(ctx).catch((error: unknown) => {
     const { name, code } = error as { name?: string; code?: string };
     console.error(JSON.stringify({ level: "error", msg: "goal_replan_failed", name, code }));
+    reportActionFailure("goal_replan_failed", error);
   });
   revalidatePath("/app", "layout");
   return { ok: true, message: null };
