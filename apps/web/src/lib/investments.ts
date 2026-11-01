@@ -9,6 +9,7 @@ import {
   investments,
   investmentTargets,
   investmentTrades,
+  loadStockEvents,
   marketDividends,
   marketQuotes,
   marketTickers,
@@ -34,6 +35,7 @@ import {
 export async function loadPortfolio(ctx: TenantContext) {
   return withHousehold(ctx, async (tx) => {
     const today = todayIn(await householdTimezone(tx, ctx.householdId));
+    const events = await loadStockEvents(tx);
     const [holdings, trades, targets, paid] = await Promise.all([
       tx.select().from(investments).orderBy(asc(investments.createdAt)),
       tx.select().from(investmentTrades).orderBy(desc(investmentTrades.occurredOn)),
@@ -56,6 +58,7 @@ export async function loadPortfolio(ctx: TenantContext) {
     const list = holdings.map((holding) => ({
       ...holding,
       trades: trades.filter((trade) => trade.investmentId === holding.id),
+      events: events.filter((event) => event.investmentId === holding.id),
     }));
     const summary = summarizePortfolio(list, targets);
     const received = summarizeDividends(receivedDividends(paid, today), yearMonthOf(today), null);
@@ -89,6 +92,7 @@ export async function loadPortfolio(ctx: TenantContext) {
 export async function loadDividends(ctx: TenantContext) {
   return withHousehold(ctx, async (tx) => {
     const today = todayIn(await householdTimezone(tx, ctx.householdId));
+    const events = await loadStockEvents(tx);
     const [holdings, trades, rows, [goal]] = await Promise.all([
       tx.select().from(investments).orderBy(asc(investments.name)),
       tx.select().from(investmentTrades),
@@ -103,6 +107,7 @@ export async function loadDividends(ctx: TenantContext) {
       holdings.map((holding) => ({
         ...holding,
         trades: trades.filter((trade) => trade.investmentId === holding.id),
+        events: events.filter((event) => event.investmentId === holding.id),
       })),
     );
     const costOf = new Map(portfolio.rows.map((row) => [row.id, row.position.cost]));

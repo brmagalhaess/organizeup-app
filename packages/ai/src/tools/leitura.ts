@@ -29,6 +29,7 @@ import {
   investments,
   investmentTargets,
   investmentTrades,
+  loadStockEvents,
   lte,
   or,
   isNull,
@@ -342,6 +343,7 @@ const verCarteira = defineTool({
   label: () => "olhei sua carteira",
   run: (ctx) =>
     read(ctx, async (tx) => {
+      const events = await loadStockEvents(tx);
       const [holdings, trades, targets] = await Promise.all([
         tx.select().from(investments).orderBy(asc(investments.createdAt)),
         tx.select().from(investmentTrades),
@@ -350,6 +352,7 @@ const verCarteira = defineTool({
       const list = holdings.map((holding) => ({
         ...holding,
         trades: trades.filter((trade) => trade.investmentId === holding.id),
+        events: events.filter((event) => event.investmentId === holding.id),
       }));
       const summary = summarizePortfolio(list, targets);
       return {

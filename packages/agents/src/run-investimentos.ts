@@ -1,6 +1,6 @@
-// Agente diário de investimentos (ADR-0015 e ADR-0017). Aplica cotações e proventos que o job de
-// mercado deixou nas tabelas globais, resume carteira e proventos, prevê proventos pelo histórico e
-// avisa de preço velho e de classe longe da meta. Nunca indica o que comprar ou vender.
+// Agente diário de investimentos (ADR-0015 e ADR-0017). Aplica eventos em ações, cotações e proventos
+// que o job de mercado deixou nas tabelas globais, resume carteira e proventos, prevê proventos pelo
+// histórico e avisa de preço velho e de classe longe da meta. Nunca indica o que comprar ou vender.
 import {
   and,
   asc,
@@ -11,6 +11,7 @@ import {
   investments,
   investmentTargets,
   investmentTrades,
+  loadStockEvents,
   marketQuotes,
   ne,
   sql,
@@ -32,7 +33,7 @@ import {
   yearMonthOf,
   netDividend,
 } from "@organizeup/domain";
-import { syncMarketData } from "./market-sync";
+import { applyStockEvents, syncMarketData } from "./market-sync";
 import type { ReportInvestimentos } from "./reports";
 import { DEDUPE, type LinkPayload } from "./suggestions";
 import {
@@ -56,8 +57,11 @@ export const CLASS_DEVIATION_POINTS = 10;
 export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Promise<AgentResult> {
   const { today, householdId } = input;
   const month = yearMonthOf(today);
-  // Primeiro o mercado: o resumo abaixo já sai com o preço e os proventos de hoje.
+  // Primeiro os eventos em ações, porque a quantidade decide o valor dos proventos. Depois o mercado:
+  // o resumo abaixo já sai com o preço e os proventos de hoje.
+  const stock = await applyStockEvents(tx, input);
   const market = await syncMarketData(tx, input);
+  const stockEvents = await loadStockEvents(tx);
   const [holdings, trades, targets, allDividends, quotes] = await Promise.all([
     tx.select().from(investments).orderBy(asc(investments.createdAt)),
     tx.select().from(investmentTrades),
@@ -73,6 +77,7 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
     holdings.map((holding) => ({
       ...holding,
       trades: trades.filter((trade) => trade.investmentId === holding.id),
+      events: stockEvents.filter((event) => event.investmentId === holding.id),
     })),
     targets,
   );
@@ -91,19 +96,19 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
     const quote = ticker ? quoteOf.get(ticker) : undefined;
     if (quote && daysBetween(marketDateOf(quote.quotedAt), today) <= STALE_PRICE_DAYS) {
       automatic.push(holding.id);
-      const event = quote.lastStockEventOn;
-      const own = trades.filter((trade) => trade.investmentId === holding.id);
-      if (event && own.some((trade) => trade.occurredOn <= event)) {
+      const event = stock.unapplied.get(holding.id);
+      if (event) {
         const payload: LinkPayload = { href: "/app/investimentos", investmentId: holding.id };
         notices.push({
           kind: "investimento",
           title: `Confira a quantidade de ${ticker}`,
           body:
-            `${quote.lastStockEventNote ?? "Evento em ações"} com data-com em ` +
-            `${event.split("-").reverse().join("/")}. O sistema não ajusta a quantidade sozinho: ` +
-            `até você corrigir as operações, o valor deste investimento pode ficar errado.`,
+            `${event.note} com data-com em ${event.comDate.split("-").reverse().join("/")}. Há ` +
+            `operação registrada depois dessa data, que pode já estar com a quantidade nova, então ` +
+            `não ajustamos sozinhos. Se a quantidade não bater com a da corretora, corrija as ` +
+            `operações: até lá, o valor deste investimento pode ficar errado.`,
           payload,
-          dedupeKey: DEDUPE.investimentoEvento(holding.id, event),
+          dedupeKey: DEDUPE.investimentoEvento(holding.id, event.comDate),
         });
       }
       return;
@@ -216,6 +221,7 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
       removed: market.changes.removed.length,
       skippedFamily: market.skippedFamily,
       skippedTax: market.skippedTax.length,
+      stockEvents: stock.applied,
     },
     upcomingNet: toDbAmount(upcoming.reduce((acc, row) => acc.plus(netDividend(row)), money(0))),
   };
@@ -230,6 +236,10 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
           ? ` Atualizado sozinho hoje: ${plural(market.changes.prices.length, "preço", "preços")} ` +
             `e ${plural(market.created, "provento novo", "proventos novos")}.`
           : "") +
+        (stock.applied > 0
+          ? ` ${plural(stock.applied, "quantidade ajustada", "quantidades ajustadas")} por ` +
+            `desdobramento, grupamento ou bonificação.`
+          : "") +
         (upcoming.length > 0 ? ` A receber: ${formatBRL(data.upcomingNet)}.` : "") +
         (nextForecast
           ? ` Previsão para ${formatYearMonth(nextForecast.month)}: ${formatBRL(nextForecast.amount)} em proventos.`
@@ -240,5 +250,5 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
     data,
   };
   await saveDailyReport(tx, householdId, INVESTIMENTOS_AGENT, "investimentos", today, report);
-  return { suggestions, applied: market.applied, report };
+  return { suggestions, applied: market.applied + stock.applied, report };
 }

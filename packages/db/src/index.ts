@@ -44,6 +44,7 @@ export {
   householdTimezone,
   listActiveHouseholdIds,
   listHouseholdIds,
+  loadStockEvents,
   netWorthInputs,
   recordNetWorth,
 } from "./wealth";
@@ -102,9 +103,11 @@ export {
   saveMarketDividends,
   saveMarketIndices,
   saveMarketQuote,
+  saveMarketStockEvents,
   saveMarketTicker,
   type MarketDividendRow,
   type MarketQuoteRow,
+  type MarketStockEventRow,
 } from "./market";
 export {
   agentWakeKey,

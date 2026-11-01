@@ -9,6 +9,7 @@ import {
   investments,
   investmentTargets,
   investmentTrades,
+  loadStockEvents,
   TRADE_SIDES,
   withHousehold,
 } from "@organizeup/db";
@@ -149,6 +150,9 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
       .select()
       .from(investmentTrades)
       .where(eq(investmentTrades.investmentId, investmentId));
+    const events = (await loadStockEvents(tx)).filter(
+      (event) => event.investmentId === investmentId,
+    );
 
     let quantity: string;
     let unitPrice: string;
@@ -173,7 +177,7 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
         unitPrice = "1";
         if (currentValue !== null) currentValue = toDbAmount(money(currentValue).plus(field.data));
       } else {
-        const held = positionOf(trades);
+        const held = positionOf(trades, events);
         if (money(held.quantity).isZero()) return "Não há valor aplicado para resgatar.";
         const value = currentValue ?? held.cost;
         const redemption = redemptionOf(held.quantity, value, field.data);
@@ -183,7 +187,8 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
     }
 
     const next: TradeInput = { side, occurredOn, quantity, unitPrice, fees };
-    if (positionOf([...trades, next]).oversold) return "Você não tinha essa quantidade nessa data.";
+    if (positionOf([...trades, next], events).oversold)
+      return "Você não tinha essa quantidade nessa data.";
 
     const [created] = await tx
       .insert(investmentTrades)

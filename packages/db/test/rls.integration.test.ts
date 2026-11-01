@@ -1306,8 +1306,16 @@ describe("memória e relatórios dos agentes", () => {
 });
 
 describe("isolamento de investimentos", () => {
-  const { investments, investmentTrades, dividends, investmentTargets, dividendGoals } = db;
+  const {
+    investments,
+    investmentStockEvents,
+    investmentTrades,
+    dividends,
+    investmentTargets,
+    dividendGoals,
+  } = db;
   let holdingB = "";
+  let eventB = "";
 
   const seed =
     (householdId: string, ticker: string) =>
@@ -1323,6 +1331,13 @@ describe("isolamento de investimentos", () => {
         occurredOn: "2026-01-10",
         quantity: "10",
         unitPrice: "8",
+      });
+      await tx.insert(investmentStockEvents).values({
+        householdId,
+        investmentId: holding!.id,
+        comDate: "2026-03-12",
+        factor: "2",
+        note: "Desdobramento de 2 para 1",
       });
       await tx.insert(dividends).values({
         householdId,
@@ -1342,6 +1357,11 @@ describe("isolamento de investimentos", () => {
       await ctxFor(B.owner, B.household),
       seed(B.household, "BBBB3"),
     );
+    const ctxB = await ctxFor(B.owner, B.household);
+    const [event] = await db.withHousehold(ctxB, (tx) =>
+      tx.select({ id: investmentStockEvents.id }).from(investmentStockEvents),
+    );
+    eventB = event!.id;
   });
 
   it("não lê investimentos, operações, proventos nem metas de outra família", async () => {
@@ -1349,6 +1369,8 @@ describe("isolamento de investimentos", () => {
     const seen = await db.withHousehold(ctx, async (tx) => ({
       investments: await tx.select().from(investments),
       trades: await tx.select().from(investmentTrades),
+      stockEvents: await tx.select().from(investmentStockEvents),
+      loaded: await db.loadStockEvents(tx),
       dividends: await tx.select().from(dividends),
       targets: await tx.select().from(investmentTargets),
       goals: await tx.select().from(dividendGoals),
@@ -1376,6 +1398,38 @@ describe("isolamento de investimentos", () => {
     });
   });
 
+  it("não altera nem apaga evento em ações de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      const changed = await tx
+        .update(investmentStockEvents)
+        .set({ factor: "3" })
+        .where(eq(investmentStockEvents.id, eventB))
+        .returning({ id: investmentStockEvents.id });
+      const removed = await tx
+        .delete(investmentStockEvents)
+        .where(eq(investmentStockEvents.id, eventB))
+        .returning({ id: investmentStockEvents.id });
+      expect(changed).toHaveLength(0);
+      expect(removed).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(investmentStockEvents).values({
+          householdId: B.household,
+          investmentId: holdingB,
+          comDate: "2026-04-01",
+          factor: "2",
+          note: "Desdobramento",
+        }),
+      ),
+    ).rejects.toThrow();
+    const ctxB = await ctxFor(B.owner, B.household);
+    const rows = await db.withHousehold(ctxB, (tx) => tx.select().from(investmentStockEvents));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.factor).toBe("2.00000000");
+  });
+
   it("FK composta impede operação e provento em investimento alheio", async () => {
     const ctx = await ctxFor(A.owner, A.household);
     await expect(
@@ -1401,6 +1455,45 @@ describe("isolamento de investimentos", () => {
         }),
       ),
     ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(investmentStockEvents).values({
+          householdId: A.household,
+          investmentId: holdingB,
+          comDate: "2026-04-01",
+          factor: "2",
+          note: "Desdobramento",
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("evento em ações é um por data e nota, e o fator é positivo", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    const row =
+      (factor: string, note: string) =>
+      async (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => {
+        const [holding] = await tx.select({ id: investments.id }).from(investments);
+        await tx.insert(investmentStockEvents).values({
+          householdId: A.household,
+          investmentId: holding!.id,
+          comDate: "2026-03-12",
+          factor,
+          note,
+        });
+      };
+    await expect(db.withHousehold(ctx, row("2", "Desdobramento de 2 para 1"))).rejects.toThrow();
+    await expect(db.withHousehold(ctx, row("0", "Outro"))).rejects.toThrow();
+  });
+
+  it("sem a tabela nova, a leitura não derruba a transação", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      await tx.execute(sql`set local search_path = pg_catalog`);
+      expect(await db.loadStockEvents(tx)).toEqual([]);
+      await tx.execute(sql`set local search_path = public`);
+      expect(await db.loadStockEvents(tx)).toHaveLength(1);
+    });
   });
 
   it("papel viewer lê mas não registra", async () => {
@@ -1414,17 +1507,35 @@ describe("isolamento de investimentos", () => {
         }),
       ),
     ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctx, async (tx) => {
+        const [holding] = await tx.select({ id: investments.id }).from(investments);
+        await tx.insert(investmentStockEvents).values({
+          householdId: A.household,
+          investmentId: holding!.id,
+          comDate: "2026-04-01",
+          factor: "2",
+          note: "Desdobramento",
+        });
+      }),
+    ).rejects.toThrow();
     const rows = await db.withHousehold(ctx, (tx) => tx.select().from(investments));
     expect(rows).toHaveLength(1);
+    const events = await db.withHousehold(ctx, (tx) =>
+      tx.delete(investmentStockEvents).returning(),
+    );
+    expect(events).toHaveLength(0);
   });
 
-  it("apagar o investimento leva operações e proventos, e o patrimônio soma a carteira", async () => {
+  it("apagar o investimento leva operações, eventos e proventos, e o patrimônio soma a carteira", async () => {
     const ctx = await ctxFor(A.owner, A.household);
     await db.withHousehold(ctx, async (tx) => {
       const input = await db.netWorthInputs(tx);
       expect(input.investments[0]!.trades).toHaveLength(1);
+      expect(input.investments[0]!.events).toHaveLength(1);
       await tx.delete(investments);
       expect(await tx.select().from(investmentTrades)).toHaveLength(0);
+      expect(await tx.select().from(investmentStockEvents)).toHaveLength(0);
       expect(await tx.select().from(dividends)).toHaveLength(0);
     });
   });
@@ -2022,8 +2133,15 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
   });
 
   describe("tabelas de mercado (ADR-0017)", () => {
-    const { dividends, investments, marketDividends, marketIndices, marketQuotes, marketUsage } =
-      db;
+    const {
+      dividends,
+      investments,
+      marketDividends,
+      marketIndices,
+      marketQuotes,
+      marketStockEvents,
+      marketUsage,
+    } = db;
     const worker = () => postgres(urls.worker, { max: 1, onnotice: () => {} });
     const dividendRow = {
       ticker: "PETR4",
@@ -2044,7 +2162,14 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
         await raw`insert into market_tickers (ticker, status) values ('PETR4', 'ok')`;
         await raw`insert into market_usage (day, calls) values ('2026-10-31', 1)`;
         await raw`update market_quotes set price = '53' where ticker = 'PETR4'`;
+        await raw`insert into market_stock_events (ticker, com_date, factor, note, source)
+                  values ('PETR4', '2026-09-01', '2', 'Desdobramento', 'teste')`;
         await expect(raw`delete from market_quotes`).rejects.toThrow(/permission denied/);
+        await expect(raw`delete from market_stock_events`).rejects.toThrow(/permission denied/);
+        await expect(
+          raw`insert into market_stock_events (ticker, com_date, factor, note, source)
+              values ('PETR4', '2026-09-02', '0', 'Grupamento', 'teste')`,
+        ).rejects.toThrow(/check/i);
       } finally {
         await raw.end();
       }
@@ -2054,6 +2179,8 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
       expect(quotes.map((row) => row.ticker)).toEqual(["PETR4"]);
       const indices = await db.withHousehold(ctx, (tx) => tx.select().from(marketIndices));
       expect(indices[0]!.value).toBe("-0.32000000");
+      const events = await db.withHousehold(ctx, (tx) => tx.select().from(marketStockEvents));
+      expect(events.map((row) => row.factor)).toEqual(["2.00000000"]);
 
       for (const write of [
         (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
@@ -2061,12 +2188,28 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
         (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
           tx.insert(marketUsage).values({ day: "2026-11-01", calls: 1 }),
         (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => tx.delete(marketDividends),
+        (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
+          tx.update(marketStockEvents).set({ factor: "3" }),
+        (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
+          tx.insert(marketStockEvents).values({
+            ticker: "VALE3",
+            comDate: "2026-09-01",
+            factor: "2",
+            note: "Desdobramento",
+            source: "teste",
+          }),
+        (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => tx.delete(marketStockEvents),
       ]) {
         await expect(db.withHousehold(ctx, write)).rejects.toThrow();
       }
       await expect(
         db.withAdmin("confere o grant de mercado", (admin) =>
           admin.update(marketQuotes).set({ price: "1" }),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        db.withAdmin("confere o grant de eventos", (admin) =>
+          admin.update(marketStockEvents).set({ factor: "3" }),
         ),
       ).rejects.toThrow();
     });
@@ -2078,7 +2221,7 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
           select table_name from information_schema.columns
           where column_name = 'household_id'
             and table_name in ('market_quotes', 'market_dividends', 'market_indices',
-                               'market_tickers', 'market_usage')`;
+                               'market_tickers', 'market_usage', 'market_stock_events')`;
         expect(columns).toHaveLength(0);
       } finally {
         await raw.end();

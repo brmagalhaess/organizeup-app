@@ -31,6 +31,7 @@ const {
   marketDividends,
   marketIndices,
   marketQuotes,
+  marketStockEvents,
   marketTickers,
   session,
   user,
@@ -159,6 +160,15 @@ beforeAll(async () => {
     lastStockEventNote: "Desdobramento de 2 para 1",
   });
   await db.saveMarketQuote(quoteRow("ITUB4", "38.69000000"));
+  await db.saveMarketStockEvents([
+    {
+      ticker: "VALE3",
+      comDate: "2026-09-01",
+      factor: "2",
+      note: "Desdobramento de 2 para 1",
+      source: "brapi.dev",
+    },
+  ]);
   await db.saveMarketDividends([
     provento({}),
     // A receber.
@@ -256,7 +266,7 @@ describe("agente de investimentos com dados de mercado", () => {
     });
   });
 
-  it("avisa de desdobramento uma vez só, mesmo depois de a família decidir", async () => {
+  it("avisa de desdobramento com operação cadastrada depois dele uma vez só, mesmo depois de a família decidir", async () => {
     const list = () =>
       inC((tx) =>
         tx.select().from(householdSuggestions).where(eq(householdSuggestions.kind, "investimento")),
@@ -537,6 +547,16 @@ describe("job de mercado", () => {
       lastStockEventOn: "2026-09-01",
       lastStockEventNote: "Desdobramento de 2 para 1",
       price: "40.00000000",
+    });
+    const stockEvents = await inC((tx) =>
+      tx.select().from(marketStockEvents).where(eq(marketStockEvents.ticker, "PETR4")),
+    );
+    expect(stockEvents).toHaveLength(1);
+    expect(stockEvents[0]).toMatchObject({
+      comDate: "2026-09-01",
+      factor: "2.00000000",
+      note: "Desdobramento de 2 para 1",
+      source: "brapi.dev",
     });
     const indices = await inC((tx) => tx.select().from(marketIndices));
     expect(indices.map((row) => row.code).sort()).toEqual(["CDI", "IPCA", "SELIC"]);

@@ -23,8 +23,8 @@ valendo para os agentes diários, que não chamam nada de fora, e a coleta é um
   tickers distintos, sem guardar quem tem o quê, e consulta cada um uma vez. Só sai do sistema código que
   passa no formato da B3 (`normalizeTicker`): o campo é livre e aceitaria um nome. Por isso a Política de
   Privacidade não muda.
-- **Tabelas globais** `market_quotes`, `market_dividends`, `market_indices`, `market_tickers` e `market_usage`,
-  sem RLS de tenant, como `trip_destination_templates`. Leitura para web e worker; escrita só para `ou_worker`
+- **Tabelas globais** `market_quotes`, `market_dividends`, `market_stock_events`, `market_indices`,
+  `market_tickers` e `market_usage`, sem RLS de tenant, como `trip_destination_templates`. Leitura para web e worker; escrita só para `ou_worker`
   (grants no migrador); ninguém apaga.
 - **Orçamento.** `BRAPI_MAX_CALLS_PER_DAY`, padrão 400, vale para o dia inteiro e é contado em `market_usage`,
   porque são duas rodadas e o worker reinicia: um teto por rodada estouraria as 15.000 do mês, e passar do
@@ -54,8 +54,8 @@ valendo para os agentes diários, que não chamam nada de fora, e a coleta é um
 
 ### Direito e imposto (regras em `packages/domain/src/market.ts`)
 
-- **Quantidade:** `positionOf` só com operações até a data-com, inclusive. Compra na data-com conta, venda na
-  data-com tira. Definição da própria brapi: data-com é "o último dia para comprar a ação e ter direito ao
+- **Quantidade:** `positionOf` só com operações até a data-com, inclusive, e eventos em ações anteriores a ela.
+  Compra na data-com conta, venda na data-com tira. Definição da própria brapi: data-com é "o último dia para comprar a ação e ter direito ao
   provento", data ex é "o primeiro dia sem esse direito". Não achamos página oficial da B3 ou da CVM com a
   regra; guias do mercado dizem o mesmo.
 - **JCP retém 17,5%, não 15%, desde 01/01/2026.** Lei Complementar 224/2025, art. 8º (nova redação do art. 9º,
@@ -97,8 +97,23 @@ valendo para os agentes diários, que não chamam nada de fora, e a coleta é um
   desligar a automação da carteira toda, já que a sugestão é uma só por dia.
 - **Excluir provento automático** grava uma linha `desfeita` em `household_suggestions`, que o agente lê para não
   recriar.
-- **Evento em ações** (desdobramento, grupamento, bonificação) gera aviso, uma vez por evento, para quem tinha
-  posição antes dele. O ADR-0012 segue sem ajuste automático de quantidade.
+- **Evento em ações** (desdobramento, grupamento, bonificação) ajusta a quantidade sozinho, com Desfazer.
+  Atualizado em 2026-11-01, por pedido do fundador; substitui o "sem ajuste automático" do ADR-0012.
+  - O job grava todos os eventos em `market_stock_events`, com o fator que a fonte manda (ações novas por ação
+    antiga: 0,1 num grupamento de 10 para 1). `market_quotes.last_stock_event_*` continua sendo escrita.
+  - As operações são dado informado e não mudam. O ajuste é uma linha em `investment_stock_events`, e `positionOf`
+    aplica os eventos por cima delas, depois de todas as operações da própria data-com: quem compra nesse dia
+    tem direito, como em `paidRate`. A quantidade multiplica pelo fator, o custo fica e o preço médio sai sozinho.
+    Provento só enxerga evento com data-com anterior à dele.
+  - O agente aplica antes de cotações e proventos, para o provento já sair com a quantidade certa. Ignora quem
+    não tinha posição na data-com. **Só aplica sozinho se todas as operações até a data-com foram registradas
+    antes dela:** operação cadastrada depois pode já estar na quantidade nova, e aí fica o aviso "Confira a
+    quantidade", um por ativo, com o evento mais recente nessa situação.
+  - Cada evento aplicado é uma sugestão `aplicada`/`agente` própria, chave `investimento:acoes:...`, com
+    quantidade de antes e de depois. Desfazer apaga a linha do evento, marca `desfeita` e bloqueia aquele evento
+    para sempre, sem tocar em mais nada.
+  - **Mesmo evento:** mesma data-com e mesma nota ou mesmo fator. Assim, uma nova redação da nota ou um fator
+    corrigido na fonte não aplica de novo, o que dobraria a quantidade.
 - **Aposentadoria.** `dividendPlanInputs` já lia `dividends`, então o rendimento observado passa a refletir o
   provento real, sem linha nova no plano. "A receber" fica fora, e a dedupe acima evita contar duas vezes.
   Relatório e tela usam o mesmo corte. A previsão por histórico (`forecastDividends`) não soma com "a receber":
@@ -127,9 +142,14 @@ segue. Detalhes no runbook de bootstrap.
   colocar um token em produção. Sem token nada quebra.
 - **Plano grátis não cobre o produto.** Histórico de 3 meses, cotação a cada 30 minutos, FII detalhado só no Pro.
   Com token grátis, o histórico de proventos pode ser menor que o dos tickers de teste.
-- **Quantidade não acompanha evento em ações.** Depois de um desdobramento, o preço automático cai e a
-  quantidade fica, e o patrimônio aparece errado até a família corrigir. Antes o preço digitado escondia isso. O
-  aviso existe, mas o conserto de verdade é o ajuste automático, que segue fora do escopo.
+- **Evento com operação cadastrada depois dele não é ajustado sozinho.** Quem registra hoje uma compra antiga,
+  com evento no meio, recebe só o aviso: o sistema não tem como saber se a quantidade digitada é a de antes ou a
+  de depois. Até a família conferir, o patrimônio pode ficar errado nesse ativo.
+- **Operação retroativa cadastrada depois de o evento ser aplicado** também passa pelo ajuste, porque a posição é
+  recalculada. Quem digitar a quantidade já ajustada precisa desfazer o evento ou corrigir a operação.
+- **Fator corrigido na fonte depois de aplicado** não corrige a carteira: vale o fator guardado na família.
+- **Grupamento com dízima.** O fator tem 8 casas, então 300 ações em 3 para 1 podem dar 99,999999. As sobras em
+  dinheiro que a empresa paga em grupamento e bonificação não entram.
 - **Data de pagamento alterada na fonte** vira um provento novo, e o antigo fica. É raro, e a família pode excluir.
 - **Precisão de `numeric(20,8)`.** A fonte traz até 12 casas; o erro fica abaixo de meio centavo em 1 milhão de
   ações.
@@ -138,8 +158,7 @@ segue. Detalhes no runbook de bootstrap.
 
 ## Fora do escopo por enquanto
 
-Ajuste automático de desdobramento, grupamento e bonificação. Usar CDI, SELIC e IPCA em renda fixa. Importação
-da B3. Atualização da cotação durante o pregão.
+Usar CDI, SELIC e IPCA em renda fixa. Importação da B3. Atualização da cotação durante o pregão.
 
 ## Fontes
 

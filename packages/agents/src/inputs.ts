@@ -18,6 +18,7 @@ import {
   incomeSources,
   investments,
   investmentTrades,
+  loadStockEvents,
   lte,
   netWorthInputs,
   people,
@@ -346,6 +347,7 @@ export async function dividendPlanInputs(
       ? input.averageExpenses12
       : (await surplusInputs(tx, { today })).averageExpenses12;
 
+  const stockEvents = await loadStockEvents(tx);
   const [holdings, trades, allDividends] = await Promise.all([
     tx.select().from(investments).orderBy(asc(investments.createdAt)),
     tx.select().from(investmentTrades),
@@ -357,6 +359,7 @@ export async function dividendPlanInputs(
     holdings.map((holding) => ({
       ...holding,
       trades: trades.filter((trade) => trade.investmentId === holding.id),
+      events: stockEvents.filter((event) => event.investmentId === holding.id),
     })),
   );
   const received = summarizeDividends(paid, currentMonth, null);

@@ -31,6 +31,8 @@ export type ReportInvestimentos = {
     skippedFamily: number;
     /** Ativos com provento fora por imposto incerto. */
     skippedTax: number;
+    /** Desdobramentos, grupamentos e bonificações aplicados. */
+    stockEvents: number;
   };
   /** Líquido dos proventos anunciados com pagamento depois de hoje. */
   upcomingNet: string;
