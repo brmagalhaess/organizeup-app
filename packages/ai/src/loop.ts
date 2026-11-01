@@ -7,6 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { withHousehold, householdTimezone, type TenantContext } from "@organizeup/db";
 import { todayIn } from "@organizeup/domain";
 import { aiLimits, assistantState, serviceDay, type AiLimits, type AssistantState } from "./access";
+import { errorCode, reportFailure, type AssistantErrorCode } from "./api-errors";
 import type { ModelClient, ModelMessage, ModelStream, StreamParams } from "./client";
 import { SYSTEM_PROMPT, turnContext } from "./instructions";
 import { CHAT_ROUTE, FALLBACK_BETA, MODEL, usageOf, type AiRoute, type ModelUsage } from "./models";
@@ -28,8 +29,7 @@ type MessageParam = Anthropic.Beta.Messages.BetaMessageParam;
 type ContentBlock = Anthropic.Beta.Messages.BetaContentBlock;
 type ToolResult = Anthropic.Beta.Messages.BetaToolResultBlockParam;
 
-export type AssistantErrorCode =
-  "sem_conversa" | "limite_de_uso" | "indisponivel" | "muito_longa" | "chave_invalida" | "falha";
+export type { AssistantErrorCode };
 
 export type AssistantEvent =
   | { type: "thread"; id: string }
@@ -111,21 +111,6 @@ export function requestParams(
     tool_choice: withTools ? { type: "auto" } : { type: "none" },
     messages,
   };
-}
-
-function errorCode(error: unknown): AssistantErrorCode {
-  if (error instanceof Anthropic.RateLimitError) return "limite_de_uso";
-  if (error instanceof Anthropic.AuthenticationError) return "chave_invalida";
-  if (error instanceof Anthropic.PermissionDeniedError) return "chave_invalida";
-  if (error instanceof Anthropic.BadRequestError) return "muito_longa";
-  if (error instanceof Anthropic.APIConnectionError) return "indisponivel";
-  if (error instanceof Anthropic.InternalServerError) return "indisponivel";
-  return "falha";
-}
-
-function logFailure(code: AssistantErrorCode, error: unknown) {
-  const status = error instanceof Anthropic.APIError ? error.status : undefined;
-  console.error(JSON.stringify({ level: "error", msg: "assistant_failed", code, status }));
 }
 
 const CHARS_PER_TOKEN = 4;
@@ -309,7 +294,7 @@ export async function runChatTurn(input: ChatTurnInput): Promise<void> {
       answer = await converse(input, prepared);
     } catch (error) {
       const code = errorCode(error);
-      logFailure(code, error);
+      reportFailure(code, error);
       emit({ type: "error", code });
       return;
     }
@@ -332,7 +317,7 @@ export async function runChatTurn(input: ChatTurnInput): Promise<void> {
       uncheckedNumbers: stored.uncheckedNumbers === true,
     });
   } catch (error) {
-    logFailure("falha", error);
+    reportFailure("falha", error);
     emit({ type: "error", code: "falha" });
   }
 }

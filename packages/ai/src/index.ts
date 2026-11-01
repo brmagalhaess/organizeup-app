@@ -21,6 +21,7 @@ export {
   type ModelStream,
   type StreamParams,
 } from "./client";
+export { checkModel, type ModelCheck } from "./check";
 export { activateAssistant, deactivateAssistant, setAssistantAutonomy } from "./consent";
 export { SYSTEM_PROMPT } from "./instructions";
 export {

@@ -18,6 +18,7 @@ import { WORKER_STALE_MINUTES } from "../alertas";
 import { formatAge, formatCount, formatDateTime, formatUsd, minutesSince } from "../format";
 import { AdminPage, AdminTable, Tile, type Column } from "../kit";
 import { hasAdminDatabase, noteAdminAccess } from "../painel";
+import { TestAssistant } from "./test-assistant";
 
 export const metadata: Metadata = { title: "Sistema" };
 
@@ -138,6 +139,7 @@ export default async function AdminSystemPage() {
             {formatUsd(spend.spentUsd)} de {formatUsd(spend.budgetUsd)}, em{" "}
             {formatCount(spend.calls)} chamadas. Cache lido: {cacheShare(spend)}.
           </p>
+          <TestAssistant />
         </div>
       </Card>
       <section aria-labelledby="saude">

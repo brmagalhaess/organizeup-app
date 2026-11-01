@@ -26,25 +26,16 @@ export function Activation({ headingId }: { headingId: string }) {
           Antes de começar
         </h2>
         <p className="mt-1 text-sm text-muted">
-          O assistente responde perguntas sobre o dinheiro da família, com os números do próprio
-          OrganizeUp. Para isso, parte dos dados precisa sair daqui. Veja o que muda.
+          Pergunte sobre o dinheiro da família, simule uma decisão e receba os próximos passos para
+          metas, viagens e aposentadoria.
         </p>
       </div>
-      <Topic title="O que é enviado">
-        O que você pergunta e, só quando a pergunta precisa, seus lançamentos, categorias, renda,
-        reserva, dívidas, investimentos, proventos, metas, viagens e calendário. Descrições de
-        lançamentos vão como estão no extrato.
+      <Topic title="O que ele usa">
+        Sua pergunta e, quando ela precisar, lançamentos, renda, reserva, dívidas, investimentos,
+        metas, viagens e calendário. As descrições vão como estão no extrato.
       </Topic>
-      <Topic title="Para quem">
-        Para a Anthropic, empresa dos Estados Unidos que opera o modelo de inteligência artificial.
-        Por isso, seus dados saem do Brasil. Ela usa esses dados para gerar a resposta, não os usa
-        para treinar modelos e os apaga em até 30 dias. O que for marcado como violação das regras
-        de uso dela pode ficar guardado por até 2 anos.
-      </Topic>
-      <Topic title="Por quê">Para responder ao que você pediu, com base nos seus números.</Topic>
-      <Topic title="O que não é enviado">
-        Nomes, e-mails, CPF e senhas. As pessoas aparecem como titular, cônjuge, filho 1. O
-        assistente não acessa banco nenhum e não move dinheiro.
+      <Topic title="O que fica de fora">
+        Nomes, e-mails, CPF e senhas. Ele não acessa banco nenhum e não move dinheiro.
       </Topic>
 
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
@@ -76,7 +67,8 @@ export function Activation({ headingId }: { headingId: string }) {
       <label className="flex cursor-pointer items-start gap-3 text-sm">
         <input type="checkbox" name="consent" required className="mt-0.5 size-4 accent-brand-700" />
         <span>
-          Li e autorizo o envio desses dados para a Anthropic, como explica a{" "}
+          Autorizo o uso desses dados para gerar as respostas, inclusive fora do Brasil, como
+          explica a{" "}
           <Link
             href="/privacidade"
             target="_blank"

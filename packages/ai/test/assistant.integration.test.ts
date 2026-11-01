@@ -387,6 +387,14 @@ describe("ferramentas contra o Postgres", () => {
   });
 });
 
+const apiFailure = (message: string) =>
+  new Anthropic.BadRequestError(
+    400,
+    { type: "error", error: { type: "invalid_request_error", message } },
+    message,
+    new Headers(),
+  );
+
 function turn(
   overrides: Partial<Parameters<typeof ai.runChatTurn>[0]> & {
     client: Parameters<typeof ai.runChatTurn>[0]["client"];
@@ -804,7 +812,9 @@ describe("loop da conversa", () => {
       [new Anthropic.RateLimitError(429, undefined, "x", new Headers()), "limite_de_uso"],
       [new Anthropic.AuthenticationError(401, undefined, "x", new Headers()), "chave_invalida"],
       [new Anthropic.InternalServerError(529, undefined, "x", new Headers()), "indisponivel"],
-      [new Anthropic.BadRequestError(400, undefined, "x", new Headers()), "muito_longa"],
+      [new Anthropic.BadRequestError(400, undefined, "x", new Headers()), "falha"],
+      [apiFailure("Your credit balance is too low to access the API."), "chave_invalida"],
+      [apiFailure("prompt is too long: 1500000 tokens > 1000000 maximum"), "muito_longa"],
     ] as const;
     for (const [failure, code] of cases) {
       const { client } = fakeClient([failure]);

@@ -49,6 +49,15 @@ export async function recordUsage(
         });
     }
   });
+  await recordServiceUsage(day, route, usages);
+}
+
+/** Soma no serviço: é o que o teto mensal lê. */
+export async function recordServiceUsage(
+  day: string,
+  route: string,
+  usages: ModelUsage[],
+): Promise<void> {
   const totals = usages.reduce<AiUsageCounts>(
     (acc, usage) => ({
       calls: acc.calls + 1,

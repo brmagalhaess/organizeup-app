@@ -52,7 +52,7 @@ test("ativa, conversa, vê o que foi olhado, reabre e desliga", async ({ page })
   expect(await violations(page)).toEqual([]);
 
   await panel.getByRole("radio", { name: /Sugerir/ }).check();
-  await panel.getByRole("checkbox", { name: /autorizo o envio/ }).check();
+  await panel.getByRole("checkbox", { name: /Autorizo o uso/ }).check();
   await panel.getByRole("button", { name: "Ativar o assistente" }).click();
 
   // Ativado, a conversa aparece no lugar da explicação.
