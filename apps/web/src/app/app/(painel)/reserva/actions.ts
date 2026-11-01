@@ -1,4 +1,5 @@
 "use server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -11,7 +12,8 @@ import {
   withHousehold,
   type TenantContext,
 } from "@organizeup/db";
-import { parseBRL, toDbAmount } from "@organizeup/domain";
+import { parseMoney, toDbAmount } from "@organizeup/domain";
+import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
 
@@ -20,16 +22,13 @@ export interface ReserveFormState {
   message: string | null;
 }
 
-const READ_ONLY: ReserveFormState = {
+const blocked = async (): Promise<ReserveFormState> => ({
   ok: false,
-  message: "Seu papel nesta família não permite alterações.",
-};
+  message: (await getTranslations("settings"))("noPermission"),
+});
 
-const monthsSchema = z.coerce
-  .number({ message: "Informe de 1 a 60 meses." })
-  .int("Informe de 1 a 60 meses.")
-  .min(1, "Informe de 1 a 60 meses.")
-  .max(60, "Informe de 1 a 60 meses.");
+const monthsSchema = (message: string) =>
+  z.coerce.number({ message }).int(message).min(1, message).max(60, message);
 
 type FundPatch = Partial<
   Pick<typeof emergencyFund.$inferInsert, "targetMonths" | "monthlyAmount" | "contribution">
@@ -52,10 +51,10 @@ async function saveFund(ctx: TenantContext, patch: FundPatch, message: string) {
 }
 
 /** Valor em reais opcional: em branco vira null. Lança erro se não for um valor válido. */
-function optionalAmount(raw: FormDataEntryValue | null): string | null {
+function optionalAmount(raw: FormDataEntryValue | null, locale: Locale): string | null {
   const text = String(raw ?? "").trim();
   if (!text) return null;
-  const value = parseBRL(text);
+  const value = parseMoney(text, locale);
   if (value.lte(0) || value.gte("1000000000000")) throw new RangeError("fora do limite");
   return toDbAmount(value);
 }
@@ -66,11 +65,12 @@ export async function saveReserveMonths(
   form: FormData,
 ): Promise<ReserveFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return READ_ONLY;
-  const parsed = monthsSchema.safeParse(form.get("targetMonths"));
+  if (!canWrite(ctx)) return blocked();
+  const t = await getTranslations("reserva");
+  const parsed = monthsSchema(t("errors.months")).safeParse(form.get("targetMonths"));
   if (!parsed.success)
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
-  return saveFund(ctx, { targetMonths: parsed.data }, "Meses salvos.");
+    return { ok: false, message: parsed.error.issues[0]?.message ?? t("errors.check") };
+  return saveFund(ctx, { targetMonths: parsed.data }, t("saved.months"));
 }
 
 /** Gasto essencial informado pela família. Em branco, volta a ser calculado pelos lançamentos. */
@@ -79,14 +79,15 @@ export async function saveReserveEssential(
   form: FormData,
 ): Promise<ReserveFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return READ_ONLY;
+  if (!canWrite(ctx)) return blocked();
+  const [t, locale] = await Promise.all([getTranslations("reserva"), getLocale()]);
   let monthlyAmount: string | null;
   try {
-    monthlyAmount = optionalAmount(form.get("monthly"));
+    monthlyAmount = optionalAmount(form.get("monthly"), locale);
   } catch {
-    return { ok: false, message: "Informe o gasto essencial como 3.500,00." };
+    return { ok: false, message: t("errors.essential") };
   }
-  return saveFund(ctx, { monthlyAmount }, "Gasto essencial salvo.");
+  return saveFund(ctx, { monthlyAmount }, t("saved.essential"));
 }
 
 /** Quanto a família separa por mês para a reserva. Não é o gasto essencial. */
@@ -95,14 +96,15 @@ export async function saveReserveContribution(
   form: FormData,
 ): Promise<ReserveFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return READ_ONLY;
+  if (!canWrite(ctx)) return blocked();
+  const [t, locale] = await Promise.all([getTranslations("reserva"), getLocale()]);
   let contribution: string | null;
   try {
-    contribution = optionalAmount(form.get("contribution"));
+    contribution = optionalAmount(form.get("contribution"), locale);
   } catch {
-    return { ok: false, message: "Informe quanto guardar por mês como 500,00." };
+    return { ok: false, message: t("errors.contribution") };
   }
-  return saveFund(ctx, { contribution }, "Valor salvo.");
+  return saveFund(ctx, { contribution }, t("saved.contribution"));
 }
 
 const toggleSchema = z.object({ accountId: z.string().min(1), selected: z.boolean() });
@@ -113,9 +115,10 @@ export async function toggleReserveAccount(
   selected: boolean,
 ): Promise<ReserveFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return READ_ONLY;
+  if (!canWrite(ctx)) return blocked();
+  const t = await getTranslations("reserva.errors");
   const parsed = toggleSchema.safeParse({ accountId, selected });
-  if (!parsed.success) return { ok: false, message: "Conta inválida." };
+  if (!parsed.success) return { ok: false, message: t("invalidAccount") };
 
   const changed = await withHousehold(ctx, async (tx) => {
     if (!parsed.data.selected) {
@@ -136,7 +139,7 @@ export async function toggleReserveAccount(
     await audit(tx, ctx, "update", "emergency_fund", ctx.householdId);
     return true;
   });
-  if (!changed) return { ok: false, message: "Esta conta não está mais disponível." };
+  if (!changed) return { ok: false, message: t("accountGone") };
   revalidatePath("/app", "layout");
   return { ok: true, message: null };
 }

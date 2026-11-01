@@ -1,4 +1,264 @@
 {
+  "plano": {
+    "metaTitle": "Tu plan",
+    "eyebrow": "Este mes",
+    "title": "Tu plan",
+    "description": {
+      "default": "Las acciones que más acercan a tu familia a la jubilación.",
+      "year": "Con lo que guardas hoy, tu cartera alcanza la meta en {year}.",
+      "yearTarget": "Con lo que guardas hoy, tu cartera alcanza la meta en {year}, y tu objetivo es {target}."
+    },
+    "yearsEarlier": "{years, plural, =1 {1 año antes} other {# años antes}}",
+    "disclaimer": "Estimaciones en reales de hoy, sin garantía de rendimiento. Contenido educativo, no es una recomendación de inversión.",
+    "actions": {
+      "completar": {
+        "title": "Completa tu plan de jubilación",
+        "text": "Sin el año en que quieres parar y el ingreso que deseas, no se puede calcular el efecto de cada decisión.",
+        "link": "Completar el plan"
+      },
+      "reserva": {
+        "title": "Guarda {amount} en tu fondo de emergencia",
+        "text": "El fondo de emergencia va primero: evita que uses crédito caro cuando surge un imprevisto.",
+        "link": "Ver el fondo de emergencia"
+      },
+      "divida": {
+        "title": "Paga {amount} más en tu deuda más cara",
+        "text": "Los intereses de esta deuda cuestan más de lo que rinde el dinero. Cuando la liquides, ese valor pasa a tu plan.",
+        "link": "Ver las deudas"
+      },
+      "guardar": {
+        "title": "Guarda {amount} más al mes",
+        "text": "Este valor entra en el plan de jubilación y empieza a generar dividendos.",
+        "link": "Ver el plan"
+      },
+      "gasto": {
+        "title": "Reduce {amount} en {category}",
+        "text": "Es el 10 % de tu mayor categoría del mes pasado. Guardar esa diferencia también acorta el camino.",
+        "link": "Ver los movimientos"
+      }
+    }
+  },
+  "reserva": {
+    "metaTitle": "Fondo de emergencia",
+    "eyebrow": "Fondo de emergencia",
+    "title": "Fondo de emergencia",
+    "description": "Dinero guardado para imprevistos, como perder ingresos o una reparación, sin tener que endeudarte.",
+    "save": "Guardar",
+    "amountPlaceholder": "0,00",
+    "errors": {
+      "months": "Indica de 1 a 60 meses.",
+      "essential": "Indica el gasto esencial como 3.500,00.",
+      "contribution": "Indica cuánto guardar al mes como 500,00.",
+      "amountExample": "Indica un valor como 500,00.",
+      "invalidAccount": "Cuenta no válida.",
+      "accountGone": "Esta cuenta ya no está disponible.",
+      "check": "Revisa los datos."
+    },
+    "saved": {
+      "months": "Meses guardados.",
+      "essential": "Gasto esencial guardado.",
+      "contribution": "Valor guardado."
+    },
+    "essential": {
+      "sheetTitle": "Gasto esencial",
+      "intro": "Es lo que tu familia necesita para vivir un mes: vivienda, supermercado, facturas y transporte.",
+      "label": "Gasto esencial por mes (R$)",
+      "hint": "Opcional. Si lo dejas en blanco, lo calculamos con los movimientos en categorías esenciales.",
+      "submit": "Guardar gasto esencial"
+    },
+    "need": {
+      "title": "Cuánto necesito guardar",
+      "unknownTitle": "Falta saber tu gasto esencial",
+      "unknownText": "El valor del fondo depende de cuánto gasta tu familia al mes en lo que no se puede recortar. Con ese número, calculamos el resto.",
+      "inform": "Indicar gasto esencial",
+      "summary": "{count, plural, =1 {# mes} other {# meses}} de tus gastos esenciales, a {amount} por mes.",
+      "adjust": "Ajustar gasto esencial",
+      "basis": {
+        "informed": "Tú indicaste este valor.",
+        "average": "{months, plural, =1 {Viene de tus gastos del último mes cerrado.} other {Viene del promedio de tus gastos en los últimos # meses.}}",
+        "estimate": "Es una estimación basada en el mes actual, con lo que está previsto."
+      }
+    },
+    "months": {
+      "label": "Meses cubiertos",
+      "hint": "De 1 a 60.",
+      "saveLabel": "Guardar meses cubiertos"
+    },
+    "have": {
+      "title": "Cuánto ya tengo",
+      "status": "{count, plural, =0 {Aún no hay ninguna cuenta marcada.} =1 {Guardado en {name}.} other {Guardado en # cuentas.}}",
+      "text": "El fondo de emergencia es el saldo de las cuentas marcadas abajo. La cuenta entra completa, así que mejor usa una cuenta solo para esto.",
+      "emptyTitle": "Aún no tienes ninguna cuenta registrada",
+      "emptyText": "Registra la cuenta donde guardas este dinero para que aparezca aquí.",
+      "emptyAction": "Registrar cuenta",
+      "listLabel": "Cuentas del fondo de emergencia"
+    },
+    "missing": {
+      "title": "Cuánto falta",
+      "unknownText": "En cuanto sepamos tu gasto esencial, te mostramos cuánto falta y en cuánto tiempo lo logras.",
+      "complete": "Fondo completo",
+      "progressLabel": "Progreso del fondo de emergencia",
+      "progress": "{percent} del objetivo · cubre {count, plural, =1 {# mes} other {# meses}} de gastos esenciales",
+      "forecast": "Guardando <b>{amount}</b> al mes, llegas en <b>{date}</b>, dentro de {count, plural, =1 {# mes} other {# meses}}."
+    },
+    "contribution": {
+      "label": "Cuánto puedo guardar al mes (R$)",
+      "hint": "Tu plan sugiere {amount} al mes.",
+      "saveLabel": "Guardar cuánto apartar al mes"
+    },
+    "nextStep": {
+      "heading": "Próximo paso",
+      "markEssential": {
+        "title": "Marca lo que es esencial",
+        "text": "Ya tienes gastos registrados, pero ninguno en una categoría esencial. Marca como esenciales la vivienda, el supermercado, las facturas y lo demás que no se pueda recortar.",
+        "action": "Abrir categorías"
+      },
+      "logExpenses": {
+        "title": "Registra tus gastos del mes",
+        "text": "Para calcular tu fondo de emergencia, necesitamos saber cuánto cuestan la vivienda, el supermercado y las facturas. Registra esos gastos, o indica el valor total arriba.",
+        "action": "Ir a movimientos"
+      },
+      "complete": {
+        "title": "Tu fondo de emergencia está completo",
+        "text": "Deja este dinero guardado y repónlo siempre que lo uses. Lo que guardes de aquí en adelante puede ir a tus metas.",
+        "action": "Ver mis metas"
+      },
+      "completeExtra": {
+        "title": "Tu fondo de emergencia está completo",
+        "text": "Tienes {amount} más de lo necesario. Ese excedente puede ir a tus metas. Deja el resto guardado y repónlo siempre que lo uses.",
+        "action": "Ver mis metas"
+      },
+      "createAccount": {
+        "title": "Crea la cuenta del fondo",
+        "text": "El fondo de emergencia está en una cuenta tuya. Crea una cuenta para guardar este dinero y luego márcala aquí.",
+        "action": "Crear cuenta"
+      },
+      "chooseAccount": {
+        "title": "Elige dónde está el fondo",
+        "text": "Marca la cuenta donde guardas este dinero. Si aún no tienes una aparte, vale la pena crear una solo para esto.",
+        "action": "Elegir cuenta"
+      },
+      "setAmount": {
+        "title": "Define cuánto guardar al mes",
+        "text": "Elige un valor que quepa en tu mes, aunque sea pequeño. Así te mostramos cuándo estará listo el fondo.",
+        "action": "Definir valor"
+      },
+      "saveOne": {
+        "title": "Guarda {amount} este mes",
+        "text": "Pon este valor en {place}. Repite cada mes hasta completar el fondo.",
+        "action": "Ir a cuentas"
+      },
+      "saveMany": {
+        "title": "Guarda {amount} este mes",
+        "text": "Pon este valor en una de las cuentas del fondo. Repite cada mes hasta completar el fondo.",
+        "action": "Ir a cuentas"
+      }
+    },
+    "how": {
+      "title": "Cómo funciona",
+      "source": "<b>De dónde salen los gastos esenciales.</b> Sumamos todo lo que registraste en categorías marcadas como esenciales, incluidas las compras con tarjeta y las cuotas de deudas. Usamos el promedio de los últimos 3 meses cerrados. Si acabas de empezar, verás una estimación basada en el mes actual, y puedes indicar el valor si lo prefieres.",
+      "mark": "<b>Cómo marcar una categoría como esencial.</b> En <link>Categorías</link>, edita la categoría y marca “Es un gasto esencial”. A partir de ahí, los gastos de esa categoría entran en el cálculo.",
+      "money": "<b>Cómo entra el dinero en el fondo.</b> El fondo de emergencia no es una cuenta nueva: suma el saldo de las cuentas que marcas aquí. Si el saldo sube o baja, el fondo lo acompaña."
+    }
+  },
+  "patrimonio": {
+    "metaTitle": "Patrimonio",
+    "eyebrow": "Patrimonio neto",
+    "description": "Lo que tienes menos lo que debes.",
+    "newAsset": "Nuevo bien",
+    "amountPlaceholder": "0,00",
+    "fxNote": {
+      "converted": "Convertido con la cotización del {date}.",
+      "missing": "Aún sin cotización de {names}: esas cuentas quedan fuera de la suma.",
+      "currency": {
+        "USD": "dólar",
+        "EUR": "euro"
+      }
+    },
+    "kinds": {
+      "imovel": "Inmueble",
+      "veiculo": "Vehículo",
+      "outro": "Otro bien"
+    },
+    "errors": {
+      "name": "Indica el nombre del bien.",
+      "kind": "Elige el tipo.",
+      "value": "Indica el valor como 350.000,00.",
+      "date": "Indica la fecha del valor.",
+      "invalidDate": "Fecha no válida.",
+      "debt": "Elige una deuda válida.",
+      "check": "Revisa los datos."
+    },
+    "saved": {
+      "updated": "Bien guardado.",
+      "created": "Bien creado."
+    },
+    "form": {
+      "name": "Nombre del bien",
+      "namePlaceholder": "Ej.: Apartamento",
+      "kind": "Tipo",
+      "value": "Valor hoy (R$)",
+      "valueHint": "Por cuánto lo venderías.",
+      "valuedOn": "Fecha del valor",
+      "linkedDebt": "Deuda vinculada a este bien",
+      "linkedDebtHint": "Opcional. Muestra cuánto ya es realmente tuyo.",
+      "noDebt": "Ninguna",
+      "submit": "Guardar bien"
+    },
+    "stats": {
+      "owned": "Lo que tienes",
+      "owed": "Lo que debes",
+      "assets": "Bienes",
+      "assetsHint": "Valores indicados por ti.",
+      "cards": "Tarjetas",
+      "cardsHint": "Facturas abiertas y cuotas futuras."
+    },
+    "evolution": {
+      "title": "Evolución",
+      "description": "Una foto por mes, en los últimos 12 meses."
+    },
+    "owned": {
+      "title": "Lo que tienes",
+      "accounts": "Cuentas",
+      "investments": "Inversiones",
+      "portfolio": "Cartera",
+      "goals": "Metas",
+      "savedForGoals": "Guardado para metas",
+      "assets": "Bienes",
+      "assetsEmpty": "Inmuebles, vehículos y otros bienes van aquí.",
+      "addAsset": "Agregar bien",
+      "valuedOn": "{kind} · valor del {date}",
+      "equity": "Ya es tuyo: {amount}",
+      "edit": "Editar {name}",
+      "delete": "Eliminar {name}"
+    },
+    "owes": {
+      "title": "Lo que debes",
+      "empty": "Ninguna deuda ni compra con tarjeta pendiente.",
+      "debts": "Deudas",
+      "cards": "Tarjetas"
+    },
+    "sheet": {
+      "edit": "Editar bien",
+      "new": "Nuevo bien"
+    },
+    "confirm": {
+      "title": "Eliminar bien",
+      "text": "\"{name}\" sale de tu patrimonio. Las fotos de meses anteriores no cambian.",
+      "action": "Eliminar"
+    },
+    "chart": {
+      "emptyTitle": "El gráfico empieza con dos meses",
+      "emptyText": "Guardamos una foto de tu patrimonio cada mes. La línea aparece a partir del próximo.",
+      "point": "{month}: patrimonio de {amount}",
+      "owned": "Tienes",
+      "owed": "Debes",
+      "net": "Neto",
+      "caption": "Evolución del patrimonio neto",
+      "month": "Mes",
+      "netWorth": "Patrimonio neto"
+    }
+  },
   "meta": {
     "description": "Las finanzas de tu familia, sus sueños y la jubilación en un solo plan."
   },

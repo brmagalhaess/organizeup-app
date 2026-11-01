@@ -1,5 +1,6 @@
 "use client";
 import { ArrowRight, ChevronDown, ShieldCheck } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   useActionState,
@@ -10,15 +11,7 @@ import {
   useTransition,
   type ReactNode,
 } from "react";
-import {
-  addMonths,
-  formatBRL,
-  formatYearMonth,
-  money,
-  monthsToReserve,
-  parseBRL,
-  reserveStatus,
-} from "@organizeup/domain";
+import { addMonths, money, monthsToReserve, parseMoney, reserveStatus } from "@organizeup/domain";
 import { FxNote } from "@/components/fx-note";
 import { buttonClass, cx } from "@/components/styles";
 import {
@@ -33,6 +26,8 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
+import { formatAmount, formatMonthYear, formatPercent, toFieldValue } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
 import type { loadReserve } from "@/lib/wealth";
 import {
   saveReserveContribution,
@@ -48,21 +43,7 @@ type Status = Data["status"];
 
 const initial: ReserveFormState = { ok: false, message: null };
 
-const months = (value: number) =>
-  `${value.toLocaleString("pt-BR")} ${value === 1 ? "mês" : "meses"}`;
-
-const toInput = (value: string | null) => value?.replace(".", ",") ?? "";
-
-function basisText(data: Data) {
-  const { basis, months: used } = data.baseline;
-  if (basis === "informado") return "Você informou esse valor.";
-  if (basis === "media")
-    return used === 1
-      ? "Vem dos seus gastos do último mês fechado."
-      : `Vem da média dos seus gastos nos últimos ${used} meses.`;
-  return "É uma estimativa pelo mês atual, com o que está previsto.";
-}
-
+/** Valor do banco de volta ao campo, com as duas casas: "500.00" vira "500,00" em português. */
 /** Número de meses digitado, ou null enquanto não for um valor aceito. */
 function parseMonths(text: string) {
   const value = Number(text);
@@ -70,10 +51,10 @@ function parseMonths(text: string) {
 }
 
 /** Valor digitado em banco ("500.00"), null em branco e "invalid" se não der para ler. */
-function parseAmount(text: string) {
+function parseAmount(text: string, locale: Locale) {
   if (!text.trim()) return null;
   try {
-    const value = parseBRL(text);
+    const value = parseMoney(text, locale);
     return value.lte(0) ? "invalid" : value.toFixed(2);
   } catch {
     return "invalid";
@@ -81,38 +62,38 @@ function parseAmount(text: string) {
 }
 
 function EssentialForm({ data, onDone }: { data: Data; onDone: () => void }) {
+  const t = useTranslations("reserva");
+  const common = useTranslations("common");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(saveReserveEssential, initial);
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
-      <p className="text-sm text-muted">
-        É o que sua família precisa para viver um mês: moradia, mercado, contas e transporte.
-      </p>
-      <Field
-        label="Gasto essencial por mês (R$)"
-        hint="Opcional. Em branco, calculamos pelos lançamentos em categorias essenciais."
-      >
+      <p className="text-sm text-muted">{t("essential.intro")}</p>
+      <Field label={t("essential.label")} hint={t("essential.hint")}>
         <Input
           name="monthly"
           inputMode="decimal"
-          placeholder="0,00"
-          defaultValue={toInput(data.informedMonthly)}
+          placeholder={t("amountPlaceholder")}
+          defaultValue={toFieldValue(data.informedMonthly, locale)}
         />
       </Field>
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar gasto essencial"}
+        {pending ? common("saving") : t("essential.submit")}
       </Button>
     </form>
   );
 }
 
 function SaveInline({ pending, label }: { pending: boolean; label: string }) {
+  const t = useTranslations("reserva");
+  const common = useTranslations("common");
   return (
     <Button type="submit" variant="secondary" disabled={pending} aria-label={label}>
-      {pending ? "Salvando…" : "Salvar"}
+      {pending ? common("saving") : t("save")}
     </Button>
   );
 }
@@ -128,6 +109,7 @@ function MonthsField({
   onChange: (text: string) => void;
   writable: boolean;
 }) {
+  const t = useTranslations("reserva");
   const [state, action, pending] = useActionState(saveReserveMonths, initial);
   const typed = parseMonths(text);
   const dirty = typed !== null && typed !== saved;
@@ -135,9 +117,9 @@ function MonthsField({
     <form onSubmit={submitKeeping(action)} className="flex flex-wrap items-end gap-2">
       <div className="w-36">
         <Field
-          label="Meses de reserva"
-          hint="De 1 a 60."
-          error={typed === null ? "Informe de 1 a 60 meses." : undefined}
+          label={t("months.label")}
+          hint={t("months.hint")}
+          error={typed === null ? t("errors.months") : undefined}
         >
           <Input
             name="targetMonths"
@@ -154,7 +136,7 @@ function MonthsField({
       </div>
       {writable && dirty ? (
         <div className="pb-5">
-          <SaveInline pending={pending} label="Salvar meses de reserva" />
+          <SaveInline pending={pending} label={t("months.saveLabel")} />
         </div>
       ) : null}
       <div className="w-full">
@@ -171,6 +153,7 @@ function AccountToggle({
   account: Data["accounts"][number];
   writable: boolean;
 }) {
+  const locale = useLocale();
   const [selected, setSelected] = useOptimistic(account.selected);
   const [, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -202,7 +185,7 @@ function AccountToggle({
         <span className={cx("min-w-0 flex-1 break-words", selected && "font-medium")}>
           {account.name}
         </span>
-        <span className="tabular-nums text-muted">{formatBRL(account.balance)}</span>
+        <span className="tabular-nums text-muted">{formatAmount(account.balance, locale)}</span>
       </label>
       <FormMessage message={error} />
     </li>
@@ -224,30 +207,41 @@ function NeedCard({
   writable: boolean;
   onEdit: () => void;
 }) {
+  const t = useTranslations("reserva");
+  const locale = useLocale();
   if (data.baseline.basis === "sem_dados")
     return (
-      <Card title="Quanto preciso guardar">
-        <p className="font-semibold">Falta saber seu gasto essencial</p>
-        <p className="mt-1 text-sm text-muted">
-          O valor da reserva depende de quanto sua família gasta por mês com o que não dá para
-          cortar. Com esse número, calculamos o resto.
-        </p>
+      <Card title={t("need.title")}>
+        <p className="font-semibold">{t("need.unknownTitle")}</p>
+        <p className="mt-1 text-sm text-muted">{t("need.unknownText")}</p>
         {writable ? (
           <Button variant="secondary" className="mt-4" onClick={onEdit}>
-            Informar gasto essencial
+            {t("need.inform")}
           </Button>
         ) : null}
       </Card>
     );
 
   const used = parseMonths(monthsText) ?? data.targetMonths;
+  const { basis, months } = data.baseline;
   return (
-    <Card title="Quanto preciso guardar">
-      <p className="font-display text-4xl font-medium tabular-nums">{formatBRL(status.target)}</p>
-      <p className="mt-2 text-sm">
-        {months(used)} dos seus gastos essenciais, de {formatBRL(data.baseline.monthly)} por mês.
+    <Card title={t("need.title")}>
+      <p className="font-display text-4xl font-medium tabular-nums">
+        {formatAmount(status.target, locale)}
       </p>
-      <p className="mt-1 text-sm text-muted">{basisText(data)}</p>
+      <p className="mt-2 text-sm">
+        {t("need.summary", {
+          count: used,
+          amount: formatAmount(data.baseline.monthly, locale),
+        })}
+      </p>
+      <p className="mt-1 text-sm text-muted">
+        {basis === "informado"
+          ? t("need.basis.informed")
+          : basis === "media"
+            ? t("need.basis.average", { months })
+            : t("need.basis.estimate")}
+      </p>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <MonthsField
           saved={data.targetMonths}
@@ -257,7 +251,7 @@ function NeedCard({
         />
         {writable ? (
           <Button variant="ghost" onClick={onEdit}>
-            Ajustar gasto essencial
+            {t("need.adjust")}
           </Button>
         ) : null}
       </div>
@@ -266,31 +260,28 @@ function NeedCard({
 }
 
 function HaveCard({ data, status, writable }: { data: Data; status: Status; writable: boolean }) {
+  const t = useTranslations("reserva.have");
+  const locale = useLocale();
   const selected = data.accounts.filter((account) => account.selected);
   return (
-    <Card title="Quanto já tenho">
-      <p className="font-display text-4xl font-medium tabular-nums">{formatBRL(status.saved)}</p>
+    <Card title={t("title")}>
+      <p className="font-display text-4xl font-medium tabular-nums">
+        {formatAmount(status.saved, locale)}
+      </p>
       <FxNote fx={data.fx} className="m-0 mt-1 text-xs text-muted" />
       <p className="mt-2 text-sm">
-        {selected.length === 0
-          ? "Nenhuma conta marcada ainda."
-          : selected.length === 1
-            ? `Guardado em ${selected[0]!.name}.`
-            : `Guardado em ${selected.length} contas.`}
+        {t("status", { count: selected.length, name: selected[0]?.name ?? "" })}
       </p>
-      <p className="mt-1 text-sm text-muted">
-        A reserva é o saldo das contas marcadas abaixo. A conta entra inteira, então prefira uma
-        conta só para isso.
-      </p>
+      <p className="mt-1 text-sm text-muted">{t("text")}</p>
       {data.accounts.length === 0 ? (
         <div className="mt-4">
           <EmptyState
-            title="Você ainda não tem conta cadastrada"
-            text="Cadastre a conta onde guarda esse dinheiro para ela aparecer aqui."
+            title={t("emptyTitle")}
+            text={t("emptyText")}
             action={
               writable ? (
                 <Link href="/app/contas" className={buttonClass("secondary")}>
-                  Cadastrar conta
+                  {t("emptyAction")}
                 </Link>
               ) : null
             }
@@ -298,7 +289,7 @@ function HaveCard({ data, status, writable }: { data: Data; status: Status; writ
         </div>
       ) : (
         <ul
-          aria-label="Contas da reserva"
+          aria-label={t("listLabel")}
           className="m-0 mt-3 list-none divide-y divide-line border-y border-line p-0"
         >
           {data.accounts.map((account) => (
@@ -323,24 +314,28 @@ function ContributionForm({
   suggested: string | null;
   writable: boolean;
 }) {
+  const t = useTranslations("reserva");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(saveReserveContribution, initial);
-  const typed = parseAmount(text);
+  const typed = parseAmount(text, locale);
   const saved = data.contribution === null ? null : money(data.contribution).toFixed(2);
   const dirty = typed !== "invalid" && typed !== saved;
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-wrap items-end gap-2">
       <div className="w-72 max-w-full">
         <Field
-          label="Quanto consigo guardar por mês (R$)"
+          label={t("contribution.label")}
           hint={
-            suggested && !saved ? `Seu plano sugere ${formatBRL(suggested)} por mês.` : undefined
+            suggested && !saved
+              ? t("contribution.hint", { amount: formatAmount(suggested, locale) })
+              : undefined
           }
-          error={typed === "invalid" ? "Informe um valor como 500,00." : undefined}
+          error={typed === "invalid" ? t("errors.amountExample") : undefined}
         >
           <Input
             name="contribution"
             inputMode="decimal"
-            placeholder="0,00"
+            placeholder={t("amountPlaceholder")}
             value={text}
             onChange={(event) => onChange(event.target.value)}
           />
@@ -348,7 +343,7 @@ function ContributionForm({
       </div>
       {writable && dirty ? (
         <div className={suggested && !saved ? "pb-5" : undefined}>
-          <SaveInline pending={pending} label="Salvar quanto guardar por mês" />
+          <SaveInline pending={pending} label={t("contribution.saveLabel")} />
         </div>
       ) : null}
       <div className="w-full">
@@ -379,33 +374,32 @@ function MissingCard({
   suggested: string | null;
   writable: boolean;
 }) {
+  const t = useTranslations("reserva.missing");
+  const locale = useLocale();
   if (data.baseline.basis === "sem_dados")
     return (
-      <Card title="Quanto falta">
-        <p className="text-sm text-muted">
-          Assim que soubermos seu gasto essencial, mostramos quanto falta e em quanto tempo você
-          chega lá.
-        </p>
+      <Card title={t("title")}>
+        <p className="text-sm text-muted">{t("unknownText")}</p>
       </Card>
     );
 
   const left = amount === null ? null : monthsToReserve(status.missing, amount);
   return (
-    <Card title="Quanto falta">
+    <Card title={t("title")}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <p className="font-display text-4xl font-medium tabular-nums">
-          {formatBRL(status.missing)}
+          {formatAmount(status.missing, locale)}
         </p>
         {done ? (
           <Badge tone="success">
             <ShieldCheck className="size-3" aria-hidden="true" />
-            Reserva completa
+            {t("complete")}
           </Badge>
         ) : null}
       </div>
       <div
         role="progressbar"
-        aria-label="Progresso da reserva"
+        aria-label={t("progressLabel")}
         aria-valuenow={percent}
         aria-valuemin={0}
         aria-valuemax={100}
@@ -414,7 +408,10 @@ function MissingCard({
         <div className="h-full rounded-full bg-brand-500" style={{ width: `${percent}%` }} />
       </div>
       <p className="mt-2 text-sm text-muted">
-        {percent}% do alvo · cobre {months(status.coveredMonths)} de gastos essenciais
+        {t("progress", {
+          percent: formatPercent(percent, locale),
+          count: status.coveredMonths,
+        })}
       </p>
       {done ? null : (
         <div className="mt-5 border-t border-line pt-4">
@@ -427,10 +424,12 @@ function MissingCard({
           />
           {left !== null && amount !== null ? (
             <p role="status" className="mt-3 text-sm">
-              Guardando <span className="font-semibold">{formatBRL(amount)}</span> por mês, você
-              chega em{" "}
-              <span className="font-semibold">{formatYearMonth(addMonths(data.month, left))}</span>,
-              daqui a {months(left)}.
+              {t.rich("forecast", {
+                amount: formatAmount(amount, locale),
+                date: formatMonthYear(addMonths(data.month, left), locale),
+                count: left,
+                b: (chunks) => <span className="font-semibold">{chunks}</span>,
+              })}
             </p>
           ) : null}
         </div>
@@ -440,11 +439,17 @@ function MissingCard({
 }
 
 function NextStepCard({ step, writable }: { step: NextStep; writable: boolean }) {
-  const { action } = step;
+  const t = useTranslations("reserva.nextStep");
+  const locale = useLocale();
+  const { action, key } = step;
+  const values = {
+    amount: step.amount ? formatAmount(step.amount, locale) : "",
+    place: step.place ?? "",
+  };
   const className = cx(buttonClass("accent"), "shrink-0");
   const content = (
     <>
-      {action.label}
+      {t(`${key}.action`)}
       <ArrowRight className="size-4" aria-hidden="true" />
     </>
   );
@@ -452,10 +457,10 @@ function NextStepCard({ step, writable }: { step: NextStep; writable: boolean })
     <section className="flex flex-col gap-4 rounded-2xl bg-brand-900 p-5 text-white shadow-card sm:flex-row sm:items-center sm:justify-between sm:p-6">
       <div className="min-w-0">
         <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-sand-200">
-          Próximo passo
+          {t("heading")}
         </h2>
-        <p className="mt-1 font-display text-2xl font-medium">{step.title}</p>
-        <p className="mt-1 max-w-2xl text-sm text-sand-100">{step.text}</p>
+        <p className="mt-1 font-display text-2xl font-medium">{t(`${key}.title`, values)}</p>
+        <p className="mt-1 max-w-2xl text-sm text-sand-100">{t(`${key}.text`, values)}</p>
       </div>
       {!action.writes || writable ? (
         action.href.startsWith("#") ? (
@@ -473,35 +478,30 @@ function NextStepCard({ step, writable }: { step: NextStep; writable: boolean })
 }
 
 function HowItWorks() {
+  const t = useTranslations("reserva.how");
+  const b = (chunks: ReactNode) => <span className="font-semibold">{chunks}</span>;
   return (
     <details className="group rounded-2xl border border-line bg-card shadow-card">
       <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-5 font-semibold sm:px-6 [&::-webkit-details-marker]:hidden">
-        <span>Como funciona</span>
+        <span>{t("title")}</span>
         <ChevronDown
           className="size-5 shrink-0 text-muted transition group-open:rotate-180"
           aria-hidden="true"
         />
       </summary>
       <div className="flex flex-col gap-3 px-5 pb-5 text-sm sm:px-6 sm:pb-6">
+        <p>{t.rich("source", { b })}</p>
         <p>
-          <span className="font-semibold">De onde vêm os gastos essenciais.</span> Somamos tudo que
-          você lançou em categorias marcadas como essenciais, inclusive compras no cartão e parcelas
-          de dívida. Usamos a média dos últimos 3 meses fechados. Quem acabou de começar vê uma
-          estimativa pelo mês atual, e você pode informar o valor se preferir.
+          {t.rich("mark", {
+            b,
+            link: (chunks) => (
+              <Link href="/app/categorias" className="font-medium underline">
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
-        <p>
-          <span className="font-semibold">Como marcar uma categoria como essencial.</span> Em{" "}
-          <Link href="/app/categorias" className="font-medium underline">
-            Categorias
-          </Link>
-          , edite a categoria e marque “É um gasto essencial”. A partir daí, os gastos dessa
-          categoria entram no cálculo.
-        </p>
-        <p>
-          <span className="font-semibold">Como o dinheiro entra na reserva.</span> A reserva não é
-          uma conta nova: ela soma o saldo das contas que você marca aqui. Se o saldo sobe ou desce,
-          a reserva acompanha.
-        </p>
+        <p>{t.rich("money", { b })}</p>
       </div>
     </details>
   );
@@ -518,12 +518,14 @@ export function ReserveBoard({
   writable: boolean;
   insights: ReactNode;
 }) {
+  const t = useTranslations("reserva");
+  const locale = useLocale();
   const [editing, setEditing] = useState<number | null>(null);
   const close = () => setEditing(null);
   const open = () => setEditing((nonce) => (nonce ?? 0) + 1);
 
   const [monthsText, setMonthsText] = useState(String(data.targetMonths));
-  const [contributionText, setContributionText] = useState(toInput(data.contribution));
+  const [contributionText, setContributionText] = useState(toFieldValue(data.contribution, locale));
 
   // O alvo acompanha o número digitado antes de salvar.
   const status = useMemo(
@@ -536,7 +538,7 @@ export function ReserveBoard({
     [data.status.saved, data.baseline.monthly, data.targetMonths, monthsText],
   );
 
-  const typed = parseAmount(contributionText);
+  const typed = parseAmount(contributionText, locale);
   const amount = typed === "invalid" ? null : (typed ?? suggested);
   const hasBaseline = data.baseline.basis !== "sem_dados";
   const done = hasBaseline && money(status.missing).isZero();
@@ -552,11 +554,7 @@ export function ReserveBoard({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Reserva"
-        title="Reserva de emergência"
-        description="Dinheiro guardado para imprevistos, como perda de renda ou conserto, sem precisar se endividar."
-      />
+      <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
       {insights}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -590,7 +588,7 @@ export function ReserveBoard({
       <NextStepCard step={step} writable={writable} />
       <HowItWorks />
 
-      <Sheet open={editing !== null} onClose={close} title="Gasto essencial">
+      <Sheet open={editing !== null} onClose={close} title={t("essential.sheetTitle")}>
         <EssentialForm key={editing} data={data} onDone={close} />
       </Sheet>
     </div>

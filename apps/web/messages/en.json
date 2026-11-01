@@ -1,4 +1,264 @@
 {
+  "plano": {
+    "metaTitle": "Your plan",
+    "eyebrow": "This month",
+    "title": "Your plan",
+    "description": {
+      "default": "The actions that bring your family closest to retirement.",
+      "year": "With what you save today, your portfolio reaches the goal in {year}.",
+      "yearTarget": "With what you save today, your portfolio reaches the goal in {year}, and your target is {target}."
+    },
+    "yearsEarlier": "{years, plural, =1 {1 year sooner} other {# years sooner}}",
+    "disclaimer": "Estimates in today’s reais, with no guaranteed return. Educational content, not an investment recommendation.",
+    "actions": {
+      "completar": {
+        "title": "Complete your retirement plan",
+        "text": "Without the year you want to stop and the income you want, we can’t calculate the effect of each choice.",
+        "link": "Complete the plan"
+      },
+      "reserva": {
+        "title": "Save {amount} in your emergency fund",
+        "text": "The emergency fund comes first: it keeps you from using expensive credit when something unexpected happens.",
+        "link": "See the emergency fund"
+      },
+      "divida": {
+        "title": "Pay {amount} more on your most expensive debt",
+        "text": "The interest on this debt costs more than your money earns. Once it’s paid off, the amount goes to your plan.",
+        "link": "See debts"
+      },
+      "guardar": {
+        "title": "Save {amount} more per month",
+        "text": "This amount goes into your retirement plan and starts earning dividends.",
+        "link": "See the plan"
+      },
+      "gasto": {
+        "title": "Cut {amount} from {category}",
+        "text": "That’s 10% of your largest category last month. Saving the difference also shortens the path.",
+        "link": "See transactions"
+      }
+    }
+  },
+  "reserva": {
+    "metaTitle": "Emergency fund",
+    "eyebrow": "Emergency fund",
+    "title": "Emergency fund",
+    "description": "Money set aside for the unexpected, like a loss of income or a repair, so you don’t have to go into debt.",
+    "save": "Save",
+    "amountPlaceholder": "0.00",
+    "errors": {
+      "months": "Enter 1 to 60 months.",
+      "essential": "Enter your essential expenses like 3,500.00.",
+      "contribution": "Enter how much to save per month like 500.00.",
+      "amountExample": "Enter an amount like 500.00.",
+      "invalidAccount": "Invalid account.",
+      "accountGone": "This account is no longer available.",
+      "check": "Check the information."
+    },
+    "saved": {
+      "months": "Months saved.",
+      "essential": "Essential expenses saved.",
+      "contribution": "Amount saved."
+    },
+    "essential": {
+      "sheetTitle": "Essential expenses",
+      "intro": "This is what your family needs to live for a month: housing, groceries, bills and transportation.",
+      "label": "Essential expenses per month (R$)",
+      "hint": "Optional. If left blank, we calculate it from transactions in essential categories.",
+      "submit": "Save essential expenses"
+    },
+    "need": {
+      "title": "How much I need to save",
+      "unknownTitle": "We still need your essential expenses",
+      "unknownText": "The size of your emergency fund depends on how much your family spends each month on what can’t be cut. With that number, we calculate the rest.",
+      "inform": "Enter essential expenses",
+      "summary": "{count, plural, =1 {# month} other {# months}} of your essential expenses, at {amount} per month.",
+      "adjust": "Adjust essential expenses",
+      "basis": {
+        "informed": "You entered this amount.",
+        "average": "{months, plural, =1 {Based on your expenses in the last closed month.} other {Based on your average expenses over the last # months.}}",
+        "estimate": "This is an estimate based on the current month, including what’s planned."
+      }
+    },
+    "months": {
+      "label": "Months covered",
+      "hint": "From 1 to 60.",
+      "saveLabel": "Save months covered"
+    },
+    "have": {
+      "title": "How much I already have",
+      "status": "{count, plural, =0 {No account selected yet.} =1 {Kept in {name}.} other {Kept in # accounts.}}",
+      "text": "Your emergency fund is the balance of the accounts selected below. The whole account counts, so it’s best to use an account just for this.",
+      "emptyTitle": "You don’t have any accounts yet",
+      "emptyText": "Add the account where you keep this money so it shows up here.",
+      "emptyAction": "Add account",
+      "listLabel": "Emergency fund accounts"
+    },
+    "missing": {
+      "title": "How much is left",
+      "unknownText": "As soon as we know your essential expenses, we’ll show how much is left and how long it will take you to get there.",
+      "complete": "Fund complete",
+      "progressLabel": "Emergency fund progress",
+      "progress": "{percent} of the goal · covers {count, plural, =1 {# month} other {# months}} of essential expenses",
+      "forecast": "Saving <b>{amount}</b> per month, you’ll get there in <b>{date}</b>, {count, plural, =1 {# month} other {# months}} from now."
+    },
+    "contribution": {
+      "label": "How much I can save per month (R$)",
+      "hint": "Your plan suggests {amount} per month.",
+      "saveLabel": "Save how much to set aside per month"
+    },
+    "nextStep": {
+      "heading": "Next step",
+      "markEssential": {
+        "title": "Mark what’s essential",
+        "text": "You already have expenses logged, but none in an essential category. Mark housing, groceries, bills and anything else you can’t cut as essential.",
+        "action": "Open categories"
+      },
+      "logExpenses": {
+        "title": "Log this month’s expenses",
+        "text": "To calculate your emergency fund, we need to know how much housing, groceries and bills cost. Log these expenses, or enter the total amount above.",
+        "action": "Go to transactions"
+      },
+      "complete": {
+        "title": "Your emergency fund is complete",
+        "text": "Keep this money set aside and top it up whenever you use it. What you save from now on can go to your goals.",
+        "action": "See my goals"
+      },
+      "completeExtra": {
+        "title": "Your emergency fund is complete",
+        "text": "You have {amount} more than you need. This surplus can go to your goals. Keep the rest set aside and top it up whenever you use it.",
+        "action": "See my goals"
+      },
+      "createAccount": {
+        "title": "Create the emergency fund account",
+        "text": "Your emergency fund lives in one of your accounts. Create an account to keep this money and then select it here.",
+        "action": "Create account"
+      },
+      "chooseAccount": {
+        "title": "Choose where your emergency fund is kept",
+        "text": "Select the account where you keep this money. If you don’t have a separate one yet, it’s worth creating one just for this.",
+        "action": "Choose account"
+      },
+      "setAmount": {
+        "title": "Decide how much to save per month",
+        "text": "Pick an amount that fits your month, even a small one. Then we can show when your emergency fund will be ready.",
+        "action": "Set amount"
+      },
+      "saveOne": {
+        "title": "Save {amount} this month",
+        "text": "Put this amount in {place}. Repeat every month until your emergency fund is complete.",
+        "action": "Go to accounts"
+      },
+      "saveMany": {
+        "title": "Save {amount} this month",
+        "text": "Put this amount in one of your emergency fund accounts. Repeat every month until your emergency fund is complete.",
+        "action": "Go to accounts"
+      }
+    },
+    "how": {
+      "title": "How it works",
+      "source": "<b>Where essential expenses come from.</b> We add up everything you logged in categories marked as essential, including card purchases and debt installments. We use the average of the last 3 closed months. If you’re just getting started, you’ll see an estimate based on the current month, and you can enter the amount if you prefer.",
+      "mark": "<b>How to mark a category as essential.</b> In <link>Categories</link>, edit the category and check “This is an essential expense”. From then on, expenses in that category count toward the calculation.",
+      "money": "<b>How money gets into the emergency fund.</b> The emergency fund isn’t a new account: it adds up the balance of the accounts you select here. If the balance goes up or down, the fund follows."
+    }
+  },
+  "patrimonio": {
+    "metaTitle": "Net worth",
+    "eyebrow": "Net worth",
+    "description": "What you own minus what you owe.",
+    "newAsset": "New asset",
+    "amountPlaceholder": "0.00",
+    "fxNote": {
+      "converted": "Converted at the {date} exchange rate.",
+      "missing": "No exchange rate yet for {names}: these accounts are left out of the total.",
+      "currency": {
+        "USD": "dollar",
+        "EUR": "euro"
+      }
+    },
+    "kinds": {
+      "imovel": "Property",
+      "veiculo": "Vehicle",
+      "outro": "Other asset"
+    },
+    "errors": {
+      "name": "Enter the asset name.",
+      "kind": "Choose the type.",
+      "value": "Enter the value like 350,000.00.",
+      "date": "Enter the value date.",
+      "invalidDate": "Invalid date.",
+      "debt": "Choose a valid debt.",
+      "check": "Check the information."
+    },
+    "saved": {
+      "updated": "Asset saved.",
+      "created": "Asset created."
+    },
+    "form": {
+      "name": "Asset name",
+      "namePlaceholder": "E.g., Apartment",
+      "kind": "Type",
+      "value": "Value today (R$)",
+      "valueHint": "What you could sell it for.",
+      "valuedOn": "Value date",
+      "linkedDebt": "Debt linked to this asset",
+      "linkedDebtHint": "Optional. Shows how much is really yours.",
+      "noDebt": "None",
+      "submit": "Save asset"
+    },
+    "stats": {
+      "owned": "What you own",
+      "owed": "What you owe",
+      "assets": "Assets",
+      "assetsHint": "Amounts you entered.",
+      "cards": "Cards",
+      "cardsHint": "Open statements and future installments."
+    },
+    "evolution": {
+      "title": "Over time",
+      "description": "One snapshot per month, over the last 12 months."
+    },
+    "owned": {
+      "title": "What you own",
+      "accounts": "Accounts",
+      "investments": "Investments",
+      "portfolio": "Portfolio",
+      "goals": "Goals",
+      "savedForGoals": "Saved for goals",
+      "assets": "Assets",
+      "assetsEmpty": "Property, vehicles and other assets go here.",
+      "addAsset": "Add asset",
+      "valuedOn": "{kind} · value as of {date}",
+      "equity": "Already yours: {amount}",
+      "edit": "Edit {name}",
+      "delete": "Delete {name}"
+    },
+    "owes": {
+      "title": "What you owe",
+      "empty": "No debts or open card purchases.",
+      "debts": "Debts",
+      "cards": "Cards"
+    },
+    "sheet": {
+      "edit": "Edit asset",
+      "new": "New asset"
+    },
+    "confirm": {
+      "title": "Delete asset",
+      "text": "\"{name}\" will be removed from your net worth. Snapshots from previous months won’t change.",
+      "action": "Delete"
+    },
+    "chart": {
+      "emptyTitle": "The chart starts with two months",
+      "emptyText": "We save a snapshot of your net worth every month. The line appears starting next month.",
+      "point": "{month}: net worth of {amount}",
+      "owned": "Own",
+      "owed": "Owe",
+      "net": "Net",
+      "caption": "Net worth over time",
+      "month": "Month",
+      "netWorth": "Net worth"
+    }
+  },
   "meta": {
     "description": "Your family's money, dreams and retirement in one plan."
   },

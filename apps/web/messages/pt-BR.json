@@ -1,4 +1,264 @@
 {
+  "plano": {
+    "metaTitle": "Seu plano",
+    "eyebrow": "Este mês",
+    "title": "Seu plano",
+    "description": {
+      "default": "As ações que mais aproximam a sua família da aposentadoria.",
+      "year": "Com o que você guarda hoje, a carteira fecha em {year}.",
+      "yearTarget": "Com o que você guarda hoje, a carteira fecha em {year}, e o seu alvo é {target}."
+    },
+    "yearsEarlier": "{years, plural, =1 {1 ano mais cedo} other {# anos mais cedo}}",
+    "disclaimer": "Estimativas em reais de hoje, sem garantia de rendimento. Conteúdo educativo, não é recomendação de investimento.",
+    "actions": {
+      "completar": {
+        "title": "Complete o seu plano de aposentadoria",
+        "text": "Sem o ano em que você quer parar e a renda desejada, não dá para calcular o efeito de cada escolha.",
+        "link": "Completar o plano"
+      },
+      "reserva": {
+        "title": "Guarde {amount} na reserva",
+        "text": "A reserva vem primeiro: ela evita usar crédito caro quando surge um imprevisto.",
+        "link": "Ver a reserva"
+      },
+      "divida": {
+        "title": "Pague {amount} a mais na dívida mais cara",
+        "text": "Os juros dessa dívida custam mais do que o dinheiro rende. Depois de quitar, o valor segue para o seu plano.",
+        "link": "Ver as dívidas"
+      },
+      "guardar": {
+        "title": "Guarde {amount} a mais por mês",
+        "text": "Esse valor entra no plano de aposentadoria e passa a render proventos.",
+        "link": "Ver o plano"
+      },
+      "gasto": {
+        "title": "Reduza {amount} em {category}",
+        "text": "É 10% da sua maior categoria no mês passado. Guardar essa diferença também encurta o caminho.",
+        "link": "Ver os lançamentos"
+      }
+    }
+  },
+  "reserva": {
+    "metaTitle": "Reserva",
+    "eyebrow": "Reserva",
+    "title": "Reserva de emergência",
+    "description": "Dinheiro guardado para imprevistos, como perda de renda ou conserto, sem precisar se endividar.",
+    "save": "Salvar",
+    "amountPlaceholder": "0,00",
+    "errors": {
+      "months": "Informe de 1 a 60 meses.",
+      "essential": "Informe o gasto essencial como 3.500,00.",
+      "contribution": "Informe quanto guardar por mês como 500,00.",
+      "amountExample": "Informe um valor como 500,00.",
+      "invalidAccount": "Conta inválida.",
+      "accountGone": "Esta conta não está mais disponível.",
+      "check": "Verifique."
+    },
+    "saved": {
+      "months": "Meses salvos.",
+      "essential": "Gasto essencial salvo.",
+      "contribution": "Valor salvo."
+    },
+    "essential": {
+      "sheetTitle": "Gasto essencial",
+      "intro": "É o que sua família precisa para viver um mês: moradia, mercado, contas e transporte.",
+      "label": "Gasto essencial por mês (R$)",
+      "hint": "Opcional. Em branco, calculamos pelos lançamentos em categorias essenciais.",
+      "submit": "Salvar gasto essencial"
+    },
+    "need": {
+      "title": "Quanto preciso guardar",
+      "unknownTitle": "Falta saber seu gasto essencial",
+      "unknownText": "O valor da reserva depende de quanto sua família gasta por mês com o que não dá para cortar. Com esse número, calculamos o resto.",
+      "inform": "Informar gasto essencial",
+      "summary": "{count, plural, =1 {# mês} other {# meses}} dos seus gastos essenciais, de {amount} por mês.",
+      "adjust": "Ajustar gasto essencial",
+      "basis": {
+        "informed": "Você informou esse valor.",
+        "average": "{months, plural, =1 {Vem dos seus gastos do último mês fechado.} other {Vem da média dos seus gastos nos últimos # meses.}}",
+        "estimate": "É uma estimativa pelo mês atual, com o que está previsto."
+      }
+    },
+    "months": {
+      "label": "Meses de reserva",
+      "hint": "De 1 a 60.",
+      "saveLabel": "Salvar meses de reserva"
+    },
+    "have": {
+      "title": "Quanto já tenho",
+      "status": "{count, plural, =0 {Nenhuma conta marcada ainda.} =1 {Guardado em {name}.} other {Guardado em # contas.}}",
+      "text": "A reserva é o saldo das contas marcadas abaixo. A conta entra inteira, então prefira uma conta só para isso.",
+      "emptyTitle": "Você ainda não tem conta cadastrada",
+      "emptyText": "Cadastre a conta onde guarda esse dinheiro para ela aparecer aqui.",
+      "emptyAction": "Cadastrar conta",
+      "listLabel": "Contas da reserva"
+    },
+    "missing": {
+      "title": "Quanto falta",
+      "unknownText": "Assim que soubermos seu gasto essencial, mostramos quanto falta e em quanto tempo você chega lá.",
+      "complete": "Reserva completa",
+      "progressLabel": "Progresso da reserva",
+      "progress": "{percent} do alvo · cobre {count, plural, =1 {# mês} other {# meses}} de gastos essenciais",
+      "forecast": "Guardando <b>{amount}</b> por mês, você chega em <b>{date}</b>, daqui a {count, plural, =1 {# mês} other {# meses}}."
+    },
+    "contribution": {
+      "label": "Quanto consigo guardar por mês (R$)",
+      "hint": "Seu plano sugere {amount} por mês.",
+      "saveLabel": "Salvar quanto guardar por mês"
+    },
+    "nextStep": {
+      "heading": "Próximo passo",
+      "markEssential": {
+        "title": "Marque o que é essencial",
+        "text": "Você já tem gastos lançados, mas nenhum em categoria essencial. Marque como essenciais moradia, mercado, contas e o que mais não dá para cortar.",
+        "action": "Abrir categorias"
+      },
+      "logExpenses": {
+        "title": "Lance seus gastos do mês",
+        "text": "Para calcular sua reserva, precisamos saber quanto custam moradia, mercado e contas. Lance esses gastos, ou informe o valor total acima.",
+        "action": "Ir para lançamentos"
+      },
+      "complete": {
+        "title": "Sua reserva está completa",
+        "text": "Deixe esse dinheiro guardado e reponha sempre que usar. O que você guardar daqui em diante pode ir para suas metas.",
+        "action": "Ver minhas metas"
+      },
+      "completeExtra": {
+        "title": "Sua reserva está completa",
+        "text": "Você tem {amount} além do necessário. Esse excedente pode ir para suas metas. Deixe o resto guardado e reponha sempre que usar.",
+        "action": "Ver minhas metas"
+      },
+      "createAccount": {
+        "title": "Crie a conta da reserva",
+        "text": "A reserva fica em uma conta sua. Crie uma conta para guardar esse dinheiro e depois marque ela aqui.",
+        "action": "Criar conta"
+      },
+      "chooseAccount": {
+        "title": "Escolha onde fica a reserva",
+        "text": "Marque a conta onde você guarda esse dinheiro. Se ainda não tem uma separada, vale criar uma só para isso.",
+        "action": "Escolher conta"
+      },
+      "setAmount": {
+        "title": "Defina quanto guardar por mês",
+        "text": "Escolha um valor que caiba no seu mês, mesmo pequeno. Assim mostramos quando a reserva fica pronta.",
+        "action": "Definir valor"
+      },
+      "saveOne": {
+        "title": "Guarde {amount} este mês",
+        "text": "Coloque esse valor em {place}. Repita todo mês até completar a reserva.",
+        "action": "Ir para contas"
+      },
+      "saveMany": {
+        "title": "Guarde {amount} este mês",
+        "text": "Coloque esse valor em uma das contas da reserva. Repita todo mês até completar a reserva.",
+        "action": "Ir para contas"
+      }
+    },
+    "how": {
+      "title": "Como funciona",
+      "source": "<b>De onde vêm os gastos essenciais.</b> Somamos tudo que você lançou em categorias marcadas como essenciais, inclusive compras no cartão e parcelas de dívida. Usamos a média dos últimos 3 meses fechados. Quem acabou de começar vê uma estimativa pelo mês atual, e você pode informar o valor se preferir.",
+      "mark": "<b>Como marcar uma categoria como essencial.</b> Em <link>Categorias</link>, edite a categoria e marque “É um gasto essencial”. A partir daí, os gastos dessa categoria entram no cálculo.",
+      "money": "<b>Como o dinheiro entra na reserva.</b> A reserva não é uma conta nova: ela soma o saldo das contas que você marca aqui. Se o saldo sobe ou desce, a reserva acompanha."
+    }
+  },
+  "patrimonio": {
+    "metaTitle": "Patrimônio",
+    "eyebrow": "Patrimônio líquido",
+    "description": "O que você tem menos o que você deve.",
+    "newAsset": "Novo bem",
+    "amountPlaceholder": "0,00",
+    "fxNote": {
+      "converted": "Convertido pela cotação de {date}.",
+      "missing": "Ainda sem cotação de {names}: essas contas ficam fora da soma.",
+      "currency": {
+        "USD": "dólar",
+        "EUR": "euro"
+      }
+    },
+    "kinds": {
+      "imovel": "Imóvel",
+      "veiculo": "Veículo",
+      "outro": "Outro bem"
+    },
+    "errors": {
+      "name": "Informe o nome do bem.",
+      "kind": "Escolha o tipo.",
+      "value": "Informe o valor como 350.000,00.",
+      "date": "Informe a data do valor.",
+      "invalidDate": "Data inválida.",
+      "debt": "Escolha uma dívida válida.",
+      "check": "Verifique."
+    },
+    "saved": {
+      "updated": "Bem salvo.",
+      "created": "Bem criado."
+    },
+    "form": {
+      "name": "Nome do bem",
+      "namePlaceholder": "Ex.: Apartamento",
+      "kind": "Tipo",
+      "value": "Valor hoje (R$)",
+      "valueHint": "Quanto você venderia.",
+      "valuedOn": "Data do valor",
+      "linkedDebt": "Dívida ligada a este bem",
+      "linkedDebtHint": "Opcional. Mostra quanto já é realmente seu.",
+      "noDebt": "Nenhuma",
+      "submit": "Salvar bem"
+    },
+    "stats": {
+      "owned": "O que você tem",
+      "owed": "O que você deve",
+      "assets": "Bens",
+      "assetsHint": "Valores informados por você.",
+      "cards": "Cartões",
+      "cardsHint": "Faturas em aberto e parcelas futuras."
+    },
+    "evolution": {
+      "title": "Evolução",
+      "description": "Uma foto por mês, nos últimos 12 meses."
+    },
+    "owned": {
+      "title": "O que você tem",
+      "accounts": "Contas",
+      "investments": "Investimentos",
+      "portfolio": "Carteira",
+      "goals": "Metas",
+      "savedForGoals": "Guardado para metas",
+      "assets": "Bens",
+      "assetsEmpty": "Imóveis, veículos e outros bens entram aqui.",
+      "addAsset": "Adicionar bem",
+      "valuedOn": "{kind} · valor de {date}",
+      "equity": "Já é seu: {amount}",
+      "edit": "Editar {name}",
+      "delete": "Excluir {name}"
+    },
+    "owes": {
+      "title": "O que você deve",
+      "empty": "Nenhuma dívida nem compra no cartão em aberto.",
+      "debts": "Dívidas",
+      "cards": "Cartões"
+    },
+    "sheet": {
+      "edit": "Editar bem",
+      "new": "Novo bem"
+    },
+    "confirm": {
+      "title": "Excluir bem",
+      "text": "\"{name}\" sai do seu patrimônio. Fotos de meses anteriores não mudam.",
+      "action": "Excluir"
+    },
+    "chart": {
+      "emptyTitle": "O gráfico começa com dois meses",
+      "emptyText": "Guardamos uma foto do seu patrimônio todo mês. A linha aparece a partir do próximo.",
+      "point": "{month}: patrimônio de {amount}",
+      "owned": "Tem",
+      "owed": "Deve",
+      "net": "Líquido",
+      "caption": "Evolução do patrimônio líquido",
+      "month": "Mês",
+      "netWorth": "Patrimônio líquido"
+    }
+  },
   "meta": {
     "description": "Finanças da família, sonhos e aposentadoria em um só plano."
   },

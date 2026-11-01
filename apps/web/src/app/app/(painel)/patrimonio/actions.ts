@@ -1,8 +1,10 @@
 "use server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ASSET_KINDS, assets, canWrite, debts, eq, withHousehold } from "@organizeup/db";
-import { parseBRL, toDbAmount } from "@organizeup/domain";
+import { parseMoney, toDbAmount } from "@organizeup/domain";
+import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
 
@@ -11,33 +13,41 @@ export interface AssetFormState {
   message: string | null;
 }
 
-const schema = z.object({
-  id: z.string(),
-  name: z.string().trim().min(1, "Informe o nome do bem.").max(80),
-  kind: z.enum(ASSET_KINDS, { message: "Escolha o tipo." }),
-  value: z.string().transform((value, ctx) => {
-    try {
-      const parsed = parseBRL(value);
-      if (parsed.lt(0) || parsed.gte("1000000000000")) throw new RangeError("fora do limite");
-      return toDbAmount(parsed);
-    } catch {
-      ctx.addIssue({ code: "custom", message: "Informe o valor como 350.000,00." });
-      return z.NEVER;
-    }
-  }),
-  valuedOn: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data do valor.")
-    .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), "Data inválida."),
-  linkedDebtId: z.string(),
-});
+type Errors = Awaited<ReturnType<typeof getTranslations<"patrimonio.errors">>>;
+
+const assetSchema = (t: Errors, locale: Locale) =>
+  z.object({
+    id: z.string(),
+    name: z.string().trim().min(1, t("name")).max(80),
+    kind: z.enum(ASSET_KINDS, { message: t("kind") }),
+    value: z.string().transform((value, ctx) => {
+      try {
+        const parsed = parseMoney(value, locale);
+        if (parsed.lt(0) || parsed.gte("1000000000000")) throw new RangeError("fora do limite");
+        return toDbAmount(parsed);
+      } catch {
+        ctx.addIssue({ code: "custom", message: t("value") });
+        return z.NEVER;
+      }
+    }),
+    valuedOn: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, t("date"))
+      .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), t("invalidDate")),
+    linkedDebtId: z.string(),
+  });
 
 /** Cria um bem ou edita o do `id`. */
 export async function saveAsset(_prev: AssetFormState, form: FormData): Promise<AssetFormState> {
   const { ctx } = await requireTenant();
   if (!canWrite(ctx))
-    return { ok: false, message: "Seu papel nesta família não permite alterações." };
-  const parsed = schema.safeParse({
+    return { ok: false, message: (await getTranslations("settings"))("noPermission") };
+  const [t, saved, locale] = await Promise.all([
+    getTranslations("patrimonio.errors"),
+    getTranslations("patrimonio.saved"),
+    getLocale(),
+  ]);
+  const parsed = assetSchema(t, locale).safeParse({
     id: form.get("id") ?? "",
     name: form.get("name") ?? "",
     kind: form.get("kind"),
@@ -45,8 +55,7 @@ export async function saveAsset(_prev: AssetFormState, form: FormData): Promise<
     valuedOn: form.get("valuedOn") ?? "",
     linkedDebtId: form.get("linkedDebtId") ?? "",
   });
-  if (!parsed.success)
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? t("check") };
   const { id, name, kind, value, valuedOn } = parsed.data;
   const linkedDebtId = parsed.data.linkedDebtId || null;
 
@@ -56,7 +65,7 @@ export async function saveAsset(_prev: AssetFormState, form: FormData): Promise<
         .select({ id: debts.id })
         .from(debts)
         .where(eq(debts.id, linkedDebtId));
-      if (!debt) return "Escolha uma dívida válida.";
+      if (!debt) return t("debt");
     }
     if (id) {
       await tx
@@ -75,7 +84,7 @@ export async function saveAsset(_prev: AssetFormState, form: FormData): Promise<
   });
   if (failure) return { ok: false, message: failure };
   revalidatePath("/app", "layout");
-  return { ok: true, message: id ? "Bem salvo." : "Bem criado." };
+  return { ok: true, message: id ? saved("updated") : saved("created") };
 }
 
 export async function deleteAsset(form: FormData): Promise<void> {

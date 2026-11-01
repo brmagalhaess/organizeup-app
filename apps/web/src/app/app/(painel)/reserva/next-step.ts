@@ -1,5 +1,5 @@
-// O que a família deve fazer agora na reserva. Puro: recebe o estado e devolve texto e destino.
-import { formatBRL, money, type ReserveStatus } from "@organizeup/domain";
+// O que a família deve fazer agora na reserva. Puro: recebe o estado e devolve a chave do texto e o destino.
+import { money, toDbAmount, type ReserveStatus } from "@organizeup/domain";
 
 export interface NextStepInput {
   /** Já existe base para calcular o alvo? */
@@ -11,11 +11,25 @@ export interface NextStepInput {
   contribution: string | null;
 }
 
+export type NextStepKey =
+  | "markEssential"
+  | "logExpenses"
+  | "complete"
+  | "completeExtra"
+  | "createAccount"
+  | "chooseAccount"
+  | "setAmount"
+  | "saveOne"
+  | "saveMany";
+
 export interface NextStep {
-  title: string;
-  text: string;
+  /** Bloco de `reserva.nextStep` nas mensagens: título, texto e rótulo da ação. */
+  key: NextStepKey;
+  /** Valor citado no texto, em formato de banco. */
+  amount?: string;
+  /** Nome da conta citada no texto. */
+  place?: string;
   action: {
-    label: string;
     href: string;
     /** Leva a uma ação de escrita: quem só lê não vê o botão. */
     writes: boolean;
@@ -27,16 +41,8 @@ export function reserveNextStep(input: NextStepInput): NextStep {
 
   if (!hasBaseline) {
     return hasExpenses
-      ? {
-          title: "Marque o que é essencial",
-          text: "Você já tem gastos lançados, mas nenhum em categoria essencial. Marque como essenciais moradia, mercado, contas e o que mais não dá para cortar.",
-          action: { label: "Abrir categorias", href: "/app/categorias", writes: true },
-        }
-      : {
-          title: "Lance seus gastos do mês",
-          text: "Para calcular sua reserva, precisamos saber quanto custam moradia, mercado e contas. Lance esses gastos, ou informe o valor total acima.",
-          action: { label: "Ir para lançamentos", href: "/app/lancamentos", writes: true },
-        };
+      ? { key: "markEssential", action: { href: "/app/categorias", writes: true } }
+      : { key: "logExpenses", action: { href: "/app/lancamentos", writes: true } };
   }
 
   const selected = accounts.filter((account) => account.selected);
@@ -44,42 +50,25 @@ export function reserveNextStep(input: NextStepInput): NextStep {
 
   if (missing.isZero()) {
     const extra = money(status.saved).minus(status.target);
-    return {
-      title: "Sua reserva está completa",
-      text: extra.gt(0)
-        ? `Você tem ${formatBRL(extra)} além do necessário. Esse excedente pode ir para suas metas. Deixe o resto guardado e reponha sempre que usar.`
-        : "Deixe esse dinheiro guardado e reponha sempre que usar. O que você guardar daqui em diante pode ir para suas metas.",
-      action: { label: "Ver minhas metas", href: "/app/metas", writes: false },
-    };
+    const action = { href: "/app/metas", writes: false };
+    return extra.gt(0)
+      ? { key: "completeExtra", amount: toDbAmount(extra), action }
+      : { key: "complete", action };
   }
 
   if (accounts.length === 0)
-    return {
-      title: "Crie a conta da reserva",
-      text: "A reserva fica em uma conta sua. Crie uma conta para guardar esse dinheiro e depois marque ela aqui.",
-      action: { label: "Criar conta", href: "/app/contas", writes: true },
-    };
+    return { key: "createAccount", action: { href: "/app/contas", writes: true } };
 
   if (selected.length === 0)
-    return {
-      title: "Escolha onde fica a reserva",
-      text: "Marque a conta onde você guarda esse dinheiro. Se ainda não tem uma separada, vale criar uma só para isso.",
-      action: { label: "Escolher conta", href: "#quanto-tenho", writes: true },
-    };
+    return { key: "chooseAccount", action: { href: "#quanto-tenho", writes: true } };
 
   const each = contribution === null ? null : money(contribution);
   if (each === null || each.lte(0))
-    return {
-      title: "Defina quanto guardar por mês",
-      text: "Escolha um valor que caiba no seu mês, mesmo pequeno. Assim mostramos quando a reserva fica pronta.",
-      action: { label: "Definir valor", href: "#quanto-falta", writes: true },
-    };
+    return { key: "setAmount", action: { href: "#quanto-falta", writes: true } };
 
-  const amount = each.lt(missing) ? each : missing;
-  const place = selected.length === 1 ? selected[0]!.name : "uma das contas da reserva";
-  return {
-    title: `Guarde ${formatBRL(amount)} este mês`,
-    text: `Coloque esse valor em ${place}. Repita todo mês até completar a reserva.`,
-    action: { label: "Ir para contas", href: "/app/contas", writes: true },
-  };
+  const amount = toDbAmount(each.lt(missing) ? each : missing);
+  const action = { href: "/app/contas", writes: true };
+  return selected.length === 1
+    ? { key: "saveOne", amount, place: selected[0]!.name, action }
+    : { key: "saveMany", amount, action };
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
 import { money } from "@organizeup/domain";
 import { Insights } from "@/components/insights/insights";
@@ -7,7 +8,10 @@ import { loadDividendPlan } from "@/lib/planning";
 import { loadReserve } from "@/lib/wealth";
 import { ReserveBoard } from "./reserve-board";
 
-export const metadata: Metadata = { title: "Reserva" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("reserva");
+  return { title: t("metaTitle") };
+}
 
 export default async function ReservePage() {
   const { ctx } = await requireTenant();
