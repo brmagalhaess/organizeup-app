@@ -22,7 +22,22 @@ export {
   type StreamParams,
 } from "./client";
 export { checkModel, type ModelCheck } from "./check";
-export { activateAssistant, deactivateAssistant, setAssistantAutonomy } from "./consent";
+export {
+  acceptDebtFiles,
+  activateAssistant,
+  deactivateAssistant,
+  setAssistantAutonomy,
+} from "./consent";
+export {
+  DEBT_ROUTE,
+  debtFileGate,
+  extractionParams,
+  FILES_CONSENT_VERSION,
+  readDebtDocument,
+  sanitizeExtraction,
+  type DebtReadResult,
+  type ReadDebtDocumentInput,
+} from "./debts/read-document";
 export {
   INSIGHTS_CONSENT_VERSION,
   NIGHT_ROUTE,

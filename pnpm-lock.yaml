@@ -167,6 +167,9 @@ importers:
       '@organizeup/domain':
         specifier: workspace:*
         version: link:../domain
+      read-excel-file:
+        specifier: 9.3.14
+        version: 9.3.14
       zod:
         specifier: 4.6.7
         version: 4.6.7
