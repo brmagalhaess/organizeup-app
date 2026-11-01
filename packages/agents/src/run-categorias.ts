@@ -1,6 +1,7 @@
 // Agente diário de categorias (ADR-0015). Revisa os lançamentos dos últimos 90 dias: o que ficou
 // "para revisar" em Outras e a regra conhece muda sozinho (com Desfazer); o resto vira sugestão.
 import {
+  and,
   cardPurchases,
   cashflowPlans,
   categories,
@@ -8,7 +9,9 @@ import {
   categoryTemplates,
   desc,
   ensureCategory,
+  eq,
   gte,
+  householdReports,
   inArray,
   sql,
   transactions,
@@ -24,6 +27,7 @@ import {
   suggestCategoryMerges,
   type CategoryMerge,
   type MergeCategoryOption,
+  type ReportCategoriasIa,
   type ReviewGroup,
   type ReviewTransaction,
 } from "@organizeup/domain";
@@ -49,7 +53,6 @@ const quote = (name: string) => `‘${name}’`;
 
 export async function runCategoriasAgent(tx: TenantTx, input: AgentInput): Promise<AgentResult> {
   const { today, householdId } = input;
-  const actor = systemActor(householdId);
   const since = shiftDays(today, -REVIEW_DAYS);
 
   const categoryRows = await tx.select().from(categories);
@@ -114,73 +117,12 @@ export async function runCategoriasAgent(tx: TenantTx, input: AgentInput): Promi
   let applied = 0;
   const current = new Map(reviewRows.map((row) => [row.id, row]));
   for (const group of review.automatic) {
-    const target = await resolveTarget(tx, householdId, group, created);
-    if (!target) continue;
-    const previous = group.ids.flatMap((id) => {
-      const row = current.get(id);
-      return row
-        ? [{ transactionId: id, categoryId: row.categoryId, categorySource: row.categorySource }]
-        : [];
-    });
-    await tx
-      .update(transactions)
-      .set({ categoryId: target, categorySource: "agente", updatedAt: new Date() })
-      .where(inArray(transactions.id, group.ids));
-    await rememberAsAgent(tx, householdId, group.kind, group.merchant, target);
-    const toName = nameOf.get(target) ?? group.newCategory?.name ?? "";
-    const payload: CategoriaPayload = {
-      kind: group.kind,
-      transactionIds: group.ids,
-      fromCategoryId: group.fromCategoryId,
-      toCategoryId: target,
-      newCategory: group.newCategory,
-      merchant: group.merchant,
-      reason: group.reason,
-      previous,
-      appliedCategoryId: target,
-    };
-    const id = await recordApplied(tx, householdId, CATEGORIAS_AGENT, {
-      kind: "categoria",
-      title: `Movemos ${plural(group.ids.length, "lançamento", "lançamentos")} de ${quote(
-        nameOf.get(group.fromCategoryId) ?? "Outras",
-      )} para ${quote(toName)}`,
-      body:
-        `${group.reason}. Se não fizer sentido, use Desfazer: o assistente devolve os lançamentos ` +
-        `e não mexe mais neles.`,
-      payload,
-      dedupeKey: group.dedupeKey,
-    });
-    await recordAudit(tx, actor, "agente:categoria", "household_suggestions", id, {
-      transactions: group.ids.length,
-    });
-    applied += group.ids.length;
+    const target = await applyGroup(tx, householdId, group, current, nameOf, created);
+    if (target) applied += group.ids.length;
   }
 
   // 2. Sugeridos: ficam pendentes até a família decidir.
-  const pending: PendingSuggestion[] = review.suggested.map((group) => {
-    const toName = group.toCategoryId
-      ? (nameOf.get(group.toCategoryId) ?? "")
-      : (group.newCategory?.name ?? "");
-    const payload: CategoriaPayload = {
-      kind: group.kind,
-      transactionIds: group.ids,
-      fromCategoryId: group.fromCategoryId,
-      toCategoryId: group.toCategoryId,
-      newCategory: group.newCategory,
-      merchant: group.merchant,
-      reason: group.reason,
-    };
-    return {
-      kind: "categoria",
-      title: `Mover ${plural(group.ids.length, "lançamento", "lançamentos")} para ${quote(toName)}?`,
-      body:
-        `${group.reason}. Hoje ${group.ids.length === 1 ? "está" : "estão"} em ` +
-        `${quote(nameOf.get(group.fromCategoryId) ?? "")}. Aceitar move e o assistente passa a ` +
-        `usar ${quote(toName)} para este estabelecimento.`,
-      payload,
-      dedupeKey: group.dedupeKey,
-    };
-  });
+  const pending = review.suggested.map((group) => pendingOf(group, nameOf));
 
   // 3. Fusões de categorias parecidas: sempre sugestão.
   const merges = await suggestMerges(tx, categoryRows, recent);
@@ -189,13 +131,106 @@ export async function runCategoriasAgent(tx: TenantTx, input: AgentInput): Promi
   }
   const suggestions = await upsertPending(tx, householdId, CATEGORIAS_AGENT, decisions, pending);
 
+  // Esta revisão pode rodar de novo no dia: o que a etapa de IA já relatou continua no relatório.
   const report = dailyCategoryReport(review, merges.merges, {
     reviewed: reviewRows.length,
     created,
     day: today,
+    ...(await todayAiReport(tx, today)),
   });
   await saveDailyReport(tx, householdId, CATEGORIAS_AGENT, "categorias", today, report);
   return { suggestions, applied, report: { ...report, data: { ...report.data } } };
+}
+
+async function todayAiReport(tx: TenantTx, today: string): Promise<{ ia?: ReportCategoriasIa }> {
+  const [row] = await tx
+    .select({ data: householdReports.data })
+    .from(householdReports)
+    .where(and(eq(householdReports.kind, "categorias"), eq(householdReports.period, today)));
+  const ia = (row?.data as { ia?: ReportCategoriasIa } | undefined)?.ia;
+  return ia ? { ia } : {};
+}
+
+/**
+ * Muda um grupo sozinho, registra como `aplicada` por `agente`, com o estado anterior para desfazer,
+ * e guarda na memória. Devolve a categoria de destino, ou null se o grupo não tem destino.
+ */
+export async function applyGroup(
+  tx: TenantTx,
+  householdId: string,
+  group: ReviewGroup,
+  current: Map<string, Pick<ReviewTransaction, "categoryId" | "categorySource">>,
+  nameOf: Map<string, string>,
+  created: string[],
+): Promise<string | null> {
+  const resolved = await resolveTarget(tx, householdId, group, created);
+  if (!resolved) return null;
+  const { id: target, isNew } = resolved;
+  const previous = group.ids.flatMap((id) => {
+    const row = current.get(id);
+    return row
+      ? [{ transactionId: id, categoryId: row.categoryId, categorySource: row.categorySource }]
+      : [];
+  });
+  await tx
+    .update(transactions)
+    .set({ categoryId: target, categorySource: "agente", updatedAt: new Date() })
+    .where(inArray(transactions.id, group.ids));
+  await rememberAsAgent(tx, householdId, group.kind, group.merchant, target);
+  const toName = nameOf.get(target) ?? group.newCategory?.name ?? "";
+  const payload: CategoriaPayload = {
+    kind: group.kind,
+    transactionIds: group.ids,
+    fromCategoryId: group.fromCategoryId,
+    toCategoryId: target,
+    newCategory: group.newCategory,
+    merchant: group.merchant,
+    reason: group.reason,
+    previous,
+    appliedCategoryId: target,
+    ...(isNew ? { createdCategoryId: target } : {}),
+  };
+  const id = await recordApplied(tx, householdId, CATEGORIAS_AGENT, {
+    kind: "categoria",
+    title: `Movemos ${plural(group.ids.length, "lançamento", "lançamentos")} de ${quote(
+      nameOf.get(group.fromCategoryId) ?? "Outras",
+    )} para ${quote(toName)}`,
+    body:
+      `${group.reason}. Se não fizer sentido, use Desfazer: o assistente devolve os lançamentos ` +
+      `e não mexe mais neles.`,
+    payload,
+    dedupeKey: group.dedupeKey,
+  });
+  await recordAudit(tx, systemActor(householdId), "agente:categoria", "household_suggestions", id, {
+    transactions: group.ids.length,
+  });
+  return target;
+}
+
+/** Sugestão pendente de um grupo: fica na fila até a família decidir. */
+export function pendingOf(group: ReviewGroup, nameOf: Map<string, string>): PendingSuggestion {
+  const toName = group.toCategoryId
+    ? (nameOf.get(group.toCategoryId) ?? "")
+    : (group.newCategory?.name ?? "");
+  const payload: CategoriaPayload = {
+    kind: group.kind,
+    transactionIds: group.ids,
+    fromCategoryId: group.fromCategoryId,
+    toCategoryId: group.toCategoryId,
+    newCategory: group.newCategory,
+    merchant: group.merchant,
+    reason: group.reason,
+  };
+  return {
+    kind: "categoria",
+    title: `Mover ${plural(group.ids.length, "lançamento", "lançamentos")} para ${quote(toName)}?`,
+    body:
+      `${group.reason}. Hoje ${group.ids.length === 1 ? "está" : "estão"} em ` +
+      `${quote(nameOf.get(group.fromCategoryId) ?? "")}. Aceitar move e o assistente passa a ` +
+      `usar ${quote(toName)} para este estabelecimento.`,
+    payload,
+    dedupeKey: group.dedupeKey,
+  };
 }
 
 /** Categoria de destino de um grupo: a existente ou a criada agora (nome igual reaproveita). */
@@ -204,8 +239,8 @@ async function resolveTarget(
   householdId: string,
   group: ReviewGroup,
   created: string[],
-): Promise<string | null> {
-  if (group.toCategoryId) return group.toCategoryId;
+): Promise<{ id: string; isNew: boolean } | null> {
+  if (group.toCategoryId) return { id: group.toCategoryId, isNew: false };
   if (!group.newCategory) return null;
   const result = await ensureCategory(
     tx,
@@ -215,7 +250,7 @@ async function resolveTarget(
     group.newCategory.essential,
   );
   if (result.created) created.push(group.newCategory.name);
-  return result.id;
+  return { id: result.id, isNew: result.created };
 }
 
 /** Memória do agente para o estabelecimento; nunca sobrescreve o que a família confirmou. */

@@ -64,6 +64,15 @@ export {
 } from "./run-aposentadoria";
 export { CATEGORIAS_AGENT, runCategoriasAgent } from "./run-categorias";
 export {
+  applyCategoryPlan,
+  CATEGORIAS_IA_AGENT,
+  loadCategoryCandidates,
+  MAX_AI_GROUPS,
+  MAX_AI_NEW_CATEGORIES,
+  type CategoryApplyResult,
+  type CategoryReviewInput,
+} from "./run-categorias-ia";
+export {
   CLASS_DEVIATION_POINTS,
   INVESTIMENTOS_AGENT,
   runInvestimentosAgent,

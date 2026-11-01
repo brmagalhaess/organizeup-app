@@ -21,6 +21,7 @@ export {
   type ModelStream,
   type StreamParams,
 } from "./client";
+export { CATEGORY_ROUTE, runCategoryReview, type CategoryReviewRun } from "./categorias";
 export { checkModel, type ModelCheck } from "./check";
 export { activateAssistant, deactivateAssistant, setAssistantAutonomy } from "./consent";
 export {

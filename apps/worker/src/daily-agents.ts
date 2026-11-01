@@ -1,5 +1,6 @@
-// Agentes diários do produto (ADR-0015): categorias, investimentos, aposentadoria, viagens e metas,
-// para cada família ativa, cada agente na própria transação com RLS. A divisão do que sobra passa
+// Agentes diários do produto (ADR-0015): categorias, categorias com IA (ADR-0018), investimentos,
+// aposentadoria, viagens e metas, para cada família ativa, cada agente na própria transação com RLS,
+// e a chamada ao modelo fora de qualquer transação. A divisão do que sobra passa
 // em memória do agente de aposentadoria para viagens e metas; se ele falhar, os dois leem o
 // relatório de hoje ou pulam. Logs só com householdId, agente, código do erro e contagens.
 import {
@@ -16,6 +17,7 @@ import { todayIn, type Allocation } from "@organizeup/domain";
 import {
   APOSENTADORIA_AGENT,
   CATEGORIAS_AGENT,
+  CATEGORIAS_IA_AGENT,
   INVESTIMENTOS_AGENT,
   METAS_AGENT,
   runAposentadoriaAgent,
@@ -27,6 +29,7 @@ import {
   type AgentInput,
   type AgentResult,
 } from "@organizeup/agents";
+import { categoryReviewer } from "./category-review";
 import { reportAgentFailure } from "./diagnostics";
 
 interface Log {
@@ -34,9 +37,13 @@ interface Log {
   info: (data: object, message: string) => void;
 }
 
-/** Ordem de execução: a aposentadoria vem antes de viagens e metas, que usam a divisão dela. */
+/**
+ * Ordem de execução: a aposentadoria vem antes de viagens e metas, que usam a divisão dela, e depois
+ * das categorias, porque a projeção usa os gastos.
+ */
 export const DAILY_AGENTS = [
   CATEGORIAS_AGENT,
+  CATEGORIAS_IA_AGENT,
   INVESTIMENTOS_AGENT,
   APOSENTADORIA_AGENT,
   VIAGENS_AGENT,
@@ -67,8 +74,12 @@ export async function agentsToRun(
   day: string,
   ranToday: (day: string, agent: string) => Promise<boolean> = hasAgentRunToday,
 ): Promise<string[]> {
+  // O Paperclip acorda "categorias"; a etapa de IA anda junto, antes de ele acordar a aposentadoria.
+  const wanted = job.agents?.includes(CATEGORIAS_AGENT)
+    ? [...job.agents, CATEGORIAS_IA_AGENT]
+    : job.agents;
   const asked = DAILY_AGENTS.filter(
-    (agent) => !disabled.includes(agent) && (!job.agents || job.agents.includes(agent)),
+    (agent) => !disabled.includes(agent) && (!wanted || wanted.includes(agent)),
   );
   if (!job.missingOnly) return asked;
   const ran = await Promise.all(asked.map((agent) => ranToday(day, agent)));
@@ -89,6 +100,8 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
   if (enabled.length === 0) return;
   const ids = await listActiveHouseholdIds(ACTIVE_DAYS);
   const counts = new Map<string, Counts>(enabled.map((agent) => [agent, emptyCounts()]));
+  const reviewCount = counts.get(CATEGORIAS_IA_AGENT);
+  const review = reviewCount ? categoryReviewer(flags) : null;
 
   for (const householdId of ids) {
     let today = day;
@@ -126,6 +139,26 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
     };
 
     await run(CATEGORIAS_AGENT, (tx) => runCategoriasAgent(tx, input));
+    if (review && reviewCount) {
+      // Fora de `run`: a chamada ao modelo não pode ficar dentro de uma transação.
+      try {
+        const result = await review(householdId, day);
+        if (result) {
+          reviewCount.households += 1;
+          reviewCount.ok += 1;
+          reviewCount.suggestions += result.suggestions;
+          reviewCount.applied += result.moved;
+        }
+      } catch (err) {
+        reviewCount.households += 1;
+        reviewCount.failed += 1;
+        log.error(
+          { householdId, agent: CATEGORIAS_IA_AGENT, code: codeOf(err) },
+          "agente diário falhou",
+        );
+        await reportAgentFailure(CATEGORIAS_IA_AGENT, err);
+      }
+    }
     await run(INVESTIMENTOS_AGENT, (tx) => runInvestimentosAgent(tx, input));
     const retirement = await run(APOSENTADORIA_AGENT, async (tx) => {
       const result = await runAposentadoriaAgent(tx, input);
