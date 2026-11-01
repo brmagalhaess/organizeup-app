@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import {
   asc,
@@ -11,16 +12,21 @@ import {
 } from "@organizeup/db";
 import { ageFromBirth, todayIn } from "@organizeup/domain";
 import { PageHeader } from "@/components/ui";
+import { toFieldValue } from "@/i18n/format";
 import { getAuth } from "@/lib/auth";
 import { requireTenant } from "@/lib/session";
 import { MembersBoard } from "./members-board";
 import { PeopleBoard } from "./people-board";
 import { WeddingForm } from "./wedding-form";
 
-export const metadata: Metadata = { title: "Família" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pessoas");
+  return { title: t("metaTitle") };
+}
 
 export default async function FamilyPage() {
   const { session, ctx } = await requireTenant();
+  const [t, locale] = await Promise.all([getTranslations("pessoas"), getLocale()]);
   const isOwner = ctx.role === "owner";
   const writable = canWrite(ctx);
   const requestHeaders = await headers();
@@ -51,7 +57,8 @@ export default async function FamilyPage() {
     return { family, settings, rows };
   });
   const [year, month] = todayIn(data.settings?.timezone).split("-").map(Number) as [number, number];
-  const dateFormat = new Intl.DateTimeFormat("pt-BR", { timeZone: data.settings?.timezone });
+  const dateFormat = new Intl.DateTimeFormat(locale, { timeZone: data.settings?.timezone });
+  // Com os centavos, como em "2500,00": `toFieldValue` os tira.
   const members = memberRows.map((member) => ({
     id: member.id,
     name: member.user.name,
@@ -69,7 +76,7 @@ export default async function FamilyPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader eyebrow="Família" title={data.family?.name ?? "Família"} />
+      <PageHeader eyebrow={t("eyebrow")} title={data.family?.name ?? t("fallbackName")} />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-6">
           <PeopleBoard
@@ -88,7 +95,7 @@ export default async function FamilyPage() {
                   : "",
               workStatus: person.workStatus ?? "",
               inssContributor: person.inssContributor,
-              expectedPension: person.expectedPension?.replace(".", ",") ?? "",
+              expectedPension: toFieldValue(person.expectedPension, locale),
               retirementAge: person.retirementAge,
             }))}
           />

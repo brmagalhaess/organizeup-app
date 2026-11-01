@@ -1,30 +1,19 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { Field, Input, Select } from "@/components/ui";
 
-export const WORK_STATUS_LABEL: Record<string, string> = {
-  clt: "CLT (carteira assinada)",
-  pj_autonomo: "PJ ou autônomo",
-  servidor: "Servidor público",
-  aposentado: "Aposentado(a)",
-  estudante: "Estudante",
-  sem_renda: "Sem renda",
-  outro: "Outro",
-};
+const WORK_STATUSES = [
+  "clt",
+  "pj_autonomo",
+  "servidor",
+  "aposentado",
+  "estudante",
+  "sem_renda",
+  "outro",
+] as const;
+export type WorkStatus = (typeof WORK_STATUSES)[number];
 
-const MONTHS = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-];
+const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
 type Errors = Record<string, string> | undefined;
 
@@ -46,31 +35,32 @@ export function AdultFields({
   errors: Errors;
   pensionHint: string;
 }) {
+  const t = useTranslations("pessoas");
   const inss = values?.inssContributor;
   return (
     <>
-      <Field label="Situação de trabalho" error={errors?.[`workStatus${suffix}`]}>
+      <Field label={t("adult.workStatus")} error={errors?.[`workStatus${suffix}`]}>
         <Select name={`workStatus${suffix}`} defaultValue={values?.workStatus ?? ""}>
-          <option value="">Não informado</option>
-          {Object.entries(WORK_STATUS_LABEL).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
+          <option value="">{t("adult.notInformed")}</option>
+          {WORK_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {t(`workStatuses.${status}`)}
             </option>
           ))}
         </Select>
       </Field>
-      <Field label="Contribui para o INSS?" error={errors?.[`inssContributor${suffix}`]}>
+      <Field label={t("adult.inss")} error={errors?.[`inssContributor${suffix}`]}>
         <Select
           name={`inssContributor${suffix}`}
           defaultValue={inss === true ? "sim" : inss === false ? "nao" : ""}
         >
-          <option value="">Não informado</option>
-          <option value="sim">Sim</option>
-          <option value="nao">Não</option>
+          <option value="">{t("adult.notInformed")}</option>
+          <option value="sim">{t("adult.yes")}</option>
+          <option value="nao">{t("adult.no")}</option>
         </Select>
       </Field>
       <Field
-        label="Benefício mensal esperado (R$)"
+        label={t("adult.pension")}
         hint={pensionHint}
         error={errors?.[`expectedPension${suffix}`]}
       >
@@ -91,9 +81,10 @@ export interface WeddingValues {
 }
 
 export function WeddingFields({ values, errors }: { values: WeddingValues; errors: Errors }) {
+  const t = useTranslations("pessoas.wedding");
   return (
     <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_5.5rem] gap-3">
-      <Field label="Dia" error={errors?.weddingDay}>
+      <Field label={t("day")} error={errors?.weddingDay}>
         <Input
           name="weddingDay"
           type="number"
@@ -103,17 +94,17 @@ export function WeddingFields({ values, errors }: { values: WeddingValues; error
           defaultValue={values.day ?? ""}
         />
       </Field>
-      <Field label="Mês" error={errors?.weddingMonth}>
+      <Field label={t("month")} error={errors?.weddingMonth}>
         <Select name="weddingMonth" defaultValue={values.month ?? ""}>
-          <option value="">Escolha</option>
-          {MONTHS.map((name, index) => (
-            <option key={name} value={index + 1}>
-              {name}
+          <option value="">{t("choose")}</option>
+          {MONTHS.map((month) => (
+            <option key={month} value={month}>
+              {t(`months.${month}`)}
             </option>
           ))}
         </Select>
       </Field>
-      <Field label="Ano" error={errors?.weddingYear}>
+      <Field label={t("year")} error={errors?.weddingYear}>
         <Input
           name="weddingYear"
           type="number"

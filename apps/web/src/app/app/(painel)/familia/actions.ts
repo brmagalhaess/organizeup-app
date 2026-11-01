@@ -1,4 +1,5 @@
 "use server";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -10,22 +11,30 @@ import { audit } from "@/lib/audit";
 import { getAuth } from "@/lib/auth";
 import { requireTenant } from "@/lib/session";
 
-const inviteSchema = z.object({
-  email: z.string().trim().toLowerCase().pipe(z.email("Informe um e-mail válido.")),
-  role: z.enum(["adult", "viewer"], { message: "Escolha o que a pessoa pode fazer." }),
-});
+type ErrorTexts = Awaited<ReturnType<typeof getTranslations<"pessoas.errors">>>;
 
-function inviteError(error: unknown) {
+const inviteSchema = (t: ErrorTexts) =>
+  z.object({
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .pipe(z.email(t("email"))),
+    role: z.enum(["adult", "viewer"], { message: t("role") }),
+  });
+
+function inviteError(error: unknown, t: ErrorTexts) {
   const code = error instanceof APIError ? error.body?.code : null;
   return code === "USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION"
-    ? "Esta pessoa já faz parte da família."
-    : "Não foi possível criar o convite. Tente novamente.";
+    ? t("alreadyMember")
+    : t("inviteFailed");
 }
 
 export async function inviteMember(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { ctx } = await requireTenant();
-  if (ctx.role !== "owner") return { ok: false, message: "Somente o responsável pode convidar." };
-  const parsed = inviteSchema.safeParse({
+  const t = await getTranslations("pessoas.errors");
+  if (ctx.role !== "owner") return { ok: false, message: t("ownerOnly") };
+  const parsed = inviteSchema(t).safeParse({
     email: formData.get("email") ?? "",
     role: formData.get("role") ?? "",
   });
@@ -43,7 +52,7 @@ export async function inviteMember(_prev: ActionState, formData: FormData): Prom
       audit(tx, ctx, "invite", "household_invitation", invitation.id),
     );
   } catch (error) {
-    return { ok: false, message: inviteError(error) };
+    return { ok: false, message: inviteError(error, t) };
   }
   revalidatePath("/app/familia");
   return { ok: true, message: null };

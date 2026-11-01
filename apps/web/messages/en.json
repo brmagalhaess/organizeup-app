@@ -649,6 +649,121 @@
       "check": "Check the information."
     }
   },
+  "metas": {
+    "metaTitle": "Goals",
+    "header": {
+      "eyebrow": "Goals",
+      "title": "Family goals",
+      "description": "Add the amount and date, and the assistant shows how much to save each month.",
+      "newGoal": "New goal"
+    },
+    "empty": {
+      "title": "What’s your family’s next dream?",
+      "text": "Tell us how much it costs and when you want it. The assistant works out how much to save each month and fits it into your calendar.",
+      "create": "Create goal"
+    },
+    "stats": {
+      "monthly": "Saving each month",
+      "monthlyHint": "Installments for {month}.",
+      "noInstallments": "No installments planned.",
+      "next": "Next achievement",
+      "none": "None"
+    },
+    "footnote": "The plan is recalculated every day when your income and expenses change.",
+    "sheets": {
+      "new": "New goal",
+      "edit": "Edit goal",
+      "saved": "Amount saved"
+    },
+    "kinds": {
+      "veiculo": "Car or motorcycle",
+      "imovel": "House or apartment",
+      "reforma": "Renovation",
+      "educacao": "Education",
+      "compra": "Purchase",
+      "evento": "Party or event",
+      "outro": "Other"
+    },
+    "form": {
+      "name": "Goal name",
+      "namePlaceholder": "E.g., Get a new car",
+      "kind": "Type",
+      "amount": "Amount (R$)",
+      "amountPlaceholder": "0.00",
+      "desiredMonth": "When you want to reach it",
+      "optional": "Optional.",
+      "priority": "Priority",
+      "priorities": {
+        "1": "1 (most urgent)",
+        "2": "2",
+        "3": "3",
+        "4": "4",
+        "5": "5 (least urgent)"
+      },
+      "planDay": "Day of the month to save",
+      "account": "Where it comes from",
+      "destination": "Where the money stays",
+      "destinationHint": "Optional. If you choose an account, each installment becomes an outflow and an inflow in it.",
+      "noAccount": "No account",
+      "save": "Save goal"
+    },
+    "saved": {
+      "amount": "How much you set aside (R$)",
+      "hint": "Adds to what was already saved.",
+      "note": "This doesn’t touch your accounts. It only tracks the goal.",
+      "save": "Record amount"
+    },
+    "badge": {
+      "achieved": "Achieved",
+      "paused": "Paused",
+      "preparing": "Plan being prepared",
+      "noRoom": "No room in the budget"
+    },
+    "plan": {
+      "pending": "The assistant works out the plan overnight and fits the installments into the calendar.",
+      "noRoom": "There’s nothing left for this goal right now. Reduce the amount, push back the date, or pause another goal.",
+      "monthly": "Save <strong>{amount}</strong> a month from {start} to {end}."
+    },
+    "card": {
+      "kindFor": "{kind} · for {month}",
+      "edit": "Edit {name}",
+      "delete": "Delete {name}",
+      "saved": "{amount} saved",
+      "progress": "Progress of {name}",
+      "overdue": "Overdue installments of {name}",
+      "confirm": "Confirmed",
+      "confirmAria": "I confirmed the {month} installment of {name}",
+      "savedButton": "I saved",
+      "savedAria": "Record amount saved for {name}",
+      "pause": "Pause",
+      "pauseAria": "Pause {name}",
+      "resume": "Resume",
+      "resumeAria": "Resume {name}"
+    },
+    "replan": {
+      "run": "Recalculate now",
+      "running": "Recalculating…",
+      "done": "Plan updated."
+    },
+    "remove": {
+      "title": "Delete goal",
+      "text": "“{name}” comes off the plan and the calendar. Anything already confirmed stays in your transactions.",
+      "confirm": "Delete"
+    },
+    "errors": {
+      "name": "Enter the goal name.",
+      "kind": "Choose the goal type.",
+      "amount": "Enter the amount like 50,000.00.",
+      "savedAmount": "Enter the amount like 500.00.",
+      "month": "Enter the month and year.",
+      "priority": "Choose the priority.",
+      "planDay": "Enter a day from 1 to 28.",
+      "account": "Choose where the money comes from.",
+      "validAccount": "Choose a valid account.",
+      "notFound": "Goal not found.",
+      "check": "Check the details."
+    }
+  },
   "aposentadoria": {
     "metaTitle": "Retirement",
     "eyebrow": "Retirement",
@@ -830,6 +945,256 @@
       "growthRange": "Use growth between -5% and 15% a year.",
       "planSaved": "Plan saved.",
       "reload": "Reload the page and try again."
+    }
+  },
+  "viagens": {
+    "metaTitle": "Trips",
+    "header": {
+      "eyebrow": "Trips",
+      "title": "Family trips",
+      "description": "Add the cost and date, and we show how much to save each month.",
+      "newTrip": "New trip"
+    },
+    "empty": {
+      "title": "Where’s your next trip?",
+      "text": "Add the destination and date. The trip goes on the calendar, and you can track how much is left.",
+      "plan": "Plan a trip"
+    },
+    "stats": {
+      "next": "Next",
+      "none": "None",
+      "missing": "Left to save",
+      "monthly": "Save each month",
+      "monthlyHint": "Across upcoming trips."
+    },
+    "sheets": {
+      "new": "New trip",
+      "edit": "Edit trip",
+      "cost": "New cost",
+      "saved": "Amount saved"
+    },
+    "kinds": {
+      "passagem": "Tickets",
+      "hospedagem": "Lodging",
+      "alimentacao": "Food",
+      "transporte": "Transportation",
+      "passeios": "Activities",
+      "outros": "Other"
+    },
+    "form": {
+      "destination": "Destination",
+      "destinationPlaceholder": "E.g., Gramado",
+      "start": "Departure",
+      "end": "Return",
+      "who": "Who’s going",
+      "save": "Save trip"
+    },
+    "cost": {
+      "kind": "Type",
+      "amount": "Amount (R$)",
+      "amountHint": "An estimate is enough. You can adjust it later.",
+      "amountPlaceholder": "0.00",
+      "perPerson": "This amount is per person",
+      "save": "Save cost"
+    },
+    "saved": {
+      "amount": "How much you set aside (R$)",
+      "hint": "Adds to what was already saved.",
+      "note": "This doesn’t touch your accounts. It only tracks the trip.",
+      "save": "Record amount"
+    },
+    "card": {
+      "date": "{start} · {names}",
+      "dateRange": "{start} to {end} · {names}",
+      "edit": "Edit {name}",
+      "delete": "Delete {name}",
+      "past": "Already happened",
+      "noCosts": "Add the costs to see how much to save each month.",
+      "saved": "{amount} saved",
+      "saveMonthly": "Save <strong>{amount}</strong> a month for {months} months.",
+      "saveUntilTrip": "Save <strong>{amount}</strong> before the trip.",
+      "covered": "Trip fully covered.",
+      "perTraveler": "{amount} per person.",
+      "costs": "Costs of {name}",
+      "costPerPerson": "{kind} (per person)",
+      "deleteCost": "Delete {kind} cost",
+      "addCost": "Cost",
+      "addCostAria": "Add cost to {name}",
+      "savedButton": "I saved",
+      "savedAria": "Record amount saved for {name}"
+    },
+    "remove": {
+      "title": "Delete trip",
+      "text": "“{name}” comes off the plan and the calendar.",
+      "confirm": "Delete"
+    },
+    "removeCost": {
+      "title": "Delete cost",
+      "text": "The trip total will be recalculated.",
+      "confirm": "Delete"
+    },
+    "suggestions": {
+      "prompt": "Want trip suggestions? Tell us how many trips a year in <link>Settings › Plan</link>.",
+      "title": "Suggestions for next year",
+      "description": "Approximate amounts, from our {year} cost table for {travelers}. Check flights and lodging before booking.",
+      "adults": "{adults, plural, =1 {# adult} other {# adults}}",
+      "adultsAndChildren": "{adults, plural, =1 {# adult} other {# adults}} and {children, plural, =1 {# child} other {# children}}",
+      "empty": "No suggestions right now. The assistant checks again every night.",
+      "overBudget": "More than you have left today",
+      "when": "In {when} · {days, plural, =1 {# day} other {# days}}",
+      "about": "About {total} ({perPerson} per person)",
+      "fits": "Save {amount} a month until {month}",
+      "tooMuch": "Needs {amount} a month, more than you have left for trips today",
+      "source": "{source} ({confidence})",
+      "confidence": {
+        "baixa": "low confidence",
+        "media": "medium confidence"
+      },
+      "accept": "Add to my trips",
+      "itemTitle": "{name} in {when}"
+    },
+    "errors": {
+      "date": "Enter the date.",
+      "invalidDate": "Invalid date.",
+      "destination": "Enter the destination.",
+      "who": "Choose who’s going.",
+      "returnBeforeStart": "The return can’t be before the departure.",
+      "familyPeople": "Choose people from the family.",
+      "notFound": "Trip not found.",
+      "costKind": "Choose the cost type.",
+      "costAmount": "Enter the amount like 1,500.00.",
+      "savedAmount": "Enter the amount like 500.00.",
+      "check": "Check the details."
+    }
+  },
+  "pessoas": {
+    "metaTitle": "Family",
+    "eyebrow": "Family",
+    "fallbackName": "Family",
+    "people": {
+      "title": "Family members",
+      "description": "They’re included in the retirement and trip plans.",
+      "add": "Add person",
+      "withWork": "{relation} · {work}",
+      "age": "{age, plural, =1 {# year old} other {# years old}}",
+      "edit": "Edit {name}",
+      "remove": "Remove {name}",
+      "editTitle": "Edit person",
+      "removeTitle": "Remove person",
+      "removeText": "{name} comes off the family list.",
+      "removeConfirm": "Remove"
+    },
+    "relations": {
+      "titular": "Main person",
+      "conjuge": "Spouse",
+      "filho": "Child",
+      "pai_mae": "Parent",
+      "outro": "Other"
+    },
+    "workStatuses": {
+      "clt": "CLT (Brazilian formal employment)",
+      "pj_autonomo": "PJ (Brazilian contractor) or self-employed",
+      "servidor": "Public servant",
+      "aposentado": "Retired",
+      "estudante": "Student",
+      "sem_renda": "No income",
+      "outro": "Other"
+    },
+    "form": {
+      "name": "Name",
+      "relation": "Relationship",
+      "birth": "Birth month",
+      "birthHint": "Month and year only. Used for retirement and trips.",
+      "pensionHint": "INSS or private pension. If you don’t know, leave it blank.",
+      "retirementAge": "Age to stop working",
+      "retirementAgeHint": "Used in the plan when the family doesn’t give a year. Blank: 65.",
+      "save": "Save person"
+    },
+    "adult": {
+      "workStatus": "Work status",
+      "notInformed": "Not provided",
+      "inss": "Contributes to INSS (Brazilian social security)?",
+      "yes": "Yes",
+      "no": "No",
+      "pension": "Expected monthly benefit (R$)"
+    },
+    "wedding": {
+      "title": "Wedding",
+      "description": "Optional. With the day, it goes on the calendar as “Aniversário de casamento” (wedding anniversary).",
+      "day": "Day",
+      "month": "Month",
+      "choose": "Choose",
+      "year": "Year",
+      "save": "Save wedding",
+      "saved": "Wedding saved.",
+      "months": {
+        "1": "January",
+        "2": "February",
+        "3": "March",
+        "4": "April",
+        "5": "May",
+        "6": "June",
+        "7": "July",
+        "8": "August",
+        "9": "September",
+        "10": "October",
+        "11": "November",
+        "12": "December"
+      }
+    },
+    "members": {
+      "title": "Who has access",
+      "description": "Each person signs in with their own login.",
+      "invite": "Invite",
+      "removeAria": "Remove access for {name}",
+      "pending": "Pending invitations",
+      "pendingHelp": "We sent the invitation to the person’s email. If it doesn’t arrive, copy the link and send it in a message.",
+      "inviteStatus": "{role, select, adult {Can view and change the family’s data} viewer {Can view but not change anything} other {{role}}}. Valid until {expires}.",
+      "cancelAria": "Cancel invitation for {email}",
+      "leave": "Leave this family",
+      "inviteTitle": "Invite person",
+      "removeTitle": "Remove access",
+      "removeText": "{name} will no longer have access to this family. The data stays here.",
+      "removeConfirm": "Remove access",
+      "cancelTitle": "Cancel invitation",
+      "cancelText": "The link will stop working.",
+      "cancelConfirm": "Cancel invitation",
+      "leaveTitle": "Leave this family",
+      "leaveText": "You’ll no longer have access to this family’s data. To come back, you’ll need a new invitation.",
+      "leaveConfirm": "Leave family",
+      "email": "Person’s email",
+      "emailHint": "They need to sign in with this email to accept.",
+      "role": "What they can do",
+      "canEdit": "View and change the data",
+      "viewOnly": "View only",
+      "create": "Create invitation",
+      "creating": "Creating…",
+      "linkAria": "Invitation link for {email}",
+      "copy": "Copy",
+      "copied": "Copied"
+    },
+    "saved": {
+      "added": "Person added.",
+      "updated": "Person updated."
+    },
+    "errors": {
+      "name": "Enter the name.",
+      "relation": "Choose the relationship.",
+      "birth": "Use a valid month and year.",
+      "workStatus": "Choose the work status.",
+      "inss": "Choose an option.",
+      "pension": "Enter the benefit like 2,500.00.",
+      "retirementAge": "Enter an age from 40 to 100.",
+      "personGone": "This person is no longer in the family.",
+      "weddingDay": "Enter a day from 1 to 31.",
+      "weddingMonth": "Choose the month.",
+      "weddingYear": "Enter a year between 1900 and 2100.",
+      "noSuchDay": "That day doesn’t exist.",
+      "email": "Enter a valid email.",
+      "role": "Choose what the person can do.",
+      "alreadyMember": "This person is already part of the family.",
+      "inviteFailed": "We couldn’t create the invitation. Try again.",
+      "ownerOnly": "Only the person in charge can invite."
     }
   },
   "meta": {

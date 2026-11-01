@@ -1,4 +1,5 @@
 "use server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { runAposentadoriaAgent, runMetasAgent } from "@organizeup/agents";
@@ -16,7 +17,8 @@ import {
   withHousehold,
   type TenantContext,
 } from "@organizeup/db";
-import { isYearMonth, money, parseBRL, toDbAmount, todayIn } from "@organizeup/domain";
+import { isYearMonth, money, parseMoney, toDbAmount, todayIn } from "@organizeup/domain";
+import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { reportActionFailure } from "@/lib/diagnostics";
 import { requireTenant } from "@/lib/session";
@@ -26,15 +28,15 @@ export interface FormState {
   message: string | null;
 }
 
-const blocked: FormState = {
+const blocked = async (): Promise<FormState> => ({
   ok: false,
-  message: "Seu papel nesta família não permite alterações.",
-};
+  message: (await getTranslations("settings"))("noPermission"),
+});
 
-const reais = (message: string) =>
+const reais = (message: string, locale: Locale) =>
   z.string().transform((value, ctx) => {
     try {
-      const parsed = parseBRL(value);
+      const parsed = parseMoney(value, locale);
       if (parsed.lte(0) || parsed.gte("1000000000000")) throw new RangeError("fora do limite");
       return toDbAmount(parsed);
     } catch {
@@ -43,34 +45,38 @@ const reais = (message: string) =>
     }
   });
 
-const goalSchema = z.object({
-  id: z.string(),
-  name: z.string().trim().min(1, "Informe o nome da meta.").max(80),
-  kind: z.enum(GOAL_KINDS, { message: "Escolha o tipo da meta." }),
-  targetAmount: reais("Informe o valor como 50.000,00."),
-  desiredMonth: z
-    .string()
-    .refine((value) => value === "" || isYearMonth(value), "Informe o mês e o ano.")
-    .transform((value) => value || null),
-  priority: z.coerce
-    .number({ message: "Escolha a prioridade." })
-    .int("Escolha a prioridade.")
-    .min(1, "Escolha a prioridade.")
-    .max(5, "Escolha a prioridade."),
-  planDay: z.coerce
-    .number({ message: "Informe um dia de 1 a 28." })
-    .int("Informe um dia de 1 a 28.")
-    .min(1, "Informe um dia de 1 a 28.")
-    .max(28, "Informe um dia de 1 a 28."),
-  accountId: z.string().min(1, "Escolha de onde sai o dinheiro."),
-  destinationAccountId: z.string().transform((value) => value || null),
-});
+type ErrorTexts = Awaited<ReturnType<typeof getTranslations<"metas.errors">>>;
+
+const goalSchema = (t: ErrorTexts, locale: Locale) =>
+  z.object({
+    id: z.string(),
+    name: z.string().trim().min(1, t("name")).max(80),
+    kind: z.enum(GOAL_KINDS, { message: t("kind") }),
+    targetAmount: reais(t("amount"), locale),
+    desiredMonth: z
+      .string()
+      .refine((value) => value === "" || isYearMonth(value), t("month"))
+      .transform((value) => value || null),
+    priority: z.coerce
+      .number({ message: t("priority") })
+      .int(t("priority"))
+      .min(1, t("priority"))
+      .max(5, t("priority")),
+    planDay: z.coerce
+      .number({ message: t("planDay") })
+      .int(t("planDay"))
+      .min(1, t("planDay"))
+      .max(28, t("planDay")),
+    accountId: z.string().min(1, t("account")),
+    destinationAccountId: z.string().transform((value) => value || null),
+  });
 
 /** Cria uma meta ou edita a do `id`. Só o que a família informa; o plano é do assistente. */
 export async function saveGoal(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
-  const parsed = goalSchema.safeParse({
+  if (!canWrite(ctx)) return blocked();
+  const [t, locale] = await Promise.all([getTranslations("metas.errors"), getLocale()]);
+  const parsed = goalSchema(t, locale).safeParse({
     id: form.get("id") ?? "",
     name: form.get("name") ?? "",
     kind: form.get("kind"),
@@ -81,8 +87,7 @@ export async function saveGoal(_prev: FormState, form: FormData): Promise<FormSt
     accountId: form.get("accountId") ?? "",
     destinationAccountId: form.get("destinationAccountId") ?? "",
   });
-  if (!parsed.success)
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? t("check") };
   const { id, ...values } = parsed.data;
 
   const failure = await withHousehold(ctx, async (tx) => {
@@ -93,7 +98,7 @@ export async function saveGoal(_prev: FormState, form: FormData): Promise<FormSt
       .select({ id: accounts.id })
       .from(accounts)
       .where(and(inArray(accounts.id, chosen), eq(accounts.archived, false)));
-    if (known.length !== new Set(chosen).size) return "Escolha uma conta válida.";
+    if (known.length !== new Set(chosen).size) return t("validAccount");
 
     if (id) {
       const updated = await tx
@@ -101,7 +106,7 @@ export async function saveGoal(_prev: FormState, form: FormData): Promise<FormSt
         .set({ ...values, updatedAt: new Date() })
         .where(eq(goals.id, id))
         .returning({ id: goals.id });
-      if (updated.length === 0) return "Meta não encontrada.";
+      if (updated.length === 0) return t("notFound");
       await audit(tx, ctx, "update", "goals", id);
       return null;
     }
@@ -166,14 +171,14 @@ export async function setGoalStatus(form: FormData): Promise<void> {
 /** Registra o que já foi separado por fora das parcelas. Não mexe em contas. */
 export async function addSavedToGoal(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
+  if (!canWrite(ctx)) return blocked();
+  const [t, locale] = await Promise.all([getTranslations("metas.errors"), getLocale()]);
   const id = String(form.get("id") ?? "");
-  const amount = reais("Informe o valor como 500,00.").safeParse(form.get("amount") ?? "");
-  if (!amount.success)
-    return { ok: false, message: amount.error.issues[0]?.message ?? "Verifique." };
+  const amount = reais(t("savedAmount"), locale).safeParse(form.get("amount") ?? "");
+  if (!amount.success) return { ok: false, message: amount.error.issues[0]?.message ?? t("check") };
   const failure = await withHousehold(ctx, async (tx) => {
     const [goal] = await tx.select().from(goals).where(eq(goals.id, id)).for("update");
-    if (!goal) return "Meta não encontrada.";
+    if (!goal) return t("notFound");
     const saved = money(goal.saved).plus(amount.data);
     await tx
       .update(goals)
@@ -206,8 +211,8 @@ function replan(ctx: TenantContext) {
 /** Botão "Recalcular agora". */
 export async function replanNow(): Promise<FormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
+  if (!canWrite(ctx)) return blocked();
   await replan(ctx);
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Plano atualizado." };
+  return { ok: true, message: (await getTranslations("metas.replan"))("done") };
 }

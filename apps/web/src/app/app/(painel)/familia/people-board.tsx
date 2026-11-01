@@ -1,5 +1,6 @@
 "use client";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useCallback, useEffect, useState } from "react";
 import { addPerson, removePerson, updatePerson, type ActionState } from "@/app/app/actions";
 import {
@@ -15,15 +16,11 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
-import { AdultFields, WORK_STATUS_LABEL } from "./person-fields";
+import { AdultFields, type WorkStatus } from "./person-fields";
 
-const RELATION_LABEL: Record<string, string> = {
-  titular: "Titular",
-  conjuge: "Cônjuge",
-  filho: "Filho(a)",
-  pai_mae: "Pai/Mãe",
-  outro: "Outro",
-};
+/** Quem pode ser cadastrado; o titular nasce com a família. */
+const RELATIONS = ["conjuge", "filho", "pai_mae", "outro"] as const;
+type Relation = "titular" | (typeof RELATIONS)[number];
 
 export interface PersonRow {
   id: string;
@@ -42,6 +39,8 @@ const initial: ActionState = { ok: false, message: null };
 const isPlanAdult = (relation: string) => relation === "titular" || relation === "conjuge";
 
 function PersonForm({ person, onDone }: { person: PersonRow | null; onDone: () => void }) {
+  const t = useTranslations("pessoas");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(person ? updatePerson : addPerson, initial);
   const [relation, setRelation] = useState(person?.relation ?? "conjuge");
   useEffect(() => {
@@ -50,31 +49,28 @@ function PersonForm({ person, onDone }: { person: PersonRow | null; onDone: () =
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       {person ? <input type="hidden" name="id" value={person.id} /> : null}
-      <Field label="Nome" error={state.fieldErrors?.name}>
+      <Field label={t("form.name")} error={state.fieldErrors?.name}>
         <Input name="name" required maxLength={120} defaultValue={person?.name ?? ""} />
       </Field>
       {relation === "titular" ? (
         <input type="hidden" name="relation" value="titular" />
       ) : (
-        <Field label="Relação" error={state.fieldErrors?.relation}>
+        <Field label={t("form.relation")} error={state.fieldErrors?.relation}>
           <Select
             name="relation"
             value={relation}
             required
             onChange={(event) => setRelation(event.target.value)}
           >
-            <option value="conjuge">Cônjuge</option>
-            <option value="filho">Filho(a)</option>
-            <option value="pai_mae">Pai/Mãe</option>
-            <option value="outro">Outro</option>
+            {RELATIONS.map((value) => (
+              <option key={value} value={value}>
+                {t(`relations.${value}`)}
+              </option>
+            ))}
           </Select>
         </Field>
       )}
-      <Field
-        label="Nascimento"
-        hint="Só mês e ano. Usado na aposentadoria e em viagens."
-        error={state.fieldErrors?.birth}
-      >
+      <Field label={t("form.birth")} hint={t("form.birthHint")} error={state.fieldErrors?.birth}>
         <Input name="birth" type="month" defaultValue={person?.birth ?? ""} />
       </Field>
       {isPlanAdult(relation) ? (
@@ -82,11 +78,11 @@ function PersonForm({ person, onDone }: { person: PersonRow | null; onDone: () =
           <AdultFields
             values={person}
             errors={state.fieldErrors}
-            pensionHint="INSS ou previdência. Se não sabe, deixe em branco."
+            pensionHint={t("form.pensionHint")}
           />
           <Field
-            label="Idade em que quer parar"
-            hint="Usada no plano quando a família não informa o ano. Vazio: 65 anos."
+            label={t("form.retirementAge")}
+            hint={t("form.retirementAgeHint")}
             error={state.fieldErrors?.retirementAge}
           >
             <Input
@@ -102,13 +98,14 @@ function PersonForm({ person, onDone }: { person: PersonRow | null; onDone: () =
       ) : null}
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar pessoa"}
+        {pending ? tCommon("saving") : t("form.save")}
       </Button>
     </form>
   );
 }
 
 export function PeopleBoard({ rows, writable }: { rows: PersonRow[]; writable: boolean }) {
+  const t = useTranslations("pessoas");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<PersonRow | null>(null);
   const [removing, setRemoving] = useState<PersonRow | null>(null);
@@ -117,54 +114,67 @@ export function PeopleBoard({ rows, writable }: { rows: PersonRow[]; writable: b
 
   return (
     <Card
-      title="Pessoas da família"
-      description="Elas entram nos planos de aposentadoria e viagens."
+      title={t("people.title")}
+      description={t("people.description")}
       actions={
         writable ? (
           <Button variant="secondary" small onClick={() => setAdding(true)}>
             <Plus className="size-4" aria-hidden="true" />
-            Adicionar pessoa
+            {t("people.add")}
           </Button>
         ) : null
       }
     >
-      <ul aria-label="Pessoas da família" className="m-0 list-none divide-y divide-line p-0">
-        {rows.map((person) => (
-          <li key={person.id} className="flex items-center gap-3 py-3">
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{person.name}</p>
-              <p className="text-xs text-muted">
-                {RELATION_LABEL[person.relation] ?? person.relation}
-                {person.workStatus ? ` · ${WORK_STATUS_LABEL[person.workStatus] ?? ""}` : ""}
-              </p>
-            </div>
-            {person.age !== null ? <Badge>{person.age} anos</Badge> : null}
-            {writable ? (
-              <IconButton label={`Editar ${person.name}`} onClick={() => setEditing(person)}>
-                <Pencil className="size-4" aria-hidden="true" />
-              </IconButton>
-            ) : null}
-            {writable && person.relation !== "titular" ? (
-              <IconButton label={`Remover ${person.name}`} onClick={() => setRemoving(person)}>
-                <Trash2 className="size-4" aria-hidden="true" />
-              </IconButton>
-            ) : null}
-          </li>
-        ))}
+      <ul aria-label={t("people.title")} className="m-0 list-none divide-y divide-line p-0">
+        {rows.map((person) => {
+          const relation = t(`relations.${person.relation as Relation}`);
+          return (
+            <li key={person.id} className="flex items-center gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{person.name}</p>
+                <p className="text-xs text-muted">
+                  {person.workStatus
+                    ? t("people.withWork", {
+                        relation,
+                        work: t(`workStatuses.${person.workStatus as WorkStatus}`),
+                      })
+                    : relation}
+                </p>
+              </div>
+              {person.age !== null ? <Badge>{t("people.age", { age: person.age })}</Badge> : null}
+              {writable ? (
+                <IconButton
+                  label={t("people.edit", { name: person.name })}
+                  onClick={() => setEditing(person)}
+                >
+                  <Pencil className="size-4" aria-hidden="true" />
+                </IconButton>
+              ) : null}
+              {writable && person.relation !== "titular" ? (
+                <IconButton
+                  label={t("people.remove", { name: person.name })}
+                  onClick={() => setRemoving(person)}
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                </IconButton>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
 
-      <Sheet open={adding} onClose={closeAdd} title="Adicionar pessoa">
+      <Sheet open={adding} onClose={closeAdd} title={t("people.add")}>
         <PersonForm person={null} onDone={closeAdd} />
       </Sheet>
-      <Sheet open={editing !== null} onClose={closeEdit} title="Editar pessoa">
+      <Sheet open={editing !== null} onClose={closeEdit} title={t("people.editTitle")}>
         <PersonForm key={editing?.id ?? "nada"} person={editing} onDone={closeEdit} />
       </Sheet>
       <ConfirmSheet
         open={removing !== null}
         onClose={() => setRemoving(null)}
-        title="Remover pessoa"
-        text={`${removing?.name ?? ""} sai da lista da família.`}
-        confirmLabel="Remover"
+        title={t("people.removeTitle")}
+        text={t("people.removeText", { name: removing?.name ?? "" })}
+        confirmLabel={t("people.removeConfirm")}
         action={removePerson}
         hidden={{ id: removing?.id ?? "" }}
       />

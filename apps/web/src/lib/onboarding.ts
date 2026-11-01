@@ -8,7 +8,14 @@ import {
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
-import { isYearMonth, money, parseBRL, toDbAmount } from "@organizeup/domain";
+import {
+  isYearMonth,
+  money,
+  parseBRL,
+  parseMoney,
+  toDbAmount,
+  type MoneyValue,
+} from "@organizeup/domain";
 import { audit } from "./audit";
 
 /** Sobe quando o cadastro complementar pedir dados novos: as famílias voltam a ver o convite. */
@@ -49,10 +56,13 @@ export const optionalInt = (min: number, max: number, message: string) =>
       return z.NEVER;
     });
 
-/** Valor opcional digitado em pt-BR: vazio vira null, o resto vai para o banco com 2 casas. */
+/**
+ * Valor opcional digitado: vazio vira null, o resto vai para o banco com 2 casas. Sem `parse`, lê em
+ * pt-BR, como em /app/completar.
+ */
 export const optionalAmount = (
   message: string,
-  limits: { positive?: boolean; max?: string } = {},
+  limits: { positive?: boolean; max?: string; parse?: (value: string) => MoneyValue } = {},
 ) =>
   z
     .string()
@@ -60,7 +70,7 @@ export const optionalAmount = (
     .transform((value, ctx): string | null => {
       if (value === "") return null;
       try {
-        const amount = toDbAmount(parseBRL(value));
+        const amount = toDbAmount((limits.parse ?? parseBRL)(value));
         const parsed = money(amount);
         const tooLow = limits.positive ? parsed.lte(0) : parsed.lt(0);
         if (tooLow || parsed.gt(limits.max ?? "999999999999")) throw new RangeError("fora");
@@ -103,6 +113,14 @@ export const adultProfileShape = {
   expectedPension: optionalAmount("Informe o benefício como 2.500,00."),
 };
 
+/** O mesmo perfil com o benefício digitado no idioma da pessoa, para /app/familia. */
+export const adultProfileShapeIn = (locale: string) => ({
+  ...adultProfileShape,
+  expectedPension: optionalAmount("Informe o benefício como 2.500,00.", {
+    parse: (value) => parseMoney(value, locale),
+  }),
+});
+
 export const planShape = {
   retirementYear: optionalInt(1950, 2150, "Informe um ano entre 1950 e 2150."),
   tripsPerYear: optionalInt(0, 12, "Informe de 0 a 12 viagens por ano."),
@@ -113,6 +131,9 @@ function isRealDate(day: number, month: number, year: number) {
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
+
+/** Único texto de `weddingDay` que não é o de faixa: quem traduz precisa distinguir os dois. */
+export const NO_SUCH_DAY = "Esse dia não existe.";
 
 export const weddingSchema = z
   .object({
@@ -125,7 +146,7 @@ export const weddingSchema = z
     if (weddingMonth === null) {
       ctx.addIssue({ code: "custom", path: ["weddingMonth"], message: "Escolha o mês." });
     } else if (!isRealDate(weddingDay, weddingMonth, weddingYear ?? 2024)) {
-      ctx.addIssue({ code: "custom", path: ["weddingDay"], message: "Esse dia não existe." });
+      ctx.addIssue({ code: "custom", path: ["weddingDay"], message: NO_SUCH_DAY });
     }
   });
 

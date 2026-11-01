@@ -1,5 +1,5 @@
 "use server";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -18,16 +18,18 @@ import {
 } from "@organizeup/db";
 import { isValidTimezone } from "@organizeup/domain";
 import {
-  adultProfileShape,
+  adultProfileShapeIn,
   birthField,
   birthParts,
   isPlanAdult,
+  NO_SUCH_DAY,
   optionalInt,
   patchSettings,
   planShape,
   saveWedding,
   weddingSchema,
 } from "@/lib/onboarding";
+import type { Locale } from "@/i18n/locales";
 import { requireTenant } from "@/lib/session";
 
 export interface ActionState {
@@ -142,19 +144,29 @@ export async function bootstrapHousehold(input: {
   return { ok: true, message: null };
 }
 
-const personSchema = z.object({
-  name: z.string().trim().min(1, "Informe o nome.").max(120),
-  relation: z.enum(PERSON_RELATIONS, { message: "Escolha a relação." }),
-  birth: birthField,
-  ...adultProfileShape,
-  retirementAge: optionalInt(40, 100, "Informe uma idade de 40 a 100 anos."),
-});
+type PersonTexts = Awaited<ReturnType<typeof getTranslations<"pessoas">>>;
 
-const NO_SECOND_TITULAR = { relation: "Escolha a relação." };
+const personSchema = (t: PersonTexts, locale: Locale) =>
+  z.object({
+    name: z.string().trim().min(1, t("errors.name")).max(120),
+    relation: z.enum(PERSON_RELATIONS, { message: t("errors.relation") }),
+    birth: birthField,
+    ...adultProfileShapeIn(locale),
+    retirementAge: optionalInt(40, 100, t("errors.retirementAge")),
+  });
 
-function readPerson(formData: FormData) {
+/** `birth` e o perfil do adulto vêm de @/lib/onboarding, com o texto de /app/completar. */
+const personFieldErrors = (error: z.ZodError, t: PersonTexts) =>
+  translated(error, {
+    birth: t("errors.birth"),
+    workStatus: t("errors.workStatus"),
+    inssContributor: t("errors.inss"),
+    expectedPension: t("errors.pension"),
+  });
+
+function readPerson(formData: FormData, t: PersonTexts, locale: Locale) {
   const text = (name: string) => String(formData.get(name) ?? "");
-  return personSchema.safeParse({
+  return personSchema(t, locale).safeParse({
     name: text("name"),
     relation: text("relation"),
     birth: text("birth"),
@@ -166,7 +178,7 @@ function readPerson(formData: FormData) {
 }
 
 /** Colunas da pessoa. Quem não entra no plano fica sem dados de trabalho e previdência. */
-function personValues(data: z.output<typeof personSchema>, relation: string) {
+function personValues(data: z.output<ReturnType<typeof personSchema>>, relation: string) {
   const adult = isPlanAdult(relation);
   return {
     name: data.name,
@@ -180,12 +192,18 @@ function personValues(data: z.output<typeof personSchema>, relation: string) {
 
 export async function addPerson(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx))
-    return { ok: false, message: "Seu papel nesta família não permite alterações." };
-  const parsed = readPerson(formData);
-  if (!parsed.success) return { ok: false, message: null, fieldErrors: fieldErrors(parsed.error) };
+  const [t, tSettings, locale] = await Promise.all([
+    getTranslations("pessoas"),
+    getTranslations("settings"),
+    getLocale(),
+  ]);
+  if (!canWrite(ctx)) return { ok: false, message: tSettings("noPermission") };
+  const parsed = readPerson(formData, t, locale);
+  if (!parsed.success)
+    return { ok: false, message: null, fieldErrors: personFieldErrors(parsed.error, t) };
   const { relation } = parsed.data;
-  if (relation === "titular") return { ok: false, message: null, fieldErrors: NO_SECOND_TITULAR };
+  if (relation === "titular")
+    return { ok: false, message: null, fieldErrors: { relation: t("errors.relation") } };
 
   await withHousehold(ctx, async (tx) => {
     const [person] = await tx
@@ -195,26 +213,31 @@ export async function addPerson(_prev: ActionState, formData: FormData): Promise
     await audit(tx, ctx, "create", "people", person!.id);
   });
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Pessoa adicionada." };
+  return { ok: true, message: t("saved.added") };
 }
 
 /** Edita uma pessoa. O titular continua titular e ninguém vira titular por aqui. */
 export async function updatePerson(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx))
-    return { ok: false, message: "Seu papel nesta família não permite alterações." };
+  const [t, tSettings, locale] = await Promise.all([
+    getTranslations("pessoas"),
+    getTranslations("settings"),
+    getLocale(),
+  ]);
+  if (!canWrite(ctx)) return { ok: false, message: tSettings("noPermission") };
   const id = String(formData.get("id") ?? "");
-  const parsed = readPerson(formData);
-  if (!parsed.success) return { ok: false, message: null, fieldErrors: fieldErrors(parsed.error) };
+  const parsed = readPerson(formData, t, locale);
+  if (!parsed.success)
+    return { ok: false, message: null, fieldErrors: personFieldErrors(parsed.error, t) };
 
   const failure = await withHousehold(ctx, async (tx) => {
     const [current] = await tx
       .select({ relation: people.relation })
       .from(people)
       .where(eq(people.id, id));
-    if (!current) return "Essa pessoa não está mais na família.";
+    if (!current) return t("errors.personGone");
     const titular = current.relation === "titular";
-    if (!titular && parsed.data.relation === "titular") return "Escolha a relação.";
+    if (!titular && parsed.data.relation === "titular") return t("errors.relation");
     const relation = titular ? "titular" : parsed.data.relation;
     await tx
       .update(people)
@@ -225,7 +248,7 @@ export async function updatePerson(_prev: ActionState, formData: FormData): Prom
   });
   if (failure) return { ok: false, message: failure };
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Pessoa atualizada." };
+  return { ok: true, message: t("saved.updated") };
 }
 
 /** Remove uma pessoa cadastrada. O titular não sai por aqui. */
@@ -276,21 +299,32 @@ export async function updateSettings(_prev: ActionState, formData: FormData): Pr
 
 export async function updateWedding(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx))
-    return { ok: false, message: "Seu papel nesta família não permite alterações." };
+  const [t, tSettings] = await Promise.all([
+    getTranslations("pessoas"),
+    getTranslations("settings"),
+  ]);
+  if (!canWrite(ctx)) return { ok: false, message: tSettings("noPermission") };
   const parsed = weddingSchema.safeParse({
     weddingDay: String(formData.get("weddingDay") ?? ""),
     weddingMonth: String(formData.get("weddingMonth") ?? ""),
     weddingYear: String(formData.get("weddingYear") ?? ""),
   });
-  if (!parsed.success) return { ok: false, message: null, fieldErrors: fieldErrors(parsed.error) };
+  if (!parsed.success) {
+    const noSuchDay = parsed.error.issues.some((issue) => issue.message === NO_SUCH_DAY);
+    const fieldErrors = translated(parsed.error, {
+      weddingDay: t(noSuchDay ? "errors.noSuchDay" : "errors.weddingDay"),
+      weddingMonth: t("errors.weddingMonth"),
+      weddingYear: t("errors.weddingYear"),
+    });
+    return { ok: false, message: null, fieldErrors };
+  }
 
   await withHousehold(ctx, async (tx) => {
     await saveWedding(tx, ctx, parsed.data);
     await audit(tx, ctx, "update", "household_settings", ctx.householdId);
   });
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Casamento salvo." };
+  return { ok: true, message: t("wedding.saved") };
 }
 
 const planSchema = z.object(planShape);

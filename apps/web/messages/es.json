@@ -649,6 +649,121 @@
       "check": "Revisa los datos."
     }
   },
+  "metas": {
+    "metaTitle": "Metas",
+    "header": {
+      "eyebrow": "Metas",
+      "title": "Metas de la familia",
+      "description": "Con el monto y la fecha, el asistente te muestra cuánto ahorrar al mes.",
+      "newGoal": "Nueva meta"
+    },
+    "empty": {
+      "title": "¿Cuál es el próximo sueño de la familia?",
+      "text": "Dinos cuánto cuesta y cuándo lo quieres. El asistente calcula cuánto ahorrar al mes y lo encaja en tu calendario.",
+      "create": "Crear meta"
+    },
+    "stats": {
+      "monthly": "Ahorro mensual",
+      "monthlyHint": "Cuotas de {month}.",
+      "noInstallments": "Ninguna cuota planificada.",
+      "next": "Próximo logro",
+      "none": "Ninguno"
+    },
+    "footnote": "El plan se recalcula cada día cuando cambian tus ingresos y gastos.",
+    "sheets": {
+      "new": "Nueva meta",
+      "edit": "Editar meta",
+      "saved": "Monto ahorrado"
+    },
+    "kinds": {
+      "veiculo": "Auto o moto",
+      "imovel": "Casa o apartamento",
+      "reforma": "Reforma",
+      "educacao": "Estudios",
+      "compra": "Compra",
+      "evento": "Fiesta o evento",
+      "outro": "Otro"
+    },
+    "form": {
+      "name": "Nombre de la meta",
+      "namePlaceholder": "Ej.: Cambiar de auto",
+      "kind": "Tipo",
+      "amount": "Monto (R$)",
+      "amountPlaceholder": "0,00",
+      "desiredMonth": "Cuándo quieres lograrlo",
+      "optional": "Opcional.",
+      "priority": "Prioridad",
+      "priorities": {
+        "1": "1 (más urgente)",
+        "2": "2",
+        "3": "3",
+        "4": "4",
+        "5": "5 (menos urgente)"
+      },
+      "planDay": "Día del mes para ahorrar",
+      "account": "De dónde sale",
+      "destination": "Dónde queda el dinero",
+      "destinationHint": "Opcional. Si eliges una cuenta, cada cuota se convierte en una salida y una entrada en ella.",
+      "noAccount": "Ninguna cuenta",
+      "save": "Guardar meta"
+    },
+    "saved": {
+      "amount": "Cuánto apartaste (R$)",
+      "hint": "Se suma a lo que ya estaba ahorrado.",
+      "note": "Esto no toca tus cuentas. Solo lleva el control de la meta.",
+      "save": "Registrar monto"
+    },
+    "badge": {
+      "achieved": "Lograda",
+      "paused": "Pausada",
+      "preparing": "Plan en preparación",
+      "noRoom": "Sin espacio en el presupuesto"
+    },
+    "plan": {
+      "pending": "El asistente calcula el plan durante la madrugada y encaja las cuotas en el calendario.",
+      "noRoom": "Hoy no queda dinero para esta meta. Reduce el monto, pospón la fecha o pausa otra meta.",
+      "monthly": "Ahorra <strong>{amount}</strong> al mes de {start} a {end}."
+    },
+    "card": {
+      "kindFor": "{kind} · para {month}",
+      "edit": "Editar {name}",
+      "delete": "Eliminar {name}",
+      "saved": "{amount} ahorrados",
+      "progress": "Progreso de {name}",
+      "overdue": "Cuotas vencidas de {name}",
+      "confirm": "Confirmé",
+      "confirmAria": "Confirmé la cuota de {month} de {name}",
+      "savedButton": "Ahorré",
+      "savedAria": "Registrar monto ahorrado en {name}",
+      "pause": "Pausar",
+      "pauseAria": "Pausar {name}",
+      "resume": "Reanudar",
+      "resumeAria": "Reanudar {name}"
+    },
+    "replan": {
+      "run": "Recalcular ahora",
+      "running": "Recalculando…",
+      "done": "Plan actualizado."
+    },
+    "remove": {
+      "title": "Eliminar meta",
+      "text": "“{name}” sale del plan y del calendario. Lo que ya se confirmó sigue en los movimientos.",
+      "confirm": "Eliminar"
+    },
+    "errors": {
+      "name": "Indica el nombre de la meta.",
+      "kind": "Elige el tipo de meta.",
+      "amount": "Indica el monto como 50.000,00.",
+      "savedAmount": "Indica el monto como 500,00.",
+      "month": "Indica el mes y el año.",
+      "priority": "Elige la prioridad.",
+      "planDay": "Indica un día del 1 al 28.",
+      "account": "Elige de dónde sale el dinero.",
+      "validAccount": "Elige una cuenta válida.",
+      "notFound": "Meta no encontrada.",
+      "check": "Revisa los datos."
+    }
+  },
   "aposentadoria": {
     "metaTitle": "Jubilación",
     "eyebrow": "Jubilación",
@@ -830,6 +945,256 @@
       "growthRange": "Usa un crecimiento entre -5 % y 15 % al año.",
       "planSaved": "Plan guardado.",
       "reload": "Recarga la página e inténtalo de nuevo."
+    }
+  },
+  "viagens": {
+    "metaTitle": "Viajes",
+    "header": {
+      "eyebrow": "Viajes",
+      "title": "Viajes de la familia",
+      "description": "Con el costo y la fecha, te mostramos cuánto ahorrar al mes.",
+      "newTrip": "Nuevo viaje"
+    },
+    "empty": {
+      "title": "¿Cuál es el próximo viaje?",
+      "text": "Registra el destino y la fecha. El viaje entra en el calendario y puedes seguir cuánto falta.",
+      "plan": "Planificar viaje"
+    },
+    "stats": {
+      "next": "Próximo",
+      "none": "Ninguno",
+      "missing": "Falta ahorrar",
+      "monthly": "Ahorrar al mes",
+      "monthlyHint": "Sumando los próximos viajes."
+    },
+    "sheets": {
+      "new": "Nuevo viaje",
+      "edit": "Editar viaje",
+      "cost": "Nuevo costo",
+      "saved": "Monto ahorrado"
+    },
+    "kinds": {
+      "passagem": "Boletos",
+      "hospedagem": "Hospedaje",
+      "alimentacao": "Comida",
+      "transporte": "Transporte",
+      "passeios": "Paseos",
+      "outros": "Otros"
+    },
+    "form": {
+      "destination": "Destino",
+      "destinationPlaceholder": "Ej.: Gramado",
+      "start": "Ida",
+      "end": "Vuelta",
+      "who": "Quién va",
+      "save": "Guardar viaje"
+    },
+    "cost": {
+      "kind": "Tipo",
+      "amount": "Monto (R$)",
+      "amountHint": "Una estimación ya ayuda. Puedes ajustarla después.",
+      "amountPlaceholder": "0,00",
+      "perPerson": "Este monto es por persona",
+      "save": "Guardar costo"
+    },
+    "saved": {
+      "amount": "Cuánto apartaste (R$)",
+      "hint": "Se suma a lo que ya estaba ahorrado.",
+      "note": "Esto no toca tus cuentas. Solo lleva el control del viaje.",
+      "save": "Registrar monto"
+    },
+    "card": {
+      "date": "{start} · {names}",
+      "dateRange": "{start} al {end} · {names}",
+      "edit": "Editar {name}",
+      "delete": "Eliminar {name}",
+      "past": "Ya ocurrió",
+      "noCosts": "Agrega los costos para ver cuánto ahorrar al mes.",
+      "saved": "{amount} ahorrados",
+      "saveMonthly": "Ahorra <strong>{amount}</strong> al mes durante {months} meses.",
+      "saveUntilTrip": "Ahorra <strong>{amount}</strong> antes del viaje.",
+      "covered": "Viaje ya cubierto.",
+      "perTraveler": "{amount} por persona.",
+      "costs": "Costos de {name}",
+      "costPerPerson": "{kind} (por persona)",
+      "deleteCost": "Eliminar costo de {kind}",
+      "addCost": "Costo",
+      "addCostAria": "Agregar costo a {name}",
+      "savedButton": "Ahorré",
+      "savedAria": "Registrar monto ahorrado en {name}"
+    },
+    "remove": {
+      "title": "Eliminar viaje",
+      "text": "“{name}” sale del plan y del calendario.",
+      "confirm": "Eliminar"
+    },
+    "removeCost": {
+      "title": "Eliminar costo",
+      "text": "El total del viaje se recalculará.",
+      "confirm": "Eliminar"
+    },
+    "suggestions": {
+      "prompt": "¿Quieres sugerencias de viaje? Indica cuántos viajes al año en <link>Ajustes › Plan</link>.",
+      "title": "Sugerencias para el próximo año",
+      "description": "Montos aproximados, según nuestra tabla de costos de {year} para {travelers}. Revisa boletos y hospedaje antes de cerrar.",
+      "adults": "{adults, plural, =1 {# adulto} other {# adultos}}",
+      "adultsAndChildren": "{adults, plural, =1 {# adulto} other {# adultos}} y {children, plural, =1 {# niño} other {# niños}}",
+      "empty": "Ninguna sugerencia por ahora. El asistente vuelve a revisar cada madrugada.",
+      "overBudget": "Más de lo que te queda hoy",
+      "when": "En {when} · {days, plural, =1 {# día} other {# días}}",
+      "about": "Cerca de {total} ({perPerson} por persona)",
+      "fits": "Ahorra {amount} al mes hasta {month}",
+      "tooMuch": "Requiere {amount} al mes, más de lo que te queda para viajes hoy",
+      "source": "{source} ({confidence})",
+      "confidence": {
+        "baixa": "confianza baja",
+        "media": "confianza media"
+      },
+      "accept": "Agregar a mis viajes",
+      "itemTitle": "{name} en {when}"
+    },
+    "errors": {
+      "date": "Indica la fecha.",
+      "invalidDate": "Fecha no válida.",
+      "destination": "Indica el destino.",
+      "who": "Elige quién va.",
+      "returnBeforeStart": "La vuelta no puede ser antes de la ida.",
+      "familyPeople": "Elige personas de la familia.",
+      "notFound": "Viaje no encontrado.",
+      "costKind": "Elige el tipo de costo.",
+      "costAmount": "Indica el monto como 1.500,00.",
+      "savedAmount": "Indica el monto como 500,00.",
+      "check": "Revisa los datos."
+    }
+  },
+  "pessoas": {
+    "metaTitle": "Familia",
+    "eyebrow": "Familia",
+    "fallbackName": "Familia",
+    "people": {
+      "title": "Personas de la familia",
+      "description": "Entran en los planes de jubilación y viajes.",
+      "add": "Agregar persona",
+      "withWork": "{relation} · {work}",
+      "age": "{age, plural, =1 {# año} other {# años}}",
+      "edit": "Editar {name}",
+      "remove": "Quitar {name}",
+      "editTitle": "Editar persona",
+      "removeTitle": "Quitar persona",
+      "removeText": "{name} sale de la lista de la familia.",
+      "removeConfirm": "Quitar"
+    },
+    "relations": {
+      "titular": "Titular",
+      "conjuge": "Cónyuge",
+      "filho": "Hijo(a)",
+      "pai_mae": "Padre/Madre",
+      "outro": "Otro"
+    },
+    "workStatuses": {
+      "clt": "CLT (empleo formal en Brasil)",
+      "pj_autonomo": "PJ (contratista en Brasil) o autónomo",
+      "servidor": "Funcionario público",
+      "aposentado": "Jubilado(a)",
+      "estudante": "Estudiante",
+      "sem_renda": "Sin ingresos",
+      "outro": "Otro"
+    },
+    "form": {
+      "name": "Nombre",
+      "relation": "Relación",
+      "birth": "Nacimiento",
+      "birthHint": "Solo mes y año. Se usa para la jubilación y los viajes.",
+      "pensionHint": "INSS o plan de pensiones. Si no lo sabes, déjalo en blanco.",
+      "retirementAge": "Edad para dejar de trabajar",
+      "retirementAgeHint": "Se usa en el plan cuando la familia no indica el año. Vacío: 65 años.",
+      "save": "Guardar persona"
+    },
+    "adult": {
+      "workStatus": "Situación laboral",
+      "notInformed": "Sin indicar",
+      "inss": "¿Aporta al INSS (seguridad social de Brasil)?",
+      "yes": "Sí",
+      "no": "No",
+      "pension": "Beneficio mensual esperado (R$)"
+    },
+    "wedding": {
+      "title": "Matrimonio",
+      "description": "Opcional. Con el día, entra en el calendario como “Aniversário de casamento” (aniversario de matrimonio).",
+      "day": "Día",
+      "month": "Mes",
+      "choose": "Elige",
+      "year": "Año",
+      "save": "Guardar matrimonio",
+      "saved": "Matrimonio guardado.",
+      "months": {
+        "1": "Enero",
+        "2": "Febrero",
+        "3": "Marzo",
+        "4": "Abril",
+        "5": "Mayo",
+        "6": "Junio",
+        "7": "Julio",
+        "8": "Agosto",
+        "9": "Septiembre",
+        "10": "Octubre",
+        "11": "Noviembre",
+        "12": "Diciembre"
+      }
+    },
+    "members": {
+      "title": "Quién tiene acceso",
+      "description": "Cada persona entra con su propio usuario.",
+      "invite": "Invitar",
+      "removeAria": "Quitar el acceso de {name}",
+      "pending": "Invitaciones pendientes",
+      "pendingHelp": "Enviamos la invitación al correo de la persona. Si no llega, copia el enlace y envíalo por mensaje.",
+      "inviteStatus": "{role, select, adult {Puede ver y cambiar los datos de la familia} viewer {Puede ver, pero no cambia nada} other {{role}}}. Válida hasta el {expires}.",
+      "cancelAria": "Cancelar la invitación de {email}",
+      "leave": "Salir de esta familia",
+      "inviteTitle": "Invitar persona",
+      "removeTitle": "Quitar acceso",
+      "removeText": "{name} deja de tener acceso a esta familia. Los datos siguen aquí.",
+      "removeConfirm": "Quitar acceso",
+      "cancelTitle": "Cancelar invitación",
+      "cancelText": "El enlace dejará de funcionar.",
+      "cancelConfirm": "Cancelar invitación",
+      "leaveTitle": "Salir de esta familia",
+      "leaveText": "Dejas de tener acceso a los datos de esta familia. Para volver, necesitas una nueva invitación.",
+      "leaveConfirm": "Salir de la familia",
+      "email": "Correo de la persona",
+      "emailHint": "Debe entrar con este correo para aceptar.",
+      "role": "Qué puede hacer",
+      "canEdit": "Ver y cambiar los datos",
+      "viewOnly": "Solo ver",
+      "create": "Crear invitación",
+      "creating": "Creando…",
+      "linkAria": "Enlace de invitación de {email}",
+      "copy": "Copiar",
+      "copied": "Copiado"
+    },
+    "saved": {
+      "added": "Persona agregada.",
+      "updated": "Persona actualizada."
+    },
+    "errors": {
+      "name": "Indica el nombre.",
+      "relation": "Elige la relación.",
+      "birth": "Usa un mes y año válidos.",
+      "workStatus": "Elige la situación laboral.",
+      "inss": "Elige una opción.",
+      "pension": "Indica el beneficio como 2.500,00.",
+      "retirementAge": "Indica una edad de 40 a 100 años.",
+      "personGone": "Esta persona ya no está en la familia.",
+      "weddingDay": "Indica un día del 1 al 31.",
+      "weddingMonth": "Elige el mes.",
+      "weddingYear": "Indica un año entre 1900 y 2100.",
+      "noSuchDay": "Ese día no existe.",
+      "email": "Indica un correo válido.",
+      "role": "Elige qué puede hacer la persona.",
+      "alreadyMember": "Esta persona ya forma parte de la familia.",
+      "inviteFailed": "No se pudo crear la invitación. Inténtalo de nuevo.",
+      "ownerOnly": "Solo el responsable puede invitar."
     }
   },
   "meta": {

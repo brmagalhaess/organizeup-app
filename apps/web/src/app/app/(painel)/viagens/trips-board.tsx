@@ -1,7 +1,8 @@
 "use client";
 import { Pencil, PiggyBank, Plus, Trash2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useActionState, useEffect, useState, type ReactNode } from "react";
-import { formatBRL, money, toDbAmount } from "@organizeup/domain";
+import { money, toDbAmount } from "@organizeup/domain";
 import {
   Badge,
   Button,
@@ -18,6 +19,7 @@ import {
   StatTile,
   submitKeeping,
 } from "@/components/ui";
+import { formatAmount, formatDate, toFieldValue } from "@/i18n/format";
 import type { loadTrips } from "@/lib/planning";
 import type { TripSuggestions as TripSuggestionsData } from "@/lib/suggestions";
 import { addCost, addSaved, deleteCost, deleteTrip, saveTrip, type FormState } from "./actions";
@@ -27,18 +29,19 @@ type Data = Awaited<ReturnType<typeof loadTrips>>;
 type Trip = Data["trips"][number];
 type Cost = Trip["costs"][number];
 
-const KIND_LABEL: Record<string, string> = {
-  passagem: "Passagens",
-  hospedagem: "Hospedagem",
-  alimentacao: "Alimentação",
-  transporte: "Transporte",
-  passeios: "Passeios",
-  outros: "Outros",
-};
+const COST_KINDS = [
+  "passagem",
+  "hospedagem",
+  "alimentacao",
+  "transporte",
+  "passeios",
+  "outros",
+] as const;
+type CostKind = (typeof COST_KINDS)[number];
 
 const initial: FormState = { ok: false, message: null };
-const fullDate = (date: string) => date.split("-").reverse().join("/");
 
+/** Valor do banco de volta ao campo, com os centavos: "1500.00" vira "1500,00" em português. */
 function useClose(state: FormState, onDone: () => void) {
   useEffect(() => {
     if (state.ok) onDone();
@@ -46,30 +49,32 @@ function useClose(state: FormState, onDone: () => void) {
 }
 
 function TripForm({ trip, data, onDone }: { trip: Trip | null; data: Data; onDone: () => void }) {
+  const t = useTranslations("viagens.form");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(saveTrip, initial);
   useClose(state, onDone);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <input type="hidden" name="id" value={trip?.id ?? ""} />
-      <Field label="Destino">
+      <Field label={t("destination")}>
         <Input
           name="destination"
           required
           maxLength={80}
-          placeholder="Ex.: Gramado"
+          placeholder={t("destinationPlaceholder")}
           defaultValue={trip?.destination}
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Ida">
+        <Field label={t("start")}>
           <Input name="startOn" type="date" required defaultValue={trip?.startOn} />
         </Field>
-        <Field label="Volta">
+        <Field label={t("end")}>
           <Input name="endOn" type="date" defaultValue={trip?.endOn ?? ""} />
         </Field>
       </div>
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0 text-sm">
-        <legend className="mb-1.5 font-medium">Quem vai</legend>
+        <legend className="mb-1.5 font-medium">{t("who")}</legend>
         {data.people.map((person) => (
           <label key={person.id} className="flex items-center gap-2">
             <input
@@ -85,67 +90,75 @@ function TripForm({ trip, data, onDone }: { trip: Trip | null; data: Data; onDon
       </fieldset>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar viagem"}
+        {pending ? tCommon("saving") : t("save")}
       </Button>
     </form>
   );
 }
 
 function CostForm({ trip, onDone }: { trip: Trip; onDone: () => void }) {
+  const t = useTranslations("viagens");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(addCost, initial);
   useClose(state, onDone);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <input type="hidden" name="tripId" value={trip.id} />
-      <Field label="Tipo">
+      <Field label={t("cost.kind")}>
         <Select name="kind" defaultValue="passagem">
-          {Object.entries(KIND_LABEL).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
+          {COST_KINDS.map((kind) => (
+            <option key={kind} value={kind}>
+              {t(`kinds.${kind}`)}
             </option>
           ))}
         </Select>
       </Field>
-      <Field label="Valor (R$)" hint="Uma estimativa já ajuda. Você ajusta depois.">
-        <Input name="amount" inputMode="decimal" required placeholder="0,00" />
+      <Field label={t("cost.amount")} hint={t("cost.amountHint")}>
+        <Input
+          name="amount"
+          inputMode="decimal"
+          required
+          placeholder={t("cost.amountPlaceholder")}
+        />
       </Field>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="perPerson" className="size-5 accent-brand-500" />
-        Este valor é por pessoa
+        {t("cost.perPerson")}
       </label>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar custo"}
+        {pending ? tCommon("saving") : t("cost.save")}
       </Button>
     </form>
   );
 }
 
 function SavedForm({ trip, onDone }: { trip: Trip; onDone: () => void }) {
+  const t = useTranslations("viagens");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(addSaved, initial);
   useClose(state, onDone);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <input type="hidden" name="id" value={trip.id} />
-      <Field label="Quanto você separou (R$)" hint="Soma ao que já estava guardado.">
+      <Field label={t("saved.amount")} hint={t("saved.hint")}>
         <Input
           name="amount"
           inputMode="decimal"
           required
-          placeholder="0,00"
+          placeholder={t("cost.amountPlaceholder")}
           defaultValue={
             trip.plan.monthly && money(trip.plan.monthly).gt(0)
-              ? trip.plan.monthly.replace(".", ",")
+              ? toFieldValue(trip.plan.monthly, locale)
               : ""
           }
         />
       </Field>
-      <p className="text-xs text-muted">
-        Isto não mexe nas suas contas. É só o controle da viagem.
-      </p>
+      <p className="text-xs text-muted">{t("saved.note")}</p>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Registrar valor"}
+        {pending ? tCommon("saving") : t("saved.save")}
       </Button>
     </form>
   );
@@ -164,73 +177,97 @@ function TripCard({
   onRemove: () => void;
   onRemoveCost: (cost: Cost) => void;
 }) {
+  const t = useTranslations("viagens");
+  const locale = useLocale();
   const { plan } = trip;
+  const name = trip.destination;
+  const start = formatDate(trip.startOn, locale);
+  const names = trip.names.join(", ");
+  const strong = (chunks: ReactNode) => <strong className="tabular-nums">{chunks}</strong>;
   return (
     <Card
-      title={trip.destination}
-      description={`${fullDate(trip.startOn)}${trip.endOn ? ` a ${fullDate(trip.endOn)}` : ""} · ${trip.names.join(", ")}`}
+      title={name}
+      description={
+        trip.endOn
+          ? t("card.dateRange", { start, end: formatDate(trip.endOn, locale), names })
+          : t("card.date", { start, names })
+      }
       actions={
         writable ? (
           <div className="flex">
-            <IconButton label={`Editar ${trip.destination}`} onClick={() => onOpen("edit")}>
+            <IconButton label={t("card.edit", { name })} onClick={() => onOpen("edit")}>
               <Pencil className="size-4" aria-hidden="true" />
             </IconButton>
-            <IconButton label={`Excluir ${trip.destination}`} onClick={onRemove}>
+            <IconButton label={t("card.delete", { name })} onClick={onRemove}>
               <Trash2 className="size-4" aria-hidden="true" />
             </IconButton>
           </div>
         ) : null
       }
     >
-      {plan.past ? <Badge>Já aconteceu</Badge> : null}
+      {plan.past ? <Badge>{t("card.past")}</Badge> : null}
       {money(plan.total).isZero() ? (
-        <p className="text-sm text-muted">Adicione os custos para ver quanto guardar por mês.</p>
+        <p className="text-sm text-muted">{t("card.noCosts")}</p>
       ) : (
         <div className="text-sm">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="font-medium">{formatBRL(plan.total)}</span>
-            <span className="tabular-nums text-muted">{formatBRL(trip.saved)} guardados</span>
+            <span className="font-medium">{formatAmount(plan.total, locale)}</span>
+            <span className="tabular-nums text-muted">
+              {t("card.saved", { amount: formatAmount(trip.saved, locale) })}
+            </span>
           </div>
           <div className="mt-1.5 h-2 rounded-full bg-brand-50" aria-hidden="true">
             <div className="h-2 rounded-full bg-brand-500" style={{ width: `${plan.percent}%` }} />
           </div>
           {plan.monthly !== null && money(plan.missing).gt(0) ? (
             <p className="mt-2">
-              Guarde <strong className="tabular-nums">{formatBRL(plan.monthly)}</strong>{" "}
-              {plan.monthsLeft > 1 ? `por mês, por ${plan.monthsLeft} meses` : "até a viagem"}.
+              {plan.monthsLeft > 1
+                ? t.rich("card.saveMonthly", {
+                    amount: formatAmount(plan.monthly, locale),
+                    months: plan.monthsLeft,
+                    strong,
+                  })
+                : t.rich("card.saveUntilTrip", {
+                    amount: formatAmount(plan.monthly, locale),
+                    strong,
+                  })}
             </p>
           ) : null}
-          {money(plan.missing).isZero() ? <p className="mt-2">Viagem já coberta.</p> : null}
+          {money(plan.missing).isZero() ? <p className="mt-2">{t("card.covered")}</p> : null}
           {trip.personIds.length > 1 ? (
-            <p className="mt-1 text-xs text-muted">{formatBRL(plan.perTraveler)} por pessoa.</p>
+            <p className="mt-1 text-xs text-muted">
+              {t("card.perTraveler", { amount: formatAmount(plan.perTraveler, locale) })}
+            </p>
           ) : null}
         </div>
       )}
 
       {trip.costs.length > 0 ? (
         <ul
-          aria-label={`Custos de ${trip.destination}`}
+          aria-label={t("card.costs", { name })}
           className="m-0 mt-3 list-none divide-y divide-line p-0"
         >
-          {trip.costs.map((cost) => (
-            <li key={cost.id} className="flex items-center gap-3 py-1.5 text-sm">
-              <span className="min-w-0 flex-1">
-                {KIND_LABEL[cost.kind]}
-                {cost.perPerson ? " (por pessoa)" : ""}
-              </span>
-              <span className="whitespace-nowrap font-medium tabular-nums">
-                {formatBRL(cost.amount)}
-              </span>
-              {writable ? (
-                <IconButton
-                  label={`Excluir custo de ${KIND_LABEL[cost.kind]}`}
-                  onClick={() => onRemoveCost(cost)}
-                >
-                  <Trash2 className="size-4" aria-hidden="true" />
-                </IconButton>
-              ) : null}
-            </li>
-          ))}
+          {trip.costs.map((cost) => {
+            const kind = t(`kinds.${cost.kind as CostKind}`);
+            return (
+              <li key={cost.id} className="flex items-center gap-3 py-1.5 text-sm">
+                <span className="min-w-0 flex-1">
+                  {cost.perPerson ? t("card.costPerPerson", { kind }) : kind}
+                </span>
+                <span className="whitespace-nowrap font-medium tabular-nums">
+                  {formatAmount(cost.amount, locale)}
+                </span>
+                {writable ? (
+                  <IconButton
+                    label={t("card.deleteCost", { kind })}
+                    onClick={() => onRemoveCost(cost)}
+                  >
+                    <Trash2 className="size-4" aria-hidden="true" />
+                  </IconButton>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 
@@ -239,20 +276,20 @@ function TripCard({
           <Button
             variant="secondary"
             small
-            aria-label={`Adicionar custo em ${trip.destination}`}
+            aria-label={t("card.addCostAria", { name })}
             onClick={() => onOpen("cost")}
           >
             <Plus className="size-4" aria-hidden="true" />
-            Custo
+            {t("card.addCost")}
           </Button>
           <Button
             variant="secondary"
             small
-            aria-label={`Registrar valor guardado em ${trip.destination}`}
+            aria-label={t("card.savedAria", { name })}
             onClick={() => onOpen("saved")}
           >
             <PiggyBank className="size-4" aria-hidden="true" />
-            Guardei
+            {t("card.savedButton")}
           </Button>
         </div>
       ) : null}
@@ -261,13 +298,6 @@ function TripCard({
 }
 
 type Open = { type: "new" | "edit" | "cost" | "saved"; nonce: number; id: string | null };
-
-const TITLES: Record<Open["type"], string> = {
-  new: "Nova viagem",
-  edit: "Editar viagem",
-  cost: "Novo custo",
-  saved: "Valor guardado",
-};
 
 export function TripsBoard({
   data,
@@ -280,6 +310,8 @@ export function TripsBoard({
   writable: boolean;
   insights: ReactNode;
 }) {
+  const t = useTranslations("viagens");
+  const locale = useLocale();
   const [sheet, setSheet] = useState<Open | null>(null);
   const [removing, setRemoving] = useState<Trip | null>(null);
   const [removingCost, setRemovingCost] = useState<Cost | null>(null);
@@ -294,14 +326,14 @@ export function TripsBoard({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Viagens"
-        title="Viagens da família"
-        description="Com o custo e a data, mostramos quanto guardar por mês."
+        eyebrow={t("header.eyebrow")}
+        title={t("header.title")}
+        description={t("header.description")}
         actions={
           writable ? (
             <Button variant="secondary" onClick={() => open("new", null)}>
               <Plus className="size-4" aria-hidden="true" />
-              Nova viagem
+              {t("header.newTrip")}
             </Button>
           ) : null
         }
@@ -311,12 +343,12 @@ export function TripsBoard({
       {data.trips.length === 0 ? (
         <Card>
           <EmptyState
-            title="Qual é a próxima viagem?"
-            text="Cadastre o destino e a data. A viagem entra no calendário, e você acompanha quanto falta."
+            title={t("empty.title")}
+            text={t("empty.text")}
             action={
               writable ? (
                 <Button variant="secondary" small onClick={() => open("new", null)}>
-                  Planejar viagem
+                  {t("empty.plan")}
                 </Button>
               ) : undefined
             }
@@ -326,18 +358,18 @@ export function TripsBoard({
         <>
           <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-3">
             <StatTile
-              label="Próxima"
-              value={upcoming[0]?.destination ?? "Nenhuma"}
-              hint={upcoming[0] ? fullDate(upcoming[0].startOn) : undefined}
+              label={t("stats.next")}
+              value={upcoming[0]?.destination ?? t("stats.none")}
+              hint={upcoming[0] ? formatDate(upcoming[0].startOn, locale) : undefined}
             />
             <StatTile
-              label="Falta guardar"
-              value={formatBRL(sum(upcoming.map((trip) => trip.plan.missing)))}
+              label={t("stats.missing")}
+              value={formatAmount(sum(upcoming.map((trip) => trip.plan.missing)), locale)}
             />
             <StatTile
-              label="Guardar por mês"
-              value={formatBRL(sum(upcoming.map((trip) => trip.plan.monthly ?? "0")))}
-              hint="Somando as próximas viagens."
+              label={t("stats.monthly")}
+              value={formatAmount(sum(upcoming.map((trip) => trip.plan.monthly ?? "0")), locale)}
+              hint={t("stats.monthlyHint")}
             />
           </dl>
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
@@ -357,7 +389,7 @@ export function TripsBoard({
 
       {suggestions ? <TripSuggestions data={suggestions} writable={writable} /> : null}
 
-      <Sheet open={sheet !== null} onClose={close} title={sheet ? TITLES[sheet.type] : ""}>
+      <Sheet open={sheet !== null} onClose={close} title={sheet ? t(`sheets.${sheet.type}`) : ""}>
         {sheet?.type === "new" ? (
           <TripForm key={sheet.nonce} trip={null} data={data} onDone={close} />
         ) : null}
@@ -374,18 +406,18 @@ export function TripsBoard({
       <ConfirmSheet
         open={removing !== null}
         onClose={() => setRemoving(null)}
-        title="Excluir viagem"
-        text={`"${removing?.destination ?? ""}" sai do plano e do calendário.`}
-        confirmLabel="Excluir"
+        title={t("remove.title")}
+        text={t("remove.text", { name: removing?.destination ?? "" })}
+        confirmLabel={t("remove.confirm")}
         action={deleteTrip}
         hidden={{ id: removing?.id ?? "" }}
       />
       <ConfirmSheet
         open={removingCost !== null}
         onClose={() => setRemovingCost(null)}
-        title="Excluir custo"
-        text="O total da viagem será recalculado."
-        confirmLabel="Excluir"
+        title={t("removeCost.title")}
+        text={t("removeCost.text")}
+        confirmLabel={t("removeCost.confirm")}
         action={deleteCost}
         hidden={{ id: removingCost?.id ?? "" }}
       />
