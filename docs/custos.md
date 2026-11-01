@@ -25,6 +25,8 @@ Preencha os valores reais; os agentes e o fundador revisam este arquivo todo mê
   tarefas que a rotina abre (no máximo 3 por dia).
 - Os agentes diários do produto rodam no worker (04:00) e **não custam IA**: são regras, sem modelo nem
   cotação externa (ADR-0015). O custo deles é só tempo de CPU e banco já pagos no VPS.
+- Erros (`ops.diagnostics`) e o MCP da equipe rodam na web e no Postgres já pagos, sem serviço externo. Os
+  tetos ficam em `docs/ops-api.md`; o custo em Codex continua limitado pelas 3 tarefas de reparo por dia.
 - Antes da Fase 3: fixar preço do plano e meta "custo de IA ≤ 20–25% do preço" medida por `ai_usage`.
 - Relatórios e sugestões automáticos só para households ativos: 60 dias para os agentes diários do produto
   (ADR-0015), 30 dias para o assistente com IA da Fase 3.
