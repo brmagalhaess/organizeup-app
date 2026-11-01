@@ -956,6 +956,29 @@ describe("rotina da madrugada", () => {
     expect(again.calls).toHaveLength(0);
   });
 
+  it("escreve no idioma de quem definiu o aceite, pelo contexto do turno", async () => {
+    await accept();
+    await db.saveUserLocale(A.owner, "en");
+    const { client, calls } = fakeClient(script());
+    await ai.runNightlyInsights({ ctx: ownerCtx, client, day: "2026-09-17", limits });
+    await db.saveUserLocale(A.owner, "pt-BR");
+    const specialist = JSON.stringify(calls[1]?.messages);
+    expect(specialist).toContain("Idioma da pessoa: inglês");
+    expect(JSON.stringify(calls[1]?.system)).not.toContain("Idioma da pessoa");
+  });
+
+  it("sem preferência, a dica fica em português", async () => {
+    await accept();
+    await db.withHousehold(ownerCtx, (tx) =>
+      tx.update(db.householdSettings).set({ aiConsentBy: null }),
+    );
+    await db.saveUserLocale(A.owner, "es");
+    const { client, calls } = fakeClient(script());
+    await ai.runNightlyInsights({ ctx: ownerCtx, client, day: "2026-09-18", limits });
+    await db.saveUserLocale(A.owner, "pt-BR");
+    expect(JSON.stringify(calls[1]?.messages)).not.toContain("Idioma da pessoa");
+  });
+
   it("resposta fora do formato não vira dica", async () => {
     await accept();
     const { client } = fakeClient([
