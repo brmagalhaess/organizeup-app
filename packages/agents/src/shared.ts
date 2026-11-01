@@ -215,6 +215,30 @@ export async function recordApplied(
   return row!.id;
 }
 
+/**
+ * Marca algo que o agente decidiu deixar de lado: fica como `ignorada`, sem pendência para a família,
+ * e `loadDecisions` tira da fila por 30 dias.
+ */
+export async function recordSkipped(
+  tx: TenantTx,
+  householdId: string,
+  agent: string,
+  item: PendingSuggestion,
+): Promise<void> {
+  await tx.insert(householdSuggestions).values({
+    householdId,
+    agent,
+    kind: item.kind,
+    title: clamp(item.title, MAX_TITLE),
+    body: clamp(item.body, MAX_BODY),
+    payload: item.payload,
+    status: "ignorada",
+    appliedBy: "agente",
+    dedupeKey: item.dedupeKey.slice(0, 160),
+    decidedAt: new Date(),
+  });
+}
+
 /** Relatório do dia: upsert por (família, tipo, dia). */
 export async function saveDailyReport<K extends DailyReportKind>(
   tx: TenantTx,

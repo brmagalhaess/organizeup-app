@@ -4,14 +4,25 @@ import {
   GOAL_CATEGORY,
   KEYWORDS,
   categorizeRow,
+  categoryCandidates,
   dailyCategoryReport,
   effectiveCategorySource,
   importReport,
+  isCategoryCandidate,
   isFallbackCategory,
+  isGenericCategory,
+  isProtectedCategory,
   memoryKey,
   merchantKey,
+  nearDuplicateCategory,
+  planCategoryMoves,
   reviewCategories,
   suggestCategoryMerges,
+  validNewCategoryName,
+  withAiSummary,
+  type CandidateTransaction,
+  type CategoryAnswer,
+  type CategoryCandidate,
   type CategoryMemory,
   type CategoryOption,
   type ReviewTransaction,
@@ -114,6 +125,179 @@ describe("agente de categorização", () => {
     expect(isFallbackCategory("Outras despesas")).toBe(true);
     expect(isFallbackCategory("outras receitas")).toBe(true);
     expect(isFallbackCategory("Mercado")).toBe(false);
+  });
+});
+
+describe("categorização com IA", () => {
+  const options: CategoryOption[] = [
+    { id: "m", name: "Mercado", kind: "despesa" },
+    { id: "s", name: "Salário", kind: "receita" },
+    { id: "o", name: "Outras despesas", kind: "despesa" },
+    { id: "p", name: GOAL_CATEGORY, kind: "despesa" },
+    { id: "a", name: CONTRIBUTION_CATEGORY, kind: "despesa" },
+  ];
+  const candidate = (over: Partial<CandidateTransaction> = {}): CandidateTransaction => ({
+    id: "t1",
+    kind: "despesa",
+    description: "LOJA ATOMO",
+    amount: "10.00",
+    categoryId: "o",
+    categoryName: "Outras despesas",
+    categorySource: "importacao",
+    importBatchId: "b",
+    ...over,
+  });
+  const group = (merchant: string, kind: "despesa" | "receita" = "despesa"): CategoryCandidate => ({
+    kind,
+    merchant,
+    ids: [merchant],
+    sample: merchant,
+    fromCategoryId: "o",
+    count: 1,
+    total: "10.00",
+    average: "10.00",
+  });
+  const answer = (over: Partial<CategoryAnswer> = {}): CategoryAnswer => ({
+    grupo: 1,
+    categoria: null,
+    novaCategoria: null,
+    essencial: false,
+    confianca: "alta",
+    ...over,
+  });
+  const plan = (answers: CategoryAnswer[], groups = [group("loja a")], maxNew = 5) =>
+    planCategoryMoves({ groups, answers, categories: options, maxNew });
+
+  it("reconhece genérica por nome normalizado, sem pegar categoria de verdade", () => {
+    expect(isGenericCategory("OUTRAS DESPESAS")).toBe(true);
+    expect(isGenericCategory("Não classificado")).toBe(true);
+    expect(isGenericCategory("diversos")).toBe(true);
+    expect(isGenericCategory("Mercado")).toBe(false);
+  });
+
+  it("categoria de sistema nunca é candidata, mesmo marcada para revisar", () => {
+    const protectedRow = { categoryName: GOAL_CATEGORY, categorySource: "revisar" as const };
+    expect(isCategoryCandidate({ ...protectedRow, importBatchId: null })).toBe(false);
+    expect(isProtectedCategory("Transferências")).toBe(true);
+    expect(isProtectedCategory("Cartão de crédito")).toBe(true);
+    expect(isProtectedCategory("Mercado")).toBe(false);
+  });
+
+  it("agrupa por estabelecimento, soma em decimal e traz os maiores primeiro", () => {
+    const rows = [
+      candidate({ id: "1", description: "PIX LOJA ATOMO 12/10", amount: "0.10" }),
+      candidate({ id: "2", description: "COMPRA LOJA ATOMO 13/10", amount: "0.20" }),
+      candidate({ id: "3", description: "LOJA BETA", amount: "5.00" }),
+      candidate({ id: "4", description: "PIX 123", amount: "900.00" }),
+    ];
+    const groups = categoryCandidates(rows, new Set(), 10);
+    expect(groups.map((row) => row.merchant)).toEqual(["loja beta", "loja atomo"]);
+    expect(groups[1]).toMatchObject({ ids: ["1", "2"], count: 2, total: "0.30", average: "0.15" });
+  });
+
+  it("respeita o limite e o que já foi decidido", () => {
+    const rows = [
+      candidate({ id: "1", description: "LOJA ATOMO", amount: "100.00" }),
+      candidate({ id: "2", description: "LOJA BETA", amount: "50.00" }),
+      candidate({ id: "3", description: "LOJA GAMA", amount: "10.00" }),
+    ];
+    const closed = new Set([memoryKey("despesa", "loja atomo")]);
+    expect(categoryCandidates(rows, closed, 1).map((row) => row.merchant)).toEqual(["loja beta"]);
+  });
+
+  it("recusa nome que não é nome de categoria", () => {
+    for (const name of ["ab", "Loja 123", "https://exemplo", "Um dois três quatro cinco"]) {
+      expect(validNewCategoryName(name)).toBe(false);
+    }
+    expect(validNewCategoryName("Outras")).toBe(false);
+    expect(validNewCategoryName("Transferências")).toBe(false);
+    expect(validNewCategoryName("Pets e veterinário")).toBe(true);
+  });
+
+  it("acha quase-duplicata por acento, plural, erro de digitação e nome contido", () => {
+    const list = [{ name: "Saúde" }, { name: "Restaurantes" }, { name: "Educação" }];
+    expect(nearDuplicateCategory("SAUDE", list)?.name).toBe("Saúde");
+    expect(nearDuplicateCategory("Restaurante", list)?.name).toBe("Restaurantes");
+    expect(nearDuplicateCategory("Restaurentes", list)?.name).toBe("Restaurantes");
+    expect(nearDuplicateCategory("Restaurantes e bares", list)?.name).toBe("Restaurantes");
+    expect(nearDuplicateCategory("Viagens", list)).toBeNull();
+  });
+
+  it("categoria existente de outro tipo ou inventada é recusada", () => {
+    expect(plan([answer({ categoria: "Salário" })]).rejected).toHaveLength(1);
+    expect(plan([answer({ categoria: "Inventada" })]).rejected).toHaveLength(1);
+  });
+
+  it("destino de sistema é recusado, por nome existente ou por nome novo", () => {
+    expect(plan([answer({ categoria: GOAL_CATEGORY })]).rejected).toHaveLength(1);
+    expect(plan([answer({ novaCategoria: "Metas e objetivo" })]).rejected).toHaveLength(1);
+  });
+
+  it("sem resposta ou genérica vira desconhecido, não movimento", () => {
+    expect(plan([answer()]).unknown).toHaveLength(1);
+    expect(plan([answer({ categoria: "Outras despesas" })]).unknown).toHaveLength(1);
+    expect(plan([answer({ novaCategoria: "Diversos" })]).unknown).toHaveLength(1);
+  });
+
+  it("funde quase-duplicata na existente e em nome novo da mesma noite", () => {
+    expect(plan([answer({ novaCategoria: "Mercados" })]).moves[0]?.target).toEqual({
+      categoryId: "m",
+      newCategory: null,
+    });
+    const twin = plan(
+      [
+        answer({ grupo: 1, novaCategoria: "Pets", essencial: true }),
+        answer({ grupo: 2, novaCategoria: "Pet" }),
+      ],
+      [group("loja a"), group("loja b")],
+    );
+    expect(twin.moves.map((move) => move.target.newCategory)).toEqual([
+      { name: "Pets", essential: true },
+      { name: "Pets", essential: true },
+    ]);
+  });
+
+  it("mesmo nome em tipos diferentes não se funde", () => {
+    const both = plan(
+      [answer({ grupo: 1, novaCategoria: "Bicos" }), answer({ grupo: 2, novaCategoria: "Bicos" })],
+      [group("loja a"), group("loja b", "receita")],
+    );
+    expect(both.moves).toHaveLength(2);
+  });
+
+  it("passa do limite de categorias novas fica para a próxima noite", () => {
+    const groups = [group("loja a"), group("loja b"), group("loja c")];
+    const capped = plan(
+      [
+        answer({ grupo: 1, novaCategoria: "Papelaria" }),
+        answer({ grupo: 2, novaCategoria: "Jardinagem" }),
+        answer({ grupo: 3, novaCategoria: "Mercados" }),
+      ],
+      groups,
+      1,
+    );
+    expect(capped.moves).toHaveLength(2);
+    expect(capped.deferred).toBe(1);
+  });
+
+  it("ignora grupo fora da lista e resposta repetida", () => {
+    const result = plan([
+      answer({ grupo: 9, categoria: "Mercado" }),
+      answer({ grupo: 1, categoria: "Mercado" }),
+      answer({ grupo: 1, categoria: "Salário" }),
+    ]);
+    expect(result.moves).toHaveLength(1);
+    expect(result.rejected).toHaveLength(0);
+  });
+
+  it("o resumo do dia troca o trecho da IA em vez de repetir", () => {
+    const ia = { groups: 1, moved: 2, created: ["Pets"], pending: 0, skipped: 0 };
+    const once = withAiSummary("1 lançamento revisado.", ia);
+    expect(once).toContain("2 lançamentos movidos");
+    expect(once).toContain("Categorias criadas: Pets.");
+    const twice = withAiSummary(once, { ...ia, moved: 3 });
+    expect(twice).toContain("3 lançamentos movidos");
+    expect(twice).not.toContain("2 lançamentos movidos");
   });
 });
 

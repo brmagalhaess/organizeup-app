@@ -319,6 +319,7 @@ async function applyCategoria(
   payload: SuggestionPayload["categoria"],
 ): Promise<{ message: string; payload: Record<string, unknown> } | { error: string }> {
   let target = payload.toCategoryId;
+  let createdCategoryId = payload.createdCategoryId;
   if (target === null) {
     if (!payload.newCategory) return { error: "Sugestão sem categoria de destino." };
     const result = await ensureCategory(
@@ -329,7 +330,10 @@ async function applyCategoria(
       payload.newCategory.essential,
     );
     target = result.id;
-    if (result.created) await recordAudit(tx, ctx, "create", "categories", target);
+    if (result.created) {
+      createdCategoryId = target;
+      await recordAudit(tx, ctx, "create", "categories", target);
+    }
   } else {
     const [category] = await tx
       .select({ id: categories.id, kind: categories.kind })
@@ -378,7 +382,13 @@ async function applyCategoria(
   }
   return {
     message: `${rows.length === 1 ? "Lançamento movido" : `${rows.length} lançamentos movidos`}.`,
-    payload: { ...payload, toCategoryId: target, previous, appliedCategoryId: target },
+    payload: {
+      ...payload,
+      toCategoryId: target,
+      previous,
+      appliedCategoryId: target,
+      ...(createdCategoryId ? { createdCategoryId } : {}),
+    },
   };
 }
 
@@ -417,7 +427,25 @@ async function undoCategoria(
         ),
       );
   }
+  if (payload.createdCategoryId) await archiveIfUnused(tx, payload.createdCategoryId);
   return { message: "Lançamentos devolvidos. O assistente não mexe mais neles." };
+}
+
+/**
+ * A categoria nasceu com a mudança desfeita. Sem outro uso, sai das listas; com outro lançamento,
+ * previsão, compra ou renda, fica. Arquiva em vez de apagar: outra sugestão pode citar o id.
+ */
+async function archiveIfUnused(tx: TenantTx, categoryId: string): Promise<void> {
+  const uses = await Promise.all(
+    [transactions, cashflowPlans, cardPurchases, incomeSources].map((table) =>
+      tx.select({ id: table.id }).from(table).where(eq(table.categoryId, categoryId)).limit(1),
+    ),
+  );
+  if (uses.some((rows) => rows.length > 0)) return;
+  await tx
+    .delete(categoryMemory)
+    .where(and(eq(categoryMemory.categoryId, categoryId), eq(categoryMemory.source, "agente")));
+  await tx.update(categories).set({ archived: true }).where(eq(categories.id, categoryId));
 }
 
 // ---------- fusão de categorias ----------

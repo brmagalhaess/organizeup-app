@@ -40,6 +40,8 @@ export const categoriaPayloadSchema = z.object({
     .optional(),
   /** Categoria em que os lançamentos ficaram (resolvida ao aplicar, inclusive a criada). */
   appliedCategoryId: z.string().min(1).optional(),
+  /** Categoria que nasceu com esta mudança: desfazer arquiva, se ela ficou sem uso. */
+  createdCategoryId: z.string().min(1).optional(),
 });
 
 export const fusaoCategoriaPayloadSchema = z.object({
@@ -231,6 +233,9 @@ export const STOCK_EVENT_DEDUPE_PREFIX = "investimento:acoes:";
 export const DEDUPE = {
   categoria: (kind: "receita" | "despesa", merchant: string, to: string | { newName: string }) =>
     `categoria:${kind}:${merchant}:${typeof to === "string" ? to : `new:${to.newName}`}`,
+  /** Marca de estabelecimento que a IA não soube classificar: só volta depois de 30 dias. */
+  categoriaSemPista: (kind: "receita" | "despesa", merchant: string) =>
+    `categoria:${kind}:${merchant}:sem_pista`,
   fusao: (fromCategoryId: string, toCategoryId: string) =>
     `fusao:${fromCategoryId}:${toCategoryId}`,
   aporteReserva: (month: string) => `aporte_reserva:${month}`,

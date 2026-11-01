@@ -128,14 +128,24 @@ export type InsightGate =
   "pronto" | "sem_chave" | "desligado" | "teto_mensal" | "sem_aceite" | "ja_rodou";
 
 /** Mesmo portão da conversa, sem papel: quem roda é o sistema, em nome de quem autorizou. */
-export async function insightGate(ctx: TenantContext, day: string, limits: AiLimits) {
-  if (!assistantConfigured()) return "sem_chave" as const;
+export async function nightGate(
+  ctx: TenantContext,
+  day: string,
+  limits: AiLimits,
+): Promise<Exclude<InsightGate, "ja_rodou">> {
+  if (!assistantConfigured()) return "sem_chave";
   const flags = await readPlatformFlags();
-  if (!flags.aiEnabled || flags.maintenance) return "desligado" as const;
-  if ((await monthSpend(day, limits)).reached) return "teto_mensal" as const;
+  if (!flags.aiEnabled || flags.maintenance) return "desligado";
+  if ((await monthSpend(day, limits)).reached) return "teto_mensal";
   const settings = await readAssistantSettings(ctx);
   const version = settings?.consentVersion ?? "";
-  if (!settings?.consentAt || version < INSIGHTS_CONSENT_VERSION) return "sem_aceite" as const;
+  if (!settings?.consentAt || version < INSIGHTS_CONSENT_VERSION) return "sem_aceite";
+  return "pronto";
+}
+
+export async function insightGate(ctx: TenantContext, day: string, limits: AiLimits) {
+  const gate = await nightGate(ctx, day, limits);
+  if (gate !== "pronto") return gate;
   const done = await withHousehold(ctx, (tx) =>
     tx
       .select({ id: householdInsights.id })
