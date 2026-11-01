@@ -612,5 +612,97 @@
       "balanceFormat": "Escribe el saldo como 1.250,00.",
       "currencyLocked": "Esta cuenta ya tiene movimientos y no puede cambiar de moneda. Crea otra cuenta."
     }
+  },
+  "cartoes": {
+    "metaTitle": "Tarjetas",
+    "eyebrow": "Tarjetas",
+    "title": "Tarjetas de crédito",
+    "description": "Las compras entran en el resumen correcto, y el resumen entra en el mes en que vence.",
+    "listLabel": "Tarjetas",
+    "new": "Nueva tarjeta",
+    "empty": {
+      "title": "Ninguna tarjeta registrada",
+      "text": "Registra la tarjeta con los días de cierre y vencimiento. Los resúmenes se arman solos a partir de las compras.",
+      "action": "Registrar tarjeta"
+    },
+    "archived": {
+      "title": "Archivadas",
+      "text": "Fuera de los movimientos nuevos. Los resúmenes pendientes siguen en el mes."
+    },
+    "sheet": {
+      "edit": "Editar tarjeta",
+      "new": "Nueva tarjeta"
+    },
+    "status": {
+      "aberta": "Abierto",
+      "fechada": "Cerrado",
+      "atrasada": "Atrasado",
+      "paga": "Pagado"
+    },
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Archivar {name}",
+      "restore": "Reactivar {name}",
+      "delete": "Eliminar {name}"
+    },
+    "form": {
+      "name": "Nombre de la tarjeta",
+      "nameExample": "Ej.: Tarjeta del banco",
+      "closingDay": "Día de cierre",
+      "closingDayHint": "Último día de compras del resumen.",
+      "dueDay": "Día de vencimiento",
+      "dueDayHint": "Cuándo se debe pagar el resumen.",
+      "limit": "Límite (R$)",
+      "limitHint": "Opcional. Muestra cuánto queda disponible.",
+      "payingAccount": "Cuenta que paga el resumen",
+      "save": "Guardar tarjeta"
+    },
+    "tile": {
+      "days": "Cierra el día {closing} · vence el día {due}",
+      "current": "Resumen actual",
+      "available": "Disponible: {value}"
+    },
+    "statement": {
+      "of": "Resumen de {name}",
+      "previous": "Resumen anterior",
+      "next": "Resumen siguiente",
+      "total": "Total",
+      "closes": "Cierra el",
+      "due": "Vence el",
+      "newPurchase": "Nueva compra",
+      "pay": "Pagar resumen",
+      "paidFrom": "Sale de {account}",
+      "fallbackAccount": "la cuenta",
+      "emptyTitle": "Ninguna compra en este resumen",
+      "emptyText": "Las compras en cuotas aparecen en cada resumen hasta la última cuota.",
+      "caption": "Compras del resumen",
+      "date": "Fecha",
+      "description": "Descripción",
+      "category": "Categoría",
+      "amount": "Importe",
+      "actions": "Acciones",
+      "installment": "Cuota {number} de {total}",
+      "singlePayment": "Pago único"
+    },
+    "remove": {
+      "title": "Eliminar compra",
+      "text": "\"{name}\" y todas las cuotas se eliminarán. Esta acción no se puede deshacer.",
+      "confirm": "Eliminar"
+    },
+    "saved": "Tarjeta guardada.",
+    "created": "Tarjeta creada.",
+    "errors": {
+      "closingDay": "Indica el día de cierre.",
+      "closingDayRange": "El día de cierre va del 1 al 31.",
+      "dueDay": "Indica el día de vencimiento.",
+      "dueDayRange": "El día de vencimiento va del 1 al 31.",
+      "name": "Escribe el nombre de la tarjeta.",
+      "payingAccount": "Elige la cuenta que paga el resumen.",
+      "check": "Revisa los datos.",
+      "limit": "Escribe el límite como 5.000,00.",
+      "invalidAccount": "Elige una cuenta válida.",
+      "notFound": "Tarjeta no encontrada.",
+      "datesLocked": "Esta tarjeta ya tiene un resumen pagado, así que las fechas no pueden cambiar. Para fechas nuevas, archívala y crea otra."
+    }
   }
 }

@@ -612,5 +612,97 @@
       "balanceFormat": "Informe o saldo como 1.250,00.",
       "currencyLocked": "Esta conta já tem movimento e não pode mudar de moeda. Crie outra conta."
     }
+  },
+  "cartoes": {
+    "metaTitle": "Cartões",
+    "eyebrow": "Cartões",
+    "title": "Cartões de crédito",
+    "description": "Compras entram na fatura certa, e a fatura entra no mês em que vence.",
+    "listLabel": "Cartões",
+    "new": "Novo cartão",
+    "empty": {
+      "title": "Nenhum cartão cadastrado",
+      "text": "Cadastre o cartão com os dias de fechamento e vencimento. As faturas se montam sozinhas a partir das compras.",
+      "action": "Cadastrar cartão"
+    },
+    "archived": {
+      "title": "Arquivados",
+      "text": "Fora do novo lançamento. Faturas em aberto seguem no mês."
+    },
+    "sheet": {
+      "edit": "Editar cartão",
+      "new": "Novo cartão"
+    },
+    "status": {
+      "aberta": "Aberta",
+      "fechada": "Fechada",
+      "atrasada": "Atrasada",
+      "paga": "Paga"
+    },
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Arquivar {name}",
+      "restore": "Reativar {name}",
+      "delete": "Excluir {name}"
+    },
+    "form": {
+      "name": "Nome do cartão",
+      "nameExample": "Ex.: Cartão do banco",
+      "closingDay": "Dia do fechamento",
+      "closingDayHint": "Último dia de compras da fatura.",
+      "dueDay": "Dia do vencimento",
+      "dueDayHint": "Quando a fatura deve ser paga.",
+      "limit": "Limite (R$)",
+      "limitHint": "Opcional. Mostra quanto ainda está disponível.",
+      "payingAccount": "Conta que paga a fatura",
+      "save": "Salvar cartão"
+    },
+    "tile": {
+      "days": "Fecha dia {closing} · vence dia {due}",
+      "current": "Fatura atual",
+      "available": "Disponível: {value}"
+    },
+    "statement": {
+      "of": "Fatura do {name}",
+      "previous": "Fatura anterior",
+      "next": "Próxima fatura",
+      "total": "Total",
+      "closes": "Fecha em",
+      "due": "Vence em",
+      "newPurchase": "Nova compra",
+      "pay": "Pagar fatura",
+      "paidFrom": "Sai de {account}",
+      "fallbackAccount": "a conta",
+      "emptyTitle": "Nenhuma compra nesta fatura",
+      "emptyText": "Compras parceladas aparecem em cada fatura até a última parcela.",
+      "caption": "Compras da fatura",
+      "date": "Data",
+      "description": "Descrição",
+      "category": "Categoria",
+      "amount": "Valor",
+      "actions": "Ações",
+      "installment": "Parcela {number} de {total}",
+      "singlePayment": "À vista"
+    },
+    "remove": {
+      "title": "Excluir compra",
+      "text": "\"{name}\" e todas as parcelas serão apagadas. Isso não pode ser desfeito.",
+      "confirm": "Excluir"
+    },
+    "saved": "Cartão salvo.",
+    "created": "Cartão criado.",
+    "errors": {
+      "closingDay": "Informe o dia do fechamento.",
+      "closingDayRange": "O dia do fechamento vai de 1 a 31.",
+      "dueDay": "Informe o dia do vencimento.",
+      "dueDayRange": "O dia do vencimento vai de 1 a 31.",
+      "name": "Informe o nome do cartão.",
+      "payingAccount": "Escolha a conta que paga a fatura.",
+      "check": "Verifique.",
+      "limit": "Informe o limite como 5.000,00.",
+      "invalidAccount": "Escolha uma conta válida.",
+      "notFound": "Cartão não encontrado.",
+      "datesLocked": "Este cartão já tem fatura paga, então as datas não podem mudar. Para novas datas, arquive-o e crie outro."
+    }
   }
 }

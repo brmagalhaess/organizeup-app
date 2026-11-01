@@ -612,5 +612,97 @@
       "balanceFormat": "Enter the balance like 1,250.00.",
       "currencyLocked": "This account already has activity and can't change currency. Create another account."
     }
+  },
+  "cartoes": {
+    "metaTitle": "Credit cards",
+    "eyebrow": "Credit cards",
+    "title": "Credit cards",
+    "description": "Purchases go on the right statement, and the statement goes in the month it's due.",
+    "listLabel": "Credit cards",
+    "new": "New card",
+    "empty": {
+      "title": "No cards yet",
+      "text": "Add your card with its closing and due days. Statements build themselves from your purchases.",
+      "action": "Add card"
+    },
+    "archived": {
+      "title": "Archived",
+      "text": "Left out of new transactions. Open statements stay in the month."
+    },
+    "sheet": {
+      "edit": "Edit card",
+      "new": "New card"
+    },
+    "status": {
+      "aberta": "Open",
+      "fechada": "Closed",
+      "atrasada": "Overdue",
+      "paga": "Paid"
+    },
+    "actions": {
+      "edit": "Edit {name}",
+      "archive": "Archive {name}",
+      "restore": "Reactivate {name}",
+      "delete": "Delete {name}"
+    },
+    "form": {
+      "name": "Card name",
+      "nameExample": "E.g.: Bank card",
+      "closingDay": "Closing day",
+      "closingDayHint": "Last day of purchases on the statement.",
+      "dueDay": "Due day",
+      "dueDayHint": "When the statement must be paid.",
+      "limit": "Limit (R$)",
+      "limitHint": "Optional. Shows how much is still available.",
+      "payingAccount": "Account that pays the statement",
+      "save": "Save card"
+    },
+    "tile": {
+      "days": "Closes on day {closing} · due on day {due}",
+      "current": "Current statement",
+      "available": "Available: {value}"
+    },
+    "statement": {
+      "of": "{name} statement",
+      "previous": "Previous statement",
+      "next": "Next statement",
+      "total": "Total",
+      "closes": "Closes on",
+      "due": "Due on",
+      "newPurchase": "New purchase",
+      "pay": "Pay statement",
+      "paidFrom": "Paid from {account}",
+      "fallbackAccount": "the account",
+      "emptyTitle": "No purchases on this statement",
+      "emptyText": "Installment purchases appear on every statement until the last installment.",
+      "caption": "Purchases on the statement",
+      "date": "Date",
+      "description": "Description",
+      "category": "Category",
+      "amount": "Amount",
+      "actions": "Actions",
+      "installment": "Installment {number} of {total}",
+      "singlePayment": "Single payment"
+    },
+    "remove": {
+      "title": "Delete purchase",
+      "text": "\"{name}\" and all its installments will be deleted. This cannot be undone.",
+      "confirm": "Delete"
+    },
+    "saved": "Card saved.",
+    "created": "Card created.",
+    "errors": {
+      "closingDay": "Enter the closing day.",
+      "closingDayRange": "The closing day must be from 1 to 31.",
+      "dueDay": "Enter the due day.",
+      "dueDayRange": "The due day must be from 1 to 31.",
+      "name": "Enter the card name.",
+      "payingAccount": "Choose the account that pays the statement.",
+      "check": "Please check.",
+      "limit": "Enter the limit like 5,000.00.",
+      "invalidAccount": "Choose a valid account.",
+      "notFound": "Card not found.",
+      "datesLocked": "This card already has a paid statement, so its dates can't change. For new dates, archive it and create another one."
+    }
   }
 }

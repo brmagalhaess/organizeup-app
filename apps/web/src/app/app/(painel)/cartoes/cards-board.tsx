@@ -13,19 +13,18 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import {
   addMonths,
-  formatBRL,
-  formatShortDate,
-  formatYearMonth,
   linesTotal,
   percentOf,
   statementClosingDate,
   statementDueDate,
   statementStatus,
 } from "@organizeup/domain";
+import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { useEntryDialog } from "@/components/shell/entry-context";
 import { buttonClass, cx } from "@/components/styles";
 import {
@@ -42,8 +41,8 @@ import {
   Select,
   Sheet,
 } from "@/components/ui";
+import { formatAmount, formatDayMonth, formatMonthYear, toAmountInput } from "@/i18n/format";
 import type { loadCards } from "@/lib/commitments";
-import { confirmEntry } from "../lancamentos/actions";
 import { deletePurchase, saveCard, setCardArchived, type CardFormState } from "./actions";
 
 type Data = Awaited<ReturnType<typeof loadCards>>;
@@ -53,10 +52,10 @@ type Line = CardView["lines"][number];
 const initial: CardFormState = { ok: false, message: null };
 
 const STATUS = {
-  aberta: { label: "Aberta", tone: "neutral", icon: Clock },
-  fechada: { label: "Fechada", tone: "warning", icon: Lock },
-  atrasada: { label: "Atrasada", tone: "danger", icon: AlertCircle },
-  paga: { label: "Paga", tone: "success", icon: Check },
+  aberta: { tone: "neutral", icon: Clock },
+  fechada: { tone: "warning", icon: Lock },
+  atrasada: { tone: "danger", icon: AlertCircle },
+  paga: { tone: "success", icon: Check },
 } as const;
 
 function CardForm({
@@ -68,6 +67,9 @@ function CardForm({
   accounts: Data["accounts"];
   onDone: () => void;
 }) {
+  const t = useTranslations("cartoes.form");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(saveCard, initial);
   useEffect(() => {
     if (state.ok) onDone();
@@ -75,17 +77,17 @@ function CardForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="id" value={card?.id ?? ""} />
-      <Field label="Nome do cartão">
+      <Field label={t("name")}>
         <Input
           name="name"
           required
           maxLength={80}
-          placeholder="Ex.: Cartão do banco"
+          placeholder={t("nameExample")}
           defaultValue={card?.name}
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Dia do fechamento" hint="Último dia de compras da fatura.">
+        <Field label={t("closingDay")} hint={t("closingDayHint")}>
           <Input
             name="closingDay"
             type="number"
@@ -95,7 +97,7 @@ function CardForm({
             defaultValue={card?.closingDay}
           />
         </Field>
-        <Field label="Dia do vencimento" hint="Quando a fatura deve ser paga.">
+        <Field label={t("dueDay")} hint={t("dueDayHint")}>
           <Input
             name="dueDay"
             type="number"
@@ -106,15 +108,15 @@ function CardForm({
           />
         </Field>
       </div>
-      <Field label="Limite (R$)" hint="Opcional. Mostra quanto ainda está disponível.">
+      <Field label={t("limit")} hint={t("limitHint")}>
         <Input
           name="limit"
           inputMode="decimal"
-          placeholder="0,00"
-          defaultValue={card?.limitAmount?.replace(".", ",")}
+          placeholder={toAmountInput("0.00", locale)}
+          defaultValue={card?.limitAmount ? toAmountInput(card.limitAmount, locale) : undefined}
         />
       </Field>
-      <Field label="Conta que paga a fatura">
+      <Field label={t("payingAccount")}>
         <Select name="payingAccountId" required defaultValue={card?.payingAccountId}>
           {accounts
             .filter((a) => !a.archived || a.id === card?.payingAccountId)
@@ -127,13 +129,15 @@ function CardForm({
       </Field>
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar cartão"}
+        {pending ? tCommon("saving") : t("save")}
       </Button>
     </form>
   );
 }
 
 function CardTile({ card, selected }: { card: CardView; selected: boolean }) {
+  const t = useTranslations("cartoes.tile");
+  const locale = useLocale();
   return (
     <Link
       href={`/app/cartoes?c=${card.id}`}
@@ -150,14 +154,14 @@ function CardTile({ card, selected }: { card: CardView; selected: boolean }) {
         <div className="min-w-0">
           <p className="truncate font-semibold">{card.name}</p>
           <p className="text-xs text-muted">
-            Fecha dia {card.closingDay} · vence dia {card.dueDay}
+            {t("days", { closing: card.closingDay, due: card.dueDay })}
           </p>
         </div>
       </div>
       <div>
-        <p className="text-xs text-muted">Fatura atual</p>
+        <p className="text-xs text-muted">{t("current")}</p>
         <p className="text-2xl font-semibold tabular-nums tracking-tight">
-          {formatBRL(card.openTotal)}
+          {formatAmount(card.openTotal, locale)}
         </p>
       </div>
       {card.limitAmount && card.available ? (
@@ -168,7 +172,9 @@ function CardTile({ card, selected }: { card: CardView; selected: boolean }) {
               style={{ width: `${Math.min(100, percentOf(card.used, card.limitAmount))}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-muted">Disponível: {formatBRL(card.available)}</p>
+          <p className="mt-1 text-xs text-muted">
+            {t("available", { value: formatAmount(card.available, locale) })}
+          </p>
         </div>
       ) : null}
     </Link>
@@ -190,6 +196,9 @@ function Statement({
   writable: boolean;
   onEdit: () => void;
 }) {
+  const t = useTranslations("cartoes");
+  const tStatement = useTranslations("cartoes.statement");
+  const locale = useLocale();
   const { openNew } = useEntryDialog();
   const [removing, setRemoving] = useState<Line | null>(null);
   const lines = card.lines
@@ -197,7 +206,8 @@ function Statement({
     .sort((a, b) => a.purchasedOn.localeCompare(b.purchasedOn));
   const total = linesTotal(lines);
   const paid = card.paidMonths.includes(month);
-  const status = STATUS[statementStatus(month, card, today, paid)];
+  const statusKey = statementStatus(month, card, today, paid);
+  const status = STATUS[statusKey];
   const StatusIcon = status.icon;
   const monthLink = (target: string) => `/app/cartoes?c=${card.id}&m=${target}`;
 
@@ -207,39 +217,39 @@ function Statement({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold first-letter:uppercase">
-              {formatYearMonth(month)}
+              {formatMonthYear(month, locale)}
             </h2>
             <Badge tone={status.tone}>
               <StatusIcon className="size-3" aria-hidden="true" />
-              {status.label}
+              {t(`status.${statusKey}`)}
             </Badge>
           </div>
-          <p className="mt-0.5 text-sm text-muted">Fatura do {card.name}</p>
+          <p className="mt-0.5 text-sm text-muted">{tStatement("of", { name: card.name })}</p>
         </div>
         <div className="flex items-center gap-1">
           <Link
             href={monthLink(addMonths(month, -1))}
-            aria-label="Fatura anterior"
+            aria-label={tStatement("previous")}
             className={buttonClass("secondary", true)}
           >
             <ChevronLeft className="size-4" aria-hidden="true" />
           </Link>
           <Link
             href={monthLink(addMonths(month, 1))}
-            aria-label="Próxima fatura"
+            aria-label={tStatement("next")}
             className={buttonClass("secondary", true)}
           >
             <ChevronRight className="size-4" aria-hidden="true" />
           </Link>
           {writable ? (
             <>
-              <IconButton label={`Editar ${card.name}`} onClick={onEdit}>
+              <IconButton label={t("actions.edit", { name: card.name })} onClick={onEdit}>
                 <Pencil className="size-4" aria-hidden="true" />
               </IconButton>
               <form action={setCardArchived}>
                 <input type="hidden" name="id" value={card.id} />
                 <input type="hidden" name="archived" value="true" />
-                <IconButton type="submit" label={`Arquivar ${card.name}`}>
+                <IconButton type="submit" label={t("actions.archive", { name: card.name })}>
                   <Archive className="size-4" aria-hidden="true" />
                 </IconButton>
               </form>
@@ -250,19 +260,19 @@ function Statement({
 
       <dl className="m-0 mt-4 grid grid-cols-3 gap-3 rounded-xl bg-card-soft p-4 text-sm">
         <div>
-          <dt className="text-xs text-muted">Total</dt>
-          <dd className="m-0 font-semibold tabular-nums">{formatBRL(total)}</dd>
+          <dt className="text-xs text-muted">{tStatement("total")}</dt>
+          <dd className="m-0 font-semibold tabular-nums">{formatAmount(total, locale)}</dd>
         </div>
         <div>
-          <dt className="text-xs text-muted">Fecha em</dt>
+          <dt className="text-xs text-muted">{tStatement("closes")}</dt>
           <dd className="m-0 font-semibold tabular-nums">
-            {formatShortDate(statementClosingDate(month, card))}
+            {formatDayMonth(statementClosingDate(month, card), locale)}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-muted">Vence em</dt>
+          <dt className="text-xs text-muted">{tStatement("due")}</dt>
           <dd className="m-0 font-semibold tabular-nums">
-            {formatShortDate(statementDueDate(month, card))}
+            {formatDayMonth(statementDueDate(month, card), locale)}
           </dd>
         </div>
       </dl>
@@ -271,48 +281,49 @@ function Statement({
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => openNew("despesa", card.id)}>
             <Plus className="size-4" aria-hidden="true" />
-            Nova compra
+            {tStatement("newPurchase")}
           </Button>
           {!paid && lines.length > 0 ? (
-            <form action={confirmEntry}>
-              <input type="hidden" name="key" value={`f:${card.id}:${month}`} />
-              <Button type="submit">Pagar fatura</Button>
-            </form>
+            <ConfirmEntryButton
+              entryKey={`f:${card.id}:${month}`}
+              label={tStatement("pay")}
+              variant="primary"
+              small={false}
+            />
           ) : null}
           {!paid && lines.length > 0 ? (
-            <span className="text-xs text-muted">Sai de {accountName}</span>
+            <span className="text-xs text-muted">
+              {tStatement("paidFrom", { account: accountName })}
+            </span>
           ) : null}
         </div>
       ) : null}
 
       {lines.length === 0 ? (
         <div className="mt-4">
-          <EmptyState
-            title="Nenhuma compra nesta fatura"
-            text="Compras parceladas aparecem em cada fatura até a última parcela."
-          />
+          <EmptyState title={tStatement("emptyTitle")} text={tStatement("emptyText")} />
         </div>
       ) : (
         <div className="relative -mx-5 mt-4 sm:-mx-6">
           <table className="w-full border-collapse text-sm">
-            <caption className="sr-only">Compras da fatura</caption>
+            <caption className="sr-only">{tStatement("caption")}</caption>
             <thead>
               <tr className="border-y border-line text-left text-xs text-muted">
                 <th scope="col" className="py-2 pl-5 pr-3 font-medium sm:pl-6">
-                  Data
+                  {tStatement("date")}
                 </th>
                 <th scope="col" className="px-3 py-2 font-medium">
-                  Descrição
+                  {tStatement("description")}
                 </th>
                 <th scope="col" className="hidden px-3 py-2 font-medium md:table-cell">
-                  Categoria
+                  {tStatement("category")}
                 </th>
                 <th scope="col" className="py-2 pl-3 pr-5 text-right font-medium sm:pr-3">
-                  Valor
+                  {tStatement("amount")}
                 </th>
                 {writable ? (
                   <th scope="col" className="hidden py-2 pr-6 sm:table-cell">
-                    <span className="sr-only">Ações</span>
+                    <span className="sr-only">{tStatement("actions")}</span>
                   </th>
                 ) : null}
               </tr>
@@ -322,7 +333,7 @@ function Statement({
                 const remove =
                   writable && !line.locked ? (
                     <IconButton
-                      label={`Excluir ${line.description}`}
+                      label={t("actions.delete", { name: line.description })}
                       onClick={() => setRemoving(line)}
                     >
                       <Trash2 className="size-4" aria-hidden="true" />
@@ -331,14 +342,17 @@ function Statement({
                 return (
                   <tr key={line.purchaseId} className="border-b border-line last:border-0">
                     <td className="py-3 pl-5 pr-3 align-top tabular-nums text-muted sm:pl-6">
-                      {formatShortDate(line.purchasedOn)}
+                      {formatDayMonth(line.purchasedOn, locale)}
                     </td>
                     <td className="px-3 py-3 align-top">
                       <p className="font-medium">{line.description}</p>
                       <p className="mt-0.5 text-xs text-muted">
                         {line.installments > 1
-                          ? `Parcela ${line.installment} de ${line.installments}`
-                          : "À vista"}
+                          ? tStatement("installment", {
+                              number: line.installment,
+                              total: line.installments,
+                            })
+                          : tStatement("singlePayment")}
                         <span className="md:hidden"> · {line.categoryName}</span>
                       </p>
                       {remove ? <div className="mt-1 sm:hidden">{remove}</div> : null}
@@ -347,7 +361,7 @@ function Statement({
                       {line.categoryName}
                     </td>
                     <td className="whitespace-nowrap py-3 pl-3 pr-5 text-right align-top font-semibold tabular-nums sm:pr-3">
-                      {formatBRL(line.amount)}
+                      {formatAmount(line.amount, locale)}
                     </td>
                     {writable ? (
                       <td className="hidden py-2 pr-6 text-right align-top sm:table-cell">
@@ -365,9 +379,9 @@ function Statement({
       <ConfirmSheet
         open={removing !== null}
         onClose={() => setRemoving(null)}
-        title="Excluir compra"
-        text={`"${removing?.description ?? ""}" e todas as parcelas serão apagadas. Isso não pode ser desfeito.`}
-        confirmLabel="Excluir"
+        title={t("remove.title")}
+        text={t("remove.text", { name: removing?.description ?? "" })}
+        confirmLabel={t("remove.confirm")}
         action={deletePurchase}
         hidden={{ id: removing?.purchaseId ?? "" }}
       />
@@ -386,6 +400,7 @@ export function CardsBoard({
   month: string | null;
   writable: boolean;
 }) {
+  const t = useTranslations("cartoes");
   const [editing, setEditing] = useState<{ nonce: number; card: CardView | null } | null>(null);
   const active = data.cards.filter((card) => !card.archived);
   const archived = data.cards.filter((card) => card.archived);
@@ -396,14 +411,14 @@ export function CardsBoard({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Cartões"
-        title="Cartões de crédito"
-        description="Compras entram na fatura certa, e a fatura entra no mês em que vence."
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description")}
         actions={
           writable ? (
             <Button variant="secondary" onClick={() => open(null)}>
               <Plus className="size-4" aria-hidden="true" />
-              Novo cartão
+              {t("new")}
             </Button>
           ) : null
         }
@@ -412,15 +427,17 @@ export function CardsBoard({
       {active.length === 0 ? (
         <Card>
           <EmptyState
-            title="Nenhum cartão cadastrado"
-            text="Cadastre o cartão com os dias de fechamento e vencimento. As faturas se montam sozinhas a partir das compras."
-            action={writable ? <Button onClick={() => open(null)}>Cadastrar cartão</Button> : null}
+            title={t("empty.title")}
+            text={t("empty.text")}
+            action={
+              writable ? <Button onClick={() => open(null)}>{t("empty.action")}</Button> : null
+            }
           />
         </Card>
       ) : (
         <>
           <ul
-            aria-label="Cartões"
+            aria-label={t("listLabel")}
             className="m-0 grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
           >
             {active.map((card) => (
@@ -435,7 +452,8 @@ export function CardsBoard({
               month={month ?? selected.openMonth}
               today={data.today}
               accountName={
-                data.accounts.find((a) => a.id === selected.payingAccountId)?.name ?? "a conta"
+                data.accounts.find((a) => a.id === selected.payingAccountId)?.name ??
+                t("statement.fallbackAccount")
               }
               writable={writable}
               onEdit={() => open(selected)}
@@ -445,10 +463,7 @@ export function CardsBoard({
       )}
 
       {archived.length > 0 ? (
-        <Card
-          title="Arquivados"
-          description="Fora do novo lançamento. Faturas em aberto seguem no mês."
-        >
+        <Card title={t("archived.title")} description={t("archived.text")}>
           <ul className="m-0 list-none divide-y divide-line p-0">
             {archived.map((card) => (
               <li key={card.id} className="flex items-center justify-between gap-3 py-2">
@@ -457,7 +472,7 @@ export function CardsBoard({
                   <form action={setCardArchived}>
                     <input type="hidden" name="id" value={card.id} />
                     <input type="hidden" name="archived" value="false" />
-                    <IconButton type="submit" label={`Reativar ${card.name}`}>
+                    <IconButton type="submit" label={t("actions.restore", { name: card.name })}>
                       <ArchiveRestore className="size-4" aria-hidden="true" />
                     </IconButton>
                   </form>
@@ -471,7 +486,7 @@ export function CardsBoard({
       <Sheet
         open={editing !== null}
         onClose={close}
-        title={editing?.card ? "Editar cartão" : "Novo cartão"}
+        title={t(editing?.card ? "sheet.edit" : "sheet.new")}
       >
         <CardForm
           key={editing?.nonce}
