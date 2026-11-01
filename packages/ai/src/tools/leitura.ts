@@ -58,6 +58,7 @@ import {
   toDbAmount,
   upcomingDividends,
   yearMonthOf,
+  type PlanActionKind,
 } from "@organizeup/domain";
 import { z } from "zod";
 import { personLabels, untrusted } from "../privacy";
@@ -632,6 +633,14 @@ const sugestoesPendentes = defineTool({
     }),
 });
 
+const PLAN_ACTION_MEANING: Record<PlanActionKind, string> = {
+  completar: "Falta dado no plano de aposentadoria.",
+  reserva: "valor_mensal é quanto guardar na reserva.",
+  divida: "valor_mensal é quanto pagar a mais na dívida cara.",
+  guardar: "valor_mensal é quanto guardar a mais por mês.",
+  gasto: "valor_mensal é o corte sugerido, 10% da categoria, não o gasto total dela.",
+};
+
 const verPlanoDoMes = defineTool({
   name: "ver_plano_do_mes",
   description:
@@ -648,6 +657,7 @@ const verPlanoDoMes = defineTool({
         ano_em_que_fecha: plan.yearWithContribution,
         acoes: actions.map((action) => ({
           tipo: action.kind,
+          significado: PLAN_ACTION_MEANING[action.kind],
           valor_mensal: action.amount,
           anos_a_menos: action.yearsEarlier,
           categoria: action.category ? untrusted(action.category) : undefined,
