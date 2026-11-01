@@ -2,15 +2,45 @@ import { formatBRL, formatBRLCompact, formatMonthShort, formatYearMonth } from "
 import { describe, expect, it } from "vitest";
 import {
   formatAmount,
+  formatDate,
   formatDayMonth,
   formatInstant,
   formatLongDate,
   formatMonthAbbr,
   formatMonthYear,
+  formatNumber,
   formatPercent,
+  formatPercentExact,
+  toFieldValue,
+  toInputValue,
 } from "./format";
 
 const plain = (text: string) => text.replace(/\s/g, " ");
+
+describe("datas, quantidades e campos no idioma da pessoa", () => {
+  it("data completa em números", () => {
+    expect(formatDate("2026-11-01", "pt-BR")).toBe("01/11/2026");
+    expect(formatDate("2026-11-01", "en")).toBe("11/1/2026");
+    expect(formatDate("2026-11-01", "es")).toBe("1/11/2026");
+  });
+
+  it("percentual com casas e quantidade", () => {
+    expect(formatPercentExact(12.5, "pt-BR")).toBe("12,5%");
+    expect(formatPercentExact(12.5, "en")).toBe("12.5%");
+    expect(plain(formatPercentExact(12.5, "es"))).toBe("12,5 %");
+    expect(formatNumber(1234.5, "pt-BR")).toBe("1.234,5");
+    expect(formatNumber(1234.5, "en")).toBe("1,234.5");
+  });
+
+  it("valor volta ao campo como a pessoa digitaria", () => {
+    expect(toInputValue("1234.50", "pt-BR")).toBe("1234,5");
+    expect(toInputValue("1234.50", "en")).toBe("1234.5");
+    expect(toInputValue("1234.50", "es")).toBe("1234,5");
+    expect(toFieldValue("500.00", "pt-BR")).toBe("500,00");
+    expect(toFieldValue("500.00", "en")).toBe("500.00");
+    expect(toFieldValue(null, "en")).toBe("");
+  });
+});
 
 describe("em português nada muda", () => {
   it("datas e meses dão o texto de sempre", () => {
