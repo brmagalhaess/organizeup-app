@@ -123,7 +123,7 @@ export const KNOWLEDGE_SEED: KnowledgeSeed[] = [
     topic: "fii",
     title: "FII: quando os rendimentos são isentos de imposto",
     content:
-      "Os rendimentos que um fundo de investimento imobiliário (FII) distribui a pessoa física são isentos de imposto de renda, na fonte e na declaração, quando três condições são cumpridas. As cotas precisam ser negociadas apenas em bolsa ou balcão organizado. O fundo precisa ter pelo menos 100 cotistas. E a pessoa não pode ter 10% ou mais das cotas, nem fazer parte de um grupo de pessoas ligadas que tenha 30% ou mais. A Medida Provisória 1.303/2025 chegou a tratar do tema, mas perdeu a vigência; em outubro de 2026 a isenção segue na Lei 11.033/2004.",
+      "Os rendimentos que um fundo de investimento imobiliário (FII) distribui a pessoa física são isentos de imposto de renda, na fonte e na declaração, quando três condições são cumpridas. As cotas precisam ser negociadas apenas em bolsa ou balcão organizado. O fundo precisa ter pelo menos 100 cotistas. E a pessoa não pode ter 10% ou mais das cotas, nem fazer parte de um grupo de pessoas ligadas que tenha 30% ou mais. A Medida Provisória 1.303/2025 chegou a tratar do tema, mas perdeu a vigência; em novembro de 2026 a isenção segue na Lei 11.033/2004.",
     sourceName: "Lei 11.033/2004, art. 3º (Planalto)",
     sourceUrl: "https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/l11033.htm",
     reviewedOn: REVIEWED,
