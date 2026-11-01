@@ -6,6 +6,7 @@ import {
   marketDividends,
   marketIndices,
   marketQuotes,
+  marketStockEvents,
   marketTickers,
   marketUsage,
   type MarketIndexCode,
@@ -60,6 +61,36 @@ export async function saveMarketDividends(rows: MarketDividendRow[]): Promise<nu
       },
     });
   return rows.length;
+}
+
+export interface MarketStockEventRow {
+  ticker: string;
+  comDate: string;
+  factor: string;
+  note: string;
+  source: string;
+}
+
+/** Grava os eventos em ações de um ticker. Fator corrigido na fonte atualiza a linha. */
+export async function saveMarketStockEvents(rows: MarketStockEventRow[]): Promise<number> {
+  // Evento repetido na resposta: um INSERT não atualiza a mesma linha duas vezes.
+  const unique = [
+    ...new Map(rows.map((row) => [`${row.ticker}|${row.comDate}|${row.note}`, row])).values(),
+  ];
+  if (unique.length === 0) return 0;
+  const t = marketStockEvents;
+  await appPool()
+    .db.insert(t)
+    .values(unique)
+    .onConflictDoUpdate({
+      target: [t.ticker, t.comDate, t.note],
+      set: {
+        factor: sql`excluded.factor`,
+        source: sql`excluded.source`,
+        updatedAt: sql`now()`,
+      },
+    });
+  return unique.length;
 }
 
 export async function saveMarketIndices(

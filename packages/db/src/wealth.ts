@@ -2,7 +2,8 @@
 // As contas ficam em @organizeup/domain (summarizeNetWorth); aqui só saem os dados.
 // Nas subconsultas, a tabela vai escrita: `${tabela.coluna}` num select de uma tabela só sai sem
 // prefixo, e o banco resolveria a coluna na tabela interna.
-import { and, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, sql } from "drizzle-orm";
+import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
 import {
   accounts,
@@ -17,14 +18,30 @@ import {
   householdMember,
   householdSettings,
   investments,
+  investmentStockEvents,
   investmentTrades,
   netWorthSnapshots,
   session,
 } from "./schema";
 import type { TenantTx } from "./tenant";
 
+/**
+ * Eventos em ações aplicados à carteira (ADR-0017). Rode antes de qualquer `Promise.all`, fora dele: o
+ * savepoint guarda a transação caso a web suba antes da migração, e aí a carteira sai sem ajuste.
+ */
+export async function loadStockEvents(tx: TenantTx) {
+  return tolerateSchemaLag(
+    () =>
+      tx.transaction((inner) =>
+        inner.select().from(investmentStockEvents).orderBy(asc(investmentStockEvents.comDate)),
+      ),
+    [],
+  );
+}
+
 /** Tudo que entra na conta do patrimônio líquido. */
 export async function netWorthInputs(tx: TenantTx) {
+  const events = await loadStockEvents(tx);
   const [accountRows, assetRows, debtRows, cards, purchases, payments, holdings, trades, goalRows] =
     await Promise.all([
       tx
@@ -75,6 +92,7 @@ export async function netWorthInputs(tx: TenantTx) {
     investments: holdings.map((holding) => ({
       ...holding,
       trades: trades.filter((trade) => trade.investmentId === holding.id),
+      events: events.filter((event) => event.investmentId === holding.id),
     })),
     debts: debtRows,
     cards,

@@ -599,6 +599,34 @@ export const investmentTrades = pgTable(
   ],
 );
 
+/**
+ * Evento em ações aplicado à carteira (ADR-0017). As operações não mudam: `positionOf` aplica isto por
+ * cima. Dado derivado, com Desfazer (regra 7).
+ */
+export const investmentStockEvents = pgTable(
+  "investment_stock_events",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    investmentId: text("investment_id").notNull(),
+    comDate: date("com_date", { mode: "string" }).notNull(),
+    factor: quantity("factor").notNull(),
+    note: text("note").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.investmentId, t.comDate, t.note),
+    foreignKey({
+      columns: [t.householdId, t.investmentId],
+      foreignColumns: [investments.householdId, investments.id],
+    }).onDelete("cascade"),
+  ],
+);
+
 export const dividends = pgTable(
   "dividends",
   {
@@ -660,7 +688,7 @@ export const marketQuotes = pgTable("market_quotes", {
   changePercent: numeric("change_percent", { precision: 10, scale: 4 }),
   quotedAt: ts("quoted_at").notNull(),
   source: text("source").notNull(),
-  /** Último desdobramento, grupamento ou bonificação; o sistema ainda não ajusta a quantidade. */
+  /** Último desdobramento, grupamento ou bonificação. A lista completa fica em market_stock_events. */
   lastStockEventOn: date("last_stock_event_on", { mode: "string" }),
   lastStockEventNote: text("last_stock_event_note"),
   updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -697,6 +725,20 @@ export const marketIndices = pgTable(
     value: quantity("value").notNull(),
   },
   (t) => [primaryKey({ columns: [t.code, t.date] })],
+);
+
+/** `factor` é o que a fonte manda: ações novas por ação antiga (0,1 num grupamento de 10 para 1). */
+export const marketStockEvents = pgTable(
+  "market_stock_events",
+  {
+    ticker: text("ticker").notNull(),
+    comDate: date("com_date", { mode: "string" }).notNull(),
+    factor: quantity("factor").notNull(),
+    note: text("note").notNull(),
+    source: text("source").notNull(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.ticker, t.comDate, t.note] })],
 );
 
 /** Situação de cada ticker consultado, sem dizer quem o tem. */
