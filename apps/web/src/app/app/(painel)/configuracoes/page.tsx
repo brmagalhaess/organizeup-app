@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { canUseAssistant } from "@organizeup/ai";
 import { canWrite, eq, householdSettings, withHousehold } from "@organizeup/db";
+import { AssistantSettings } from "@/components/assistant/assistant-settings";
 import { buttonClass } from "@/components/styles";
 import { Card, PageHeader } from "@/components/ui";
 import { ROLE_LABEL } from "@/lib/invites";
@@ -37,6 +39,19 @@ export default async function SettingsPage() {
               tripsPerYear: settings?.tripsPerYear ?? 0,
               tripDays: settings?.tripDays ?? null,
             }}
+          />
+        </Card>
+        <Card
+          title="Assistente"
+          description="Conversa com seus dados. O envio para a Anthropic só acontece com a sua autorização."
+        >
+          <AssistantSettings
+            active={Boolean(settings?.aiConsentAt)}
+            acceptedOn={
+              settings?.aiConsentAt ? settings.aiConsentAt.toLocaleDateString("pt-BR") : null
+            }
+            autonomy={settings?.aiAutonomy ?? "organizar"}
+            canManage={canUseAssistant(ctx)}
           />
         </Card>
         <Card title="Sua conta">

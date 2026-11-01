@@ -1,3 +1,4 @@
+import { assistantState, type AssistantState } from "@organizeup/ai";
 import {
   accounts,
   activeNotices,
@@ -60,10 +61,23 @@ async function platformBanners(): Promise<ShellBanner[]> {
   return banners;
 }
 
+/** O botão do assistente nunca pode derrubar o painel. Conferência de verdade: runChatTurn. */
+async function assistantStatus(ctx: TenantContext): Promise<AssistantState> {
+  try {
+    return await assistantState({ ctx, flags: await platformFlags() });
+  } catch {
+    return "desligado";
+  }
+}
+
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const { session, ctx } = await requireTenant();
   const writable = canWrite(ctx);
-  const [status, banners] = await Promise.all([shellStatus(ctx, writable), platformBanners()]);
+  const [status, banners, assistant] = await Promise.all([
+    shellStatus(ctx, writable),
+    platformBanners(),
+    assistantStatus(ctx),
+  ]);
   const data = await withHousehold(ctx, async (tx) => {
     if (writable) await ensureFinanceDefaults(tx, ctx.householdId);
     const [family] = await tx
@@ -113,6 +127,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       notice={status.notice}
       banners={banners}
       pendingSuggestions={status.pendingSuggestions}
+      assistant={assistant}
     >
       {children}
     </AppShell>
