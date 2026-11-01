@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { canUseAssistant, INSIGHTS_CONSENT_VERSION } from "@organizeup/ai";
 import { canWrite, eq, householdSettings, withHousehold } from "@organizeup/db";
 import { AssistantSettings } from "@/components/assistant/assistant-settings";
@@ -8,6 +9,7 @@ import { Card, PageHeader } from "@/components/ui";
 import { ROLE_LABEL } from "@/lib/invites";
 import { requireTenant } from "@/lib/session";
 import { DeleteAccount } from "./delete-account";
+import { MemoriesBlock } from "./memories";
 import { PlanForm, SettingsForm } from "./settings-form";
 
 export const metadata: Metadata = { title: "Configurações" };
@@ -54,6 +56,14 @@ export default async function SettingsPage() {
             canManage={canUseAssistant(ctx)}
             needsInsightsConsent={(settings?.aiConsentVersion ?? "") < INSIGHTS_CONSENT_VERSION}
           />
+        </Card>
+        <Card
+          title="O que o assistente sabe"
+          description="Anotações que você pediu na conversa. O assistente usa nas próximas respostas."
+        >
+          <Suspense fallback={<p className="m-0 text-sm text-muted">Carregando…</p>}>
+            <MemoriesBlock ctx={ctx} />
+          </Suspense>
         </Card>
         <Card title="Sua conta">
           <dl className="m-0 grid gap-3 text-sm">
