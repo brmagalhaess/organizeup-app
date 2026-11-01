@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { Sheet } from "@/components/ui";
 import { EntryForm, type EditableEntry, type EntryOptions } from "./entry-form";
@@ -38,6 +39,7 @@ export function EntryDialogProvider({
   today: string;
   options: EntryOptions;
 }) {
+  const t = useTranslations("lancamentos.sheet");
   const [state, setState] = useState<DialogState>({
     open: false,
     nonce: 0,
@@ -78,11 +80,7 @@ export function EntryDialogProvider({
   return (
     <EntryDialogContext.Provider value={value}>
       {children}
-      <Sheet
-        open={state.open}
-        onClose={close}
-        title={state.entry ? "Editar lançamento" : "Novo lançamento"}
-      >
+      <Sheet open={state.open} onClose={close} title={t(state.entry ? "edit" : "new")}>
         <EntryForm
           key={state.nonce}
           today={state.date ?? today}

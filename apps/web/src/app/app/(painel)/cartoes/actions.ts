@@ -1,4 +1,6 @@
 "use server";
+import type { Messages } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -10,7 +12,7 @@ import {
   eq,
   withHousehold,
 } from "@organizeup/db";
-import { parseBRL, purchaseLines, toDbAmount } from "@organizeup/domain";
+import { parseMoney, purchaseLines, toDbAmount } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
 
@@ -19,28 +21,30 @@ export interface CardFormState {
   message: string | null;
 }
 
-const READ_ONLY = "Seu papel nesta família não permite alterações.";
-const dayOfMonth = (label: string) =>
-  z.coerce
-    .number({ message: `Informe o dia do ${label}.` })
-    .int(`Informe o dia do ${label}.`)
-    .min(1, `O dia do ${label} vai de 1 a 31.`)
-    .max(31, `O dia do ${label} vai de 1 a 31.`);
+const dayOfMonth = (missing: string, range: string) =>
+  z.coerce.number({ message: missing }).int(missing).min(1, range).max(31, range);
 
-const cardSchema = z.object({
-  id: z.string(),
-  name: z.string().trim().min(1, "Informe o nome do cartão.").max(80),
-  limit: z.string().trim(),
-  closingDay: dayOfMonth("fechamento"),
-  dueDay: dayOfMonth("vencimento"),
-  payingAccountId: z.string().min(1, "Escolha a conta que paga a fatura."),
-});
+const cardSchema = (errors: Messages["cartoes"]["errors"]) =>
+  z.object({
+    id: z.string(),
+    name: z.string().trim().min(1, errors.name).max(80),
+    limit: z.string().trim(),
+    closingDay: dayOfMonth(errors.closingDay, errors.closingDayRange),
+    dueDay: dayOfMonth(errors.dueDay, errors.dueDayRange),
+    payingAccountId: z.string().min(1, errors.payingAccount),
+  });
 
 /** Cria um cartão ou edita o do `id`. */
 export async function saveCard(_prev: CardFormState, form: FormData): Promise<CardFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
-  const parsed = cardSchema.safeParse({
+  if (!canWrite(ctx))
+    return { ok: false, message: (await getTranslations("settings"))("noPermission") };
+  const [t, locale, messages] = await Promise.all([
+    getTranslations("cartoes"),
+    getLocale(),
+    getMessages(),
+  ]);
+  const parsed = cardSchema(messages.cartoes.errors).safeParse({
     id: form.get("id") ?? "",
     name: form.get("name") ?? "",
     limit: form.get("limit") ?? "",
@@ -49,17 +53,17 @@ export async function saveCard(_prev: CardFormState, form: FormData): Promise<Ca
     payingAccountId: form.get("payingAccountId") ?? "",
   });
   if (!parsed.success)
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
+    return { ok: false, message: parsed.error.issues[0]?.message ?? t("errors.check") };
   const { id, name, closingDay, dueDay, payingAccountId } = parsed.data;
 
   let limitAmount: string | null = null;
   if (parsed.data.limit) {
     try {
-      const value = parseBRL(parsed.data.limit);
+      const value = parseMoney(parsed.data.limit, locale);
       if (value.lt(0)) throw new RangeError("negativo");
       limitAmount = toDbAmount(value);
     } catch {
-      return { ok: false, message: "Informe o limite como 5.000,00." };
+      return { ok: false, message: t("errors.limit") };
     }
   }
 
@@ -68,7 +72,7 @@ export async function saveCard(_prev: CardFormState, form: FormData): Promise<Ca
       .select({ id: accounts.id })
       .from(accounts)
       .where(eq(accounts.id, payingAccountId));
-    if (!account) return "Escolha uma conta válida.";
+    if (!account) return t("errors.invalidAccount");
 
     if (!id) {
       const [created] = await tx
@@ -87,7 +91,7 @@ export async function saveCard(_prev: CardFormState, form: FormData): Promise<Ca
     }
 
     const [current] = await tx.select().from(creditCards).where(eq(creditCards.id, id));
-    if (!current) return "Cartão não encontrado.";
+    if (!current) return t("errors.notFound");
     // As faturas são calculadas pelas datas: mudá-las moveria compras de faturas já pagas.
     if (current.closingDay !== closingDay || current.dueDay !== dueDay) {
       const paid = await tx
@@ -95,8 +99,7 @@ export async function saveCard(_prev: CardFormState, form: FormData): Promise<Ca
         .from(cardStatementPayments)
         .where(eq(cardStatementPayments.cardId, id))
         .limit(1);
-      if (paid.length > 0)
-        return "Este cartão já tem fatura paga, então as datas não podem mudar. Para novas datas, arquive-o e crie outro.";
+      if (paid.length > 0) return t("errors.datesLocked");
     }
     await tx
       .update(creditCards)
@@ -107,7 +110,7 @@ export async function saveCard(_prev: CardFormState, form: FormData): Promise<Ca
   });
   if (failure) return { ok: false, message: failure };
   revalidatePath("/app", "layout");
-  return { ok: true, message: id ? "Cartão salvo." : "Cartão criado." };
+  return { ok: true, message: t(id ? "saved" : "created") };
 }
 
 /** Arquiva ou reativa. Faturas em aberto continuam até serem pagas. */

@@ -2,6 +2,7 @@
 // com pessoas por rótulo e texto livre marcado como dado não confiável. Conta só de packages/domain.
 import {
   ASSET_CLASS_LABELS,
+  AUTOMATIC_SUGGESTION_KINDS,
   calendarMonth,
   cardBook,
   currentDebtPlan,
@@ -33,6 +34,7 @@ import {
   investmentTrades,
   loadStockEvents,
   lte,
+  notInArray,
   or,
   isNull,
   people,
@@ -692,7 +694,12 @@ const sugestoesPendentes = defineTool({
           body: householdSuggestions.body,
         })
         .from(householdSuggestions)
-        .where(eq(householdSuggestions.status, "pendente"))
+        .where(
+          and(
+            eq(householdSuggestions.status, "pendente"),
+            notInArray(householdSuggestions.kind, [...AUTOMATIC_SUGGESTION_KINDS]),
+          ),
+        )
         .orderBy(desc(householdSuggestions.createdAt))
         .limit(20);
       return {

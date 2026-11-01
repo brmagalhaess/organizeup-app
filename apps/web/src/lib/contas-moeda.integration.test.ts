@@ -26,9 +26,27 @@ vi.mock("next-intl/server", async () => {
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 vi.mock("@/lib/session", () => ({ requireTenant: async () => ({ ctx }) }));
 
+// As actions leem o idioma da requisição; aqui ele é escolhido por teste.
+const language = vi.hoisted(() => ({ current: "pt-BR" }));
+vi.mock("next-intl/server", async () => {
+  const { createTranslator } = await import("next-intl");
+  const { messagesFor } = await import("@/i18n/messages");
+  const messages = (locale: string) => messagesFor(locale as "pt-BR");
+  return {
+    getLocale: async () => language.current,
+    getMessages: async () => messages(language.current),
+    getTranslations: async (namespace?: string) =>
+      createTranslator({
+        locale: language.current,
+        messages: messages(language.current),
+        namespace,
+      } as never),
+  };
+});
+
 const db = await import("@organizeup/db");
 const domain = await import("@organizeup/domain");
-const { saveEntry, confirmEntry, deleteEntry, quoteForEntry } =
+const { saveEntry, confirmEntry, confirmEntryNotice, deleteEntry, quoteForEntry } =
   await import("@/app/app/(painel)/lancamentos/actions");
 const { createTransfer, deleteTransfer, saveAccount } =
   await import("@/app/app/(painel)/contas/actions");
@@ -147,6 +165,7 @@ beforeAll(async () => {
 afterAll(() => db.closeAllPools());
 
 beforeEach(async () => {
+  language.current = "pt-BR";
   await inH(async (tx) => {
     await tx.delete(accountTransfers);
     await tx.delete(transactions);
@@ -188,6 +207,24 @@ describe("lançamento em conta estrangeira", () => {
     expect(result.message).toContain("Ainda não temos a cotação do dólar");
     const rows = await inH((tx) => tx.select().from(transactions));
     expect(rows).toHaveLength(0);
+  });
+
+  it("em inglês, 1,234.56 grava mil duzentos e trinta e quatro, e o erro vem traduzido", async () => {
+    language.current = "en";
+    const saved = await save({ accountId: real, amount: "1,234.56", description: "Rent" });
+    expect(saved).toMatchObject({ ok: true, message: "Transaction saved." });
+    expect((await newest("Rent")).amount).toBe("1234.56");
+
+    const refused = await save({ date: "2016-01-01", description: "Old" });
+    expect(refused.message).toContain("We don't have the US dollar exchange rate");
+    const wrong = await save({ accountId: real, amount: "abc" });
+    expect(wrong.fieldErrors?.amount).toBe("Enter an amount greater than zero, like 150.90.");
+  });
+
+  it("em espanhol, 1.234,56 grava o mesmo valor", async () => {
+    language.current = "es";
+    await save({ accountId: real, amount: "1.234,56", description: "Alquiler" });
+    expect((await newest("Alquiler")).amount).toBe("1234.56");
   });
 
   it("conta em euro sem cotação na data também recusa", async () => {
@@ -537,6 +574,45 @@ describe("importar extrato", () => {
 });
 
 describe("compromissos em reais pagos com conta estrangeira", () => {
+  const plan = async (accountId: string) => {
+    const [created] = await inH((tx) =>
+      tx
+        .insert(cashflowPlans)
+        .values({
+          householdId: H.household,
+          accountId,
+          categoryId: expense,
+          kind: "despesa",
+          description: "Aluguel",
+          amount: "1000.00",
+          dayOfMonth: 5,
+          startMonth: "2026-10",
+        })
+        .returning({ id: cashflowPlans.id }),
+    );
+    return form({ key: `p:${created!.id}`, month: "2026-10" });
+  };
+
+  it("sem cotação nada é confirmado, e a pessoa recebe um aviso claro", async () => {
+    const notice = await confirmEntryNotice(await plan(euros));
+    expect(notice).toBe(
+      "Nada foi confirmado. Esta conta é em euro e ainda não temos a cotação de 05/10/2026. Tente de novo mais tarde.",
+    );
+    expect(await inH((tx) => tx.select().from(transactions))).toHaveLength(0);
+  });
+
+  it("o aviso vem no idioma da pessoa", async () => {
+    language.current = "en";
+    const notice = await confirmEntryNotice(await plan(euros));
+    expect(notice).toContain("This account is in euros");
+    expect(notice).toContain("10/05/2026");
+  });
+
+  it("com cotação, ou em conta em real, confirma sem aviso", async () => {
+    expect(await confirmEntryNotice(await plan(real))).toBeNull();
+    expect((await newest("Aluguel")).status).toBe("realizado");
+  });
+
   it("fatura grava reais exatos e converte pela data do vencimento", async () => {
     const [card] = await inH((tx) =>
       tx

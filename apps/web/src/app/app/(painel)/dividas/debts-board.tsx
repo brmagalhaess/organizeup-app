@@ -10,9 +10,11 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { formatBRL, formatShortDate, percentOf, toDbAmount, money } from "@organizeup/domain";
+import { percentOf, toDbAmount, money } from "@organizeup/domain";
+import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { buttonClass } from "@/components/styles";
 import {
   Badge,
@@ -27,8 +29,8 @@ import {
   Select,
   Sheet,
 } from "@/components/ui";
+import { formatAmount, formatDayMonth, toAmountInput } from "@/i18n/format";
 import type { loadDebts } from "@/lib/commitments";
-import { confirmEntry } from "../lancamentos/actions";
 import { closeDebt, deleteDocument, reopenDebt, saveDebt, type DebtFormState } from "./actions";
 import { DebtFields } from "./debt-fields";
 import { DebtFiles, type DebtFileView } from "./debt-files";
@@ -36,19 +38,7 @@ import { DebtFiles, type DebtFileView } from "./debt-files";
 type Data = Awaited<ReturnType<typeof loadDebts>>;
 type DebtView = Data["debts"][number];
 
-const SYSTEM_LABEL = {
-  price: "Parcelas fixas",
-  sac: "Parcelas que diminuem",
-  manual: "Parcela informada",
-} as const;
-
 const initial: DebtFormState = { ok: false, message: null };
-
-function rateLabel(debt: DebtView) {
-  const rate = money(debt.monthlyRate);
-  if (rate.isZero()) return "Sem juros informados";
-  return `${rate.toFixed(2).replace(".", ",")}% ao mês`;
-}
 
 function DebtForm({
   debt,
@@ -61,6 +51,8 @@ function DebtForm({
   accounts: Data["accounts"];
   onDone: () => void;
 }) {
+  const t = useTranslations("dividas.form");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(saveDebt, initial);
   useEffect(() => {
     if (state.ok) onDone();
@@ -68,17 +60,17 @@ function DebtForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="id" value={debt?.id ?? ""} />
-      <Field label="Nome da dívida" error={state.fieldErrors?.name}>
+      <Field label={t("name")} error={state.fieldErrors?.name}>
         <Input
           name="name"
           required
           maxLength={80}
-          placeholder="Ex.: Financiamento do carro"
+          placeholder={t("nameExample")}
           defaultValue={debt?.name}
         />
       </Field>
       {debt ? null : <DebtFields values={{ firstDueDate: today }} errors={state.fieldErrors} />}
-      <Field label="Conta que paga as parcelas" error={state.fieldErrors?.accountId}>
+      <Field label={t("payingAccount")} error={state.fieldErrors?.accountId}>
         <Select name="accountId" required defaultValue={debt?.accountId}>
           {accounts
             .filter((a) => !a.archived || a.id === debt?.accountId)
@@ -89,36 +81,34 @@ function DebtForm({
             ))}
         </Select>
       </Field>
-      {debt ? (
-        <p className="rounded-xl bg-brand-50 p-3 text-sm text-muted">
-          Valores e parcelas não mudam aqui. Se algo estiver errado, exclua e cadastre de novo.
-        </p>
-      ) : null}
+      {debt ? <p className="rounded-xl bg-brand-50 p-3 text-sm text-muted">{t("locked")}</p> : null}
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar dívida"}
+        {pending ? tCommon("saving") : t("save")}
       </Button>
     </form>
   );
 }
 
 function Schedule({ debt, today }: { debt: DebtView; today: string }) {
+  const t = useTranslations("dividas.schedule");
+  const locale = useLocale();
   return (
     <table className="w-full border-collapse text-sm">
-      <caption className="sr-only">Parcelas de {debt.name}</caption>
+      <caption className="sr-only">{t("caption", { name: debt.name })}</caption>
       <thead>
         <tr className="border-b border-line text-left text-xs text-muted">
           <th scope="col" className="py-2 pr-2 font-medium">
-            Nº
+            {t("number")}
           </th>
           <th scope="col" className="px-2 py-2 font-medium">
-            Vencimento
+            {t("due")}
           </th>
           <th scope="col" className="px-2 py-2 text-right font-medium">
-            Juros
+            {t("interest")}
           </th>
           <th scope="col" className="py-2 pl-2 text-right font-medium">
-            Parcela
+            {t("installment")}
           </th>
         </tr>
       </thead>
@@ -127,25 +117,25 @@ function Schedule({ debt, today }: { debt: DebtView; today: string }) {
           <tr key={row.id} className="border-b border-line last:border-0">
             <td className="py-2 pr-2 tabular-nums text-muted">{row.number}</td>
             <td className="px-2 py-2">
-              <span className="tabular-nums">{formatShortDate(row.dueDate)}</span>
+              <span className="tabular-nums">{formatDayMonth(row.dueDate, locale)}</span>
               <span className="text-xs text-muted">/{row.dueDate.slice(0, 4)}</span>{" "}
               {row.paid ? (
                 <Badge tone="success">
                   <Check className="size-3" aria-hidden="true" />
-                  Paga
+                  {t("paid")}
                 </Badge>
               ) : row.dueDate < today ? (
                 <Badge tone="danger">
                   <AlertCircle className="size-3" aria-hidden="true" />
-                  Atrasada
+                  {t("overdue")}
                 </Badge>
               ) : null}
             </td>
             <td className="px-2 py-2 text-right tabular-nums text-muted">
-              {formatBRL(row.interest)}
+              {formatAmount(row.interest, locale)}
             </td>
             <td className="py-2 pl-2 text-right font-medium tabular-nums">
-              {formatBRL(row.amount)}
+              {formatAmount(row.amount, locale)}
             </td>
           </tr>
         ))}
@@ -173,6 +163,14 @@ function DebtCard({
   onFiles: () => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("dividas");
+  const tCard = useTranslations("dividas.card");
+  const locale = useLocale();
+  const { name } = debt;
+  const rate = money(debt.monthlyRate);
+  const rateLabel = rate.isZero()
+    ? t("noRate")
+    : t("rate", { rate: toAmountInput(rate.toFixed(2), locale) });
   const total = debt.installments.length;
   const overdue = debt.next !== null && debt.next.dueDate < today;
   return (
@@ -181,26 +179,28 @@ function DebtCard({
         <div className="min-w-0">
           <p className="font-semibold">{debt.name}</p>
           <p className="text-xs text-muted">
-            {SYSTEM_LABEL[debt.system]} · {rateLabel(debt)}
+            {t(`systems.${debt.system}`)} · {rateLabel}
           </p>
         </div>
         <div className="flex shrink-0">
-          <IconButton label={`Ver parcelas de ${debt.name}`} onClick={onSchedule}>
+          <IconButton label={tCard("schedule", { name })} onClick={onSchedule}>
             <List className="size-4" aria-hidden="true" />
           </IconButton>
           <IconButton
-            label={`Arquivos de ${debt.name}${files > 0 ? ` (${files})` : ""}`}
+            label={
+              files > 0 ? tCard("filesCount", { name, count: files }) : tCard("files", { name })
+            }
             onClick={onFiles}
           >
             <FileText className="size-4" aria-hidden="true" />
           </IconButton>
           {writable ? (
             <>
-              <IconButton label={`Editar ${debt.name}`} onClick={onEdit}>
+              <IconButton label={tCard("edit", { name })} onClick={onEdit}>
                 <Pencil className="size-4" aria-hidden="true" />
               </IconButton>
               <IconButton
-                label={`${debt.paidCount > 0 ? "Encerrar" : "Excluir"} ${debt.name}`}
+                label={tCard(debt.paidCount > 0 ? "close" : "delete", { name })}
                 onClick={onClose}
               >
                 <Trash2 className="size-4" aria-hidden="true" />
@@ -210,9 +210,9 @@ function DebtCard({
         </div>
       </div>
       <div>
-        <p className="text-xs text-muted">Falta pagar</p>
+        <p className="text-xs text-muted">{tCard("left")}</p>
         <p className="text-2xl font-semibold tabular-nums tracking-tight">
-          {formatBRL(debt.balance)}
+          {formatAmount(debt.balance, locale)}
         </p>
       </div>
       <div>
@@ -223,32 +223,29 @@ function DebtCard({
           />
         </div>
         <p className="mt-1 text-xs text-muted">
-          {debt.paidCount} de {total} parcelas pagas
+          {tCard("progress", { paid: debt.paidCount, total })}
         </p>
       </div>
       {debt.next ? (
         <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3">
           <div className="min-w-0 text-sm">
-            <p className="font-medium tabular-nums">{formatBRL(debt.next.amount)}</p>
+            <p className="font-medium tabular-nums">{formatAmount(debt.next.amount, locale)}</p>
             <p className="flex items-center gap-1 text-xs text-muted">
-              Vence em {formatShortDate(debt.next.dueDate)}
-              {overdue ? <span className="font-semibold text-danger">· Atrasada</span> : null}
+              {tCard("dueOn", { date: formatDayMonth(debt.next.dueDate, locale) })}
+              {overdue ? (
+                <span className="font-semibold text-danger">{tCard("overdue")}</span>
+              ) : null}
             </p>
           </div>
           {writable ? (
-            <form action={confirmEntry}>
-              <input type="hidden" name="key" value={`d:${debt.next.id}`} />
-              <Button type="submit" variant="secondary" small>
-                Pagar
-              </Button>
-            </form>
+            <ConfirmEntryButton entryKey={`d:${debt.next.id}`} label={tCard("pay")} />
           ) : null}
         </div>
       ) : (
         <div className="mt-auto border-t border-line pt-3">
           <Badge tone="success">
             <Check className="size-3" aria-hidden="true" />
-            Quitada
+            {tCard("paidOff")}
           </Badge>
         </div>
       )}
@@ -267,6 +264,8 @@ export function DebtsBoard({
   files: DebtFileView[];
   writable: boolean;
 }) {
+  const t = useTranslations("dividas");
+  const locale = useLocale();
   const [editing, setEditing] = useState<{ nonce: number; debt: DebtView | null } | null>(null);
   const [viewing, setViewing] = useState<DebtView | null>(null);
   const [closing, setClosing] = useState<DebtView | null>(null);
@@ -285,14 +284,14 @@ export function DebtsBoard({
       {active.length === 0 ? (
         <Card>
           <EmptyState
-            title="Nenhuma dívida cadastrada"
-            text="Cadastre empréstimos e financiamentos. As parcelas entram sozinhas nos vencimentos do mês, e você vê qual pagar primeiro."
+            title={t("empty.title")}
+            text={t("empty.text")}
             action={
               writable ? (
                 <div className="flex flex-wrap justify-center gap-2">
-                  <Button onClick={() => open(null)}>Cadastrar dívida</Button>
+                  <Button onClick={() => open(null)}>{t("empty.action")}</Button>
                   <Link href={importLink} className={buttonClass("secondary")}>
-                    Importar de um arquivo
+                    {t("card.import")}
                   </Link>
                 </div>
               ) : null
@@ -301,7 +300,7 @@ export function DebtsBoard({
         </Card>
       ) : (
         <ul
-          aria-label="Dívidas"
+          aria-label={t("list")}
           className="m-0 grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
         >
           {active.map((debt) => (
@@ -325,7 +324,7 @@ export function DebtsBoard({
                 className="flex h-full min-h-32 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-line text-sm font-semibold text-muted transition hover:bg-brand-50 hover:text-ink"
               >
                 <Plus className="size-4" aria-hidden="true" />
-                Nova dívida
+                {t("card.new")}
               </button>
             </li>
           ) : null}
@@ -336,7 +335,7 @@ export function DebtsBoard({
                 className="flex h-full min-h-32 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-line text-sm font-semibold text-muted transition hover:bg-brand-50 hover:text-ink"
               >
                 <FileUp className="size-4" aria-hidden="true" />
-                Importar de um arquivo
+                {t("card.import")}
               </Link>
             </li>
           ) : null}
@@ -345,11 +344,11 @@ export function DebtsBoard({
 
       {writable && loose.length > 0 ? (
         <Card
-          title="Arquivos esperando conferência"
-          description="Ainda não viraram dívida. Confira os valores ou apague o arquivo."
+          title={t("waiting.title")}
+          description={t("waiting.text")}
           actions={
             <Link href={importLink} className={buttonClass("secondary", true)}>
-              Conferir
+              {t("waiting.action")}
             </Link>
           }
         >
@@ -364,10 +363,7 @@ export function DebtsBoard({
       ) : null}
 
       {closed.length > 0 ? (
-        <Card
-          title="Encerradas"
-          description="Fora do mês. O que foi pago continua nos lançamentos."
-        >
+        <Card title={t("closed.title")} description={t("closed.text")}>
           <ul className="m-0 list-none divide-y divide-line p-0">
             {closed.map((debt) => (
               <li key={debt.id} className="flex items-center justify-between gap-3 py-2">
@@ -375,7 +371,7 @@ export function DebtsBoard({
                 {writable ? (
                   <form action={reopenDebt}>
                     <input type="hidden" name="id" value={debt.id} />
-                    <IconButton type="submit" label={`Reabrir ${debt.name}`}>
+                    <IconButton type="submit" label={t("card.reopen", { name: debt.name })}>
                       <ArchiveRestore className="size-4" aria-hidden="true" />
                     </IconButton>
                   </form>
@@ -389,7 +385,7 @@ export function DebtsBoard({
       <Sheet
         open={editing !== null}
         onClose={close}
-        title={editing?.debt ? "Editar dívida" : "Nova dívida"}
+        title={t(editing?.debt ? "sheet.edit" : "sheet.new")}
       >
         <DebtForm
           key={editing?.nonce}
@@ -402,19 +398,20 @@ export function DebtsBoard({
       <Sheet
         open={viewing !== null}
         onClose={() => setViewing(null)}
-        title={viewing?.name ?? "Parcelas"}
+        title={viewing?.name ?? t("schedule.fallbackTitle")}
       >
         {viewing ? (
           <>
             <p className="mb-3 text-sm text-muted">
-              Total das parcelas em aberto:{" "}
+              {t("schedule.openTotal")}{" "}
               <span className="font-semibold text-ink">
-                {formatBRL(
+                {formatAmount(
                   toDbAmount(
                     viewing.installments
                       .filter((row) => !row.paid)
                       .reduce((acc, row) => acc.plus(row.amount), money(0)),
                   ),
+                  locale,
                 )}
               </span>
             </p>
@@ -425,7 +422,7 @@ export function DebtsBoard({
       <Sheet
         open={filesOf !== null}
         onClose={() => setFilesOf(null)}
-        title={filesOf ? `Arquivos de ${filesOf.name}` : "Arquivos"}
+        title={filesOf ? t("card.files", { name: filesOf.name }) : t("card.filesTitle")}
       >
         {filesOf ? (
           <DebtFiles
@@ -440,22 +437,20 @@ export function DebtsBoard({
       <ConfirmSheet
         open={deleting !== null}
         onClose={() => setDeleting(null)}
-        title="Apagar arquivo"
-        text={`"${deleting?.fileName ?? ""}" será apagado de vez. A dívida continua como está.`}
-        confirmLabel="Apagar"
+        title={t("deleteFile.title")}
+        text={t("deleteFile.text", { name: deleting?.fileName ?? "" })}
+        confirmLabel={t("deleteFile.confirm")}
         action={deleteDocument}
         hidden={{ id: deleting?.id ?? "" }}
       />
       <ConfirmSheet
         open={closing !== null}
         onClose={() => setClosing(null)}
-        title={hasHistory ? "Encerrar dívida" : "Excluir dívida"}
-        text={
-          hasHistory
-            ? `"${closing?.name ?? ""}" sai do mês e as parcelas em aberto deixam de aparecer. O que já foi pago continua nos lançamentos.`
-            : `"${closing?.name ?? ""}", o calendário de parcelas e os arquivos anexados serão apagados.`
-        }
-        confirmLabel={hasHistory ? "Encerrar" : "Excluir"}
+        title={t(hasHistory ? "close.closeTitle" : "close.deleteTitle")}
+        text={t(hasHistory ? "close.closeText" : "close.deleteText", {
+          name: closing?.name ?? "",
+        })}
+        confirmLabel={t(hasHistory ? "close.closeConfirm" : "close.deleteConfirm")}
         action={closeDebt}
         hidden={{ id: closing?.id ?? "" }}
       />

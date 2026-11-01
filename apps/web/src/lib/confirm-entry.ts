@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  accountCurrency,
   and,
   cardPurchases,
   cardStatementPayments,
@@ -16,6 +17,7 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import {
+  isForeign,
   isYearMonth,
   linesTotal,
   money,
@@ -23,6 +25,8 @@ import {
   purchaseLines,
   statementDueDate,
   toDbAmount,
+  type EntryMoney,
+  type FxCurrency,
 } from "@organizeup/domain";
 import { audit } from "./audit";
 import {
@@ -39,11 +43,39 @@ export interface ImportMark {
   importBatchId: string;
 }
 
+/** Falta a cotação de uma conta estrangeira nesta data. Sai antes de qualquer gravação. */
+class MissingQuote extends Error {
+  constructor(
+    readonly currency: FxCurrency,
+    readonly date: string,
+  ) {
+    super("sem_cotacao");
+  }
+}
+
+/** Compromisso em reais na conta. Null só se a conta não existir mais. */
+async function commitmentEntry(
+  tx: TenantTx,
+  accountId: string,
+  reais: string,
+  date: string,
+): Promise<EntryMoney | null> {
+  const entry = await reaisEntry(tx, accountId, reais, date);
+  if (entry) return entry;
+  const currency = await accountCurrency(tx, accountId);
+  if (currency && isForeign(currency)) throw new MissingQuote(currency, date);
+  return null;
+}
+
+/** Confirmou, não havia o que confirmar, ou faltou a cotação: aí a pessoa precisa de um aviso. */
+export type ConfirmOutcome =
+  | { done: boolean; missingQuote?: undefined }
+  | { done: false; missingQuote: { currency: FxCurrency; date: string } };
+
 /**
  * Marca como pago ou recebido. `key` é `t:<lançamento>`, `p:<previsão>` (com `month`),
- * `d:<parcela>`, `f:<cartão>:<mês>`, `r:<renda>:<mês>:<parte>` ou `g:<meta>:<mês>`. Devolve se algo
- * foi confirmado. Compromissos são em reais: pagos com conta estrangeira, convertem pela data
- * (`reaisEntry`), e sem cotação nada é confirmado.
+ * `d:<parcela>`, `f:<cartão>:<mês>`, `r:<renda>:<mês>:<parte>` ou `g:<meta>:<mês>`. Compromissos são
+ * em reais: pagos com conta estrangeira, convertem pela data, e sem cotação nada é confirmado.
  */
 export async function confirmCommitment(
   tx: TenantTx,
@@ -51,6 +83,21 @@ export async function confirmCommitment(
   key: string,
   month: string,
   mark: ImportMark | Record<string, never> = {},
+): Promise<ConfirmOutcome> {
+  try {
+    return { done: await confirmByKey(tx, ctx, key, month, mark) };
+  } catch (error) {
+    if (!(error instanceof MissingQuote)) throw error;
+    return { done: false, missingQuote: { currency: error.currency, date: error.date } };
+  }
+}
+
+async function confirmByKey(
+  tx: TenantTx,
+  ctx: TenantContext,
+  key: string,
+  month: string,
+  mark: ImportMark | Record<string, never>,
 ): Promise<boolean> {
   const id = key.slice(2);
 
@@ -69,7 +116,7 @@ export async function confirmCommitment(
     const [plan] = await tx.select().from(cashflowPlans).where(eq(cashflowPlans.id, id));
     if (!plan) return false;
     const occurredOn = occurrenceDate(plan.dayOfMonth, month);
-    const entry = await reaisEntry(tx, plan.accountId, plan.amount, occurredOn);
+    const entry = await commitmentEntry(tx, plan.accountId, plan.amount, occurredOn);
     if (!entry) return false;
     const created = await tx
       .insert(transactions)
@@ -99,7 +146,12 @@ export async function confirmCommitment(
     const { debt: categoryId } = await systemCategories(tx);
     if (!open || !categoryId) return false;
     const { installment, debt, total } = open;
-    const entry = await reaisEntry(tx, debt.accountId, installment.amount, installment.dueDate);
+    const entry = await commitmentEntry(
+      tx,
+      debt.accountId,
+      installment.amount,
+      installment.dueDate,
+    );
     if (!entry) return false;
     const [created] = await tx
       .insert(transactions)
@@ -146,7 +198,7 @@ export async function confirmCommitment(
       .filter((line) => line.statementMonth === statementMonth);
     if (lines.length === 0) return false;
     const occurredOn = statementDueDate(statementMonth, card);
-    const entry = await reaisEntry(tx, card.payingAccountId, linesTotal(lines), occurredOn);
+    const entry = await commitmentEntry(tx, card.payingAccountId, linesTotal(lines), occurredOn);
     if (!entry) return false;
     const [created] = await tx
       .insert(transactions)
@@ -191,9 +243,9 @@ export async function confirmCommitment(
       createdBy: ctx.userId,
     };
     // `amount` fica igual nos dois lados, em reais: é por ele que `goalEntryLink` acha a receita espelho.
-    const entry = await reaisEntry(tx, accountId, contribution.amount, occurredOn);
+    const entry = await commitmentEntry(tx, accountId, contribution.amount, occurredOn);
     const mirror = goal.destinationAccountId
-      ? await reaisEntry(tx, goal.destinationAccountId, contribution.amount, occurredOn)
+      ? await commitmentEntry(tx, goal.destinationAccountId, contribution.amount, occurredOn)
       : null;
     if (!entry || (goal.destinationAccountId && !mirror)) return false;
     const [created] = await tx
@@ -243,7 +295,7 @@ export async function confirmCommitment(
       );
     if (received) return false;
     const { source, entry } = found;
-    const entryMoney = await reaisEntry(tx, source.accountId, entry.amount, entry.date);
+    const entryMoney = await commitmentEntry(tx, source.accountId, entry.amount, entry.date);
     if (!entryMoney) return false;
     const [created] = await tx
       .insert(transactions)

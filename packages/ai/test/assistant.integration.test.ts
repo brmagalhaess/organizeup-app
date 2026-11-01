@@ -1037,31 +1037,56 @@ describe("ferramentas que organizam", () => {
     );
   });
 
-  it("lançamento para revisar muda na hora em Organizar, com Desfazer", async () => {
+  const moveInput = async () => ({
+    busca: "MERCADO",
+    categoria: await targetName(),
+    mes: month,
+  });
+
+  it("lançamento para revisar muda na hora, com aviso e Desfazer", async () => {
     await setSource("revisar");
-    const outcome = await runTool(ownerCtx, "sugerir_categoria", {
-      busca: "MERCADO",
-      categoria: await targetName(),
-      mes: month,
-    });
+    const outcome = await runTool(ownerCtx, "sugerir_categoria", await moveInput());
     expect(outcome.content).toContain('"feito":true');
     const [row] = await assistantRows();
     expect(row).toMatchObject({ status: "aplicada", appliedBy: "agente" });
+    const notices = await db.withHousehold(ownerCtx, (tx) =>
+      tx
+        .select()
+        .from(db.householdNotifications)
+        .where(db.eq(db.householdNotifications.suggestionId, row!.id)),
+    );
+    expect(notices).toHaveLength(1);
     const undo = await db.withHousehold(ownerCtx, (tx) => undoSuggestion(tx, ownerCtx, row!.id));
     expect(undo.ok).toBe(true);
   });
 
-  it("o que a família escolheu, e o nível Sugerir, só viram sugestão", async () => {
-    await setSource("familia");
-    const input = { busca: "MERCADO", categoria: await targetName(), mes: month };
-    const chosen = await runTool(ownerCtx, "sugerir_categoria", input);
-    expect(chosen.content).toContain('"feito":false');
-    await wipe();
+  it("no nível Sugerir também muda, sem deixar pendência", async () => {
     await setSource("revisar");
     await ai.setAssistantAutonomy(ownerCtx, "sugerir");
-    const level = await runTool(ownerCtx, "sugerir_categoria", input);
-    expect(level.content).toContain('"feito":false');
-    expect(await pending("categoria")).toHaveLength(1);
+    const outcome = await runTool(ownerCtx, "sugerir_categoria", await moveInput());
+    expect(outcome.content).toContain('"feito":true');
+    expect(await pending("categoria")).toHaveLength(0);
+    const [row] = await assistantRows();
+    await db.withHousehold(ownerCtx, (tx) => undoSuggestion(tx, ownerCtx, row!.id));
+    await ai.setAssistantAutonomy(ownerCtx, "organizar");
+  });
+
+  it("o que a família pôs em categoria específica não muda nem vira sugestão", async () => {
+    await setSource("familia");
+    const chosen = await runTool(ownerCtx, "sugerir_categoria", await moveInput());
+    expect(chosen.content).toContain('"feito":false');
+    expect(await assistantRows()).toHaveLength(0);
+  });
+
+  it("categoria genérica ou de sistema não é destino", async () => {
+    await setSource("revisar");
+    const outcome = await runTool(ownerCtx, "sugerir_categoria", {
+      busca: "MERCADO",
+      categoria: "Aportes e investimentos",
+      mes: month,
+    });
+    expect(outcome.content).toContain('"feito":false');
+    expect(await assistantRows()).toHaveLength(0);
   });
 
   it("meta em rascunho só nasce sozinha no nível Completo, e Desfazer remove", async () => {

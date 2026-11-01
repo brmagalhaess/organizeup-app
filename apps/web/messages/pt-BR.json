@@ -167,14 +167,6 @@
     "description": "O que você tem menos o que você deve.",
     "newAsset": "Novo bem",
     "amountPlaceholder": "0,00",
-    "fxNote": {
-      "converted": "Convertido pela cotação de {date}.",
-      "missing": "Ainda sem cotação de {names}: essas contas ficam fora da soma.",
-      "currency": {
-        "USD": "dólar",
-        "EUR": "euro"
-      }
-    },
     "kinds": {
       "imovel": "Imóvel",
       "veiculo": "Veículo",
@@ -1110,37 +1102,11 @@
       "retirementAgeHint": "Usada no plano quando a família não informa o ano. Vazio: 65 anos.",
       "save": "Salvar pessoa"
     },
-    "adult": {
-      "workStatus": "Situação de trabalho",
-      "notInformed": "Não informado",
-      "inss": "Contribui para o INSS?",
-      "yes": "Sim",
-      "no": "Não",
-      "pension": "Benefício mensal esperado (R$)"
-    },
     "wedding": {
       "title": "Casamento",
       "description": "Opcional. Com o dia, entra no calendário como “Aniversário de casamento”.",
-      "day": "Dia",
-      "month": "Mês",
-      "choose": "Escolha",
-      "year": "Ano",
       "save": "Salvar casamento",
-      "saved": "Casamento salvo.",
-      "months": {
-        "1": "Janeiro",
-        "2": "Fevereiro",
-        "3": "Março",
-        "4": "Abril",
-        "5": "Maio",
-        "6": "Junho",
-        "7": "Julho",
-        "8": "Agosto",
-        "9": "Setembro",
-        "10": "Outubro",
-        "11": "Novembro",
-        "12": "Dezembro"
-      }
+      "saved": "Casamento salvo."
     },
     "members": {
       "title": "Quem acessa",
@@ -1212,7 +1178,12 @@
       "pending": "Ativando…",
       "unavailable": "O assistente está indisponível no momento.",
       "consentRequired": "Para ativar, marque que você leu e autoriza o envio.",
-      "pickLevel": "Escolha o que o assistente pode fazer."
+      "pickLevel": "Escolha o que o assistente pode fazer.",
+      "levelTexts": {
+        "sugerirText": "Dá dicas e sugestões para você decidir. Só as categorias genéricas mudam sozinhas, com Desfazer.",
+        "organizarText": "Igual ao Sugerir: arruma sozinho as categorias genéricas e o que ficou para revisar, sempre com Desfazer.",
+        "completoText": "Também cria metas em rascunho. Valor que você informou continua sendo sugestão."
+      }
     },
     "states": {
       "sem_chave": {
@@ -1869,5 +1840,1226 @@
       "wrongPassword": "Senha incorreta."
     },
     "noPermission": "Seu papel nesta família não permite alterações."
+  },
+  "notificacoes": {
+    "metaTitle": "Notificações",
+    "title": "Notificações",
+    "description": "O que o assistente mudou sozinho, com o antes e o depois.",
+    "bell": "{count, plural, =0 {Notificações} one {Notificações, # não lida} other {Notificações, # não lidas}}",
+    "filterLabel": "Filtrar notificações",
+    "filters": {
+      "all": "Todas",
+      "unread": "Não lidas",
+      "read": "Lidas"
+    },
+    "markAll": "Marcar todas como lidas",
+    "allRead": "Tudo marcado como lido.",
+    "noPermission": "Seu papel nesta família não permite alterações.",
+    "failed": "Não foi possível concluir agora. Atualize a página e tente de novo.",
+    "undo": "Desfazer",
+    "undoLabel": "Desfazer: {title}",
+    "undoDone": "Desfeito. O assistente não mexe mais nesses lançamentos.",
+    "undoFailed": "Não deu para desfazer: isso já foi desfeito ou alguém já mudou esses lançamentos.",
+    "undone": "Desfeito",
+    "unreadTag": "Não lida",
+    "newCategory": "Categoria nova",
+    "open": "Ver em Sugestões",
+    "change": "{from} → {to}",
+    "changeDetail": "{merchant}: {entries}, {sum}",
+    "mergeDetail": "Categorias juntadas: {entries}, {sum}",
+    "summary": "{changes, plural, one {E mais # mudança nesta noite} other {E mais # mudanças nesta noite}}",
+    "summaryDetail": "{entries}, {sum}. Tudo está em Sugestões, com Desfazer.",
+    "entries": "{count, plural, =0 {nenhum lançamento} one {# lançamento} other {# lançamentos}}",
+    "unavailableTitle": "Notificações indisponíveis",
+    "unavailableText": "Estamos atualizando o serviço. Tente de novo em alguns minutos.",
+    "empty": {
+      "all": {
+        "title": "Nenhuma notificação por enquanto",
+        "text": "Quando o assistente mudar algo sozinho, você vê aqui o antes e o depois."
+      },
+      "unread": {
+        "title": "Nada novo por aqui",
+        "text": "Você já marcou tudo como lido."
+      },
+      "read": {
+        "title": "Nada lido ainda",
+        "text": "O que você marcar como lido fica aqui."
+      }
+    }
+  },
+  "lancamentos": {
+    "metaTitle": "Lançamentos",
+    "eyebrow": "Lançamentos",
+    "description": "Tudo o que entrou, saiu e ainda vai vencer neste mês.",
+    "importStatement": "Importar extrato",
+    "previousMonth": "Mês anterior",
+    "nextMonth": "Próximo mês",
+    "stats": {
+      "received": "Entrou",
+      "spent": "Saiu",
+      "balance": "Sobrou até agora",
+      "forecast": "Previsão para o fim do mês",
+      "forecastHint": "Conta o que ainda vai entrar e sair."
+    },
+    "status": {
+      "overdue": "Atrasado",
+      "planned": "Previsto",
+      "done": {
+        "expense": "Pago",
+        "goal": "Guardado",
+        "income": "Recebido"
+      }
+    },
+    "row": {
+      "open": "Abrir {name}",
+      "openShort": "Abrir",
+      "edit": "Editar {name}",
+      "delete": "Excluir {name}",
+      "stop": "Parar de repetir {name}",
+      "repeats": "Repete todo mês"
+    },
+    "plan": {
+      "badge": "Plano",
+      "open": "Abrir meta {name}",
+      "title": "Valor calculado pelo assistente; abra Metas para ajustar"
+    },
+    "empty": {
+      "title": "Nada por aqui neste mês",
+      "text": "Lance sua renda e suas contas para ver o mês tomar forma.",
+      "action": "Novo lançamento",
+      "noResultsTitle": "Nenhum lançamento encontrado",
+      "noResultsText": "Tente mudar a busca ou os filtros."
+    },
+    "filters": {
+      "search": "Buscar",
+      "searchPlaceholder": "Descrição",
+      "type": "Tipo",
+      "allTypes": "Todos",
+      "income": "Receitas",
+      "expenses": "Despesas",
+      "status": "Situação",
+      "allStatuses": "Todas",
+      "settled": "Pagos e recebidos",
+      "open": "Em aberto",
+      "category": "Categoria",
+      "allCategories": "Todas"
+    },
+    "table": {
+      "caption": "Lançamentos do mês",
+      "date": "Data",
+      "description": "Descrição",
+      "category": "Categoria",
+      "account": "Conta",
+      "status": "Situação",
+      "amount": "Valor",
+      "actions": "Ações"
+    },
+    "remove": {
+      "title": "Excluir lançamento",
+      "text": "\"{name}\" será apagado. Isso não pode ser desfeito.",
+      "confirm": "Excluir"
+    },
+    "stop": {
+      "title": "Parar de repetir",
+      "text": "\"{name}\" deixa de aparecer a partir deste mês. O que já foi pago continua no histórico.",
+      "confirm": "Parar de repetir"
+    },
+    "sheet": {
+      "new": "Novo lançamento",
+      "edit": "Editar lançamento"
+    },
+    "form": {
+      "type": "Tipo",
+      "expense": "Despesa",
+      "income": "Receita",
+      "description": "Descrição",
+      "expenseExample": "Ex.: Conta de luz",
+      "incomeExample": "Ex.: Salário",
+      "amount": "Valor ({symbol})",
+      "date": "Data",
+      "category": "Categoria",
+      "account": "Conta",
+      "accountOrCard": "Conta ou cartão",
+      "cards": "Cartões",
+      "installments": "Parcelas",
+      "installmentsHint": "Cada parcela entra numa fatura.",
+      "paid": "Já foi pago",
+      "received": "Já foi recebido",
+      "repeat": "Repete todo mês",
+      "planNotice": "Esta conta se repete todo mês. A alteração vale para todos os meses em aberto, e da data usamos só o dia.",
+      "saveChanges": "Salvar alterações",
+      "save": "Salvar lançamento",
+      "noQuote": "Ainda não temos a cotação para esta data.",
+      "fxPreview": "≈ {value}, cotação de {date}",
+      "fxRate": "Cotação de {date}"
+    },
+    "saved": "Lançamento salvo.",
+    "errors": {
+      "kind": "Escolha receita ou despesa.",
+      "description": "Informe a descrição.",
+      "amount": "Informe um valor maior que zero, como 150,90.",
+      "date": "Informe a data.",
+      "invalidDate": "Data inválida.",
+      "category": "Escolha a categoria.",
+      "account": "Escolha a conta.",
+      "installments": "Informe de 1 a 72 parcelas.",
+      "invalidCategory": "Escolha uma categoria válida.",
+      "cardExpensesOnly": "Cartão recebe apenas despesas.",
+      "invalidCard": "Escolha um cartão válido.",
+      "invalidAccount": "Escolha uma conta válida.",
+      "overLimit": "Este valor passa do limite em reais.",
+      "noRepeat": "Conta em dólar ou euro ainda não aceita conta que se repete. Lance mês a mês ou use uma conta em reais.",
+      "notFound": "Lançamento não encontrado.",
+      "recurringMonth": "Lançamento de conta recorrente precisa continuar no mesmo mês.",
+      "goalEntry": "Este lançamento guarda dinheiro para uma meta. Para mudar, exclua e confirme de novo.",
+      "planNotFound": "Previsão não encontrada.",
+      "statementPaid": "A fatura de {month} já foi paga. Use uma data depois do fechamento dela.",
+      "noQuote": "Ainda não temos a cotação do {currency, select, USD {dólar} EUR {euro} other {real}} para esta data. Tente de novo mais tarde ou use outra data."
+    },
+    "confirmNotice": {
+      "title": "Ainda sem cotação",
+      "text": "Nada foi confirmado. Esta conta é em {currency, select, USD {dólar} EUR {euro} other {real}} e ainda não temos a cotação de {date}. Tente de novo mais tarde.",
+      "close": "Entendi",
+      "failed": "Não foi possível confirmar agora. Tente de novo."
+    }
+  },
+  "contas": {
+    "metaTitle": "Contas",
+    "eyebrow": "Contas",
+    "description": "Soma do saldo das contas ativas.",
+    "listLabel": "Contas",
+    "types": {
+      "corrente": "Conta corrente",
+      "poupanca": "Poupança",
+      "dinheiro": "Dinheiro em espécie",
+      "investimento": "Investimento"
+    },
+    "currencies": {
+      "BRL": "Real (R$)",
+      "USD": "Dólar (US$)",
+      "EUR": "Euro (€)"
+    },
+    "currencyName": "{currency, select, USD {dólar} EUR {euro} other {real}}",
+    "fx": {
+      "converted": "Convertido pela cotação de {date}.",
+      "missing": "Ainda sem cotação de {names}: essas contas ficam fora da soma.",
+      "noBalanceInReais": "Ainda sem cotação para mostrar em reais",
+      "balanceNote": "O saldo em {currency, select, USD {dólar} EUR {euro} other {real}} só muda com lançamentos; em reais, varia com a cotação."
+    },
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Arquivar {name}",
+      "restore": "Reativar {name}",
+      "transfer": "Transferir entre contas",
+      "new": "Nova conta"
+    },
+    "archived": {
+      "title": "Arquivadas",
+      "text": "Fora dos formulários e do saldo total."
+    },
+    "sheet": {
+      "edit": "Editar conta",
+      "new": "Nova conta"
+    },
+    "form": {
+      "name": "Nome da conta",
+      "nameExample": "Ex.: Banco do dia a dia",
+      "type": "Tipo",
+      "currency": "Moeda",
+      "currencyLocked": "Esta conta já tem movimento, então a moeda fica como está.",
+      "currencyHint": "Lançamentos e saldo ficam nesta moeda. Os totais do app seguem em reais.",
+      "openingBalance": "Saldo inicial ({symbol})",
+      "openingBalanceHint": "Quanto havia na conta antes dos lançamentos daqui. Eles somam e subtraem deste valor.",
+      "save": "Salvar conta"
+    },
+    "transfer": {
+      "from": "De",
+      "to": "Para",
+      "amount": "Valor ({symbol})",
+      "left": "Saiu ({symbol})",
+      "entered": "Entrou ({symbol})",
+      "enteredHint": "Sugerido pela cotação do dia. Ajuste para o que o banco cobrou.",
+      "date": "Data",
+      "note": "Observação",
+      "noteHint": "Opcional.",
+      "explain": "O saldo das duas contas muda. Não conta como gasto nem como receita.",
+      "explainExchange": "O saldo das duas contas muda. Não conta como gasto nem como receita, e a diferença de câmbio também não.",
+      "pending": "Transferindo…",
+      "submit": "Transferir",
+      "recent": "Transferências recentes",
+      "list": "Transferências",
+      "arrow": "para",
+      "received": "entrou {value}",
+      "undo": "Desfazer transferência",
+      "undoText": "O valor volta para a conta de origem.",
+      "undoConfirm": "Desfazer"
+    },
+    "saved": "Conta salva.",
+    "created": "Conta criada.",
+    "errors": {
+      "name": "Informe o nome da conta.",
+      "currency": "Escolha a moeda.",
+      "check": "Verifique.",
+      "checkData": "Verifique os dados.",
+      "from": "Escolha a conta de origem.",
+      "to": "Escolha a conta de destino.",
+      "amount": "Informe o valor.",
+      "date": "Informe a data.",
+      "sameAccount": "Escolha duas contas diferentes.",
+      "amountFormat": "Informe o valor como 500,00.",
+      "accountGone": "Uma das contas não existe mais.",
+      "enteredFormat": "Informe quanto entrou em {symbol}, como 500,00.",
+      "oddRate": "Confira os dois valores: a taxa ficou fora do comum.",
+      "balanceFormat": "Informe o saldo como 1.250,00.",
+      "currencyLocked": "Esta conta já tem movimento e não pode mudar de moeda. Crie outra conta."
+    }
+  },
+  "cartoes": {
+    "metaTitle": "Cartões",
+    "eyebrow": "Cartões",
+    "title": "Cartões de crédito",
+    "description": "Compras entram na fatura certa, e a fatura entra no mês em que vence.",
+    "listLabel": "Cartões",
+    "new": "Novo cartão",
+    "empty": {
+      "title": "Nenhum cartão cadastrado",
+      "text": "Cadastre o cartão com os dias de fechamento e vencimento. As faturas se montam sozinhas a partir das compras.",
+      "action": "Cadastrar cartão"
+    },
+    "archived": {
+      "title": "Arquivados",
+      "text": "Fora do novo lançamento. Faturas em aberto seguem no mês."
+    },
+    "sheet": {
+      "edit": "Editar cartão",
+      "new": "Novo cartão"
+    },
+    "status": {
+      "aberta": "Aberta",
+      "fechada": "Fechada",
+      "atrasada": "Atrasada",
+      "paga": "Paga"
+    },
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Arquivar {name}",
+      "restore": "Reativar {name}",
+      "delete": "Excluir {name}"
+    },
+    "form": {
+      "name": "Nome do cartão",
+      "nameExample": "Ex.: Cartão do banco",
+      "closingDay": "Dia do fechamento",
+      "closingDayHint": "Último dia de compras da fatura.",
+      "dueDay": "Dia do vencimento",
+      "dueDayHint": "Quando a fatura deve ser paga.",
+      "limit": "Limite (R$)",
+      "limitHint": "Opcional. Mostra quanto ainda está disponível.",
+      "payingAccount": "Conta que paga a fatura",
+      "save": "Salvar cartão"
+    },
+    "tile": {
+      "days": "Fecha dia {closing} · vence dia {due}",
+      "current": "Fatura atual",
+      "available": "Disponível: {value}"
+    },
+    "statement": {
+      "of": "Fatura do {name}",
+      "previous": "Fatura anterior",
+      "next": "Próxima fatura",
+      "total": "Total",
+      "closes": "Fecha em",
+      "due": "Vence em",
+      "newPurchase": "Nova compra",
+      "pay": "Pagar fatura",
+      "paidFrom": "Sai de {account}",
+      "fallbackAccount": "a conta",
+      "emptyTitle": "Nenhuma compra nesta fatura",
+      "emptyText": "Compras parceladas aparecem em cada fatura até a última parcela.",
+      "caption": "Compras da fatura",
+      "date": "Data",
+      "description": "Descrição",
+      "category": "Categoria",
+      "amount": "Valor",
+      "actions": "Ações",
+      "installment": "Parcela {number} de {total}",
+      "singlePayment": "À vista"
+    },
+    "remove": {
+      "title": "Excluir compra",
+      "text": "\"{name}\" e todas as parcelas serão apagadas. Isso não pode ser desfeito.",
+      "confirm": "Excluir"
+    },
+    "saved": "Cartão salvo.",
+    "created": "Cartão criado.",
+    "errors": {
+      "closingDay": "Informe o dia do fechamento.",
+      "closingDayRange": "O dia do fechamento vai de 1 a 31.",
+      "dueDay": "Informe o dia do vencimento.",
+      "dueDayRange": "O dia do vencimento vai de 1 a 31.",
+      "name": "Informe o nome do cartão.",
+      "payingAccount": "Escolha a conta que paga a fatura.",
+      "check": "Verifique.",
+      "limit": "Informe o limite como 5.000,00.",
+      "invalidAccount": "Escolha uma conta válida.",
+      "notFound": "Cartão não encontrado.",
+      "datesLocked": "Este cartão já tem fatura paga, então as datas não podem mudar. Para novas datas, arquive-o e crie outro."
+    }
+  },
+  "categorias": {
+    "metaTitle": "Categorias",
+    "title": "Categorias",
+    "description": "Como seus lançamentos são agrupados nos relatórios.",
+    "new": "Nova categoria",
+    "count": "{count, plural, other {# categorias}}",
+    "expenses": "Despesas",
+    "income": "Receitas",
+    "essential": "Essencial",
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Arquivar {name}",
+      "restore": "Reativar {name}"
+    },
+    "archived": {
+      "title": "Arquivadas",
+      "text": "Fora dos formulários; o histórico continua."
+    },
+    "sheet": {
+      "edit": "Editar categoria",
+      "new": "Nova categoria"
+    },
+    "form": {
+      "name": "Nome da categoria",
+      "nameExample": "Ex.: Pet",
+      "type": "Tipo",
+      "expense": "Despesa",
+      "income": "Receita",
+      "essential": "É um gasto essencial",
+      "save": "Salvar categoria"
+    },
+    "saved": "Categoria salva.",
+    "created": "Categoria criada.",
+    "errors": {
+      "name": "Informe o nome da categoria.",
+      "check": "Verifique.",
+      "duplicate": "Já existe uma categoria com esse nome."
+    }
+  },
+  "dividas": {
+    "metaTitle": "Dívidas",
+    "eyebrow": "Dívidas",
+    "title": "Dívidas e empréstimos",
+    "description": "Saiba quanto falta, quando termina e o que pagar primeiro.",
+    "stats": {
+      "balance": "Falta pagar",
+      "thisMonth": "Parcelas deste mês",
+      "interestLeft": "Juros ainda a pagar",
+      "interestHint": "Parcela informada não separa os juros.",
+      "lastDue": "Última parcela",
+      "lastDueValue": "{month} de {year}",
+      "noInstallments": "Sem parcelas"
+    },
+    "list": "Dívidas",
+    "systems": {
+      "price": "Parcelas fixas",
+      "sac": "Parcelas que diminuem",
+      "manual": "Parcela informada"
+    },
+    "noRate": "Sem juros informados",
+    "rate": "{rate}% ao mês",
+    "form": {
+      "name": "Nome da dívida",
+      "nameExample": "Ex.: Financiamento do carro",
+      "loanExample": "Ex.: Empréstimo pessoal",
+      "payingAccount": "Conta que paga as parcelas",
+      "locked": "Valores e parcelas não mudam aqui. Se algo estiver errado, exclua e cadastre de novo.",
+      "save": "Salvar dívida",
+      "doubt": "Confira este campo.",
+      "system": "Como são as parcelas",
+      "systemHint": "Veja no contrato ou no boleto.",
+      "systemPrice": "Fixas, com juros calculados aqui",
+      "systemSac": "Diminuem a cada mês",
+      "systemManual": "Eu informo o valor da parcela",
+      "installmentAmount": "Valor da parcela (R$)",
+      "balance": "Saldo devedor hoje (R$)",
+      "balanceHint": "Quanto falta pagar, sem contar juros futuros.",
+      "monthlyRate": "Juros ao mês (%)",
+      "rateOptional": "Opcional. Só ajuda a sugerir a ordem.",
+      "rateZero": "Use 0 se não tiver.",
+      "installments": "Parcelas que faltam",
+      "nextDue": "Próximo vencimento"
+    },
+    "schedule": {
+      "caption": "Parcelas de {name}",
+      "number": "Nº",
+      "due": "Vencimento",
+      "interest": "Juros",
+      "installment": "Parcela",
+      "paid": "Paga",
+      "overdue": "Atrasada",
+      "openTotal": "Total das parcelas em aberto:",
+      "fallbackTitle": "Parcelas"
+    },
+    "card": {
+      "schedule": "Ver parcelas de {name}",
+      "files": "Arquivos de {name}",
+      "filesCount": "Arquivos de {name} ({count})",
+      "filesTitle": "Arquivos",
+      "edit": "Editar {name}",
+      "close": "Encerrar {name}",
+      "delete": "Excluir {name}",
+      "reopen": "Reabrir {name}",
+      "left": "Falta pagar",
+      "progress": "{paid} de {total} parcelas pagas",
+      "dueOn": "Vence em {date}",
+      "overdue": "· Atrasada",
+      "pay": "Pagar",
+      "paidOff": "Quitada",
+      "new": "Nova dívida",
+      "import": "Importar de um arquivo"
+    },
+    "empty": {
+      "title": "Nenhuma dívida cadastrada",
+      "text": "Cadastre empréstimos e financiamentos. As parcelas entram sozinhas nos vencimentos do mês, e você vê qual pagar primeiro.",
+      "action": "Cadastrar dívida"
+    },
+    "waiting": {
+      "title": "Arquivos esperando conferência",
+      "text": "Ainda não viraram dívida. Confira os valores ou apague o arquivo.",
+      "action": "Conferir"
+    },
+    "closed": {
+      "title": "Encerradas",
+      "text": "Fora do mês. O que foi pago continua nos lançamentos."
+    },
+    "sheet": {
+      "edit": "Editar dívida",
+      "new": "Nova dívida"
+    },
+    "deleteFile": {
+      "title": "Apagar arquivo",
+      "text": "\"{name}\" será apagado de vez. A dívida continua como está.",
+      "textOnly": "\"{name}\" será apagado de vez.",
+      "confirm": "Apagar"
+    },
+    "close": {
+      "closeTitle": "Encerrar dívida",
+      "deleteTitle": "Excluir dívida",
+      "closeText": "\"{name}\" sai do mês e as parcelas em aberto deixam de aparecer. O que já foi pago continua nos lançamentos.",
+      "deleteText": "\"{name}\", o calendário de parcelas e os arquivos anexados serão apagados.",
+      "closeConfirm": "Encerrar",
+      "deleteConfirm": "Excluir"
+    },
+    "files": {
+      "status": {
+        "guardado": "Guardado",
+        "lendo": "Sendo lido",
+        "lido": "Lido, falta conferir",
+        "falhou": "Não deu para ler",
+        "confirmado": "Conferido"
+      },
+      "tooLarge": "{name}: passa de 10 MB.",
+      "sendFailed": "{name}: não foi possível enviar. Tente de novo.",
+      "sendFailedShort": "{name}: não foi possível enviar.",
+      "withName": "{name}: {problem}",
+      "failed": "Não foi possível enviar.",
+      "duplicate": "Este arquivo já estava guardado.",
+      "emptyTitle": "Nenhum arquivo nesta dívida",
+      "emptyText": "Anexe contrato, extrato ou renegociação para ter tudo em um lugar só.",
+      "sentOn": "{size} · enviado em {date}",
+      "review": "Conferir valores",
+      "download": "Baixar {name}",
+      "delete": "Apagar {name}",
+      "attach": "Anexar arquivo",
+      "types": "PDF, PNG, JPG, CSV ou Excel (.xlsx), até 10 MB.",
+      "sending": "Enviando…"
+    },
+    "plan": {
+      "noEnd": "Com o que você paga hoje, as dívidas não terminam",
+      "payOff": "Quite tudo em {when}",
+      "payOffSaving": "Quite tudo em {when} e economize {saved}",
+      "description": "Estimativa com as parcelas de hoje e o que sobra no mês. Nada muda sozinho.",
+      "thisMonthLabel": "O que fazer neste mês",
+      "thisMonth": "Neste mês",
+      "payExtra": "Pague <strong>{amount}</strong> a mais em <strong>{name}</strong>",
+      "noExtra": "Hoje não sobra valor extra para as dívidas. Quando sobrar, ele aparece aqui.",
+      "attackOrder": "Ordem de ataque",
+      "attention": "Pontos de atenção",
+      "extraUsed": "Valor extra usado: {value} por mês, da divisão do que sobra.",
+      "errorTitle": "Plano para sair das dívidas",
+      "errorText": "Não conseguimos calcular o plano agora. Suas dívidas estão a salvo; tente de novo em alguns minutos.",
+      "noFinish": "Não termina com essas parcelas",
+      "strategies": {
+        "avalanche": "Maior juro primeiro",
+        "snowball": "Menor saldo primeiro"
+      },
+      "cheapest": "Mais barata",
+      "compare": "Ver as duas estratégias",
+      "compareScroll": "Comparação com rolagem lateral",
+      "compareCaption": "Comparação entre as estratégias de quitação",
+      "strategy": "Estratégia",
+      "paidOffBy": "Tudo quitado em",
+      "interestToEnd": "Juros até o fim",
+      "savings": "Economia",
+      "onlyInstallments": "Só pagar as parcelas",
+      "signals": {
+        "dado_faltando": "Faltam os juros desta dívida. Sem eles, o plano não sabe o quanto ela custa: confira no contrato ou no boleto.",
+        "juro_acima_do_rendimento": "Custa {rate}% ao mês, mais do que o dinheiro costuma render. Quitar antes vale mais que investir.",
+        "portabilidade": "Com {rate}% ao mês, vale pedir propostas de portabilidade para outra instituição ou renegociar a taxa.",
+        "vence_antes_da_renda": "A parcela vence no dia {due}, antes de a renda entrar, no dia {income}. Vale pedir para mudar o vencimento."
+      }
+    },
+    "payoff": {
+      "title": "Qual dívida pagar primeiro",
+      "description": "Estimativa com o que você tem hoje. Quando uma dívida acaba, a parcela dela reforça a próxima.",
+      "extra": "Quanto a mais por mês (R$)",
+      "extraHint": "Além das parcelas.",
+      "extraError": "Informe um valor como 300,00.",
+      "avalanche": "Maiores juros primeiro",
+      "avalancheText": "Conhecida como avalanche. Costuma sair mais barato.",
+      "snowball": "Menor dívida primeiro",
+      "snowballText": "Conhecida como bola de neve. Elimina dívidas mais rápido, o que ajuda a manter o ritmo.",
+      "lessInterest": "Paga menos juros",
+      "startWith": "Comece por <strong>{name}</strong>",
+      "stalled": "Com esse valor a dívida não termina, porque a parcela não cobre os juros.",
+      "paidOffIn": "Tudo quitado em",
+      "interestToEnd": "Juros até o fim",
+      "savings": "Economia frente a só pagar as parcelas",
+      "whenEach": "Quando cada uma termina",
+      "years": "{count, plural, =1 {1 ano} other {# anos}}",
+      "months": "{count, plural, =1 {1 mês} other {# meses}}",
+      "yearsAndMonths": "{years} e {months}",
+      "thisMonth": "este mês"
+    },
+    "import": {
+      "metaTitle": "Importar dívidas",
+      "title": "Importar arquivo de dívidas",
+      "description": "Envie contrato, renegociação, extrato ou planilha. Você confere tudo antes de gravar.",
+      "noPermission": "Seu papel nesta família não permite importar.",
+      "readError": {
+        "other": "Não conseguimos ler este arquivo. Preencha os campos à mão.",
+        "muito_grande": "Este arquivo é grande demais para a leitura. Preencha os campos à mão.",
+        "sem_texto": "Não achamos texto neste arquivo. Preencha os campos à mão.",
+        "nao_entendi": "A leitura não entendeu este arquivo. Preencha os campos à mão.",
+        "indisponivel": "A leitura não respondeu agora. O arquivo está guardado: tente de novo.",
+        "blocked": "A leitura não está liberada agora."
+      },
+      "review": {
+        "found": "Nada foi gravado ainda. Confira e ajuste antes de confirmar.",
+        "manual": "Preencha os campos com os dados do arquivo.",
+        "doubts": "{count, plural, =1 {1 campo para conferir} other {# campos para conferir}}",
+        "unreadable": "Não deu para ler",
+        "reading": "Lendo…",
+        "readAi": "Ler com IA",
+        "moreThanOne": "Este arquivo parece ter mais de uma dívida. Trouxemos a maior; cadastre as outras à mão.",
+        "inFile": "No arquivo, a parcela é de {value}.",
+        "cet": "Custo efetivo total: {rate}% ao ano, só para consulta.",
+        "target": "O que fazer com este arquivo",
+        "targetHint": "Parece ser de uma dívida que já existe. Atualizar não duplica.",
+        "createNew": "Criar uma dívida nova",
+        "update": "Atualizar: {name}",
+        "confirm": "Confirmar dívida",
+        "deleteFile": "Apagar arquivo"
+      },
+      "consent": {
+        "ready": "O arquivo é lido por um serviço de inteligência artificial, inclusive fora do Brasil.",
+        "needed": "Para preencher os campos, o arquivo inteiro é lido por um serviço de inteligência artificial, inclusive fora do Brasil. Sem o seu aceite, ele fica guardado e nada é enviado.",
+        "accept": "Autorizo a leitura dos arquivos que eu enviar, como explica a <privacy>Política de Privacidade</privacy>.",
+        "activate": "Para ler os arquivos, ative o assistente no botão Assistente.",
+        "unavailable": "A leitura automática não está disponível agora.",
+        "meanwhile": "Enquanto isso, o arquivo fica guardado, nada é enviado, e você preenche os campos à mão.",
+        "states": {
+          "sem_chave": "Ele ainda não está ligado neste ambiente. Todo o resto do OrganizeUp segue normal.",
+          "desligado": "Todo o resto do OrganizeUp segue normal. Assim que ele voltar, este botão libera a conversa.",
+          "manutencao": "O assistente volta junto com as alterações. Você pode consultar tudo normalmente.",
+          "teto_mensal": "O limite de uso do serviço neste mês foi atingido, então ele parou sozinho. Seus dados estão seguros e o resto do OrganizeUp segue normal.",
+          "teto_diario": "O assistente volta amanhã, sem você precisar fazer nada. O resto do OrganizeUp segue normal.",
+          "sem_permissao": "Só quem é responsável ou adulto na família pode conversar com ele. Peça a um deles para ativar ou perguntar por você."
+        }
+      },
+      "sendTitle": "Enviar arquivos",
+      "sendText": "PDF, PNG, JPG, CSV ou Excel (.xlsx), até 10 MB cada. Pode escolher vários.",
+      "filesLabel": "Arquivos das dívidas",
+      "noAccount": "Cadastre uma conta antes: a dívida precisa saber de onde saem as parcelas.",
+      "sending": "Enviando {name} ({current} de {total})…",
+      "readingFile": "Lendo {name}…",
+      "seeDebts": "Ver minhas dívidas",
+      "emptyTitle": "Nenhum arquivo para conferir",
+      "emptyText": "Depois de enviar, os dados de cada arquivo aparecem aqui para você conferir.",
+      "back": "Voltar para Dívidas",
+      "reviewLabel": "Conferência",
+      "reviewTitle": "Confira antes de gravar"
+    },
+    "saved": "Dívida salva.",
+    "created": "Dívida criada.",
+    "updated": "Dívida atualizada.",
+    "errors": {
+      "name": "Informe o nome da dívida.",
+      "account": "Escolha a conta.",
+      "invalidAccount": "Escolha uma conta válida.",
+      "checkFields": "Confira os campos marcados.",
+      "acceptAdultsOnly": "Só quem é responsável ou adulto na família pode autorizar.",
+      "system": "Escolha como são as parcelas.",
+      "rate": "Informe os juros como 2,15.",
+      "installments": "Informe quantas parcelas faltam.",
+      "installmentsMax": "O limite é de 480 parcelas.",
+      "nextDue": "Informe o próximo vencimento.",
+      "invalidDate": "Data inválida.",
+      "installmentAmount": "Informe o valor da parcela, como 450,00.",
+      "balance": "Informe o saldo devedor, como 12.500,00."
+    },
+    "upload": {
+      "readOnly": "Seu papel nesta família não permite alterações.",
+      "tooMany": "Muitos envios seguidos. Aguarde um minuto.",
+      "tooLarge": "O arquivo passa de 10 MB.",
+      "noFile": "Escolha um arquivo.",
+      "empty": "O arquivo está vazio.",
+      "wrongType": "Este arquivo não é um PDF, PNG, JPG, CSV ou Excel (.xlsx) de verdade.",
+      "quota": "A família chegou ao limite de 50 MB de arquivos. Apague algum para enviar.",
+      "noDebt": "Não achei essa dívida.",
+      "noDocument": "Não achei esse arquivo.",
+      "alreadyReviewed": "Este arquivo já foi conferido.",
+      "stillReading": "Este arquivo ainda está sendo lido. Aguarde um instante.",
+      "invalidAccount": "Escolha uma conta válida."
+    }
+  },
+  "importar": {
+    "metaTitle": "Importar extrato",
+    "eyebrow": "Importar extrato",
+    "title": "Traga o extrato do banco",
+    "description": "O agente categoriza cada lançamento, e você revisa antes de gravar.",
+    "noPermission": "Seu papel nesta família não permite importar.",
+    "fallbackAccount": "Conta",
+    "choose": {
+      "title": "Escolha o extrato",
+      "text": "Baixe no site ou app do banco. O arquivo é lido aqui no navegador e não fica guardado. Assim que escolher, ele abre sozinho para você revisar.",
+      "account": "Conta do extrato",
+      "file": "Arquivo",
+      "fileHint": "OFX, CSV, Excel (.xlsx) ou PDF, até 5 MB.",
+      "foreign": "Os valores do arquivo são lidos em {currency, select, USD {dólar} EUR {euro} other {real}} e convertidos para reais pela cotação da data de cada linha.",
+      "other": "Escolher outro arquivo",
+      "reading": "Lendo {name}…",
+      "checking": "Conferindo com seus lançamentos…"
+    },
+    "csv": {
+      "title": "Confira as colunas",
+      "text": "Encontramos estas colunas no arquivo. Ajuste se alguma estiver errada.",
+      "none": "Não tem",
+      "column": "Coluna {number}",
+      "date": "Data",
+      "description": "Descrição",
+      "amount": "Valor",
+      "credit": "Crédito",
+      "debit": "Débito",
+      "found": "{count, plural, =1 {1 lançamento encontrado} other {# lançamentos encontrados}}.",
+      "foundSkipped": "{count, plural, =1 {1 lançamento encontrado} other {# lançamentos encontrados}}, {skipped, plural, =1 {1 linha ignorada} other {# linhas ignoradas}}.",
+      "sample": "Amostra",
+      "checking": "Conferindo…",
+      "continue": "Continuar",
+      "changeFile": "Trocar arquivo"
+    },
+    "review": {
+      "title": "Revise antes de importar",
+      "text": "Nada foi gravado ainda. Desmarque o que não quiser e ajuste as categorias.",
+      "new": "Novos",
+      "settle": "Dão baixa em previsão",
+      "likelyEntered": "Parecem já lançados",
+      "imported": "Já importados",
+      "agent": "O agente categorizou {count, plural, =1 {1 lançamento} other {# lançamentos}}.",
+      "agentProposed": "O agente categorizou {count, plural, =1 {1 lançamento} other {# lançamentos}} e propôs {proposed, plural, =1 {1 categoria nova} other {# categorias novas}}.",
+      "noClue": "Sem pista em {count}: confira os marcados.",
+      "rows": "Lançamentos do extrato",
+      "importRow": "Importar {name}",
+      "categoryOf": "Categoria de {name}",
+      "createCategory": "Criar: {name}",
+      "anotherCategory": "Criar outra categoria…",
+      "newCategoryOf": "Nome da nova categoria de {name}",
+      "categoryName": "Nome da categoria",
+      "importing": "Importando…",
+      "submit": "{count, plural, =1 {Importar 1 lançamento} other {Importar # lançamentos}}",
+      "cancel": "Cancelar",
+      "badges": {
+        "settle": "Baixa: {name}",
+        "entered": "Parece já lançado",
+        "imported": "Já importado",
+        "memory": "Memória da família",
+        "newCategory": "Categoria nova",
+        "review": "Revisar"
+      }
+    },
+    "done": {
+      "title": "Extrato importado",
+      "counts": "{imported, plural, =1 {1 novo lançamento} other {# novos lançamentos}} e {settled, plural, =1 {1 previsão baixada} other {# previsões baixadas}}.",
+      "seeEntries": "Ver lançamentos",
+      "another": "Importar outro"
+    },
+    "batches": {
+      "title": "Importações recentes",
+      "text": "Desfazer apaga o que a importação criou e reabre o que ela baixou.",
+      "emptyTitle": "Nenhuma importação ainda",
+      "emptyText": "Depois da primeira, ela aparece aqui e você pode desfazer.",
+      "list": "Importações",
+      "row": "{count, plural, =1 {1 lançamento} other {# lançamentos}} · {account}",
+      "detail": "{source} · de {from} a {to} · importado em {date}",
+      "undo": "{count, plural, other {Desfazer importação de # lançamentos}}",
+      "undoTitle": "Desfazer importação",
+      "undoText": "Os lançamentos desta importação serão apagados, inclusive os que você editou depois. Previsões, parcelas e faturas baixadas voltam a ficar em aberto.",
+      "undoConfirm": "Desfazer"
+    },
+    "reload": "Recarregar página",
+    "errors": {
+      "outdated": "Esta página ficou desatualizada, ou a conexão caiu. Recarregue e escolha o arquivo de novo.",
+      "noRows": "Não encontramos lançamentos neste arquivo. Baixe de novo em OFX ou CSV.",
+      "tooManyRows": "O arquivo tem mais de 2.000 lançamentos. Exporte um período menor.",
+      "tooLarge": "O arquivo passa de 5 MB. Exporte um período menor.",
+      "oldExcel": "Este Excel é do formato antigo (.xls). Abra e salve como .xlsx, ou baixe em CSV ou OFX.",
+      "fileType": "Este tipo de arquivo não é lido. Use OFX, CSV, Excel (.xlsx) ou PDF.",
+      "pdfEmpty": "Não achamos lançamentos neste PDF. Ele pode ser uma imagem. Baixe o extrato em OFX ou CSV.",
+      "pdfNotice": "PDF não diz sempre o que é entrada e saída. Confira os valores antes de importar.",
+      "sheetColumns": "Não reconhecemos as colunas desta planilha. Veja se ela tem data e valor.",
+      "csvColumns": "Não reconhecemos as colunas deste CSV. Veja se ele tem data e valor.",
+      "readFailed": "Não conseguimos ler este arquivo. Baixe o extrato em OFX ou CSV.",
+      "ofxEmpty": "Não encontramos lançamentos neste arquivo OFX.",
+      "noQuote": "Ainda não temos a cotação do {currency, select, USD {dólar} EUR {euro} other {real}} para {date}. Importe um período mais recente.",
+      "overLimit": "Um dos valores do arquivo passa do limite em reais.",
+      "unreadable": "Não conseguimos ler os lançamentos deste arquivo.",
+      "serverFailed": "O servidor falhou ao conferir este extrato. Tente de novo; se repetir, nos avise.",
+      "invalidAccount": "Escolha uma conta válida.",
+      "reviewRows": "Revise os lançamentos e tente de novo.",
+      "invalidCategory": "Escolha uma categoria válida em cada lançamento."
+    }
+  },
+  "renda": {
+    "metaTitle": "Renda",
+    "eyebrow": "Renda",
+    "title": "Quanto entra por mês",
+    "description": "Cadastre sua renda uma vez. Ela aparece sozinha no mês, no calendário e nos vencimentos.",
+    "new": "Nova renda",
+    "kinds": {
+      "clt": "Salário CLT",
+      "pj_autonomo": "PJ ou autônomo",
+      "aposentadoria_pensao": "Aposentadoria ou pensão",
+      "aluguel": "Aluguel recebido",
+      "outro": "Outra renda"
+    },
+    "estimate": "É uma estimativa com as tabelas oficiais de {month}. O holerite real pode ser diferente: horas extras, faltas, benefícios e regras da empresa mudam o valor.",
+    "doubleCount": "Você também tem receita que repete todo mês em Lançamentos. Se for a mesma renda, pare de repetir por lá para não contar em dobro.",
+    "stats": {
+      "net": "Líquido por mês",
+      "gross": "Bruto por mês",
+      "discounts": "Descontos por mês",
+      "thirteenth": "13º líquido"
+    },
+    "empty": {
+      "title": "Nenhuma renda cadastrada",
+      "text": "Cadastre salário, aposentadoria, aluguel ou outra entrada. Na CLT, calculamos INSS, imposto, 13º e férias.",
+      "action": "Cadastrar renda"
+    },
+    "slip": {
+      "gross": "Salário bruto",
+      "inss": "INSS",
+      "tax": "Imposto de renda",
+      "pension": "Pensão",
+      "otherDiscounts": "Outros descontos",
+      "net": "Líquido estimado",
+      "simplified": "Usamos o desconto simplificado, que foi melhor neste caso.",
+      "legal": "Usamos as deduções legais, que foram melhores neste caso.",
+      "reduction": "A redução da lei tirou {value} do imposto."
+    },
+    "extra": {
+      "thirteenth": "13º salário",
+      "first": "1ª parcela, novembro",
+      "second": "2ª parcela, dezembro",
+      "total": "Total líquido",
+      "vacationLabel": "Férias",
+      "vacation": "Férias de 30 dias",
+      "vacationGross": "Salário + 1/3",
+      "uncertain": "Pode vir até {value}. A Receita ainda não explicou se a redução vale para férias, então prevemos o valor menor.",
+      "vacationIn": "Férias em {month}",
+      "noVacation": "Sem mês de férias definido: a previsão fica como salário normal o ano todo."
+    },
+    "simulator": {
+      "title": "Simulador de salário",
+      "text": "Veja quanto de um salário CLT sobra depois dos descontos.",
+      "gross": "Salário bruto (R$)",
+      "invalid": "Confira os valores, como 4.500,00.",
+      "dependents": "Dependentes",
+      "pension": "Pensão (R$)",
+      "pensionHint": "Alimentícia, por decisão judicial ou acordo.",
+      "otherDiscounts": "Outros descontos (R$)",
+      "otherDiscountsHint": "Plano de saúde, vale e outros.",
+      "prompt": "Digite o salário bruto para ver o resultado.",
+      "register": "Cadastrar esta renda"
+    },
+    "form": {
+      "kind": "Tipo de renda",
+      "company": "Empresa",
+      "source": "De onde vem",
+      "companyExample": "Ex.: Empresa Exemplo",
+      "sourceExample": "Ex.: Aluguel da sala",
+      "gross": "Salário bruto (R$)",
+      "net": "Valor que cai na conta (R$)",
+      "payDay": "Dia do pagamento",
+      "dependents": "Dependentes",
+      "vacationMonth": "Mês das férias",
+      "notSure": "Ainda não sei",
+      "pension": "Pensão (R$)",
+      "otherDiscounts": "Outros descontos (R$)",
+      "account": "Conta que recebe",
+      "category": "Categoria",
+      "person": "De quem é",
+      "family": "Da família",
+      "received": "O que você já recebeu não muda. A alteração vale para as próximas previsões.",
+      "save": "Salvar renda"
+    },
+    "card": {
+      "payDay": "todo dia {day}",
+      "edit": "Editar {name}",
+      "close": "Encerrar {name}",
+      "delete": "Excluir {name}"
+    },
+    "sheet": {
+      "edit": "Editar renda",
+      "new": "Nova renda"
+    },
+    "stop": {
+      "closeTitle": "Encerrar renda",
+      "deleteTitle": "Excluir renda",
+      "closeText": "\"{name}\" para de aparecer a partir deste mês. O que você já recebeu continua nos lançamentos.",
+      "deleteText": "\"{name}\" e as previsões dela serão apagadas.",
+      "closeConfirm": "Encerrar",
+      "deleteConfirm": "Excluir"
+    },
+    "saved": "Renda salva.",
+    "errors": {
+      "name": "Informe de onde vem a renda.",
+      "kind": "Escolha o tipo de renda.",
+      "amount": "Informe o valor, como 4.500,00.",
+      "dependents": "Informe de 0 a 20 dependentes.",
+      "pension": "Informe a pensão como 300,00.",
+      "otherDiscounts": "Informe os descontos como 150,00.",
+      "payDay": "Informe o dia do pagamento, de 1 a 31.",
+      "account": "Escolha a conta.",
+      "category": "Escolha a categoria.",
+      "invalidAccount": "Escolha uma conta válida.",
+      "incomeCategory": "Escolha uma categoria de receita.",
+      "invalidPerson": "Escolha uma pessoa válida."
+    }
+  },
+  "calendario": {
+    "metaTitle": "Calendário",
+    "eyebrow": "Calendário",
+    "description": "Vencimentos, eventos e quanto deve sobrar a cada dia.",
+    "previousMonth": "Mês anterior",
+    "nextMonth": "Próximo mês",
+    "today": "Hoje",
+    "types": {
+      "conta": "Conta",
+      "receita": "Receita",
+      "cartao": "Cartão",
+      "divida": "Dívida",
+      "meta": "Meta",
+      "viagem": "Viagem",
+      "evento": "Evento"
+    },
+    "negative": "Pelo que está previsto, seu saldo fica negativo em {first}. O menor valor é <strong>{value}</strong>, em {lowest}.",
+    "seeDay": "Ver o dia",
+    "stats": {
+      "in": "Entra",
+      "inHint": "Recebido {received}. A receber {planned}.",
+      "out": "Sai",
+      "outHint": "Pago {spent}. A pagar {planned}.",
+      "closing": "Saldo final previsto",
+      "closingHint": "Saldo das contas mais o que está em aberto.",
+      "result": "Resultado do mês",
+      "resultHint": "O que entrou menos o que saiu.",
+      "lowest": "Menor saldo",
+      "noForecast": "Sem previsão",
+      "lowestOn": "Em {date}.",
+      "fromToday": "Só há previsão de hoje em diante.",
+      "upTo": "A previsão vai até 24 meses à frente."
+    },
+    "grid": {
+      "label": "Mês em grade",
+      "filter": "Filtrar por tipo",
+      "all": "Todos",
+      "days": "Dias do mês",
+      "today": "hoje",
+      "items": "{count, plural, =1 {1 item} other {# itens}}",
+      "overdue": "{count} em atraso",
+      "balance": "saldo previsto {value}"
+    },
+    "day": {
+      "label": "Dia escolhido",
+      "balance": "Saldo previsto no fim do dia:",
+      "hidden": "Nada deste tipo neste dia. {count, plural, =1 {1 item está escondido} other {# itens estão escondidos}} pelo filtro.",
+      "monthEmpty": "Nada marcado neste mês. Escolha um dia para lançar uma conta ou marcar um evento.",
+      "empty": "Nada marcado neste dia.",
+      "items": "Itens do dia",
+      "more": "{count, plural, =1 {Mais 1 item} other {Mais # itens}} fora deste filtro.",
+      "addEntry": "Lançar neste dia",
+      "addEvent": "Marcar evento",
+      "yearly": "Todo ano",
+      "closingBadge": "Fechamento",
+      "closes": "Fecha {name}",
+      "open": "Abrir",
+      "openItem": "Abrir {name}",
+      "deleteItem": "Excluir {name}"
+    },
+    "event": {
+      "new": "Novo evento",
+      "name": "Nome do evento",
+      "nameExample": "Ex.: Consulta no dentista",
+      "yearly": "Repete todo ano, como um aniversário",
+      "save": "Salvar evento",
+      "saved": "Evento salvo."
+    },
+    "errors": {
+      "title": "Informe o nome do evento.",
+      "date": "Data inválida.",
+      "check": "Verifique."
+    }
+  },
+  "sugestoes": {
+    "metaTitle": "Sugestões",
+    "eyebrow": "Assistente",
+    "title": "Sugestões",
+    "description": "O que o assistente notou nas suas finanças. O que for decisão sua espera você aceitar.",
+    "groups": {
+      "categorias": "Categorias",
+      "aportes": "Quanto guardar por mês",
+      "viagens": "Viagens",
+      "metas": "Metas",
+      "investimentos": "Investimentos",
+      "lembretes": "Lembretes"
+    },
+    "pending": {
+      "title": "Para você decidir",
+      "emptyTitle": "Nada para revisar por enquanto",
+      "emptyText": "O assistente passa por aqui toda madrugada e deixa aqui o que notar.",
+      "open": "Abrir",
+      "openItem": "Abrir: {name}",
+      "addTrip": "Adicionar às minhas viagens",
+      "applyAll": "Aplicar tudo",
+      "applyAllIn": "Aplicar tudo em {name}"
+    },
+    "bulk": {
+      "categoria": "Mover {count} lançamentos para as categorias sugeridas?",
+      "investimento": "Marcar {count} avisos de investimentos como vistos?",
+      "lembrete": "Marcar {count} lembretes como vistos?"
+    },
+    "automatic": {
+      "title": "O que o assistente fez sozinho",
+      "period": "Nos últimos 7 dias.",
+      "empty": "Nenhuma alteração nos últimos 7 dias.",
+      "undo": "Desfazer",
+      "undoItem": "Desfazer: {name}"
+    },
+    "decision": {
+      "accept": "Aceitar",
+      "later": "Agora não",
+      "labeled": "{action}: {name}",
+      "laterHint": "Voltamos a sugerir daqui a 30 dias",
+      "failed": "Não foi possível concluir agora. Atualize a página e tente de novo."
+    },
+    "errors": {
+      "notFound": "Sugestão não encontrada.",
+      "oneByOne": "Este tipo de sugestão é decidido uma a uma.",
+      "nothingApplied": "Nada foi aplicado. Atualize a página e tente de novo."
+    },
+    "applied": {
+      "moved": "{count, plural, =1 {1 lançamento movido} other {# lançamentos movidos}}.",
+      "seen": "{count, plural, =1 {1 aviso marcado como visto} other {# avisos marcados como vistos}}.",
+      "failed": "{count, plural, =1 {1 não deu certo} other {# não deram certo}}.",
+      "tripCreated": "Viagem para {name} criada. Ajuste datas e custos em Viagens.",
+      "goalCreated": "Meta {name} criada. Ajuste os detalhes em Metas."
+    },
+    "agent": {
+      "readOnly": "Seu papel nesta família não permite alterações.",
+      "notFound": "Sugestão não encontrada.",
+      "decided": "Esta sugestão já foi decidida.",
+      "outdated": "Esta sugestão está desatualizada. Peça uma nova ao assistente.",
+      "debtExtra": "Combinado: o pagamento extra você registra na tela de dívidas.",
+      "noted": "Anotado.",
+      "dismissed": "Tudo bem. Voltamos a sugerir daqui a 30 dias, se ainda fizer sentido.",
+      "onlyApplied": "Só dá para desfazer o que foi aplicado.",
+      "incomplete": "Não foi possível desfazer: os dados desta sugestão estão incompletos.",
+      "undone": "Desfeito.",
+      "undoneDividends": "Desfeito. Esses proventos não voltam sozinhos; o preço volta com a próxima cotação nova.",
+      "undoneStock": "Desfeito. A quantidade voltou ao que estava, e esse ajuste não volta sozinho.",
+      "noPrevious": "Não há como desfazer: o estado anterior não foi guardado.",
+      "changedByOther": "Alguém já mudou esses lançamentos; nada foi desfeito.",
+      "returned": "Lançamentos devolvidos. O assistente não mexe mais neles.",
+      "oneCategoryGone": "Uma das categorias não existe mais.",
+      "merged": "Categorias juntadas. A antiga foi arquivada.",
+      "oldCategoryGone": "A categoria antiga foi apagada; nada foi desfeito.",
+      "split": "Categorias separadas de novo.",
+      "reserveSaved": "Valor da reserva gravado.",
+      "reserveRestored": "Valor da reserva devolvido ao anterior.",
+      "planSaved": "Quanto guardar por mês gravado no plano de aposentadoria.",
+      "planRestored": "Valor do plano devolvido ao anterior.",
+      "notAssistantTrip": "Esta viagem não foi criada pelo assistente.",
+      "tripRemoved": "Viagem removida.",
+      "tripGone": "A viagem já não existia.",
+      "goalGone": "Esta meta não existe mais.",
+      "goalNoted": "Anotado. Ajuste o valor ou a data da meta quando puder.",
+      "goalDate": "Data da meta ajustada. O plano é recalculado na próxima rodada.",
+      "goalHasValues": "A meta já recebeu valores; nada foi desfeito.",
+      "goalRemoved": "Meta removida.",
+      "goalDateChanged": "A data da meta já foi alterada; nada foi desfeito.",
+      "goalDateRestored": "Data da meta devolvida à anterior."
+    }
+  },
+  "familiaOnboarding": {
+    "maintenance": "Estamos em manutenção. Criar família e fazer alterações estão desligados por enquanto.",
+    "create": {
+      "metaTitle": "Nova família",
+      "title": "Crie o espaço da sua família",
+      "text": "É aqui que ficam receitas, despesas, objetivos e o plano de aposentadoria. Só quem você convidar terá acesso.",
+      "name": "Nome da família",
+      "nameHint": "Ex.: \"Família Souza\" ou \"Casa da Ana e do Leo\".",
+      "city": "Cidade onde moram",
+      "state": "UF",
+      "pending": "Criando…",
+      "submit": "Criar família",
+      "maintenanceError": "O sistema está em manutenção. Tente de novo mais tarde.",
+      "failed": "Não foi possível criar a família. Tente novamente.",
+      "openFailed": "Família criada, mas não foi possível abri-la. Entre novamente.",
+      "setupFailed": "Não foi possível concluir a configuração.",
+      "ownerOnly": "Somente o responsável pode configurar.",
+      "invalid": "Dados inválidos."
+    },
+    "choose": {
+      "metaTitle": "Escolher família",
+      "title": "Qual família você quer abrir?",
+      "suspended": "Suspensa",
+      "createOther": "Criar outra família",
+      "roles": {
+        "owner": "Responsável",
+        "adult": "Adulto",
+        "child": "Criança",
+        "viewer": "Leitura",
+        "other": "Membro"
+      }
+    },
+    "suspended": {
+      "metaTitle": "Acesso suspenso",
+      "title": "O acesso a esta família está suspenso",
+      "text": "A administração do OrganizeUp suspendeu o acesso. Os dados da família continuam guardados. Para saber mais, fale com o suporte.",
+      "open": "Abrir {name}",
+      "signOut": "Sair"
+    },
+    "complete": {
+      "metaTitle": "Completar cadastro",
+      "title": "Completar cadastro",
+      "backToPanel": "Voltar ao painel",
+      "adultsOnly": "Só o responsável ou um adulto pode completar o cadastro.",
+      "steps": {
+        "family": "Sua família",
+        "retirement": "Aposentadoria",
+        "trips": "Viagens",
+        "goal": "Primeira meta"
+      },
+      "stepTitle": "Passo {step} de {total} · {name}",
+      "progress": "Progresso do cadastro",
+      "privacy": "Esses dados ficam só na sua família e servem para o plano de aposentadoria. <link>Veja o que mudou.</link>",
+      "previous": "Voltar ao passo anterior",
+      "suggestedYear": "Sugerimos {year}, quando {name} faz {age} anos.",
+      "skip": "Pular por agora",
+      "continue": "Continuar",
+      "finish": "Concluir",
+      "personAdded": "Pessoa adicionada."
+    },
+    "family": {
+      "birthOf": "Nascimento de {name}",
+      "birthHint": "Só mês e ano. É a base do plano de aposentadoria.",
+      "others": "Outras pessoas",
+      "people": "Pessoas da família",
+      "name": "Nome",
+      "relation": "Relação",
+      "birth": "Nascimento",
+      "add": "Adicionar pessoa",
+      "wedding": "Casamento",
+      "weddingHint": "Opcional. Com o dia, entra no calendário como “Aniversário de casamento”.",
+      "relations": {
+        "conjuge": "Cônjuge",
+        "filho": "Filho(a)",
+        "pai_mae": "Pai/Mãe",
+        "outro": "Outro"
+      }
+    },
+    "retirement": {
+      "year": "Ano em que querem parar",
+      "income": "Renda que você quer por mês",
+      "incomeHint": "Vazio: usamos seu gasto médio",
+      "yield": "Rendimento anual da carteira (%)",
+      "yieldHint": "Quanto a carteira paga em proventos por ano. Ex.: R$ 100 mil que pagam R$ 6 mil = 6%.",
+      "pensionHint": "Se não sabe, pule; dá para preencher depois em Família"
+    },
+    "trips": {
+      "perYear": "Quantas viagens por ano",
+      "days": "Quantos dias costumam durar"
+    },
+    "goal": {
+      "optional": "Opcional. Sem uma meta em mente? Deixe em branco e conclua.",
+      "name": "Nome da meta",
+      "kind": "Tipo",
+      "amount": "Quanto custa (R$)",
+      "month": "Quando quer ter conquistado",
+      "account": "De onde sai",
+      "accountHint": "A conta de onde o dinheiro sai todo mês.",
+      "kinds": {
+        "veiculo": "Carro ou moto",
+        "imovel": "Casa ou apartamento",
+        "reforma": "Reforma",
+        "educacao": "Estudos",
+        "compra": "Compra",
+        "evento": "Festa ou evento",
+        "outro": "Outro"
+      }
+    },
+    "person": {
+      "workStatus": "Situação de trabalho",
+      "notInformed": "Não informado",
+      "work": {
+        "clt": "CLT (carteira assinada)",
+        "pj_autonomo": "PJ ou autônomo",
+        "servidor": "Servidor público",
+        "aposentado": "Aposentado(a)",
+        "estudante": "Estudante",
+        "sem_renda": "Sem renda",
+        "outro": "Outro"
+      },
+      "inss": "Contribui para o INSS?",
+      "yes": "Sim",
+      "no": "Não",
+      "pension": "Benefício mensal esperado (R$)",
+      "day": "Dia",
+      "month": "Mês",
+      "year": "Ano",
+      "choose": "Escolha"
+    },
+    "errors": {
+      "name": "Informe o nome.",
+      "relation": "Escolha a relação.",
+      "monthYear": "Use mês/ano válidos.",
+      "day": "Informe um dia de 1 a 31.",
+      "month": "Escolha o mês.",
+      "weddingYear": "Informe um ano entre 1900 e 2100.",
+      "noSuchDay": "Esse dia não existe.",
+      "income": "Informe a renda como 6.000,00.",
+      "yield": "Informe um percentual até 30, como 6 ou 6,5.",
+      "retirementYear": "Informe um ano entre 1950 e 2150.",
+      "workStatus": "Escolha a situação de trabalho.",
+      "option": "Escolha uma opção.",
+      "pension": "Informe o benefício como 2.500,00.",
+      "tripsPerYear": "Informe de 0 a 12 viagens por ano.",
+      "tripDays": "Informe de 1 a 60 dias.",
+      "goalName": "Informe o nome da meta.",
+      "goalKind": "Escolha o tipo.",
+      "goalAmountFormat": "Informe o valor como 80.000,00.",
+      "goalAmount": "Informe quanto custa.",
+      "goalAccount": "Escolha a conta de onde sai."
+    }
   }
 }

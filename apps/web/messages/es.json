@@ -167,14 +167,6 @@
     "description": "Lo que tienes menos lo que debes.",
     "newAsset": "Nuevo bien",
     "amountPlaceholder": "0,00",
-    "fxNote": {
-      "converted": "Convertido con la cotización del {date}.",
-      "missing": "Aún sin cotización de {names}: esas cuentas quedan fuera de la suma.",
-      "currency": {
-        "USD": "dólar",
-        "EUR": "euro"
-      }
-    },
     "kinds": {
       "imovel": "Inmueble",
       "veiculo": "Vehículo",
@@ -1110,37 +1102,11 @@
       "retirementAgeHint": "Se usa en el plan cuando la familia no indica el año. Vacío: 65 años.",
       "save": "Guardar persona"
     },
-    "adult": {
-      "workStatus": "Situación laboral",
-      "notInformed": "Sin indicar",
-      "inss": "¿Aporta al INSS (seguridad social de Brasil)?",
-      "yes": "Sí",
-      "no": "No",
-      "pension": "Beneficio mensual esperado (R$)"
-    },
     "wedding": {
       "title": "Matrimonio",
       "description": "Opcional. Con el día, entra en el calendario como “Aniversário de casamento” (aniversario de matrimonio).",
-      "day": "Día",
-      "month": "Mes",
-      "choose": "Elige",
-      "year": "Año",
       "save": "Guardar matrimonio",
-      "saved": "Matrimonio guardado.",
-      "months": {
-        "1": "Enero",
-        "2": "Febrero",
-        "3": "Marzo",
-        "4": "Abril",
-        "5": "Mayo",
-        "6": "Junio",
-        "7": "Julio",
-        "8": "Agosto",
-        "9": "Septiembre",
-        "10": "Octubre",
-        "11": "Noviembre",
-        "12": "Diciembre"
-      }
+      "saved": "Matrimonio guardado."
     },
     "members": {
       "title": "Quién tiene acceso",
@@ -1212,7 +1178,12 @@
       "pending": "Activando…",
       "unavailable": "El asistente no está disponible en este momento.",
       "consentRequired": "Para activarlo, marca que leíste esto y autorizas el envío.",
-      "pickLevel": "Elige qué puede hacer el asistente."
+      "pickLevel": "Elige qué puede hacer el asistente.",
+      "levelTexts": {
+        "sugerirText": "Da consejos y sugerencias para que tú decidas. Solo las categorías genéricas cambian solas, con Deshacer.",
+        "organizarText": "Igual que Sugerir: ordena por su cuenta las categorías genéricas y lo que quedó por revisar, siempre con Deshacer.",
+        "completoText": "También crea metas en borrador. El valor que indicaste sigue siendo una sugerencia."
+      }
     },
     "states": {
       "sem_chave": {
@@ -1869,5 +1840,1226 @@
       "wrongPassword": "Contraseña incorrecta."
     },
     "noPermission": "Tu papel en esta familia no permite cambios."
+  },
+  "notificacoes": {
+    "metaTitle": "Notificaciones",
+    "title": "Notificaciones",
+    "description": "Lo que el asistente cambió por su cuenta, con el antes y el después.",
+    "bell": "{count, plural, =0 {Notificaciones} one {Notificaciones, # sin leer} other {Notificaciones, # sin leer}}",
+    "filterLabel": "Filtrar notificaciones",
+    "filters": {
+      "all": "Todas",
+      "unread": "Sin leer",
+      "read": "Leídas"
+    },
+    "markAll": "Marcar todas como leídas",
+    "allRead": "Todo marcado como leído.",
+    "noPermission": "Tu papel en esta familia no permite cambios.",
+    "failed": "No se pudo terminar ahora. Actualiza la página e inténtalo de nuevo.",
+    "undo": "Deshacer",
+    "undoLabel": "Deshacer: {title}",
+    "undoDone": "Deshecho. El asistente ya no toca estos movimientos.",
+    "undoFailed": "No se pudo deshacer: ya se deshizo o alguien cambió estos movimientos.",
+    "undone": "Deshecho",
+    "unreadTag": "Sin leer",
+    "newCategory": "Categoría nueva",
+    "open": "Ver en Sugerencias",
+    "change": "{from} → {to}",
+    "changeDetail": "{merchant}: {entries}, {sum}",
+    "mergeDetail": "Categorías unidas: {entries}, {sum}",
+    "summary": "{changes, plural, one {Y # cambio más esta noche} other {Y # cambios más esta noche}}",
+    "summaryDetail": "{entries}, {sum}. Todo está en Sugerencias, con Deshacer.",
+    "entries": "{count, plural, =0 {ningún movimiento} one {# movimiento} other {# movimientos}}",
+    "unavailableTitle": "Notificaciones no disponibles",
+    "unavailableText": "Estamos actualizando el servicio. Inténtalo de nuevo en unos minutos.",
+    "empty": {
+      "all": {
+        "title": "Aún no hay notificaciones",
+        "text": "Cuando el asistente cambie algo por su cuenta, aquí verás el antes y el después."
+      },
+      "unread": {
+        "title": "Nada nuevo por aquí",
+        "text": "Ya marcaste todo como leído."
+      },
+      "read": {
+        "title": "Nada leído todavía",
+        "text": "Lo que marques como leído queda aquí."
+      }
+    }
+  },
+  "lancamentos": {
+    "metaTitle": "Movimientos",
+    "eyebrow": "Movimientos",
+    "description": "Todo lo que entró, salió y aún vence este mes.",
+    "importStatement": "Importar extracto",
+    "previousMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente",
+    "stats": {
+      "received": "Entró",
+      "spent": "Salió",
+      "balance": "Sobró hasta ahora",
+      "forecast": "Previsión para fin de mes",
+      "forecastHint": "Incluye lo que aún va a entrar y salir."
+    },
+    "status": {
+      "overdue": "Atrasado",
+      "planned": "Previsto",
+      "done": {
+        "expense": "Pagado",
+        "goal": "Ahorrado",
+        "income": "Cobrado"
+      }
+    },
+    "row": {
+      "open": "Abrir {name}",
+      "openShort": "Abrir",
+      "edit": "Editar {name}",
+      "delete": "Eliminar {name}",
+      "stop": "Dejar de repetir {name}",
+      "repeats": "Se repite cada mes"
+    },
+    "plan": {
+      "badge": "Plan",
+      "open": "Abrir meta {name}",
+      "title": "Valor calculado por el asistente; abre Metas para ajustarlo"
+    },
+    "empty": {
+      "title": "Nada por aquí este mes",
+      "text": "Registra tus ingresos y tus cuentas para ver cómo toma forma el mes.",
+      "action": "Nuevo movimiento",
+      "noResultsTitle": "No se encontró ningún movimiento",
+      "noResultsText": "Prueba a cambiar la búsqueda o los filtros."
+    },
+    "filters": {
+      "search": "Buscar",
+      "searchPlaceholder": "Descripción",
+      "type": "Tipo",
+      "allTypes": "Todos",
+      "income": "Ingresos",
+      "expenses": "Gastos",
+      "status": "Estado",
+      "allStatuses": "Todos",
+      "settled": "Pagados y cobrados",
+      "open": "Pendientes",
+      "category": "Categoría",
+      "allCategories": "Todas"
+    },
+    "table": {
+      "caption": "Movimientos del mes",
+      "date": "Fecha",
+      "description": "Descripción",
+      "category": "Categoría",
+      "account": "Cuenta",
+      "status": "Estado",
+      "amount": "Importe",
+      "actions": "Acciones"
+    },
+    "remove": {
+      "title": "Eliminar movimiento",
+      "text": "\"{name}\" se eliminará. Esta acción no se puede deshacer.",
+      "confirm": "Eliminar"
+    },
+    "stop": {
+      "title": "Dejar de repetir",
+      "text": "\"{name}\" dejará de aparecer a partir de este mes. Lo que ya se pagó sigue en el historial.",
+      "confirm": "Dejar de repetir"
+    },
+    "sheet": {
+      "new": "Nuevo movimiento",
+      "edit": "Editar movimiento"
+    },
+    "form": {
+      "type": "Tipo",
+      "expense": "Gasto",
+      "income": "Ingreso",
+      "description": "Descripción",
+      "expenseExample": "Ej.: Factura de luz",
+      "incomeExample": "Ej.: Salario",
+      "amount": "Importe ({symbol})",
+      "date": "Fecha",
+      "category": "Categoría",
+      "account": "Cuenta",
+      "accountOrCard": "Cuenta o tarjeta",
+      "cards": "Tarjetas",
+      "installments": "Cuotas",
+      "installmentsHint": "Cada cuota entra en un resumen de tarjeta.",
+      "paid": "Ya se pagó",
+      "received": "Ya se cobró",
+      "repeat": "Se repite cada mes",
+      "planNotice": "Esta cuenta se repite cada mes. El cambio vale para todos los meses pendientes y de la fecha solo usamos el día.",
+      "saveChanges": "Guardar cambios",
+      "save": "Guardar movimiento",
+      "noQuote": "Todavía no tenemos la cotización de esta fecha.",
+      "fxPreview": "≈ {value}, cotización del {date}",
+      "fxRate": "Cotización del {date}"
+    },
+    "saved": "Movimiento guardado.",
+    "errors": {
+      "kind": "Elige ingreso o gasto.",
+      "description": "Escribe una descripción.",
+      "amount": "Escribe un importe mayor que cero, como 150,90.",
+      "date": "Indica la fecha.",
+      "invalidDate": "Fecha no válida.",
+      "category": "Elige una categoría.",
+      "account": "Elige una cuenta.",
+      "installments": "Indica de 1 a 72 cuotas.",
+      "invalidCategory": "Elige una categoría válida.",
+      "cardExpensesOnly": "La tarjeta solo admite gastos.",
+      "invalidCard": "Elige una tarjeta válida.",
+      "invalidAccount": "Elige una cuenta válida.",
+      "overLimit": "Este importe supera el límite en reales.",
+      "noRepeat": "Las cuentas en dólares o euros todavía no admiten pagos que se repiten. Regístralo mes a mes o usa una cuenta en reales.",
+      "notFound": "Movimiento no encontrado.",
+      "recurringMonth": "El movimiento de una cuenta recurrente debe seguir en el mismo mes.",
+      "goalEntry": "Este movimiento ahorra dinero para una meta. Para cambiarlo, elimínalo y confírmalo de nuevo.",
+      "planNotFound": "Previsión no encontrada.",
+      "statementPaid": "El resumen de {month} ya se pagó. Usa una fecha posterior a su cierre.",
+      "noQuote": "Todavía no tenemos la cotización del {currency, select, USD {dólar} EUR {euro} other {real}} de esta fecha. Inténtalo más tarde o usa otra fecha."
+    },
+    "confirmNotice": {
+      "title": "Todavía sin cotización",
+      "text": "No se confirmó nada. Esta cuenta está en {currency, select, USD {dólares} EUR {euros} other {reales}} y todavía no tenemos la cotización del {date}. Inténtalo más tarde.",
+      "close": "Entendido",
+      "failed": "No se pudo confirmar ahora. Inténtalo de nuevo."
+    }
+  },
+  "contas": {
+    "metaTitle": "Cuentas",
+    "eyebrow": "Cuentas",
+    "description": "Suma del saldo de las cuentas activas.",
+    "listLabel": "Cuentas",
+    "types": {
+      "corrente": "Cuenta corriente",
+      "poupanca": "Cuenta de ahorros",
+      "dinheiro": "Efectivo",
+      "investimento": "Inversión"
+    },
+    "currencies": {
+      "BRL": "Real brasileño (R$)",
+      "USD": "Dólar (US$)",
+      "EUR": "Euro (€)"
+    },
+    "currencyName": "{currency, select, USD {dólar} EUR {euro} other {real}}",
+    "fx": {
+      "converted": "Convertido con la cotización del {date}.",
+      "missing": "Todavía sin cotización de {names}: esas cuentas quedan fuera de la suma.",
+      "noBalanceInReais": "Todavía sin cotización para mostrarlo en reales",
+      "balanceNote": "El saldo en {currency, select, USD {dólares} EUR {euros} other {reales}} solo cambia con movimientos; en reales, varía con la cotización."
+    },
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Archivar {name}",
+      "restore": "Reactivar {name}",
+      "transfer": "Transferir entre cuentas",
+      "new": "Nueva cuenta"
+    },
+    "archived": {
+      "title": "Archivadas",
+      "text": "Fuera de los formularios y del saldo total."
+    },
+    "sheet": {
+      "edit": "Editar cuenta",
+      "new": "Nueva cuenta"
+    },
+    "form": {
+      "name": "Nombre de la cuenta",
+      "nameExample": "Ej.: Banco del día a día",
+      "type": "Tipo",
+      "currency": "Moneda",
+      "currencyLocked": "Esta cuenta ya tiene movimientos, así que la moneda queda como está.",
+      "currencyHint": "Los movimientos y el saldo quedan en esta moneda. Los totales de la app siguen en reales.",
+      "openingBalance": "Saldo inicial ({symbol})",
+      "openingBalanceHint": "Cuánto había en la cuenta antes de los movimientos de aquí. Se suman y se restan de este importe.",
+      "save": "Guardar cuenta"
+    },
+    "transfer": {
+      "from": "De",
+      "to": "A",
+      "amount": "Importe ({symbol})",
+      "left": "Salió ({symbol})",
+      "entered": "Entró ({symbol})",
+      "enteredHint": "Sugerido según la cotización del día. Ajústalo a lo que cobró el banco.",
+      "date": "Fecha",
+      "note": "Nota",
+      "noteHint": "Opcional.",
+      "explain": "El saldo de las dos cuentas cambia. No cuenta como gasto ni como ingreso.",
+      "explainExchange": "El saldo de las dos cuentas cambia. No cuenta como gasto ni como ingreso, y la diferencia de cambio tampoco.",
+      "pending": "Transfiriendo…",
+      "submit": "Transferir",
+      "recent": "Transferencias recientes",
+      "list": "Transferencias",
+      "arrow": "a",
+      "received": "entró {value}",
+      "undo": "Deshacer transferencia",
+      "undoText": "El importe vuelve a la cuenta de origen.",
+      "undoConfirm": "Deshacer"
+    },
+    "saved": "Cuenta guardada.",
+    "created": "Cuenta creada.",
+    "errors": {
+      "name": "Escribe el nombre de la cuenta.",
+      "currency": "Elige una moneda.",
+      "check": "Revisa los datos.",
+      "checkData": "Revisa los datos.",
+      "from": "Elige la cuenta de origen.",
+      "to": "Elige la cuenta de destino.",
+      "amount": "Escribe el importe.",
+      "date": "Indica la fecha.",
+      "sameAccount": "Elige dos cuentas diferentes.",
+      "amountFormat": "Escribe el importe como 500,00.",
+      "accountGone": "Una de las cuentas ya no existe.",
+      "enteredFormat": "Escribe cuánto entró en {symbol}, como 500,00.",
+      "oddRate": "Revisa los dos importes: la tasa quedó fuera de lo común.",
+      "balanceFormat": "Escribe el saldo como 1.250,00.",
+      "currencyLocked": "Esta cuenta ya tiene movimientos y no puede cambiar de moneda. Crea otra cuenta."
+    }
+  },
+  "cartoes": {
+    "metaTitle": "Tarjetas",
+    "eyebrow": "Tarjetas",
+    "title": "Tarjetas de crédito",
+    "description": "Las compras entran en el resumen correcto, y el resumen entra en el mes en que vence.",
+    "listLabel": "Tarjetas",
+    "new": "Nueva tarjeta",
+    "empty": {
+      "title": "Ninguna tarjeta registrada",
+      "text": "Registra la tarjeta con los días de cierre y vencimiento. Los resúmenes se arman solos a partir de las compras.",
+      "action": "Registrar tarjeta"
+    },
+    "archived": {
+      "title": "Archivadas",
+      "text": "Fuera de los movimientos nuevos. Los resúmenes pendientes siguen en el mes."
+    },
+    "sheet": {
+      "edit": "Editar tarjeta",
+      "new": "Nueva tarjeta"
+    },
+    "status": {
+      "aberta": "Abierto",
+      "fechada": "Cerrado",
+      "atrasada": "Atrasado",
+      "paga": "Pagado"
+    },
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Archivar {name}",
+      "restore": "Reactivar {name}",
+      "delete": "Eliminar {name}"
+    },
+    "form": {
+      "name": "Nombre de la tarjeta",
+      "nameExample": "Ej.: Tarjeta del banco",
+      "closingDay": "Día de cierre",
+      "closingDayHint": "Último día de compras del resumen.",
+      "dueDay": "Día de vencimiento",
+      "dueDayHint": "Cuándo se debe pagar el resumen.",
+      "limit": "Límite (R$)",
+      "limitHint": "Opcional. Muestra cuánto queda disponible.",
+      "payingAccount": "Cuenta que paga el resumen",
+      "save": "Guardar tarjeta"
+    },
+    "tile": {
+      "days": "Cierra el día {closing} · vence el día {due}",
+      "current": "Resumen actual",
+      "available": "Disponible: {value}"
+    },
+    "statement": {
+      "of": "Resumen de {name}",
+      "previous": "Resumen anterior",
+      "next": "Resumen siguiente",
+      "total": "Total",
+      "closes": "Cierra el",
+      "due": "Vence el",
+      "newPurchase": "Nueva compra",
+      "pay": "Pagar resumen",
+      "paidFrom": "Sale de {account}",
+      "fallbackAccount": "la cuenta",
+      "emptyTitle": "Ninguna compra en este resumen",
+      "emptyText": "Las compras en cuotas aparecen en cada resumen hasta la última cuota.",
+      "caption": "Compras del resumen",
+      "date": "Fecha",
+      "description": "Descripción",
+      "category": "Categoría",
+      "amount": "Importe",
+      "actions": "Acciones",
+      "installment": "Cuota {number} de {total}",
+      "singlePayment": "Pago único"
+    },
+    "remove": {
+      "title": "Eliminar compra",
+      "text": "\"{name}\" y todas las cuotas se eliminarán. Esta acción no se puede deshacer.",
+      "confirm": "Eliminar"
+    },
+    "saved": "Tarjeta guardada.",
+    "created": "Tarjeta creada.",
+    "errors": {
+      "closingDay": "Indica el día de cierre.",
+      "closingDayRange": "El día de cierre va del 1 al 31.",
+      "dueDay": "Indica el día de vencimiento.",
+      "dueDayRange": "El día de vencimiento va del 1 al 31.",
+      "name": "Escribe el nombre de la tarjeta.",
+      "payingAccount": "Elige la cuenta que paga el resumen.",
+      "check": "Revisa los datos.",
+      "limit": "Escribe el límite como 5.000,00.",
+      "invalidAccount": "Elige una cuenta válida.",
+      "notFound": "Tarjeta no encontrada.",
+      "datesLocked": "Esta tarjeta ya tiene un resumen pagado, así que las fechas no pueden cambiar. Para fechas nuevas, archívala y crea otra."
+    }
+  },
+  "categorias": {
+    "metaTitle": "Categorías",
+    "title": "Categorías",
+    "description": "Cómo se agrupan tus movimientos en los informes.",
+    "new": "Nueva categoría",
+    "count": "{count, plural, =1 {1 categoría} other {# categorías}}",
+    "expenses": "Gastos",
+    "income": "Ingresos",
+    "essential": "Esencial",
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Archivar {name}",
+      "restore": "Reactivar {name}"
+    },
+    "archived": {
+      "title": "Archivadas",
+      "text": "Fuera de los formularios; el historial sigue."
+    },
+    "sheet": {
+      "edit": "Editar categoría",
+      "new": "Nueva categoría"
+    },
+    "form": {
+      "name": "Nombre de la categoría",
+      "nameExample": "Ej.: Mascotas",
+      "type": "Tipo",
+      "expense": "Gasto",
+      "income": "Ingreso",
+      "essential": "Es un gasto esencial",
+      "save": "Guardar categoría"
+    },
+    "saved": "Categoría guardada.",
+    "created": "Categoría creada.",
+    "errors": {
+      "name": "Escribe el nombre de la categoría.",
+      "check": "Revisa los datos.",
+      "duplicate": "Ya existe una categoría con ese nombre."
+    }
+  },
+  "dividas": {
+    "metaTitle": "Deudas",
+    "eyebrow": "Deudas",
+    "title": "Deudas y préstamos",
+    "description": "Mira cuánto falta, cuándo termina y qué pagar primero.",
+    "stats": {
+      "balance": "Falta pagar",
+      "thisMonth": "Cuotas de este mes",
+      "interestLeft": "Intereses por pagar",
+      "interestHint": "Las cuotas informadas no separan los intereses.",
+      "lastDue": "Última cuota",
+      "lastDueValue": "{month} de {year}",
+      "noInstallments": "Sin cuotas"
+    },
+    "list": "Deudas",
+    "systems": {
+      "price": "Cuotas fijas",
+      "sac": "Cuotas que disminuyen",
+      "manual": "Cuota informada"
+    },
+    "noRate": "Sin intereses informados",
+    "rate": "{rate}% al mes",
+    "form": {
+      "name": "Nombre de la deuda",
+      "nameExample": "Ej.: Préstamo del coche",
+      "loanExample": "Ej.: Préstamo personal",
+      "payingAccount": "Cuenta que paga las cuotas",
+      "locked": "Los importes y las cuotas no cambian aquí. Si algo está mal, elimínala y regístrala de nuevo.",
+      "save": "Guardar deuda",
+      "doubt": "Revisa este campo.",
+      "system": "Cómo son las cuotas",
+      "systemHint": "Míralo en el contrato o en la factura.",
+      "systemPrice": "Fijas, con intereses calculados aquí",
+      "systemSac": "Disminuyen cada mes",
+      "systemManual": "Yo informo el importe de la cuota",
+      "installmentAmount": "Importe de la cuota (R$)",
+      "balance": "Saldo pendiente hoy (R$)",
+      "balanceHint": "Cuánto falta pagar, sin contar intereses futuros.",
+      "monthlyRate": "Interés mensual (%)",
+      "rateOptional": "Opcional. Solo ayuda a sugerir el orden.",
+      "rateZero": "Usa 0 si no hay.",
+      "installments": "Cuotas restantes",
+      "nextDue": "Próximo vencimiento"
+    },
+    "schedule": {
+      "caption": "Cuotas de {name}",
+      "number": "N.º",
+      "due": "Vencimiento",
+      "interest": "Intereses",
+      "installment": "Cuota",
+      "paid": "Pagada",
+      "overdue": "Atrasada",
+      "openTotal": "Total de cuotas pendientes:",
+      "fallbackTitle": "Cuotas"
+    },
+    "card": {
+      "schedule": "Ver cuotas de {name}",
+      "files": "Archivos de {name}",
+      "filesCount": "Archivos de {name} ({count})",
+      "filesTitle": "Archivos",
+      "edit": "Editar {name}",
+      "close": "Cerrar {name}",
+      "delete": "Eliminar {name}",
+      "reopen": "Reabrir {name}",
+      "left": "Falta pagar",
+      "progress": "{paid} de {total} cuotas pagadas",
+      "dueOn": "Vence el {date}",
+      "overdue": "· Atrasada",
+      "pay": "Pagar",
+      "paidOff": "Saldada",
+      "new": "Nueva deuda",
+      "import": "Importar desde un archivo"
+    },
+    "empty": {
+      "title": "Ninguna deuda registrada",
+      "text": "Registra préstamos y financiaciones. Las cuotas entran solas en los vencimientos del mes, y ves cuál pagar primero.",
+      "action": "Registrar deuda"
+    },
+    "waiting": {
+      "title": "Archivos esperando revisión",
+      "text": "Todavía no son deudas. Revisa los importes o elimina el archivo.",
+      "action": "Revisar"
+    },
+    "closed": {
+      "title": "Cerradas",
+      "text": "Fuera del mes. Lo pagado sigue en los movimientos."
+    },
+    "sheet": {
+      "edit": "Editar deuda",
+      "new": "Nueva deuda"
+    },
+    "deleteFile": {
+      "title": "Eliminar archivo",
+      "text": "\"{name}\" se eliminará definitivamente. La deuda sigue como está.",
+      "textOnly": "\"{name}\" se eliminará definitivamente.",
+      "confirm": "Eliminar"
+    },
+    "close": {
+      "closeTitle": "Cerrar deuda",
+      "deleteTitle": "Eliminar deuda",
+      "closeText": "\"{name}\" sale del mes y las cuotas pendientes dejan de aparecer. Lo ya pagado sigue en los movimientos.",
+      "deleteText": "\"{name}\", el calendario de cuotas y los archivos adjuntos se eliminarán.",
+      "closeConfirm": "Cerrar",
+      "deleteConfirm": "Eliminar"
+    },
+    "files": {
+      "status": {
+        "guardado": "Guardado",
+        "lendo": "Leyéndose",
+        "lido": "Leído, falta revisar",
+        "falhou": "No se pudo leer",
+        "confirmado": "Revisado"
+      },
+      "tooLarge": "{name}: supera los 10 MB.",
+      "sendFailed": "{name}: no se pudo enviar. Inténtalo de nuevo.",
+      "sendFailedShort": "{name}: no se pudo enviar.",
+      "withName": "{name}: {problem}",
+      "failed": "No se pudo enviar.",
+      "duplicate": "Este archivo ya estaba guardado.",
+      "emptyTitle": "Ningún archivo en esta deuda",
+      "emptyText": "Adjunta contrato, extracto o renegociación para tener todo en un solo lugar.",
+      "sentOn": "{size} · enviado el {date}",
+      "review": "Revisar importes",
+      "download": "Descargar {name}",
+      "delete": "Eliminar {name}",
+      "attach": "Adjuntar archivo",
+      "types": "PDF, PNG, JPG, CSV o Excel (.xlsx), hasta 10 MB.",
+      "sending": "Enviando…"
+    },
+    "plan": {
+      "noEnd": "Con lo que pagas hoy, las deudas no terminan",
+      "payOff": "Salda todo en {when}",
+      "payOffSaving": "Salda todo en {when} y ahorra {saved}",
+      "description": "Estimación con las cuotas de hoy y lo que sobra en el mes. Nada cambia por sí solo.",
+      "thisMonthLabel": "Qué hacer este mes",
+      "thisMonth": "Este mes",
+      "payExtra": "Paga <strong>{amount}</strong> de más en <strong>{name}</strong>",
+      "noExtra": "Hoy no sobra dinero extra para las deudas. Cuando sobre, aparecerá aquí.",
+      "attackOrder": "Orden de ataque",
+      "attention": "Puntos de atención",
+      "extraUsed": "Importe extra usado: {value} al mes, del reparto de lo que sobra.",
+      "errorTitle": "Plan para salir de las deudas",
+      "errorText": "No pudimos calcular el plan ahora. Tus deudas están a salvo; inténtalo de nuevo en unos minutos.",
+      "noFinish": "No termina con estas cuotas",
+      "strategies": {
+        "avalanche": "Mayor interés primero",
+        "snowball": "Menor saldo primero"
+      },
+      "cheapest": "Más barata",
+      "compare": "Ver las dos estrategias",
+      "compareScroll": "Comparación con desplazamiento lateral",
+      "compareCaption": "Comparación entre las estrategias de pago",
+      "strategy": "Estrategia",
+      "paidOffBy": "Todo saldado en",
+      "interestToEnd": "Intereses hasta el final",
+      "savings": "Ahorro",
+      "onlyInstallments": "Solo pagar las cuotas",
+      "signals": {
+        "dado_faltando": "Faltan los intereses de esta deuda. Sin ellos, el plan no sabe cuánto cuesta: míralo en el contrato o en la factura.",
+        "juro_acima_do_rendimento": "Cuesta {rate}% al mes, más de lo que suele rendir el dinero. Saldarla antes vale más que invertir.",
+        "portabilidade": "Con {rate}% al mes, vale la pena pedir ofertas de traspaso a otra entidad o renegociar la tasa.",
+        "vence_antes_da_renda": "La cuota vence el día {due}, antes de que entren los ingresos, el día {income}. Vale la pena pedir cambiar el vencimiento."
+      }
+    },
+    "payoff": {
+      "title": "Qué deuda pagar primero",
+      "description": "Estimación con lo que tienes hoy. Cuando una deuda termina, su cuota refuerza la siguiente.",
+      "extra": "Cuánto más al mes (R$)",
+      "extraHint": "Además de las cuotas.",
+      "extraError": "Escribe un importe como 300,00.",
+      "avalanche": "Mayores intereses primero",
+      "avalancheText": "Conocido como método avalancha. Suele salir más barato.",
+      "snowball": "Menor deuda primero",
+      "snowballText": "Conocido como bola de nieve. Elimina deudas más rápido, lo que ayuda a mantener el ritmo.",
+      "lessInterest": "Paga menos intereses",
+      "startWith": "Empieza por <strong>{name}</strong>",
+      "stalled": "Con este importe la deuda no termina, porque la cuota no cubre los intereses.",
+      "paidOffIn": "Todo saldado en",
+      "interestToEnd": "Intereses hasta el final",
+      "savings": "Ahorro frente a solo pagar las cuotas",
+      "whenEach": "Cuándo termina cada una",
+      "years": "{count, plural, =1 {1 año} other {# años}}",
+      "months": "{count, plural, =1 {1 mes} other {# meses}}",
+      "yearsAndMonths": "{years} y {months}",
+      "thisMonth": "este mes"
+    },
+    "import": {
+      "metaTitle": "Importar deudas",
+      "title": "Importar archivo de deudas",
+      "description": "Envía contrato, renegociación, extracto o planilla. Revisas todo antes de guardar.",
+      "noPermission": "Tu rol en esta familia no permite importar.",
+      "readError": {
+        "other": "No pudimos leer este archivo. Rellena los campos a mano.",
+        "muito_grande": "Este archivo es demasiado grande para leerlo. Rellena los campos a mano.",
+        "sem_texto": "No encontramos texto en este archivo. Rellena los campos a mano.",
+        "nao_entendi": "La lectura no entendió este archivo. Rellena los campos a mano.",
+        "indisponivel": "La lectura no respondió ahora. El archivo está guardado: inténtalo de nuevo.",
+        "blocked": "La lectura no está disponible ahora."
+      },
+      "review": {
+        "found": "Todavía no se guardó nada. Revisa y ajusta antes de confirmar.",
+        "manual": "Rellena los campos con los datos del archivo.",
+        "doubts": "{count, plural, =1 {1 campo por revisar} other {# campos por revisar}}",
+        "unreadable": "No se pudo leer",
+        "reading": "Leyendo…",
+        "readAi": "Leer con IA",
+        "moreThanOne": "Este archivo parece tener más de una deuda. Trajimos la mayor; registra las otras a mano.",
+        "inFile": "En el archivo, la cuota es de {value}.",
+        "cet": "Costo efectivo total: {rate}% al año, solo como referencia.",
+        "target": "Qué hacer con este archivo",
+        "targetHint": "Parece ser de una deuda que ya existe. Actualizar no duplica.",
+        "createNew": "Crear una deuda nueva",
+        "update": "Actualizar: {name}",
+        "confirm": "Confirmar deuda",
+        "deleteFile": "Eliminar archivo"
+      },
+      "consent": {
+        "ready": "El archivo lo lee un servicio de inteligencia artificial, incluso fuera de Brasil.",
+        "needed": "Para rellenar los campos, un servicio de inteligencia artificial lee todo el archivo, incluso fuera de Brasil. Sin tu aceptación, queda guardado y no se envía nada.",
+        "accept": "Autorizo la lectura de los archivos que envíe, como explica la <privacy>Política de Privacidad</privacy>.",
+        "activate": "Para leer los archivos, activa el asistente con el botón Asistente.",
+        "unavailable": "La lectura automática no está disponible ahora.",
+        "meanwhile": "Mientras tanto, el archivo queda guardado, no se envía nada y rellenas los campos a mano.",
+        "states": {
+          "sem_chave": "Todavía no está activado en este entorno. Todo lo demás de OrganizeUp sigue normal.",
+          "desligado": "Todo lo demás de OrganizeUp sigue normal. En cuanto vuelva, este botón habilita la conversación.",
+          "manutencao": "El asistente vuelve junto con los cambios. Puedes consultar todo con normalidad.",
+          "teto_mensal": "Se alcanzó el límite de uso del servicio este mes, así que se detuvo solo. Tus datos están seguros y el resto de OrganizeUp sigue normal.",
+          "teto_diario": "El asistente vuelve mañana, sin que tengas que hacer nada. El resto de OrganizeUp sigue normal.",
+          "sem_permissao": "Solo quien es responsable o adulto en la familia puede conversar con él. Pide a uno de ellos que lo active o pregunte por ti."
+        }
+      },
+      "sendTitle": "Enviar archivos",
+      "sendText": "PDF, PNG, JPG, CSV o Excel (.xlsx), hasta 10 MB cada uno. Puedes elegir varios.",
+      "filesLabel": "Archivos de las deudas",
+      "noAccount": "Registra una cuenta antes: la deuda necesita saber de dónde salen las cuotas.",
+      "sending": "Enviando {name} ({current} de {total})…",
+      "readingFile": "Leyendo {name}…",
+      "seeDebts": "Ver mis deudas",
+      "emptyTitle": "Ningún archivo por revisar",
+      "emptyText": "Después de enviar, los datos de cada archivo aparecen aquí para que los revises.",
+      "back": "Volver a Deudas",
+      "reviewLabel": "Revisión",
+      "reviewTitle": "Revisa antes de guardar"
+    },
+    "saved": "Deuda guardada.",
+    "created": "Deuda creada.",
+    "updated": "Deuda actualizada.",
+    "errors": {
+      "name": "Escribe el nombre de la deuda.",
+      "account": "Elige una cuenta.",
+      "invalidAccount": "Elige una cuenta válida.",
+      "checkFields": "Revisa los campos marcados.",
+      "acceptAdultsOnly": "Solo quien es responsable o adulto en la familia puede autorizar.",
+      "system": "Elige cómo son las cuotas.",
+      "rate": "Escribe el interés como 2,15.",
+      "installments": "Indica cuántas cuotas faltan.",
+      "installmentsMax": "El límite es de 480 cuotas.",
+      "nextDue": "Indica el próximo vencimiento.",
+      "invalidDate": "Fecha no válida.",
+      "installmentAmount": "Escribe el importe de la cuota, como 450,00.",
+      "balance": "Escribe el saldo pendiente, como 12.500,00."
+    },
+    "upload": {
+      "readOnly": "Tu rol en esta familia no permite cambios.",
+      "tooMany": "Demasiados envíos seguidos. Espera un minuto.",
+      "tooLarge": "El archivo supera los 10 MB.",
+      "noFile": "Elige un archivo.",
+      "empty": "El archivo está vacío.",
+      "wrongType": "Este archivo no es realmente un PDF, PNG, JPG, CSV o Excel (.xlsx).",
+      "quota": "La familia llegó al límite de 50 MB de archivos. Elimina alguno para enviar.",
+      "noDebt": "No encontré esa deuda.",
+      "noDocument": "No encontré ese archivo.",
+      "alreadyReviewed": "Este archivo ya se revisó.",
+      "stillReading": "Este archivo todavía se está leyendo. Espera un momento.",
+      "invalidAccount": "Elige una cuenta válida."
+    }
+  },
+  "importar": {
+    "metaTitle": "Importar extracto",
+    "eyebrow": "Importar extracto",
+    "title": "Trae el extracto del banco",
+    "description": "El agente categoriza cada movimiento, y tú revisas antes de guardar.",
+    "noPermission": "Tu rol en esta familia no permite importar.",
+    "fallbackAccount": "Cuenta",
+    "choose": {
+      "title": "Elige el extracto",
+      "text": "Descárgalo del sitio o la app del banco. El archivo se lee aquí en el navegador y no se guarda. En cuanto lo elijas, se abre solo para que lo revises.",
+      "account": "Cuenta del extracto",
+      "file": "Archivo",
+      "fileHint": "OFX, CSV, Excel (.xlsx) o PDF, hasta 5 MB.",
+      "foreign": "Los importes del archivo se leen en {currency, select, USD {dólares} EUR {euros} other {reales}} y se convierten a reales con la cotización de la fecha de cada línea.",
+      "other": "Elegir otro archivo",
+      "reading": "Leyendo {name}…",
+      "checking": "Comparando con tus movimientos…"
+    },
+    "csv": {
+      "title": "Revisa las columnas",
+      "text": "Encontramos estas columnas en el archivo. Ajusta si alguna está mal.",
+      "none": "No tiene",
+      "column": "Columna {number}",
+      "date": "Fecha",
+      "description": "Descripción",
+      "amount": "Importe",
+      "credit": "Crédito",
+      "debit": "Débito",
+      "found": "{count, plural, =1 {1 movimiento encontrado} other {# movimientos encontrados}}.",
+      "foundSkipped": "{count, plural, =1 {1 movimiento encontrado} other {# movimientos encontrados}}, {skipped, plural, =1 {1 línea ignorada} other {# líneas ignoradas}}.",
+      "sample": "Muestra",
+      "checking": "Comprobando…",
+      "continue": "Continuar",
+      "changeFile": "Cambiar archivo"
+    },
+    "review": {
+      "title": "Revisa antes de importar",
+      "text": "Todavía no se guardó nada. Desmarca lo que no quieras y ajusta las categorías.",
+      "new": "Nuevos",
+      "settle": "Liquidan una previsión",
+      "likelyEntered": "Parecen ya registrados",
+      "imported": "Ya importados",
+      "agent": "El agente categorizó {count, plural, =1 {1 movimiento} other {# movimientos}}.",
+      "agentProposed": "El agente categorizó {count, plural, =1 {1 movimiento} other {# movimientos}} y propuso {proposed, plural, =1 {1 categoría nueva} other {# categorías nuevas}}.",
+      "noClue": "Sin pista en {count}: revisa los marcados.",
+      "rows": "Movimientos del extracto",
+      "importRow": "Importar {name}",
+      "categoryOf": "Categoría de {name}",
+      "createCategory": "Crear: {name}",
+      "anotherCategory": "Crear otra categoría…",
+      "newCategoryOf": "Nombre de la nueva categoría de {name}",
+      "categoryName": "Nombre de la categoría",
+      "importing": "Importando…",
+      "submit": "{count, plural, =1 {Importar 1 movimiento} other {Importar # movimientos}}",
+      "cancel": "Cancelar",
+      "badges": {
+        "settle": "Liquida: {name}",
+        "entered": "Parece ya registrado",
+        "imported": "Ya importado",
+        "memory": "Memoria de la familia",
+        "newCategory": "Categoría nueva",
+        "review": "Revisar"
+      }
+    },
+    "done": {
+      "title": "Extracto importado",
+      "counts": "{imported, plural, =1 {1 movimiento nuevo} other {# movimientos nuevos}} y {settled, plural, =1 {1 previsión liquidada} other {# previsiones liquidadas}}.",
+      "seeEntries": "Ver movimientos",
+      "another": "Importar otro"
+    },
+    "batches": {
+      "title": "Importaciones recientes",
+      "text": "Deshacer elimina lo que creó la importación y reabre lo que liquidó.",
+      "emptyTitle": "Ninguna importación todavía",
+      "emptyText": "Después de la primera, aparece aquí y puedes deshacerla.",
+      "list": "Importaciones",
+      "row": "{count, plural, =1 {1 movimiento} other {# movimientos}} · {account}",
+      "detail": "{source} · del {from} al {to} · importado el {date}",
+      "undo": "{count, plural, =1 {Deshacer importación de 1 movimiento} other {Deshacer importación de # movimientos}}",
+      "undoTitle": "Deshacer importación",
+      "undoText": "Los movimientos de esta importación se eliminarán, incluso los que editaste después. Las previsiones, cuotas y resúmenes liquidados vuelven a quedar pendientes.",
+      "undoConfirm": "Deshacer"
+    },
+    "reload": "Recargar página",
+    "errors": {
+      "outdated": "Esta página quedó desactualizada o se cortó la conexión. Recarga y elige el archivo de nuevo.",
+      "noRows": "No encontramos movimientos en este archivo. Descárgalo de nuevo en OFX o CSV.",
+      "tooManyRows": "El archivo tiene más de 2.000 movimientos. Exporta un período más corto.",
+      "tooLarge": "El archivo supera los 5 MB. Exporta un período más corto.",
+      "oldExcel": "Este Excel está en el formato antiguo (.xls). Ábrelo y guárdalo como .xlsx, o descárgalo en CSV u OFX.",
+      "fileType": "Este tipo de archivo no se puede leer. Usa OFX, CSV, Excel (.xlsx) o PDF.",
+      "pdfEmpty": "No encontramos movimientos en este PDF. Puede ser una imagen. Descarga el extracto en OFX o CSV.",
+      "pdfNotice": "El PDF no siempre indica qué es entrada y qué es salida. Revisa los importes antes de importar.",
+      "sheetColumns": "No reconocimos las columnas de esta planilla. Mira si tiene fecha e importe.",
+      "csvColumns": "No reconocimos las columnas de este CSV. Mira si tiene fecha e importe.",
+      "readFailed": "No pudimos leer este archivo. Descarga el extracto en OFX o CSV.",
+      "ofxEmpty": "No encontramos movimientos en este archivo OFX.",
+      "noQuote": "Todavía no tenemos la cotización del {currency, select, USD {dólar} EUR {euro} other {real}} del {date}. Importa un período más reciente.",
+      "overLimit": "Uno de los importes del archivo supera el límite en reales.",
+      "unreadable": "No pudimos leer los movimientos de este archivo.",
+      "serverFailed": "El servidor falló al revisar este extracto. Inténtalo de nuevo; si se repite, avísanos.",
+      "invalidAccount": "Elige una cuenta válida.",
+      "reviewRows": "Revisa los movimientos e inténtalo de nuevo.",
+      "invalidCategory": "Elige una categoría válida en cada movimiento."
+    }
+  },
+  "renda": {
+    "metaTitle": "Ingresos",
+    "eyebrow": "Ingresos",
+    "title": "Cuánto entra al mes",
+    "description": "Registra tus ingresos una vez. Aparecen solos en el mes, el calendario y los vencimientos.",
+    "new": "Nuevo ingreso",
+    "kinds": {
+      "clt": "Salario CLT (Brasil)",
+      "pj_autonomo": "Autónomo o contratista",
+      "aposentadoria_pensao": "Jubilación o pensión",
+      "aluguel": "Alquiler cobrado",
+      "outro": "Otro ingreso"
+    },
+    "estimate": "Es una estimación con las tablas oficiales de {month}. El recibo de sueldo real puede ser diferente: horas extra, faltas, beneficios y reglas de la empresa cambian el importe.",
+    "doubleCount": "También tienes un ingreso que se repite cada mes en Movimientos. Si es el mismo, deja de repetirlo allí para no contarlo dos veces.",
+    "stats": {
+      "net": "Neto al mes",
+      "gross": "Bruto al mes",
+      "discounts": "Descuentos al mes",
+      "thirteenth": "Aguinaldo neto"
+    },
+    "empty": {
+      "title": "Ningún ingreso registrado",
+      "text": "Registra salario, jubilación, alquiler u otro ingreso. En la CLT, calculamos INSS, impuesto, aguinaldo y vacaciones.",
+      "action": "Registrar ingreso"
+    },
+    "slip": {
+      "gross": "Salario bruto",
+      "inss": "INSS",
+      "tax": "Impuesto sobre la renta",
+      "pension": "Pensión alimenticia",
+      "otherDiscounts": "Otros descuentos",
+      "net": "Neto estimado",
+      "simplified": "Usamos el descuento simplificado, que fue mejor en este caso.",
+      "legal": "Usamos las deducciones legales, que fueron mejores en este caso.",
+      "reduction": "La reducción legal quitó {value} del impuesto."
+    },
+    "extra": {
+      "thirteenth": "Aguinaldo (13.º salario)",
+      "first": "1.ª cuota, noviembre",
+      "second": "2.ª cuota, diciembre",
+      "total": "Total neto",
+      "vacationLabel": "Vacaciones",
+      "vacation": "Vacaciones de 30 días",
+      "vacationGross": "Salario + 1/3",
+      "uncertain": "Puede llegar a {value}. La autoridad fiscal todavía no aclaró si la reducción vale para las vacaciones, así que prevemos el importe menor.",
+      "vacationIn": "Vacaciones en {month}",
+      "noVacation": "Sin mes de vacaciones definido: la previsión queda como salario normal todo el año."
+    },
+    "simulator": {
+      "title": "Simulador de salario",
+      "text": "Mira cuánto queda de un salario CLT después de los descuentos.",
+      "gross": "Salario bruto (R$)",
+      "invalid": "Revisa los importes, como 4.500,00.",
+      "dependents": "Dependientes",
+      "pension": "Pensión alimenticia (R$)",
+      "pensionHint": "Por decisión judicial o acuerdo.",
+      "otherDiscounts": "Otros descuentos (R$)",
+      "otherDiscountsHint": "Plan de salud, vales y otros.",
+      "prompt": "Escribe el salario bruto para ver el resultado.",
+      "register": "Registrar este ingreso"
+    },
+    "form": {
+      "kind": "Tipo de ingreso",
+      "company": "Empresa",
+      "source": "De dónde viene",
+      "companyExample": "Ej.: Empresa Ejemplo",
+      "sourceExample": "Ej.: Alquiler del local",
+      "gross": "Salario bruto (R$)",
+      "net": "Importe que llega a la cuenta (R$)",
+      "payDay": "Día de pago",
+      "dependents": "Dependientes",
+      "vacationMonth": "Mes de vacaciones",
+      "notSure": "Todavía no lo sé",
+      "pension": "Pensión alimenticia (R$)",
+      "otherDiscounts": "Otros descuentos (R$)",
+      "account": "Cuenta que recibe",
+      "category": "Categoría",
+      "person": "De quién es",
+      "family": "De la familia",
+      "received": "Lo que ya cobraste no cambia. El cambio vale para las próximas previsiones.",
+      "save": "Guardar ingreso"
+    },
+    "card": {
+      "payDay": "cada día {day}",
+      "edit": "Editar {name}",
+      "close": "Cerrar {name}",
+      "delete": "Eliminar {name}"
+    },
+    "sheet": {
+      "edit": "Editar ingreso",
+      "new": "Nuevo ingreso"
+    },
+    "stop": {
+      "closeTitle": "Cerrar ingreso",
+      "deleteTitle": "Eliminar ingreso",
+      "closeText": "\"{name}\" deja de aparecer a partir de este mes. Lo que ya cobraste sigue en los movimientos.",
+      "deleteText": "\"{name}\" y sus previsiones se eliminarán.",
+      "closeConfirm": "Cerrar",
+      "deleteConfirm": "Eliminar"
+    },
+    "saved": "Ingreso guardado.",
+    "errors": {
+      "name": "Indica de dónde viene el ingreso.",
+      "kind": "Elige el tipo de ingreso.",
+      "amount": "Escribe el importe, como 4.500,00.",
+      "dependents": "Indica de 0 a 20 dependientes.",
+      "pension": "Escribe la pensión como 300,00.",
+      "otherDiscounts": "Escribe los descuentos como 150,00.",
+      "payDay": "Indica el día de pago, del 1 al 31.",
+      "account": "Elige una cuenta.",
+      "category": "Elige una categoría.",
+      "invalidAccount": "Elige una cuenta válida.",
+      "incomeCategory": "Elige una categoría de ingreso.",
+      "invalidPerson": "Elige una persona válida."
+    }
+  },
+  "calendario": {
+    "metaTitle": "Calendario",
+    "eyebrow": "Calendario",
+    "description": "Vencimientos, eventos y cuánto debería sobrar cada día.",
+    "previousMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente",
+    "today": "Hoy",
+    "types": {
+      "conta": "Cuenta",
+      "receita": "Ingreso",
+      "cartao": "Tarjeta",
+      "divida": "Deuda",
+      "meta": "Meta",
+      "viagem": "Viaje",
+      "evento": "Evento"
+    },
+    "negative": "Según lo previsto, tu saldo queda negativo el {first}. El menor valor es <strong>{value}</strong>, el {lowest}.",
+    "seeDay": "Ver el día",
+    "stats": {
+      "in": "Entra",
+      "inHint": "Cobrado {received}. Por cobrar {planned}.",
+      "out": "Sale",
+      "outHint": "Pagado {spent}. Por pagar {planned}.",
+      "closing": "Saldo final previsto",
+      "closingHint": "Saldo de las cuentas más lo pendiente.",
+      "result": "Resultado del mes",
+      "resultHint": "Lo que entró menos lo que salió.",
+      "lowest": "Saldo más bajo",
+      "noForecast": "Sin previsión",
+      "lowestOn": "El {date}.",
+      "fromToday": "Solo hay previsión de hoy en adelante.",
+      "upTo": "La previsión llega hasta 24 meses."
+    },
+    "grid": {
+      "label": "Mes en cuadrícula",
+      "filter": "Filtrar por tipo",
+      "all": "Todos",
+      "days": "Días del mes",
+      "today": "hoy",
+      "items": "{count, plural, =1 {1 elemento} other {# elementos}}",
+      "overdue": "{count} atrasados",
+      "balance": "saldo previsto {value}"
+    },
+    "day": {
+      "label": "Día elegido",
+      "balance": "Saldo previsto al final del día:",
+      "hidden": "Nada de este tipo en este día. {count, plural, =1 {1 elemento está oculto} other {# elementos están ocultos}} por el filtro.",
+      "monthEmpty": "Nada marcado este mes. Elige un día para registrar una cuenta o marcar un evento.",
+      "empty": "Nada marcado en este día.",
+      "items": "Elementos del día",
+      "more": "{count, plural, =1 {1 elemento más} other {# elementos más}} fuera de este filtro.",
+      "addEntry": "Registrar en este día",
+      "addEvent": "Marcar evento",
+      "yearly": "Cada año",
+      "closingBadge": "Cierre",
+      "closes": "Cierra {name}",
+      "open": "Abrir",
+      "openItem": "Abrir {name}",
+      "deleteItem": "Eliminar {name}"
+    },
+    "event": {
+      "new": "Nuevo evento",
+      "name": "Nombre del evento",
+      "nameExample": "Ej.: Cita con el dentista",
+      "yearly": "Se repite cada año, como un cumpleaños",
+      "save": "Guardar evento",
+      "saved": "Evento guardado."
+    },
+    "errors": {
+      "title": "Escribe el nombre del evento.",
+      "date": "Fecha no válida.",
+      "check": "Revisa los datos."
+    }
+  },
+  "sugestoes": {
+    "metaTitle": "Sugerencias",
+    "eyebrow": "Asistente",
+    "title": "Sugerencias",
+    "description": "Lo que el asistente notó en tus finanzas. Lo que sea decisión tuya espera a que lo aceptes.",
+    "groups": {
+      "categorias": "Categorías",
+      "aportes": "Cuánto ahorrar al mes",
+      "viagens": "Viajes",
+      "metas": "Metas",
+      "investimentos": "Inversiones",
+      "lembretes": "Recordatorios"
+    },
+    "pending": {
+      "title": "Para que decidas",
+      "emptyTitle": "Nada que revisar por ahora",
+      "emptyText": "El asistente pasa por aquí cada madrugada y deja lo que nota.",
+      "open": "Abrir",
+      "openItem": "Abrir: {name}",
+      "addTrip": "Añadir a mis viajes",
+      "applyAll": "Aplicar todo",
+      "applyAllIn": "Aplicar todo en {name}"
+    },
+    "bulk": {
+      "categoria": "¿Mover {count} movimientos a las categorías sugeridas?",
+      "investimento": "¿Marcar {count} avisos de inversiones como vistos?",
+      "lembrete": "¿Marcar {count} recordatorios como vistos?"
+    },
+    "automatic": {
+      "title": "Lo que el asistente hizo solo",
+      "period": "En los últimos 7 días.",
+      "empty": "Ningún cambio en los últimos 7 días.",
+      "undo": "Deshacer",
+      "undoItem": "Deshacer: {name}"
+    },
+    "decision": {
+      "accept": "Aceptar",
+      "later": "Ahora no",
+      "labeled": "{action}: {name}",
+      "laterHint": "Volveremos a sugerirlo dentro de 30 días",
+      "failed": "No se pudo completar ahora. Actualiza la página e inténtalo de nuevo."
+    },
+    "errors": {
+      "notFound": "Sugerencia no encontrada.",
+      "oneByOne": "Este tipo de sugerencia se decide de una en una.",
+      "nothingApplied": "No se aplicó nada. Actualiza la página e inténtalo de nuevo."
+    },
+    "applied": {
+      "moved": "{count, plural, =1 {1 movimiento movido} other {# movimientos movidos}}.",
+      "seen": "{count, plural, =1 {1 aviso marcado como visto} other {# avisos marcados como vistos}}.",
+      "failed": "{count, plural, =1 {1 no funcionó} other {# no funcionaron}}.",
+      "tripCreated": "Viaje a {name} creado. Ajusta fechas y costos en Viajes.",
+      "goalCreated": "Meta {name} creada. Ajusta los detalles en Metas."
+    },
+    "agent": {
+      "readOnly": "Tu rol en esta familia no permite cambios.",
+      "notFound": "Sugerencia no encontrada.",
+      "decided": "Esta sugerencia ya se decidió.",
+      "outdated": "Esta sugerencia está desactualizada. Pide una nueva al asistente.",
+      "debtExtra": "De acuerdo: registras el pago extra en la pantalla de deudas.",
+      "noted": "Anotado.",
+      "dismissed": "De acuerdo. Volveremos a sugerirlo dentro de 30 días, si aún tiene sentido.",
+      "onlyApplied": "Solo se puede deshacer lo que se aplicó.",
+      "incomplete": "No se pudo deshacer: los datos de esta sugerencia están incompletos.",
+      "undone": "Deshecho.",
+      "undoneDividends": "Deshecho. Estos dividendos no vuelven solos; el precio vuelve con la próxima cotización nueva.",
+      "undoneStock": "Deshecho. La cantidad volvió a lo que era, y este ajuste no vuelve solo.",
+      "noPrevious": "No se puede deshacer: el estado anterior no se guardó.",
+      "changedByOther": "Alguien ya cambió esos movimientos; no se deshizo nada.",
+      "returned": "Movimientos devueltos. El asistente ya no los toca.",
+      "oneCategoryGone": "Una de las categorías ya no existe.",
+      "merged": "Categorías unidas. La antigua se archivó.",
+      "oldCategoryGone": "La categoría antigua se eliminó; no se deshizo nada.",
+      "split": "Categorías separadas de nuevo.",
+      "reserveSaved": "Importe del fondo guardado.",
+      "reserveRestored": "Importe del fondo restaurado.",
+      "planSaved": "Cuánto ahorrar al mes guardado en el plan de jubilación.",
+      "planRestored": "Importe del plan restaurado.",
+      "notAssistantTrip": "Este viaje no lo creó el asistente.",
+      "tripRemoved": "Viaje eliminado.",
+      "tripGone": "El viaje ya no existía.",
+      "goalGone": "Esta meta ya no existe.",
+      "goalNoted": "Anotado. Ajusta el importe o la fecha de la meta cuando puedas.",
+      "goalDate": "Fecha de la meta ajustada. El plan se recalcula en la próxima ronda.",
+      "goalHasValues": "La meta ya recibió importes; no se deshizo nada.",
+      "goalRemoved": "Meta eliminada.",
+      "goalDateChanged": "La fecha de la meta ya se cambió; no se deshizo nada.",
+      "goalDateRestored": "Fecha de la meta restaurada."
+    }
+  },
+  "familiaOnboarding": {
+    "maintenance": "Estamos en mantenimiento. Crear una familia y hacer cambios están desactivados por ahora.",
+    "create": {
+      "metaTitle": "Nueva familia",
+      "title": "Crea el espacio de tu familia",
+      "text": "Aquí quedan ingresos, gastos, objetivos y el plan de jubilación. Solo quien invites tendrá acceso.",
+      "name": "Nombre de la familia",
+      "nameHint": "Ej.: \"Familia Souza\" o \"Casa de Ana y Leo\".",
+      "city": "Ciudad donde viven",
+      "state": "Estado",
+      "pending": "Creando…",
+      "submit": "Crear familia",
+      "maintenanceError": "El sistema está en mantenimiento. Inténtalo más tarde.",
+      "failed": "No se pudo crear la familia. Inténtalo de nuevo.",
+      "openFailed": "Familia creada, pero no se pudo abrir. Vuelve a entrar.",
+      "setupFailed": "No se pudo completar la configuración.",
+      "ownerOnly": "Solo el responsable puede configurar.",
+      "invalid": "Datos no válidos."
+    },
+    "choose": {
+      "metaTitle": "Elegir familia",
+      "title": "¿Qué familia quieres abrir?",
+      "suspended": "Suspendida",
+      "createOther": "Crear otra familia",
+      "roles": {
+        "owner": "Responsable",
+        "adult": "Adulto",
+        "child": "Niño",
+        "viewer": "Lectura",
+        "other": "Miembro"
+      }
+    },
+    "suspended": {
+      "metaTitle": "Acceso suspendido",
+      "title": "El acceso a esta familia está suspendido",
+      "text": "La administración de OrganizeUp suspendió el acceso. Los datos de la familia siguen guardados. Para saber más, habla con soporte.",
+      "open": "Abrir {name}",
+      "signOut": "Salir"
+    },
+    "complete": {
+      "metaTitle": "Completar registro",
+      "title": "Completar registro",
+      "backToPanel": "Volver al panel",
+      "adultsOnly": "Solo el responsable o un adulto puede completar el registro.",
+      "steps": {
+        "family": "Tu familia",
+        "retirement": "Jubilación",
+        "trips": "Viajes",
+        "goal": "Primera meta"
+      },
+      "stepTitle": "Paso {step} de {total} · {name}",
+      "progress": "Progreso del registro",
+      "privacy": "Estos datos quedan solo en tu familia y sirven para el plan de jubilación. <link>Mira qué cambió.</link>",
+      "previous": "Volver al paso anterior",
+      "suggestedYear": "Sugerimos {year}, cuando {name} cumple {age} años.",
+      "skip": "Saltar por ahora",
+      "continue": "Continuar",
+      "finish": "Concluir",
+      "personAdded": "Persona añadida."
+    },
+    "family": {
+      "birthOf": "Nacimiento de {name}",
+      "birthHint": "Solo mes y año. Es la base del plan de jubilación.",
+      "others": "Otras personas",
+      "people": "Personas de la familia",
+      "name": "Nombre",
+      "relation": "Relación",
+      "birth": "Nacimiento",
+      "add": "Añadir persona",
+      "wedding": "Matrimonio",
+      "weddingHint": "Opcional. Con el día, entra en el calendario como aniversario de boda.",
+      "relations": {
+        "conjuge": "Cónyuge",
+        "filho": "Hijo(a)",
+        "pai_mae": "Padre/Madre",
+        "outro": "Otro"
+      }
+    },
+    "retirement": {
+      "year": "Año en que quieren dejar de trabajar",
+      "income": "Ingreso que quieres al mes",
+      "incomeHint": "Vacío: usamos tu gasto promedio",
+      "yield": "Rendimiento anual de la cartera (%)",
+      "yieldHint": "Cuánto paga la cartera en dividendos al año. Ej.: R$ 100 mil que pagan R$ 6 mil = 6 %.",
+      "pensionHint": "Si no lo sabes, sáltalo; puedes rellenarlo después en Familia"
+    },
+    "trips": {
+      "perYear": "Cuántos viajes al año",
+      "days": "Cuántos días suelen durar"
+    },
+    "goal": {
+      "optional": "Opcional. ¿Sin una meta en mente? Déjalo en blanco y concluye.",
+      "name": "Nombre de la meta",
+      "kind": "Tipo",
+      "amount": "Cuánto cuesta (R$)",
+      "month": "Cuándo quieres lograrla",
+      "account": "De dónde sale",
+      "accountHint": "La cuenta de donde sale el dinero cada mes.",
+      "kinds": {
+        "veiculo": "Coche o moto",
+        "imovel": "Casa o apartamento",
+        "reforma": "Reforma",
+        "educacao": "Estudios",
+        "compra": "Compra",
+        "evento": "Fiesta o evento",
+        "outro": "Otro"
+      }
+    },
+    "person": {
+      "workStatus": "Situación laboral",
+      "notInformed": "No informado",
+      "work": {
+        "clt": "CLT (empleo formal)",
+        "pj_autonomo": "Autónomo o contratista",
+        "servidor": "Funcionario público",
+        "aposentado": "Jubilado(a)",
+        "estudante": "Estudiante",
+        "sem_renda": "Sin ingresos",
+        "outro": "Otro"
+      },
+      "inss": "¿Cotiza al INSS?",
+      "yes": "Sí",
+      "no": "No",
+      "pension": "Beneficio mensual esperado (R$)",
+      "day": "Día",
+      "month": "Mes",
+      "year": "Año",
+      "choose": "Elige"
+    },
+    "errors": {
+      "name": "Escribe el nombre.",
+      "relation": "Elige la relación.",
+      "monthYear": "Usa un mes/año válidos.",
+      "day": "Indica un día del 1 al 31.",
+      "month": "Elige el mes.",
+      "weddingYear": "Indica un año entre 1900 y 2100.",
+      "noSuchDay": "Ese día no existe.",
+      "income": "Escribe el ingreso como 6.000,00.",
+      "yield": "Escribe un porcentaje hasta 30, como 6 o 6,5.",
+      "retirementYear": "Indica un año entre 1950 y 2150.",
+      "workStatus": "Elige la situación laboral.",
+      "option": "Elige una opción.",
+      "pension": "Escribe el beneficio como 2.500,00.",
+      "tripsPerYear": "Indica de 0 a 12 viajes al año.",
+      "tripDays": "Indica de 1 a 60 días.",
+      "goalName": "Escribe el nombre de la meta.",
+      "goalKind": "Elige el tipo.",
+      "goalAmountFormat": "Escribe el importe como 80.000,00.",
+      "goalAmount": "Indica cuánto cuesta.",
+      "goalAccount": "Elige la cuenta de donde sale."
+    }
   }
 }

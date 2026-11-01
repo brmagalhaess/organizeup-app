@@ -11,7 +11,6 @@ import {
   categoryMemory,
   dividends,
   emergencyFund,
-  ensureCategory,
   eq,
   goals,
   householdSuggestions,
@@ -95,10 +94,8 @@ export async function applySuggestion(
   let outcome: { message: string; payload?: Record<string, unknown> } | { error: string };
   switch (row.kind) {
     case "categoria":
-      outcome = await applyCategoria(tx, ctx, payload as SuggestionPayload["categoria"]);
-      break;
     case "fusao_categoria":
-      outcome = await applyFusao(tx, payload as SuggestionPayload["fusao_categoria"]);
+      outcome = { error: "O assistente cuida disso sozinho: esta sugestão não precisa de aceite." };
       break;
     case "aporte_reserva":
       outcome = await applyAporteReserva(tx, ctx, payload as SuggestionPayload["aporte_reserva"]);
@@ -313,85 +310,6 @@ export async function recordDividendRemoval(
 
 // ---------- categoria ----------
 
-async function applyCategoria(
-  tx: TenantTx,
-  ctx: TenantContext,
-  payload: SuggestionPayload["categoria"],
-): Promise<{ message: string; payload: Record<string, unknown> } | { error: string }> {
-  let target = payload.toCategoryId;
-  let createdCategoryId = payload.createdCategoryId;
-  if (target === null) {
-    if (!payload.newCategory) return { error: "Sugestão sem categoria de destino." };
-    const result = await ensureCategory(
-      tx,
-      ctx.householdId,
-      payload.kind,
-      payload.newCategory.name,
-      payload.newCategory.essential,
-    );
-    target = result.id;
-    if (result.created) {
-      createdCategoryId = target;
-      await recordAudit(tx, ctx, "create", "categories", target);
-    }
-  } else {
-    const [category] = await tx
-      .select({ id: categories.id, kind: categories.kind })
-      .from(categories)
-      .where(eq(categories.id, target));
-    if (!category || category.kind !== payload.kind)
-      return { error: "A categoria sugerida não existe mais." };
-  }
-  const rows = await tx
-    .select({
-      id: transactions.id,
-      categoryId: transactions.categoryId,
-      categorySource: transactions.categorySource,
-    })
-    .from(transactions)
-    .where(inArray(transactions.id, payload.transactionIds));
-  if (rows.length === 0) return { error: "Esses lançamentos não existem mais." };
-  const previous = rows.map((row) => ({
-    transactionId: row.id,
-    categoryId: row.categoryId,
-    categorySource: row.categorySource,
-  }));
-  await tx
-    .update(transactions)
-    .set({ categoryId: target, categorySource: "familia", updatedAt: new Date() })
-    .where(
-      inArray(
-        transactions.id,
-        rows.map((row) => row.id),
-      ),
-    );
-  if (payload.merchant) {
-    await tx
-      .insert(categoryMemory)
-      .values({
-        householdId: ctx.householdId,
-        kind: payload.kind,
-        merchant: payload.merchant.slice(0, 120),
-        categoryId: target,
-        source: "familia",
-      })
-      .onConflictDoUpdate({
-        target: [categoryMemory.householdId, categoryMemory.kind, categoryMemory.merchant],
-        set: { categoryId: target, source: "familia", updatedAt: new Date() },
-      });
-  }
-  return {
-    message: `${rows.length === 1 ? "Lançamento movido" : `${rows.length} lançamentos movidos`}.`,
-    payload: {
-      ...payload,
-      toCategoryId: target,
-      previous,
-      appliedCategoryId: target,
-      ...(createdCategoryId ? { createdCategoryId } : {}),
-    },
-  };
-}
-
 async function undoCategoria(
   tx: TenantTx,
   payload: SuggestionPayload["categoria"],
@@ -450,10 +368,11 @@ async function archiveIfUnused(tx: TenantTx, categoryId: string): Promise<void> 
 
 // ---------- fusão de categorias ----------
 
-async function applyFusao(
+/** Junta duas categorias. Quem chama é o agente de categorias, que registra e avisa a família. */
+export async function applyFusao(
   tx: TenantTx,
   payload: SuggestionPayload["fusao_categoria"],
-): Promise<{ message: string; payload: Record<string, unknown> } | { error: string }> {
+): Promise<{ message: string; payload: SuggestionPayload["fusao_categoria"] } | { error: string }> {
   const pair = await tx
     .select({ id: categories.id, kind: categories.kind, archived: categories.archived })
     .from(categories)
@@ -518,7 +437,12 @@ async function undoFusao(
     await tx
       .update(transactions)
       .set({ categoryId: from.id, updatedAt: new Date() })
-      .where(inArray(transactions.id, moved.transactionIds));
+      .where(
+        and(
+          inArray(transactions.id, moved.transactionIds),
+          eq(transactions.categoryId, payload.toCategoryId),
+        ),
+      );
   if (moved.planIds.length > 0)
     await tx
       .update(cashflowPlans)

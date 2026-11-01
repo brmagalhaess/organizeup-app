@@ -18,6 +18,7 @@ import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { AppShell, type ShellBanner, type ShellNotice } from "@/components/shell/app-shell";
 import { onboardingStatus } from "@/lib/onboarding";
+import { countUnread } from "@/lib/notifications";
 import { platformFlags, requireTenant } from "@/lib/session";
 import { countPending, noticeCookie, tolerateSchemaLag } from "@/lib/suggestions";
 
@@ -74,10 +75,11 @@ async function assistantStatus(ctx: TenantContext): Promise<AssistantState> {
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const { session, ctx } = await requireTenant();
   const writable = canWrite(ctx);
-  const [status, banners, assistant] = await Promise.all([
+  const [status, banners, assistant, unreadNotifications] = await Promise.all([
     shellStatus(ctx, writable),
     platformBanners(),
     assistantStatus(ctx),
+    countUnread(ctx),
   ]);
   const t = await getTranslations("shell");
   const data = await withHousehold(ctx, async (tx) => {
@@ -134,6 +136,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       notice={status.notice}
       banners={banners}
       pendingSuggestions={status.pendingSuggestions}
+      unreadNotifications={unreadNotifications}
       assistant={assistant}
     >
       {children}

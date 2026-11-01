@@ -150,7 +150,6 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
         if (result) {
           reviewCount.households += 1;
           reviewCount.ok += 1;
-          reviewCount.suggestions += result.suggestions;
           reviewCount.applied += result.moved;
         }
       } catch (err) {

@@ -54,13 +54,15 @@ fica para a Fase 6.
   marcas ICU, nenhum texto vazio, todo texto é ICU válido. Texto novo de tela vai para lá.
 - **Fallback em duas camadas.** O catálogo de inglês e de espanhol é o português com o que existe por cima, então chave
   que falta, ou texto vazio, aparece em português. Se ainda assim algo quebrar, sai `…`, nunca a chave.
-- **Tela não traduzida aparece em português**, sem aviso na tela, marcada com `lang="pt-BR"` para o leitor de tela.
+- **Tela não traduzida**, como o painel do serviço, **aparece em português**, sem aviso na tela, marcada com `lang="pt-BR"` para o leitor de tela.
 - **Datas e números das telas traduzidas** passam por `i18n/format.ts`, com `Intl` e o idioma da pessoa. Nunca `pt-BR`
   escrito no código de tela traduzida. Dinheiro nessas telas sai com o formato do idioma e continua em reais, porque
   a moeda principal segue sendo o real (`R$1,234.56` em inglês, `1234,56 R$` em espanhol).
-- **Validação no servidor.** Esquema usado só por tela traduzida é montado com `t` e `locale`. Esquema dividido com tela
-  ainda em português, como em `lib/onboarding.ts`, continua com a mensagem em português, e a action de tela traduzida
-  troca a mensagem pelo campo. Isso some quando todas as telas forem traduzidas.
+- **Validação no servidor** continua com a mensagem em português nos esquemas compartilhados, que telas não traduzidas
+  usam. A action de tela traduzida troca a mensagem pelo campo, ou pela frase com `knownText`. Esquema que só uma tela usa
+  já nasce com o texto do catálogo. Some quando todas as telas forem traduzidas.
+- **Confirmar compromisso** passa por `ConfirmEntryButton`. Em conta estrangeira sem cotação nada é gravado, e um aviso
+  abre por cima da tela dizendo a moeda e a data.
 - **Termos e Privacidade continuam em português**, com aviso curto no idioma da pessoa dizendo que é a versão que vale.
   Tradução de cortesia só com revisão jurídica de cada país.
 
@@ -137,8 +139,6 @@ Fases 2, 3 e 6 da especificação: demais telas, agentes e e-mails com chave e v
 
 - **Lançamento previsto com data futura** fica com a última cotação na criação e não muda ao ser confirmado. A conta na
   moeda original é exata; os reais podem diferir da cotação do dia em que o pagamento aconteceu. Editar a data recalcula.
-- **Confirmar um compromisso em conta estrangeira sem nenhuma cotação** não faz nada e não dá mensagem, porque o botão não
-  tem retorno. Só acontece antes da primeira rodada do job, ou em data anterior a 10 anos.
 - **Reais de um mês antigo não acompanham o câmbio**, e o saldo em reais, sim. Por isso a soma dos lançamentos em reais não
   fecha com o saldo de conta estrangeira. A tela de Contas explica em uma linha.
 
@@ -152,8 +152,10 @@ Fases 2, 3 e 6 da especificação: demais telas, agentes e e-mails com chave e v
   demais para o ganho.
 - **Texto gravado continua em português até a Fase 3:** plano mensal da meta (`planNote`), descrição de aporte e resgate,
   categoria de aporte, evento `Viagem: <destino>` no calendário e sugestões dos agentes. Os nomes de destino sugeridos também.
-- **`/app/completar` fica em português**, com os campos que divide com `/app/familia` já no idioma da pessoa.
 - **Formato pelo idioma, não pelo país.** `en` usa data americana e `es` usa o espanhol geral do Intl. Quem precisar de
   outro formato vai pedir variante; o desenho aceita (`en-GB`, `es-MX`), mas não há seletor para isso.
-- **Campos de valor seguem no formato brasileiro** nas telas ainda não traduzidas. As traduzidas usam `parseMoney` com o
-  idioma da pessoa.
+- **Campos de valor seguem no formato brasileiro** nas telas ainda não traduzidas. As do dia a dia já usam `parseMoney`.
+- **Texto que chega pronto em português até a Fase 3.** Agentes e domínio devolvem frase, não chave. `knownText` acha a frase
+  no catálogo e troca pelo idioma da pessoa; um teste confere se as frases do catálogo ainda são as dos agentes. Frase nova fica em
+  português até entrar no catálogo. O que já foi gravado continua como foi: sugestões, relatório de importação e
+  descrições do sistema, como "Fatura Nubank" e "Meta: Carro (1/10)". Esses textos vão marcados com `lang="pt-BR"`.

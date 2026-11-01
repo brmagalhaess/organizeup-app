@@ -1257,6 +1257,48 @@ export const householdSuggestions = pgTable(
   ],
 );
 
+/** Tipos conhecidos. O banco confere só o formato: acrescentar outro não pede migração. */
+export const NOTIFICATION_KINDS = ["categoria"] as const;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+
+/**
+ * O que o assistente fez e a família precisa ver. A tela monta o texto a partir de `data`, em cada
+ * idioma; `title` e `body` são a mesma coisa em português. `read_at` vale para a família inteira.
+ * Ver migrations/0031_notificacoes.sql.
+ */
+export const householdNotifications = pgTable(
+  "household_notifications",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: NOTIFICATION_KINDS }).notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    href: text("href"),
+    suggestionId: text("suggestion_id"),
+    dedupeKey: text("dedupe_key").notNull(),
+    readAt: ts("read_at"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    unique().on(t.householdId, t.dedupeKey),
+    index("household_notifications_recent_idx").on(t.householdId, t.createdAt),
+    index("household_notifications_unread_idx")
+      .on(t.householdId)
+      .where(sql`read_at IS NULL`),
+    foreignKey({
+      columns: [t.householdId, t.suggestionId],
+      foreignColumns: [householdSuggestions.householdId, householdSuggestions.id],
+    }).onDelete("set null"),
+  ],
+);
+
 export const DESTINATION_REGIONS = [
   "brasil_perto",
   "brasil",

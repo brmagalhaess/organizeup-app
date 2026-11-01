@@ -1,8 +1,8 @@
 // Agente de categorização do extrato (ADR-0013) e revisão diária de categorias (ADR-0015). Puro:
 // recebe a memória da família e devolve propostas. Nada é gravado aqui. Na importação a família
-// revisa tudo antes de gravar; na revisão diária só o que ficou "para revisar" muda sozinho, e o
-// resto vira sugestão (AGENTS.md, regra 7). O texto do extrato é dado não confiável: só serve para
-// comparar palavras.
+// revisa tudo antes de gravar; na revisão diária, o que está em categoria genérica muda sozinho, e o
+// que a família pôs numa categoria específica não muda nem vira pergunta (AGENTS.md, regra 7). O texto
+// do extrato é dado não confiável: só serve para comparar palavras.
 import { CARD_CATEGORY } from "./card";
 import { DEBT_CATEGORY } from "./debt";
 import { money, toDbAmount } from "./money";
@@ -352,8 +352,8 @@ export function importReport(
 }
 
 // ----------------------------------------------------------------------------------------------
-// Revisão diária de categorias (ADR-0015). O agente só muda sozinho o que ficou "para revisar";
-// tudo o mais é sugestão para a família decidir.
+// Revisão diária de categorias (ADR-0015). O agente muda sozinho o que está em categoria genérica
+// ou ficou "para revisar", e nada mais: não há sugestão de categoria para a família decidir.
 
 /** Quem escolheu a categoria gravada no lançamento (`transactions.category_source`). */
 export type TransactionCategorySource = "familia" | "importacao" | "revisar" | "agente";
@@ -373,14 +373,16 @@ export interface ReviewInput {
   transactions: ReviewTransaction[];
   categories: CategoryOption[];
   /**
-   * `history`: lançamentos da família cuja categoria não é fallback; `learned`: `category_memory`
-   * com `source = 'familia'`. Só essa memória decide mudança automática.
+   * `history`: lançamentos cuja categoria não é genérica nem de sistema; `learned`:
+   * `category_memory` com `source = 'familia'`.
    */
   memory: CategoryMemory;
-  /** `category_memory` com `source = 'agente'`: só gera sugestão, nunca mudança automática. */
+  /** `category_memory` com `source = 'agente'`: vale quando regra e memória da família não sabem. */
   agentLearned?: Map<string, string>;
-  /** `dedupe_key` de sugestões desfeitas pela família: nunca mais mudam sozinhas. */
+  /** `dedupe_key` de sugestões desfeitas: aquele estabelecimento nunca mais muda sozinho. */
   blocked: Set<string>;
+  /** `dedupe_key` que a família mandou esperar: aquela mudança só volta depois de 30 dias. */
+  ignored?: ReadonlySet<string>;
 }
 
 export interface ReviewGroup {
@@ -398,10 +400,8 @@ export interface ReviewGroup {
 }
 
 export interface CategoryReview {
-  /** Lançamentos "para revisar" que a regra resolve: o agente aplica e a família pode desfazer. */
+  /** O agente aplica e a família pode desfazer. */
   automatic: ReviewGroup[];
-  /** Fica pendente até a família aceitar ou ignorar. */
-  suggested: ReviewGroup[];
 }
 
 /**
@@ -416,6 +416,16 @@ export function effectiveCategorySource(
   return "familia";
 }
 
+/** `categoria:<tipo>:<estabelecimento>:...` vira a chave do estabelecimento; o resto, null. */
+export function merchantOfDedupeKey(dedupeKey: string): string | null {
+  const [prefix, kind, merchant] = dedupeKey.split(":");
+  return prefix === "categoria" && kind && merchant ? `${kind}:${merchant}` : null;
+}
+
+/** Os estabelecimentos citados por uma lista de `dedupe_key`. */
+export const merchantsOfDedupeKeys = (keys: Iterable<string>) =>
+  new Set([...keys].flatMap((key) => merchantOfDedupeKey(key) ?? []));
+
 export function categoryDedupeKey(
   kind: StatementKind,
   merchant: string,
@@ -425,6 +435,8 @@ export function categoryDedupeKey(
   return `categoria:${kind}:${merchant}:${to}`;
 }
 
+type GroupTarget = Pick<CategoryProposal, "categoryId" | "newCategory">;
+
 const mostCommon = (values: string[]): string => {
   const counts = new Map<string, number>();
   for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
@@ -433,30 +445,45 @@ const mostCommon = (values: string[]): string => {
 
 export function reviewCategories(input: ReviewInput): CategoryReview {
   const automatic: ReviewGroup[] = [];
-  const suggested: ReviewGroup[] = [];
-  const taken = new Set<string>();
-  const byName = new Map(input.categories.map((category) => [category.id, category]));
-  const validFor = (kind: StatementKind, id: string | undefined): id is string =>
-    id !== undefined && byName.get(id)?.kind === kind;
+  const byId = new Map(input.categories.map((category) => [category.id, category]));
+  const blocked = merchantsOfDedupeKeys(input.blocked);
+  const allowed = ({ categoryId, newCategory }: GroupTarget) => {
+    const name = categoryId ? byId.get(categoryId)?.name : newCategory?.name;
+    return name !== undefined && isCategoryTarget(name);
+  };
 
   const groups = new Map<string, ReviewTransaction[]>();
   for (const row of input.transactions) {
     const merchant = merchantKey(row.description);
-    if (!merchant) continue;
+    if (!merchant || !isCategoryCandidate(row)) continue;
     const key = memoryKey(row.kind, merchant);
     groups.set(key, [...(groups.get(key) ?? []), row]);
   }
 
-  const groupOf = (
-    rows: ReviewTransaction[],
-    target: Pick<CategoryProposal, "categoryId" | "newCategory">,
-    reason: string,
-  ): ReviewGroup | null => {
-    const moving = rows.filter((row) => !taken.has(row.id) && row.categoryId !== target.categoryId);
-    if (moving.length === 0) return null;
-    const first = moving[0]!;
+  for (const [key, rows] of groups) {
+    if (blocked.has(key)) continue;
+    const first = rows[0]!;
+    const sample = { description: first.description, kind: first.kind };
+    const proposal = categorizeRow(sample, input.categories, input.memory);
+    const learned = input.agentLearned?.get(key);
+    const learnedName = learned ? byId.get(learned) : undefined;
+
+    let target: GroupTarget;
+    let reason: string;
+    if (allowed(proposal)) {
+      target = proposal;
+      reason = "A regra conhece o estabelecimento";
+    } else if (learnedName?.kind === first.kind && isCategoryTarget(learnedName.name)) {
+      target = { categoryId: learnedName.id, newCategory: null };
+      reason = `O assistente já viu este estabelecimento em ${learnedName.name}`;
+    } else continue;
+
+    const moving = rows.filter((row) => row.categoryId !== target.categoryId);
+    if (moving.length === 0) continue;
     const merchant = merchantKey(first.description);
-    return {
+    const dedupeKey = categoryDedupeKey(first.kind, merchant, target);
+    if (input.ignored?.has(dedupeKey)) continue;
+    automatic.push({
       ids: moving.map((row) => row.id),
       kind: first.kind,
       merchant,
@@ -464,78 +491,11 @@ export function reviewCategories(input: ReviewInput): CategoryReview {
       toCategoryId: target.categoryId,
       newCategory: target.newCategory,
       reason,
-      dedupeKey: categoryDedupeKey(first.kind, merchant, target),
-    };
-  };
-  const push = (list: ReviewGroup[], group: ReviewGroup | null) => {
-    if (!group) return;
-    list.push(group);
-    for (const id of group.ids) taken.add(id);
-  };
-
-  for (const [key, rows] of groups) {
-    const first = rows[0]!;
-    const sample = { description: first.description, kind: first.kind };
-    const proposal = categorizeRow(sample, input.categories, input.memory);
-    const resolved = proposal.source !== "revisar";
-
-    // 1. Ficou "para revisar" em Outras: a regra resolve sozinha, salvo o que a família já desfez.
-    const toReview = rows.filter(
-      (row) => effectiveCategorySource(row) === "revisar" && isFallbackCategory(row.categoryName),
-    );
-    if (toReview.length > 0) {
-      if (resolved) {
-        const group = groupOf(
-          toReview,
-          proposal,
-          "Ficou em Outras na importação e a regra conhece o estabelecimento",
-        );
-        if (group && !input.blocked.has(group.dedupeKey)) push(automatic, group);
-        else if (group) for (const id of group.ids) taken.add(id);
-      } else {
-        const learned = input.agentLearned?.get(key);
-        if (validFor(first.kind, learned)) {
-          const target = { categoryId: learned, newCategory: null };
-          const name = byName.get(learned)!.name;
-          push(
-            suggested,
-            groupOf(toReview, target, `O assistente já viu este estabelecimento em ${name}`),
-          );
-        }
-      }
-    }
-
-    // 2. A família deixou em Outras de propósito: só sugere.
-    const familyFallback = rows.filter(
-      (row) => effectiveCategorySource(row) === "familia" && isFallbackCategory(row.categoryName),
-    );
-    if (familyFallback.length > 0 && resolved) {
-      push(
-        suggested,
-        groupOf(familyFallback, proposal, "Está em Outras, mas a regra conhece o estabelecimento"),
-      );
-    }
-
-    // 3. Mesmo estabelecimento em categorias diferentes: a memória da família vence, senão a mais usada.
-    const classified = rows.filter((row) => !isFallbackCategory(row.categoryName));
-    const distinct = new Set(classified.map((row) => row.categoryId));
-    if (distinct.size >= 2) {
-      const remembered = [input.memory.history.get(key), input.memory.learned.get(key)].find(
-        (id) => validFor(first.kind, id) && !isFallbackCategory(byName.get(id)!.name),
-      );
-      const target = remembered ?? mostCommon(classified.map((row) => row.categoryId));
-      push(
-        suggested,
-        groupOf(
-          classified,
-          { categoryId: target, newCategory: null },
-          `Mesmo estabelecimento em ${distinct.size} categorias nos últimos 90 dias`,
-        ),
-      );
-    }
+      dedupeKey,
+    });
   }
 
-  return { automatic, suggested };
+  return { automatic };
 }
 
 export interface MergeCategoryOption extends CategoryOption {
@@ -556,7 +516,9 @@ const containsWords = (whole: string, part: string) =>
 /**
  * Categorias que parecem a mesma coisa: mesmo tipo e nome igual ou contido, ou categoria da família
  * pouco usada (≤ 3 lançamentos em 90 dias) cujo nome casa com as palavras de outra existente. O
- * destino é a mais usada. Sempre sugestão, nunca automático.
+ * destino é a mais usada. O agente junta sozinho, com Desfazer. Categoria genérica e de sistema não
+ * entram: "Outras despesas" é onde a importação cai, e aporte, meta, cartão, dívida e transferência têm
+ * regra própria.
  */
 export function suggestCategoryMerges(
   categories: MergeCategoryOption[],
@@ -564,7 +526,9 @@ export function suggestCategoryMerges(
 ): CategoryMerge[] {
   const uses = new Map(usage.map((row) => [row.categoryId, row.count]));
   const useOf = (id: string) => uses.get(id) ?? 0;
-  const active = categories.filter((category) => !category.archived);
+  const active = categories.filter(
+    (category) => !category.archived && isCategoryTarget(category.name),
+  );
   const merges: CategoryMerge[] = [];
   const consumed = new Set<string>();
 
@@ -650,9 +614,16 @@ export function isProtectedCategory(name: string): boolean {
   return PROTECTED_NAMES.has(normalized) || normalized.startsWith("transferenc");
 }
 
+/** Categoria que pode receber lançamento por classificação. */
+export const isCategoryTarget = (name: string) =>
+  !isGenericCategory(name) && !isProtectedCategory(name);
+
 export type CandidateTransaction = ReviewTransaction & { amount: string };
 
-/** Vale para o modelo olhar: categoria genérica, ou marcada para revisar em qualquer categoria. */
+/**
+ * O que pode mudar sem a família pedir: categoria genérica, seja qual for a origem, ou marcada para
+ * revisar em qualquer categoria. O que a família pôs numa categoria específica fica de fora.
+ */
 export function isCategoryCandidate(
   row: Pick<ReviewTransaction, "categoryName" | "categorySource" | "importBatchId">,
 ): boolean {
@@ -873,8 +844,7 @@ export interface ReportCategoriasIa {
   groups: number;
   moved: number;
   created: string[];
-  pending: number;
-  /** Sem resposta aproveitável: ficam de fora por 30 dias. */
+  /** Sem resposta aproveitável ou com pouca confiança: ficam de fora por 30 dias. */
   skipped: number;
 }
 
@@ -882,7 +852,6 @@ export interface ReportCategorias {
   reviewed: number;
   moved: number;
   created: string[];
-  pending: number;
   merges: number;
   ia?: ReportCategoriasIa;
 }
@@ -902,35 +871,33 @@ export function withAiSummary(summary: string, ia: ReportCategoriasIa): string {
   const created = ia.created.length > 0 ? ` Categorias criadas: ${ia.created.join(", ")}.` : "";
   const base = summary.split(AI_MARK)[0]!.trimEnd();
   return (
-    `${base} ${AI_MARK} ${plural(ia.moved, "lançamento movido", "lançamentos movidos")}, ` +
-    `${plural(ia.pending, "sugestão para decidir", "sugestões para decidir")}.${created}`
+    `${base} ${AI_MARK} ${plural(ia.moved, "lançamento movido", "lançamentos movidos")}.` + created
   );
 }
 
 /** Relatório do dia do agente de categorias, para `household_reports` (kind `categorias`). */
-export function dailyCategoryReport(
-  review: CategoryReview,
-  merges: CategoryMerge[],
-  counts: { reviewed: number; created: string[]; day?: string; ia?: ReportCategoriasIa },
-): DailyCategoryReport {
-  const moved = review.automatic.reduce((acc, group) => acc + group.ids.length, 0);
-  const pending = review.suggested.length;
+export function dailyCategoryReport(counts: {
+  reviewed: number;
+  moved: number;
+  merges: number;
+  created: string[];
+  day?: string;
+  ia?: ReportCategoriasIa;
+}): DailyCategoryReport {
   const created =
     counts.created.length > 0 ? ` Categorias criadas: ${counts.created.join(", ")}.` : "";
   const summary =
     `${plural(counts.reviewed, "lançamento revisado", "lançamentos revisados")}, ` +
-    `${plural(moved, "movido sozinho", "movidos sozinhos")}, ` +
-    `${plural(pending, "sugestão para decidir", "sugestões para decidir")}, ` +
-    `${plural(merges.length, "fusão sugerida", "fusões sugeridas")}.${created}`;
+    `${plural(counts.moved, "movido sozinho", "movidos sozinhos")}, ` +
+    `${plural(counts.merges, "fusão feita", "fusões feitas")}.${created}`;
   return {
     title: counts.day ? `Categorias revisadas em ${counts.day}` : "Revisão de categorias",
     summary: counts.ia ? withAiSummary(summary, counts.ia) : summary,
     data: {
       reviewed: counts.reviewed,
-      moved,
+      moved: counts.moved,
       created: counts.created,
-      pending,
-      merges: merges.length,
+      merges: counts.merges,
       ...(counts.ia ? { ia: counts.ia } : {}),
     },
   };

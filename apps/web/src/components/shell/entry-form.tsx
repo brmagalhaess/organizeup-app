@@ -1,11 +1,11 @@
 "use client";
+import { useLocale, useTranslations } from "next-intl";
 import { useActionState, useEffect, useState } from "react";
 import {
   CARD_CATEGORY,
   currencySymbol,
-  formatBRL,
   isForeign,
-  parseBRL,
+  parseMoney,
   toReais,
   type Currency,
   type FxCurrency,
@@ -19,7 +19,7 @@ import {
 } from "@/app/app/(painel)/lancamentos/actions";
 import { cx } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select } from "@/components/ui";
-import { DEFAULT_LOCALE } from "@/i18n/locales";
+import { formatAmount, formatDate, toAmountInput } from "@/i18n/format";
 
 const initial: EntryFormState = { ok: false, message: null };
 
@@ -43,8 +43,6 @@ export type EditableEntry = Pick<
   | "originalAmount"
 >;
 
-const fullDate = (date: string) => date.split("-").reverse().join("/");
-
 /** "≈ R$ 542,12, cotação de 30/10/2026", enquanto a pessoa digita em dólar ou euro. */
 function FxPreview({
   currency,
@@ -55,6 +53,8 @@ function FxPreview({
   date: string;
   typed: string;
 }) {
+  const t = useTranslations("lancamentos.form");
+  const locale = useLocale();
   const asked = `${currency}|${date}`;
   const [found, setFound] = useState<{ asked: string; quote: FxQuote | null } | null>(null);
   useEffect(() => {
@@ -72,19 +72,22 @@ function FxPreview({
   if (!found.quote)
     return (
       <p className="m-0 text-xs text-warning" role="status">
-        Ainda não temos a cotação para esta data.
+        {t("noQuote")}
       </p>
     );
   let value: string | null = null;
   try {
-    const parsed = parseBRL(typed);
+    const parsed = parseMoney(typed, locale);
     if (parsed.gt(0)) value = toReais(parsed, found.quote.rate);
   } catch {
     value = null;
   }
+  const quoted = formatDate(found.quote.date, locale);
   return (
     <p className="m-0 text-xs text-muted" role="status">
-      {value ? `≈ ${formatBRL(value)}, cotação` : "Cotação"} de {fullDate(found.quote.date)}
+      {value
+        ? t("fxPreview", { value: formatAmount(value, locale), date: quoted })
+        : t("fxRate", { date: quoted })}
     </p>
   );
 }
@@ -104,13 +107,16 @@ export function EntryForm({
   entry: EditableEntry | null;
   onDone: () => void;
 }) {
+  const t = useTranslations("lancamentos.form");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(saveEntry, initial);
   const [kind, setKind] = useState(initialKind);
   const [paidWith, setPaidWith] = useState(
     initialCard ? `card:${initialCard}` : (entry?.accountId ?? options.accounts[0]?.id ?? ""),
   );
-  const startValue = (entry?.originalAmount ?? entry?.amount)?.replace(".", ",");
-  const [typed, setTyped] = useState(startValue ?? "");
+  const startValue = entry?.originalAmount ?? entry?.amount;
+  const [typed, setTyped] = useState(startValue ? toAmountInput(startValue, locale) : "");
   const [date, setDate] = useState(entry?.date ?? today);
   const isPlan = entry?.source === "previsao";
   const showCards = !entry && kind === "despesa" && options.cards.length > 0;
@@ -123,15 +129,15 @@ export function EntryForm({
   }, [state, onDone]);
 
   return (
-    <form action={action} lang={DEFAULT_LOCALE} className="flex flex-col gap-4">
+    <form action={action} className="flex flex-col gap-4">
       {entry ? <input type="hidden" name="key" value={entry.key} /> : null}
       <fieldset>
-        <legend className="mb-1.5 text-sm font-medium">Tipo</legend>
+        <legend className="mb-1.5 text-sm font-medium">{t("type")}</legend>
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-brand-50 p-1">
           {(
             [
-              ["despesa", "Despesa"],
-              ["receita", "Receita"],
+              ["despesa", t("expense")],
+              ["receita", t("income")],
             ] as const
           ).map(([value, label]) => (
             <label
@@ -155,27 +161,30 @@ export function EntryForm({
         </div>
       </fieldset>
 
-      <Field label="Descrição" error={state.fieldErrors?.description}>
+      <Field label={t("description")} error={state.fieldErrors?.description}>
         <Input
           name="description"
           required
           maxLength={120}
-          placeholder={kind === "despesa" ? "Ex.: Conta de luz" : "Ex.: Salário"}
+          placeholder={t(kind === "despesa" ? "expenseExample" : "incomeExample")}
           defaultValue={entry?.description}
         />
       </Field>
       <div className="grid grid-cols-[2fr_3fr] gap-3">
-        <Field label={`Valor (${currencySymbol(currency)})`} error={state.fieldErrors?.amount}>
+        <Field
+          label={t("amount", { symbol: currencySymbol(currency) })}
+          error={state.fieldErrors?.amount}
+        >
           <Input
             name="amount"
             inputMode="decimal"
             required
-            placeholder="0,00"
+            placeholder={toAmountInput("0.00", locale)}
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
           />
         </Field>
-        <Field label="Data" error={state.fieldErrors?.date}>
+        <Field label={t("date")} error={state.fieldErrors?.date}>
           <Input
             name="date"
             type="date"
@@ -186,7 +195,7 @@ export function EntryForm({
         </Field>
       </div>
       {foreign ? <FxPreview currency={currency} date={date} typed={typed} /> : null}
-      <Field label="Categoria" error={state.fieldErrors?.categoryId}>
+      <Field label={t("category")} error={state.fieldErrors?.categoryId}>
         <Select
           name="categoryId"
           required
@@ -206,7 +215,10 @@ export function EntryForm({
             ))}
         </Select>
       </Field>
-      <Field label={showCards ? "Conta ou cartão" : "Conta"} error={state.fieldErrors?.accountId}>
+      <Field
+        label={t(showCards ? "accountOrCard" : "account")}
+        error={state.fieldErrors?.accountId}
+      >
         <Select
           name="accountId"
           required
@@ -221,7 +233,7 @@ export function EntryForm({
               </option>
             ))}
           {showCards ? (
-            <optgroup label="Cartões">
+            <optgroup label={t("cards")}>
               {options.cards.map((card) => (
                 <option key={card.id} value={`card:${card.id}`}>
                   {card.name}
@@ -233,8 +245,8 @@ export function EntryForm({
       </Field>
       {onCard ? (
         <Field
-          label="Parcelas"
-          hint="Cada parcela entra numa fatura."
+          label={t("installments")}
+          hint={t("installmentsHint")}
           error={state.fieldErrors?.installments}
         >
           <Input name="installments" type="number" min={1} max={72} required defaultValue={1} />
@@ -249,25 +261,22 @@ export function EntryForm({
             defaultChecked={entry ? entry.status === "realizado" : true}
             className="size-5 accent-brand-500"
           />
-          {kind === "despesa" ? "Já foi pago" : "Já foi recebido"}
+          {t(kind === "despesa" ? "paid" : "received")}
         </label>
       ) : null}
       {!entry && !onCard && !foreign ? (
         <label className="flex min-h-10 items-center gap-2 text-sm">
           <input type="checkbox" name="repeat" className="size-5 accent-brand-500" />
-          Repete todo mês
+          {t("repeat")}
         </label>
       ) : null}
       {isPlan ? (
-        <p className="rounded-xl bg-brand-50 p-3 text-sm text-muted">
-          Esta conta se repete todo mês. A alteração vale para todos os meses em aberto, e da data
-          usamos só o dia.
-        </p>
+        <p className="rounded-xl bg-brand-50 p-3 text-sm text-muted">{t("planNotice")}</p>
       ) : null}
 
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : entry ? "Salvar alterações" : "Salvar lançamento"}
+        {pending ? tCommon("saving") : t(entry ? "saveChanges" : "save")}
       </Button>
     </form>
   );

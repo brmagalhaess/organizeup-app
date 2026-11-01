@@ -5,8 +5,9 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { canWrite } from "@organizeup/db";
 import { money, percentChange, percentOf, toDbAmount, yearMonthOf } from "@organizeup/domain";
+import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { amountClass, buttonClass, confirmAction, cx } from "@/components/styles";
-import { Badge, Button, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
+import { Badge, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
 import {
   formatAmount,
@@ -21,7 +22,6 @@ import { loadTopSuggestions } from "@/lib/suggestions";
 import { loadNetWorth, loadReserve } from "@/lib/wealth";
 import { CashflowChart } from "./cashflow-chart";
 import { FirstSteps } from "./first-steps";
-import { confirmEntry } from "./lancamentos/actions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("dashboard");
@@ -234,13 +234,11 @@ export default async function OverviewPage() {
                     <DueBadge overdue={entry.overdue} />
                   </div>
                   {writable ? (
-                    <form action={confirmEntry}>
-                      <input type="hidden" name="key" value={entry.key} />
-                      <input type="hidden" name="month" value={yearMonthOf(entry.date)} />
-                      <Button type="submit" variant="secondary" small>
-                        {t(`confirm.${confirmAction(entry)}`)}
-                      </Button>
-                    </form>
+                    <ConfirmEntryButton
+                      entryKey={entry.key}
+                      month={yearMonthOf(entry.date)}
+                      label={t(`confirm.${confirmAction(entry)}`)}
+                    />
                   ) : null}
                 </li>
               ))}

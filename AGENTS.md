@@ -62,7 +62,11 @@ produção sozinho. Nunca crie nada no Dokploy `2.24.94.160` sem pedido do funda
    sobrescreve todos os dias, e o relatório diário diz o que mudou. Toda alteração automática fica em
    `household_suggestions` com `status = 'aplicada'`, `applied_by = 'agente'` e o estado anterior no
    `payload`, com **Desfazer**. Desfazer bloqueia aquela alteração automática para sempre
-   (`status = 'desfeita'`). Tool que altera dados só cria suggestion. Detalhes: ADR-0015 e ADR-0018.
+   (`status = 'desfeita'`). Tool que altera dados só cria suggestion. **Exceção de categoria (fundador,
+   2026-11-01):** lançamento em categoria genérica, seja qual for a origem, é mudado pelo agente sem aceite,
+   em qualquer nível de autonomia, com o mesmo registro, notificação do antes e depois em
+   `household_notifications` e Desfazer. Lançamento que a família pôs em categoria específica não muda nem
+   vira pergunta. Detalhes: ADR-0015 e ADR-0018.
 8. **Risco alto** (`.github/**`, `AGENTS.md`, `Dockerfile`, `packages/db/**`, `packages/domain/**`,
    `paperclip/**` e auth; lista completa em `.github/workflows/risk-label.yml`) só muda quando a issue pede
    explicitamente, e exige a revisão reforçada do Revisor/QA. Não espera o fundador (ADR-0015).

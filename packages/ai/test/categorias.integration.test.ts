@@ -29,6 +29,7 @@ const {
   eq,
   household,
   householdMember,
+  householdNotifications,
   householdReports,
   householdSettings,
   householdSuggestions,
@@ -160,6 +161,9 @@ const rowOf = (family: Family, id: string) =>
 const suggestions = (family: Family) =>
   inFamily(family, (tx) => tx.select().from(householdSuggestions));
 
+const notifications = (family: Family) =>
+  inFamily(family, (tx) => tx.select().from(householdNotifications));
+
 const promptOf = (params: unknown) => JSON.stringify(params);
 const sentGroups = (params: { messages: Array<{ content?: unknown }> }) => {
   const text = params.messages[0]!.content as string;
@@ -197,7 +201,7 @@ describe("o que muda sozinho", () => {
     ]);
     const { client, calls } = fakeClient([reply({ categoria: "Compras", confianca: "media" })]);
     const run = await review(family, client);
-    expect(run).toMatchObject({ gate: "pronto", groups: 1, moved: 2, suggestions: 0 });
+    expect(run).toMatchObject({ gate: "pronto", groups: 1, moved: 2 });
 
     const compras = await inFamily(family, (tx) => categoryId(tx, "Compras"));
     const outras = await inFamily(family, (tx) => categoryId(tx, "Outras despesas"));
@@ -331,23 +335,40 @@ describe("o que muda sozinho", () => {
   });
 });
 
-describe("o que só vira sugestão", () => {
-  it("categoria escolhida pela família nunca muda sozinha, mesmo em Outras", async () => {
+describe("categoria genérica muda sem aceite", () => {
+  it("lançamento da família em Outras muda, com aviso e sem pendência", async () => {
     const [id] = await seed(family, [{ description: "LOJA ATOMO", source: "familia" }]);
     const { client } = fakeClient([reply({ categoria: "Compras", confianca: "alta" })]);
-    const run = await review(family, client);
-    expect(run).toMatchObject({ moved: 0, suggestions: 1 });
-    const outras = await inFamily(family, (tx) => categoryId(tx, "Outras despesas"));
+    expect(await review(family, client)).toMatchObject({ moved: 1 });
+    const compras = await inFamily(family, (tx) => categoryId(tx, "Compras"));
     expect(await rowOf(family, id!)).toMatchObject({
-      categoryId: outras,
-      categorySource: "familia",
+      categoryId: compras,
+      categorySource: "agente",
     });
-    const rows = await suggestions(family);
-    expect(rows).toEqual([expect.objectContaining({ status: "pendente", kind: "categoria" })]);
-    expect(await inFamily(family, (tx) => tx.select().from(categoryMemory))).toEqual([]);
+    const [applied] = await suggestions(family);
+    expect(applied).toMatchObject({ status: "aplicada", appliedBy: "agente" });
+    const [notice] = await notifications(family);
+    expect(notice).toMatchObject({ suggestionId: applied!.id });
+    expect(notice!.data).toMatchObject({
+      merchant: "loja atomo",
+      fromNames: ["Outras despesas"],
+      toName: "Compras",
+      isNew: false,
+    });
   });
 
-  it("no mesmo estabelecimento, move o derivado e sugere o da família", async () => {
+  it("lançamento da família em categoria específica não vai ao modelo nem muda", async () => {
+    const [id] = await seed(family, [
+      { description: "LOJA ATOMO", source: "familia", category: "Lazer" },
+    ]);
+    const { client, calls } = fakeClient([]);
+    expect(await review(family, client)).toMatchObject({ groups: 0, moved: 0 });
+    expect(calls).toHaveLength(0);
+    expect((await rowOf(family, id!)).categorySource).toBe("familia");
+    expect(await suggestions(family)).toEqual([]);
+  });
+
+  it("no mesmo estabelecimento, o que está em Outras muda junto, numa linha só", async () => {
     const [derived, chosen] = await seed(family, [
       { description: "LOJA ATOMO", source: "importacao" },
       { description: "LOJA ATOMO", source: "familia" },
@@ -356,72 +377,105 @@ describe("o que só vira sugestão", () => {
     await review(family, client);
     const papelaria = await inFamily(family, (tx) => categoryId(tx, "Papelaria"));
     expect((await rowOf(family, derived!)).categoryId).toBe(papelaria);
-    expect((await rowOf(family, chosen!)).categorySource).toBe("familia");
-    const pending = (await suggestions(family)).find((row) => row.status === "pendente");
-    expect(pending!.payload).toMatchObject({
-      transactionIds: [chosen],
-      toCategoryId: papelaria,
-      newCategory: null,
-    });
+    expect((await rowOf(family, chosen!)).categoryId).toBe(papelaria);
+    expect(await suggestions(family)).toHaveLength(1);
+    const [notice] = await notifications(family);
+    expect(notice!.data).toMatchObject({ count: 2, toName: "Papelaria", isNew: true });
   });
 
-  it("confiança baixa fica pendente e aceitar aplica", async () => {
+  it("confiança baixa nem muda nem pergunta, e volta depois do intervalo", async () => {
     const [id] = await seed(family, [{ description: "LOJA ATOMO", source: "revisar" }]);
     const { client } = fakeClient([reply({ categoria: "Compras", confianca: "baixa" })]);
-    const run = await review(family, client);
-    expect(run).toMatchObject({ moved: 0, suggestions: 1 });
+    expect(await review(family, client)).toMatchObject({ moved: 0, skipped: 1 });
     expect((await rowOf(family, id!)).categorySource).toBe("revisar");
 
-    const [pending] = await suggestions(family);
-    const ctx = await ownerContext(family);
-    const accept = await db.withHousehold(ctx, (tx) =>
-      agents.applySuggestion(tx, ctx, pending!.id),
+    const rows = await suggestions(family);
+    expect(rows).toEqual([
+      expect.objectContaining({
+        status: "ignorada",
+        dedupeKey: "categoria:despesa:loja atomo:sem_pista",
+      }),
+    ]);
+    expect(await notifications(family)).toEqual([]);
+
+    const soon = fakeClient([]);
+    expect((await review(family, soon.client)).groups).toBe(0);
+    await inFamily(family, (tx) =>
+      tx
+        .update(householdSuggestions)
+        .set({ decidedAt: new Date(Date.now() - 31 * 86_400_000) })
+        .where(eq(householdSuggestions.dedupeKey, "categoria:despesa:loja atomo:sem_pista")),
     );
-    expect(accept.ok).toBe(true);
-    expect((await rowOf(family, id!)).categorySource).toBe("familia");
+    const later = fakeClient([reply({ categoria: "Compras", confianca: "media" })]);
+    expect(await review(family, later.client)).toMatchObject({ groups: 1, moved: 1 });
   });
 
-  it("categoria nova só nasce quando a família aceita a sugestão", async () => {
+  it("confiança baixa não cria categoria", async () => {
     await seed(family, [{ description: "LOJA ATOMO", source: "revisar" }]);
     const { client } = fakeClient([reply({ nova_categoria: "Papelaria", confianca: "baixa" })]);
     await review(family, client);
-    const named = () =>
-      inFamily(family, (tx) =>
-        tx.select().from(categories).where(eq(categories.name, "Papelaria")),
-      );
-    expect(await named()).toEqual([]);
-
-    const [pending] = await suggestions(family);
-    const ctx = await ownerContext(family);
-    await db.withHousehold(ctx, (tx) => agents.applySuggestion(tx, ctx, pending!.id));
-    expect(await named()).toHaveLength(1);
-
-    await db.withHousehold(ctx, (tx) => agents.undoSuggestion(tx, ctx, pending!.id));
-    expect((await named())[0]!.archived).toBe(true);
+    const named = await inFamily(family, (tx) =>
+      tx.select().from(categories).where(eq(categories.name, "Papelaria")),
+    );
+    expect(named).toEqual([]);
   });
 
-  it("no nível Sugerir nada muda sozinho", async () => {
+  it("no nível Sugerir também muda: a decisão vale em todo nível", async () => {
     await inFamily(family, (tx) => tx.update(householdSettings).set({ aiAutonomy: "sugerir" }));
-    const [id] = await seed(family, [{ description: "LOJA ATOMO", source: "revisar" }]);
+    const [id] = await seed(family, [{ description: "LOJA ATOMO", source: "familia" }]);
     const { client } = fakeClient([reply({ categoria: "Compras", confianca: "alta" })]);
-    expect(await review(family, client)).toMatchObject({ moved: 0, suggestions: 1 });
-    expect((await rowOf(family, id!)).categorySource).toBe("revisar");
+    expect(await review(family, client)).toMatchObject({ moved: 1 });
+    expect((await rowOf(family, id!)).categorySource).toBe("agente");
+    expect((await suggestions(family))[0]).toMatchObject({ status: "aplicada" });
+  });
+
+  it("sem o aceite do assistente, só as regras rodam, e elas aplicam direto", async () => {
+    await inFamily(family, (tx) =>
+      tx.update(householdSettings).set({ aiConsentAt: null, aiConsentVersion: null }),
+    );
+    const [known, unknown] = await seed(family, [
+      { description: "SUPERMERCADO BOM", source: "familia" },
+      { description: "LOJA ATOMO", source: "familia" },
+    ]);
+    await inFamily(family, (tx) =>
+      agents.runCategoriasAgent(tx, { today, householdId: family.id }),
+    );
+    const { client, calls } = fakeClient([]);
+    expect((await review(family, client)).gate).toBe("sem_aceite");
+    expect(calls).toHaveLength(0);
+    expect((await rowOf(family, known!)).categorySource).toBe("agente");
+    expect((await rowOf(family, unknown!)).categorySource).toBe("familia");
+  });
+
+  it("regras e IA no mesmo estabelecimento e destino dão uma notificação só", async () => {
+    await seed(family, [{ description: "SUPERMERCADO BOM", amount: "10.00" }]);
+    await inFamily(family, (tx) =>
+      agents.runCategoriasAgent(tx, { today, householdId: family.id }),
+    );
+    await seed(family, [{ description: "SUPERMERCADO BOM", amount: "5.00" }]);
+    const { client } = fakeClient([reply({ categoria: "Mercado" })]);
+    expect(await review(family, client)).toMatchObject({ moved: 1 });
+    const rows = await notifications(family);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.data).toMatchObject({ count: 2, total: "15.00" });
+    expect(await suggestions(family)).toHaveLength(1);
   });
 
   it("se a família escolheu durante a chamada, vale a escolha dela", async () => {
     const [id] = await seed(family, [{ description: "LOJA ATOMO", source: "revisar" }]);
     const { client } = fakeClient([
       async () => {
-        await inFamily(family, (tx) =>
+        await inFamily(family, async (tx) =>
           tx
             .update(transactions)
-            .set({ categorySource: "familia" })
+            .set({ categoryId: await categoryId(tx, "Lazer"), categorySource: "familia" })
             .where(eq(transactions.id, id!)),
         );
         return reply({ categoria: "Compras" });
       },
     ]);
-    expect(await review(family, client)).toMatchObject({ moved: 0, suggestions: 1 });
+    expect(await review(family, client)).toMatchObject({ moved: 0 });
+    expect(await suggestions(family)).toEqual([]);
   });
 });
 
@@ -596,9 +650,9 @@ describe("portão, limite e privacidade", () => {
       }),
     );
     await seed(named, [
-      { description: "PIX ENVIADO MARIANA SOBRENOMEX", amount: "300.00" },
+      { description: "PIX ENVIADO MARIANA SOBRENOMEX", amount: "300.00", source: "familia" },
       { description: "PAGAMENTO mariana.sobrenomex@example.com", amount: "200.00" },
-      { description: "TED 123.456.789-09 MARIANA123 PADARIA", amount: "100.00" },
+      { description: "TED 123.456.789-09 MARIANA123 PADARIA", amount: "100.00", source: null },
     ]);
     const { client, calls } = fakeClient([
       reply({ categoria: "Mesada da titular" }, { nova_categoria: "Mariana" }, {}),

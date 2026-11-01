@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import {
   accounts,
   asc,
@@ -16,10 +17,14 @@ import { Card, PageHeader } from "@/components/ui";
 import { requireTenant } from "@/lib/session";
 import { ImportWizard } from "./import-wizard";
 
-export const metadata: Metadata = { title: "Importar extrato" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("importar");
+  return { title: t("metaTitle") };
+}
 
 export default async function ImportPage() {
   const { ctx } = await requireTenant();
+  const t = await getTranslations("importar");
   const data = await withHousehold(ctx, async (tx) => {
     const accountRows = await tx
       .select({
@@ -57,11 +62,7 @@ export default async function ImportPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Importar extrato"
-        title="Traga o extrato do banco"
-        description="O agente categoriza cada lançamento, e você revisa antes de gravar."
-      />
+      <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
       {canWrite(ctx) ? (
         <ImportWizard
           accounts={data.accountRows
@@ -70,7 +71,7 @@ export default async function ImportPage() {
           categories={data.categoryRows.filter((category) => category.name !== CARD_CATEGORY)}
           batches={data.batchRows.map((batch) => ({
             id: batch.id,
-            accountName: accountName.get(batch.accountId) ?? "Conta",
+            accountName: accountName.get(batch.accountId) ?? t("fallbackAccount"),
             source: batch.source,
             rowCount: batch.rowCount,
             periodStart: batch.periodStart,
@@ -81,7 +82,7 @@ export default async function ImportPage() {
         />
       ) : (
         <Card>
-          <p className="text-sm text-muted">Seu papel nesta família não permite importar.</p>
+          <p className="text-sm text-muted">{t("noPermission")}</p>
         </Card>
       )}
     </div>

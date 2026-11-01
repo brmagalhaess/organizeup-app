@@ -4,6 +4,19 @@
 import { z } from "zod";
 import type { SuggestionKind } from "@organizeup/db";
 
+/**
+ * Tipos que o agente resolve sozinho, sem pergunta. Linha pendente deles é anterior à decisão de
+ * 2026-11-01: a tela não mostra, e a próxima rodada aplica ou fecha.
+ */
+export const AUTOMATIC_SUGGESTION_KINDS = [
+  "categoria",
+  "fusao_categoria",
+] as const satisfies readonly SuggestionKind[];
+
+/** Motivo gravado pela etapa de IA. Pendente com ele não diz com que confiança o modelo respondeu. */
+export const AI_CATEGORY_REASON =
+  "O assistente reconheceu o estabelecimento pela descrição do extrato";
+
 /** Valor em reais no formato do banco, maior que zero. */
 export const amountSchema = z
   .string()
@@ -42,6 +55,8 @@ export const categoriaPayloadSchema = z.object({
   appliedCategoryId: z.string().min(1).optional(),
   /** Categoria que nasceu com esta mudança: desfazer arquiva, se ela ficou sem uso. */
   createdCategoryId: z.string().min(1).optional(),
+  /** Dia em que o agente mudou, no fuso da família: a mesma mudança no mesmo dia soma nesta linha. */
+  day: z.string().min(1).optional(),
 });
 
 export const fusaoCategoriaPayloadSchema = z.object({

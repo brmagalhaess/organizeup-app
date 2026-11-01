@@ -8,14 +8,7 @@ import {
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
-import {
-  isYearMonth,
-  money,
-  parseBRL,
-  parseMoney,
-  toDbAmount,
-  type MoneyValue,
-} from "@organizeup/domain";
+import { isYearMonth, money, parseMoney, toDbAmount } from "@organizeup/domain";
 import { audit } from "./audit";
 
 /** Sobe quando o cadastro complementar pedir dados novos: as famílias voltam a ver o convite. */
@@ -56,13 +49,11 @@ export const optionalInt = (min: number, max: number, message: string) =>
       return z.NEVER;
     });
 
-/**
- * Valor opcional digitado: vazio vira null, o resto vai para o banco com 2 casas. Sem `parse`, lê em
- * pt-BR, como em /app/completar.
- */
+/** Valor opcional no formato do idioma: vazio vira null, o resto vai para o banco com 2 casas. */
 export const optionalAmount = (
   message: string,
-  limits: { positive?: boolean; max?: string; parse?: (value: string) => MoneyValue } = {},
+  limits: { positive?: boolean; max?: string } = {},
+  locale = "pt-BR",
 ) =>
   z
     .string()
@@ -70,7 +61,7 @@ export const optionalAmount = (
     .transform((value, ctx): string | null => {
       if (value === "") return null;
       try {
-        const amount = toDbAmount((limits.parse ?? parseBRL)(value));
+        const amount = toDbAmount(parseMoney(value, locale));
         const parsed = money(amount);
         const tooLow = limits.positive ? parsed.lte(0) : parsed.lt(0);
         if (tooLow || parsed.gt(limits.max ?? "999999999999")) throw new RangeError("fora");
@@ -102,7 +93,7 @@ export function isPlanAdult(relation: string) {
   return relation === "titular" || relation === "conjuge";
 }
 
-export const adultProfileShape = {
+export const adultProfileFor = (locale: string) => ({
   workStatus: z.preprocess(
     (value) => (value === "" ? null : value),
     z.enum(WORK_STATUSES, { message: "Escolha a situação de trabalho." }).nullable(),
@@ -110,16 +101,10 @@ export const adultProfileShape = {
   inssContributor: z
     .enum(["", "sim", "nao"], { message: "Escolha uma opção." })
     .transform((value) => (value === "" ? null : value === "sim")),
-  expectedPension: optionalAmount("Informe o benefício como 2.500,00."),
-};
-
-/** O mesmo perfil com o benefício digitado no idioma da pessoa, para /app/familia. */
-export const adultProfileShapeIn = (locale: string) => ({
-  ...adultProfileShape,
-  expectedPension: optionalAmount("Informe o benefício como 2.500,00.", {
-    parse: (value) => parseMoney(value, locale),
-  }),
+  expectedPension: optionalAmount("Informe o benefício como 2.500,00.", {}, locale),
 });
+
+export const adultProfileShape = adultProfileFor("pt-BR");
 
 export const planShape = {
   retirementYear: optionalInt(1950, 2150, "Informe um ano entre 1950 e 2150."),

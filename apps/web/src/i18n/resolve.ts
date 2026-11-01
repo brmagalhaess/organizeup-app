@@ -1,7 +1,6 @@
 import "server-only";
 import { readUserLocale } from "@organizeup/db";
 import { cookies, headers } from "next/headers";
-import { cache } from "react";
 import { getSession } from "@/lib/session";
 import {
   isLocale,
@@ -23,17 +22,27 @@ async function accountLocale(): Promise<Locale | null> {
   }
 }
 
+// O `cache` do React não vale dentro de server action, e uma action pede o idioma várias vezes. O objeto
+// de cabeçalhos é um por requisição: guardado nele, o idioma é lido uma vez só nas duas situações.
+const resolved = new WeakMap<object, Promise<Locale>>();
+
 /**
  * Idioma da requisição: conta, depois cookie, depois o navegador. O padrão é pt-BR. Em `/en` e `/es`
  * vale o endereço, com o cabeçalho de `proxy.ts`: ali a busca precisa achar sempre o mesmo idioma.
  */
-export const resolveLocale = cache(async (): Promise<Locale> => {
+export async function resolveLocale(): Promise<Locale> {
   // Lidos antes do try: é aqui que o Next descobre que a rota é dinâmica.
   const store = await cookies();
   const requestHeaders = await headers();
   const landing = requestHeaders.get(LANDING_LOCALE_HEADER);
   if (isLocale(landing)) return landing;
-  const acceptLanguage = requestHeaders.get("accept-language");
+  const known = resolved.get(requestHeaders);
+  if (known) return known;
   const chosen = store.get(LOCALE_COOKIE)?.value;
-  return (await accountLocale()) ?? (isLocale(chosen) ? chosen : negotiateLocale(acceptLanguage));
-});
+  const acceptLanguage = requestHeaders.get("accept-language");
+  const locale = accountLocale().then(
+    (saved) => saved ?? (isLocale(chosen) ? chosen : negotiateLocale(acceptLanguage)),
+  );
+  resolved.set(requestHeaders, locale);
+  return locale;
+}

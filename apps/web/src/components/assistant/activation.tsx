@@ -49,7 +49,7 @@ export function Activation({ headingId }: { headingId: string }) {
             />
             <span className="min-w-0">
               <span className="block font-medium">{tLevels(level)}</span>
-              <span className="block text-muted">{tLevels(`${level}Text`)}</span>
+              <span className="block text-muted">{t(`levelTexts.${level}Text`)}</span>
             </span>
           </label>
         ))}

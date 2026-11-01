@@ -1,12 +1,11 @@
 // Parte de banco da categorização com IA (ADR-0018). O modelo é chamado por `packages/ai`, fora de
 // qualquer transação; aqui se escolhe o que vai para ele e se aplica o plano já validado pelo domínio.
-// Regra 7: o que a família escolheu só vira sugestão, e o que foi desfeito não volta.
+// Regra 7: o que está em categoria genérica muda sem aceite, e o que foi desfeito não volta.
 import {
   and,
   categories,
   eq,
   householdReports,
-  householdSuggestions,
   inArray,
   or,
   transactions,
@@ -16,10 +15,10 @@ import {
   categoryCandidates,
   categoryDedupeKey,
   dailyCategoryReport,
-  effectiveCategorySource,
   isCategoryCandidate,
   isGenericCategory,
   memoryKey,
+  merchantsOfDedupeKeys,
   withAiSummary,
   type CategoryCandidate,
   type CategoryMove,
@@ -28,15 +27,14 @@ import {
   type ReportCategoriasIa,
   type ReviewGroup,
 } from "@organizeup/domain";
-import { applyGroup, CATEGORIAS_AGENT, pendingOf } from "./run-categorias";
-import { DEDUPE, type CategoriaPayload } from "./suggestions";
+import { applyGroup, CATEGORIAS_AGENT } from "./run-categorias";
+import { AI_CATEGORY_REASON, DEDUPE, type CategoriaPayload } from "./suggestions";
 import {
   clamp,
   loadDecisions,
   MAX_REPORT_SUMMARY,
   recordSkipped,
   saveDailyReport,
-  upsertPending,
   type PendingSuggestion,
 } from "./shared";
 
@@ -46,16 +44,6 @@ export const CATEGORIAS_IA_AGENT = "categorias_ia";
 export const MAX_AI_GROUPS = 80;
 /** Categorias novas por noite. O resto volta amanhã, já vendo as que nasceram hoje. */
 export const MAX_AI_NEW_CATEGORIES = 5;
-
-const AI_REASON = "O assistente reconheceu o estabelecimento pela descrição do extrato";
-
-/** `categoria:<tipo>:<estabelecimento>:...` vira a chave do estabelecimento; o resto, null. */
-function merchantOf(dedupeKey: string): string | null {
-  const [prefix, kind, merchant] = dedupeKey.split(":");
-  return prefix === "categoria" && kind && merchant ? `${kind}:${merchant}` : null;
-}
-
-const merchantsOf = (keys: Iterable<string>) => [...keys].flatMap((key) => merchantOf(key) ?? []);
 
 export interface CategoryReviewInput {
   groups: CategoryCandidate[];
@@ -90,19 +78,7 @@ export async function loadCategoryCandidates(
     );
 
   const decisions = await loadDecisions(tx, today);
-  const pending = await tx
-    .select({ key: householdSuggestions.dedupeKey })
-    .from(householdSuggestions)
-    .where(
-      and(eq(householdSuggestions.status, "pendente"), eq(householdSuggestions.kind, "categoria")),
-    );
-  const closed = new Set(
-    merchantsOf([
-      ...decisions.blocked,
-      ...decisions.recentlyIgnored,
-      ...pending.map((row) => row.key),
-    ]),
-  );
+  const closed = merchantsOfDedupeKeys([...decisions.blocked, ...decisions.recentlyIgnored]);
   return {
     groups: categoryCandidates(
       rows.map((row) => ({ ...row, categoryName: nameOf.get(row.categoryId) ?? "" })),
@@ -121,34 +97,26 @@ export interface CategoryApplyInput {
   plan: CategoryPlan;
   /** Quantos grupos foram ao modelo. */
   sent: number;
-  /** A família escolheu o nível "Sugerir": nada muda sozinho. */
-  suggestOnly: boolean;
 }
 
 export interface CategoryApplyResult {
   /** Lançamentos movidos. */
   moved: number;
-  /** Sugestões pendentes gravadas. */
-  suggestions: number;
   created: string[];
-  /** Grupos sem resposta aproveitável, fora por 30 dias. */
+  /** Grupos sem resposta aproveitável ou com pouca confiança, fora por 30 dias. */
   skipped: number;
 }
 
-const moveGroup = (
-  move: CategoryMove,
-  rows: Array<{ id: string; categoryId: string }>,
-  toCategoryId: string | null,
-): ReviewGroup => {
+const moveGroup = (move: CategoryMove, rows: Array<{ id: string }>): ReviewGroup => {
   const { kind, merchant, fromCategoryId } = move.group;
   return {
     ids: rows.map((row) => row.id),
     kind,
     merchant,
     fromCategoryId,
-    toCategoryId,
-    newCategory: toCategoryId === move.target.categoryId ? move.target.newCategory : null,
-    reason: AI_REASON,
+    toCategoryId: move.target.categoryId,
+    newCategory: move.target.newCategory,
+    reason: AI_CATEGORY_REASON,
     dedupeKey: categoryDedupeKey(kind, merchant.slice(0, 120), move.target),
   };
 };
@@ -176,9 +144,9 @@ export async function applyCategoryPlan(
   tx: TenantTx,
   input: CategoryApplyInput,
 ): Promise<CategoryApplyResult> {
-  const { today, householdId, plan, sent, suggestOnly } = input;
+  const { today, householdId, plan, sent } = input;
   const decisions = await loadDecisions(tx, today);
-  const blocked = new Set(merchantsOf(decisions.blocked));
+  const blocked = merchantsOfDedupeKeys(decisions.blocked);
   const categoryRows = await tx.select().from(categories);
   const nameOf = new Map(categoryRows.map((c) => [c.id, c.name]));
   const ids = plan.moves.flatMap((move) => move.group.ids);
@@ -189,6 +157,7 @@ export async function applyCategoryPlan(
           .select({
             id: transactions.id,
             categoryId: transactions.categoryId,
+            amount: transactions.amount,
             categorySource: transactions.categorySource,
             importBatchId: transactions.importBatchId,
           })
@@ -199,7 +168,7 @@ export async function applyCategoryPlan(
   );
 
   const created: string[] = [];
-  const pending: PendingSuggestion[] = [];
+  const doubtful: CategoryCandidate[] = [];
   let moved = 0;
   for (const move of plan.moves) {
     const { group } = move;
@@ -210,36 +179,31 @@ export async function applyCategoryPlan(
     });
     if (still.length === 0) continue;
 
-    const automatic = move.confidence !== "baixa" && !suggestOnly;
-    const derived = automatic
-      ? still.filter((row) => effectiveCategorySource(row) !== "familia")
-      : [];
-    const waiting = still.filter((row) => !derived.includes(row));
-    let target = move.target.categoryId;
-    if (derived.length > 0) {
-      const applied = moveGroup(move, derived, target);
-      target = await applyGroup(tx, householdId, applied, current, nameOf, created);
-      if (target && move.target.newCategory) nameOf.set(target, move.target.newCategory.name);
-      moved += derived.length;
+    // Pouca confiança não muda nem pergunta: volta a ser avaliada depois do intervalo.
+    if (move.confidence === "baixa") {
+      doubtful.push(group);
+      continue;
     }
-    if (waiting.length > 0) pending.push(pendingOf(moveGroup(move, waiting, target), nameOf));
+    const target = await applyGroup(
+      tx,
+      { householdId, today },
+      moveGroup(move, still),
+      current,
+      nameOf,
+      created,
+    );
+    if (target && move.target.newCategory) nameOf.set(target, move.target.newCategory.name);
+    if (target) moved += still.length;
   }
-  const suggestions = await upsertPending(tx, householdId, CATEGORIAS_AGENT, decisions, pending);
 
-  const skipped = [...plan.unknown, ...plan.rejected];
+  const skipped = [...plan.unknown, ...plan.rejected, ...doubtful];
   for (const group of skipped) {
     await recordSkipped(tx, householdId, CATEGORIAS_AGENT, skippedItem(group));
   }
 
-  const ia: ReportCategoriasIa = {
-    groups: sent,
-    moved,
-    created,
-    pending: suggestions,
-    skipped: skipped.length,
-  };
+  const ia: ReportCategoriasIa = { groups: sent, moved, created, skipped: skipped.length };
   await addToDailyReport(tx, householdId, today, ia);
-  return { moved, suggestions, created, skipped: skipped.length };
+  return { moved, created, skipped: skipped.length };
 }
 
 /** Soma ao relatório do dia. Se o agente de regras falhou, nasce um relatório só com a IA. */
@@ -258,8 +222,10 @@ async function addToDailyReport(
     .from(householdReports)
     .where(and(eq(householdReports.kind, "categorias"), eq(householdReports.period, today)));
   if (!row) {
-    const report = dailyCategoryReport({ automatic: [], suggested: [] }, [], {
+    const report = dailyCategoryReport({
       reviewed: 0,
+      moved: 0,
+      merges: 0,
       created: [],
       day: today,
       ia,

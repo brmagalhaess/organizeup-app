@@ -1,4 +1,6 @@
 "use server";
+import type { Messages } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -16,7 +18,7 @@ import {
   CURRENCIES,
   currencySymbol,
   fitsAmount,
-  parseBRL,
+  parseMoney,
   toDbAmount,
   transferRate,
 } from "@organizeup/domain";
@@ -28,28 +30,32 @@ export interface SimpleFormState {
   message: string | null;
 }
 
-const READ_ONLY = "Seu papel nesta família não permite alterações.";
+type Errors = Messages["contas"]["errors"];
 
-const accountSchema = z.object({
-  id: z.string(),
-  name: z.string().trim().min(1, "Informe o nome da conta.").max(80),
-  type: z.enum(ACCOUNT_TYPES),
-  currency: z.enum(CURRENCIES, { message: "Escolha a moeda." }),
-  openingBalance: z.string().trim(),
-});
+const readOnly = async () => (await getTranslations("settings"))("noPermission");
 
-const transferSchema = z
-  .object({
-    fromAccountId: z.string().min(1, "Escolha a conta de origem."),
-    toAccountId: z.string().min(1, "Escolha a conta de destino."),
-    amount: z.string().trim().min(1, "Informe o valor."),
-    toAmount: z.string().trim(),
-    occurredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data."),
-    note: z.string().trim().max(120),
-  })
-  .refine((data) => data.fromAccountId !== data.toAccountId, {
-    message: "Escolha duas contas diferentes.",
+const accountSchema = (errors: Errors) =>
+  z.object({
+    id: z.string(),
+    name: z.string().trim().min(1, errors.name).max(80),
+    type: z.enum(ACCOUNT_TYPES),
+    currency: z.enum(CURRENCIES, { message: errors.currency }),
+    openingBalance: z.string().trim(),
   });
+
+const transferSchema = (errors: Errors) =>
+  z
+    .object({
+      fromAccountId: z.string().min(1, errors.from),
+      toAccountId: z.string().min(1, errors.to),
+      amount: z.string().trim().min(1, errors.amount),
+      toAmount: z.string().trim(),
+      occurredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, errors.date),
+      note: z.string().trim().max(120),
+    })
+    .refine((data) => data.fromAccountId !== data.toAccountId, {
+      message: errors.sameAccount,
+    });
 
 /** Move dinheiro entre duas contas. Não é receita nem despesa: não entra nos resumos do mês. */
 export async function createTransfer(
@@ -57,8 +63,13 @@ export async function createTransfer(
   form: FormData,
 ): Promise<SimpleFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
-  const parsed = transferSchema.safeParse({
+  if (!canWrite(ctx)) return { ok: false, message: await readOnly() };
+  const [t, locale, messages] = await Promise.all([
+    getTranslations("contas.errors"),
+    getLocale(),
+    getMessages(),
+  ]);
+  const parsed = transferSchema(messages.contas.errors).safeParse({
     fromAccountId: form.get("fromAccountId") ?? "",
     toAccountId: form.get("toAccountId") ?? "",
     amount: form.get("amount") ?? "",
@@ -67,17 +78,17 @@ export async function createTransfer(
     note: form.get("note") ?? "",
   });
   if (!parsed.success) {
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique os dados." };
+    return { ok: false, message: parsed.error.issues[0]?.message ?? t("checkData") };
   }
   const { amount: raw, toAmount: rawTo, note, ...values } = parsed.data;
   let amount: string;
   try {
-    const value = parseBRL(raw);
+    const value = parseMoney(raw, locale);
     if (value.lte(0)) throw new RangeError("valor");
     if (!fitsAmount(value)) throw new RangeError("valor");
     amount = toDbAmount(value);
   } catch {
-    return { ok: false, message: "Informe o valor como 500,00." };
+    return { ok: false, message: t("amountFormat") };
   }
   const failure = await withHousehold(ctx, async (tx) => {
     const found = await tx
@@ -89,23 +100,23 @@ export async function createTransfer(
           eq(accounts.archived, false),
         ),
       );
-    if (found.length !== 2) return "Uma das contas não existe mais.";
+    if (found.length !== 2) return t("accountGone");
     const from = found.find((account) => account.id === values.fromAccountId)!.currency;
     const to = found.find((account) => account.id === values.toAccountId)!.currency;
     // Entre moedas, as duas pontas são o que aconteceu de fato: a taxa sai delas, não da PTAX.
     let exchange: { toAmount: string; fxRate: string } | null = null;
     if (from !== to) {
-      const invalid = `Informe quanto entrou em ${currencySymbol(to)}, como 500,00.`;
+      const invalid = t("enteredFormat", { symbol: currencySymbol(to) });
       let toAmount: string;
       try {
-        const value = parseBRL(rawTo);
+        const value = parseMoney(rawTo, locale);
         if (value.lte(0) || !fitsAmount(value)) return invalid;
         toAmount = toDbAmount(value);
       } catch {
         return invalid;
       }
       const fxRate = transferRate(amount, from, toAmount);
-      if (!fxRate) return "Confira os dois valores: a taxa ficou fora do comum.";
+      if (!fxRate) return t("oddRate");
       exchange = { toAmount, fxRate };
     }
     const [created] = await tx
@@ -147,8 +158,13 @@ export async function saveAccount(
   form: FormData,
 ): Promise<SimpleFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
-  const parsed = accountSchema.safeParse({
+  if (!canWrite(ctx)) return { ok: false, message: await readOnly() };
+  const [t, locale, messages] = await Promise.all([
+    getTranslations("contas"),
+    getLocale(),
+    getMessages(),
+  ]);
+  const parsed = accountSchema(messages.contas.errors).safeParse({
     id: form.get("id") ?? "",
     name: form.get("name") ?? "",
     type: form.get("type"),
@@ -156,15 +172,15 @@ export async function saveAccount(
     openingBalance: form.get("openingBalance") ?? "",
   });
   if (!parsed.success)
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
+    return { ok: false, message: parsed.error.issues[0]?.message ?? t("errors.check") };
 
   const { id, name, type, currency } = parsed.data;
   let openingBalance = "0.00";
   if (parsed.data.openingBalance) {
     try {
-      openingBalance = toDbAmount(parseBRL(parsed.data.openingBalance));
+      openingBalance = toDbAmount(parseMoney(parsed.data.openingBalance, locale));
     } catch {
-      return { ok: false, message: "Informe o saldo como 1.250,00." };
+      return { ok: false, message: t("errors.balanceFormat") };
     }
   }
   const failure = await withHousehold(ctx, async (tx) => {
@@ -174,7 +190,7 @@ export async function saveAccount(
         .from(accounts)
         .where(eq(accounts.id, id));
       if (current && current.currency !== currency && (await accountsWithMovement(tx)).has(id))
-        return "Esta conta já tem movimento e não pode mudar de moeda. Crie outra conta.";
+        return t("errors.currencyLocked");
       await tx
         .update(accounts)
         .set({ name, type, currency, openingBalance })
@@ -191,7 +207,7 @@ export async function saveAccount(
   });
   if (failure) return { ok: false, message: failure };
   revalidatePath("/app", "layout");
-  return { ok: true, message: id ? "Conta salva." : "Conta criada." };
+  return { ok: true, message: t(id ? "saved" : "created") };
 }
 
 /** Arquiva ou reativa. A conta some dos formulários; o histórico continua. */

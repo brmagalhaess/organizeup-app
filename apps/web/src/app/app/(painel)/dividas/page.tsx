@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
-import { formatBRL, formatMonthShort, todayIn, yearMonthOf } from "@organizeup/domain";
+import { todayIn, yearMonthOf } from "@organizeup/domain";
 import { PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
+import { formatAmount, formatMonthAbbr } from "@/i18n/format";
 import { loadDebtFiles, loadDebtPlan, loadDebts } from "@/lib/commitments";
 import { requireTenant } from "@/lib/session";
 import { DebtPlanCard, DebtPlanError } from "./debt-plan-card";
 import { DebtsBoard } from "./debts-board";
 import { PayoffPlanner } from "./payoff-planner";
 
-export const metadata: Metadata = { title: "Dívidas" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("dividas");
+  return { title: t("metaTitle") };
+}
 
 export default async function DebtsPage() {
   const { ctx } = await requireTenant();
@@ -20,34 +25,37 @@ export default async function DebtsPage() {
   ]);
   const open = data.debts.filter((debt) => !debt.archived && debt.next);
   const lastDue = data.summary.lastDue;
+  const [t, locale] = await Promise.all([getTranslations("dividas"), getLocale()]);
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Dívidas"
-        title="Dívidas e empréstimos"
-        description="Saiba quanto falta, quando termina e o que pagar primeiro."
-      />
+      <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
       <Insights screen="dividas" />
       {plan === null ? <DebtPlanError /> : null}
       {plan?.plan ? <DebtPlanCard plan={plan.plan} /> : null}
       {open.length > 0 ? (
         <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
-          <StatTile label="Falta pagar" value={formatBRL(data.summary.balance)} />
-          <StatTile label="Parcelas deste mês" value={formatBRL(data.summary.thisMonth)} />
+          <StatTile label={t("stats.balance")} value={formatAmount(data.summary.balance, locale)} />
           <StatTile
-            label="Juros ainda a pagar"
-            value={formatBRL(data.summary.interestLeft)}
+            label={t("stats.thisMonth")}
+            value={formatAmount(data.summary.thisMonth, locale)}
+          />
+          <StatTile
+            label={t("stats.interestLeft")}
+            value={formatAmount(data.summary.interestLeft, locale)}
             {...(open.some((debt) => debt.system === "manual")
-              ? { hint: "Parcela informada não separa os juros." }
+              ? { hint: t("stats.interestHint") }
               : {})}
           />
           <StatTile
-            label="Última parcela"
+            label={t("stats.lastDue")}
             value={
               lastDue
-                ? `${formatMonthShort(yearMonthOf(lastDue))} de ${lastDue.slice(0, 4)}`
-                : "Sem parcelas"
+                ? t("stats.lastDueValue", {
+                    month: formatMonthAbbr(yearMonthOf(lastDue), locale),
+                    year: lastDue.slice(0, 4),
+                  })
+                : t("stats.noInstallments")
             }
           />
         </dl>

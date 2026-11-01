@@ -1,10 +1,10 @@
 "use client";
 import { ArrowRight, Trash2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useActionState, useEffect, useState } from "react";
 import {
   currencySymbol,
-  formatMoney,
-  parseBRL,
+  parseMoney,
   suggestTransfer,
   type Currency,
   type FxRates,
@@ -19,6 +19,8 @@ import {
   Input,
   Select,
 } from "@/components/ui";
+import { formatAmount, formatDate, toAmountInput } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
 import { createTransfer, deleteTransfer, type SimpleFormState } from "./actions";
 
 export interface TransferRow {
@@ -35,13 +37,11 @@ export interface TransferRow {
 }
 
 const initial: SimpleFormState = { ok: false, message: null };
-const fullDate = (date: string) => date.split("-").reverse().join("/");
-const toField = (value: string) => value.replace(".", ",");
 
 /** Quanto entraria pela cotação de hoje, para sugerir. Null com valor inválido ou sem cotação. */
-function suggestion(typed: string, from: Currency, to: Currency, rates: FxRates) {
+function suggestion(typed: string, from: Currency, to: Currency, rates: FxRates, locale: Locale) {
   try {
-    const value = parseBRL(typed);
+    const value = parseMoney(typed, locale);
     return value.gt(0) ? suggestTransfer(value, from, to, rates) : null;
   } catch {
     return null;
@@ -59,6 +59,8 @@ export function TransferForm({
   today: string;
   onDone: () => void;
 }) {
+  const t = useTranslations("contas.transfer");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(createTransfer, initial);
   const [fromId, setFromId] = useState(accounts[0]?.id ?? "");
   const [toId, setToId] = useState(accounts[1]?.id ?? "");
@@ -68,14 +70,14 @@ export function TransferForm({
   const from = accounts.find((account) => account.id === fromId)?.currency ?? "BRL";
   const to = accounts.find((account) => account.id === toId)?.currency ?? "BRL";
   const exchange = from !== to;
-  const suggested = exchange ? suggestion(typed, from, to, rates) : null;
+  const suggested = exchange ? suggestion(typed, from, to, rates, locale) : null;
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
   return (
     <form action={action} className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="De">
+        <Field label={t("from")}>
           <Select
             name="fromAccountId"
             value={fromId}
@@ -88,7 +90,7 @@ export function TransferForm({
             ))}
           </Select>
         </Field>
-        <Field label="Para">
+        <Field label={t("to")}>
           <Select name="toAccountId" value={toId} onChange={(event) => setToId(event.target.value)}>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
@@ -99,79 +101,77 @@ export function TransferForm({
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label={`${exchange ? "Saiu" : "Valor"} (${currencySymbol(from)})`}>
+        <Field label={t(exchange ? "left" : "amount", { symbol: currencySymbol(from) })}>
           <Input
             name="amount"
             inputMode="decimal"
             required
-            placeholder="500,00"
+            placeholder={toAmountInput("500.00", locale)}
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
           />
         </Field>
         {exchange ? (
-          <Field
-            label={`Entrou (${currencySymbol(to)})`}
-            hint="Sugerido pela cotação do dia. Ajuste para o que o banco cobrou."
-          >
+          <Field label={t("entered", { symbol: currencySymbol(to) })} hint={t("enteredHint")}>
             <Input
               name="toAmount"
               inputMode="decimal"
               required
-              placeholder="500,00"
-              value={received ?? (suggested ? toField(suggested) : "")}
+              placeholder={toAmountInput("500.00", locale)}
+              value={received ?? (suggested ? toAmountInput(suggested, locale) : "")}
               onChange={(event) => setReceived(event.target.value)}
             />
           </Field>
         ) : null}
-        <Field label="Data">
+        <Field label={t("date")}>
           <Input name="occurredOn" type="date" required defaultValue={today} />
         </Field>
       </div>
-      <Field label="Observação" hint="Opcional.">
+      <Field label={t("note")} hint={t("noteHint")}>
         <Input name="note" maxLength={120} />
       </Field>
-      <p className="m-0 text-xs text-muted">
-        O saldo das duas contas muda. Não conta como gasto nem como receita
-        {exchange ? ", e a diferença de câmbio também não." : "."}
-      </p>
+      <p className="m-0 text-xs text-muted">{t(exchange ? "explainExchange" : "explain")}</p>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Transferindo…" : "Transferir"}
+        {t(pending ? "pending" : "submit")}
       </Button>
     </form>
   );
 }
 
 export function TransferList({ rows, writable }: { rows: TransferRow[]; writable: boolean }) {
+  const t = useTranslations("contas.transfer");
+  const locale = useLocale();
   const [removing, setRemoving] = useState<TransferRow | null>(null);
   if (rows.length === 0) return null;
   return (
-    <Card title="Transferências recentes">
-      <ul aria-label="Transferências" className="m-0 list-none divide-y divide-line p-0">
+    <Card title={t("recent")}>
+      <ul aria-label={t("list")} className="m-0 list-none divide-y divide-line p-0">
         {rows.map((row) => (
           <li key={row.id} className="flex items-center gap-3 py-3 text-sm">
             <div className="min-w-0 flex-1">
               <p className="m-0 flex flex-wrap items-center gap-1 font-medium">
                 {row.fromName}
-                <ArrowRight className="size-3.5" aria-label="para" />
+                <ArrowRight className="size-3.5" aria-label={t("arrow")} />
                 {row.toName}
               </p>
               <p className="m-0 break-words text-xs text-muted">
-                {fullDate(row.occurredOn)}
+                {formatDate(row.occurredOn, locale)}
                 {row.note ? ` · ${row.note}` : ""}
               </p>
             </div>
             <p className="m-0 whitespace-nowrap text-right font-medium tabular-nums">
-              {formatMoney(row.amount, row.fromCurrency)}
+              {formatAmount(row.amount, locale, "full", row.fromCurrency)}
               {row.toAmount ? (
                 <span className="block text-xs font-normal text-muted">
-                  entrou {formatMoney(row.toAmount, row.toCurrency)}
+                  {t("received", {
+                    value: formatAmount(row.toAmount, locale, "full", row.toCurrency),
+                  })}
                 </span>
               ) : null}
             </p>
             {writable ? (
-              <IconButton label="Desfazer transferência" onClick={() => setRemoving(row)}>
+              <IconButton label={t("undo")} onClick={() => setRemoving(row)}>
                 <Trash2 className="size-4" aria-hidden="true" />
               </IconButton>
             ) : null}
@@ -181,9 +181,9 @@ export function TransferList({ rows, writable }: { rows: TransferRow[]; writable
       <ConfirmSheet
         open={removing !== null}
         onClose={() => setRemoving(null)}
-        title="Desfazer transferência"
-        text="O valor volta para a conta de origem."
-        confirmLabel="Desfazer"
+        title={t("undo")}
+        text={t("undoText")}
+        confirmLabel={t("undoConfirm")}
         action={deleteTransfer}
         hidden={{ id: removing?.id ?? "" }}
       />

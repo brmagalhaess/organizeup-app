@@ -1,8 +1,15 @@
-// Ferramentas que organizam (§2 e §4). Nenhuma mexe direto no dado da família: todas criam uma sugestão
-// em `household_suggestions`, regra 7. Só duas podem aplicar sozinhas, conforme o nível de autonomia,
-// sempre com Desfazer e com limite por dia: categoria de lançamento que ficou "para revisar" (dado
-// derivado) e meta em rascunho, no nível Completo.
-import { applySuggestion, DEDUPE, parsePayload, type MetaPayload } from "@organizeup/agents";
+// Ferramentas que organizam (§2 e §4). Quase todas só criam uma sugestão em `household_suggestions`,
+// regra 7. Duas mudam na hora, sempre com Desfazer e com limite por dia: categoria de lançamento em
+// categoria genérica ou "para revisar", em qualquer nível de autonomia, com aviso em Notificações
+// (decisão do fundador em 2026-11-01), e meta em rascunho, no nível Completo.
+import {
+  applyGroup,
+  applySuggestion,
+  DEDUPE,
+  loadDecisions,
+  parsePayload,
+  type MetaPayload,
+} from "@organizeup/agents";
 import {
   and,
   categories,
@@ -19,10 +26,17 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import {
+  categoryDedupeKey,
   formatBRL,
+  isCategoryCandidate,
+  isCategoryTarget,
+  memoryKey,
+  merchantKey,
+  merchantsOfDedupeKeys,
   monthBounds,
   normalizeDescription,
   toDbAmount,
+  validNewCategoryName,
   yearMonthOf,
 } from "@organizeup/domain";
 import { z } from "zod";
@@ -50,6 +64,9 @@ const SCREEN_LINKS = {
 type Screen = keyof typeof SCREEN_LINKS;
 
 const PENDING = "Deixei na tela Sugestões. Nada mudou até a família aceitar.";
+const NOT_MOVED =
+  "Não mexi no que a família colocou numa categoria específica nem no que ela já desfez. Quem quiser, troca direto no lançamento.";
+const DAILY_LIMIT = "Cheguei ao limite de alterações de hoje. Amanhã posso fazer essa.";
 
 interface Proposal {
   kind: SuggestionKind;
@@ -120,7 +137,7 @@ async function applyAlone(tx: TenantTx, ctx: TenantContext, id: string): Promise
 const sugerirCategoria = defineTool({
   name: "sugerir_categoria",
   description:
-    "Propõe mover lançamentos de um mês para uma categoria. Chame só quando a pessoa pedir ou concordar. Lançamento que ficou para revisar pode mudar na hora, conforme o nível de autonomia e com Desfazer; os demais ficam como sugestão. Use o nome da categoria como em listar_categorias.",
+    "Move lançamentos de um mês para uma categoria. Chame só quando a pessoa pedir ou concordar. Lançamento em categoria genérica ou que ficou para revisar muda na hora, em qualquer nível de autonomia, com aviso em Notificações e Desfazer. Lançamento que a família colocou numa categoria específica não muda nem vira sugestão. Use o nome da categoria como em listar_categorias.",
   kind: "escrita",
   input: z.strictObject({
     busca: z.string().min(3).max(80).describe("Parte da descrição dos lançamentos."),
@@ -143,38 +160,74 @@ const sugerirCategoria = defineTool({
       if (!sample) return { feito: false, motivo: "Não achei lançamentos com essa descrição." };
 
       const names = await tx
-        .select({ id: categories.id, name: categories.name, kind: categories.kind })
-        .from(categories)
-        .where(eq(categories.archived, false));
+        .select({
+          id: categories.id,
+          name: categories.name,
+          kind: categories.kind,
+          archived: categories.archived,
+        })
+        .from(categories);
+      const nameOf = new Map(names.map((row) => [row.id, row.name]));
       const target = normalizeDescription(input.categoria);
       const category = names.find(
-        (row) => row.kind === sample.kind && normalizeDescription(row.name) === target,
+        (row) =>
+          !row.archived && row.kind === sample.kind && normalizeDescription(row.name) === target,
       );
-      const same = lines.filter((row) => row.kind === sample.kind);
-      const id = await propose(tx, ctx, {
-        kind: "categoria",
-        title: `Mover para ${input.categoria}`,
-        body: `${same.length} lançamento(s) com "${input.busca}" vão para ${input.categoria}.`,
-        payload: {
-          kind: sample.kind,
-          transactionIds: same.map((row) => row.id),
-          fromCategoryId: sample.categoryId,
-          toCategoryId: category?.id ?? null,
-          newCategory: category ? null : { name: input.categoria, essential: false },
-          merchant: wanted.slice(0, 120),
-        },
-        dedupeKey: DEDUPE.categoria(sample.kind, wanted, category?.id ?? { newName: target }),
-      });
-      const derived = same.every((row) => row.categorySource === "revisar");
-      const allowed = derived && (await autonomyOf(tx)) !== "sugerir";
-      if (allowed && (await canActAlone(tx, today)) && (await applyAlone(tx, ctx, id))) {
-        return {
-          feito: true,
-          lancamentos: same.length,
-          aviso: "Já movi. A família pode desfazer em Sugestões.",
-        };
+      if (category ? !isCategoryTarget(category.name) : !validNewCategoryName(input.categoria)) {
+        return { feito: false, motivo: "Essa categoria não recebe lançamentos do assistente." };
       }
-      return { feito: false, lancamentos: same.length, aviso: PENDING };
+
+      const { blocked } = await loadDecisions(tx, today);
+      const undone = merchantsOfDedupeKeys(blocked);
+      const same = lines.filter((row) => row.kind === sample.kind);
+      const groups = new Map<string, typeof same>();
+      for (const row of same) {
+        const merchant = merchantKey(row.description) || wanted;
+        const eligible = isCategoryCandidate({
+          ...row,
+          categoryName: nameOf.get(row.categoryId) ?? "",
+        });
+        if (!eligible || row.categoryId === category?.id) continue;
+        if (undone.has(memoryKey(row.kind, merchant))) continue;
+        groups.set(merchant, [...(groups.get(merchant) ?? []), row]);
+      }
+      if (groups.size === 0) return { feito: false, lancamentos: 0, motivo: NOT_MOVED };
+
+      let moved = 0;
+      let targetId = category?.id ?? null;
+      const created: string[] = [];
+      for (const [merchant, group] of groups) {
+        if (!(await canActAlone(tx, today))) break;
+        const destination = {
+          categoryId: targetId,
+          newCategory: targetId ? null : { name: input.categoria, essential: false },
+        };
+        targetId = await applyGroup(
+          tx,
+          { householdId: ctx.householdId, today, agent: ASSISTANT_AGENT, actor: ctx },
+          {
+            ids: group.map((row) => row.id),
+            kind: sample.kind,
+            merchant: merchant.slice(0, 120),
+            fromCategoryId: group[0]!.categoryId,
+            toCategoryId: destination.categoryId,
+            newCategory: destination.newCategory,
+            reason: "Pedido na conversa com o assistente",
+            dedupeKey: categoryDedupeKey(sample.kind, merchant.slice(0, 120), destination),
+          },
+          new Map(group.map((row) => [row.id, row])),
+          nameOf,
+          created,
+        );
+        moved += group.length;
+      }
+      if (moved === 0) return { feito: false, lancamentos: 0, motivo: DAILY_LIMIT };
+      return {
+        feito: true,
+        lancamentos: moved,
+        aviso: "Já movi. Aparece em Notificações, onde a família pode desfazer.",
+        ...(moved < same.length ? { fora: same.length - moved, motivo: NOT_MOVED } : {}),
+      };
     }),
 });
 

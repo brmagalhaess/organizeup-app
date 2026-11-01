@@ -1,6 +1,8 @@
 "use client";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { Field, Input, Select } from "@/components/ui";
+import { toAmountInput } from "@/i18n/format";
 
 export type DebtSystemValue = "price" | "sac" | "manual";
 
@@ -15,7 +17,6 @@ export interface DebtFieldValues {
 
 export type DebtFieldName = keyof DebtFieldValues;
 
-const DOUBT_HINT = "Confira este campo.";
 const doubtClass = "border-warning";
 
 /**
@@ -31,31 +32,29 @@ export function DebtFields({
   doubtful?: ReadonlySet<DebtFieldName>;
   errors?: Record<string, string> | undefined;
 }) {
+  const t = useTranslations("dividas.form");
+  const zero = toAmountInput("0.00", useLocale());
   const [system, setSystem] = useState<DebtSystemValue>(values.system ?? "price");
   const doubt = (name: DebtFieldName) => (doubtful.has(name) ? doubtClass : undefined);
-  const hint = (name: DebtFieldName, text: string) => (doubtful.has(name) ? DOUBT_HINT : text);
-  const optional = (name: DebtFieldName) => (doubtful.has(name) ? { hint: DOUBT_HINT } : {});
+  const hint = (name: DebtFieldName, text: string) => (doubtful.has(name) ? t("doubt") : text);
+  const optional = (name: DebtFieldName) => (doubtful.has(name) ? { hint: t("doubt") } : {});
   return (
     <>
-      <Field
-        label="Como são as parcelas"
-        hint={hint("system", "Veja no contrato ou no boleto.")}
-        error={errors?.system}
-      >
+      <Field label={t("system")} hint={hint("system", t("systemHint"))} error={errors?.system}>
         <Select
           name="system"
           value={system}
           className={doubt("system")}
           onChange={(event) => setSystem(event.target.value as DebtSystemValue)}
         >
-          <option value="price">Fixas, com juros calculados aqui</option>
-          <option value="sac">Diminuem a cada mês</option>
-          <option value="manual">Eu informo o valor da parcela</option>
+          <option value="price">{t("systemPrice")}</option>
+          <option value="sac">{t("systemSac")}</option>
+          <option value="manual">{t("systemManual")}</option>
         </Select>
       </Field>
       {system === "manual" ? (
         <Field
-          label="Valor da parcela (R$)"
+          label={t("installmentAmount")}
           {...optional("installmentAmount")}
           error={errors?.installmentAmount}
         >
@@ -63,22 +62,22 @@ export function DebtFields({
             name="installmentAmount"
             inputMode="decimal"
             required
-            placeholder="0,00"
+            placeholder={zero}
             defaultValue={values.installmentAmount}
             className={doubt("installmentAmount")}
           />
         </Field>
       ) : (
         <Field
-          label="Saldo devedor hoje (R$)"
-          hint={hint("balance", "Quanto falta pagar, sem contar juros futuros.")}
+          label={t("balance")}
+          hint={hint("balance", t("balanceHint"))}
           error={errors?.balance}
         >
           <Input
             name="balance"
             inputMode="decimal"
             required
-            placeholder="0,00"
+            placeholder={zero}
             defaultValue={values.balance}
             className={doubt("balance")}
           />
@@ -86,26 +85,19 @@ export function DebtFields({
       )}
       <div className="grid grid-cols-2 gap-3">
         <Field
-          label="Juros ao mês (%)"
-          hint={hint(
-            "monthlyRate",
-            system === "manual" ? "Opcional. Só ajuda a sugerir a ordem." : "Use 0 se não tiver.",
-          )}
+          label={t("monthlyRate")}
+          hint={hint("monthlyRate", t(system === "manual" ? "rateOptional" : "rateZero"))}
           error={errors?.monthlyRate}
         >
           <Input
             name="monthlyRate"
             inputMode="decimal"
-            placeholder="0,00"
+            placeholder={zero}
             defaultValue={values.monthlyRate}
             className={doubt("monthlyRate")}
           />
         </Field>
-        <Field
-          label="Parcelas que faltam"
-          {...optional("installments")}
-          error={errors?.installments}
-        >
+        <Field label={t("installments")} {...optional("installments")} error={errors?.installments}>
           <Input
             name="installments"
             type="number"
@@ -117,7 +109,7 @@ export function DebtFields({
           />
         </Field>
       </div>
-      <Field label="Próximo vencimento" {...optional("firstDueDate")} error={errors?.firstDueDate}>
+      <Field label={t("nextDue")} {...optional("firstDueDate")} error={errors?.firstDueDate}>
         <Input
           name="firstDueDate"
           type="date"

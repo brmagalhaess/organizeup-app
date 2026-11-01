@@ -18,7 +18,7 @@ import {
 } from "@organizeup/db";
 import { isValidTimezone } from "@organizeup/domain";
 import {
-  adultProfileShapeIn,
+  adultProfileFor,
   birthField,
   birthParts,
   isPlanAdult,
@@ -98,14 +98,21 @@ export async function bootstrapHousehold(input: {
   state?: string;
 }): Promise<ActionState> {
   const { session, ctx } = await requireTenant();
-  if (ctx.role !== "owner") return { ok: false, message: "Somente o responsável pode configurar." };
+  const t = await getTranslations("familiaOnboarding.create");
+  if (ctx.role !== "owner") return { ok: false, message: t("ownerOnly") };
   const parsed = settingsSchema.safeParse({
     city: input.city ?? "",
     state: input.state ?? "",
     timezone: "America/Sao_Paulo",
   });
-  if (!parsed.success)
-    return { ok: false, message: "Dados inválidos.", fieldErrors: fieldErrors(parsed.error) };
+  if (!parsed.success) {
+    const tSettings = await getTranslations("settings.home");
+    const fieldErrors = translated(parsed.error, {
+      state: tSettings("stateError"),
+      timezone: tSettings("timezoneError"),
+    });
+    return { ok: false, message: t("invalid"), fieldErrors };
+  }
 
   await withHousehold(ctx, async (tx) => {
     await tx
@@ -151,7 +158,7 @@ const personSchema = (t: PersonTexts, locale: Locale) =>
     name: z.string().trim().min(1, t("errors.name")).max(120),
     relation: z.enum(PERSON_RELATIONS, { message: t("errors.relation") }),
     birth: birthField,
-    ...adultProfileShapeIn(locale),
+    ...adultProfileFor(locale),
     retirementAge: optionalInt(40, 100, t("errors.retirementAge")),
   });
 

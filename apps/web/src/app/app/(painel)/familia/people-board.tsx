@@ -1,4 +1,5 @@
 "use client";
+import type { WorkStatus } from "@organizeup/db";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useActionState, useCallback, useEffect, useState } from "react";
@@ -16,7 +17,7 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
-import { AdultFields, type WorkStatus } from "./person-fields";
+import { AdultFields } from "./person-fields";
 
 /** Quem pode ser cadastrado; o titular nasce com a família. */
 const RELATIONS = ["conjuge", "filho", "pai_mae", "outro"] as const;

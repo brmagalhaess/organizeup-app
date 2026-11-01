@@ -167,14 +167,6 @@
     "description": "What you own minus what you owe.",
     "newAsset": "New asset",
     "amountPlaceholder": "0.00",
-    "fxNote": {
-      "converted": "Converted at the {date} exchange rate.",
-      "missing": "No exchange rate yet for {names}: these accounts are left out of the total.",
-      "currency": {
-        "USD": "dollar",
-        "EUR": "euro"
-      }
-    },
     "kinds": {
       "imovel": "Property",
       "veiculo": "Vehicle",
@@ -1110,37 +1102,11 @@
       "retirementAgeHint": "Used in the plan when the family doesn’t give a year. Blank: 65.",
       "save": "Save person"
     },
-    "adult": {
-      "workStatus": "Work status",
-      "notInformed": "Not provided",
-      "inss": "Contributes to INSS (Brazilian social security)?",
-      "yes": "Yes",
-      "no": "No",
-      "pension": "Expected monthly benefit (R$)"
-    },
     "wedding": {
       "title": "Wedding",
       "description": "Optional. With the day, it goes on the calendar as “Aniversário de casamento” (wedding anniversary).",
-      "day": "Day",
-      "month": "Month",
-      "choose": "Choose",
-      "year": "Year",
       "save": "Save wedding",
-      "saved": "Wedding saved.",
-      "months": {
-        "1": "January",
-        "2": "February",
-        "3": "March",
-        "4": "April",
-        "5": "May",
-        "6": "June",
-        "7": "July",
-        "8": "August",
-        "9": "September",
-        "10": "October",
-        "11": "November",
-        "12": "December"
-      }
+      "saved": "Wedding saved."
     },
     "members": {
       "title": "Who has access",
@@ -1212,7 +1178,12 @@
       "pending": "Turning on…",
       "unavailable": "The assistant is unavailable right now.",
       "consentRequired": "To turn it on, tick the box to confirm you read this and authorize sending the data.",
-      "pickLevel": "Choose what the assistant can do."
+      "pickLevel": "Choose what the assistant can do.",
+      "levelTexts": {
+        "sugerirText": "Gives tips and suggestions for you to decide. Only generic categories change on their own, with Undo.",
+        "organizarText": "Same as Suggest: tidies up generic categories and what was left to review on its own, always with Undo.",
+        "completoText": "Also creates draft goals. Any amount you entered stays a suggestion."
+      }
     },
     "states": {
       "sem_chave": {
@@ -1869,5 +1840,1226 @@
       "wrongPassword": "Incorrect password."
     },
     "noPermission": "Your role in this family doesn't allow changes."
+  },
+  "notificacoes": {
+    "metaTitle": "Notifications",
+    "title": "Notifications",
+    "description": "What the assistant changed on its own, with the before and after.",
+    "bell": "{count, plural, =0 {Notifications} one {Notifications, # unread} other {Notifications, # unread}}",
+    "filterLabel": "Filter notifications",
+    "filters": {
+      "all": "All",
+      "unread": "Unread",
+      "read": "Read"
+    },
+    "markAll": "Mark all as read",
+    "allRead": "Everything marked as read.",
+    "noPermission": "Your role in this family doesn't allow changes.",
+    "failed": "We couldn't finish that right now. Refresh the page and try again.",
+    "undo": "Undo",
+    "undoLabel": "Undo: {title}",
+    "undoDone": "Undone. The assistant won't touch these entries again.",
+    "undoFailed": "We couldn't undo this: it was already undone, or someone changed these entries.",
+    "undone": "Undone",
+    "unreadTag": "Unread",
+    "newCategory": "New category",
+    "open": "See in Suggestions",
+    "change": "{from} → {to}",
+    "changeDetail": "{merchant}: {entries}, {sum}",
+    "mergeDetail": "Categories merged: {entries}, {sum}",
+    "summary": "{changes, plural, one {And # more change tonight} other {And # more changes tonight}}",
+    "summaryDetail": "{entries}, {sum}. It's all in Suggestions, with Undo.",
+    "entries": "{count, plural, =0 {no entries} one {# entry} other {# entries}}",
+    "unavailableTitle": "Notifications unavailable",
+    "unavailableText": "We're updating the service. Please try again in a few minutes.",
+    "empty": {
+      "all": {
+        "title": "No notifications yet",
+        "text": "When the assistant changes something on its own, you'll see the before and after here."
+      },
+      "unread": {
+        "title": "Nothing new here",
+        "text": "You've marked everything as read."
+      },
+      "read": {
+        "title": "Nothing read yet",
+        "text": "What you mark as read stays here."
+      }
+    }
+  },
+  "lancamentos": {
+    "metaTitle": "Transactions",
+    "eyebrow": "Transactions",
+    "description": "Everything that came in, went out and is still due this month.",
+    "importStatement": "Import statement",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "stats": {
+      "received": "Money in",
+      "spent": "Money out",
+      "balance": "Left so far",
+      "forecast": "End-of-month forecast",
+      "forecastHint": "Includes what is still coming in and going out."
+    },
+    "status": {
+      "overdue": "Overdue",
+      "planned": "Upcoming",
+      "done": {
+        "expense": "Paid",
+        "goal": "Saved",
+        "income": "Received"
+      }
+    },
+    "row": {
+      "open": "Open {name}",
+      "openShort": "Open",
+      "edit": "Edit {name}",
+      "delete": "Delete {name}",
+      "stop": "Stop repeating {name}",
+      "repeats": "Repeats every month"
+    },
+    "plan": {
+      "badge": "Plan",
+      "open": "Open goal {name}",
+      "title": "Amount calculated by the assistant; open Goals to adjust it"
+    },
+    "empty": {
+      "title": "Nothing here this month",
+      "text": "Add your income and bills to see the month take shape.",
+      "action": "New transaction",
+      "noResultsTitle": "No transactions found",
+      "noResultsText": "Try changing the search or filters."
+    },
+    "filters": {
+      "search": "Search",
+      "searchPlaceholder": "Description",
+      "type": "Type",
+      "allTypes": "All",
+      "income": "Income",
+      "expenses": "Expenses",
+      "status": "Status",
+      "allStatuses": "All",
+      "settled": "Paid and received",
+      "open": "Open",
+      "category": "Category",
+      "allCategories": "All"
+    },
+    "table": {
+      "caption": "Transactions for the month",
+      "date": "Date",
+      "description": "Description",
+      "category": "Category",
+      "account": "Account",
+      "status": "Status",
+      "amount": "Amount",
+      "actions": "Actions"
+    },
+    "remove": {
+      "title": "Delete transaction",
+      "text": "\"{name}\" will be deleted. This cannot be undone.",
+      "confirm": "Delete"
+    },
+    "stop": {
+      "title": "Stop repeating",
+      "text": "\"{name}\" will no longer appear from this month on. What has already been paid stays in your history.",
+      "confirm": "Stop repeating"
+    },
+    "sheet": {
+      "new": "New transaction",
+      "edit": "Edit transaction"
+    },
+    "form": {
+      "type": "Type",
+      "expense": "Expense",
+      "income": "Income",
+      "description": "Description",
+      "expenseExample": "E.g.: Electricity bill",
+      "incomeExample": "E.g.: Salary",
+      "amount": "Amount ({symbol})",
+      "date": "Date",
+      "category": "Category",
+      "account": "Account",
+      "accountOrCard": "Account or card",
+      "cards": "Credit cards",
+      "installments": "Installments",
+      "installmentsHint": "Each installment goes on one statement.",
+      "paid": "Already paid",
+      "received": "Already received",
+      "repeat": "Repeats every month",
+      "planNotice": "This bill repeats every month. The change applies to all open months, and only the day of the date is used.",
+      "saveChanges": "Save changes",
+      "save": "Save transaction",
+      "noQuote": "We don't have the exchange rate for this date yet.",
+      "fxPreview": "≈ {value}, rate of {date}",
+      "fxRate": "Rate of {date}"
+    },
+    "saved": "Transaction saved.",
+    "errors": {
+      "kind": "Choose income or expense.",
+      "description": "Enter a description.",
+      "amount": "Enter an amount greater than zero, like 150.90.",
+      "date": "Enter the date.",
+      "invalidDate": "Invalid date.",
+      "category": "Choose a category.",
+      "account": "Choose an account.",
+      "installments": "Enter 1 to 72 installments.",
+      "invalidCategory": "Choose a valid category.",
+      "cardExpensesOnly": "Credit cards only accept expenses.",
+      "invalidCard": "Choose a valid card.",
+      "invalidAccount": "Choose a valid account.",
+      "overLimit": "This amount exceeds the limit in reais.",
+      "noRepeat": "Dollar and euro accounts don't support repeating bills yet. Add it month by month or use an account in reais.",
+      "notFound": "Transaction not found.",
+      "recurringMonth": "A recurring bill's transaction must stay in the same month.",
+      "goalEntry": "This transaction saves money for a goal. To change it, delete it and confirm it again.",
+      "planNotFound": "Forecast not found.",
+      "statementPaid": "The {month} statement has already been paid. Use a date after its closing date.",
+      "noQuote": "We don't have the {currency, select, USD {US dollar} EUR {euro} other {real}} exchange rate for this date yet. Try again later or use another date."
+    },
+    "confirmNotice": {
+      "title": "No exchange rate yet",
+      "text": "Nothing was confirmed. This account is in {currency, select, USD {US dollars} EUR {euros} other {reais}} and we don't have the exchange rate for {date} yet. Try again later.",
+      "close": "Got it",
+      "failed": "We couldn't confirm this right now. Try again."
+    }
+  },
+  "contas": {
+    "metaTitle": "Accounts",
+    "eyebrow": "Accounts",
+    "description": "Total balance of your active accounts.",
+    "listLabel": "Accounts",
+    "types": {
+      "corrente": "Checking account",
+      "poupanca": "Savings account",
+      "dinheiro": "Cash",
+      "investimento": "Investment"
+    },
+    "currencies": {
+      "BRL": "Brazilian real (R$)",
+      "USD": "US dollar (US$)",
+      "EUR": "Euro (€)"
+    },
+    "currencyName": "{currency, select, USD {US dollar} EUR {euro} other {real}}",
+    "fx": {
+      "converted": "Converted at the exchange rate of {date}.",
+      "missing": "No exchange rate yet for {names}: those accounts are left out of the total.",
+      "noBalanceInReais": "No exchange rate yet to show this in reais",
+      "balanceNote": "The balance in {currency, select, USD {US dollars} EUR {euros} other {reais}} only changes with transactions; in reais, it moves with the exchange rate."
+    },
+    "actions": {
+      "edit": "Edit {name}",
+      "archive": "Archive {name}",
+      "restore": "Reactivate {name}",
+      "transfer": "Transfer between accounts",
+      "new": "New account"
+    },
+    "archived": {
+      "title": "Archived",
+      "text": "Left out of forms and the total balance."
+    },
+    "sheet": {
+      "edit": "Edit account",
+      "new": "New account"
+    },
+    "form": {
+      "name": "Account name",
+      "nameExample": "E.g.: Everyday bank",
+      "type": "Type",
+      "currency": "Currency",
+      "currencyLocked": "This account already has activity, so its currency stays as it is.",
+      "currencyHint": "Transactions and balance stay in this currency. App totals remain in reais.",
+      "openingBalance": "Opening balance ({symbol})",
+      "openingBalanceHint": "How much was in the account before the transactions here. They add to and subtract from this amount.",
+      "save": "Save account"
+    },
+    "transfer": {
+      "from": "From",
+      "to": "To",
+      "amount": "Amount ({symbol})",
+      "left": "Sent ({symbol})",
+      "entered": "Received ({symbol})",
+      "enteredHint": "Suggested from today's exchange rate. Adjust it to what the bank charged.",
+      "date": "Date",
+      "note": "Note",
+      "noteHint": "Optional.",
+      "explain": "Both account balances change. It doesn't count as an expense or as income.",
+      "explainExchange": "Both account balances change. It doesn't count as an expense or as income, and neither does the exchange difference.",
+      "pending": "Transferring…",
+      "submit": "Transfer",
+      "recent": "Recent transfers",
+      "list": "Transfers",
+      "arrow": "to",
+      "received": "received {value}",
+      "undo": "Undo transfer",
+      "undoText": "The amount goes back to the source account.",
+      "undoConfirm": "Undo"
+    },
+    "saved": "Account saved.",
+    "created": "Account created.",
+    "errors": {
+      "name": "Enter the account name.",
+      "currency": "Choose a currency.",
+      "check": "Please check.",
+      "checkData": "Please check the details.",
+      "from": "Choose the source account.",
+      "to": "Choose the destination account.",
+      "amount": "Enter the amount.",
+      "date": "Enter the date.",
+      "sameAccount": "Choose two different accounts.",
+      "amountFormat": "Enter the amount like 500.00.",
+      "accountGone": "One of the accounts no longer exists.",
+      "enteredFormat": "Enter how much was received in {symbol}, like 500.00.",
+      "oddRate": "Check both amounts: the exchange rate looks unusual.",
+      "balanceFormat": "Enter the balance like 1,250.00.",
+      "currencyLocked": "This account already has activity and can't change currency. Create another account."
+    }
+  },
+  "cartoes": {
+    "metaTitle": "Credit cards",
+    "eyebrow": "Credit cards",
+    "title": "Credit cards",
+    "description": "Purchases go on the right statement, and the statement goes in the month it's due.",
+    "listLabel": "Credit cards",
+    "new": "New card",
+    "empty": {
+      "title": "No cards yet",
+      "text": "Add your card with its closing and due days. Statements build themselves from your purchases.",
+      "action": "Add card"
+    },
+    "archived": {
+      "title": "Archived",
+      "text": "Left out of new transactions. Open statements stay in the month."
+    },
+    "sheet": {
+      "edit": "Edit card",
+      "new": "New card"
+    },
+    "status": {
+      "aberta": "Open",
+      "fechada": "Closed",
+      "atrasada": "Overdue",
+      "paga": "Paid"
+    },
+    "actions": {
+      "edit": "Edit {name}",
+      "archive": "Archive {name}",
+      "restore": "Reactivate {name}",
+      "delete": "Delete {name}"
+    },
+    "form": {
+      "name": "Card name",
+      "nameExample": "E.g.: Bank card",
+      "closingDay": "Closing day",
+      "closingDayHint": "Last day of purchases on the statement.",
+      "dueDay": "Due day",
+      "dueDayHint": "When the statement must be paid.",
+      "limit": "Limit (R$)",
+      "limitHint": "Optional. Shows how much is still available.",
+      "payingAccount": "Account that pays the statement",
+      "save": "Save card"
+    },
+    "tile": {
+      "days": "Closes on day {closing} · due on day {due}",
+      "current": "Current statement",
+      "available": "Available: {value}"
+    },
+    "statement": {
+      "of": "{name} statement",
+      "previous": "Previous statement",
+      "next": "Next statement",
+      "total": "Total",
+      "closes": "Closes on",
+      "due": "Due on",
+      "newPurchase": "New purchase",
+      "pay": "Pay statement",
+      "paidFrom": "Paid from {account}",
+      "fallbackAccount": "the account",
+      "emptyTitle": "No purchases on this statement",
+      "emptyText": "Installment purchases appear on every statement until the last installment.",
+      "caption": "Purchases on the statement",
+      "date": "Date",
+      "description": "Description",
+      "category": "Category",
+      "amount": "Amount",
+      "actions": "Actions",
+      "installment": "Installment {number} of {total}",
+      "singlePayment": "Single payment"
+    },
+    "remove": {
+      "title": "Delete purchase",
+      "text": "\"{name}\" and all its installments will be deleted. This cannot be undone.",
+      "confirm": "Delete"
+    },
+    "saved": "Card saved.",
+    "created": "Card created.",
+    "errors": {
+      "closingDay": "Enter the closing day.",
+      "closingDayRange": "The closing day must be from 1 to 31.",
+      "dueDay": "Enter the due day.",
+      "dueDayRange": "The due day must be from 1 to 31.",
+      "name": "Enter the card name.",
+      "payingAccount": "Choose the account that pays the statement.",
+      "check": "Please check.",
+      "limit": "Enter the limit like 5,000.00.",
+      "invalidAccount": "Choose a valid account.",
+      "notFound": "Card not found.",
+      "datesLocked": "This card already has a paid statement, so its dates can't change. For new dates, archive it and create another one."
+    }
+  },
+  "categorias": {
+    "metaTitle": "Categories",
+    "title": "Categories",
+    "description": "How your transactions are grouped in reports.",
+    "new": "New category",
+    "count": "{count, plural, =1 {1 category} other {# categories}}",
+    "expenses": "Expenses",
+    "income": "Income",
+    "essential": "Essential",
+    "actions": {
+      "edit": "Edit {name}",
+      "archive": "Archive {name}",
+      "restore": "Reactivate {name}"
+    },
+    "archived": {
+      "title": "Archived",
+      "text": "Left out of forms; the history stays."
+    },
+    "sheet": {
+      "edit": "Edit category",
+      "new": "New category"
+    },
+    "form": {
+      "name": "Category name",
+      "nameExample": "E.g.: Pets",
+      "type": "Type",
+      "expense": "Expense",
+      "income": "Income",
+      "essential": "It's an essential expense",
+      "save": "Save category"
+    },
+    "saved": "Category saved.",
+    "created": "Category created.",
+    "errors": {
+      "name": "Enter the category name.",
+      "check": "Please check.",
+      "duplicate": "A category with this name already exists."
+    }
+  },
+  "dividas": {
+    "metaTitle": "Debts",
+    "eyebrow": "Debts",
+    "title": "Debts and loans",
+    "description": "See how much is left, when it ends and what to pay first.",
+    "stats": {
+      "balance": "Left to pay",
+      "thisMonth": "This month's installments",
+      "interestLeft": "Interest still to pay",
+      "interestHint": "Installments you entered don't break out the interest.",
+      "lastDue": "Last installment",
+      "lastDueValue": "{month} {year}",
+      "noInstallments": "No installments"
+    },
+    "list": "Debts",
+    "systems": {
+      "price": "Fixed installments",
+      "sac": "Decreasing installments",
+      "manual": "Installment you entered"
+    },
+    "noRate": "No interest entered",
+    "rate": "{rate}% per month",
+    "form": {
+      "name": "Debt name",
+      "nameExample": "E.g.: Car loan",
+      "loanExample": "E.g.: Personal loan",
+      "payingAccount": "Account that pays the installments",
+      "locked": "Amounts and installments don't change here. If something is wrong, delete it and add it again.",
+      "save": "Save debt",
+      "doubt": "Check this field.",
+      "system": "How the installments work",
+      "systemHint": "Check your contract or payment slip.",
+      "systemPrice": "Fixed, with interest calculated here",
+      "systemSac": "Decrease every month",
+      "systemManual": "I'll enter the installment amount",
+      "installmentAmount": "Installment amount (R$)",
+      "balance": "Balance owed today (R$)",
+      "balanceHint": "How much is left to pay, not counting future interest.",
+      "monthlyRate": "Monthly interest (%)",
+      "rateOptional": "Optional. It only helps suggest the order.",
+      "rateZero": "Use 0 if there is none.",
+      "installments": "Installments left",
+      "nextDue": "Next due date"
+    },
+    "schedule": {
+      "caption": "{name} installments",
+      "number": "No.",
+      "due": "Due date",
+      "interest": "Interest",
+      "installment": "Installment",
+      "paid": "Paid",
+      "overdue": "Overdue",
+      "openTotal": "Total of open installments:",
+      "fallbackTitle": "Installments"
+    },
+    "card": {
+      "schedule": "See {name} installments",
+      "files": "{name} files",
+      "filesCount": "{name} files ({count})",
+      "filesTitle": "Files",
+      "edit": "Edit {name}",
+      "close": "Close {name}",
+      "delete": "Delete {name}",
+      "reopen": "Reopen {name}",
+      "left": "Left to pay",
+      "progress": "{paid} of {total} installments paid",
+      "dueOn": "Due on {date}",
+      "overdue": "· Overdue",
+      "pay": "Pay",
+      "paidOff": "Paid off",
+      "new": "New debt",
+      "import": "Import from a file"
+    },
+    "empty": {
+      "title": "No debts yet",
+      "text": "Add your loans and financing. Installments show up on their own among the month's due dates, and you see which to pay first.",
+      "action": "Add debt"
+    },
+    "waiting": {
+      "title": "Files waiting for review",
+      "text": "They aren't debts yet. Review the amounts or delete the file.",
+      "action": "Review"
+    },
+    "closed": {
+      "title": "Closed",
+      "text": "Left out of the month. What was paid stays in your transactions."
+    },
+    "sheet": {
+      "edit": "Edit debt",
+      "new": "New debt"
+    },
+    "deleteFile": {
+      "title": "Delete file",
+      "text": "\"{name}\" will be permanently deleted. The debt stays as it is.",
+      "textOnly": "\"{name}\" will be permanently deleted.",
+      "confirm": "Delete"
+    },
+    "close": {
+      "closeTitle": "Close debt",
+      "deleteTitle": "Delete debt",
+      "closeText": "\"{name}\" leaves the month and its open installments stop appearing. What was already paid stays in your transactions.",
+      "deleteText": "\"{name}\", its installment schedule and attached files will be deleted.",
+      "closeConfirm": "Close",
+      "deleteConfirm": "Delete"
+    },
+    "files": {
+      "status": {
+        "guardado": "Stored",
+        "lendo": "Being read",
+        "lido": "Read, needs review",
+        "falhou": "Couldn't be read",
+        "confirmado": "Reviewed"
+      },
+      "tooLarge": "{name}: over 10 MB.",
+      "sendFailed": "{name}: couldn't be sent. Try again.",
+      "sendFailedShort": "{name}: couldn't be sent.",
+      "withName": "{name}: {problem}",
+      "failed": "Couldn't send it.",
+      "duplicate": "This file was already stored.",
+      "emptyTitle": "No files on this debt",
+      "emptyText": "Attach the contract, statement or renegotiation to keep everything in one place.",
+      "sentOn": "{size} · sent on {date}",
+      "review": "Review amounts",
+      "download": "Download {name}",
+      "delete": "Delete {name}",
+      "attach": "Attach file",
+      "types": "PDF, PNG, JPG, CSV or Excel (.xlsx), up to 10 MB.",
+      "sending": "Sending…"
+    },
+    "plan": {
+      "noEnd": "At what you pay today, your debts won't end",
+      "payOff": "Pay it all off by {when}",
+      "payOffSaving": "Pay it all off by {when} and save {saved}",
+      "description": "Estimate based on today's installments and what's left each month. Nothing changes on its own.",
+      "thisMonthLabel": "What to do this month",
+      "thisMonth": "This month",
+      "payExtra": "Pay <strong>{amount}</strong> extra on <strong>{name}</strong>",
+      "noExtra": "There's no extra money for your debts right now. When there is, it shows up here.",
+      "attackOrder": "Payoff order",
+      "attention": "Points to watch",
+      "extraUsed": "Extra amount used: {value} per month, from how you split what's left.",
+      "errorTitle": "Plan to get out of debt",
+      "errorText": "We couldn't calculate the plan right now. Your debts are safe; try again in a few minutes.",
+      "noFinish": "Doesn't end with these installments",
+      "strategies": {
+        "avalanche": "Highest interest first",
+        "snowball": "Lowest balance first"
+      },
+      "cheapest": "Cheapest",
+      "compare": "See both strategies",
+      "compareScroll": "Comparison with sideways scrolling",
+      "compareCaption": "Comparison of payoff strategies",
+      "strategy": "Strategy",
+      "paidOffBy": "All paid off by",
+      "interestToEnd": "Interest to the end",
+      "savings": "Savings",
+      "onlyInstallments": "Just paying the installments",
+      "signals": {
+        "dado_faltando": "This debt's interest is missing. Without it, the plan can't tell how much it costs: check your contract or payment slip.",
+        "juro_acima_do_rendimento": "It costs {rate}% per month, more than money usually earns. Paying it off early is worth more than investing.",
+        "portabilidade": "At {rate}% per month, it's worth asking another institution for a transfer offer or renegotiating the rate.",
+        "vence_antes_da_renda": "The installment is due on day {due}, before your income arrives on day {income}. It's worth asking to change the due date."
+      }
+    },
+    "payoff": {
+      "title": "Which debt to pay first",
+      "description": "Estimate based on what you have today. When one debt ends, its installment goes toward the next.",
+      "extra": "How much extra per month (R$)",
+      "extraHint": "On top of the installments.",
+      "extraError": "Enter an amount like 300.00.",
+      "avalanche": "Highest interest first",
+      "avalancheText": "Known as the avalanche method. It usually costs less.",
+      "snowball": "Smallest debt first",
+      "snowballText": "Known as the snowball method. It clears debts faster, which helps you keep the pace.",
+      "lessInterest": "Pays less interest",
+      "startWith": "Start with <strong>{name}</strong>",
+      "stalled": "At this amount the debt won't end, because the installment doesn't cover the interest.",
+      "paidOffIn": "All paid off in",
+      "interestToEnd": "Interest to the end",
+      "savings": "Savings compared with just paying the installments",
+      "whenEach": "When each one ends",
+      "years": "{count, plural, =1 {1 year} other {# years}}",
+      "months": "{count, plural, =1 {1 month} other {# months}}",
+      "yearsAndMonths": "{years} and {months}",
+      "thisMonth": "this month"
+    },
+    "import": {
+      "metaTitle": "Import debts",
+      "title": "Import a debt file",
+      "description": "Send a contract, renegotiation, statement or spreadsheet. You review everything before saving.",
+      "noPermission": "Your role in this family doesn't allow importing.",
+      "readError": {
+        "other": "We couldn't read this file. Fill in the fields by hand.",
+        "muito_grande": "This file is too large to read. Fill in the fields by hand.",
+        "sem_texto": "We found no text in this file. Fill in the fields by hand.",
+        "nao_entendi": "The reader couldn't understand this file. Fill in the fields by hand.",
+        "indisponivel": "The reader didn't respond just now. The file is stored: try again.",
+        "blocked": "Reading isn't available right now."
+      },
+      "review": {
+        "found": "Nothing has been saved yet. Review and adjust before confirming.",
+        "manual": "Fill in the fields with the details from the file.",
+        "doubts": "{count, plural, =1 {1 field to review} other {# fields to review}}",
+        "unreadable": "Couldn't be read",
+        "reading": "Reading…",
+        "readAi": "Read with AI",
+        "moreThanOne": "This file seems to have more than one debt. We brought in the largest; add the others by hand.",
+        "inFile": "In the file, the installment is {value}.",
+        "cet": "Total effective cost: {rate}% per year, for reference only.",
+        "target": "What to do with this file",
+        "targetHint": "It seems to belong to an existing debt. Updating won't duplicate it.",
+        "createNew": "Create a new debt",
+        "update": "Update: {name}",
+        "confirm": "Confirm debt",
+        "deleteFile": "Delete file"
+      },
+      "consent": {
+        "ready": "The file is read by an artificial intelligence service, including outside Brazil.",
+        "needed": "To fill in the fields, the whole file is read by an artificial intelligence service, including outside Brazil. Without your consent, it stays stored and nothing is sent.",
+        "accept": "I authorize reading the files I send, as explained in the <privacy>Privacy Policy</privacy>.",
+        "activate": "To read files, turn on the assistant with the Assistant button.",
+        "unavailable": "Automatic reading isn't available right now.",
+        "meanwhile": "In the meantime, the file stays stored, nothing is sent, and you fill in the fields by hand.",
+        "states": {
+          "sem_chave": "It isn't turned on in this environment yet. Everything else in OrganizeUp works as usual.",
+          "desligado": "Everything else in OrganizeUp works as usual. As soon as it's back, this button opens the conversation.",
+          "manutencao": "The assistant comes back along with changes. You can view everything as usual.",
+          "teto_mensal": "The service's usage limit for this month was reached, so it paused on its own. Your data is safe and the rest of OrganizeUp works as usual.",
+          "teto_diario": "The assistant is back tomorrow, with nothing for you to do. The rest of OrganizeUp works as usual.",
+          "sem_permissao": "Only the person in charge or adults in the family can talk to it. Ask one of them to turn it on or ask for you."
+        }
+      },
+      "sendTitle": "Send files",
+      "sendText": "PDF, PNG, JPG, CSV or Excel (.xlsx), up to 10 MB each. You can choose several.",
+      "filesLabel": "Debt files",
+      "noAccount": "Add an account first: the debt needs to know where installments come from.",
+      "sending": "Sending {name} ({current} of {total})…",
+      "readingFile": "Reading {name}…",
+      "seeDebts": "See my debts",
+      "emptyTitle": "No files to review",
+      "emptyText": "After sending, the details of each file appear here for you to review.",
+      "back": "Back to Debts",
+      "reviewLabel": "Review",
+      "reviewTitle": "Review before saving"
+    },
+    "saved": "Debt saved.",
+    "created": "Debt created.",
+    "updated": "Debt updated.",
+    "errors": {
+      "name": "Enter the debt name.",
+      "account": "Choose an account.",
+      "invalidAccount": "Choose a valid account.",
+      "checkFields": "Check the marked fields.",
+      "acceptAdultsOnly": "Only the person in charge or an adult in the family can authorize this.",
+      "system": "Choose how the installments work.",
+      "rate": "Enter the interest like 2.15.",
+      "installments": "Enter how many installments are left.",
+      "installmentsMax": "The limit is 480 installments.",
+      "nextDue": "Enter the next due date.",
+      "invalidDate": "Invalid date.",
+      "installmentAmount": "Enter the installment amount, like 450.00.",
+      "balance": "Enter the balance owed, like 12,500.00."
+    },
+    "upload": {
+      "readOnly": "Your role in this family doesn't allow changes.",
+      "tooMany": "Too many uploads in a row. Wait a minute.",
+      "tooLarge": "The file is over 10 MB.",
+      "noFile": "Choose a file.",
+      "empty": "The file is empty.",
+      "wrongType": "This file isn't a real PDF, PNG, JPG, CSV or Excel (.xlsx) file.",
+      "quota": "The family has reached the 50 MB file limit. Delete one to upload.",
+      "noDebt": "I couldn't find that debt.",
+      "noDocument": "I couldn't find that file.",
+      "alreadyReviewed": "This file has already been reviewed.",
+      "stillReading": "This file is still being read. Wait a moment.",
+      "invalidAccount": "Choose a valid account."
+    }
+  },
+  "importar": {
+    "metaTitle": "Import statement",
+    "eyebrow": "Import statement",
+    "title": "Bring in your bank statement",
+    "description": "The agent categorizes each transaction, and you review before saving.",
+    "noPermission": "Your role in this family doesn't allow importing.",
+    "fallbackAccount": "Account",
+    "choose": {
+      "title": "Choose the statement",
+      "text": "Download it from your bank's website or app. The file is read here in your browser and isn't stored. As soon as you choose it, it opens for you to review.",
+      "account": "Statement account",
+      "file": "File",
+      "fileHint": "OFX, CSV, Excel (.xlsx) or PDF, up to 5 MB.",
+      "foreign": "File amounts are read in {currency, select, USD {US dollars} EUR {euros} other {reais}} and converted to reais at the exchange rate of each line's date.",
+      "other": "Choose another file",
+      "reading": "Reading {name}…",
+      "checking": "Checking against your transactions…"
+    },
+    "csv": {
+      "title": "Check the columns",
+      "text": "We found these columns in the file. Adjust any that are wrong.",
+      "none": "None",
+      "column": "Column {number}",
+      "date": "Date",
+      "description": "Description",
+      "amount": "Amount",
+      "credit": "Credit",
+      "debit": "Debit",
+      "found": "{count, plural, =1 {1 transaction found} other {# transactions found}}.",
+      "foundSkipped": "{count, plural, =1 {1 transaction found} other {# transactions found}}, {skipped, plural, =1 {1 line skipped} other {# lines skipped}}.",
+      "sample": "Sample",
+      "checking": "Checking…",
+      "continue": "Continue",
+      "changeFile": "Change file"
+    },
+    "review": {
+      "title": "Review before importing",
+      "text": "Nothing has been saved yet. Uncheck what you don't want and adjust the categories.",
+      "new": "New",
+      "settle": "Settle a forecast",
+      "likelyEntered": "Look already entered",
+      "imported": "Already imported",
+      "agent": "The agent categorized {count, plural, =1 {1 transaction} other {# transactions}}.",
+      "agentProposed": "The agent categorized {count, plural, =1 {1 transaction} other {# transactions}} and proposed {proposed, plural, =1 {1 new category} other {# new categories}}.",
+      "noClue": "No clue on {count}: check the marked ones.",
+      "rows": "Statement transactions",
+      "importRow": "Import {name}",
+      "categoryOf": "Category for {name}",
+      "createCategory": "Create: {name}",
+      "anotherCategory": "Create another category…",
+      "newCategoryOf": "New category name for {name}",
+      "categoryName": "Category name",
+      "importing": "Importing…",
+      "submit": "{count, plural, =1 {Import 1 transaction} other {Import # transactions}}",
+      "cancel": "Cancel",
+      "badges": {
+        "settle": "Settles: {name}",
+        "entered": "Looks already entered",
+        "imported": "Already imported",
+        "memory": "Family memory",
+        "newCategory": "New category",
+        "review": "Review"
+      }
+    },
+    "done": {
+      "title": "Statement imported",
+      "counts": "{imported, plural, =1 {1 new transaction} other {# new transactions}} and {settled, plural, =1 {1 forecast settled} other {# forecasts settled}}.",
+      "seeEntries": "See transactions",
+      "another": "Import another"
+    },
+    "batches": {
+      "title": "Recent imports",
+      "text": "Undoing deletes what the import created and reopens what it settled.",
+      "emptyTitle": "No imports yet",
+      "emptyText": "After the first one, it shows up here and you can undo it.",
+      "list": "Imports",
+      "row": "{count, plural, =1 {1 transaction} other {# transactions}} · {account}",
+      "detail": "{source} · from {from} to {to} · imported on {date}",
+      "undo": "{count, plural, =1 {Undo import of 1 transaction} other {Undo import of # transactions}}",
+      "undoTitle": "Undo import",
+      "undoText": "This import's transactions will be deleted, including those you edited afterwards. Settled forecasts, installments and statements go back to open.",
+      "undoConfirm": "Undo"
+    },
+    "reload": "Reload page",
+    "errors": {
+      "outdated": "This page is out of date, or the connection dropped. Reload and choose the file again.",
+      "noRows": "We found no transactions in this file. Download it again as OFX or CSV.",
+      "tooManyRows": "The file has more than 2,000 transactions. Export a shorter period.",
+      "tooLarge": "The file is over 5 MB. Export a shorter period.",
+      "oldExcel": "This Excel file is in the old format (.xls). Open it and save as .xlsx, or download it as CSV or OFX.",
+      "fileType": "This file type can't be read. Use OFX, CSV, Excel (.xlsx) or PDF.",
+      "pdfEmpty": "We found no transactions in this PDF. It may be an image. Download the statement as OFX or CSV.",
+      "pdfNotice": "A PDF doesn't always say what's money in and money out. Check the amounts before importing.",
+      "sheetColumns": "We didn't recognize this spreadsheet's columns. Make sure it has a date and an amount.",
+      "csvColumns": "We didn't recognize this CSV's columns. Make sure it has a date and an amount.",
+      "readFailed": "We couldn't read this file. Download the statement as OFX or CSV.",
+      "ofxEmpty": "We found no transactions in this OFX file.",
+      "noQuote": "We don't have the {currency, select, USD {US dollar} EUR {euro} other {real}} exchange rate for {date} yet. Import a more recent period.",
+      "overLimit": "One of the file's amounts exceeds the limit in reais.",
+      "unreadable": "We couldn't read the transactions in this file.",
+      "serverFailed": "The server failed while checking this statement. Try again; if it happens again, let us know.",
+      "invalidAccount": "Choose a valid account.",
+      "reviewRows": "Review the transactions and try again.",
+      "invalidCategory": "Choose a valid category for each transaction."
+    }
+  },
+  "renda": {
+    "metaTitle": "Income",
+    "eyebrow": "Income",
+    "title": "How much comes in each month",
+    "description": "Add your income once. It shows up on its own in the month, the calendar and due dates.",
+    "new": "New income",
+    "kinds": {
+      "clt": "CLT salary (Brazil)",
+      "pj_autonomo": "Contractor or self-employed",
+      "aposentadoria_pensao": "Retirement or pension",
+      "aluguel": "Rent received",
+      "outro": "Other income"
+    },
+    "estimate": "This is an estimate using the official tables of {month}. Your actual payslip may differ: overtime, absences, benefits and company rules change the amount.",
+    "doubleCount": "You also have income that repeats every month in Transactions. If it's the same income, stop repeating it there so it isn't counted twice.",
+    "stats": {
+      "net": "Net per month",
+      "gross": "Gross per month",
+      "discounts": "Deductions per month",
+      "thirteenth": "Net 13th salary"
+    },
+    "empty": {
+      "title": "No income yet",
+      "text": "Add your salary, retirement, rent or other income. For CLT jobs, we calculate INSS, tax, 13th salary and vacation.",
+      "action": "Add income"
+    },
+    "slip": {
+      "gross": "Gross salary",
+      "inss": "INSS",
+      "tax": "Income tax",
+      "pension": "Alimony",
+      "otherDiscounts": "Other deductions",
+      "net": "Estimated net",
+      "simplified": "We used the simplified deduction, which was better in this case.",
+      "legal": "We used the legal deductions, which were better in this case.",
+      "reduction": "The legal reduction took {value} off the tax."
+    },
+    "extra": {
+      "thirteenth": "13th salary",
+      "first": "1st installment, November",
+      "second": "2nd installment, December",
+      "total": "Net total",
+      "vacationLabel": "Vacation",
+      "vacation": "30-day vacation",
+      "vacationGross": "Salary + 1/3",
+      "uncertain": "It may be up to {value}. The tax authority hasn't yet explained whether the reduction applies to vacation pay, so we forecast the lower amount.",
+      "vacationIn": "Vacation in {month}",
+      "noVacation": "No vacation month set: the forecast stays as a regular salary all year."
+    },
+    "simulator": {
+      "title": "Salary simulator",
+      "text": "See how much of a CLT salary is left after deductions.",
+      "gross": "Gross salary (R$)",
+      "invalid": "Check the amounts, like 4,500.00.",
+      "dependents": "Dependents",
+      "pension": "Alimony (R$)",
+      "pensionHint": "By court order or agreement.",
+      "otherDiscounts": "Other deductions (R$)",
+      "otherDiscountsHint": "Health plan, vouchers and others.",
+      "prompt": "Enter the gross salary to see the result.",
+      "register": "Add this income"
+    },
+    "form": {
+      "kind": "Income type",
+      "company": "Company",
+      "source": "Where it comes from",
+      "companyExample": "E.g.: Example Inc.",
+      "sourceExample": "E.g.: Office rent",
+      "gross": "Gross salary (R$)",
+      "net": "Amount that reaches the account (R$)",
+      "payDay": "Pay day",
+      "dependents": "Dependents",
+      "vacationMonth": "Vacation month",
+      "notSure": "Not sure yet",
+      "pension": "Alimony (R$)",
+      "otherDiscounts": "Other deductions (R$)",
+      "account": "Receiving account",
+      "category": "Category",
+      "person": "Whose income",
+      "family": "The family's",
+      "received": "What you've already received doesn't change. The change applies to upcoming forecasts.",
+      "save": "Save income"
+    },
+    "card": {
+      "payDay": "every month on day {day}",
+      "edit": "Edit {name}",
+      "close": "End {name}",
+      "delete": "Delete {name}"
+    },
+    "sheet": {
+      "edit": "Edit income",
+      "new": "New income"
+    },
+    "stop": {
+      "closeTitle": "End income",
+      "deleteTitle": "Delete income",
+      "closeText": "\"{name}\" stops appearing from this month on. What you've already received stays in your transactions.",
+      "deleteText": "\"{name}\" and its forecasts will be deleted.",
+      "closeConfirm": "End",
+      "deleteConfirm": "Delete"
+    },
+    "saved": "Income saved.",
+    "errors": {
+      "name": "Enter where the income comes from.",
+      "kind": "Choose the income type.",
+      "amount": "Enter the amount, like 4,500.00.",
+      "dependents": "Enter 0 to 20 dependents.",
+      "pension": "Enter the alimony like 300.00.",
+      "otherDiscounts": "Enter the deductions like 150.00.",
+      "payDay": "Enter the pay day, from 1 to 31.",
+      "account": "Choose an account.",
+      "category": "Choose a category.",
+      "invalidAccount": "Choose a valid account.",
+      "incomeCategory": "Choose an income category.",
+      "invalidPerson": "Choose a valid person."
+    }
+  },
+  "calendario": {
+    "metaTitle": "Calendar",
+    "eyebrow": "Calendar",
+    "description": "Due dates, events and how much should be left each day.",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "today": "Today",
+    "types": {
+      "conta": "Bill",
+      "receita": "Income",
+      "cartao": "Card",
+      "divida": "Debt",
+      "meta": "Goal",
+      "viagem": "Trip",
+      "evento": "Event"
+    },
+    "negative": "Based on what's forecast, your balance goes negative on {first}. The lowest amount is <strong>{value}</strong>, on {lowest}.",
+    "seeDay": "See the day",
+    "stats": {
+      "in": "Money in",
+      "inHint": "Received {received}. To receive {planned}.",
+      "out": "Money out",
+      "outHint": "Paid {spent}. To pay {planned}.",
+      "closing": "Forecast closing balance",
+      "closingHint": "Account balance plus what's still open.",
+      "result": "Month's result",
+      "resultHint": "Money in minus money out.",
+      "lowest": "Lowest balance",
+      "noForecast": "No forecast",
+      "lowestOn": "On {date}.",
+      "fromToday": "Forecasts only run from today on.",
+      "upTo": "The forecast goes up to 24 months ahead."
+    },
+    "grid": {
+      "label": "Month grid",
+      "filter": "Filter by type",
+      "all": "All",
+      "days": "Days of the month",
+      "today": "today",
+      "items": "{count, plural, =1 {1 item} other {# items}}",
+      "overdue": "{count} overdue",
+      "balance": "forecast balance {value}"
+    },
+    "day": {
+      "label": "Selected day",
+      "balance": "Forecast balance at end of day:",
+      "hidden": "Nothing of this type on this day. {count, plural, =1 {1 item is hidden} other {# items are hidden}} by the filter.",
+      "monthEmpty": "Nothing scheduled this month. Choose a day to add a bill or an event.",
+      "empty": "Nothing scheduled on this day.",
+      "items": "Items of the day",
+      "more": "{count, plural, =1 {1 more item} other {# more items}} outside this filter.",
+      "addEntry": "Add on this day",
+      "addEvent": "Add event",
+      "yearly": "Every year",
+      "closingBadge": "Closing",
+      "closes": "{name} closes",
+      "open": "Open",
+      "openItem": "Open {name}",
+      "deleteItem": "Delete {name}"
+    },
+    "event": {
+      "new": "New event",
+      "name": "Event name",
+      "nameExample": "E.g.: Dentist appointment",
+      "yearly": "Repeats every year, like a birthday",
+      "save": "Save event",
+      "saved": "Event saved."
+    },
+    "errors": {
+      "title": "Enter the event name.",
+      "date": "Invalid date.",
+      "check": "Please check."
+    }
+  },
+  "sugestoes": {
+    "metaTitle": "Suggestions",
+    "eyebrow": "Assistant",
+    "title": "Suggestions",
+    "description": "What the assistant noticed in your finances. Anything that's your decision waits for you to accept it.",
+    "groups": {
+      "categorias": "Categories",
+      "aportes": "How much to save per month",
+      "viagens": "Trips",
+      "metas": "Goals",
+      "investimentos": "Investments",
+      "lembretes": "Reminders"
+    },
+    "pending": {
+      "title": "For you to decide",
+      "emptyTitle": "Nothing to review for now",
+      "emptyText": "The assistant comes by every night and leaves here what it notices.",
+      "open": "Open",
+      "openItem": "Open: {name}",
+      "addTrip": "Add to my trips",
+      "applyAll": "Apply all",
+      "applyAllIn": "Apply all in {name}"
+    },
+    "bulk": {
+      "categoria": "Move {count} transactions to the suggested categories?",
+      "investimento": "Mark {count} investment notices as seen?",
+      "lembrete": "Mark {count} reminders as seen?"
+    },
+    "automatic": {
+      "title": "What the assistant did on its own",
+      "period": "In the last 7 days.",
+      "empty": "No changes in the last 7 days.",
+      "undo": "Undo",
+      "undoItem": "Undo: {name}"
+    },
+    "decision": {
+      "accept": "Accept",
+      "later": "Not now",
+      "labeled": "{action}: {name}",
+      "laterHint": "We'll suggest it again in 30 days",
+      "failed": "We couldn't finish this right now. Refresh the page and try again."
+    },
+    "errors": {
+      "notFound": "Suggestion not found.",
+      "oneByOne": "This type of suggestion is decided one at a time.",
+      "nothingApplied": "Nothing was applied. Refresh the page and try again."
+    },
+    "applied": {
+      "moved": "{count, plural, =1 {1 transaction moved} other {# transactions moved}}.",
+      "seen": "{count, plural, =1 {1 notice marked as seen} other {# notices marked as seen}}.",
+      "failed": "{count, plural, =1 {1 didn't work} other {# didn't work}}.",
+      "tripCreated": "Trip to {name} created. Adjust dates and costs in Trips.",
+      "goalCreated": "Goal {name} created. Adjust the details in Goals."
+    },
+    "agent": {
+      "readOnly": "Your role in this family doesn't allow changes.",
+      "notFound": "Suggestion not found.",
+      "decided": "This suggestion has already been decided.",
+      "outdated": "This suggestion is out of date. Ask the assistant for a new one.",
+      "debtExtra": "Agreed: you record the extra payment on the debts screen.",
+      "noted": "Noted.",
+      "dismissed": "All right. We'll suggest it again in 30 days, if it still makes sense.",
+      "onlyApplied": "Only what was applied can be undone.",
+      "incomplete": "Couldn't undo: this suggestion's data is incomplete.",
+      "undone": "Undone.",
+      "undoneDividends": "Undone. These dividends won't come back on their own; the price returns with the next new quote.",
+      "undoneStock": "Undone. The quantity went back to what it was, and this adjustment won't come back on its own.",
+      "noPrevious": "It can't be undone: the previous state wasn't saved.",
+      "changedByOther": "Someone already changed those transactions; nothing was undone.",
+      "returned": "Transactions returned. The assistant won't touch them again.",
+      "oneCategoryGone": "One of the categories no longer exists.",
+      "merged": "Categories merged. The old one was archived.",
+      "oldCategoryGone": "The old category was deleted; nothing was undone.",
+      "split": "Categories separated again.",
+      "reserveSaved": "Emergency fund amount saved.",
+      "reserveRestored": "Emergency fund amount restored.",
+      "planSaved": "Monthly savings amount saved in the retirement plan.",
+      "planRestored": "Plan amount restored.",
+      "notAssistantTrip": "This trip wasn't created by the assistant.",
+      "tripRemoved": "Trip removed.",
+      "tripGone": "The trip no longer existed.",
+      "goalGone": "This goal no longer exists.",
+      "goalNoted": "Noted. Adjust the goal's amount or date when you can.",
+      "goalDate": "Goal date adjusted. The plan is recalculated in the next run.",
+      "goalHasValues": "The goal has already received money; nothing was undone.",
+      "goalRemoved": "Goal removed.",
+      "goalDateChanged": "The goal date was already changed; nothing was undone.",
+      "goalDateRestored": "Goal date restored."
+    }
+  },
+  "familiaOnboarding": {
+    "maintenance": "We're under maintenance. Creating a family and making changes are turned off for now.",
+    "create": {
+      "metaTitle": "New family",
+      "title": "Create your family's space",
+      "text": "This is where your income, expenses, goals and retirement plan live. Only the people you invite will have access.",
+      "name": "Family name",
+      "nameHint": "E.g.: \"The Souza Family\" or \"Ana and Leo's home\".",
+      "city": "City where you live",
+      "state": "State",
+      "pending": "Creating…",
+      "submit": "Create family",
+      "maintenanceError": "The system is under maintenance. Try again later.",
+      "failed": "We couldn't create the family. Try again.",
+      "openFailed": "Family created, but we couldn't open it. Sign in again.",
+      "setupFailed": "We couldn't finish the setup.",
+      "ownerOnly": "Only the person in charge can set this up.",
+      "invalid": "Invalid details."
+    },
+    "choose": {
+      "metaTitle": "Choose family",
+      "title": "Which family do you want to open?",
+      "suspended": "Suspended",
+      "createOther": "Create another family",
+      "roles": {
+        "owner": "Person in charge",
+        "adult": "Adult",
+        "child": "Child",
+        "viewer": "View only",
+        "other": "Member"
+      }
+    },
+    "suspended": {
+      "metaTitle": "Access suspended",
+      "title": "Access to this family is suspended",
+      "text": "OrganizeUp's administration suspended access. The family's data stays stored. To learn more, contact support.",
+      "open": "Open {name}",
+      "signOut": "Sign out"
+    },
+    "complete": {
+      "metaTitle": "Complete your profile",
+      "title": "Complete your profile",
+      "backToPanel": "Back to dashboard",
+      "adultsOnly": "Only the person in charge or an adult can complete the profile.",
+      "steps": {
+        "family": "Your family",
+        "retirement": "Retirement",
+        "trips": "Trips",
+        "goal": "First goal"
+      },
+      "stepTitle": "Step {step} of {total} · {name}",
+      "progress": "Profile progress",
+      "privacy": "This data stays within your family and is used for the retirement plan. <link>See what changed.</link>",
+      "previous": "Back to previous step",
+      "suggestedYear": "We suggest {year}, when {name} turns {age}.",
+      "skip": "Skip for now",
+      "continue": "Continue",
+      "finish": "Finish",
+      "personAdded": "Person added."
+    },
+    "family": {
+      "birthOf": "{name}'s birth date",
+      "birthHint": "Month and year only. It's the basis of the retirement plan.",
+      "others": "Other people",
+      "people": "Family members",
+      "name": "Name",
+      "relation": "Relationship",
+      "birth": "Birth date",
+      "add": "Add person",
+      "wedding": "Wedding",
+      "weddingHint": "Optional. With the day, it goes on the calendar as a wedding anniversary.",
+      "relations": {
+        "conjuge": "Spouse",
+        "filho": "Child",
+        "pai_mae": "Parent",
+        "outro": "Other"
+      }
+    },
+    "retirement": {
+      "year": "Year you want to stop",
+      "income": "Monthly income you want",
+      "incomeHint": "Blank: we use your average spending",
+      "yield": "Annual portfolio yield (%)",
+      "yieldHint": "How much the portfolio pays in dividends per year. E.g.: R$100k paying R$6k = 6%.",
+      "pensionHint": "If you don't know, skip it; you can fill it in later in Family"
+    },
+    "trips": {
+      "perYear": "How many trips per year",
+      "days": "How many days they usually last"
+    },
+    "goal": {
+      "optional": "Optional. No goal in mind? Leave it blank and finish.",
+      "name": "Goal name",
+      "kind": "Type",
+      "amount": "How much it costs (R$)",
+      "month": "When you want to achieve it",
+      "account": "Where it comes from",
+      "accountHint": "The account the money comes out of each month.",
+      "kinds": {
+        "veiculo": "Car or motorcycle",
+        "imovel": "House or apartment",
+        "reforma": "Renovation",
+        "educacao": "Education",
+        "compra": "Purchase",
+        "evento": "Party or event",
+        "outro": "Other"
+      }
+    },
+    "person": {
+      "workStatus": "Work status",
+      "notInformed": "Not provided",
+      "work": {
+        "clt": "CLT (formal employment)",
+        "pj_autonomo": "Contractor or self-employed",
+        "servidor": "Public servant",
+        "aposentado": "Retired",
+        "estudante": "Student",
+        "sem_renda": "No income",
+        "outro": "Other"
+      },
+      "inss": "Contributes to INSS?",
+      "yes": "Yes",
+      "no": "No",
+      "pension": "Expected monthly benefit (R$)",
+      "day": "Day",
+      "month": "Month",
+      "year": "Year",
+      "choose": "Choose"
+    },
+    "errors": {
+      "name": "Enter the name.",
+      "relation": "Choose the relationship.",
+      "monthYear": "Use a valid month/year.",
+      "day": "Enter a day from 1 to 31.",
+      "month": "Choose the month.",
+      "weddingYear": "Enter a year between 1900 and 2100.",
+      "noSuchDay": "That day doesn't exist.",
+      "income": "Enter the income like 6,000.00.",
+      "yield": "Enter a percentage up to 30, like 6 or 6.5.",
+      "retirementYear": "Enter a year between 1950 and 2150.",
+      "workStatus": "Choose the work status.",
+      "option": "Choose an option.",
+      "pension": "Enter the benefit like 2,500.00.",
+      "tripsPerYear": "Enter 0 to 12 trips per year.",
+      "tripDays": "Enter 1 to 60 days.",
+      "goalName": "Enter the goal name.",
+      "goalKind": "Choose the type.",
+      "goalAmountFormat": "Enter the amount like 80,000.00.",
+      "goalAmount": "Enter how much it costs.",
+      "goalAccount": "Choose the account it comes from."
+    }
   }
 }

@@ -154,11 +154,13 @@ export {
   gt,
   gte,
   inArray,
+  isNotNull,
   isNull,
   like,
   lt,
   lte,
   ne,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm";

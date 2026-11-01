@@ -1,4 +1,6 @@
 "use server";
+import type { Messages } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -8,10 +10,12 @@ import {
 } from "@organizeup/agents";
 import { acceptDebtFiles, canUseAssistant } from "@organizeup/ai";
 import { accounts, canWrite, debtInstallments, debts, eq, withHousehold } from "@organizeup/db";
+import { knownText } from "@/i18n/known-text";
 import { audit } from "@/lib/audit";
 import { fieldErrors, parseDebtTerms } from "@/lib/debt-form";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { requireTenant } from "@/lib/session";
+import ptBR from "../../../../../messages/pt-BR.json";
 
 export interface DebtFormState {
   ok: boolean;
@@ -19,20 +23,26 @@ export interface DebtFormState {
   fieldErrors?: Record<string, string>;
 }
 
-const READ_ONLY = "Seu papel nesta família não permite alterações.";
+const readOnly = async () => (await getTranslations("settings"))("noPermission");
 
-const commonSchema = z.object({
-  id: z.string(),
-  name: z.string().trim().min(1, "Informe o nome da dívida.").max(80),
-  accountId: z.string().min(1, "Escolha a conta."),
-});
+const commonSchema = (errors: Messages["dividas"]["errors"]) =>
+  z.object({
+    id: z.string(),
+    name: z.string().trim().min(1, errors.name).max(80),
+    accountId: z.string().min(1, errors.account),
+  });
 
 /** Cria a dívida com seu calendário. Na edição, só nome e conta mudam. */
 export async function saveDebt(_prev: DebtFormState, form: FormData): Promise<DebtFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
+  if (!canWrite(ctx)) return { ok: false, message: await readOnly() };
+  const [t, locale, { dividas }] = await Promise.all([
+    getTranslations("dividas"),
+    getLocale(),
+    getMessages(),
+  ]);
 
-  const common = commonSchema.safeParse({
+  const common = commonSchema(dividas.errors).safeParse({
     id: form.get("id") ?? "",
     name: form.get("name") ?? "",
     accountId: form.get("accountId") ?? "",
@@ -46,17 +56,17 @@ export async function saveDebt(_prev: DebtFormState, form: FormData): Promise<De
         .select({ id: accounts.id })
         .from(accounts)
         .where(eq(accounts.id, accountId));
-      if (!account) return "Escolha uma conta válida.";
+      if (!account) return t("errors.invalidAccount");
       await tx.update(debts).set({ name, accountId }).where(eq(debts.id, id));
       await audit(tx, ctx, "update", "debts", id);
       return null;
     });
     if (failure) return { ok: false, message: failure };
     revalidatePath("/app", "layout");
-    return { ok: true, message: "Dívida salva." };
+    return { ok: true, message: t("saved") };
   }
 
-  const parsed = parseDebtTerms(form);
+  const parsed = parseDebtTerms(form, locale, dividas.errors);
   if (!parsed.ok) return { ok: false, message: null, fieldErrors: parsed.fieldErrors };
 
   const failure = await withHousehold(ctx, async (tx) => {
@@ -64,13 +74,13 @@ export async function saveDebt(_prev: DebtFormState, form: FormData): Promise<De
       .select({ id: accounts.id })
       .from(accounts)
       .where(eq(accounts.id, accountId));
-    if (!account) return "Escolha uma conta válida.";
+    if (!account) return t("errors.invalidAccount");
     await createDebtWithSchedule(tx, ctx, { name, accountId, terms: parsed.terms });
     return null;
   });
   if (failure) return { ok: false, message: failure };
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Dívida criada." };
+  return { ok: true, message: t("created") };
 }
 
 /** Sem parcela paga, apaga. Com histórico, encerra: as parcelas em aberto saem do mês. */
@@ -118,19 +128,23 @@ export async function deleteDocument(form: FormData): Promise<void> {
 export async function acceptFiles(): Promise<{ ok: boolean; message: string | null }> {
   const { ctx } = await requireTenant();
   if (!canUseAssistant(ctx)) {
-    return { ok: false, message: "Só quem é responsável ou adulto na família pode autorizar." };
+    return {
+      ok: false,
+      message: (await getTranslations("dividas.errors"))("acceptAdultsOnly"),
+    };
   }
   await acceptDebtFiles(ctx, LEGAL_VERSION);
   revalidatePath("/app/dividas", "layout");
   return { ok: true, message: null };
 }
 
-const confirmSchema = z.object({
-  documentId: z.string().min(1),
-  name: z.string().trim().min(1, "Informe o nome da dívida.").max(80),
-  accountId: z.string().min(1, "Escolha a conta."),
-  target: z.string(),
-});
+const confirmSchema = (errors: Messages["dividas"]["errors"]) =>
+  z.object({
+    documentId: z.string().min(1),
+    name: z.string().trim().min(1, errors.name).max(80),
+    accountId: z.string().min(1, errors.account),
+    target: z.string(),
+  });
 
 /** Conferência: só aqui o que veio do arquivo vira dívida, com os valores que a pessoa deixou. */
 export async function confirmDebtImport(
@@ -138,18 +152,23 @@ export async function confirmDebtImport(
   form: FormData,
 ): Promise<DebtFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
-  const common = confirmSchema.safeParse({
+  if (!canWrite(ctx)) return { ok: false, message: await readOnly() };
+  const [t, locale, { dividas }] = await Promise.all([
+    getTranslations("dividas"),
+    getLocale(),
+    getMessages(),
+  ]);
+  const common = confirmSchema(dividas.errors).safeParse({
     documentId: form.get("documentId") ?? "",
     name: form.get("name") ?? "",
     accountId: form.get("accountId") ?? "",
     target: form.get("target") ?? "",
   });
-  const terms = parseDebtTerms(form);
+  const terms = parseDebtTerms(form, locale, dividas.errors);
   if (!common.success || !terms.ok) {
     return {
       ok: false,
-      message: "Confira os campos marcados.",
+      message: t("errors.checkFields"),
       fieldErrors: {
         ...(common.success ? {} : fieldErrors(common.error)),
         ...(terms.ok ? {} : terms.fieldErrors),
@@ -166,7 +185,9 @@ export async function confirmDebtImport(
       updateDebtId: target === "nova" ? null : target,
     }),
   );
-  if (!result.ok) return { ok: false, message: result.message };
+  if (!result.ok) {
+    return { ok: false, message: knownText(result.message, ptBR.dividas.upload, dividas.upload) };
+  }
   revalidatePath("/app", "layout");
-  return { ok: true, message: target === "nova" ? "Dívida criada." : "Dívida atualizada." };
+  return { ok: true, message: t(target === "nova" ? "created" : "updated") };
 }

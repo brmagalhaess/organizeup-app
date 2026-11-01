@@ -1,11 +1,11 @@
 "use server";
 import {
   applySuggestion as apply,
-  categoriaPayloadSchema,
   dismissSuggestion as dismiss,
   undoSuggestion as undo,
   type ApplyResult,
 } from "@organizeup/agents";
+import { getMessages, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
@@ -19,13 +19,38 @@ import {
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
+import { knownText } from "@/i18n/known-text";
 import { requireTenant } from "@/lib/session";
 import { BULK_KINDS, noticeCookie, secondsUntilMidnight } from "@/lib/suggestions";
+import ptBR from "../../../../../messages/pt-BR.json";
 
-const blocked: ApplyResult = {
+const blocked = async (): Promise<ApplyResult> => ({
   ok: false,
-  message: "Seu papel nesta família não permite alterações.",
-};
+  message: (await getTranslations("settings"))("noPermission"),
+});
+
+/** Os agentes respondem em português: a mensagem chega à tela no idioma da pessoa. */
+async function inLocale(result: ApplyResult): Promise<ApplyResult> {
+  const [t, { sugestoes }] = await Promise.all([
+    getTranslations("sugestoes.applied"),
+    getMessages(),
+  ]);
+  const text = result.message;
+  const moved = /^(\d+) lançamentos movidos\.$/.exec(text)?.[1];
+  const trip = /^Viagem para (.+) criada\. Ajuste datas e custos em Viagens\.$/.exec(text)?.[1];
+  const goal = /^Meta (.+) criada\. Ajuste os detalhes em Metas\.$/.exec(text)?.[1];
+  const message =
+    text === "Lançamento movido."
+      ? t("moved", { count: 1 })
+      : moved
+        ? t("moved", { count: Number(moved) })
+        : trip
+          ? t("tripCreated", { name: trip })
+          : goal
+            ? t("goalCreated", { name: goal })
+            : knownText(text, ptBR.sugestoes.agent, sugestoes.agent);
+  return { ...result, message };
+}
 
 /** A lógica fica em @organizeup/agents; aqui só a sessão, a transação e a revalidação. */
 async function decide(
@@ -33,12 +58,12 @@ async function decide(
   run: (tx: TenantTx, ctx: TenantContext, id: string) => Promise<ApplyResult>,
 ): Promise<ApplyResult> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
+  if (!canWrite(ctx)) return blocked();
   const id = String(form.get("id") ?? "");
-  if (!id) return { ok: false, message: "Sugestão não encontrada." };
+  if (!id) return inLocale({ ok: false, message: ptBR.sugestoes.errors.notFound });
   const result = await withHousehold(ctx, (tx) => run(tx, ctx, id));
   if (result.ok) revalidatePath("/app", "layout");
-  return result;
+  return inLocale(result);
 }
 
 export async function applySuggestion(form: FormData): Promise<ApplyResult> {
@@ -58,41 +83,33 @@ const bulkSchema = z.enum(BULK_KINDS);
 /** Aceita de uma vez todas as pendentes de um tipo. Só para tipos que não decidem sobre dinheiro. */
 export async function applyAll(form: FormData): Promise<ApplyResult> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
+  if (!canWrite(ctx)) return blocked();
+  const t = await getTranslations("sugestoes");
   const kind = bulkSchema.safeParse(form.get("kind"));
-  if (!kind.success) return { ok: false, message: "Este tipo de sugestão é decidido uma a uma." };
+  if (!kind.success) return { ok: false, message: t("errors.oneByOne") };
 
-  const { applied, failed, moved } = await withHousehold(ctx, async (tx) => {
+  const { applied, failed } = await withHousehold(ctx, async (tx) => {
     const rows = await tx
-      .select({ id: householdSuggestions.id, payload: householdSuggestions.payload })
+      .select({ id: householdSuggestions.id })
       .from(householdSuggestions)
       .where(
         and(eq(householdSuggestions.status, "pendente"), eq(householdSuggestions.kind, kind.data)),
       );
-    const totals = { applied: 0, failed: 0, moved: 0 };
+    const totals = { applied: 0, failed: 0 };
     for (const row of rows) {
       const result = await apply(tx, ctx, row.id);
-      if (!result.ok) {
-        totals.failed += 1;
-        continue;
-      }
-      totals.applied += 1;
-      const payload = categoriaPayloadSchema.safeParse(row.payload);
-      if (payload.success) totals.moved += payload.data.transactionIds.length;
+      if (result.ok) totals.applied += 1;
+      else totals.failed += 1;
     }
     return totals;
   });
 
-  if (applied === 0)
-    return { ok: false, message: "Nada foi aplicado. Atualize a página e tente de novo." };
+  if (applied === 0) return { ok: false, message: t("errors.nothingApplied") };
   revalidatePath("/app", "layout");
-  const done =
-    kind.data === "categoria"
-      ? `${moved} ${moved === 1 ? "lançamento movido" : "lançamentos movidos"}.`
-      : `${applied} ${applied === 1 ? "aviso marcado como visto" : "avisos marcados como vistos"}.`;
+  const done = t("applied.seen", { count: applied });
   return {
     ok: true,
-    message: failed > 0 ? `${done} ${failed} não ${failed === 1 ? "deu" : "deram"} certo.` : done,
+    message: failed > 0 ? `${done} ${t("applied.failed", { count: failed })}` : done,
   };
 }
 

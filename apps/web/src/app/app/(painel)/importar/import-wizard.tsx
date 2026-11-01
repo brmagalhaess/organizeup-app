@@ -9,15 +9,13 @@ import {
   Sparkles,
   Undo2,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useMemo, useState, useTransition, type ChangeEvent } from "react";
 import {
   csvRows,
-  currencyName,
   decodeStatement,
   detectCsvMapping,
-  formatMoney,
-  formatShortDate,
   isForeign,
   merchantKey,
   parseCsvTable,
@@ -42,17 +40,13 @@ import {
   Input,
   Select,
 } from "@/components/ui";
+import { formatAmount, formatDayMonth } from "@/i18n/format";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
 import { readPdfLines, readSpreadsheet } from "@/lib/statement-files";
 import { commitImport, prepareImport, undoImport, type PreparedRow } from "./actions";
 
-const counted = (value: number, one: string, many: string) =>
-  `${value} ${value === 1 ? one : many}`;
-
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS = 2000;
-// Cada publicação troca os endereços internos, e uma página já aberta deixa de alcançar o servidor.
-const OUTDATED =
-  "Esta página ficou desatualizada, ou a conexão caiu. Recarregue e escolha o arquivo de novo.";
 
 interface Option {
   id: string;
@@ -108,10 +102,11 @@ function ColumnSelect({
   allowEmpty?: boolean;
   onChange: (value: number) => void;
 }) {
+  const t = useTranslations("importar.csv");
   return (
     <Field label={label}>
       <Select value={value} onChange={(event) => onChange(Number(event.target.value))}>
-        {allowEmpty ? <option value={-1}>Não tem</option> : null}
+        {allowEmpty ? <option value={-1}>{t("none")}</option> : null}
         {columns.map((column, index) => (
           <option key={index} value={index}>
             {column}
@@ -137,10 +132,12 @@ function CsvMapper({
   onCancel: () => void;
   busy: boolean;
 }) {
+  const t = useTranslations("importar.csv");
+  const locale = useLocale();
   const { table, mapping } = csv;
   const headerRow = mapping.header >= 0 ? table[mapping.header] : table[0];
   const columns = (headerRow ?? []).map((cell, index) =>
-    mapping.header >= 0 && cell ? cell : `Coluna ${index + 1}`,
+    mapping.header >= 0 && cell ? cell : t("column", { number: index + 1 }),
   );
   const preview = useMemo(() => csvRows(table, mapping), [table, mapping]);
   const set = (field: keyof CsvMapping) => (value: number) =>
@@ -148,21 +145,23 @@ function CsvMapper({
   const ready = preview.rows.length > 0;
 
   return (
-    <Card
-      title="Confira as colunas"
-      description="Encontramos estas colunas no arquivo. Ajuste se alguma estiver errada."
-    >
+    <Card title={t("title")} description={t("text")}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <ColumnSelect label="Data" value={mapping.date} columns={columns} onChange={set("date")} />
         <ColumnSelect
-          label="Descrição"
+          label={t("date")}
+          value={mapping.date}
+          columns={columns}
+          onChange={set("date")}
+        />
+        <ColumnSelect
+          label={t("description")}
           value={mapping.description}
           columns={columns}
           allowEmpty
           onChange={set("description")}
         />
         <ColumnSelect
-          label="Valor"
+          label={t("amount")}
           value={mapping.amount}
           columns={columns}
           allowEmpty
@@ -171,14 +170,14 @@ function CsvMapper({
         {mapping.amount < 0 ? (
           <>
             <ColumnSelect
-              label="Crédito"
+              label={t("credit")}
               value={mapping.credit}
               columns={columns}
               allowEmpty
               onChange={set("credit")}
             />
             <ColumnSelect
-              label="Débito"
+              label={t("debit")}
               value={mapping.debit}
               columns={columns}
               allowEmpty
@@ -189,24 +188,25 @@ function CsvMapper({
       </div>
 
       <p className="mt-4 text-sm text-muted" role="status">
-        {counted(preview.rows.length, "lançamento encontrado", "lançamentos encontrados")}
         {preview.skipped > 0
-          ? `, ${counted(preview.skipped, "linha ignorada", "linhas ignoradas")}`
-          : ""}
-        .
+          ? t("foundSkipped", { count: preview.rows.length, skipped: preview.skipped })
+          : t("found", { count: preview.rows.length })}
       </p>
       {ready ? (
-        <ul className="m-0 mt-2 list-none divide-y divide-line p-0 text-sm" aria-label="Amostra">
+        <ul
+          className="m-0 mt-2 list-none divide-y divide-line p-0 text-sm"
+          aria-label={t("sample")}
+        >
           {preview.rows.slice(0, 3).map((row, index) => (
             <li key={index} className="flex justify-between gap-3 py-2">
               <span className="min-w-0 truncate">
-                {formatShortDate(row.date)} · {row.description}
+                {formatDayMonth(row.date, locale)} · {row.description}
               </span>
               <span
                 className={cx("whitespace-nowrap font-medium tabular-nums", amountClass(row.kind))}
               >
                 {row.kind === "receita" ? "+ " : "− "}
-                {formatMoney(row.amount, currency)}
+                {formatAmount(row.amount, locale, "full", currency)}
               </span>
             </li>
           ))}
@@ -214,10 +214,10 @@ function CsvMapper({
       ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
         <Button disabled={!ready || busy} onClick={() => onContinue(preview.rows)}>
-          {busy ? "Conferindo…" : "Continuar"}
+          {t(busy ? "checking" : "continue")}
         </Button>
         <Button variant="secondary" onClick={onCancel}>
-          Trocar arquivo
+          {t("changeFile")}
         </Button>
       </div>
     </Card>
@@ -225,69 +225,73 @@ function CsvMapper({
 }
 
 function Problem({ message }: { message: string | null }) {
+  const t = useTranslations("importar.errors");
   if (!message) return null;
   return (
     <div className="flex flex-col items-start gap-2">
       <FormMessage message={message} />
-      {message === OUTDATED ? <ReloadButton /> : null}
+      {message === t("outdated") ? <ReloadButton /> : null}
     </div>
   );
 }
 
 function ReloadButton() {
+  const t = useTranslations("importar");
   return (
     <Button variant="secondary" small onClick={() => window.location.reload()}>
-      Recarregar página
+      {t("reload")}
     </Button>
   );
 }
 
 function RowBadge({ row }: { row: PreparedRow }) {
+  const t = useTranslations("importar.review.badges");
   if (row.state === "previsto")
     return (
       <Badge tone="success">
         <CircleCheck className="size-3" aria-hidden="true" />
-        Baixa: {row.match?.description}
+        {t("settle", { name: row.match?.description ?? "" })}
       </Badge>
     );
   if (row.state === "lancado")
     return (
       <Badge tone="warning">
         <CircleAlert className="size-3" aria-hidden="true" />
-        Parece já lançado
+        {t("entered")}
       </Badge>
     );
   if (row.state === "importado")
     return (
       <Badge>
         <Copy className="size-3" aria-hidden="true" />
-        Já importado
+        {t("imported")}
       </Badge>
     );
   return null;
 }
 
 function AgentBadge({ row }: { row: PreparedRow }) {
+  const t = useTranslations("importar.review.badges");
   if (row.state === "importado" || row.state === "previsto") return null;
   if (row.source === "memoria")
     return (
       <Badge>
         <Brain className="size-3" aria-hidden="true" />
-        Memória da família
+        {t("memory")}
       </Badge>
     );
   if (row.source === "nova")
     return (
       <Badge tone="success">
         <Sparkles className="size-3" aria-hidden="true" />
-        Categoria nova
+        {t("newCategory")}
       </Badge>
     );
   if (row.source === "revisar")
     return (
       <Badge tone="warning">
         <CircleAlert className="size-3" aria-hidden="true" />
-        Revisar
+        {t("review")}
       </Badge>
     );
   return null;
@@ -312,6 +316,8 @@ function Review({
   onSubmit: (choices: Record<string, Choice>) => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations("importar.review");
+  const locale = useLocale();
   const [choices, setChoices] = useState<Record<string, Choice>>(() =>
     Object.fromEntries(
       rows.map((row) => [
@@ -370,16 +376,14 @@ function Review({
   ];
   const agent = (source: PreparedRow["source"]) =>
     rows.filter((r) => r.source === source && r.state !== "importado").length;
+  const categorized = agent("memoria") + agent("palavra") + agent("nova");
   const unnamed = rows.some((row) => {
     const choice = choices[row.fingerprint]!;
     return choice.selected && !choice.categoryId && !choice.newCategory?.trim();
   });
 
   return (
-    <Card
-      title="Revise antes de importar"
-      description="Nada foi gravado ainda. Desmarque o que não quiser e ajuste as categorias."
-    >
+    <Card title={t("title")} description={t("text")}>
       {notice ? (
         <p className="mb-3 text-sm font-medium text-warning" role="status">
           {notice}
@@ -388,10 +392,10 @@ function Review({
       <dl className="m-0 grid grid-cols-2 gap-3 rounded-xl bg-card-soft p-4 text-sm lg:grid-cols-4">
         {(
           [
-            ["Novos", count("novo")],
-            ["Dão baixa em previsão", count("previsto")],
-            ["Parecem já lançados", count("lancado")],
-            ["Já importados", count("importado")],
+            [t("new"), count("novo")],
+            [t("settle"), count("previsto")],
+            [t("likelyEntered"), count("lancado")],
+            [t("imported"), count("importado")],
           ] as const
         ).map(([label, value]) => (
           <div key={label}>
@@ -404,16 +408,14 @@ function Review({
       <p className="mt-3 flex items-start gap-2 text-sm text-muted" role="status">
         <Sparkles className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
         <span>
-          O agente categorizou {agent("memoria") + agent("palavra") + agent("nova")}{" "}
-          {agent("memoria") + agent("palavra") + agent("nova") === 1 ? "lançamento" : "lançamentos"}
           {proposals.length > 0
-            ? ` e propôs ${counted(proposals.length, "categoria nova", "categorias novas")}`
-            : ""}
-          . {agent("revisar") > 0 ? `Sem pista em ${agent("revisar")}: confira os marcados.` : ""}
+            ? t("agentProposed", { count: categorized, proposed: proposals.length })
+            : t("agent", { count: categorized })}{" "}
+          {agent("revisar") > 0 ? t("noClue", { count: agent("revisar") }) : ""}
         </span>
       </p>
 
-      <ul aria-label="Lançamentos do extrato" className="m-0 mt-4 list-none p-0">
+      <ul aria-label={t("rows")} className="m-0 mt-4 list-none p-0">
         {rows.map((row) => {
           const choice = choices[row.fingerprint]!;
           const locked = row.state === "importado";
@@ -424,19 +426,19 @@ function Review({
             >
               <input
                 type="checkbox"
-                aria-label={`Importar ${row.description}`}
+                aria-label={t("importRow", { name: row.description })}
                 checked={choice.selected}
                 disabled={locked}
                 onChange={(event) => update(row.fingerprint, { selected: event.target.checked })}
                 className="mt-0.5 size-5 accent-brand-500 md:mt-0"
               />
               <span className="hidden text-sm tabular-nums text-muted md:block">
-                {formatShortDate(row.date)}
+                {formatDayMonth(row.date, locale)}
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-medium">{row.description}</p>
                 <p className="text-xs tabular-nums text-muted md:hidden">
-                  {formatShortDate(row.date)}
+                  {formatDayMonth(row.date, locale)}
                 </p>
                 <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
                   <RowBadge row={row} />
@@ -450,13 +452,13 @@ function Review({
                 )}
               >
                 {row.kind === "receita" ? "+ " : "− "}
-                {formatMoney(row.amount, currency)}
+                {formatAmount(row.amount, locale, "full", currency)}
               </span>
               <div className="col-span-2 col-start-2 min-w-0 md:col-span-1 md:col-start-4 md:row-start-1">
                 {row.state === "previsto" || locked ? null : (
                   <div className="flex flex-col gap-1.5">
                     <Select
-                      aria-label={`Categoria de ${row.description}`}
+                      aria-label={t("categoryOf", { name: row.description })}
                       value={choiceValue(choice)}
                       onChange={(event) => pick(row, event.target.value)}
                     >
@@ -471,16 +473,16 @@ function Review({
                         .filter((proposal) => proposal.kind === row.kind)
                         .map((proposal) => (
                           <option key={proposal.name} value={newValue(proposal.name)}>
-                            Criar: {proposal.name}
+                            {t("createCategory", { name: proposal.name })}
                           </option>
                         ))}
-                      <option value={ANOTHER}>Criar outra categoria…</option>
+                      <option value={ANOTHER}>{t("anotherCategory")}</option>
                     </Select>
                     {choice.typing ? (
                       <Input
-                        aria-label={`Nome da nova categoria de ${row.description}`}
+                        aria-label={t("newCategoryOf", { name: row.description })}
                         maxLength={60}
-                        placeholder="Nome da categoria"
+                        placeholder={t("categoryName")}
                         value={choice.newCategory ?? ""}
                         onChange={(event) =>
                           update(row.fingerprint, { newCategory: event.target.value })
@@ -497,14 +499,10 @@ function Review({
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button disabled={selected === 0 || busy || unnamed} onClick={() => onSubmit(choices)}>
-          {busy
-            ? "Importando…"
-            : selected === 1
-              ? "Importar 1 lançamento"
-              : `Importar ${selected} lançamentos`}
+          {busy ? t("importing") : t("submit", { count: selected })}
         </Button>
         <Button variant="secondary" onClick={onCancel}>
-          Cancelar
+          {t("cancel")}
         </Button>
       </div>
       <div className="mt-2">
@@ -523,6 +521,11 @@ export function ImportWizard({
   categories: CategoryOption[];
   batches: BatchRow[];
 }) {
+  const t = useTranslations("importar");
+  const tErrors = useTranslations("importar.errors");
+  const locale = useLocale();
+  // Cada publicação troca os endereços internos, e uma página já aberta deixa de alcançar o servidor.
+  const outdated = tErrors("outdated");
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const currency = accounts.find((account) => account.id === accountId)?.currency ?? "BRL";
   const [message, setMessage] = useState<string | null>(null);
@@ -552,16 +555,16 @@ export function ImportWizard({
 
   const review = (nextSource: StatementSource, parsed: StatementRow[]) => {
     if (parsed.length === 0) {
-      setMessage("Não encontramos lançamentos neste arquivo. Baixe de novo em OFX ou CSV.");
+      setMessage(tErrors("noRows"));
       return;
     }
     if (parsed.length > MAX_ROWS) {
-      setMessage("O arquivo tem mais de 2.000 lançamentos. Exporte um período menor.");
+      setMessage(tErrors("tooManyRows"));
       return;
     }
     startTransition(async () => {
       const result = await prepareImport({ accountId, source: nextSource, rows: parsed }).catch(
-        () => ({ ok: false as const, message: OUTDATED }),
+        () => ({ ok: false as const, message: outdated }),
       );
       if (!result.ok) {
         setMessage(result.message);
@@ -578,17 +581,15 @@ export function ImportWizard({
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
-      setMessage("O arquivo passa de 5 MB. Exporte um período menor.");
+      setMessage(tErrors("tooLarge"));
       return;
     }
     if (/\.xls$/i.test(file.name)) {
-      setMessage(
-        "Este Excel é do formato antigo (.xls). Abra e salve como .xlsx, ou baixe em CSV ou OFX.",
-      );
+      setMessage(tErrors("oldExcel"));
       return;
     }
     if (!/\.(ofx|qfx|csv|txt|xlsx|pdf)$/i.test(file.name)) {
-      setMessage("Este tipo de arquivo não é lido. Use OFX, CSV, Excel (.xlsx) ou PDF.");
+      setMessage(tErrors("fileType"));
       return;
     }
     setReading(file.name);
@@ -596,14 +597,10 @@ export function ImportWizard({
       if (/\.pdf$/i.test(file.name)) {
         const parsed = parsePdfLines(await readPdfLines(file), new Date().getFullYear());
         if (parsed.rows.length === 0) {
-          setMessage(
-            "Não achamos lançamentos neste PDF. Ele pode ser uma imagem. Baixe o extrato em OFX ou CSV.",
-          );
+          setMessage(tErrors("pdfEmpty"));
           return;
         }
-        setNotice(
-          "PDF não diz sempre o que é entrada e saída. Confira os valores antes de importar.",
-        );
+        setNotice(tErrors("pdfNotice"));
         review("csv", parsed.rows);
         return;
       }
@@ -611,7 +608,7 @@ export function ImportWizard({
         const table = await readSpreadsheet(file);
         const mapping = detectCsvMapping(table);
         if (!mapping) {
-          setMessage("Não reconhecemos as colunas desta planilha. Veja se ela tem data e valor.");
+          setMessage(tErrors("sheetColumns"));
           return;
         }
         setCsv({ table, mapping });
@@ -625,16 +622,15 @@ export function ImportWizard({
       const table = parseCsvTable(text);
       const mapping = detectCsvMapping(table);
       if (!mapping) {
-        setMessage("Não reconhecemos as colunas deste CSV. Veja se ele tem data e valor.");
+        setMessage(tErrors("csvColumns"));
         return;
       }
       setCsv({ table, mapping });
     } catch (error) {
-      setMessage(
-        error instanceof RangeError
-          ? error.message
-          : "Não conseguimos ler este arquivo. Baixe o extrato em OFX ou CSV.",
-      );
+      // O erro do leitor vem pronto, em português.
+      if (error instanceof RangeError && /OFX/.test(error.message)) setMessage(tErrors("ofxEmpty"));
+      else if (error instanceof RangeError && locale === DEFAULT_LOCALE) setMessage(error.message);
+      else setMessage(tErrors("readFailed"));
     } finally {
       setReading(null);
     }
@@ -670,7 +666,7 @@ export function ImportWizard({
     startTransition(async () => {
       const result = await commitImport({ accountId, source, rows: chosen }).catch(() => ({
         ok: false as const,
-        message: OUTDATED,
+        message: outdated,
       }));
       if (!result.ok) {
         setMessage(result.message);
@@ -690,19 +686,22 @@ export function ImportWizard({
           <div className="flex flex-col items-center gap-2 py-6 text-center">
             <CheckCircle2 className="size-10 text-success" aria-hidden="true" />
             <p className="text-lg font-semibold" role="status">
-              Extrato importado
+              {t("done.title")}
             </p>
             <p className="text-sm text-muted">
-              {counted(done.imported, "novo lançamento", "novos lançamentos")} e{" "}
-              {counted(done.settled, "previsão baixada", "previsões baixadas")}.
+              {t("done.counts", { imported: done.imported, settled: done.settled })}
             </p>
-            {done.summary ? <p className="max-w-xl text-sm text-muted">{done.summary}</p> : null}
+            {done.summary ? (
+              <p lang={DEFAULT_LOCALE} className="max-w-xl text-sm text-muted">
+                {done.summary}
+              </p>
+            ) : null}
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <Link href="/app/lancamentos" className={buttonClass()}>
-                Ver lançamentos
+                {t("done.seeEntries")}
               </Link>
               <Button variant="secondary" onClick={reset}>
-                Importar outro
+                {t("done.another")}
               </Button>
             </div>
           </div>
@@ -728,12 +727,9 @@ export function ImportWizard({
           onCancel={reset}
         />
       ) : (
-        <Card
-          title="Escolha o extrato"
-          description="Baixe no site ou app do banco. O arquivo é lido aqui no navegador e não fica guardado. Assim que escolher, ele abre sozinho para você revisar."
-        >
+        <Card title={t("choose.title")} description={t("choose.text")}>
           <div className="grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Conta do extrato">
+            <Field label={t("choose.account")}>
               <Select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
@@ -742,7 +738,7 @@ export function ImportWizard({
                 ))}
               </Select>
             </Field>
-            <Field label="Arquivo" hint="OFX, CSV, Excel (.xlsx) ou PDF, até 5 MB.">
+            <Field label={t("choose.file")} hint={t("choose.fileHint")}>
               <input
                 key={fileKey}
                 type="file"
@@ -755,10 +751,7 @@ export function ImportWizard({
           </div>
           <div className="mt-3">
             {isForeign(currency) ? (
-              <p className="m-0 mb-2 text-sm text-muted">
-                Os valores do arquivo são lidos em {currencyName(currency)} e convertidos para reais
-                pela cotação da data de cada linha.
-              </p>
+              <p className="m-0 mb-2 text-sm text-muted">{t("choose.foreign", { currency })}</p>
             ) : null}
             {message ? (
               <div
@@ -769,18 +762,18 @@ export function ImportWizard({
                   <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden="true" />
                   {message}
                 </p>
-                {message === OUTDATED ? (
+                {message === outdated ? (
                   <ReloadButton />
                 ) : (
                   <Button variant="secondary" small onClick={reset}>
-                    Escolher outro arquivo
+                    {t("choose.other")}
                   </Button>
                 )}
               </div>
             ) : null}
             {busy || reading ? (
               <p className="text-sm text-muted" role="status">
-                {reading ? `Lendo ${reading}…` : "Conferindo com seus lançamentos…"}
+                {reading ? t("choose.reading", { name: reading }) : t("choose.checking")}
               </p>
             ) : null}
           </div>
@@ -789,33 +782,34 @@ export function ImportWizard({
 
       {csv || done ? <Problem message={message} /> : null}
 
-      <Card
-        title="Importações recentes"
-        description="Desfazer apaga o que a importação criou e reabre o que ela baixou."
-      >
+      <Card title={t("batches.title")} description={t("batches.text")}>
         {batches.length === 0 ? (
-          <EmptyState
-            title="Nenhuma importação ainda"
-            text="Depois da primeira, ela aparece aqui e você pode desfazer."
-          />
+          <EmptyState title={t("batches.emptyTitle")} text={t("batches.emptyText")} />
         ) : (
-          <ul aria-label="Importações" className="m-0 list-none divide-y divide-line p-0">
+          <ul aria-label={t("batches.list")} className="m-0 list-none divide-y divide-line p-0">
             {batches.map((batch) => (
               <li key={batch.id} className="flex items-center gap-3 py-2.5">
                 <FileUp className="size-4 shrink-0 text-muted" aria-hidden="true" />
                 <div className="min-w-0 flex-1 text-sm">
                   <p className="font-medium">
-                    {counted(batch.rowCount, "lançamento", "lançamentos")} · {batch.accountName}
+                    {t("batches.row", { count: batch.rowCount, account: batch.accountName })}
                   </p>
                   <p className="text-xs text-muted">
-                    {batch.source.toUpperCase()} · de {formatShortDate(batch.periodStart)} a{" "}
-                    {formatShortDate(batch.periodEnd)} · importado em{" "}
-                    {formatShortDate(batch.createdAt)}
+                    {t("batches.detail", {
+                      source: batch.source.toUpperCase(),
+                      from: formatDayMonth(batch.periodStart, locale),
+                      to: formatDayMonth(batch.periodEnd, locale),
+                      date: formatDayMonth(batch.createdAt, locale),
+                    })}
                   </p>
-                  {batch.summary ? <p className="text-xs text-muted">{batch.summary}</p> : null}
+                  {batch.summary ? (
+                    <p lang={DEFAULT_LOCALE} className="text-xs text-muted">
+                      {batch.summary}
+                    </p>
+                  ) : null}
                 </div>
                 <IconButton
-                  label={`Desfazer importação de ${batch.rowCount} lançamentos`}
+                  label={t("batches.undo", { count: batch.rowCount })}
                   onClick={() => setUndoing(batch)}
                 >
                   <Undo2 className="size-4" aria-hidden="true" />
@@ -829,9 +823,9 @@ export function ImportWizard({
       <ConfirmSheet
         open={undoing !== null}
         onClose={() => setUndoing(null)}
-        title="Desfazer importação"
-        text="Os lançamentos desta importação serão apagados, inclusive os que você editou depois. Previsões, parcelas e faturas baixadas voltam a ficar em aberto."
-        confirmLabel="Desfazer"
+        title={t("batches.undoTitle")}
+        text={t("batches.undoText")}
+        confirmLabel={t("batches.undoConfirm")}
         action={undoImport}
         hidden={{ id: undoing?.id ?? "" }}
       />

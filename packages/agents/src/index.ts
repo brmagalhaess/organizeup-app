@@ -79,7 +79,12 @@ export {
   runAposentadoriaAgent,
   type AposentadoriaResult,
 } from "./run-aposentadoria";
-export { CATEGORIAS_AGENT, runCategoriasAgent } from "./run-categorias";
+export {
+  categoryNotificationSchema,
+  MAX_NIGHT_NOTIFICATIONS,
+  type CategoryNotification,
+} from "./notifications";
+export { applyGroup, CATEGORIAS_AGENT, runCategoriasAgent } from "./run-categorias";
 export {
   applyCategoryPlan,
   CATEGORIAS_IA_AGENT,
@@ -100,6 +105,7 @@ export { loadDestinations, runViagensAgent, VIAGENS_AGENT } from "./run-viagens"
 export {
   ASSET_CLASS_LABELS,
   IGNORED_DAYS,
+  loadDecisions,
   recordAudit,
   resolveAllocation,
   REVIEW_DAYS,
@@ -109,6 +115,7 @@ export {
 } from "./shared";
 export {
   amountSchema,
+  AUTOMATIC_SUGGESTION_KINDS,
   aporteDividaPayloadSchema,
   aporteInvestimentoPayloadSchema,
   aporteReservaPayloadSchema,

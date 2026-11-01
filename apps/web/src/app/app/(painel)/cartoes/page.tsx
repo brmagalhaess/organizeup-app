@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
 import { isYearMonth } from "@organizeup/domain";
 import { loadCards } from "@/lib/commitments";
 import { requireTenant } from "@/lib/session";
 import { CardsBoard } from "./cards-board";
 
-export const metadata: Metadata = { title: "Cartões" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("cartoes");
+  return { title: t("metaTitle") };
+}
 
 export default async function CardsPage({
   searchParams,
