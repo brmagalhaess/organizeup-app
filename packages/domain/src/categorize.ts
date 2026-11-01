@@ -3,6 +3,9 @@
 // revisa tudo antes de gravar; na revisão diária só o que ficou "para revisar" muda sozinho, e o
 // resto vira sugestão (AGENTS.md, regra 7). O texto do extrato é dado não confiável: só serve para
 // comparar palavras.
+import { CARD_CATEGORY } from "./card";
+import { DEBT_CATEGORY } from "./debt";
+import { money, toDbAmount } from "./money";
 import { normalizeDescription, type StatementKind, type StatementRow } from "./statement";
 
 /** Categoria de sistema das parcelas de metas (despesa na origem, receita no destino). */
@@ -550,12 +553,286 @@ export function suggestCategoryMerges(
   return merges;
 }
 
+// ----------------------------------------------------------------------------------------------
+// Categorização com IA (ADR-0018). O modelo só opina: aqui se decide o que entra, o que a resposta
+// pode virar e o que é recusado.
+
+export type CategoryConfidence = "baixa" | "media" | "alta";
+
+const normalizedSet = (names: string[]) => new Set(names.map(normalizeDescription));
+
+/** Onde cai o que ninguém classificou de verdade. Comparado pelo nome normalizado. */
+const GENERIC_NAMES = normalizedSet([
+  FALLBACK.despesa,
+  FALLBACK.receita,
+  "Outros",
+  "Outras",
+  "Outros gastos",
+  "Outras saídas",
+  "Outras entradas",
+  "Outros recebimentos",
+  "Despesas diversas",
+  "Receitas diversas",
+  "Diversos",
+  "Diversas",
+  "Geral",
+  "Gerais",
+  "Sem categoria",
+  "A classificar",
+  "Não classificado",
+  "Não categorizado",
+]);
+
+/** Categorias com regra própria no sistema: nada entra nem sai delas por classificação. */
+const PROTECTED_NAMES = normalizedSet([
+  GOAL_CATEGORY,
+  CONTRIBUTION_CATEGORY,
+  CARD_CATEGORY,
+  DEBT_CATEGORY,
+]);
+
+export const isGenericCategory = (name: string) => GENERIC_NAMES.has(normalizeDescription(name));
+
+export function isProtectedCategory(name: string): boolean {
+  const normalized = normalizeDescription(name);
+  return PROTECTED_NAMES.has(normalized) || normalized.startsWith("transferenc");
+}
+
+export type CandidateTransaction = ReviewTransaction & { amount: string };
+
+/** Vale para o modelo olhar: categoria genérica, ou marcada para revisar em qualquer categoria. */
+export function isCategoryCandidate(
+  row: Pick<ReviewTransaction, "categoryName" | "categorySource" | "importBatchId">,
+): boolean {
+  if (isProtectedCategory(row.categoryName)) return false;
+  return isGenericCategory(row.categoryName) || effectiveCategorySource(row) === "revisar";
+}
+
+export interface CategoryCandidate {
+  kind: StatementKind;
+  merchant: string;
+  ids: string[];
+  /** Uma descrição do grupo, como veio do extrato. Limpe antes de mandar ao modelo. */
+  sample: string;
+  fromCategoryId: string;
+  count: number;
+  total: string;
+  average: string;
+}
+
+/**
+ * Agrupa por estabelecimento e devolve os maiores valores primeiro, até `limit`. `closed` traz as
+ * chaves `tipo:estabelecimento` que não entram: desfeitas, pendentes e sem resposta há pouco. Sem
+ * isso, elas ficariam no topo toda noite e o resto do histórico nunca seria visto.
+ */
+export function categoryCandidates(
+  rows: CandidateTransaction[],
+  closed: ReadonlySet<string>,
+  limit: number,
+): CategoryCandidate[] {
+  const groups = new Map<string, CandidateTransaction[]>();
+  for (const row of rows) {
+    const merchant = merchantKey(row.description);
+    if (!merchant || !isCategoryCandidate(row)) continue;
+    const key = memoryKey(row.kind, merchant);
+    if (closed.has(key)) continue;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  const candidates = [...groups.values()].map((group): CategoryCandidate => {
+    const first = group[0]!;
+    const total = group.reduce((sum, row) => sum.plus(row.amount), money(0));
+    return {
+      kind: first.kind,
+      merchant: merchantKey(first.description),
+      ids: group.map((row) => row.id),
+      sample: first.description,
+      fromCategoryId: mostCommon(group.map((row) => row.categoryId)),
+      count: group.length,
+      total: toDbAmount(total),
+      average: toDbAmount(total.dividedBy(group.length)),
+    };
+  });
+  return candidates
+    .sort(
+      (a, b) =>
+        money(b.total).comparedTo(money(a.total)) ||
+        a.merchant.localeCompare(b.merchant) ||
+        a.kind.localeCompare(b.kind),
+    )
+    .slice(0, limit);
+}
+
+const MIN_NAME = 3;
+const MAX_NAME = 40;
+const MAX_NAME_WORDS = 4;
+
+/** Nome curto, só letras: número, link e pontuação de código não viram categoria. */
+export function validNewCategoryName(name: string): boolean {
+  const trimmed = name.trim();
+  return (
+    trimmed.length >= MIN_NAME &&
+    trimmed.length <= MAX_NAME &&
+    /^\p{L}[\p{L} ,&-]*$/u.test(trimmed) &&
+    trimmed.split(/\s+/).length <= MAX_NAME_WORDS &&
+    !isGenericCategory(trimmed) &&
+    !isProtectedCategory(trimmed)
+  );
+}
+
+const CONNECTORS = new Set(["e", "de", "do", "da", "dos", "das"]);
+
+/** Sem acento, conectivos e plural, para "Pet" e "Pets" serem o mesmo nome. */
+const looseName = (name: string) =>
+  normalizeDescription(name)
+    .split(" ")
+    .filter((word) => !CONNECTORS.has(word))
+    .map((word) => (word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word))
+    .join(" ");
+
+function editDistance(a: string, b: string): number {
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      current[j] = Math.min(previous[j]! + 1, current[j - 1]! + 1, previous[j - 1]! + cost);
+    }
+    previous = current;
+  }
+  return previous[b.length]!;
+}
+
+/** Erro de digitação: um caractere em nome médio, dois em nome longo. */
+const typoLimit = (length: number) => (length >= 10 ? 2 : length >= 6 ? 1 : 0);
+
+/** A categoria que já cobre este nome: nome igual primeiro, depois contido ou quase igual. */
+export function nearDuplicateCategory<T extends { name: string }>(
+  name: string,
+  options: readonly T[],
+): T | null {
+  const wanted = looseName(name);
+  const near = (option: T) => {
+    const other = looseName(option.name);
+    return (
+      containsWords(wanted, other) ||
+      containsWords(other, wanted) ||
+      editDistance(wanted, other) <= typoLimit(Math.min(wanted.length, other.length))
+    );
+  };
+  return options.find((option) => looseName(option.name) === wanted) ?? options.find(near) ?? null;
+}
+
+export interface CategoryAnswer {
+  /** Número do grupo enviado, a partir de 1. */
+  grupo: number;
+  categoria: string | null;
+  novaCategoria: string | null;
+  essencial: boolean;
+  confianca: CategoryConfidence;
+}
+
+export interface CategoryMove {
+  group: CategoryCandidate;
+  target: Pick<CategoryProposal, "categoryId" | "newCategory">;
+  confidence: CategoryConfidence;
+}
+
+export interface CategoryPlan {
+  moves: CategoryMove[];
+  /** O modelo não soube dizer. */
+  unknown: CategoryCandidate[];
+  /** A resposta não passou nas regras. */
+  rejected: CategoryCandidate[];
+  /** Passou do limite de categorias novas da noite: fica para a próxima. */
+  deferred: number;
+}
+
+export interface CategoryPlanInput {
+  groups: CategoryCandidate[];
+  answers: CategoryAnswer[];
+  /** Categorias ativas, com os nomes como foram ao modelo. */
+  categories: CategoryOption[];
+  maxNew: number;
+  /** Conferência extra de um nome novo, como nome de pessoa. */
+  nameAllowed?: (name: string) => boolean;
+}
+
+type PlannedCategory = CategoryOption & { essential: boolean };
+
+/** Transforma a resposta em movimentos válidos. Nada que o modelo devolva escapa destas regras. */
+export function planCategoryMoves(input: CategoryPlanInput): CategoryPlan {
+  const plan: CategoryPlan = { moves: [], unknown: [], rejected: [], deferred: 0 };
+  const planned: PlannedCategory[] = [];
+  const seen = new Set<number>();
+
+  for (const answer of input.answers) {
+    const group = input.groups[answer.grupo - 1];
+    if (!group || seen.has(answer.grupo)) continue;
+    seen.add(answer.grupo);
+    const options = input.categories.filter((category) => category.kind === group.kind);
+    const move = (target: CategoryMove["target"]) =>
+      plan.moves.push({ group, target, confidence: answer.confianca });
+
+    if (answer.categoria !== null) {
+      const wanted = answer.categoria;
+      const known = options.find((category) => sameName(category.name, wanted));
+      if (isGenericCategory(wanted)) plan.unknown.push(group);
+      else if (!known || isProtectedCategory(known.name)) plan.rejected.push(group);
+      else move({ categoryId: known.id, newCategory: null });
+      continue;
+    }
+
+    const name = answer.novaCategoria?.trim() ?? "";
+    if (!name || isGenericCategory(name)) {
+      plan.unknown.push(group);
+      continue;
+    }
+    if (!validNewCategoryName(name) || input.nameAllowed?.(name) === false) {
+      plan.rejected.push(group);
+      continue;
+    }
+    const sameKind = planned.filter((category) => category.kind === group.kind);
+    const near = nearDuplicateCategory<CategoryOption | PlannedCategory>(name, [
+      ...options,
+      ...sameKind,
+    ]);
+    if (near && (isGenericCategory(near.name) || isProtectedCategory(near.name))) {
+      plan.rejected.push(group);
+    } else if (near) {
+      const essential = "essential" in near ? near.essential : false;
+      move(
+        near.id
+          ? { categoryId: near.id, newCategory: null }
+          : { categoryId: null, newCategory: { name: near.name, essential } },
+      );
+    } else if (planned.length >= input.maxNew) {
+      plan.deferred += 1;
+    } else {
+      planned.push({ id: "", kind: group.kind, name, essential: answer.essencial });
+      move({ categoryId: null, newCategory: { name, essential: answer.essencial } });
+    }
+  }
+  return plan;
+}
+
+/** O que a etapa de IA fez no dia. */
+export interface ReportCategoriasIa {
+  /** Estabelecimentos enviados ao modelo. */
+  groups: number;
+  moved: number;
+  created: string[];
+  pending: number;
+  /** Sem resposta aproveitável: ficam de fora por 30 dias. */
+  skipped: number;
+}
+
 export interface ReportCategorias {
   reviewed: number;
   moved: number;
   created: string[];
   pending: number;
   merges: number;
+  ia?: ReportCategoriasIa;
 }
 
 export interface DailyCategoryReport {
@@ -564,30 +841,45 @@ export interface DailyCategoryReport {
   data: ReportCategorias;
 }
 
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+const AI_MARK = "Pela descrição do extrato:";
+
+/** Acrescenta ao resumo do dia o que a IA fez, trocando o trecho anterior, se houver. */
+export function withAiSummary(summary: string, ia: ReportCategoriasIa): string {
+  const created = ia.created.length > 0 ? ` Categorias criadas: ${ia.created.join(", ")}.` : "";
+  const base = summary.split(AI_MARK)[0]!.trimEnd();
+  return (
+    `${base} ${AI_MARK} ${plural(ia.moved, "lançamento movido", "lançamentos movidos")}, ` +
+    `${plural(ia.pending, "sugestão para decidir", "sugestões para decidir")}.${created}`
+  );
+}
+
 /** Relatório do dia do agente de categorias, para `household_reports` (kind `categorias`). */
 export function dailyCategoryReport(
   review: CategoryReview,
   merges: CategoryMerge[],
-  counts: { reviewed: number; created: string[]; day?: string },
+  counts: { reviewed: number; created: string[]; day?: string; ia?: ReportCategoriasIa },
 ): DailyCategoryReport {
   const moved = review.automatic.reduce((acc, group) => acc + group.ids.length, 0);
   const pending = review.suggested.length;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const created =
     counts.created.length > 0 ? ` Categorias criadas: ${counts.created.join(", ")}.` : "";
+  const summary =
+    `${plural(counts.reviewed, "lançamento revisado", "lançamentos revisados")}, ` +
+    `${plural(moved, "movido sozinho", "movidos sozinhos")}, ` +
+    `${plural(pending, "sugestão para decidir", "sugestões para decidir")}, ` +
+    `${plural(merges.length, "fusão sugerida", "fusões sugeridas")}.${created}`;
   return {
     title: counts.day ? `Categorias revisadas em ${counts.day}` : "Revisão de categorias",
-    summary:
-      `${plural(counts.reviewed, "lançamento revisado", "lançamentos revisados")}, ` +
-      `${plural(moved, "movido sozinho", "movidos sozinhos")}, ` +
-      `${plural(pending, "sugestão para decidir", "sugestões para decidir")}, ` +
-      `${plural(merges.length, "fusão sugerida", "fusões sugeridas")}.${created}`,
+    summary: counts.ia ? withAiSummary(summary, counts.ia) : summary,
     data: {
       reviewed: counts.reviewed,
       moved,
       created: counts.created,
       pending,
       merges: merges.length,
+      ...(counts.ia ? { ia: counts.ia } : {}),
     },
   };
 }
