@@ -2,6 +2,7 @@
 // distribui parcelas por prioridade e prazo. O que a família informou (valor, data, prioridade) só
 // muda por sugestão aceita; o plano (início, fim, parcela) é dado derivado, recalculado todo dia.
 import { addMonths, formatYearMonth, yearMonthOf, type YearMonth } from "./cashflow";
+import { message, type Message } from "./messages";
 import { formatBRL, money, toCents, toDbAmount, type MoneyValue } from "./money";
 import { monthsBetween } from "./trip";
 import Decimal from "decimal.js";
@@ -49,6 +50,8 @@ export interface GoalPlan {
   /** Null sem data desejada. */
   onTime: boolean | null;
   note: string;
+  /** A mesma nota, por chave, para sair no idioma de quem lê. */
+  noteMessages: Message[];
   contributions: GoalContribution[];
 }
 
@@ -96,6 +99,7 @@ interface Core {
   end: YearMonth;
   onTime: boolean | null;
   note: string;
+  noteMessages: Message[];
 }
 
 function planOne(
@@ -104,11 +108,12 @@ function planOne(
   missing: MoneyValue,
   desiredMonth: YearMonth | null,
   confirmed: Set<YearMonth>,
-): Core | { note: string } {
+): Core | { note: string; noteMessages: Message[] } {
   // Ninguém guarda mais do que falta: a parcela é no máximo o que falta.
   let monthly = cap.gt(missing) ? missing : cap;
   let onTime: boolean | null = null;
   let note = "";
+  let noteMessages: Message[] = [];
   if (desiredMonth !== null && desiredMonth >= start) {
     const available = monthsBetween(start, desiredMonth) + 1;
     const needed = missing.dividedBy(available).toDecimalPlaces(2, Decimal.ROUND_UP);
@@ -121,7 +126,7 @@ function planOne(
   } else if (desiredMonth !== null) {
     onTime = false;
   }
-  if (monthly.lte(0)) return { note: "" };
+  if (monthly.lte(0)) return { note: "", noteMessages: [] };
   const count = missing.dividedBy(monthly).ceil().toNumber();
   if (
     count > GOAL_RULES.maxMonths ||
@@ -129,6 +134,7 @@ function planOne(
   ) {
     return {
       note: `Com ${formatBRL(monthly)} por mês levaria mais de 10 anos; reduza o valor, adie a data ou aumente o que guarda.`,
+      noteMessages: [message("frases.notaLonga", { amount: { money: toDbAmount(monthly) } })],
     };
   }
   const contributions = installments(start, count, monthly, missing, confirmed);
@@ -137,11 +143,15 @@ function planOne(
     onTime = end <= desiredMonth;
     if (desiredMonth < start) {
       note = `A data desejada já passou; nova previsão: ${formatYearMonth(end)}.`;
+      noteMessages = [message("frases.notaDataPassou", { end: { month: end } })];
     } else if (!onTime) {
       note = `Não cabe no orçamento até ${formatYearMonth(desiredMonth)}; termina em ${formatYearMonth(end)}.`;
+      noteMessages = [
+        message("frases.notaNaoCabe", { desired: { month: desiredMonth }, end: { month: end } }),
+      ];
     }
   }
-  return { monthly, count, contributions, end, onTime, note };
+  return { monthly, count, contributions, end, onTime, note, noteMessages };
 }
 
 /**
@@ -161,7 +171,7 @@ export function planGoals(input: PlanGoalsInput): GoalPlan[] {
   const plans: GoalPlan[] = [];
 
   for (const goal of ordered) {
-    const noPlan = (status: GoalStatus, note: string): GoalPlan => ({
+    const noPlan = (status: GoalStatus, note: string, noteMessages: Message[]): GoalPlan => ({
       id: goal.id,
       status,
       start: null,
@@ -170,15 +180,20 @@ export function planGoals(input: PlanGoalsInput): GoalPlan[] {
       months: 0,
       onTime: null,
       note,
+      noteMessages,
       contributions: [],
     });
     const missing = money(goal.targetAmount).minus(goal.saved);
     if (missing.lte(0)) {
-      plans.push(noPlan("concluida", "Meta conquistada."));
+      plans.push(noPlan("concluida", "Meta conquistada.", [message("frases.notaConquistada")]));
       continue;
     }
     if (goal.status === "pausada") {
-      plans.push(noPlan("pausada", "Meta pausada: sem parcelas até retomar."));
+      plans.push(
+        noPlan("pausada", "Meta pausada: sem parcelas até retomar.", [
+          message("frases.notaPausada"),
+        ]),
+      );
       continue;
     }
 
@@ -198,6 +213,7 @@ export function planGoals(input: PlanGoalsInput): GoalPlan[] {
           noPlan(
             goal.status,
             "Hoje não sobra orçamento para esta meta. Reduza o valor, adie a data ou pause outra meta.",
+            [message("frases.notaSemOrcamentoReduza")],
           ),
         );
         continue;
@@ -210,12 +226,22 @@ export function planGoals(input: PlanGoalsInput): GoalPlan[] {
     const core = planOne(start, cap, missing, goal.desiredMonth, confirmed);
     if (!("monthly" in core)) {
       if (release) releases.push(release);
-      plans.push(noPlan(goal.status, core.note || "Hoje não sobra orçamento para esta meta."));
+      plans.push(
+        core.note
+          ? noPlan(goal.status, core.note, core.noteMessages)
+          : noPlan(goal.status, "Hoje não sobra orçamento para esta meta.", [
+              message("frases.notaSemOrcamento"),
+            ]),
+      );
       continue;
     }
 
     if (release) {
       core.note = `Começa quando ${release.name} terminar.${core.note ? ` ${core.note}` : ""}`;
+      core.noteMessages = [
+        message("frases.notaComeca", { name: release.name }),
+        ...core.noteMessages,
+      ];
     } else {
       budgetLeft = budgetLeft.minus(core.monthly);
     }
@@ -229,6 +255,7 @@ export function planGoals(input: PlanGoalsInput): GoalPlan[] {
       months: core.count,
       onTime: core.onTime,
       note: core.note,
+      noteMessages: core.noteMessages,
       contributions: core.contributions,
     });
   }

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui";
 import { formatAmount, formatDate, toFieldValue } from "@/i18n/format";
 import type { loadNetWorth } from "@/lib/wealth";
+import { systemTextOf } from "@/i18n/system-text";
 import { deleteAsset, saveAsset, type AssetFormState } from "./actions";
 import { NetWorthChart } from "./net-worth-chart";
 
@@ -127,6 +128,7 @@ function Row({ name, value, hint }: { name: string; value: string; hint?: string
 
 export function NetWorthBoard({ data, writable }: { data: Data; writable: boolean }) {
   const t = useTranslations("patrimonio");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const amount = (value: string) => formatAmount(value, locale);
   const [editing, setEditing] = useState<{ nonce: number; asset: Asset | null } | null>(null);
@@ -178,7 +180,7 @@ export function NetWorthBoard({ data, writable }: { data: Data; writable: boolea
           </h3>
           <ul aria-label={t("owned.accounts")} className="m-0 list-none divide-y divide-line p-0">
             {data.accounts.map((account) => (
-              <Row key={account.id} name={account.name} value={account.balance} />
+              <Row key={account.id} name={system.name(account.name)} value={account.balance} />
             ))}
           </ul>
 

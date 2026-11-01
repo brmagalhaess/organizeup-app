@@ -6,6 +6,7 @@ import { z } from "zod";
 import { and, canWrite, categories, ENTRY_KINDS, eq, withHousehold } from "@organizeup/db";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
+import { systemTextOf } from "@/i18n/system-text";
 
 export interface CategoryFormState {
   ok: boolean;
@@ -38,6 +39,7 @@ export async function saveCategory(
   if (!parsed.success)
     return { ok: false, message: parsed.error.issues[0]?.message ?? t("errors.check") };
   const { id, name, kind, essential } = parsed.data;
+  const system = systemTextOf(await getTranslations("sistema"));
 
   const failure = await withHousehold(ctx, async (tx) => {
     const [same] = await tx
@@ -46,8 +48,14 @@ export async function saveCategory(
       .where(and(eq(categories.kind, kind), eq(categories.name, name)));
     if (same && same.id !== id) return t("errors.duplicate");
     if (id) {
+      const [current] = await tx
+        .select({ name: categories.name })
+        .from(categories)
+        .where(eq(categories.id, id));
+      // O formulário mostra o nome padrão traduzido: sem mudança, o gravado fica como estava.
+      const kept = current && system.name(current.name) === name ? current.name : name;
       // O tipo não muda: lançamentos da categoria dependem dele.
-      await tx.update(categories).set({ name, essential }).where(eq(categories.id, id));
+      await tx.update(categories).set({ name: kept, essential }).where(eq(categories.id, id));
       await audit(tx, ctx, "update", "categories", id);
     } else {
       const [created] = await tx

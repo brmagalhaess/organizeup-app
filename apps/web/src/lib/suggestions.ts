@@ -23,6 +23,9 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import { ageFromBirth, DEFAULT_TIMEZONE, todayIn, TRIP_RULES } from "@organizeup/domain";
+import { agentText } from "@/i18n/agent-text";
+import type { Locale } from "@/i18n/locales";
+import { resolveLocale } from "@/i18n/resolve";
 
 /** Só estes tipos aceitam "Aplicar tudo": nenhum deles decide sobre dinheiro da família. */
 export const BULK_KINDS = ["investimento", "lembrete"] as const;
@@ -46,6 +49,8 @@ export interface PendingItem {
   kind: SuggestionKind;
   title: string;
   body: string;
+  /** Falso: texto gravado em português, de antes das chaves. */
+  translated: boolean;
   /** Tela relacionada, nos avisos que só apontam para outro lugar. */
   href: string | null;
 }
@@ -54,6 +59,7 @@ export interface AutomaticItem {
   id: string;
   title: string;
   body: string;
+  translated: boolean;
 }
 
 export interface SuggestionBulk {
@@ -70,7 +76,7 @@ export interface SuggestionGroup {
 
 type PendingRow = Pick<
   typeof householdSuggestions.$inferSelect,
-  "id" | "kind" | "title" | "body" | "payload"
+  "id" | "kind" | "title" | "body" | "payload" | "messageKey" | "messageParams"
 >;
 
 const pendingColumns = {
@@ -79,6 +85,8 @@ const pendingColumns = {
   title: householdSuggestions.title,
   body: householdSuggestions.body,
   payload: householdSuggestions.payload,
+  messageKey: householdSuggestions.messageKey,
+  messageParams: householdSuggestions.messageParams,
 };
 
 export { tolerateSchemaLag } from "@organizeup/db";
@@ -125,11 +133,10 @@ function hrefOf(row: PendingRow): string | null {
   return parsed.success && parsed.data.href.startsWith("/app/") ? parsed.data.href : null;
 }
 
-const toItem = (row: PendingRow): PendingItem => ({
+const toItem = (row: PendingRow, locale: Locale): PendingItem => ({
   id: row.id,
   kind: row.kind,
-  title: row.title,
-  body: row.body,
+  ...agentText(row, locale),
   href: hrefOf(row),
 });
 
@@ -147,6 +154,7 @@ export async function loadSuggestions(ctx: TenantContext): Promise<{
   groups: SuggestionGroup[];
   automatic: AutomaticItem[];
 }> {
+  const locale = await resolveLocale();
   return tolerateSchemaLag(
     () =>
       withHousehold(ctx, async (tx) => {
@@ -161,6 +169,8 @@ export async function loadSuggestions(ctx: TenantContext): Promise<{
             id: householdSuggestions.id,
             title: householdSuggestions.title,
             body: householdSuggestions.body,
+            messageKey: householdSuggestions.messageKey,
+            messageParams: householdSuggestions.messageParams,
           })
           .from(householdSuggestions)
           .where(
@@ -173,9 +183,14 @@ export async function loadSuggestions(ctx: TenantContext): Promise<{
           .orderBy(desc(householdSuggestions.decidedAt));
         const groups = GROUPS.flatMap(({ key, kinds }) => {
           const rows = pending.filter((row) => kinds.includes(row.kind));
-          return rows.length === 0 ? [] : [{ key, items: rows.map(toItem), bulk: bulkOf(rows) }];
+          if (rows.length === 0) return [];
+          const items = rows.map((row) => toItem(row, locale));
+          return [{ key, items, bulk: bulkOf(rows) }];
         });
-        return { groups, automatic };
+        return {
+          groups,
+          automatic: automatic.map((row) => ({ id: row.id, ...agentText(row, locale) })),
+        };
       }),
     { groups: [], automatic: [] },
   );
@@ -186,6 +201,7 @@ export async function loadPendingOfKind(
   ctx: TenantContext,
   kind: SuggestionKind,
 ): Promise<PendingItem[]> {
+  const locale = await resolveLocale();
   return tolerateSchemaLag(
     () =>
       withHousehold(ctx, async (tx) => {
@@ -196,7 +212,7 @@ export async function loadPendingOfKind(
             and(eq(householdSuggestions.status, "pendente"), eq(householdSuggestions.kind, kind)),
           )
           .orderBy(desc(householdSuggestions.createdAt));
-        return rows.map(toItem);
+        return rows.map((row) => toItem(row, locale));
       }),
     [],
   );
@@ -207,15 +223,23 @@ export async function loadTopSuggestions(
   ctx: TenantContext,
   limit = 3,
 ): Promise<{ items: Array<{ id: string; title: string }>; total: number }> {
+  const locale = await resolveLocale();
   return tolerateSchemaLag(
     () =>
       withHousehold(ctx, async (tx) => {
-        const items = await tx
-          .select({ id: householdSuggestions.id, title: householdSuggestions.title })
+        const rows = await tx
+          .select({
+            id: householdSuggestions.id,
+            title: householdSuggestions.title,
+            body: householdSuggestions.body,
+            messageKey: householdSuggestions.messageKey,
+            messageParams: householdSuggestions.messageParams,
+          })
           .from(householdSuggestions)
           .where(waitingForFamily)
           .orderBy(desc(householdSuggestions.createdAt))
           .limit(limit);
+        const items = rows.map((row) => ({ id: row.id, title: agentText(row, locale).title }));
         return { items, total: await countPending(tx) };
       }),
     { items: [], total: 0 },

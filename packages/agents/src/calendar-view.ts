@@ -85,6 +85,10 @@ export async function calendarMonth(tx: TenantTx, input: { today: string; month:
 
   const items = groupCalendarItems(entries, eventsInMonth(eventRows, month), cards, month);
   const system = await systemCategories(tx);
+  // Só a categoria diz que "Aporte em X" foi o sistema que escreveu.
+  const contributions = entries
+    .filter((entry) => system.contribution && entry.categoryId === system.contribution)
+    .map((entry) => entry.key);
   const tripRows = await tx.select({ eventId: trips.calendarEventId }).from(trips);
   const typeContext = {
     categoryOf: new Map(entries.map((entry) => [entry.key, entry.categoryId])),
@@ -102,6 +106,7 @@ export async function calendarMonth(tx: TenantTx, input: { today: string; month:
     cells,
     items,
     types,
+    contributions,
     balances,
     fx,
     summary: summarizeMonth(entries),

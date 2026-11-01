@@ -14,6 +14,9 @@ import {
 } from "@organizeup/db";
 import { CARD_CATEGORY, todayIn } from "@organizeup/domain";
 import { Card, PageHeader } from "@/components/ui";
+import { agentText } from "@/i18n/agent-text";
+import { resolveLocale } from "@/i18n/resolve";
+import { systemTextOf } from "@/i18n/system-text";
 import { requireTenant } from "@/lib/session";
 import { ImportWizard } from "./import-wizard";
 
@@ -24,7 +27,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ImportPage() {
   const { ctx } = await requireTenant();
-  const t = await getTranslations("importar");
+  const [t, tSystem, locale] = await Promise.all([
+    getTranslations("importar"),
+    getTranslations("sistema"),
+    resolveLocale(),
+  ]);
+  const system = systemTextOf(tSystem);
   const data = await withHousehold(ctx, async (tx) => {
     const accountRows = await tx
       .select({
@@ -46,7 +54,13 @@ export default async function ImportPage() {
       .orderBy(desc(importBatches.createdAt))
       .limit(10);
     const reportRows = await tx
-      .select({ period: householdReports.period, summary: householdReports.summary })
+      .select({
+        period: householdReports.period,
+        title: householdReports.title,
+        body: householdReports.summary,
+        messageKey: householdReports.messageKey,
+        messageParams: householdReports.messageParams,
+      })
       .from(householdReports)
       .where(eq(householdReports.kind, "importacao"))
       .orderBy(desc(householdReports.createdAt))
@@ -57,8 +71,8 @@ export default async function ImportPage() {
       .where(eq(householdSettings.householdId, ctx.householdId));
     return { accountRows, categoryRows, batchRows, reportRows, timezone: settings?.timezone };
   });
-  const accountName = new Map(data.accountRows.map((a) => [a.id, a.name]));
-  const reportOf = new Map(data.reportRows.map((r) => [r.period, r.summary]));
+  const accountName = new Map(data.accountRows.map((a) => [a.id, system.name(a.name)]));
+  const reportOf = new Map(data.reportRows.map((r) => [r.period, agentText(r, locale)]));
 
   return (
     <div className="flex flex-col gap-6">
@@ -77,7 +91,8 @@ export default async function ImportPage() {
             periodStart: batch.periodStart,
             periodEnd: batch.periodEnd,
             createdAt: todayIn(data.timezone, batch.createdAt),
-            summary: reportOf.get(batch.id) ?? null,
+            summary: reportOf.get(batch.id)?.body ?? null,
+            summaryTranslated: reportOf.get(batch.id)?.translated ?? false,
           }))}
         />
       ) : (

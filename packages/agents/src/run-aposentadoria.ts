@@ -14,7 +14,6 @@ import {
 } from "@organizeup/db";
 import {
   availableToAllocate,
-  formatBRL,
   isExpensiveDebt,
   money,
   planDividendRetirement,
@@ -42,6 +41,14 @@ import {
   type AgentResult,
   type PendingSuggestion,
 } from "./shared";
+import {
+  aporteDividaText,
+  aporteInvestimentoText,
+  aporteReservaText,
+  aposentadoriaReportText,
+  reminderText,
+  type ReminderKind,
+} from "./texts";
 
 export const APOSENTADORIA_AGENT = "aposentadoria";
 
@@ -148,11 +155,12 @@ export async function runAposentadoriaAgent(
       : null;
     pending.push({
       kind: "aporte_reserva",
-      title: `Guardar ${formatBRL(allocation.reserve)} por mês na reserva de emergência`,
-      body:
-        `Faltam ${formatBRL(reserve.status.missing)} para a reserva de ${reserve.targetMonths} meses ` +
-        `de gastos essenciais.${months ? ` Com este valor ela fecha em ${months} ${months === 1 ? "mês" : "meses"}.` : ""} ` +
-        `Aceitar grava este valor como o quanto guardar por mês na reserva.`,
+      ...aporteReservaText({
+        amount: allocation.reserve,
+        missing: reserve.status.missing,
+        targetMonths: reserve.targetMonths,
+        months,
+      }),
       payload,
       dedupeKey: DEDUPE.aporteReserva(month),
     });
@@ -173,11 +181,11 @@ export async function runAposentadoriaAgent(
     const payload: AporteDividaPayload = { debtId: debt.id, extraMonthly: toDbAmount(extra) };
     pending.push({
       kind: "aporte_divida",
-      title: `Pagar ${formatBRL(extra)} a mais por mês em ‘${debt.name}’`,
-      body:
-        `Essa dívida custa ${money(debt.monthlyRate).toDecimalPlaces(2).toString().replace(".", ",")}% ao mês, ` +
-        `mais do que a carteira rende. Quitar antes rende mais que investir. Aceitar registra a ` +
-        `decisão; o pagamento extra você faz na tela de dívidas.`,
+      ...aporteDividaText({
+        amount: toDbAmount(extra),
+        debt: debt.name,
+        monthlyRate: debt.monthlyRate,
+      }),
       payload,
       dedupeKey: DEDUPE.aporteDivida(debt.id, month),
     });
@@ -192,33 +200,28 @@ export async function runAposentadoriaAgent(
       previous: planData.plan?.monthlyContribution ?? null,
     };
     const required = first.requiredContribution;
-    let detail: string;
-    if (plan.status !== "ok") {
-      detail = "Complete o plano de aposentadoria para ver em que ano a carteira fecha.";
-    } else if (required !== null && money(allocation.retirement).gte(required)) {
-      detail = `Com este valor a carteira fecha em ${planData.input.targetYear}.`;
-    } else {
-      detail =
-        `Para fechar em ${planData.input.targetYear} seria preciso ${required ? formatBRL(required) : "mais"} por mês; ` +
-        `com ${formatBRL(allocation.retirement)} a carteira fecha em ` +
-        `${plan.yearWithContribution ?? "mais de 60 anos"}.`;
-    }
+    const targetYear = planData.input.targetYear;
     pending.push({
       kind: "aporte_investimento",
-      title: `Guardar ${formatBRL(allocation.retirement)} por mês para a aposentadoria`,
-      body: `${detail} Aceitar grava este valor como o quanto guardar por mês no plano.`,
+      ...aporteInvestimentoText(
+        allocation.retirement,
+        plan.status !== "ok" || targetYear === null
+          ? { kind: "incompleto" }
+          : required !== null && money(allocation.retirement).gte(required)
+            ? { kind: "fecha", targetYear }
+            : { kind: "falta", targetYear, required, year: plan.yearWithContribution ?? null },
+      ),
       payload,
       dedupeKey: DEDUPE.aporteInvestimento(month),
     });
   }
 
   if (plan.status !== "ok") {
-    const reminder = reminderFor(plan.status);
-    const payload: LinkPayload = { href: reminder.href };
+    const { href, ...reminder } = reminderText(reminderKind(plan.status));
+    const payload: LinkPayload = { href };
     pending.push({
       kind: "lembrete",
-      title: reminder.title,
-      body: reminder.body,
+      ...reminder,
       payload,
       dedupeKey: DEDUPE.lembreteAposentadoria(),
     });
@@ -238,53 +241,27 @@ export async function runAposentadoriaAgent(
       available,
     },
   };
-  const basisText =
-    surplus.basis === "previsto"
-      ? "previsto pela renda e pelas despesas recorrentes"
-      : `base de ${surplus.result.months} ${surplus.result.months === 1 ? "mês" : "meses"}`;
-  const summary =
-    `Sobra típica de ${formatBRL(surplus.surplus)} por mês (${basisText}); ` +
-    `${formatBRL(available)} para dividir depois da folga. Divisão: ${formatBRL(allocation.reserve)} ` +
-    `na reserva, ${formatBRL(allocation.debt)} em dívidas caras, ${formatBRL(allocation.retirement)} ` +
-    `para a aposentadoria, ${formatBRL(allocation.goalsBudget)} para metas e ` +
-    `${formatBRL(allocation.tripsBudget)} para viagens.` +
-    (plan.status === "ok"
-      ? ` Renda alvo ${formatBRL(plan.targetIncome ?? "0")}; a carteira já cobre ${plan.coverage}% do que falta.`
-      : " O plano de aposentadoria ainda está incompleto.");
-  const report = { title: `Divisão do que sobra em ${today}`, summary, data };
+  const report = {
+    ...aposentadoriaReportText({
+      day: today,
+      surplus: surplus.surplus,
+      available,
+      baseMonths: surplus.basis === "previsto" ? null : surplus.result.months,
+      reserve: allocation.reserve,
+      debt: allocation.debt,
+      retirement: allocation.retirement,
+      goals: allocation.goalsBudget,
+      trips: allocation.tripsBudget,
+      plan:
+        plan.status === "ok"
+          ? { targetIncome: plan.targetIncome ?? "0.00", coverage: plan.coverage ?? 0 }
+          : null,
+    }),
+    data,
+  };
   await saveDailyReport(tx, householdId, APOSENTADORIA_AGENT, "aposentadoria", today, report);
   return { suggestions, applied: 0, report, allocation, plan };
 }
 
-function reminderFor(status: DividendPlan["status"]): {
-  title: string;
-  body: string;
-  href: string;
-} {
-  switch (status) {
-    case "sem_yield":
-      return {
-        title: "Informe o rendimento anual da carteira",
-        body:
-          "Ou registre os proventos recebidos. Sem isso o assistente não consegue calcular quanto " +
-          "precisa ter investido para viver dos rendimentos.",
-        href: "/app/aposentadoria",
-      };
-    case "sem_ano":
-      return {
-        title: "Diga em que ano querem parar de trabalhar",
-        body:
-          "Com o ano, o assistente calcula quanto guardar por mês para a carteira pagar as contas " +
-          "até lá.",
-        href: "/app/completar",
-      };
-    default:
-      return {
-        title: "Complete seu plano de aposentadoria",
-        body:
-          "Informe a renda que você quer por mês ou registre seus gastos. Com isso o assistente " +
-          "estima quanto guardar por mês.",
-        href: "/app/completar",
-      };
-  }
-}
+const reminderKind = (status: DividendPlan["status"]): ReminderKind =>
+  status === "sem_yield" || status === "sem_ano" ? status : "outro";

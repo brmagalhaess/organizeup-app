@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { cx } from "@/components/styles";
 import { Button, Card, EmptyState, FormMessage, PageHeader } from "@/components/ui";
-import { formatAmount, formatInstant } from "@/i18n/format";
-import type { Locale } from "@/i18n/locales";
+import { formatInstant } from "@/i18n/format";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import type { NotificationFilter, NotificationItem } from "@/lib/notifications";
 import { markAllRead, undoNotification } from "./actions";
 
@@ -18,30 +18,6 @@ const FILTERS: Array<{ value: NotificationFilter; label: "all" | "unread" | "rea
 
 const hrefOf = (filter: NotificationFilter) =>
   filter === "todas" ? "/app/notificacoes" : `/app/notificacoes?filtro=${filter}`;
-
-/** O que a linha diz. Vem de `data`, para sair no idioma da pessoa. */
-function useLine(item: NotificationItem) {
-  const t = useTranslations("notificacoes");
-  const locale = useLocale() as Locale;
-  const { data } = item;
-  if (!data) return { title: item.title, detail: item.body, tag: null };
-  const sum = formatAmount(data.total, locale);
-  const entries = t("entries", { count: data.count });
-  if (data.type === "resumo")
-    return {
-      title: t("summary", { changes: data.changes }),
-      detail: t("summaryDetail", { entries, sum }),
-      tag: null,
-    };
-  const title = t("change", { from: data.fromNames.join(", "), to: data.toName });
-  if (data.type === "fusao")
-    return { title, detail: t("mergeDetail", { entries, sum }), tag: null };
-  return {
-    title,
-    detail: t("changeDetail", { merchant: data.merchant, entries, sum }),
-    tag: data.isNew ? t("newCategory") : null,
-  };
-}
 
 function NotificationRow({
   item,
@@ -56,7 +32,8 @@ function NotificationRow({
 }) {
   const t = useTranslations("notificacoes");
   const locale = useLocale() as Locale;
-  const { title, detail, tag } = useLine(item);
+  const { title } = item;
+  const lang = item.translated ? undefined : DEFAULT_LOCALE;
   return (
     <li className="py-3 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-center gap-2">
@@ -65,14 +42,18 @@ function NotificationRow({
             {t("unreadTag")}
           </span>
         )}
-        <p className="min-w-0 break-words text-sm font-medium">{title}</p>
-        {tag ? (
+        <p lang={lang} className="min-w-0 break-words text-sm font-medium">
+          {title}
+        </p>
+        {item.isNew ? (
           <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-ink">
-            {tag}
+            {t("newCategory")}
           </span>
         ) : null}
       </div>
-      <p className="mt-1 break-words text-sm text-muted first-letter:uppercase">{detail}</p>
+      <p lang={lang} className="mt-1 break-words text-sm text-muted first-letter:uppercase">
+        {item.body}
+      </p>
       <p className="mt-1 text-xs text-muted">{formatInstant(item.createdAt, locale)}</p>
       {item.undo === "desfeita" ? <p className="mt-2 text-sm font-medium">{t("undone")}</p> : null}
       {item.undo === "aplicada" && writable ? (

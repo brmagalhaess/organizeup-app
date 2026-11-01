@@ -38,6 +38,9 @@ Use Markdown simples: parágrafos curtos, listas e negrito. Sem tabelas largas, 
 
 export type AssistantLocale = "pt-BR" | "en" | "es";
 
+export const isAssistantLocale = (value: unknown): value is AssistantLocale =>
+  value === "pt-BR" || value === "en" || value === "es";
+
 /** Sobrepõe o idioma e o formato de valores das instruções, que ficam fixas por causa do cache. */
 const LOCALE_NOTE: Record<Exclude<AssistantLocale, "pt-BR">, string> = {
   en: 'Idioma da pessoa: inglês. Responda sempre em inglês, a não ser que ela peça outro idioma, mesmo com estas instruções e as ferramentas em português. Escreva os valores em reais sempre com "R$" na frente, como R$ 1,234.56.',

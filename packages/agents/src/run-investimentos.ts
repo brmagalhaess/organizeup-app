@@ -19,8 +19,6 @@ import {
 } from "@organizeup/db";
 import {
   forecastDividends,
-  formatBRL,
-  formatYearMonth,
   isUnitPriced,
   marketDateOf,
   money,
@@ -41,7 +39,6 @@ import {
   daysBetween,
   INVESTIMENTOS_AGENT,
   loadDecisions,
-  plural,
   saveDailyReport,
   STALE_PRICE_DAYS,
   upsertPending,
@@ -49,6 +46,14 @@ import {
   type AgentResult,
   type PendingSuggestion,
 } from "./shared";
+import {
+  classeForaDaMetaText,
+  investimentosReportText,
+  proventosConferirText,
+  quantidadeConferirText,
+  valorAntigoText,
+  valorSemInformarText,
+} from "./texts";
 
 export { INVESTIMENTOS_AGENT };
 /** Diferença entre a fatia real e a meta de uma classe (pontos percentuais) que vira aviso. */
@@ -101,12 +106,7 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
         const payload: LinkPayload = { href: "/app/investimentos", investmentId: holding.id };
         notices.push({
           kind: "investimento",
-          title: `Confira a quantidade de ${ticker}`,
-          body:
-            `${event.note} com data-com em ${event.comDate.split("-").reverse().join("/")}. Há ` +
-            `operação registrada depois dessa data, que pode já estar com a quantidade nova, então ` +
-            `não ajustamos sozinhos. Se a quantidade não bater com a da corretora, corrija as ` +
-            `operações: até lá, o valor deste investimento pode ficar errado.`,
+          ...quantidadeConferirText({ ticker: ticker!, note: event.note, comDate: event.comDate }),
           payload,
           dedupeKey: DEDUPE.investimentoEvento(holding.id, event.comDate),
         });
@@ -120,12 +120,7 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
     const payload: LinkPayload = { href: "/app/investimentos", investmentId: holding.id };
     pending.push({
       kind: "investimento",
-      title: `Atualize o valor de ${label}`,
-      body:
-        age === null
-          ? `${label} ainda não tem valor atual informado; o patrimônio e o plano usam o custo de compra.`
-          : `O último valor de ${label} é de há ${plural(age, "dia", "dias")}. Sem um valor recente, ` +
-            `o patrimônio e o plano de aposentadoria ficam defasados.`,
+      ...(age === null ? valorSemInformarText(label) : valorAntigoText(label, age)),
       payload,
       dedupeKey: DEDUPE.investimentoPreco(holding.id, month),
     });
@@ -139,10 +134,12 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
     const payload: LinkPayload = { href: "/app/investimentos" };
     pending.push({
       kind: "investimento",
-      title: `${label}: ${share.percent}% da carteira, meta de ${share.target}%`,
-      body:
-        `A fatia de ${label.toLowerCase()} está ${share.percent > share.target ? "acima" : "abaixo"} ` +
-        `da meta que você definiu. É só um aviso: o assistente não indica o que comprar ou vender.`,
+      ...classeForaDaMetaText({
+        assetClass: share.assetClass,
+        label,
+        percent: share.percent,
+        target: share.target,
+      }),
       payload,
       dedupeKey: DEDUPE.investimentoClasse(share.assetClass, month),
     });
@@ -153,11 +150,7 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
     const payload: LinkPayload = { href: "/app/proventos" };
     pending.push({
       kind: "investimento",
-      title: "Proventos para conferir no extrato",
-      body:
-        `${tickers.join(", ")}: há proventos que não lançamos sozinhos porque o imposto depende de ` +
-        `dados que não temos, como a data do crédito ou o titular. Confira no extrato e lance em ` +
-        `Proventos.`,
+      ...proventosConferirText(tickers),
       payload,
       dedupeKey: DEDUPE.investimentoConferir(month),
     });
@@ -225,28 +218,22 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
     },
     upcomingNet: toDbAmount(upcoming.reduce((acc, row) => acc.plus(netDividend(row)), money(0))),
   };
-  const nextForecast = forecast.find((item) => item.month > month);
-  const summaryText =
-    holdings.length === 0
-      ? "Nenhum investimento cadastrado ainda."
-      : `Carteira de ${formatBRL(summary.total)}; ${formatBRL(received.last12)} em proventos nos ` +
-        `últimos 12 meses${data.yield12 !== null ? ` (${data.yield12}% ao ano)` : ""}. ` +
-        `${plural(stale.length, "investimento", "investimentos")} com valor para atualizar.` +
-        (market.applied > 0
-          ? ` Atualizado sozinho hoje: ${plural(market.changes.prices.length, "preço", "preços")} ` +
-            `e ${plural(market.created, "provento novo", "proventos novos")}.`
-          : "") +
-        (stock.applied > 0
-          ? ` ${plural(stock.applied, "quantidade ajustada", "quantidades ajustadas")} por ` +
-            `desdobramento, grupamento ou bonificação.`
-          : "") +
-        (upcoming.length > 0 ? ` A receber: ${formatBRL(data.upcomingNet)}.` : "") +
-        (nextForecast
-          ? ` Previsão para ${formatYearMonth(nextForecast.month)}: ${formatBRL(nextForecast.amount)} em proventos.`
-          : "");
   const report = {
-    title: `Investimentos em ${today}`,
-    summary: summaryText,
+    ...investimentosReportText({
+      day: today,
+      empty: holdings.length === 0,
+      total: summary.total,
+      dividends12: received.last12,
+      yield12: data.yield12,
+      stale: stale.length,
+      applied: market.applied,
+      prices: market.changes.prices.length,
+      created: market.created,
+      stockEvents: stock.applied,
+      upcoming: upcoming.length,
+      upcomingNet: data.upcomingNet,
+      next: forecast.find((item) => item.month > month) ?? null,
+    }),
     data,
   };
   await saveDailyReport(tx, householdId, INVESTIMENTOS_AGENT, "investimentos", today, report);

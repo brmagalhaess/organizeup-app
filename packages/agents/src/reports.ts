@@ -5,6 +5,7 @@ import type {
   DebtPlan,
   DividendPlan,
   GoalPlan,
+  Message,
   ReportCategorias,
   SurplusBasis,
   SurplusResult,
@@ -88,5 +89,6 @@ export type DailyReportKind = keyof ReportData;
 export type DailyReport<K extends DailyReportKind = DailyReportKind> = {
   title: string;
   summary: string;
+  message: Message;
   data: ReportData[K];
 };

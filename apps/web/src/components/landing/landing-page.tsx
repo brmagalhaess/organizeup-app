@@ -57,8 +57,11 @@ const QUESTIONS = ["bank", "who", "invest", "mobile", "ready"] as const;
 
 // Links comuns, e não <Link>: /en e /es fixam o idioma no layout raiz, e a tela seguinte precisa
 // montá-lo de novo para seguir o idioma da pessoa.
-const SIGN_IN = "/entrar";
-const SIGN_UP = "/cadastro";
+// Em `/en` e `/es` o idioma ainda não é uma escolha guardada: o link leva, para quem entra sem cookie.
+const signInPath = (locale: string) =>
+  locale === DEFAULT_LOCALE ? "/entrar" : `/entrar?lang=${locale}`;
+const signUpPath = (locale: string) =>
+  locale === DEFAULT_LOCALE ? "/cadastro" : `/cadastro?lang=${locale}`;
 const TERMS = "/termos";
 const PRIVACY = "/privacidade";
 
@@ -75,7 +78,9 @@ const primaryButton =
 
 /** A mesma página em `/`, `/en` e `/es`: o idioma vem de `resolveLocale`. */
 export async function LandingPage({ home }: { home: string }) {
-  const t = await getTranslations("landing");
+  const [t, locale] = await Promise.all([getTranslations("landing"), getLocale()]);
+  const SIGN_IN = signInPath(locale);
+  const SIGN_UP = signUpPath(locale);
   return (
     <div className="bg-sand-50 text-night">
       <a

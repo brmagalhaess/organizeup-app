@@ -14,8 +14,9 @@ import {
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
-import type { Allocation } from "@organizeup/domain";
+import type { Allocation, Message } from "@organizeup/domain";
 import type { DailyReport, DailyReportKind } from "./reports";
+import type { AgentText } from "./texts";
 
 export interface AgentInput {
   /** Data civil de hoje no fuso da família (AAAA-MM-DD). */
@@ -30,7 +31,7 @@ export interface AgentResult {
   suggestions: number;
   /** Alterações automáticas aplicadas pelo agente nesta rodada. */
   applied: number;
-  report: { title: string; summary: string; data: Record<string, unknown> };
+  report: { title: string; summary: string; message: Message; data: Record<string, unknown> };
 }
 
 export const INVESTIMENTOS_AGENT = "investimentos";
@@ -138,13 +139,17 @@ export async function loadDecisions(
   return { blocked, recentlyIgnored };
 }
 
-export interface PendingSuggestion {
+export interface PendingSuggestion extends AgentText {
   kind: SuggestionKind;
-  title: string;
-  body: string;
   payload: Record<string, unknown>;
   dedupeKey: string;
 }
+
+/** Colunas da mensagem por chave: a tela lê daqui, e `title` e `body` ficam como reserva. */
+export const messageColumns = ({ key, params }: Message) => ({
+  messageKey: key,
+  messageParams: params ?? null,
+});
 
 /**
  * Grava (ou atualiza) sugestões pendentes pelo índice parcial. Pula as ignoradas há menos de 30
@@ -163,6 +168,7 @@ export async function upsertPending(
       continue;
     const title = clamp(item.title, MAX_TITLE);
     const body = clamp(item.body, MAX_BODY);
+    const message = messageColumns(item.message);
     const rows = await tx
       .insert(householdSuggestions)
       .values({
@@ -171,6 +177,7 @@ export async function upsertPending(
         kind: item.kind,
         title,
         body,
+        ...message,
         payload: item.payload,
         status: "pendente",
         appliedBy: "familia",
@@ -179,7 +186,7 @@ export async function upsertPending(
       .onConflictDoUpdate({
         target: [householdSuggestions.householdId, householdSuggestions.dedupeKey],
         targetWhere: sql`status = 'pendente'`,
-        set: { agent, kind: item.kind, title, body, payload: item.payload },
+        set: { agent, kind: item.kind, title, body, ...message, payload: item.payload },
       })
       .returning({ id: householdSuggestions.id });
     written += rows.length;
@@ -205,6 +212,7 @@ export async function recordApplied(
       kind: item.kind,
       title: clamp(item.title, MAX_TITLE),
       body: clamp(item.body, MAX_BODY),
+      ...messageColumns(item.message),
       payload: item.payload,
       status: "aplicada",
       appliedBy: "agente",
@@ -226,6 +234,7 @@ export async function markApplied(
     .set({
       title: clamp(item.title, MAX_TITLE),
       body: clamp(item.body, MAX_BODY),
+      ...messageColumns(item.message),
       payload: item.payload,
       status: "aplicada",
       appliedBy: "agente",
@@ -266,6 +275,7 @@ export async function recordSkipped(
     kind: item.kind,
     title: clamp(item.title, MAX_TITLE),
     body: clamp(item.body, MAX_BODY),
+    ...messageColumns(item.message),
     payload: item.payload,
     status: "ignorada",
     appliedBy: "agente",
@@ -286,12 +296,13 @@ export async function saveDailyReport<K extends DailyReportKind>(
   const data = report.data as Record<string, unknown>;
   const title = clamp(report.title, MAX_REPORT_TITLE);
   const summary = clamp(report.summary, MAX_REPORT_SUMMARY);
+  const message = messageColumns(report.message);
   await tx
     .insert(householdReports)
-    .values({ householdId, agent, kind, period, title, summary, data })
+    .values({ householdId, agent, kind, period, title, summary, data, ...message })
     .onConflictDoUpdate({
       target: [householdReports.householdId, householdReports.kind, householdReports.period],
-      set: { agent, title, summary, data },
+      set: { agent, title, summary, data, ...message },
     });
 }
 

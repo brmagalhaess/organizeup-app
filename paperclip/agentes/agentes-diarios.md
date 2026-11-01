@@ -32,8 +32,9 @@ Nunca altere código, nunca tente rodar a conta por conta própria e nunca peça
 | Agente        | Horário de Brasília | Faz o quê                                                          |
 | ------------- | ------------------- | ------------------------------------------------------------------ |
 | Mercado       | 03:45               | Cotações, proventos e índices. Só roda se o worker ainda não rodou |
-| Categorias    | 04:00               | Arruma o que ficou para revisar e sugere categorias                |
+| Categorias    | 04:00               | Arruma o que ficou para revisar e corrige categorias               |
 | Investimentos | 04:10               | Aplica cotações e proventos e avisa do que está velho              |
+| Dívidas       | 04:15               | Refaz o plano de saída e sugere qual dívida atacar                 |
 | Aposentadoria | 04:20               | Refaz a projeção e divide o que sobra                              |
 | Viagens       | 04:30               | Estima as viagens e sugere quando cabem                            |
 | Metas         | 04:40               | Recalcula o plano mensal das metas                                 |

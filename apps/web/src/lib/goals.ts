@@ -18,6 +18,8 @@ import {
   yearMonthOf,
   type YearMonth,
 } from "@organizeup/domain";
+import { agentSentence } from "@/i18n/agent-text";
+import { resolveLocale } from "@/i18n/resolve";
 
 const DEFAULT_PLAN_DAY = 5;
 const LAST_PLAN_DAY = 28;
@@ -33,6 +35,7 @@ function suggestedPlanDay(incomes: Array<{ amount: string; payDay: number }>) {
 
 /** Dados da tela de metas. O plano (colunas plan_*) vem pronto do assistente diário. */
 export async function loadGoals(ctx: TenantContext) {
+  const locale = await resolveLocale();
   return withHousehold(ctx, async (tx) => {
     const today = todayIn(await householdTimezone(tx, ctx.householdId));
     const month = yearMonthOf(today);
@@ -93,7 +96,11 @@ export async function loadGoals(ctx: TenantContext) {
         planStart: goal.planStart,
         planEnd: goal.planEnd,
         planMonthly: goal.planMonthly,
-        planNote: goal.planNote,
+        planNote: goal.planNote
+          ? agentSentence(goal.planNote, goal.planNoteKey, goal.planNoteParams, locale)
+          : null,
+        /** A tela já diz isso com outras palavras. */
+        planNoteNoRoom: goal.planNote?.startsWith("Hoje não sobra") ?? false,
         planned: goal.planUpdatedAt !== null,
         overdue: payable.filter((row) => row.date < today),
       };

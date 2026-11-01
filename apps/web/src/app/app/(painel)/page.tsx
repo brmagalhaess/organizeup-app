@@ -20,6 +20,7 @@ import { loadOverview } from "@/lib/finance-data";
 import { requireTenant } from "@/lib/session";
 import { loadTopSuggestions } from "@/lib/suggestions";
 import { loadNetWorth, loadReserve } from "@/lib/wealth";
+import { systemTextOf } from "@/i18n/system-text";
 import { CashflowChart } from "./cashflow-chart";
 import { FirstSteps } from "./first-steps";
 
@@ -51,7 +52,12 @@ export default async function OverviewPage() {
     loadNetWorth(ctx, { record: false }),
     loadTopSuggestions(ctx),
   ]);
-  const [t, locale] = await Promise.all([getTranslations("dashboard"), getLocale()]);
+  const [t, tSystem, locale] = await Promise.all([
+    getTranslations("dashboard"),
+    getTranslations("sistema"),
+    getLocale(),
+  ]);
+  const system = systemTextOf(tSystem);
   const writable = canWrite(ctx);
   const firstName = session.user.name.split(" ")[0] ?? "";
   const date = formatLongDate(data.today, locale);
@@ -71,7 +77,7 @@ export default async function OverviewPage() {
   const bars = [
     ...top.map((c) => ({
       id: c.categoryId,
-      name: data.categoryNames.get(c.categoryId) ?? t("spending.uncategorized"),
+      name: system.name(data.categoryNames.get(c.categoryId) ?? t("spending.uncategorized")),
       amount: c.amount,
     })),
     ...(rest.isZero()
@@ -221,7 +227,12 @@ export default async function OverviewPage() {
                     {formatDayMonth(entry.date, locale)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{entry.description}</p>
+                    <p className="text-sm font-medium">
+                      {system.description(entry.description, {
+                        category: data.categoryNames.get(entry.categoryId),
+                        bill: entry.source === "fatura",
+                      })}
+                    </p>
                     <p className={cx("text-xs font-medium tabular-nums", amountClass(entry.kind))}>
                       {entry.kind === "receita" ? "+ " : "− "}
                       {amount(entry.amount)}

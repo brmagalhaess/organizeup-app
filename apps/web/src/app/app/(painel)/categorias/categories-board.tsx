@@ -13,6 +13,7 @@ import {
   Select,
   Sheet,
 } from "@/components/ui";
+import { systemTextOf } from "@/i18n/system-text";
 import { saveCategory, setCategoryArchived, type CategoryFormState } from "./actions";
 
 export interface CategoryRow {
@@ -36,6 +37,7 @@ function CategoryForm({
 }) {
   const t = useTranslations("categorias.form");
   const tCommon = useTranslations("common");
+  const system = systemTextOf(useTranslations("sistema"));
   const [state, action, pending] = useActionState(saveCategory, initial);
   useEffect(() => {
     if (state.ok) onDone();
@@ -49,7 +51,7 @@ function CategoryForm({
           required
           maxLength={60}
           placeholder={t("nameExample")}
-          defaultValue={category?.name}
+          defaultValue={category ? system.name(category.name) : undefined}
         />
       </Field>
       {category ? (
@@ -91,17 +93,20 @@ function Group({
   onEdit: (category: CategoryRow) => void;
 }) {
   const t = useTranslations("categorias");
+  const system = systemTextOf(useTranslations("sistema"));
   return (
     <Card title={title} description={t("count", { count: rows.length })}>
       <ul aria-label={title} className="m-0 list-none divide-y divide-line p-0">
         {rows.map((category) => (
           <li key={category.id} className="flex items-center gap-2 py-1.5">
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{category.name}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {system.name(category.name)}
+            </span>
             {category.essential ? <Badge>{t("essential")}</Badge> : null}
             {writable ? (
               <div className="flex shrink-0">
                 <IconButton
-                  label={t("actions.edit", { name: category.name })}
+                  label={t("actions.edit", { name: system.name(category.name) })}
                   onClick={() => onEdit(category)}
                 >
                   <Pencil className="size-4" aria-hidden="true" />
@@ -109,7 +114,10 @@ function Group({
                 <form action={setCategoryArchived}>
                   <input type="hidden" name="id" value={category.id} />
                   <input type="hidden" name="archived" value="true" />
-                  <IconButton type="submit" label={t("actions.archive", { name: category.name })}>
+                  <IconButton
+                    type="submit"
+                    label={t("actions.archive", { name: system.name(category.name) })}
+                  >
                     <Archive className="size-4" aria-hidden="true" />
                   </IconButton>
                 </form>
@@ -124,6 +132,7 @@ function Group({
 
 export function CategoriesBoard({ rows, writable }: { rows: CategoryRow[]; writable: boolean }) {
   const t = useTranslations("categorias");
+  const system = systemTextOf(useTranslations("sistema"));
   const [editing, setEditing] = useState<{ nonce: number; category: CategoryRow | null } | null>(
     null,
   );
@@ -164,12 +173,15 @@ export function CategoriesBoard({ rows, writable }: { rows: CategoryRow[]; writa
           <ul className="m-0 list-none divide-y divide-line p-0">
             {archived.map((category) => (
               <li key={category.id} className="flex items-center justify-between gap-3 py-1.5">
-                <span className="truncate text-sm">{category.name}</span>
+                <span className="truncate text-sm">{system.name(category.name)}</span>
                 {writable ? (
                   <form action={setCategoryArchived}>
                     <input type="hidden" name="id" value={category.id} />
                     <input type="hidden" name="archived" value="false" />
-                    <IconButton type="submit" label={t("actions.restore", { name: category.name })}>
+                    <IconButton
+                      type="submit"
+                      label={t("actions.restore", { name: system.name(category.name) })}
+                    >
                       <ArchiveRestore className="size-4" aria-hidden="true" />
                     </IconButton>
                   </form>

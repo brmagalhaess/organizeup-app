@@ -99,7 +99,10 @@ for (const landing of LANDINGS) {
     });
 
     await visitor.getByRole("link", { name: landing.start }).first().click();
-    await expect(visitor).toHaveURL(/\/cadastro$/);
+    // Em `/en` e `/es`, o link leva o idioma: quem entra sem cookie não cai em português.
+    await expect(visitor).toHaveURL(
+      landing.path === "/" ? /\/cadastro$/ : new RegExp(`/cadastro\\?lang=${landing.lang}$`),
+    );
     await expect(visitor.locator("html")).toHaveAttribute("lang", landing.lang);
     await context.close();
   });

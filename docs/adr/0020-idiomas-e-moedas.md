@@ -2,8 +2,8 @@
 
 Status: aceito (2026-11-01).
 
-Pedido do fundador. Soma ao ADR-0004 (dinheiro), ao ADR-0015 (agentes, que seguem gravando texto em português até a
-Fase 3) e ao ADR-0018 (o assistente passa a responder no idioma da pessoa). A especificação e as fases estão em
+Pedido do fundador. Soma ao ADR-0004 (dinheiro), ao ADR-0015 (agentes, que desde a Fase 3 gravam chave e valores ao
+lado do texto em português) e ao ADR-0018 (o assistente passa a responder no idioma da pessoa). A especificação e as fases estão em
 `docs/specs/idiomas-e-moedas.md`. Este ADR registra o que já vale. A moeda em conta nasceu na Fase 5; moeda principal fora do real
 fica para a Fase 6.
 
@@ -73,8 +73,38 @@ fica para a Fase 6.
 - **A conferência determinística entende os dois formatos.** `uncheckedAmounts` lê `R$ 1,234.56` e `1.234,56 R$`, e
   `mentionsInvestment` conhece as palavras em inglês e espanhol. Sem isso, resposta em inglês daria aviso falso de número
   e deixaria de levar o aviso da CVM.
-- **As dicas da madrugada ficam em português até a Fase 3**, quando agentes passam a guardar chave e valores. A base de
-  conhecimento continua brasileira.
+- **As dicas da madrugada saem no idioma de quem definiu o aceite** (`ai_consent_by` e sua preferência), em português sem
+  preferência, pelo mesmo `turnContext`. A dica é escrita pelo modelo e fica num idioma só, por família. O verificador
+  conhece número, ordem de compra e venda e texto de instrução em inglês e espanhol. A base de conhecimento continua
+  brasileira.
+
+### Agentes e e-mails (Fase 3, 2026-11-01)
+
+- **Chave e valores ao lado do texto.** `household_suggestions`, `household_notifications`, `household_reports` e
+  `debt_plan_reports` ganham `message_key` e `message_params`; `goals` ganha `plan_note_key` e `plan_note_params`.
+  `title`, `body` e `summary` continuam em português: é a reserva de linha antiga e o que o assistente lê. Nada é
+  reescrito: sem chave, a tela mostra o texto gravado, marcado com `lang="pt-BR"`, e o plano da meta alcança na rodada da
+  noite.
+- **Valores crus, com o tipo junto.** `{ money }`, `{ month }`, `{ date }`, `{ percent }`, `{ quantity }`, `{ monthName }`,
+  `{ category }`, `{ categories }`, e frases dentro de frases (`{ message }`, `{ messages }`). Quem formata é a tela, em
+  `i18n/agent-text.ts`. Valor em formato desconhecido ou chave que a versão não conhece caem no texto gravado: tela de
+  versão antiga não quebra com worker novo.
+- **Um lugar para escrever.** Tudo o que os agentes dizem está em `packages/agents/src/texts.ts`, com português e chave
+  lado a lado; as chaves estão em `packages/domain/src/messages.ts`, com tipo. `agent-text.test.ts` confere, por chave, que
+  o catálogo em português dá o mesmo texto gravado, letra por letra, e que toda chave existe nos três idiomas. Por isso o
+  português visível não mudou.
+- **Texto do sistema é traduzido na exibição, sem reescrever linha.** `i18n/system-text.ts` é a função única: nome padrão
+  de categoria e de conta, só enquanto for exatamente o padrão, e descrições geradas. "Fatura" e "Aporte em" só contam com
+  a categoria do sistema, e "Viagem:" só em evento nascido de viagem: "Fatura da luz" digitada fica como está. No formulário
+  de editar, o nome aparece traduzido, e salvar sem mudar mantém o gravado.
+- **Respostas de aceitar e desfazer** vêm com `code`, e a tela traduz pelo catálogo (`APPLY_REPLIES`). Arquivos de dívida
+  também. `knownText` fica só para validação de esquemas compartilhados, em `/app/completar`.
+- **Categoria nova criada pela IA** nasce no idioma de quem definiu o aceite: é dado da família, gravado num idioma só.
+- **E-mail no idioma de quem recebe.** Preferência da conta, depois o idioma do pedido. No convite, a preferência de quem
+  já tem conta com aquele e-mail, depois a de quem convidou. Ler o idioma fica fora do tempo do pedido: "esqueci a senha"
+  continua sem revelar quais e-mails têm conta. A remetente não muda.
+- **Link da landing leva o idioma.** `/entrar?lang=en` e `/cadastro?lang=en`: o clique em `/en` conta como escolha, e
+  `proxy.ts` grava o cookie, que o cadastro leva para a conta.
 
 ### Dinheiro
 
@@ -132,7 +162,7 @@ fica para a Fase 6.
 
 ## Fora do escopo por enquanto
 
-Fases 2, 3 e 6 da especificação: demais telas, agentes e e-mails com chave e valores, moeda principal fora do real. Tradução dos Termos e da Privacidade. Troca dos usos de
+Fase 6 da especificação: moeda principal fora do real. Tradução dos Termos e da Privacidade. Nomes e fontes dos destinos de viagem, que vêm de uma tabela global sem campo por idioma. Troca dos usos de
 `formatBRL` fora das telas traduzidas. Painel de administração, que segue só em português.
 
 ## Riscos aceitos
@@ -142,20 +172,19 @@ Fases 2, 3 e 6 da especificação: demais telas, agentes e e-mails com chave e v
 - **Reais de um mês antigo não acompanham o câmbio**, e o saldo em reais, sim. Por isso a soma dos lançamentos em reais não
   fecha com o saldo de conta estrangeira. A tela de Contas explica em uma linha.
 
-- **Telas parcialmente em português** para quem escolhe inglês ou espanhol, até a Fase 2: cadastro leva a "Criar família",
-  e o painel mostra dicas, sugestões, categorias padrão e avisos do serviço como foram gravados.
+- **Dica da madrugada num idioma só.** Na família com duas pessoas de idiomas diferentes, quem não definiu o aceite lê a dica
+  no idioma de quem definiu: o texto é do modelo, e escrevê-la duas vezes custaria o dobro.
+- **Descrição igual à do sistema.** Quem digitar "Meta: Carro (1/10)" ou "Férias · Empresa" verá traduzido: o texto não diz
+  quem o escreveu, e não há coluna de origem. Só acontece com o texto exato.
 - **Conta vence cookie.** Quem tem idioma na conta e escolhe outro na tela de entrar volta ao da conta ao entrar.
 - **Landing dinâmica.** Deixou de ser pré-renderizada e passa a ser montada a cada visita. É rápida e sem banco para quem
   não entrou, mas é mais trabalho no servidor do que antes. Voltar a pré-renderizar pede tirar o layout raiz único, porque é
   ele que lê o cookie para `<html lang>`. Isso significa um layout raiz por área, `global-not-found`, que é experimental no
   Next 16, e mover todas as rotas para grupos, além de o 404 do painel do serviço depender do layout raiz atual. É caro
   demais para o ganho.
-- **Texto gravado continua em português até a Fase 3:** plano mensal da meta (`planNote`), descrição de aporte e resgate,
-  categoria de aporte, evento `Viagem: <destino>` no calendário e sugestões dos agentes. Os nomes de destino sugeridos também.
+- **Nome e fonte de destino sugerido continuam em português.** A tabela global não tem campo por idioma.
 - **Formato pelo idioma, não pelo país.** `en` usa data americana e `es` usa o espanhol geral do Intl. Quem precisar de
   outro formato vai pedir variante; o desenho aceita (`en-GB`, `es-MX`), mas não há seletor para isso.
 - **Campos de valor seguem no formato brasileiro** nas telas ainda não traduzidas. As do dia a dia já usam `parseMoney`.
-- **Texto que chega pronto em português até a Fase 3.** Agentes e domínio devolvem frase, não chave. `knownText` acha a frase
-  no catálogo e troca pelo idioma da pessoa; um teste confere se as frases do catálogo ainda são as dos agentes. Frase nova fica em
-  português até entrar no catálogo. O que já foi gravado continua como foi: sugestões, relatório de importação e
-  descrições do sistema, como "Fatura Nubank" e "Meta: Carro (1/10)". Esses textos vão marcados com `lang="pt-BR"`.
+- **Linha gravada antes da Fase 3 continua em português**: sugestões e relatórios de importação. Notificações antigas
+  traduzem, porque `data` já trazia os valores. O plano da meta alcança na noite seguinte.

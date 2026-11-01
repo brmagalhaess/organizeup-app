@@ -10,6 +10,7 @@ import {
   readPlatformFlags,
   sql,
   tolerateSchemaLag,
+  userPreferences,
   withHousehold,
   type AiAutonomy,
   type PlatformFlags,
@@ -17,6 +18,7 @@ import {
 } from "@organizeup/db";
 import { todayIn, yearMonthOf } from "@organizeup/domain";
 import { assistantConfigured } from "./client";
+import { isAssistantLocale, type AssistantLocale } from "./instructions";
 
 export const DEFAULT_MONTHLY_BUDGET_USD = 50;
 export const DEFAULT_FAMILY_DAILY_TOKENS = 200_000;
@@ -104,6 +106,23 @@ export async function readAssistantSettings(ctx: TenantContext): Promise<Assista
     );
     return row ?? NO_SETTINGS;
   }, null);
+}
+
+/**
+ * Idioma de quem definiu o aceite, que responde pelo que a rotina da noite escreve (ADR-0020). Sem
+ * preferência, ou sem quem aceitou, vale o português.
+ */
+export async function nightLocale(ctx: TenantContext): Promise<AssistantLocale> {
+  return tolerateSchemaLag(async () => {
+    const [row] = await withHousehold(ctx, (tx) =>
+      tx
+        .select({ locale: userPreferences.locale })
+        .from(householdSettings)
+        .innerJoin(userPreferences, eq(userPreferences.userId, householdSettings.aiConsentBy))
+        .where(eq(householdSettings.householdId, ctx.householdId)),
+    );
+    return isAssistantLocale(row?.locale) ? row.locale : "pt-BR";
+  }, "pt-BR");
 }
 
 export const canUseAssistant = (ctx: TenantContext) => ctx.role === "owner" || ctx.role === "adult";

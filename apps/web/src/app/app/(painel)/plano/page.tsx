@@ -7,6 +7,7 @@ import { Badge, Card, PageHeader } from "@/components/ui";
 import { formatAmount } from "@/i18n/format";
 import { loadMonthlyPlan } from "@/lib/planning";
 import { requireTenant } from "@/lib/session";
+import { systemTextOf } from "@/i18n/system-text";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("plano");
@@ -24,7 +25,12 @@ const HREF: Record<PlanAction["kind"], string> = {
 export default async function PlanPage() {
   const { ctx } = await requireTenant();
   const { actions, targetYear, year } = await loadMonthlyPlan(ctx);
-  const [t, locale] = await Promise.all([getTranslations("plano"), getLocale()]);
+  const [t, tSystem, locale] = await Promise.all([
+    getTranslations("plano"),
+    getTranslations("sistema"),
+    getLocale(),
+  ]);
+  const system = systemTextOf(tSystem);
   const description =
     year === null
       ? t("description.default")
@@ -38,7 +44,7 @@ export default async function PlanPage() {
         {actions.map((action, index) => {
           const title = t(`actions.${action.kind}.title`, {
             amount: action.amount === null ? "" : formatAmount(action.amount, locale),
-            category: action.category ?? "",
+            category: system.name(action.category ?? ""),
           });
           return (
             <li key={action.kind}>

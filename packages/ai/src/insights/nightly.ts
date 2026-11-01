@@ -20,9 +20,16 @@ import {
 } from "@organizeup/db";
 import { normalizeDescription } from "@organizeup/domain";
 import { z } from "zod";
-import { aiLimits, monthSpend, readAssistantSettings, serviceDay, type AiLimits } from "../access";
+import {
+  aiLimits,
+  monthSpend,
+  nightLocale,
+  readAssistantSettings,
+  serviceDay,
+  type AiLimits,
+} from "../access";
 import { assistantConfigured, type ModelClient } from "../client";
-import { turnContext } from "../instructions";
+import { turnContext, type AssistantLocale } from "../instructions";
 import { echoContent, requestParams, type OutputFormat } from "../loop";
 import { usageOf, type AiRoute } from "../models";
 import { loadPrivacyFilter, type PrivacyFilter } from "../privacy";
@@ -191,6 +198,8 @@ interface Night {
   day: string;
   limits: AiLimits;
   privacy: PrivacyFilter;
+  /** Idioma de quem definiu o aceite: é nele que as dicas ficam gravadas. */
+  locale: AssistantLocale;
 }
 
 async function ask(
@@ -230,7 +239,10 @@ async function runSpecialist(night: Night, name: Specialist, reports: string) {
   const sources = [reports];
   const messages: MessageParam[] = [
     { role: "user", content: reports },
-    { role: "system", content: `${SPECIALIST_BRIEF(name)} ${turnContext({ today: night.day })}` },
+    {
+      role: "system",
+      content: `${SPECIALIST_BRIEF(name)} ${turnContext({ today: night.day, locale: night.locale })}`,
+    },
   ];
   for (let step = 0; step < NIGHT_ROUTE.maxIterations; step += 1) {
     const withTools = step < NIGHT_ROUTE.maxIterations - 1;
@@ -327,7 +339,8 @@ export async function runNightlyInsights(input: NightInput): Promise<InsightRun>
   if (gate !== "pronto") return { ...run, gate };
 
   const privacy = await withHousehold(ctx, (tx) => loadPrivacyFilter(tx, ctx.householdId));
-  const night: Night = { ctx, client, day, limits, privacy };
+  const locale = await nightLocale(ctx);
+  const night: Night = { ctx, client, day, limits, privacy, locale };
   const tools = toolsFor(NIGHT_ROUTE);
   const report = await executeTool(tools, ctx, privacy, "relatorios_do_dia", {});
   if (!report.ok) return run;

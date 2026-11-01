@@ -9,6 +9,7 @@ import {
 } from "@/app/app/(painel)/familia/person-fields";
 import { buttonClass } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select, submitKeeping } from "@/components/ui";
+import { systemTextOf } from "@/i18n/system-text";
 import {
   finishOnboarding,
   saveFamilyStep,
@@ -248,6 +249,7 @@ export function TripsStep({
 export function GoalStep({ accounts }: { accounts: Array<{ id: string; name: string }> }) {
   const t = useTranslations("familiaOnboarding.goal");
   const tComplete = useTranslations("familiaOnboarding.complete");
+  const system = systemTextOf(useTranslations("sistema"));
   const [state, action, pending] = useActionState(finishOnboarding, initial);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-5">
@@ -274,7 +276,7 @@ export function GoalStep({ accounts }: { accounts: Array<{ id: string; name: str
         <Select name="goalAccount" defaultValue={accounts[0]?.id ?? ""}>
           {accounts.map((account) => (
             <option key={account.id} value={account.id}>
-              {account.name}
+              {system.name(account.name)}
             </option>
           ))}
         </Select>

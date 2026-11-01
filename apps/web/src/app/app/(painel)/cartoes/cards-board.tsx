@@ -43,6 +43,7 @@ import {
 } from "@/components/ui";
 import { formatAmount, formatDayMonth, formatMonthYear, toAmountInput } from "@/i18n/format";
 import type { loadCards } from "@/lib/commitments";
+import { systemTextOf } from "@/i18n/system-text";
 import { deletePurchase, saveCard, setCardArchived, type CardFormState } from "./actions";
 
 type Data = Awaited<ReturnType<typeof loadCards>>;
@@ -69,6 +70,7 @@ function CardForm({
 }) {
   const t = useTranslations("cartoes.form");
   const tCommon = useTranslations("common");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const [state, action, pending] = useActionState(saveCard, initial);
   useEffect(() => {
@@ -122,7 +124,7 @@ function CardForm({
             .filter((a) => !a.archived || a.id === card?.payingAccountId)
             .map((account) => (
               <option key={account.id} value={account.id}>
-                {account.name}
+                {system.name(account.name)}
               </option>
             ))}
         </Select>
@@ -198,6 +200,7 @@ function Statement({
 }) {
   const t = useTranslations("cartoes");
   const tStatement = useTranslations("cartoes.statement");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const { openNew } = useEntryDialog();
   const [removing, setRemoving] = useState<Line | null>(null);
@@ -293,7 +296,7 @@ function Statement({
           ) : null}
           {!paid && lines.length > 0 ? (
             <span className="text-xs text-muted">
-              {tStatement("paidFrom", { account: accountName })}
+              {tStatement("paidFrom", { account: system.name(accountName) })}
             </span>
           ) : null}
         </div>
@@ -353,12 +356,12 @@ function Statement({
                               total: line.installments,
                             })
                           : tStatement("singlePayment")}
-                        <span className="md:hidden"> · {line.categoryName}</span>
+                        <span className="md:hidden"> · {system.name(line.categoryName)}</span>
                       </p>
                       {remove ? <div className="mt-1 sm:hidden">{remove}</div> : null}
                     </td>
                     <td className="hidden px-3 py-3 align-top text-muted md:table-cell">
-                      {line.categoryName}
+                      {system.name(line.categoryName)}
                     </td>
                     <td className="whitespace-nowrap py-3 pl-3 pr-5 text-right align-top font-semibold tabular-nums sm:pr-3">
                       {formatAmount(line.amount, locale)}

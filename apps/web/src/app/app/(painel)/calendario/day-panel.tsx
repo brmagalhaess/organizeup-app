@@ -3,7 +3,7 @@ import { AlertCircle, CalendarPlus, Check, Clock, Plus, Trash2 } from "lucide-re
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { money, yearMonthOf, type CalendarItem } from "@organizeup/domain";
+import { CONTRIBUTION_CATEGORY, money, yearMonthOf, type CalendarItem } from "@organizeup/domain";
 import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { useEntryDialog } from "@/components/shell/entry-context";
 import { amountClass, buttonClass, confirmAction, cx, isGoalEntry } from "@/components/styles";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui";
 import { formatAmount, formatWeekdayName } from "@/i18n/format";
 import type { loadCalendar } from "@/lib/calendar-data";
+import { systemTextOf } from "@/i18n/system-text";
 import { PlanLink } from "../lancamentos/plan-link";
 import { deleteEvent, saveEvent, type EventFormState } from "./actions";
 import { isOverdue, itemHref, typeOf, type CalendarFilter } from "./calendar-model";
@@ -63,13 +64,18 @@ function ItemStatus({ item, today }: { item: CalendarItem; today: string }) {
 function DayItem({ item, data, writable }: { item: CalendarItem; data: Data; writable: boolean }) {
   const t = useTranslations("calendario");
   const tConfirm = useTranslations("dashboard.confirm");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
+  const type = typeOf(item, data.types);
   // O fechamento do cartão chega pronto do agente, como "Fecha <nome>".
   const title =
     item.type === "fechamento"
       ? t("day.closes", { name: item.title.replace(/^Fecha /, "") })
-      : item.title;
-  const type = typeOf(item, data.types);
+      : system.description(item.title, {
+          bill: type === "cartao",
+          trip: type === "viagem",
+          category: data.contributions.includes(item.key) ? CONTRIBUTION_CATEGORY : null,
+        });
   const Icon = TYPE_ICON[type];
   const href = itemHref(item, type);
   const open = item.type === "lancamento" && item.status === "previsto";
@@ -122,7 +128,7 @@ function DayItem({ item, data, writable }: { item: CalendarItem; data: Data; wri
             {writable && item.type === "compromisso" ? (
               <form action={deleteEvent}>
                 <input type="hidden" name="id" value={item.id} />
-                <IconButton type="submit" label={t("day.deleteItem", { name: item.title })}>
+                <IconButton type="submit" label={t("day.deleteItem", { name: title })}>
                   <Trash2 className="size-4" aria-hidden="true" />
                 </IconButton>
               </form>

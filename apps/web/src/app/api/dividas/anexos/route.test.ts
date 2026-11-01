@@ -96,7 +96,10 @@ describe("POST /api/dividas/anexos", () => {
     agents.saveDebtDocument.mockResolvedValue({ ok: false, code: "cota", message: "Sem espaço." });
     const response = await post(pdf());
     expect(response.status).toBe(413);
-    expect(await response.json()).toMatchObject({ ok: false, message: "Sem espaço." });
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      message: "A família chegou ao limite de 50 MB de arquivos. Apague algum para enviar.",
+    });
   });
 });
 

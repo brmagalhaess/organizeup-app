@@ -21,7 +21,7 @@ function captureFile() {
 }
 
 /** Regra 5: destinatário, assunto e corpo nunca vão para o log. */
-function logFailure(template: EmailTemplate, status: number | string) {
+function logFailure(template: EmailTemplate | "indefinido", status: number | string) {
   console.error(JSON.stringify({ level: "error", msg: "email_failed", template, status }));
 }
 
@@ -85,7 +85,12 @@ export async function sendEmail(message: EmailMessage): Promise<boolean> {
  * "esqueci a senha" não pode demorar mais quando a conta existe: esperar a Brevo aqui seguraria
  * uma conexão do banco e revelaria quais e-mails têm conta.
  */
-export function sendEmailInBackground(message: EmailMessage): Promise<void> {
-  void sendEmail(message);
+export function sendEmailInBackground(
+  message: EmailMessage | Promise<EmailMessage>,
+): Promise<void> {
+  // Montar a mensagem pode ler o idioma no banco: também fica fora do tempo de quem pediu.
+  void Promise.resolve(message)
+    .then(sendEmail)
+    .catch(() => logFailure("indefinido", "render"));
   return Promise.resolve();
 }

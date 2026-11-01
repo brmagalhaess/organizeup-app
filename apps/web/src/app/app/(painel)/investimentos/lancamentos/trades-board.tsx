@@ -16,6 +16,7 @@ import {
   Sheet,
 } from "@/components/ui";
 import { formatAmount, formatDate } from "@/i18n/format";
+import { systemTextOf } from "@/i18n/system-text";
 import { deleteTrade } from "../actions";
 import { quantityText, type Data, type Trade } from "../shared";
 import { TradeForm } from "../trade-form";
@@ -34,6 +35,7 @@ export function TradesBoard({
   writable: boolean;
 }) {
   const t = useTranslations("investimentos");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const router = useRouter();
   const [removing, setRemoving] = useState<Trade | null>(null);
@@ -119,7 +121,7 @@ export function TradesBoard({
                     money(trade.fees).gt(0)
                       ? t("trades.fees", { amount: formatAmount(trade.fees, locale) })
                       : null,
-                    trade.accountName,
+                    trade.accountName ? system.name(trade.accountName) : null,
                   ];
                   return (
                     <li key={trade.id} className="flex items-center gap-3 py-3 text-sm">

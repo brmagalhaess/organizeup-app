@@ -31,6 +31,7 @@ import {
 } from "@/components/ui";
 import { formatAmount, formatDayMonth, toAmountInput } from "@/i18n/format";
 import type { loadDebts } from "@/lib/commitments";
+import { systemTextOf } from "@/i18n/system-text";
 import { closeDebt, deleteDocument, reopenDebt, saveDebt, type DebtFormState } from "./actions";
 import { DebtFields } from "./debt-fields";
 import { DebtFiles, type DebtFileView } from "./debt-files";
@@ -53,6 +54,7 @@ function DebtForm({
 }) {
   const t = useTranslations("dividas.form");
   const tCommon = useTranslations("common");
+  const system = systemTextOf(useTranslations("sistema"));
   const [state, action, pending] = useActionState(saveDebt, initial);
   useEffect(() => {
     if (state.ok) onDone();
@@ -76,7 +78,7 @@ function DebtForm({
             .filter((a) => !a.archived || a.id === debt?.accountId)
             .map((account) => (
               <option key={account.id} value={account.id}>
-                {account.name}
+                {system.name(account.name)}
               </option>
             ))}
         </Select>

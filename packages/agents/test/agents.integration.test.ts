@@ -415,6 +415,14 @@ describe("agente de metas", () => {
     const payload = agents.parsePayload("meta", row!.payload);
     expect(payload.goalId).toBe(goalId);
     expect(payload.extraMonthly).not.toBeNull();
+    // Chave e valores crus ao lado do texto em português, que fica como reserva.
+    expect(row!.messageKey).toMatch(/^meta/);
+    expect(row!.messageParams).toHaveProperty("parts");
+    expect(JSON.stringify(row!.messageParams)).not.toContain("R$");
+    expect(row!.body).toContain("R$");
+    const [goal] = await inA((tx) => tx.select().from(goals).where(eq(goals.id, goalId)));
+    expect(goal!.planNoteKey).toBe("frases.notaMeta");
+    expect(JSON.stringify(goal!.planNoteParams)).not.toContain("R$");
   });
 });
 
@@ -432,6 +440,7 @@ describe("aposentadoria, viagens e investimentos", () => {
         .where(eq(householdSuggestions.dedupeKey, agents.DEDUPE.lembreteAposentadoria())),
     );
     expect(reminder?.status).toBe("pendente");
+    expect(reminder?.messageKey).toMatch(/^lembrete/);
     const [report] = await inA((tx) =>
       tx
         .select()
@@ -439,6 +448,8 @@ describe("aposentadoria, viagens e investimentos", () => {
         .where(and(eq(householdReports.kind, "aposentadoria"), eq(householdReports.period, today))),
     );
     expect((report!.data as { allocation: Allocation }).allocation).toEqual(result.allocation);
+    expect(report!.messageKey).toBe("relatorioAposentadoria");
+    expect(JSON.stringify(report!.messageParams)).not.toContain("R$");
   });
 
   it("viagens sugere no máximo o pedido e a família pode aceitar e desfazer", async () => {
@@ -460,12 +471,14 @@ describe("aposentadoria, viagens e investimentos", () => {
         ),
     );
     expect(pending).toHaveLength(1);
+    expect(pending[0]!.messageKey).toBe("viagem");
 
     const ctx = await ownerCtx();
     const apply = await db.withHousehold(ctx, (tx) =>
       agents.applySuggestion(tx, ctx, pending[0]!.id),
     );
-    expect(apply.ok).toBe(true);
+    expect(apply).toMatchObject({ ok: true, code: "tripCreated" });
+    expect(apply.values?.name).toBeTruthy();
     const created = await inA((tx) => tx.select().from(trips));
     expect(created).toHaveLength(1);
     expect(await inA((tx) => tx.select().from(calendarEvents))).toHaveLength(1);
@@ -509,6 +522,7 @@ describe("aposentadoria, viagens e investimentos", () => {
       tx.select().from(householdSuggestions).where(eq(householdSuggestions.kind, "investimento")),
     );
     expect(rows.some((row) => row.dedupeKey.startsWith("investimento:preco:"))).toBe(true);
+    expect(rows.every((row) => row.messageKey !== null)).toBe(true);
   });
 
   it("a família B continua sem nada dos agentes", async () => {

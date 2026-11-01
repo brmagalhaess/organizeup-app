@@ -1,9 +1,11 @@
 // API pública dos agentes do produto (ADR-0015/0016). Tudo roda dentro de um TenantTx recebido.
 export {
+  APPLY_REPLIES,
   applySuggestion,
   dismissSuggestion,
   recordDividendRemoval,
   undoSuggestion,
+  type ApplyCode,
   type ApplyResult,
 } from "./apply";
 export {
@@ -143,5 +145,6 @@ export {
   type SuggestionPayload,
   type ViagemPayload,
 } from "./suggestions";
+export * from "./texts";
 export { createTrip, type CreateTripInput, type TripCostKind } from "./trips";
 export { shiftDays } from "./shared";

@@ -30,6 +30,7 @@ import {
   Sheet,
 } from "@/components/ui";
 import { formatAmount, toAmountInput } from "@/i18n/format";
+import { systemTextOf } from "@/i18n/system-text";
 import { saveAccount, setAccountArchived, type SimpleFormState } from "./actions";
 import { TransferForm, TransferList, type TransferRow } from "./transfers";
 
@@ -67,6 +68,7 @@ function AccountForm({
 }) {
   const t = useTranslations("contas");
   const tCommon = useTranslations("common");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const [state, action, pending] = useActionState(saveAccount, initial);
   const [currency, setCurrency] = useState<Currency>(account?.currency ?? "BRL");
@@ -82,7 +84,7 @@ function AccountForm({
           required
           maxLength={80}
           placeholder={t("form.nameExample")}
-          defaultValue={account?.name}
+          defaultValue={account ? system.name(account.name) : undefined}
         />
       </Field>
       <Field label={t("form.type")}>
@@ -147,6 +149,7 @@ export function AccountsBoard({
   writable: boolean;
 }) {
   const t = useTranslations("contas");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const [moving, setMoving] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ nonce: number; account: AccountRow | null } | null>(
@@ -186,7 +189,7 @@ export function AccountsBoard({
                     <Icon className="size-5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">{account.name}</p>
+                    <p className="truncate font-semibold">{system.name(account.name)}</p>
                     <p className="text-xs text-muted">{t(`types.${account.type}`)}</p>
                   </div>
                 </div>
@@ -246,12 +249,15 @@ export function AccountsBoard({
           <ul className="m-0 list-none divide-y divide-line p-0">
             {archived.map((account) => (
               <li key={account.id} className="flex items-center justify-between gap-3 py-2">
-                <span className="truncate text-sm">{account.name}</span>
+                <span className="truncate text-sm">{system.name(account.name)}</span>
                 {writable ? (
                   <form action={setAccountArchived}>
                     <input type="hidden" name="id" value={account.id} />
                     <input type="hidden" name="archived" value="false" />
-                    <IconButton type="submit" label={t("actions.restore", { name: account.name })}>
+                    <IconButton
+                      type="submit"
+                      label={t("actions.restore", { name: system.name(account.name) })}
+                    >
                       <ArchiveRestore className="size-4" aria-hidden="true" />
                     </IconButton>
                   </form>

@@ -1785,9 +1785,9 @@
         "completo": "Full",
         "completoText": "Also creates draft goals. Any amount you entered stays a suggestion.",
         "organizar": "Organize",
-        "organizarText": "Also tidies up items left for review on its own, always with Undo.",
+        "organizarText": "Same as Suggest: tidies up generic categories and what was left to review on its own, always with Undo.",
         "sugerir": "Suggest",
-        "sugerirText": "Only gives tips and suggestions. You decide everything."
+        "sugerirText": "Gives tips and suggestions for you to decide. Only generic categories change on their own, with Undo."
       }
     },
     "memories": {
@@ -1864,12 +1864,6 @@
     "unreadTag": "Unread",
     "newCategory": "New category",
     "open": "See in Suggestions",
-    "change": "{from} → {to}",
-    "changeDetail": "{merchant}: {entries}, {sum}",
-    "mergeDetail": "Categories merged: {entries}, {sum}",
-    "summary": "{changes, plural, one {And # more change tonight} other {And # more changes tonight}}",
-    "summaryDetail": "{entries}, {sum}. It's all in Suggestions, with Undo.",
-    "entries": "{count, plural, =0 {no entries} one {# entry} other {# entries}}",
     "unavailableTitle": "Notifications unavailable",
     "unavailableText": "We're updating the service. Please try again in a few minutes.",
     "empty": {
@@ -2868,11 +2862,8 @@
       "nothingApplied": "Nothing was applied. Refresh the page and try again."
     },
     "applied": {
-      "moved": "{count, plural, =1 {1 transaction moved} other {# transactions moved}}.",
       "seen": "{count, plural, =1 {1 notice marked as seen} other {# notices marked as seen}}.",
-      "failed": "{count, plural, =1 {1 didn't work} other {# didn't work}}.",
-      "tripCreated": "Trip to {name} created. Adjust dates and costs in Trips.",
-      "goalCreated": "Goal {name} created. Adjust the details in Goals."
+      "failed": "{count, plural, =1 {1 didn't work} other {# didn't work}}."
     },
     "agent": {
       "readOnly": "Your role in this family doesn't allow changes.",
@@ -2907,7 +2898,13 @@
       "goalHasValues": "The goal has already received money; nothing was undone.",
       "goalRemoved": "Goal removed.",
       "goalDateChanged": "The goal date was already changed; nothing was undone.",
-      "goalDateRestored": "Goal date restored."
+      "goalDateRestored": "Goal date restored.",
+      "assistantHandles": "The assistant handles this on its own: this suggestion doesn't need your OK.",
+      "tripPeople": "Choose who's going.",
+      "tripPeopleInvalid": "Choose people from your family.",
+      "tripFailed": "We couldn't create the trip.",
+      "tripCreated": "Trip to {name} created. Adjust dates and costs in Trips.",
+      "goalCreated": "Goal {name} created. Adjust the details in Goals."
     }
   },
   "familiaOnboarding": {
@@ -3060,6 +3057,330 @@
       "goalAmountFormat": "Enter the amount like 80,000.00.",
       "goalAmount": "Enter how much it costs.",
       "goalAccount": "Choose the account it comes from."
+    }
+  },
+  "agentes": {
+    "aporteReserva": {
+      "title": "Save {amount} a month in your emergency fund",
+      "body": "{parts}"
+    },
+    "aporteDivida": {
+      "title": "Pay {amount} more a month on ‘{debt}’",
+      "body": "This debt costs {rate} a month, more than your portfolio earns. Paying it off early beats investing. Accepting records the decision; you make the extra payment on the debts screen."
+    },
+    "aporteDividaPlano": {
+      "title": "Pay {amount} more a month on ‘{debt}’",
+      "body": "According to the payoff plan ({strategy, select, avalanche {highest interest first} other {lowest balance first}}), this is the debt to tackle now. Accepting records the decision; you make the extra payment on the debts screen."
+    },
+    "aporteInvestimento": {
+      "title": "Save {amount} a month for retirement",
+      "body": "{detail} Accepting saves this amount as what you set aside each month in the plan."
+    },
+    "lembreteRendimento": {
+      "title": "Enter your portfolio's annual yield",
+      "body": "Or record the income you've received. Without it, the assistant can't work out how much you need invested to live off the returns."
+    },
+    "lembreteAno": {
+      "title": "Tell us what year you want to stop working",
+      "body": "With the year, the assistant works out how much to save each month so your portfolio pays the bills by then."
+    },
+    "lembretePlano": {
+      "title": "Complete your retirement plan",
+      "body": "Enter the monthly income you want or record your expenses. With that, the assistant estimates how much to save each month."
+    },
+    "categoriaMovida": {
+      "title": "We moved {count, plural, one {# entry} other {# entries}} from ‘{from}’ to ‘{to}’",
+      "body": "{reason}. If it doesn't make sense, use Undo: the assistant puts the entries back and won't touch them again."
+    },
+    "categoriaFusao": {
+      "title": "We merged ‘{from}’ into ‘{to}’",
+      "body": "{parts}"
+    },
+    "categoriaSemPista": {
+      "title": "No clear category",
+      "body": "The assistant couldn't classify this merchant and will try again in 30 days."
+    },
+    "proventoExcluido": {
+      "title": "Automatic dividend deleted",
+      "body": "You deleted this dividend, and it won't come back on its own."
+    },
+    "quantidadeConferir": {
+      "title": "Check the quantity of {ticker}",
+      "body": "{event} with an ex-date of {date}. There's a trade recorded after that date that may already reflect the new quantity, so we didn't adjust it on our own. If the quantity doesn't match your broker's, fix the trades: until then, the value of this investment may be wrong."
+    },
+    "quantidadeAjustada": {
+      "title": "{ticker} quantity adjusted",
+      "body": "{ticker}: {event} on {date}. The quantity went from {before} to {after}. The total value doesn't change, and your trades stay as you recorded them."
+    },
+    "valorSemInformar": {
+      "title": "Update the value of {label}",
+      "body": "{label} has no current value yet; your net worth and plan use the purchase cost."
+    },
+    "valorAntigo": {
+      "title": "Update the value of {label}",
+      "body": "The latest value of {label} is {days, plural, one {# day} other {# days}} old. Without a recent value, your net worth and retirement plan fall out of date."
+    },
+    "classeForaDaMeta": {
+      "title": "{label}: {percent} of the portfolio, target {target}",
+      "body": "The share of {labelInSentence} is {direction, select, acima {above} other {below}} the target you set. This is just a heads-up: the assistant doesn't say what to buy or sell."
+    },
+    "proventosConferir": {
+      "title": "Dividends to check on your statement",
+      "body": "{tickers}: there are dividends we didn't record on our own because the tax depends on data we don't have, such as the credit date or the account holder. Check your statement and record them in Dividends."
+    },
+    "mercadoDia": {
+      "title": "Quotes and dividends updated",
+      "body": "{parts}. If you undo this, the dividends won't come back on their own; the price returns with the next new quote."
+    },
+    "metaForaDoPrazo": {
+      "title": "The goal ‘{name}’ doesn't fit the deadline",
+      "body": "{parts}"
+    },
+    "metaSemOrcamento": {
+      "title": "There's nothing left today for the goal ‘{name}’",
+      "body": "{parts}"
+    },
+    "viagem": {
+      "title": "How about {name} in {month}?",
+      "body": "{parts}"
+    },
+    "assistenteReserva": {
+      "title": "Save in your emergency fund every month",
+      "body": "Agreed in the chat with the assistant: {amount} a month."
+    },
+    "assistenteAposentadoria": {
+      "title": "Save for retirement every month",
+      "body": "Agreed in the chat with the assistant: {amount} a month."
+    },
+    "assistenteDataMeta": {
+      "title": "New date for {name}",
+      "body": "Change the target month of {name} to {month}."
+    },
+    "assistenteMeta": {
+      "title": "Create the goal {name}",
+      "body": "A goal of {amount}, proposed in the chat with the assistant."
+    },
+    "assistenteLembrete": {
+      "title": "{title}",
+      "body": "{body}"
+    },
+    "notificacaoMudanca": {
+      "title": "{from} → {to}",
+      "body": "{merchant}: {detail}"
+    },
+    "notificacaoFusao": {
+      "title": "{from} → {to}",
+      "body": "Categories merged: {detail}"
+    },
+    "notificacaoResumo": {
+      "title": "{changes, plural, one {And # more change tonight} other {And # more changes tonight}}",
+      "body": "{detail}. It's all in Suggestions, with Undo."
+    },
+    "relatorioCategorias": {
+      "title": "Categories reviewed on {day}",
+      "body": "{parts}"
+    },
+    "relatorioImportacao": {
+      "title": "Statement from {start} to {end}",
+      "body": "{parts}"
+    },
+    "relatorioInvestimentos": {
+      "title": "Investments on {day}",
+      "body": "{parts}"
+    },
+    "relatorioInvestimentosVazio": {
+      "title": "Investments on {day}",
+      "body": "No investments registered yet."
+    },
+    "relatorioAposentadoria": {
+      "title": "How the surplus was split on {day}",
+      "body": "{parts}"
+    },
+    "relatorioViagens": {
+      "title": "Trips on {day}",
+      "body": "{parts}"
+    },
+    "relatorioMetas": {
+      "title": "Goals on {day}",
+      "body": "{parts}"
+    },
+    "relatorioMetasPlano": {
+      "title": "Goals on {day}",
+      "body": "{goals, plural, one {# goal} other {# goals}}; {budget} a month for goals. {planned, plural, one {# goal with a plan} other {# goals with a plan}}, {onTime} on time, {noRoom, plural, one {# with no room in the budget} other {# with no room in the budget}}."
+    },
+    "relatorioDividas": {
+      "title": "Debts on {day}",
+      "body": "{parts}"
+    },
+    "relatorioDividasPlano": {
+      "title": "Debt plan on {day}",
+      "body": "{parts}"
+    },
+    "frases": {
+      "motivo": "{reason}.",
+      "motivoRegra": "The rule knows this merchant",
+      "motivoVisto": "The assistant has already seen this merchant in {name}",
+      "motivoAssistente": "The assistant recognized the merchant from the statement description",
+      "motivoNomesIguais": "The names match or one contains the other",
+      "motivoPalavras": "The name matches another category's keywords",
+      "fusaoFeita": "Entries, forecasts and purchases went to ‘{to}’, and ‘{from}’ was archived. If it doesn't make sense, use Undo.",
+      "reservaFalta": "{missing} to go for a fund of {targetMonths} months of essential expenses.",
+      "reservaFecha": "At this amount it's complete in {months, plural, one {# month} other {# months}}.",
+      "reservaAceitar": "Accepting saves this amount as what you set aside each month in the fund.",
+      "aposentadoriaIncompleta": "Complete your retirement plan to see what year your portfolio gets there.",
+      "aposentadoriaFecha": "At this amount your portfolio gets there in {year}.",
+      "aposentadoriaPreciso": "To get there in {targetYear} you'd need {required} a month; at {amount} your portfolio gets there in {year}.",
+      "aposentadoriaMais": "more",
+      "aposentadoriaMaisDe60": "over 60 years",
+      "eventoAcoes": "{kind, select, desdobramento {Stock split} grupamento {Reverse split} other {Bonus shares}}{factor, select, none {} other { of {factor}}}",
+      "eventoAcoesNaFrase": "{kind, select, desdobramento {stock split} grupamento {reverse split} other {bonus shares}}{factor, select, none {} other { of {factor}}}",
+      "classe": "{assetClass, select, acao {Stocks} fii {Real estate funds} etf_bdr {ETFs and BDRs} renda_fixa {Fixed income} fundo {Funds} previdencia {Pension plans} exterior {International} other {Other}}",
+      "classeNaFrase": "{assetClass, select, acao {stocks} fii {real estate funds} etf_bdr {ETFs and BDRs} renda_fixa {fixed income} fundo {funds} previdencia {pension plans} exterior {international assets} other {other assets}}",
+      "mercadoPrecos": "{count, plural, one {# price updated} other {# prices updated}} ({labels}{more, select, sim { and others} other {}})",
+      "mercadoProventos": "{count, plural, one {# dividend recorded} other {# dividends recorded}}",
+      "mercadoAReceber": "{amount} to receive in {count, plural, one {# payment} other {# payments}}",
+      "mercadoCorrigidos": "{count, plural, one {# dividend corrected} other {# dividends corrected}}",
+      "mercadoRetirados": "{count, plural, one {# dividend removed} other {# dividends removed}}",
+      "metaGuardar": "Today you can save {amount} a month for ‘{name}’, which finishes in {end}.",
+      "metaSemEspaco": "There's no budget left today for ‘{name}’.",
+      "metaPrecisa": "To reach it in {desired} you'd need {extra} more a month.",
+      "metaAceitar": "Accepting changes the target date to {end}; or lower the amount, pause another goal or increase what you save.",
+      "metaReduza": "Lower the amount, push back the date or pause another goal to make room.",
+      "notaMeta": "{parts}",
+      "notaConquistada": "Goal reached.",
+      "notaPausada": "Goal paused: no installments until you resume it.",
+      "notaSemOrcamento": "There's no budget left today for this goal.",
+      "notaSemOrcamentoReduza": "There's no budget left today for this goal. Lower the amount, push back the date or pause another goal.",
+      "notaLonga": "At {amount} a month it would take over 10 years; lower the amount, push back the date or increase what you save.",
+      "notaDataPassou": "The target date has passed; new estimate: {end}.",
+      "notaNaoCabe": "Doesn't fit the budget by {desired}; it finishes in {end}.",
+      "notaComeca": "Starts when {name} finishes.",
+      "notaEscolhaConta": "Choose the account the installment comes from so it shows up on the calendar.",
+      "notaParcelaAjustada": "Installment adjusted from {from} to {to}.",
+      "viagemQuando": "In {month} · {days, plural, one {# day} other {# days}} for {people, plural, one {# person} other {# people}}.",
+      "viagemCusto": "About {total} ({perPerson} per person): flights {flight}, lodging {lodging}, food {food} and transport {transport}; activities are on you.",
+      "viagemGuarde": "Save {amount} a month until {until}.",
+      "viagemPede": "It takes {amount} a month, more than what's left for trips today.",
+      "viagemFonte": "Approximate amounts from our cost table ({confidence, select, baixa {low} other {medium}} confidence). Check flights and lodging before you book. Source: {source}",
+      "viagemGuardeMais": "Save {amount} more a month to make this trip fit.",
+      "viagemCasamento": "In the month of your wedding anniversary.",
+      "viagemBoaEpoca": "{month} is a good time for {name}.",
+      "notificacaoLancamentos": "{count, plural, =0 {no entries} one {# entry} other {# entries}}, {sum}",
+      "relCategorias": "{reviewed, plural, one {# entry reviewed} other {# entries reviewed}}, {moved, plural, one {# moved automatically} other {# moved automatically}}, {merges, plural, one {# merge done} other {# merges done}}.",
+      "relCategoriasCriadas": "Categories created: {names}.",
+      "relCategoriasIa": "From the statement description: {moved, plural, one {# entry moved} other {# entries moved}}.",
+      "relImportacao": "{rows, plural, one {# entry} other {# entries}}, {memory} from family memory, {words} from statement words, {noClue} with no clue.",
+      "relImportacaoCriadas": "Categories created: {names}.",
+      "relImportacaoCorrigiu": "The family corrected {count}.",
+      "relImportacaoDesfeita": "Import undone later.",
+      "relCarteira": "Portfolio of {total}; {dividends} in dividends over the last 12 months.",
+      "relCarteiraRende": "Portfolio of {total}; {dividends} in dividends over the last 12 months ({percent} a year).",
+      "relValorAtualizar": "{count, plural, one {# investment} other {# investments}} with a value to update.",
+      "relAtualizadoHoje": "Updated automatically today: {prices, plural, one {# price} other {# prices}} and {created, plural, one {# new dividend} other {# new dividends}}.",
+      "relQuantidades": "{count, plural, one {# quantity adjusted} other {# quantities adjusted}} for stock splits, reverse splits or bonus shares.",
+      "relAReceber": "To receive: {amount}.",
+      "relPrevisao": "Forecast for {month}: {amount} in dividends.",
+      "relSobra": "Typical surplus of {surplus} a month ({basis}); {available} to split after the cushion. Split: {reserve} to the emergency fund, {debt} to expensive debts, {retirement} to retirement, {goals} to goals and {trips} to trips.",
+      "relSobraBasePrevista": "forecast from income and recurring expenses",
+      "relSobraBaseMeses": "based on {months, plural, one {# month} other {# months}}",
+      "relPlanoCoberto": "Target income {target}; your portfolio already covers {coverage} of what's missing.",
+      "relPlanoIncompleto": "The retirement plan is still incomplete.",
+      "relViagensSemPedido": "The family didn't ask for trip suggestions. Set how many trips a year in Settings › Plan.",
+      "relViagensSemDivisao": "No surplus split today; suggestions wait for the next run.",
+      "relViagensSemPessoas": "Add your family members to receive trip suggestions.",
+      "relViagensNenhuma": "No destination in our table fits {budget} a month for trips.",
+      "relViagensSugeridas": "{count, plural, one {# trip suggested} other {# trips suggested}} with {budget} a month for trips{notAll, select, sim {; not all of them fit today's budget.} other {.}}",
+      "relViagensPedem": "The trips already booked need {amount} more a month.",
+      "relMetasNenhuma": "No goals registered yet.",
+      "relMetasSemDivisao": "No surplus split today; the goal plan was kept.",
+      "relDividasNenhuma": "No open debts.",
+      "relDividasNaoTerminam": "At what you pay today, your debts never end.",
+      "relDividasQuite": "Pay everything off by {month}.",
+      "relDividasQuiteEconomize": "Pay everything off by {month} and save {saved}.",
+      "relDividasTotal": "{count, plural, one {# debt} other {# debts}}, {total} in total.",
+      "relDividasComece": "Start with ‘{name}’.",
+      "relDividasSemExtra": "There's nothing extra for debts today.",
+      "relDividasMudou": "The payoff date moved from {from} to {to}.",
+      "relDividasAtencao": "{count, plural, one {# point to watch} other {# points to watch}}."
+    }
+  },
+  "sistema": {
+    "nomes": {
+      "salario": "Salary",
+      "autonomo": "Self-employment",
+      "aluguelRecebido": "Rent received",
+      "rendimentos": "Investment income",
+      "outrasReceitas": "Other income",
+      "reembolsos": "Refunds",
+      "moradia": "Housing",
+      "mercado": "Groceries",
+      "contas": "Electricity, water and internet",
+      "saude": "Health",
+      "educacao": "Education",
+      "transporte": "Transportation",
+      "lazer": "Leisure",
+      "assinaturas": "Subscriptions",
+      "compras": "Shopping",
+      "outrasDespesas": "Other expenses",
+      "cartao": "Credit card",
+      "dividas": "Debts and loans",
+      "metas": "Goals",
+      "aportes": "Contributions and investments",
+      "restaurantes": "Restaurants",
+      "pets": "Pets",
+      "tarifas": "Bank fees",
+      "impostos": "Taxes and fees",
+      "seguros": "Insurance",
+      "cuidados": "Personal care",
+      "academia": "Gym",
+      "viagens": "Travel",
+      "contaPrincipal": "Main account",
+      "semCategoria": "Uncategorized"
+    },
+    "descricoes": {
+      "fatura": "{name} bill",
+      "aporte": "Contribution to {name}",
+      "resgate": "Withdrawal from {name}",
+      "meta": "Goal: {name} ({number}/{total})",
+      "viagem": "Trip: {name}",
+      "casamento": "Wedding anniversary",
+      "ferias": "Vacation · {name}",
+      "decimoPrimeira": "13th salary, 1st installment · {name}",
+      "decimoSegunda": "13th salary, 2nd installment · {name}"
+    }
+  },
+  "emails": {
+    "hello": "Hello!",
+    "helloName": "Hello, {name}!",
+    "fallbackLink": "If the button doesn't open, copy this address into your browser:",
+    "reset": {
+      "subject": "Reset your OrganizeUp password",
+      "heading": "Reset your password",
+      "text": "We received a request to change your account password. The link is valid for {hours, plural, one {# hour} other {# hours}}.",
+      "action": "Create new password",
+      "note": "If this wasn't you, ignore this email. Your password stays the same."
+    },
+    "changed": {
+      "subject": "Your OrganizeUp password was changed",
+      "heading": "Your password was changed",
+      "text": "Your account password was just changed.",
+      "action": "Request a new password",
+      "note": "If this was you, there's nothing to do. If it wasn't, request a new password now."
+    },
+    "verify": {
+      "subject": "Confirm your email on OrganizeUp",
+      "heading": "Confirm your email",
+      "text": "All that's left is to confirm this email is yours. The link is valid for {hours, plural, one {# hour} other {# hours}}.",
+      "action": "Confirm email",
+      "note": "If you didn't create this account, ignore this email."
+    },
+    "invite": {
+      "subject": "You've received an invitation on OrganizeUp",
+      "heading": "You've received an invitation",
+      "text": "{inviter} invited you to follow the finances of the {family} family on OrganizeUp.",
+      "validity": "Sign in or create your account with this same email. The invitation is valid for {days, plural, one {# day} other {# days}}.",
+      "action": "View invitation",
+      "note": "If you don't know who sent this, ignore this email."
     }
   }
 }

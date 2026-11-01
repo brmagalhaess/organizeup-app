@@ -12,15 +12,7 @@ import {
   sql,
   type TenantTx,
 } from "@organizeup/db";
-import {
-  debtPlanHeadline,
-  formatBRL,
-  formatYearMonth,
-  money,
-  recommendedStrategy,
-  yearMonthOf,
-  type DebtPlan,
-} from "@organizeup/domain";
+import { recommendedStrategy, yearMonthOf, type DebtPlan } from "@organizeup/domain";
 import { currentDebtPlan } from "./debt-view";
 import type { ReportDividas } from "./reports";
 import {
@@ -28,17 +20,16 @@ import {
   loadDecisions,
   MAX_REPORT_SUMMARY,
   MAX_REPORT_TITLE,
-  plural,
+  messageColumns,
   upsertPending,
   type AgentInput,
   type AgentResult,
   type PendingSuggestion,
 } from "./shared";
 import { DEDUPE, type AporteDividaPayload } from "./suggestions";
+import { aporteDividaPlanoText, dividasReportText, dividasVaziasReportText } from "./texts";
 
 export const DIVIDAS_AGENT = "dividas";
-
-const STRATEGY_NAME = { avalanche: "maior juro primeiro", snowball: "menor saldo primeiro" };
 
 function suggestionsOf(plan: DebtPlan, month: string): PendingSuggestion[] {
   const best = recommendedStrategy(plan);
@@ -46,10 +37,11 @@ function suggestionsOf(plan: DebtPlan, month: string): PendingSuggestion[] {
     const payload: AporteDividaPayload = { debtId: item.id, extraMonthly: item.amount };
     return {
       kind: "aporte_divida",
-      title: `Pagar ${formatBRL(item.amount)} a mais por mês em ‘${item.name}’`,
-      body:
-        `Pelo plano de saída (${STRATEGY_NAME[plan.recommended]}), esta é a dívida a atacar agora. ` +
-        `Aceitar registra a decisão; o pagamento extra você faz na tela de dívidas.`,
+      ...aporteDividaPlanoText({
+        amount: item.amount,
+        debt: item.name,
+        strategy: plan.recommended,
+      }),
       payload,
       dedupeKey: DEDUPE.aporteDivida(item.id, month),
     };
@@ -78,33 +70,14 @@ async function saveReport(
 ): Promise<void> {
   const title = clamp(report.title, MAX_REPORT_TITLE);
   const summary = clamp(report.summary, MAX_REPORT_SUMMARY);
+  const message = messageColumns(report.message);
   await tx
     .insert(debtPlanReports)
-    .values({ householdId, day, title, summary, data: report.data })
+    .values({ householdId, day, title, summary, data: report.data, ...message })
     .onConflictDoUpdate({
       target: [debtPlanReports.householdId, debtPlanReports.day],
-      set: { title, summary, data: report.data, updatedAt: sql`now()` },
+      set: { title, summary, data: report.data, ...message, updatedAt: sql`now()` },
     });
-}
-
-function summaryOf(plan: DebtPlan, previous: DebtPlan | null): string {
-  const best = recommendedStrategy(plan);
-  const parts = [
-    `${debtPlanHeadline(plan)}.`,
-    `${plural(best.attack.length, "dívida", "dívidas")}, ${formatBRL(plan.totalBalance)} no total.`,
-  ];
-  if (best.focus) parts.push(`Comece por ‘${best.focus.name}’.`);
-  if (money(plan.extra).isZero()) parts.push("Hoje não sobra valor extra para as dívidas.");
-  const before = previous ? recommendedStrategy(previous).payoffMonth : null;
-  if (before && best.payoffMonth && before !== best.payoffMonth) {
-    parts.push(
-      `A quitação mudou de ${formatYearMonth(before)} para ${formatYearMonth(best.payoffMonth)}.`,
-    );
-  }
-  if (plan.signals.length > 0) {
-    parts.push(`${plural(plan.signals.length, "ponto de atenção", "pontos de atenção")}.`);
-  }
-  return parts.join(" ");
 }
 
 export async function runDividasAgent(tx: TenantTx, input: AgentInput): Promise<AgentResult> {
@@ -114,7 +87,7 @@ export async function runDividasAgent(tx: TenantTx, input: AgentInput): Promise<
   const data: ReportDividas = { plan };
 
   if (!plan) {
-    const report = { title: `Dívidas em ${today}`, summary: "Nenhuma dívida em aberto.", data };
+    const report = { ...dividasVaziasReportText(today), data };
     await saveReport(tx, householdId, today, report);
     return { suggestions: 0, applied: 0, report };
   }
@@ -132,11 +105,7 @@ export async function runDividasAgent(tx: TenantTx, input: AgentInput): Promise<
   const pending = suggestionsOf(plan, month).filter((item) => !accepted.has(item.dedupeKey));
   const suggestions = await upsertPending(tx, householdId, DIVIDAS_AGENT, decisions, pending);
 
-  const report = {
-    title: `Plano das dívidas em ${today}`,
-    summary: summaryOf(plan, previous),
-    data,
-  };
+  const report = { ...dividasReportText(today, plan, previous), data };
   await saveReport(tx, householdId, today, report);
   return { suggestions, applied: 0, report };
 }

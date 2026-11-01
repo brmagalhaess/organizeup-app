@@ -26,8 +26,9 @@ import {
   type CategoryOption,
 } from "@organizeup/domain";
 import { z } from "zod";
-import { aiLimits, serviceDay, type AiLimits } from "./access";
+import { aiLimits, nightLocale, serviceDay, type AiLimits } from "./access";
 import type { ModelClient, ModelMessage, StreamParams } from "./client";
+import type { AssistantLocale } from "./instructions";
 import { nightGate, type InsightGate } from "./insights/nightly";
 import { rejectionOf } from "./insights/verify";
 import { MODEL, usageOf, type AiRoute } from "./models";
@@ -141,13 +142,27 @@ export function categoryPrompt(
   return `<dados_do_extrato>${data}</dados_do_extrato>`;
 }
 
+/** Categoria nova nasce no idioma de quem definiu o aceite. Vai na mensagem: o texto fixo é cache. */
+const NEW_CATEGORY_LANGUAGE: Record<Exclude<AssistantLocale, "pt-BR">, string> = {
+  en: 'Idioma da família: inglês. Escreva "nova_categoria" em inglês, mesmo com estas instruções em português. "categoria" continua copiado exatamente.',
+  es: 'Idioma da família: espanhol. Escreva "nova_categoria" em espanhol, mesmo com estas instruções em português. "categoria" continua copiado exatamente.',
+};
+
 /** Sem `tools` nem `tool_choice`: a API recusa `tool_choice` numa chamada sem ferramentas. */
-export const categoryRequest = (content: string): StreamParams => ({
+export const categoryRequest = (
+  content: string,
+  locale: AssistantLocale = "pt-BR",
+): StreamParams => ({
   model: MODEL,
   max_tokens: CATEGORY_ROUTE.maxTokens,
   output_config: { effort: CATEGORY_ROUTE.effort, format: CATEGORY_FORMAT },
   system: [{ type: "text", text: CATEGORY_SYSTEM }],
-  messages: [{ role: "user", content }],
+  messages: [
+    {
+      role: "user",
+      content: locale === "pt-BR" ? content : `${content}\n\n${NEW_CATEGORY_LANGUAGE[locale]}`,
+    },
+  ],
 });
 
 /** Portão da madrugada e, por dia, uma chamada só: o uso gravado desta rota é a marca. */
@@ -218,7 +233,8 @@ export async function runCategoryReview(input: CategoryReviewInput): Promise<Cat
     .filter(isTarget)
     .map((category) => ({ ...category, name: privacy.scrub(category.name) }));
   const prompt = categoryPrompt(review.groups, targets, privacy);
-  const message = await client.stream(categoryRequest(prompt), {}).finalMessage();
+  const locale = await nightLocale(ctx);
+  const message = await client.stream(categoryRequest(prompt, locale), {}).finalMessage();
   await recordUsage(ctx, CATEGORY_ROUTE.name, day, usageOf(message));
   run.groups = review.groups.length;
 

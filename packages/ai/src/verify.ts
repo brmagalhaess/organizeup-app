@@ -14,7 +14,7 @@ const AFTER = new RegExp(String.raw`(?<![\d.,])(${AMOUNT})(${UNIT})?\s?${SYMBOL}
 /** Número em qualquer texto: "1234.56", "1.234,56". Só para formar o conjunto do que é conhecido. */
 const ANY_NUMBER = /\d[\d.,]*\d|\d/g;
 
-function parseNumber(raw: string): number | null {
+export function parseNumber(raw: string): number | null {
   const lastComma = raw.lastIndexOf(",");
   const lastDot = raw.lastIndexOf(".");
   // O separador decimal é o último, seguido de 1 ou 2 dígitos. "1.234" é milhar; "1234.56" é decimal.
