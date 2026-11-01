@@ -154,16 +154,18 @@ test("reserva guarda quanto separar por mês sem mudar o gasto essencial", async
   await signUp(page, "Eva");
   await page.goto("/app/reserva");
   await page.getByRole("button", { name: "Informar gasto essencial" }).click();
-  const form = page.getByRole("dialog", { name: "Ajustar reserva" });
+  const form = page.getByRole("dialog", { name: "Gasto essencial" });
   await form.getByLabel("Gasto essencial por mês (R$)").fill("1.000,00");
-  await form.getByLabel("Quanto guardar por mês").fill("500,00");
-  await form.getByRole("button", { name: "Salvar reserva" }).click();
+  await form.getByRole("button", { name: "Salvar gasto essencial" }).click();
   await expect(form).toBeHidden();
 
-  await expect(page.locator("dl > div").filter({ hasText: "Gasto essencial" })).toContainText(
-    "R$ 1.000,00",
-  );
+  await page.getByLabel("Quanto consigo guardar por mês (R$)").fill("500,00");
+  await page.getByRole("button", { name: "Salvar quanto guardar por mês" }).click();
+  await expect(page.getByRole("button", { name: "Salvar quanto guardar por mês" })).toBeHidden();
+
+  await page.reload();
+  await expect(page.getByText(/de R\$\s1\.000,00 por mês/)).toBeVisible();
   // Falta 6.000,00 guardando 500,00 por mês.
-  await expect(page.getByLabel("Guardar por mês (R$)")).toHaveValue("500,00");
-  await expect(page.getByText(/Em 12 meses você chega à meta/)).toBeVisible();
+  await expect(page.getByLabel("Quanto consigo guardar por mês (R$)")).toHaveValue("500,00");
+  await expect(page.getByText(/daqui a 12 meses/)).toBeVisible();
 });

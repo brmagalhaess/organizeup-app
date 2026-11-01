@@ -107,6 +107,11 @@ export async function loadReserve(ctx: TenantContext) {
     const selected = active.filter((account) => marked.has(account.id));
     return {
       month,
+      /** Já há gasto lançado? Sem gasto essencial, isso decide para qual tela levar a família. */
+      hasExpenses:
+        rows.some((t) => t.kind === "despesa") ||
+        planRows.some((plan) => plan.kind === "despesa") ||
+        cardLines.length > 0,
       targetMonths,
       informedMonthly: fund?.monthlyAmount ?? null,
       contribution: fund?.contribution ?? null,

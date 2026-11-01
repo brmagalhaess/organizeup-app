@@ -32,10 +32,26 @@ async function newAccount(page: Page, name: string, balance: string) {
   await expect(dialog).toBeHidden();
 }
 
-test("reserva mostra meta, progresso e prazo", async ({ page, browser }) => {
+const section = (page: Page, name: string) =>
+  page.locator("section").filter({ has: page.getByRole("heading", { name, level: 2 }) });
+
+test("reserva explica o que é, quanto falta e o próximo passo", async ({ page, browser }) => {
   await signUp(page, "Gil");
   await page.goto("/app/reserva");
+  await expect(page.getByText(/imprevistos, como perda de renda ou conserto/)).toBeVisible();
   await expect(page.getByText("Falta saber seu gasto essencial")).toBeVisible();
+  await expect(section(page, "Próximo passo")).toContainText("Lance seus gastos do mês");
+  await expect(page.getByRole("link", { name: "Ir para lançamentos" })).toHaveAttribute(
+    "href",
+    "/app/lancamentos",
+  );
+
+  // A explicação abre e fecha.
+  await expect(page.getByText("É um gasto essencial")).toBeHidden();
+  await page.getByText("Como funciona").click();
+  await expect(page.getByText(/É um gasto essencial/)).toBeVisible();
+  await page.getByText("Como funciona").click();
+  await expect(page.getByText(/É um gasto essencial/)).toBeHidden();
 
   // Conta fixa em categoria essencial, ainda não paga: serve de estimativa no primeiro mês.
   await page
@@ -52,33 +68,77 @@ test("reserva mostra meta, progresso e prazo", async ({ page, browser }) => {
 
   await newAccount(page, "Poupança da reserva", "9.000,00");
   await page.goto("/app/reserva");
-  await expect(total(page, "Gasto essencial por mês")).toContainText("3.000,00");
-  await expect(total(page, "Gasto essencial por mês")).toContainText("Estimativa");
-  await expect(total(page, "Meta")).toContainText("18.000,00");
-  await expect(page.getByText("Nenhuma conta marcada")).toBeVisible();
+  const need = section(page, "Quanto preciso guardar");
+  const have = section(page, "Quanto já tenho");
+  const missing = section(page, "Quanto falta");
+  const next = section(page, "Próximo passo");
+  await expect(need).toContainText("18.000,00");
+  await expect(need).toContainText(/6 meses dos seus gastos essenciais, de R\$\s3\.000,00 por mês/);
+  await expect(need).toContainText("estimativa");
+  await expect(have).toContainText("Nenhuma conta marcada ainda.");
+  await expect(next).toContainText("Escolha onde fica a reserva");
 
-  await page.getByRole("button", { name: "Ajustar reserva" }).click();
-  const form = page.getByRole("dialog", { name: "Ajustar reserva" });
-  await form.getByLabel(/Poupança da reserva/).check();
-  await form.getByRole("button", { name: "Salvar reserva" }).click();
-  await expect(form).toBeHidden();
-
+  // Marcar a conta na própria tela já conta o saldo dela.
+  const account = page.getByRole("checkbox", { name: /Poupança da reserva/ });
+  await account.check();
+  await expect(have).toContainText("Guardado em Poupança da reserva.");
+  await expect(have).toContainText("9.000,00");
   await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50");
-  await expect(page.getByText("cobre 3 meses de gastos essenciais")).toBeVisible();
-  await expect(total(page, "Falta")).toContainText("9.000,00");
-  await page.getByLabel("Guardar por mês (R$)").fill("2.000,00");
-  await expect(page.getByText(/Em 5 meses você chega à meta/)).toBeVisible();
+  await expect(missing).toContainText("cobre 3 meses de gastos essenciais");
+  await expect(missing).toContainText("9.000,00");
+  await expect(next).toContainText("Defina quanto guardar por mês");
+
+  await page.getByLabel("Quanto consigo guardar por mês (R$)").fill("2.000,00");
+  await expect(missing).toContainText(
+    /Guardando R\$\s2\.000,00 por mês, você chega em \p{L}+ de \d{4}, daqui a 5 meses/u,
+  );
+  await expect(next).toContainText(/Guarde R\$\s2\.000,00 este mês/);
+  await expect(next).toContainText("Poupança da reserva");
 
   const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(a11y.violations.map((v) => v.id)).toEqual([]);
+  const width = await page.evaluate(() => [
+    document.documentElement.scrollWidth,
+    window.innerWidth,
+  ]);
+  expect(width[0]).toBeLessThanOrEqual(width[1]!);
 
-  // Gasto informado substitui o calculado.
-  await page.getByRole("button", { name: "Ajustar reserva" }).click();
-  await form.getByLabel("Gasto essencial por mês (R$)").fill("1.000,00");
-  await form.getByLabel("Meta em meses").fill("9");
-  await form.getByRole("button", { name: "Salvar reserva" }).click();
+  // Valor inválido não simula nem salva.
+  await page.getByLabel("Quanto consigo guardar por mês (R$)").fill("abc");
+  await expect(missing).toContainText("Informe um valor como 500,00.");
+  await expect(page.getByRole("button", { name: "Salvar quanto guardar por mês" })).toBeHidden();
+  await page.getByLabel("Quanto consigo guardar por mês (R$)").fill("2.000,00");
+
+  // O alvo acompanha os meses antes de salvar; salvo, sobrevive à recarga.
+  await page.getByLabel("Meses de reserva").fill("9");
+  await expect(need).toContainText("27.000,00");
+  await page.getByRole("button", { name: "Salvar meses de reserva" }).click();
+  await expect(page.getByRole("button", { name: "Salvar meses de reserva" })).toBeHidden();
+  await page.reload();
+  await expect(page.getByLabel("Meses de reserva")).toHaveValue("9");
+
+  // Gasto informado substitui o calculado e completa a reserva.
+  await page.getByRole("button", { name: "Ajustar gasto essencial" }).click();
+  const form = page.getByRole("dialog", { name: "Gasto essencial" });
+  await form.getByLabel("Gasto essencial por mês (R$)").fill("100,00");
+  await form.getByRole("button", { name: "Salvar gasto essencial" }).click();
   await expect(form).toBeHidden();
-  await expect(page.getByText("Meta atingida")).toBeVisible();
+  await expect(need).toContainText("Você informou esse valor.");
+  await expect(missing).toContainText("Reserva completa");
+  await expect(next).toContainText("Sua reserva está completa");
+  await expect(next).toContainText(/R\$\s8\.100,00 além do necessário/);
+  await expect(next).not.toContainText(/CDB|Tesouro|ações|fundo/i);
+  await expect(page.getByRole("link", { name: "Ver minhas metas" })).toHaveAttribute(
+    "href",
+    "/app/metas",
+  );
+
+  // Desmarcar tira o saldo da reserva.
+  await account.uncheck();
+  await expect(have).toContainText("Nenhuma conta marcada ainda.");
+  await expect(next).toContainText("Escolha onde fica a reserva");
+  await account.check();
+  await expect(have).toContainText("Guardado em Poupança da reserva.");
 
   await page.goto("/app");
   await expect(page.getByRole("link", { name: /Reserva de emergência/ })).toContainText("100%");
