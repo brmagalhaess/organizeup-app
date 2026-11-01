@@ -3,7 +3,8 @@
 Status: aceito (2026-10-31). Fase 1 de `docs/specs/assistente-ia.md`.
 
 Substitui a parte "sem IA" do ADR-0013 (regras e memória, sem modelo) e do ADR-0015 (sem modelo de IA nos
-agentes). Os cinco agentes diários continuam por regras; a IA entra ao lado deles, começando pela conversa.
+agentes). Os cinco agentes diários continuam por regras; a IA entra ao lado deles, começando pela conversa. A
+etapa de IA do agente de categorias está em "Categorias com IA".
 
 ## Decisão
 
@@ -108,6 +109,36 @@ leitura e o RLS recusaria gravar a conversa.
   `SYSTEM_PROMPT` continua fixo. A madrugada não recebe memória e não anota, mas pode consultar a base.
 - **Sem aceite novo.** Memória é o que a pessoa já disse na conversa, para o mesmo operador e a mesma finalidade.
   A Política foi atualizada, e `INSIGHTS_CONSENT_VERSION` não muda.
+
+### Categorias com IA
+
+Regras e memória não resolvem extrato que caiu em categoria genérica, e isso distorce a projeção de aposentadoria.
+
+- **Etapa dentro da rodada diária, não job próprio.** `categorias_ia` roda família a família, logo depois de
+  `categorias` e antes da aposentadoria. Uma fila separada não garantiria essa ordem. Acordar `categorias` traz a
+  etapa junto; ela tem interruptor próprio no painel. A chamada fica fora de `withHousehold`.
+- **Rota `categorias`:** esforço `low`, saída em `output_config.format`, sem `tools` nem `tool_choice`, porque a API
+  recusa `tool_choice` em chamada sem ferramentas. Instruções próprias, sem as da conversa. Portão igual ao das dicas,
+  com `INSIGHTS_CONSENT_VERSION`: categorias usam dados e operador que o aceite da madrugada já cobre. O uso gravado da
+  rota no dia é a marca de "já rodou", então não há tabela nova.
+- **O que vai:** até 80 estabelecimentos por noite, dos maiores valores para os menores, de todo o histórico, não só 90
+  dias, porque a projeção olha mais longe. A chave é `merchantKey`, a mesma da memória. Vão descrição limpa, tipo,
+  quantidade, valor médio e nomes de categorias. A limpeza roda antes de normalizar, porque normalizar desmonta e-mail e
+  CPF, e de novo depois, para pegar nome colado em número. Categoria genérica ou de sistema não aparece como destino.
+- **O que não entra:** categorias de meta, aporte, cartão, dívida e transferência, como origem e como destino, e
+  estabelecimento com sugestão pendente, desfeita ou ignorada há menos de 30 dias. Sem isso, o que já foi decidido
+  ficaria no topo toda noite e o resto do histórico nunca seria visto.
+- **O modelo só opina.** `planCategoryMoves`, em `packages/domain`, valida cada resposta: categoria existente do
+  mesmo tipo, nome novo curto e sem nome de pessoa, no máximo 5 novos por noite, e quase-duplicata funde na existente.
+- **Regra 7.** Confiança média ou alta aplica sozinha o que é derivado (`revisar`, `importacao` e `agente` em
+  categoria genérica), com Desfazer, e grava `category_memory` com `source = 'agente'`. `familia` e confiança baixa viram
+  sugestão pendente. Quem escolheu o nível **Sugerir** só recebe sugestões. O limite de 5 ações por dia da §4 vale para o
+  assistente da conversa, não para esta etapa, que trabalha por lote.
+- **Desfeito bloqueia o estabelecimento, não só o destino.** O modelo não é consultado de novo sobre ele. Categoria
+  criada pela mudança desfeita é arquivada se ficou sem uso.
+- **Sem resposta aproveitável** (o modelo não soube, ou a resposta foi recusada) vira marca `ignorada` com chave
+  `sem_pista`, sem nada na tela, e o estabelecimento fica de fora por 30 dias.
+- **Relatório:** a parte da IA vai em `data.ia` do relatório `categorias` do dia e sobrevive a uma nova rodada das regras.
 
 ## Pronto para as próximas fases
 

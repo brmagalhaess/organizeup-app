@@ -71,13 +71,15 @@ export default function PrivacyPage() {
       <p>
         Todos os dias, assistentes automáticos revisam categorias, investimentos, aposentadoria,
         viagens e metas da sua família e deixam sugestões para você decidir. Eles seguem regras
-        fixas, sem inteligência artificial, rodam dentro do banco de dados da sua família e nada sai
-        para terceiros.
+        fixas, rodam dentro do banco de dados da sua família e nada sai para terceiros. A única
+        exceção é a revisão de categorias com inteligência artificial, descrita abaixo, que só
+        acontece se a família autorizou o assistente.
       </p>
       <p>
         O que você informou só muda com o seu aceite. O que o sistema calcula, como o plano de uma
-        meta, é refeito todo dia. Quando um assistente move um lançamento que ficou para revisar, a
-        mudança aparece em Sugestões, e você pode desfazer.
+        meta, é refeito todo dia. Quando um assistente move um lançamento que ficou para revisar ou
+        em uma categoria genérica sem você ter escolhido, a mudança aparece em Sugestões, e você
+        pode desfazer. Categoria que você escolheu só muda com o seu aceite.
       </p>
 
       <h2>Assistente com inteligência artificial</h2>
@@ -91,7 +93,9 @@ export default function PrivacyPage() {
           suas finanças, como lançamentos e suas descrições, categorias, renda, reserva, dívidas,
           investimentos, proventos, metas, viagens e calendário. As anotações da família também vão
           em cada conversa. De madrugada, os mesmos dados são usados para preparar as dicas que
-          aparecem em cada tela, sem que ninguém pergunte.
+          aparecem em cada tela, sem que ninguém pergunte. Também de madrugada vão as descrições dos
+          lançamentos sem categoria definida, com quantidade e valor médio, e os nomes das suas
+          categorias, para classificar esses lançamentos.
         </li>
         <li>
           <strong>O que não vai:</strong> nomes, e-mails, CPF e senhas. As pessoas aparecem como

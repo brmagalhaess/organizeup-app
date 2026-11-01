@@ -100,9 +100,9 @@ export default async function AdminAgentsPage() {
         <FormMessage message="O worker subiu com DAILY_AGENTS_ENABLED=false: nenhum agente roda até mudar essa variável." />
       ) : null}
 
-      <section aria-labelledby="cinco-agentes" className="flex flex-col gap-3">
-        <h2 id="cinco-agentes" className="text-base font-semibold">
-          Os cinco agentes
+      <section aria-labelledby="agentes-diarios" className="flex flex-col gap-3">
+        <h2 id="agentes-diarios" className="text-base font-semibold">
+          Os agentes do dia
         </h2>
         <ul className="m-0 grid list-none gap-4 p-0 xl:grid-cols-2">
           {DAILY_AGENTS_INFO.map((agent) => {

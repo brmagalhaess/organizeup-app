@@ -1,9 +1,14 @@
-/** Os cinco agentes diários, na ordem em que rodam, explicados sem jargão. */
+/** Os agentes diários, na ordem em que rodam, explicados sem jargão. */
 export const DAILY_AGENTS_INFO = [
   {
     id: "categorias",
     name: "Categorias",
-    text: "Arruma o que ficou para revisar na importação e sugere categorias melhores.",
+    text: "Pelas regras, arruma o que ficou para revisar na importação e sugere categorias melhores.",
+  },
+  {
+    id: "categorias_ia",
+    name: "Categorias com IA",
+    text: "Lê o que ficou em Outras e move para a categoria certa, ou cria uma nova. O que a família escolheu vira sugestão. Só com o aceite da família.",
   },
   {
     id: "investimentos",
