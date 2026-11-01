@@ -99,8 +99,10 @@ export default function PrivacyPage() {
         <li>
           <strong>Para quem:</strong> a Anthropic, PBC, empresa dos Estados Unidos que opera o
           modelo de inteligência artificial e atua como nossa operadora. Ela usa esses dados para
-          gerar a resposta, pode mantê-los por um período curto para segurança e não os usa para
-          treinar modelos, conforme os termos comerciais dela.
+          gerar a resposta e não os usa para treinar modelos, conforme os termos comerciais dela.
+          Pelas regras publicadas por ela, apaga esses dados em até 30 dias; o que os sistemas de
+          segurança dela marcarem como violação das regras de uso pode ficar guardado por até 2
+          anos.
         </li>
         <li>
           <strong>Transferência internacional:</strong> como a Anthropic trata os dados nos Estados

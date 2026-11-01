@@ -37,8 +37,9 @@ export function Activation({ headingId }: { headingId: string }) {
       </Topic>
       <Topic title="Para quem">
         Para a Anthropic, empresa dos Estados Unidos que opera o modelo de inteligência artificial.
-        Por isso, seus dados saem do Brasil. Ela usa esses dados para gerar a resposta, pode
-        mantê-los por um período curto para segurança e não os usa para treinar modelos.
+        Por isso, seus dados saem do Brasil. Ela usa esses dados para gerar a resposta, não os usa
+        para treinar modelos e os apaga em até 30 dias. O que for marcado como violação das regras
+        de uso dela pode ficar guardado por até 2 anos.
       </Topic>
       <Topic title="Por quê">Para responder ao que você pediu, com base nos seus números.</Topic>
       <Topic title="O que não é enviado">

@@ -253,7 +253,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await ai.activateAssistant(ownerCtx, { autonomy: "organizar", version: "2026-10-31.3" });
+  await ai.activateAssistant(ownerCtx, { autonomy: "organizar", version: "2026-10-31.4" });
 });
 
 afterAll(async () => {
@@ -844,7 +844,7 @@ describe("loop da conversa", () => {
   });
 
   it("ativar grava versão, pessoa e auditoria; desligar limpa", async () => {
-    const version = "2026-10-31.3";
+    const version = "2026-10-31.4";
     expect(await ai.activateAssistant(ownerCtx, { autonomy: "completo", version })).toBe(true);
     const settings = await ai.readAssistantSettings(ownerCtx);
     expect(settings).toMatchObject({ consentVersion: version, autonomy: "completo" });
