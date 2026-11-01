@@ -21,6 +21,7 @@ import {
 } from "@/components/ui";
 import { formatAmount, formatDate, toAmountInput } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
+import { systemTextOf } from "@/i18n/system-text";
 import { createTransfer, deleteTransfer, type SimpleFormState } from "./actions";
 
 export interface TransferRow {
@@ -60,6 +61,7 @@ export function TransferForm({
   onDone: () => void;
 }) {
   const t = useTranslations("contas.transfer");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const [state, action, pending] = useActionState(createTransfer, initial);
   const [fromId, setFromId] = useState(accounts[0]?.id ?? "");
@@ -85,7 +87,7 @@ export function TransferForm({
           >
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
-                {account.name}
+                {system.name(account.name)}
               </option>
             ))}
           </Select>
@@ -94,7 +96,7 @@ export function TransferForm({
           <Select name="toAccountId" value={toId} onChange={(event) => setToId(event.target.value)}>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
-                {account.name}
+                {system.name(account.name)}
               </option>
             ))}
           </Select>
@@ -141,6 +143,7 @@ export function TransferForm({
 
 export function TransferList({ rows, writable }: { rows: TransferRow[]; writable: boolean }) {
   const t = useTranslations("contas.transfer");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const [removing, setRemoving] = useState<TransferRow | null>(null);
   if (rows.length === 0) return null;
@@ -151,9 +154,9 @@ export function TransferList({ rows, writable }: { rows: TransferRow[]; writable
           <li key={row.id} className="flex items-center gap-3 py-3 text-sm">
             <div className="min-w-0 flex-1">
               <p className="m-0 flex flex-wrap items-center gap-1 font-medium">
-                {row.fromName}
+                {system.name(row.fromName)}
                 <ArrowRight className="size-3.5" aria-label={t("arrow")} />
-                {row.toName}
+                {system.name(row.toName)}
               </p>
               <p className="m-0 break-words text-xs text-muted">
                 {formatDate(row.occurredOn, locale)}

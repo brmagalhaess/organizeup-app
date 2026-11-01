@@ -19,6 +19,7 @@ import {
 } from "@/components/ui";
 import { formatAmount, toAmountInput } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
+import { systemTextOf } from "@/i18n/system-text";
 import { acceptFiles, confirmDebtImport, deleteDocument, type DebtFormState } from "../actions";
 import { DebtFields, type DebtFieldName, type DebtFieldValues } from "../debt-fields";
 import { uploadDebtFile, useUploadTexts, type DebtFileView } from "../debt-files";
@@ -93,6 +94,7 @@ function ReviewCard({
   const t = useTranslations("dividas");
   const tReview = useTranslations("dividas.import.review");
   const tCommon = useTranslations("common");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   // Confirmado, o arquivo sai da lista junto com este cartão: o aviso precisa ficar no pai.
   const [state, action, pending] = useActionState(
@@ -190,7 +192,7 @@ function ReviewCard({
             <Select name="accountId" required>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.name}
+                  {system.name(account.name)}
                 </option>
               ))}
             </Select>

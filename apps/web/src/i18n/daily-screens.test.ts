@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { APPLY_REPLIES } from "@organizeup/agents";
 import { describe, expect, it } from "vitest";
 import en from "../../messages/en.json";
 import ptBR from "../../messages/pt-BR.json";
@@ -46,7 +47,7 @@ describe("telas do dia a dia", () => {
   });
 });
 
-describe("texto pronto em português", () => {
+describe("validação que chega pronta em português", () => {
   it("vira o do idioma da pessoa pela chave", () => {
     const base = { a: "Olá", b: "Tchau" };
     expect(knownText("Tchau", base, { a: "Hi", b: "Bye" })).toBe("Bye");
@@ -64,8 +65,11 @@ describe("texto pronto em português", () => {
     }
   };
 
-  it("as frases do catálogo são as que os agentes devolvem", () => {
-    contains(ptBR.sugestoes.agent, readRepo("packages/agents/src/apply.ts"));
+  it("as respostas dos agentes são as do catálogo, pelo código", () => {
+    expect(APPLY_REPLIES).toEqual(ptBR.sugestoes.agent);
+  });
+
+  it("as frases do catálogo são as dos arquivos de dívida", () => {
     const upload = [
       readRepo("packages/agents/src/debt-documents.ts"),
       readRepo("packages/domain/src/debt-file.ts"),

@@ -24,6 +24,7 @@ import {
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
+import { systemTextOf } from "@/i18n/system-text";
 
 export interface SimpleFormState {
   ok: boolean;
@@ -183,17 +184,20 @@ export async function saveAccount(
       return { ok: false, message: t("errors.balanceFormat") };
     }
   }
+  const system = systemTextOf(await getTranslations("sistema"));
   const failure = await withHousehold(ctx, async (tx) => {
     if (id) {
       const [current] = await tx
-        .select({ currency: accounts.currency })
+        .select({ currency: accounts.currency, name: accounts.name })
         .from(accounts)
         .where(eq(accounts.id, id));
       if (current && current.currency !== currency && (await accountsWithMovement(tx)).has(id))
         return t("errors.currencyLocked");
+      // O formulário mostra o nome padrão traduzido: sem mudança, o gravado fica como estava.
+      const kept = current && system.name(current.name) === name ? current.name : name;
       await tx
         .update(accounts)
-        .set({ name, type, currency, openingBalance })
+        .set({ name: kept, type, currency, openingBalance })
         .where(eq(accounts.id, id));
       await audit(tx, ctx, "update", "accounts", id);
     } else {

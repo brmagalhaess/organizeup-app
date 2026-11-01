@@ -2,6 +2,7 @@
 import { Pause, Pencil, PiggyBank, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useActionState, useEffect, useState, type ReactNode } from "react";
+import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import {
   Badge,
   Button,
@@ -21,7 +22,8 @@ import {
 import { formatAmount, formatMonthYear, toFieldValue } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import type { loadGoals } from "@/lib/goals";
-import { confirmEntry } from "../lancamentos/actions";
+import { systemTextOf } from "@/i18n/system-text";
+
 import {
   addSavedToGoal,
   deleteGoal,
@@ -55,6 +57,7 @@ function useClose(state: FormState, onDone: () => void) {
 function GoalForm({ goal, data, onDone }: { goal: Goal | null; data: Data; onDone: () => void }) {
   const t = useTranslations("metas");
   const tCommon = useTranslations("common");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const [state, action, pending] = useActionState(saveGoal, initial);
   useClose(state, onDone);
@@ -114,7 +117,7 @@ function GoalForm({ goal, data, onDone }: { goal: Goal | null; data: Data; onDon
         <Select name="accountId" defaultValue={goal?.accountId ?? data.defaults.accountId}>
           {data.accounts.map((account) => (
             <option key={account.id} value={account.id}>
-              {account.name}
+              {system.name(account.name)}
             </option>
           ))}
         </Select>
@@ -124,7 +127,7 @@ function GoalForm({ goal, data, onDone }: { goal: Goal | null; data: Data; onDon
           <option value="">{t("form.noAccount")}</option>
           {data.accounts.map((account) => (
             <option key={account.id} value={account.id}>
-              {account.name}
+              {system.name(account.name)}
             </option>
           ))}
         </Select>
@@ -181,9 +184,7 @@ function PlanText({ goal }: { goal: Goal }) {
     return (
       <>
         <p className="mt-2 text-sm">{t("noRoom")}</p>
-        {note && !note.startsWith("Hoje não sobra") ? (
-          <p className="mt-1 text-xs text-muted">{note}</p>
-        ) : null}
+        {note && !goal.planNoteNoRoom ? <p className="mt-1 text-xs text-muted">{note}</p> : null}
       </>
     );
   return (
@@ -275,21 +276,15 @@ function GoalCard({
                 </span>
               </span>
               {writable ? (
-                <form action={confirmEntry}>
-                  <input type="hidden" name="key" value={row.key} />
-                  <input type="hidden" name="month" value={row.month} />
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    small
-                    aria-label={t("card.confirmAria", {
-                      month: formatMonthYear(row.month, locale),
-                      name,
-                    })}
-                  >
-                    {t("card.confirm")}
-                  </Button>
-                </form>
+                <ConfirmEntryButton
+                  entryKey={row.key}
+                  month={row.month}
+                  label={t("card.confirm")}
+                  ariaLabel={t("card.confirmAria", {
+                    month: formatMonthYear(row.month, locale),
+                    name,
+                  })}
+                />
               ) : null}
             </li>
           ))}

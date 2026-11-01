@@ -29,6 +29,7 @@ import {
 import { formatAmount, formatMonthYear, formatPercent, toFieldValue } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import type { loadReserve } from "@/lib/wealth";
+import { systemTextOf } from "@/i18n/system-text";
 import {
   saveReserveContribution,
   saveReserveEssential,
@@ -154,6 +155,7 @@ function AccountToggle({
   writable: boolean;
 }) {
   const locale = useLocale();
+  const system = systemTextOf(useTranslations("sistema"));
   const [selected, setSelected] = useOptimistic(account.selected);
   const [, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -183,7 +185,7 @@ function AccountToggle({
           className="size-5 shrink-0 accent-brand-500"
         />
         <span className={cx("min-w-0 flex-1 break-words", selected && "font-medium")}>
-          {account.name}
+          {system.name(account.name)}
         </span>
         <span className="tabular-nums text-muted">{formatAmount(account.balance, locale)}</span>
       </label>

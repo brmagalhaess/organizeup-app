@@ -5,7 +5,7 @@ import {
   undoSuggestion as undo,
   type ApplyResult,
 } from "@organizeup/agents";
-import { getMessages, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
@@ -19,36 +19,21 @@ import {
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
-import { knownText } from "@/i18n/known-text";
 import { requireTenant } from "@/lib/session";
 import { BULK_KINDS, noticeCookie, secondsUntilMidnight } from "@/lib/suggestions";
-import ptBR from "../../../../../messages/pt-BR.json";
 
 const blocked = async (): Promise<ApplyResult> => ({
   ok: false,
   message: (await getTranslations("settings"))("noPermission"),
 });
 
-/** Os agentes respondem em português: a mensagem chega à tela no idioma da pessoa. */
+/** Os agentes respondem por código: a mensagem chega à tela no idioma da pessoa. */
 async function inLocale(result: ApplyResult): Promise<ApplyResult> {
-  const [t, { sugestoes }] = await Promise.all([
-    getTranslations("sugestoes.applied"),
-    getMessages(),
-  ]);
-  const text = result.message;
-  const moved = /^(\d+) lançamentos movidos\.$/.exec(text)?.[1];
-  const trip = /^Viagem para (.+) criada\. Ajuste datas e custos em Viagens\.$/.exec(text)?.[1];
-  const goal = /^Meta (.+) criada\. Ajuste os detalhes em Metas\.$/.exec(text)?.[1];
+  if (!result.code) return result;
+  const t = await getTranslations("sugestoes.agent");
+  const { code, values } = result;
   const message =
-    text === "Lançamento movido."
-      ? t("moved", { count: 1 })
-      : moved
-        ? t("moved", { count: Number(moved) })
-        : trip
-          ? t("tripCreated", { name: trip })
-          : goal
-            ? t("goalCreated", { name: goal })
-            : knownText(text, ptBR.sugestoes.agent, sugestoes.agent);
+    code === "tripCreated" || code === "goalCreated" ? t(code, values ?? { name: "" }) : t(code);
   return { ...result, message };
 }
 
@@ -60,7 +45,7 @@ async function decide(
   const { ctx } = await requireTenant();
   if (!canWrite(ctx)) return blocked();
   const id = String(form.get("id") ?? "");
-  if (!id) return inLocale({ ok: false, message: ptBR.sugestoes.errors.notFound });
+  if (!id) return { ok: false, message: (await getTranslations("sugestoes.agent"))("notFound") };
   const result = await withHousehold(ctx, (tx) => run(tx, ctx, id));
   if (result.ok) revalidatePath("/app", "layout");
   return inLocale(result);

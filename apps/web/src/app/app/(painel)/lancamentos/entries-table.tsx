@@ -28,6 +28,7 @@ import {
   Select,
 } from "@/components/ui";
 import { formatAmount, formatDayMonth } from "@/i18n/format";
+import { systemTextOf } from "@/i18n/system-text";
 import { deleteEntry, stopPlan } from "./actions";
 import { PlanLink } from "./plan-link";
 
@@ -75,12 +76,15 @@ function StatusBadge({ entry, today }: { entry: MonthEntry; today: string }) {
 
 function RowActions({
   entry,
+  shown,
   month,
   onEdit,
   onRemove,
   onStop,
 }: {
   entry: MonthEntry;
+  /** Descrição como a pessoa a vê. */
+  shown: string;
   month: string;
   onEdit: (entry: MonthEntry) => void;
   onRemove: (entry: MonthEntry) => void;
@@ -88,7 +92,7 @@ function RowActions({
 }) {
   const t = useTranslations("lancamentos.row");
   const tConfirm = useTranslations("dashboard.confirm");
-  const name = entry.description;
+  const name = shown;
   return (
     <div className="flex items-center gap-1 sm:justify-end">
       {entry.status === "previsto" ? (
@@ -150,8 +154,22 @@ export function EntriesTable({
   const [removing, setRemoving] = useState<MonthEntry | null>(null);
   const [stopping, setStopping] = useState<MonthEntry | null>(null);
 
-  const categoryName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
-  const accountName = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
+  const tSystem = useTranslations("sistema");
+  const system = useMemo(() => systemTextOf(tSystem), [tSystem]);
+  const savedCategory = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+  const categoryName = useMemo(
+    () => new Map(categories.map((c) => [c.id, system.name(c.name)])),
+    [categories, system],
+  );
+  const accountName = useMemo(
+    () => new Map(accounts.map((a) => [a.id, system.name(a.name)])),
+    [accounts, system],
+  );
+  const describe = (entry: MonthEntry) =>
+    system.description(entry.description, {
+      category: savedCategory.get(entry.categoryId),
+      bill: entry.source === "fatura",
+    });
 
   const search = query.trim().toLocaleLowerCase(locale);
   const visible = entries.filter(
@@ -159,7 +177,7 @@ export function EntriesTable({
       (!kind || entry.kind === kind) &&
       (!status || entry.status === status) &&
       (!category || entry.categoryId === category) &&
-      (!search || entry.description.toLocaleLowerCase(locale).includes(search)),
+      (!search || describe(entry).toLocaleLowerCase(locale).includes(search)),
   );
   const usedCategories = categories.filter((c) => entries.some((e) => e.categoryId === c.id));
 
@@ -207,7 +225,7 @@ export function EntriesTable({
               <option value="">{t("filters.allCategories")}</option>
               {usedCategories.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {system.name(c.name)}
                 </option>
               ))}
             </Select>
@@ -259,7 +277,7 @@ export function EntriesTable({
                   </td>
                   <td className="min-w-40 px-3 py-3 align-top">
                     <p className="flex items-center gap-1.5 font-medium">
-                      {entry.description}
+                      {describe(entry)}
                       {entry.recurring ? (
                         <Repeat
                           className="size-3.5 shrink-0 text-muted"
@@ -277,6 +295,7 @@ export function EntriesTable({
                     {writable ? (
                       <div className="mt-2 sm:hidden">
                         <RowActions
+                          shown={describe(entry)}
                           entry={entry}
                           month={month}
                           onEdit={openEdit}
@@ -316,6 +335,7 @@ export function EntriesTable({
                   {writable ? (
                     <td className="hidden py-2 pl-3 pr-5 align-top sm:table-cell sm:pr-6">
                       <RowActions
+                        shown={describe(entry)}
                         entry={entry}
                         month={month}
                         onEdit={openEdit}
@@ -335,7 +355,7 @@ export function EntriesTable({
         open={removing !== null}
         onClose={() => setRemoving(null)}
         title={t("remove.title")}
-        text={t("remove.text", { name: removing?.description ?? "" })}
+        text={t("remove.text", { name: removing ? describe(removing) : "" })}
         confirmLabel={t("remove.confirm")}
         action={deleteEntry}
         hidden={{ id: removing?.id ?? "" }}
@@ -344,7 +364,7 @@ export function EntriesTable({
         open={stopping !== null}
         onClose={() => setStopping(null)}
         title={t("stop.title")}
-        text={t("stop.text", { name: stopping?.description ?? "" })}
+        text={t("stop.text", { name: stopping ? describe(stopping) : "" })}
         confirmLabel={t("stop.confirm")}
         action={stopPlan}
         hidden={{ id: stopping?.id ?? "", month }}

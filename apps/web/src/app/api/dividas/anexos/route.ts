@@ -3,12 +3,14 @@
 import { saveDebtDocument } from "@organizeup/agents";
 import { canWrite, withHousehold } from "@organizeup/db";
 import { checkDebtFile, DEBT_FILE_MAX_BYTES } from "@organizeup/domain";
-import { getMessages, getTranslations } from "next-intl/server";
-import { knownText } from "@/i18n/known-text";
+import { getTranslations } from "next-intl/server";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { sameSite } from "@/lib/same-site";
 import { requireTenant } from "@/lib/session";
-import ptBR from "../../../../../messages/pt-BR.json";
+
+/** Código devolvido por domínio e agentes → texto em `dividas.upload`. */
+const FILE_TEXT = { vazio: "empty", tamanho: "tooLarge", tipo: "wrongType" } as const;
+const SAVE_TEXT = { somente_leitura: "readOnly", cota: "quota", divida: "noDebt" } as const;
 
 export const dynamic = "force-dynamic";
 
@@ -34,12 +36,10 @@ export async function POST(request: Request) {
   const file = form?.get("file");
   if (!(file instanceof File)) return refuse(t("noFile"), 400);
 
-  const { upload } = (await getMessages()).dividas;
-  const inLocale = (text: string) => knownText(text, ptBR.dividas.upload, upload);
   const bytes = new Uint8Array(await file.arrayBuffer());
   const checked = checkDebtFile(bytes, file.name);
   if (!checked.ok) {
-    return refuse(inLocale(checked.message), checked.code === "tamanho" ? 413 : 415);
+    return refuse(t(FILE_TEXT[checked.code]), checked.code === "tamanho" ? 413 : 415);
   }
 
   const debtId = form?.get("debtId");
@@ -51,6 +51,6 @@ export async function POST(request: Request) {
       debtId: typeof debtId === "string" && debtId ? debtId : null,
     }),
   );
-  if (!saved.ok) return refuse(inLocale(saved.message), saved.code === "cota" ? 413 : 400);
+  if (!saved.ok) return refuse(t(SAVE_TEXT[saved.code]), saved.code === "cota" ? 413 : 400);
   return Response.json(saved);
 }

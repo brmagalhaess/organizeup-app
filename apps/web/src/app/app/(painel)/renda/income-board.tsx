@@ -32,6 +32,7 @@ import {
 } from "@/components/ui";
 import { formatAmount, formatMonthYear, monthName, monthNames, toAmountInput } from "@/i18n/format";
 import type { loadIncome } from "@/lib/income-data";
+import { systemTextOf } from "@/i18n/system-text";
 import { saveIncome, stopIncome, type IncomeFormState } from "./actions";
 
 type Data = Awaited<ReturnType<typeof loadIncome>>;
@@ -281,6 +282,7 @@ function IncomeForm({
   const t = useTranslations("renda");
   const tForm = useTranslations("renda.form");
   const tCommon = useTranslations("common");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const zero = toAmountInput("0.00", locale);
   const [state, action, pending] = useActionState(saveIncome, initial);
@@ -387,7 +389,7 @@ function IncomeForm({
         <Select name="accountId" required defaultValue={source?.accountId}>
           {data.accounts.map((account) => (
             <option key={account.id} value={account.id}>
-              {account.name}
+              {system.name(account.name)}
             </option>
           ))}
         </Select>
@@ -402,7 +404,7 @@ function IncomeForm({
           >
             {data.categories.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.name}
+                {system.name(category.name)}
               </option>
             ))}
           </Select>

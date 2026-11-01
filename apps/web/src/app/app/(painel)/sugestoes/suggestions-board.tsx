@@ -25,12 +25,13 @@ function PendingCard({
   actions: SuggestionActions;
 }) {
   const t = useTranslations("sugestoes.pending");
+  const lang = item.translated ? undefined : DEFAULT_LOCALE;
   return (
     <li className="py-3 first:pt-0 last:pb-0">
-      <p lang={DEFAULT_LOCALE} className="text-sm font-medium">
+      <p lang={lang} className="text-sm font-medium">
         {item.title}
       </p>
-      <p lang={DEFAULT_LOCALE} className="mt-1 text-sm text-muted">
+      <p lang={lang} className="mt-1 text-sm text-muted">
         {item.body}
       </p>
       {item.href ? (
@@ -110,10 +111,16 @@ export function SuggestionsBoard({ data, writable }: { data: Data; writable: boo
           <ul aria-label={t("automatic.title")} className="m-0 list-none divide-y divide-line p-0">
             {data.automatic.map((item) => (
               <li key={item.id} className="py-3 first:pt-0 last:pb-0">
-                <p lang={DEFAULT_LOCALE} className="text-sm font-medium">
+                <p
+                  lang={item.translated ? undefined : DEFAULT_LOCALE}
+                  className="text-sm font-medium"
+                >
                   {item.title}
                 </p>
-                <p lang={DEFAULT_LOCALE} className="mt-1 text-sm text-muted">
+                <p
+                  lang={item.translated ? undefined : DEFAULT_LOCALE}
+                  className="mt-1 text-sm text-muted"
+                >
                   {item.body}
                 </p>
                 {writable ? (

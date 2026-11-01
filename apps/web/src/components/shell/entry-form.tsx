@@ -20,6 +20,7 @@ import {
 import { cx } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select } from "@/components/ui";
 import { formatAmount, formatDate, toAmountInput } from "@/i18n/format";
+import { systemTextOf } from "@/i18n/system-text";
 
 const initial: EntryFormState = { ok: false, message: null };
 
@@ -109,6 +110,7 @@ export function EntryForm({
 }) {
   const t = useTranslations("lancamentos.form");
   const tCommon = useTranslations("common");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const [state, action, pending] = useActionState(saveEntry, initial);
   const [kind, setKind] = useState(initialKind);
@@ -210,7 +212,7 @@ export function EntryForm({
             )
             .map((category) => (
               <option key={category.id} value={category.id}>
-                {category.name}
+                {system.name(category.name)}
               </option>
             ))}
         </Select>
@@ -229,7 +231,7 @@ export function EntryForm({
             .filter((a) => !a.archived || a.id === entry?.accountId)
             .map((account) => (
               <option key={account.id} value={account.id}>
-                {account.name}
+                {system.name(account.name)}
               </option>
             ))}
           {showCards ? (

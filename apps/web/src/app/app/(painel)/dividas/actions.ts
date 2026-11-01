@@ -10,12 +10,11 @@ import {
 } from "@organizeup/agents";
 import { acceptDebtFiles, canUseAssistant } from "@organizeup/ai";
 import { accounts, canWrite, debtInstallments, debts, eq, withHousehold } from "@organizeup/db";
-import { knownText } from "@/i18n/known-text";
+
 import { audit } from "@/lib/audit";
 import { fieldErrors, parseDebtTerms } from "@/lib/debt-form";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { requireTenant } from "@/lib/session";
-import ptBR from "../../../../../messages/pt-BR.json";
 
 export interface DebtFormState {
   ok: boolean;
@@ -186,7 +185,7 @@ export async function confirmDebtImport(
     }),
   );
   if (!result.ok) {
-    return { ok: false, message: knownText(result.message, ptBR.dividas.upload, dividas.upload) };
+    return { ok: false, message: dividas.upload[result.code] };
   }
   revalidatePath("/app", "layout");
   return { ok: true, message: t(target === "nova" ? "created" : "updated") };

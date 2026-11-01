@@ -43,6 +43,7 @@ import {
 import { formatAmount, formatDayMonth } from "@/i18n/format";
 import { DEFAULT_LOCALE } from "@/i18n/locales";
 import { readPdfLines, readSpreadsheet } from "@/lib/statement-files";
+import { systemTextOf } from "@/i18n/system-text";
 import { commitImport, prepareImport, undoImport, type PreparedRow } from "./actions";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -67,6 +68,8 @@ interface BatchRow {
   periodEnd: string;
   createdAt: string;
   summary: string | null;
+  /** Falso: relatório de antes das chaves, em português. */
+  summaryTranslated: boolean;
 }
 
 interface CsvState {
@@ -317,6 +320,7 @@ function Review({
   onCancel: () => void;
 }) {
   const t = useTranslations("importar.review");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const [choices, setChoices] = useState<Record<string, Choice>>(() =>
     Object.fromEntries(
@@ -466,14 +470,14 @@ function Review({
                         .filter((category) => category.kind === row.kind)
                         .map((category) => (
                           <option key={category.id} value={category.id}>
-                            {category.name}
+                            {system.name(category.name)}
                           </option>
                         ))}
                       {proposals
                         .filter((proposal) => proposal.kind === row.kind)
                         .map((proposal) => (
                           <option key={proposal.name} value={newValue(proposal.name)}>
-                            {t("createCategory", { name: proposal.name })}
+                            {t("createCategory", { name: system.name(proposal.name) })}
                           </option>
                         ))}
                       <option value={ANOTHER}>{t("anotherCategory")}</option>
@@ -523,6 +527,7 @@ export function ImportWizard({
 }) {
   const t = useTranslations("importar");
   const tErrors = useTranslations("importar.errors");
+  const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   // Cada publicação troca os endereços internos, e uma página já aberta deixa de alcançar o servidor.
   const outdated = tErrors("outdated");
@@ -691,11 +696,7 @@ export function ImportWizard({
             <p className="text-sm text-muted">
               {t("done.counts", { imported: done.imported, settled: done.settled })}
             </p>
-            {done.summary ? (
-              <p lang={DEFAULT_LOCALE} className="max-w-xl text-sm text-muted">
-                {done.summary}
-              </p>
-            ) : null}
+            {done.summary ? <p className="max-w-xl text-sm text-muted">{done.summary}</p> : null}
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <Link href="/app/lancamentos" className={buttonClass()}>
                 {t("done.seeEntries")}
@@ -733,7 +734,7 @@ export function ImportWizard({
               <Select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.name}
+                    {system.name(account.name)}
                   </option>
                 ))}
               </Select>
@@ -803,7 +804,10 @@ export function ImportWizard({
                     })}
                   </p>
                   {batch.summary ? (
-                    <p lang={DEFAULT_LOCALE} className="text-xs text-muted">
+                    <p
+                      lang={batch.summaryTranslated ? undefined : DEFAULT_LOCALE}
+                      className="text-xs text-muted"
+                    >
                       {batch.summary}
                     </p>
                   ) : null}

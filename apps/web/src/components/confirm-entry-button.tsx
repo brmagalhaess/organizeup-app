@@ -13,12 +13,15 @@ export function ConfirmEntryButton({
   entryKey,
   month,
   label,
+  ariaLabel,
   variant = "secondary",
   small = true,
 }: {
   entryKey: string;
   month?: string;
   label: string;
+  /** Nome do botão quando há vários iguais na tela. */
+  ariaLabel?: string;
   variant?: ButtonVariant;
   small?: boolean;
 }) {
@@ -37,7 +40,13 @@ export function ConfirmEntryButton({
       <form action={confirm}>
         <input type="hidden" name="key" value={entryKey} />
         {month ? <input type="hidden" name="month" value={month} /> : null}
-        <Button type="submit" variant={variant} small={small} disabled={pending}>
+        <Button
+          type="submit"
+          variant={variant}
+          small={small}
+          disabled={pending}
+          aria-label={ariaLabel}
+        >
           {label}
         </Button>
       </form>

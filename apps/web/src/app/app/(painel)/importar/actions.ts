@@ -1,5 +1,7 @@
 "use server";
 import { getLocale, getTranslations } from "next-intl/server";
+import { agentText } from "@/i18n/agent-text";
+import type { Locale } from "@/i18n/locales";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -406,13 +408,23 @@ export async function commitImport(
       period: batchId,
       title: report.title,
       summary: report.summary,
+      messageKey: report.message.key,
+      messageParams: report.message.params ?? null,
       data: report.data,
     });
     const { bySource, corrected } = report.data;
     return {
       imported: inserted.length,
       settled,
-      summary: report.summary,
+      summary: agentText(
+        {
+          title: report.title,
+          body: report.summary,
+          messageKey: report.message.key,
+          messageParams: report.message.params ?? null,
+        },
+        (await getLocale()) as Locale,
+      ).body,
       counts: {
         rowCount: rows.length,
         fromMemory: bySource.memoria,
@@ -471,7 +483,10 @@ export async function undoImport(form: FormData): Promise<void> {
     await tx.delete(importBatches).where(eq(importBatches.id, id));
     await tx
       .update(householdReports)
-      .set({ summary: sql`${householdReports.summary} || ' Importação desfeita depois.'` })
+      .set({
+        summary: sql`${householdReports.summary} || ' Importação desfeita depois.'`,
+        messageParams: sql`jsonb_insert(${householdReports.messageParams}, '{parts,messages,-1}', '{"key":"frases.relImportacaoDesfeita"}'::jsonb, true)`,
+      })
       .where(eq(householdReports.period, id));
     await audit(tx, ctx, "delete", "import_batches", id);
   });

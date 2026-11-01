@@ -1785,9 +1785,9 @@
         "completo": "Completo",
         "completoText": "Também cria metas em rascunho. Valor que você informou continua sendo sugestão.",
         "organizar": "Organizar",
-        "organizarText": "Também arruma sozinho o que ficou para revisar, sempre com Desfazer.",
+        "organizarText": "Igual ao Sugerir: arruma sozinho as categorias genéricas e o que ficou para revisar, sempre com Desfazer.",
         "sugerir": "Sugerir",
-        "sugerirText": "Só dá dicas e sugestões. Você decide tudo."
+        "sugerirText": "Dá dicas e sugestões para você decidir. Só as categorias genéricas mudam sozinhas, com Desfazer."
       }
     },
     "memories": {
@@ -1864,12 +1864,6 @@
     "unreadTag": "Não lida",
     "newCategory": "Categoria nova",
     "open": "Ver em Sugestões",
-    "change": "{from} → {to}",
-    "changeDetail": "{merchant}: {entries}, {sum}",
-    "mergeDetail": "Categorias juntadas: {entries}, {sum}",
-    "summary": "{changes, plural, one {E mais # mudança nesta noite} other {E mais # mudanças nesta noite}}",
-    "summaryDetail": "{entries}, {sum}. Tudo está em Sugestões, com Desfazer.",
-    "entries": "{count, plural, =0 {nenhum lançamento} one {# lançamento} other {# lançamentos}}",
     "unavailableTitle": "Notificações indisponíveis",
     "unavailableText": "Estamos atualizando o serviço. Tente de novo em alguns minutos.",
     "empty": {
@@ -2868,11 +2862,8 @@
       "nothingApplied": "Nada foi aplicado. Atualize a página e tente de novo."
     },
     "applied": {
-      "moved": "{count, plural, =1 {1 lançamento movido} other {# lançamentos movidos}}.",
       "seen": "{count, plural, =1 {1 aviso marcado como visto} other {# avisos marcados como vistos}}.",
-      "failed": "{count, plural, =1 {1 não deu certo} other {# não deram certo}}.",
-      "tripCreated": "Viagem para {name} criada. Ajuste datas e custos em Viagens.",
-      "goalCreated": "Meta {name} criada. Ajuste os detalhes em Metas."
+      "failed": "{count, plural, =1 {1 não deu certo} other {# não deram certo}}."
     },
     "agent": {
       "readOnly": "Seu papel nesta família não permite alterações.",
@@ -2907,7 +2898,13 @@
       "goalHasValues": "A meta já recebeu valores; nada foi desfeito.",
       "goalRemoved": "Meta removida.",
       "goalDateChanged": "A data da meta já foi alterada; nada foi desfeito.",
-      "goalDateRestored": "Data da meta devolvida à anterior."
+      "goalDateRestored": "Data da meta devolvida à anterior.",
+      "assistantHandles": "O assistente cuida disso sozinho: esta sugestão não precisa de aceite.",
+      "tripPeople": "Escolha quem vai.",
+      "tripPeopleInvalid": "Escolha pessoas da família.",
+      "tripFailed": "Não foi possível criar a viagem.",
+      "tripCreated": "Viagem para {name} criada. Ajuste datas e custos em Viagens.",
+      "goalCreated": "Meta {name} criada. Ajuste os detalhes em Metas."
     }
   },
   "familiaOnboarding": {
@@ -3060,6 +3057,330 @@
       "goalAmountFormat": "Informe o valor como 80.000,00.",
       "goalAmount": "Informe quanto custa.",
       "goalAccount": "Escolha a conta de onde sai."
+    }
+  },
+  "agentes": {
+    "aporteReserva": {
+      "title": "Guardar {amount} por mês na reserva de emergência",
+      "body": "{parts}"
+    },
+    "aporteDivida": {
+      "title": "Pagar {amount} a mais por mês em ‘{debt}’",
+      "body": "Essa dívida custa {rate} ao mês, mais do que a carteira rende. Quitar antes rende mais que investir. Aceitar registra a decisão; o pagamento extra você faz na tela de dívidas."
+    },
+    "aporteDividaPlano": {
+      "title": "Pagar {amount} a mais por mês em ‘{debt}’",
+      "body": "Pelo plano de saída ({strategy, select, avalanche {maior juro primeiro} other {menor saldo primeiro}}), esta é a dívida a atacar agora. Aceitar registra a decisão; o pagamento extra você faz na tela de dívidas."
+    },
+    "aporteInvestimento": {
+      "title": "Guardar {amount} por mês para a aposentadoria",
+      "body": "{detail} Aceitar grava este valor como o quanto guardar por mês no plano."
+    },
+    "lembreteRendimento": {
+      "title": "Informe o rendimento anual da carteira",
+      "body": "Ou registre os proventos recebidos. Sem isso o assistente não consegue calcular quanto precisa ter investido para viver dos rendimentos."
+    },
+    "lembreteAno": {
+      "title": "Diga em que ano querem parar de trabalhar",
+      "body": "Com o ano, o assistente calcula quanto guardar por mês para a carteira pagar as contas até lá."
+    },
+    "lembretePlano": {
+      "title": "Complete seu plano de aposentadoria",
+      "body": "Informe a renda que você quer por mês ou registre seus gastos. Com isso o assistente estima quanto guardar por mês."
+    },
+    "categoriaMovida": {
+      "title": "Movemos {count, plural, =1 {1 lançamento} other {# lançamentos}} de ‘{from}’ para ‘{to}’",
+      "body": "{reason}. Se não fizer sentido, use Desfazer: o assistente devolve os lançamentos e não mexe mais neles."
+    },
+    "categoriaFusao": {
+      "title": "Juntamos ‘{from}’ com ‘{to}’",
+      "body": "{parts}"
+    },
+    "categoriaSemPista": {
+      "title": "Sem categoria clara",
+      "body": "O assistente não soube classificar este estabelecimento e tenta de novo em 30 dias."
+    },
+    "proventoExcluido": {
+      "title": "Provento automático excluído",
+      "body": "Você excluiu este provento, e ele não volta sozinho."
+    },
+    "quantidadeConferir": {
+      "title": "Confira a quantidade de {ticker}",
+      "body": "{event} com data-com em {date}. Há operação registrada depois dessa data, que pode já estar com a quantidade nova, então não ajustamos sozinhos. Se a quantidade não bater com a da corretora, corrija as operações: até lá, o valor deste investimento pode ficar errado."
+    },
+    "quantidadeAjustada": {
+      "title": "Quantidade de {ticker} ajustada",
+      "body": "{ticker}: {event} em {date}. A quantidade foi de {before} para {after}. O valor total não muda, e suas operações ficam como você registrou."
+    },
+    "valorSemInformar": {
+      "title": "Atualize o valor de {label}",
+      "body": "{label} ainda não tem valor atual informado; o patrimônio e o plano usam o custo de compra."
+    },
+    "valorAntigo": {
+      "title": "Atualize o valor de {label}",
+      "body": "O último valor de {label} é de há {days, plural, =1 {1 dia} other {# dias}}. Sem um valor recente, o patrimônio e o plano de aposentadoria ficam defasados."
+    },
+    "classeForaDaMeta": {
+      "title": "{label}: {percent} da carteira, meta de {target}",
+      "body": "A fatia de {labelInSentence} está {direction, select, acima {acima} other {abaixo}} da meta que você definiu. É só um aviso: o assistente não indica o que comprar ou vender."
+    },
+    "proventosConferir": {
+      "title": "Proventos para conferir no extrato",
+      "body": "{tickers}: há proventos que não lançamos sozinhos porque o imposto depende de dados que não temos, como a data do crédito ou o titular. Confira no extrato e lance em Proventos."
+    },
+    "mercadoDia": {
+      "title": "Cotações e proventos atualizados",
+      "body": "{parts}. Se desfizer, os proventos não voltam sozinhos; o preço volta com a próxima cotação nova."
+    },
+    "metaForaDoPrazo": {
+      "title": "A meta ‘{name}’ não cabe no prazo",
+      "body": "{parts}"
+    },
+    "metaSemOrcamento": {
+      "title": "Hoje não sobra para a meta ‘{name}’",
+      "body": "{parts}"
+    },
+    "viagem": {
+      "title": "Que tal {name} em {month}?",
+      "body": "{parts}"
+    },
+    "assistenteReserva": {
+      "title": "Guardar na reserva todo mês",
+      "body": "Combinado na conversa com o assistente: {amount} por mês."
+    },
+    "assistenteAposentadoria": {
+      "title": "Guardar para a aposentadoria todo mês",
+      "body": "Combinado na conversa com o assistente: {amount} por mês."
+    },
+    "assistenteDataMeta": {
+      "title": "Nova data para {name}",
+      "body": "Mudar o mês desejado de {name} para {month}."
+    },
+    "assistenteMeta": {
+      "title": "Criar a meta {name}",
+      "body": "Meta de {amount}, proposta na conversa com o assistente."
+    },
+    "assistenteLembrete": {
+      "title": "{title}",
+      "body": "{body}"
+    },
+    "notificacaoMudanca": {
+      "title": "{from} → {to}",
+      "body": "{merchant}: {detail}"
+    },
+    "notificacaoFusao": {
+      "title": "{from} → {to}",
+      "body": "Categorias juntadas: {detail}"
+    },
+    "notificacaoResumo": {
+      "title": "{changes, plural, one {E mais # mudança nesta noite} other {E mais # mudanças nesta noite}}",
+      "body": "{detail}. Tudo está em Sugestões, com Desfazer."
+    },
+    "relatorioCategorias": {
+      "title": "Categorias revisadas em {day}",
+      "body": "{parts}"
+    },
+    "relatorioImportacao": {
+      "title": "Extrato de {start} a {end}",
+      "body": "{parts}"
+    },
+    "relatorioInvestimentos": {
+      "title": "Investimentos em {day}",
+      "body": "{parts}"
+    },
+    "relatorioInvestimentosVazio": {
+      "title": "Investimentos em {day}",
+      "body": "Nenhum investimento cadastrado ainda."
+    },
+    "relatorioAposentadoria": {
+      "title": "Divisão do que sobra em {day}",
+      "body": "{parts}"
+    },
+    "relatorioViagens": {
+      "title": "Viagens em {day}",
+      "body": "{parts}"
+    },
+    "relatorioMetas": {
+      "title": "Metas em {day}",
+      "body": "{parts}"
+    },
+    "relatorioMetasPlano": {
+      "title": "Metas em {day}",
+      "body": "{goals, plural, =1 {1 meta} other {# metas}}; {budget} por mês para metas. {planned, plural, =1 {1 meta com plano} other {# metas com plano}}, {onTime} dentro do prazo, {noRoom, plural, =1 {1 sem espaço no orçamento} other {# sem espaço no orçamento}}."
+    },
+    "relatorioDividas": {
+      "title": "Dívidas em {day}",
+      "body": "{parts}"
+    },
+    "relatorioDividasPlano": {
+      "title": "Plano das dívidas em {day}",
+      "body": "{parts}"
+    },
+    "frases": {
+      "motivo": "{reason}.",
+      "motivoRegra": "A regra conhece o estabelecimento",
+      "motivoVisto": "O assistente já viu este estabelecimento em {name}",
+      "motivoAssistente": "O assistente reconheceu o estabelecimento pela descrição do extrato",
+      "motivoNomesIguais": "Nomes iguais ou um contém o outro",
+      "motivoPalavras": "Nome casa com as palavras de outra categoria",
+      "fusaoFeita": "Lançamentos, previsões e compras foram para ‘{to}’, e ‘{from}’ foi arquivada. Se não fizer sentido, use Desfazer.",
+      "reservaFalta": "Faltam {missing} para a reserva de {targetMonths} meses de gastos essenciais.",
+      "reservaFecha": "Com este valor ela fecha em {months, plural, =1 {1 mês} other {# meses}}.",
+      "reservaAceitar": "Aceitar grava este valor como o quanto guardar por mês na reserva.",
+      "aposentadoriaIncompleta": "Complete o plano de aposentadoria para ver em que ano a carteira fecha.",
+      "aposentadoriaFecha": "Com este valor a carteira fecha em {year}.",
+      "aposentadoriaPreciso": "Para fechar em {targetYear} seria preciso {required} por mês; com {amount} a carteira fecha em {year}.",
+      "aposentadoriaMais": "mais",
+      "aposentadoriaMaisDe60": "mais de 60 anos",
+      "eventoAcoes": "{kind, select, desdobramento {Desdobramento} grupamento {Grupamento} other {Bonificação}}{factor, select, none {} other { de {factor}}}",
+      "eventoAcoesNaFrase": "{kind, select, desdobramento {desdobramento} grupamento {grupamento} other {bonificação}}{factor, select, none {} other { de {factor}}}",
+      "classe": "{assetClass, select, acao {Ações} fii {Fundos imobiliários} etf_bdr {ETFs e BDRs} renda_fixa {Renda fixa} fundo {Fundos} previdencia {Previdência} exterior {Exterior} other {Outros}}",
+      "classeNaFrase": "{assetClass, select, acao {ações} fii {fundos imobiliários} etf_bdr {etfs e bdrs} renda_fixa {renda fixa} fundo {fundos} previdencia {previdência} exterior {exterior} other {outros}}",
+      "mercadoPrecos": "{count, plural, =1 {1 preço atualizado} other {# preços atualizados}} ({labels}{more, select, sim { e outros} other {}})",
+      "mercadoProventos": "{count, plural, =1 {1 provento lançado} other {# proventos lançados}}",
+      "mercadoAReceber": "{amount} a receber em {count, plural, =1 {1 pagamento} other {# pagamentos}}",
+      "mercadoCorrigidos": "{count, plural, =1 {1 provento corrigido} other {# proventos corrigidos}}",
+      "mercadoRetirados": "{count, plural, =1 {1 provento retirado} other {# proventos retirados}}",
+      "metaGuardar": "Hoje dá para guardar {amount} por mês para ‘{name}’, o que termina em {end}.",
+      "metaSemEspaco": "Hoje não sobra orçamento para ‘{name}’.",
+      "metaPrecisa": "Para conquistar em {desired} seria preciso {extra} a mais por mês.",
+      "metaAceitar": "Aceitar muda a data desejada para {end}; ou reduza o valor, pause outra meta ou aumente o que guarda.",
+      "metaReduza": "Reduza o valor, adie a data ou pause outra meta para abrir espaço.",
+      "notaMeta": "{parts}",
+      "notaConquistada": "Meta conquistada.",
+      "notaPausada": "Meta pausada: sem parcelas até retomar.",
+      "notaSemOrcamento": "Hoje não sobra orçamento para esta meta.",
+      "notaSemOrcamentoReduza": "Hoje não sobra orçamento para esta meta. Reduza o valor, adie a data ou pause outra meta.",
+      "notaLonga": "Com {amount} por mês levaria mais de 10 anos; reduza o valor, adie a data ou aumente o que guarda.",
+      "notaDataPassou": "A data desejada já passou; nova previsão: {end}.",
+      "notaNaoCabe": "Não cabe no orçamento até {desired}; termina em {end}.",
+      "notaComeca": "Começa quando {name} terminar.",
+      "notaEscolhaConta": "Escolha a conta de onde sai a parcela para ela entrar no calendário.",
+      "notaParcelaAjustada": "Parcela ajustada de {from} para {to}.",
+      "viagemQuando": "Em {month} · {days, plural, =1 {1 dia} other {# dias}} para {people, plural, =1 {1 pessoa} other {# pessoas}}.",
+      "viagemCusto": "Cerca de {total} ({perPerson} por pessoa): passagem {flight}, hospedagem {lodging}, alimentação {food} e transporte {transport}; passeios ficam por sua conta.",
+      "viagemGuarde": "Guarde {amount} por mês até {until}.",
+      "viagemPede": "Pede {amount} por mês, mais do que sobra para viagens hoje.",
+      "viagemFonte": "Valores aproximados pela nossa tabela de custos (confiança {confidence, select, baixa {baixa} other {media}}). Confira passagens e hospedagem antes de fechar. Fonte: {source}",
+      "viagemGuardeMais": "Guarde {amount} a mais por mês para esta viagem caber.",
+      "viagemCasamento": "No mês do aniversário de casamento.",
+      "viagemBoaEpoca": "{month} é boa época para {name}.",
+      "notificacaoLancamentos": "{count, plural, =0 {nenhum lançamento} one {# lançamento} other {# lançamentos}}, {sum}",
+      "relCategorias": "{reviewed, plural, =1 {1 lançamento revisado} other {# lançamentos revisados}}, {moved, plural, =1 {1 movido sozinho} other {# movidos sozinhos}}, {merges, plural, =1 {1 fusão feita} other {# fusões feitas}}.",
+      "relCategoriasCriadas": "Categorias criadas: {names}.",
+      "relCategoriasIa": "Pela descrição do extrato: {moved, plural, =1 {1 lançamento movido} other {# lançamentos movidos}}.",
+      "relImportacao": "{rows, plural, =1 {1 lançamento} other {# lançamentos}}, {memory} pela memória da família, {words} por palavras do extrato, {noClue} sem pista.",
+      "relImportacaoCriadas": "Categorias criadas: {names}.",
+      "relImportacaoCorrigiu": "A família corrigiu {count}.",
+      "relImportacaoDesfeita": "Importação desfeita depois.",
+      "relCarteira": "Carteira de {total}; {dividends} em proventos nos últimos 12 meses.",
+      "relCarteiraRende": "Carteira de {total}; {dividends} em proventos nos últimos 12 meses ({percent} ao ano).",
+      "relValorAtualizar": "{count, plural, =1 {1 investimento} other {# investimentos}} com valor para atualizar.",
+      "relAtualizadoHoje": "Atualizado sozinho hoje: {prices, plural, =1 {1 preço} other {# preços}} e {created, plural, =1 {1 provento novo} other {# proventos novos}}.",
+      "relQuantidades": "{count, plural, =1 {1 quantidade ajustada} other {# quantidades ajustadas}} por desdobramento, grupamento ou bonificação.",
+      "relAReceber": "A receber: {amount}.",
+      "relPrevisao": "Previsão para {month}: {amount} em proventos.",
+      "relSobra": "Sobra típica de {surplus} por mês ({basis}); {available} para dividir depois da folga. Divisão: {reserve} na reserva, {debt} em dívidas caras, {retirement} para a aposentadoria, {goals} para metas e {trips} para viagens.",
+      "relSobraBasePrevista": "previsto pela renda e pelas despesas recorrentes",
+      "relSobraBaseMeses": "base de {months, plural, =1 {1 mês} other {# meses}}",
+      "relPlanoCoberto": "Renda alvo {target}; a carteira já cobre {coverage} do que falta.",
+      "relPlanoIncompleto": "O plano de aposentadoria ainda está incompleto.",
+      "relViagensSemPedido": "A família não pediu sugestões de viagem. Diga quantas viagens por ano em Configurações › Plano.",
+      "relViagensSemDivisao": "Sem a divisão do que sobra hoje; as sugestões ficam para a próxima rodada.",
+      "relViagensSemPessoas": "Cadastre as pessoas da família para receber sugestões de viagem.",
+      "relViagensNenhuma": "Nenhum destino da tabela cabe em {budget} por mês para viagens.",
+      "relViagensSugeridas": "{count, plural, =1 {1 viagem sugerida} other {# viagens sugeridas}} com {budget} por mês para viagens{notAll, select, sim {; nem todas cabem no orçamento de hoje.} other {.}}",
+      "relViagensPedem": "As viagens já marcadas pedem {amount} a mais por mês.",
+      "relMetasNenhuma": "Nenhuma meta cadastrada ainda.",
+      "relMetasSemDivisao": "Sem a divisão do que sobra hoje; o plano das metas foi mantido.",
+      "relDividasNenhuma": "Nenhuma dívida em aberto.",
+      "relDividasNaoTerminam": "Com o que você paga hoje, as dívidas não terminam.",
+      "relDividasQuite": "Quite tudo em {month}.",
+      "relDividasQuiteEconomize": "Quite tudo em {month} e economize {saved}.",
+      "relDividasTotal": "{count, plural, =1 {1 dívida} other {# dívidas}}, {total} no total.",
+      "relDividasComece": "Comece por ‘{name}’.",
+      "relDividasSemExtra": "Hoje não sobra valor extra para as dívidas.",
+      "relDividasMudou": "A quitação mudou de {from} para {to}.",
+      "relDividasAtencao": "{count, plural, =1 {1 ponto de atenção} other {# pontos de atenção}}."
+    }
+  },
+  "sistema": {
+    "nomes": {
+      "salario": "Salário",
+      "autonomo": "Trabalho autônomo",
+      "aluguelRecebido": "Aluguel recebido",
+      "rendimentos": "Rendimentos",
+      "outrasReceitas": "Outras receitas",
+      "reembolsos": "Reembolsos",
+      "moradia": "Moradia",
+      "mercado": "Mercado",
+      "contas": "Luz, água e internet",
+      "saude": "Saúde",
+      "educacao": "Educação",
+      "transporte": "Transporte",
+      "lazer": "Lazer",
+      "assinaturas": "Assinaturas",
+      "compras": "Compras",
+      "outrasDespesas": "Outras despesas",
+      "cartao": "Cartão de crédito",
+      "dividas": "Dívidas e empréstimos",
+      "metas": "Metas e objetivos",
+      "aportes": "Aportes e investimentos",
+      "restaurantes": "Restaurantes",
+      "pets": "Pets",
+      "tarifas": "Tarifas bancárias",
+      "impostos": "Impostos e taxas",
+      "seguros": "Seguros",
+      "cuidados": "Cuidados pessoais",
+      "academia": "Academia",
+      "viagens": "Viagens",
+      "contaPrincipal": "Conta principal",
+      "semCategoria": "Sem categoria"
+    },
+    "descricoes": {
+      "fatura": "Fatura {name}",
+      "aporte": "Aporte em {name}",
+      "resgate": "Resgate de {name}",
+      "meta": "Meta: {name} ({number}/{total})",
+      "viagem": "Viagem: {name}",
+      "casamento": "Aniversário de casamento",
+      "ferias": "Férias · {name}",
+      "decimoPrimeira": "13º, 1ª parcela · {name}",
+      "decimoSegunda": "13º, 2ª parcela · {name}"
+    }
+  },
+  "emails": {
+    "hello": "Olá!",
+    "helloName": "Olá, {name}!",
+    "fallbackLink": "Se o botão não abrir, copie este endereço no navegador:",
+    "reset": {
+      "subject": "Redefina sua senha do OrganizeUp",
+      "heading": "Redefina sua senha",
+      "text": "Recebemos um pedido para trocar a senha da sua conta. O link vale {hours, plural, =1 {1 hora} other {# horas}}.",
+      "action": "Criar nova senha",
+      "note": "Se não foi você, ignore este e-mail. Sua senha continua a mesma."
+    },
+    "changed": {
+      "subject": "Sua senha do OrganizeUp foi alterada",
+      "heading": "Sua senha foi alterada",
+      "text": "A senha da sua conta acabou de ser trocada.",
+      "action": "Pedir nova senha",
+      "note": "Se foi você, não precisa fazer nada. Se não foi, peça uma nova senha agora."
+    },
+    "verify": {
+      "subject": "Confirme seu e-mail no OrganizeUp",
+      "heading": "Confirme seu e-mail",
+      "text": "Falta só confirmar que este e-mail é seu. O link vale {hours, plural, =1 {1 hora} other {# horas}}.",
+      "action": "Confirmar e-mail",
+      "note": "Se você não criou esta conta, ignore este e-mail."
+    },
+    "invite": {
+      "subject": "Você recebeu um convite no OrganizeUp",
+      "heading": "Você recebeu um convite",
+      "text": "{inviter} convidou você para acompanhar as finanças da família {family} no OrganizeUp.",
+      "validity": "Entre ou crie sua conta com este mesmo e-mail. O convite vale {days, plural, =1 {1 dia} other {# dias}}.",
+      "action": "Ver convite",
+      "note": "Se você não conhece quem enviou, ignore este e-mail."
     }
   }
 }

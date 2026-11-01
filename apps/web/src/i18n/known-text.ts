@@ -1,5 +1,5 @@
-// Agentes, domínio e esquemas compartilhados ainda devolvem frase pronta em português (ADR-0020, Fase 3).
-// O catálogo guarda a mesma frase: achada a chave em português, sai o texto do idioma da pessoa. Frase
+// Esquemas de validação compartilhados com telas ainda em português devolvem frase pronta (ADR-0020). O
+// catálogo guarda a mesma frase: achada a chave em português, sai o texto do idioma da pessoa. Frase
 // desconhecida segue em português, nunca em branco.
 
 type Texts = Readonly<Record<string, string>>;
