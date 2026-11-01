@@ -503,6 +503,8 @@ describe("job de mercado", () => {
     const calls: string[] = [];
     const fn = (async (input: string | URL | Request) => {
       const url = String(input);
+      // Câmbio fora destes testes: os blocos do histórico não têm nada aqui.
+      if (url.includes("dataInicial")) return new Response("{}", { status: 404 });
       if (url.includes("bcdata.sgs")) return sgs();
       const ticker = /quote\/([A-Z0-9]+)/.exec(url)?.[1] ?? /symbols=([A-Z0-9]+)/.exec(url)?.[1];
       calls.push(url);
@@ -515,6 +517,88 @@ describe("job de mercado", () => {
     inC((tx) =>
       tx.execute(db.sql`update market_tickers set checked_at = 'epoch', retry_on = null`),
     );
+
+  describe("câmbio (ADR-0020)", () => {
+    const urlsOf: string[] = [];
+    const answer = (url: string) => {
+      urlsOf.push(url);
+      const from = /dataInicial=(\d{2})\/(\d{2})\/(\d{4})/.exec(url);
+      if (!from) return sgs();
+      return from[3] === "2026" && url.includes("sgs.21619")
+        ? new Response("{}", { status: 404 })
+        : json([{ data: `${from[1]}/${from[2]}/${from[3]}`, valor: "5.4212" }]);
+    };
+    const fetchFx = (async (input: string | URL | Request) =>
+      answer(String(input))) as typeof fetch;
+
+    it("carrega dez anos em blocos na primeira vez e depois só o que falta", async () => {
+      const run = (date: string) =>
+        agents.runMarketData({
+          log: silent,
+          activeDays: 60,
+          fetch: fetchFx,
+          pauseMs: 0,
+          now: new Date(`${date}T15:00:00Z`),
+        });
+      await inC((tx) => tx.execute(db.sql`select 1`));
+      const first = await run("2026-10-30");
+      const blocks = urlsOf.filter((url) => url.includes("dataInicial"));
+      expect(blocks.filter((url) => url.includes("sgs.1/"))).toHaveLength(6);
+      expect(blocks.filter((url) => url.includes("sgs.21619/"))).toHaveLength(6);
+      expect(blocks[0]).toContain("dataInicial=30/10/2016&dataFinal=29/10/2018");
+      // Seis blocos de dólar, e euro sem nada no bloco de 2026.
+      expect(first.fx).toBe(11);
+
+      urlsOf.length = 0;
+      const next = await run("2026-11-03");
+      const again = urlsOf.filter((url) => url.includes("dataInicial"));
+      // Dólar já tinha 30/10; euro retoma do último dia que ficou gravado.
+      expect(again.filter((url) => url.includes("sgs.1/"))).toEqual([
+        expect.stringContaining("dataInicial=31/10/2026&dataFinal=03/11/2026"),
+      ]);
+      expect(again.filter((url) => url.includes("sgs.21619/"))).toHaveLength(2);
+      // Um dia de dólar e o bloco de euro de 2024; o de 2026 não tem nada.
+      expect(next.fx).toBe(2);
+    });
+
+    it("cotação gravada não muda", async () => {
+      const row = { currency: "USD" as const, date: "2020-02-03", rate: "4.2", source: "teste" };
+      await db.saveMarketFx([{ ...row, rate: "4.20000000" }]);
+      expect(await db.saveMarketFx([{ ...row, rate: "9.00000000" }])).toBe(0);
+      const quote = await inC((tx) => db.fxRateOn(tx, "USD", "2020-02-03"));
+      expect(quote).toEqual({ rate: "4.20000000", date: "2020-02-03" });
+    });
+
+    it("família em real não recebe nada do câmbio no saldo", async () => {
+      const { fx, accounts: rows } = await inC((tx) => db.accountBalances(tx));
+      expect(fx).toBeNull();
+      for (const row of rows) expect(row.balance).toBe(row.nativeBalance);
+    });
+
+    it("não há cotação no intervalo: lista vazia, não erro", async () => {
+      const empty = (async () => new Response("{}", { status: 404 })) as typeof fetch;
+      expect(
+        await agents.fetchFxSeries("USD", "2026-10-31", "2026-11-01", {
+          today: day,
+          fetch: empty,
+        }),
+      ).toEqual([]);
+    });
+
+    it("lê o formato do SGS e guarda 8 casas", async () => {
+      const real = (async () => json([{ data: "30/10/2026", valor: "6.0522000" }])) as typeof fetch;
+      expect(
+        await agents.fetchFxSeries("EUR", "2026-10-30", "2026-10-30", { today: day, fetch: real }),
+      ).toEqual([{ currency: "EUR", date: "2026-10-30", rate: "6.05220000", source: "bcb.sgs" }]);
+    });
+
+    it("janela recusada pela fonte é falha da rodada, e a seguinte retoma", async () => {
+      const refused = (async () => new Response("{}", { status: 406 })) as typeof fetch;
+      await expect(
+        agents.fetchFxSeries("USD", "2014-01-01", "2026-10-30", { today: day, fetch: refused }),
+      ).rejects.toMatchObject({ code: "servidor" });
+    });
+  });
 
   it("sem token, consulta só os tickers livres e segue", async () => {
     const warnings: string[] = [];

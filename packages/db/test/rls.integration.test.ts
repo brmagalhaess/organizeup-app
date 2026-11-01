@@ -2138,6 +2138,7 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
       dividends,
       investments,
       marketDividends,
+      marketFx,
       marketIndices,
       marketQuotes,
       marketStockEvents,
@@ -2162,10 +2163,13 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
         await raw`insert into market_indices (code, date, value) values ('IPCA', '2026-09-01', '-0.32')`;
         await raw`insert into market_tickers (ticker, status) values ('PETR4', 'ok')`;
         await raw`insert into market_usage (day, calls) values ('2026-10-31', 1)`;
+        await raw`insert into market_fx (currency, date, rate, source)
+                  values ('USD', '2026-10-30', '5.4212', 'teste')`;
         await raw`update market_quotes set price = '53' where ticker = 'PETR4'`;
         await raw`insert into market_stock_events (ticker, com_date, factor, note, source)
                   values ('PETR4', '2026-09-01', '2', 'Desdobramento', 'teste')`;
         await expect(raw`delete from market_quotes`).rejects.toThrow(/permission denied/);
+        await expect(raw`delete from market_fx`).rejects.toThrow(/permission denied/);
         await expect(raw`delete from market_stock_events`).rejects.toThrow(/permission denied/);
         await expect(
           raw`insert into market_stock_events (ticker, com_date, factor, note, source)
@@ -2181,6 +2185,8 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
       const indices = await db.withHousehold(ctx, (tx) => tx.select().from(marketIndices));
       expect(indices[0]!.value).toBe("-0.32000000");
       const events = await db.withHousehold(ctx, (tx) => tx.select().from(marketStockEvents));
+      const fx = await db.withHousehold(ctx, (tx) => tx.select().from(marketFx));
+      expect(fx.map((row) => row.date)).toContain("2026-10-30");
       expect(events.map((row) => row.factor)).toEqual(["2.00000000"]);
 
       for (const write of [
@@ -2189,6 +2195,16 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
         (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
           tx.insert(marketUsage).values({ day: "2026-11-01", calls: 1 }),
         (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => tx.delete(marketDividends),
+        (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
+          tx.update(marketFx).set({ rate: "1" }),
+        (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
+          tx.insert(marketFx).values({
+            currency: "EUR",
+            date: "2026-10-30",
+            rate: "6",
+            source: "web",
+          }),
+        (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => tx.delete(marketFx),
         (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
           tx.update(marketStockEvents).set({ factor: "3" }),
         (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) =>
@@ -2222,11 +2238,56 @@ describe("isolamento de metas, sugestões e plano por proventos", () => {
           select table_name from information_schema.columns
           where column_name = 'household_id'
             and table_name in ('market_quotes', 'market_dividends', 'market_indices',
-                               'market_tickers', 'market_usage', 'market_stock_events')`;
+                               'market_tickers', 'market_usage', 'market_stock_events',
+                               'market_fx')`;
         expect(columns).toHaveLength(0);
       } finally {
         await raw.end();
       }
+    });
+
+    it("market_fx só aceita dólar e euro, com cotação positiva", async () => {
+      const raw = worker();
+      try {
+        await expect(
+          raw`insert into market_fx (currency, date, rate, source)
+              values ('BRL', '2026-10-29', '1', 'teste')`,
+        ).rejects.toThrow(/check/);
+        await expect(
+          raw`insert into market_fx (currency, date, rate, source)
+              values ('USD', '2026-10-29', '0', 'teste')`,
+        ).rejects.toThrow(/check/);
+      } finally {
+        await raw.end();
+      }
+    });
+
+    it("lançamento guarda as três colunas de origem ou nenhuma", async () => {
+      const owner = await ctxFor(A.owner, A.household);
+      await db.withHousehold(owner, async (tx) => {
+        await expect(
+          tx.transaction(async (inner) => {
+            const [account] = await inner
+              .insert(db.accounts)
+              .values({ householdId: A.household, name: "Conta com CHECK", currency: "USD" })
+              .returning({ id: db.accounts.id });
+            const [category] = await inner
+              .select({ id: db.categories.id })
+              .from(db.categories)
+              .limit(1);
+            await inner.insert(db.transactions).values({
+              householdId: A.household,
+              accountId: account!.id,
+              categoryId: category!.id,
+              kind: "despesa",
+              description: "Sem cotação",
+              amount: "10.00",
+              originalAmount: "2.00",
+              occurredOn: "2026-10-30",
+            });
+          }),
+        ).rejects.toThrow();
+      });
     });
 
     it("o mesmo provento de mercado cabe uma vez por investimento e por família", async () => {

@@ -1,11 +1,13 @@
 // Helpers das tabelas globais de mercado (ADR-0017). Sem dado de família e sem RLS de tenant: rodam
 // fora de withHousehold, como os do schema `ops`. Gravar exige a conexão ou_worker.
 import { asc, count, eq, ilike, like, or, sql } from "drizzle-orm";
+import type { FxCurrency } from "@organizeup/domain";
 import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
 import {
   marketAssets,
   marketDividends,
+  marketFx,
   marketIndices,
   marketQuotes,
   marketStockEvents,
@@ -183,6 +185,39 @@ export async function saveMarketIndices(
       set: { value: sql`excluded.value` },
     });
   return rows.length;
+}
+
+export interface MarketFxRow {
+  currency: FxCurrency;
+  date: string;
+  rate: string;
+  source: string;
+}
+
+const FX_CHUNK = 500;
+
+/** Grava cotações. Depois de gravada, a cotação não muda: lançamentos dependem dela. */
+export async function saveMarketFx(rows: MarketFxRow[]): Promise<number> {
+  const { db } = appPool();
+  let saved = 0;
+  for (let start = 0; start < rows.length; start += FX_CHUNK) {
+    const inserted = await db
+      .insert(marketFx)
+      .values(rows.slice(start, start + FX_CHUNK))
+      .onConflictDoNothing()
+      .returning({ date: marketFx.date });
+    saved += inserted.length;
+  }
+  return saved;
+}
+
+/** Último dia com cotação da moeda. Null: nada gravado, falta o histórico inteiro. */
+export async function lastMarketFxDate(currency: FxCurrency): Promise<string | null> {
+  const [row] = await appPool()
+    .db.select({ date: sql<string | null>`max(${marketFx.date})::text` })
+    .from(marketFx)
+    .where(eq(marketFx.currency, currency));
+  return row?.date ?? null;
 }
 
 export async function listMarketTickers() {

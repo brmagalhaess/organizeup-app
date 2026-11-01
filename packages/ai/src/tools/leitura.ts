@@ -192,6 +192,9 @@ const listarLancamentos = defineTool({
             categoria: names.get(row.categoryId) ?? "Sem categoria",
             descricao: untrusted(row.description),
             valor: row.amount,
+            ...(row.originalAmount
+              ? { valor_na_moeda_da_conta: row.originalAmount, moeda: row.originalCurrency }
+              : {}),
           })),
         ...lines
           .filter((line) => matches(line.description, line.categoryId, "despesa"))
@@ -297,6 +300,7 @@ const verReserva = defineTool({
         base_do_gasto: data.baseline.basis,
         alvo: data.status.target,
         guardado: data.status.saved,
+        ...(data.fx?.date ? { convertido_pela_cotacao_de: data.fx.date } : {}),
         falta: data.status.missing,
         percentual: data.status.percent,
         meses_cobertos: data.status.coveredMonths,
@@ -615,6 +619,7 @@ const verCalendario = defineTool({
         .sort((a, b) => a.date.localeCompare(b.date));
       return {
         mes: data.month,
+        ...(data.fx?.date ? { saldos_convertidos_pela_cotacao_de: data.fx.date } : {}),
         saldo_no_fim_do_mes: data.closing,
         menor_saldo_previsto: data.lowest,
         itens_no_mes: items.length,

@@ -3,8 +3,10 @@
 // Nas subconsultas, a tabela vai escrita: `${tabela.coluna}` num select de uma tabela só sai sem
 // prefixo, e o banco resolveria a coluna na tabela interna.
 import { and, asc, eq, gte, isNull, sql } from "drizzle-orm";
+import { balanceInReais, fxNoteOf, isForeign, toDbAmount } from "@organizeup/domain";
 import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
+import { latestFxRates } from "./fx";
 import {
   accounts,
   assets,
@@ -39,28 +41,53 @@ export async function loadStockEvents(tx: TenantTx) {
   );
 }
 
+/**
+ * Saldo de cada conta, único lugar que o calcula (ADR-0020). `nativeBalance` está na moeda da conta:
+ * saldo inicial, lançamentos realizados pelo valor original e transferências. `balance` está sempre em
+ * reais, pela última cotação, porque é o que telas e agentes somam. Sem cotação, fica em zero e `fx`
+ * diz qual moeda faltou. Em conta só em real, os dois são iguais e `fx` é null.
+ */
+export async function accountBalances(tx: TenantTx) {
+  const rows = await tx
+    .select({
+      id: accounts.id,
+      name: accounts.name,
+      type: accounts.type,
+      currency: accounts.currency,
+      openingBalance: accounts.openingBalance,
+      archived: accounts.archived,
+      nativeBalance: sql<string>`(${accounts.openingBalance} + coalesce((
+        select sum(case when t.kind = 'receita' then coalesce(t.original_amount, t.amount)
+                        else -coalesce(t.original_amount, t.amount) end)
+        from transactions t
+        where t.account_id = accounts.id and t.status = 'realizado'
+      ), 0) + coalesce((
+        select sum(case when f.to_account_id = accounts.id then coalesce(f.to_amount, f.amount)
+                        else -f.amount end)
+        from account_transfers f
+        where accounts.id in (f.from_account_id, f.to_account_id)
+      ), 0))::text`,
+    })
+    .from(accounts)
+    .orderBy(accounts.createdAt);
+  const rates = rows.some((row) => isForeign(row.currency)) ? await latestFxRates(tx) : {};
+  return {
+    accounts: rows.map((row) => ({
+      ...row,
+      nativeBalance: toDbAmount(row.nativeBalance),
+      balance: balanceInReais(row.nativeBalance, row.currency, rates) ?? "0.00",
+    })),
+    rates,
+    fx: fxNoteOf(rows, rates),
+  };
+}
+
 /** Tudo que entra na conta do patrimônio líquido. */
 export async function netWorthInputs(tx: TenantTx) {
   const events = await loadStockEvents(tx);
-  const [accountRows, assetRows, debtRows, cards, purchases, payments, holdings, trades, goalRows] =
+  const { accounts: accountRows, fx, rates } = await accountBalances(tx);
+  const [assetRows, debtRows, cards, purchases, payments, holdings, trades, goalRows] =
     await Promise.all([
-      tx
-        .select({
-          id: accounts.id,
-          name: accounts.name,
-          archived: accounts.archived,
-          balance: sql<string>`(${accounts.openingBalance} + coalesce((
-          select sum(case when t.kind = 'receita' then t.amount else -t.amount end)
-          from transactions t
-          where t.account_id = accounts.id and t.status = 'realizado'
-        ), 0) + coalesce((
-          select sum(case when f.to_account_id = accounts.id then f.amount else -f.amount end)
-          from account_transfers f
-          where accounts.id in (f.from_account_id, f.to_account_id)
-        ), 0))::text`,
-        })
-        .from(accounts)
-        .orderBy(accounts.createdAt),
       tx.select({ id: assets.id, value: assets.value }).from(assets),
       tx
         .select({
@@ -92,6 +119,8 @@ export async function netWorthInputs(tx: TenantTx) {
     ]);
   return {
     accounts: accountRows,
+    fx,
+    rates,
     assets: assetRows,
     investments: holdings.map((holding) => ({
       ...holding,

@@ -43,6 +43,15 @@ export {
 export { DEBT_DOCUMENT_EXPORT_NOTE, exportHousehold } from "./export";
 export { SYSTEM_TEMPLATES, ensureCategory, ensureFinanceDefaults } from "./finance";
 export {
+  accountCurrency,
+  accountsWithMovement,
+  fxRateOn,
+  fxSeries,
+  latestFxRates,
+  reaisEntry,
+} from "./fx";
+export {
+  accountBalances,
   householdTimezone,
   listActiveHouseholdIds,
   listHouseholdIds,
@@ -109,7 +118,9 @@ export {
   marketCallsOn,
   marketStatus,
   saveMarketDividends,
+  saveMarketFx,
   saveMarketIndices,
+  lastMarketFxDate,
   findMarketAsset,
   saveMarketAssets,
   saveMarketQuote,
@@ -118,6 +129,7 @@ export {
   saveMarketStockEvents,
   saveMarketTicker,
   type MarketDividendRow,
+  type MarketFxRow,
   type MarketQuoteRow,
   type MarketStatus,
   type MarketStockEventRow,

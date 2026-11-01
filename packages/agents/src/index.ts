@@ -10,6 +10,7 @@ export {
   BRAPI_SOURCE,
   fetchBrapiQuote,
   fetchFiiDividends,
+  fetchFxSeries,
   fetchSgsSeries,
   KEYLESS_TICKERS,
   MarketError,

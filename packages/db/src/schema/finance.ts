@@ -20,6 +20,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { CURRENCIES, FX_CURRENCIES } from "@organizeup/domain";
 import { household, user } from "./auth";
 import { people } from "./tenant";
 
@@ -59,7 +60,9 @@ export const accounts = pgTable(
       .references(() => household.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     type: text("type", { enum: ACCOUNT_TYPES }).notNull().default("corrente"),
+    /** Saldo inicial e movimento na moeda da conta (ADR-0020). */
     openingBalance: amount("opening_balance").notNull().default("0"),
+    currency: text("currency", { enum: CURRENCIES }).notNull().default("BRL"),
     archived: boolean("archived").notNull().default(false),
     createdAt: ts("created_at").notNull().defaultNow(),
   },
@@ -160,7 +163,12 @@ export const transactions = pgTable(
     categoryId: text("category_id").notNull(),
     kind: text("kind", { enum: ENTRY_KINDS }).notNull(),
     description: text("description").notNull(),
+    /** Sempre em reais, em qualquer conta: é o que os resumos somam (ADR-0020). */
     amount: amount("amount").notNull(),
+    /** Em conta estrangeira, o valor na moeda da conta e a cotação congelada. Nulas em conta em real. */
+    originalAmount: amount("original_amount"),
+    originalCurrency: text("original_currency", { enum: FX_CURRENCIES }),
+    fxRate: numeric("fx_rate", { precision: 20, scale: 8 }),
     occurredOn: date("occurred_on", { mode: "string" }).notNull(),
     status: text("status", { enum: ENTRY_STATUSES }).notNull().default("realizado"),
     planId: text("plan_id"),
@@ -682,7 +690,12 @@ export const accountTransfers = pgTable(
       .references(() => household.id, { onDelete: "cascade" }),
     fromAccountId: text("from_account_id").notNull(),
     toAccountId: text("to_account_id").notNull(),
+    /** O que saiu da conta de origem, na moeda dela. */
     amount: amount("amount").notNull(),
+    /** O que entrou na de destino, na moeda dela. Null: mesma moeda, mesmo valor nas duas pontas. */
+    toAmount: amount("to_amount"),
+    /** Reais por unidade estrangeira; entre duas estrangeiras, destino por unidade de origem. */
+    fxRate: numeric("fx_rate", { precision: 20, scale: 8 }),
     occurredOn: date("occurred_on", { mode: "string" }).notNull(),
     note: text("note"),
     createdBy: text("created_by"),
@@ -868,6 +881,19 @@ export const marketIndices = pgTable(
 );
 
 /** `factor` é o que a fonte manda: ações novas por ação antiga (0,1 num grupamento de 10 para 1). */
+/** PTAX de venda em reais por unidade (ADR-0020). Global; depois de gravada, não muda. */
+export const marketFx = pgTable(
+  "market_fx",
+  {
+    currency: text("currency", { enum: FX_CURRENCIES }).notNull(),
+    date: date("date", { mode: "string" }).notNull(),
+    rate: numeric("rate", { precision: 20, scale: 8 }).notNull(),
+    source: text("source").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.currency, t.date] })],
+);
+
 export const marketStockEvents = pgTable(
   "market_stock_events",
   {
