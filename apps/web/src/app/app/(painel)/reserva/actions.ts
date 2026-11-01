@@ -8,8 +8,8 @@ import {
   earmarks,
   emergencyFund,
   eq,
-  inArray,
   withHousehold,
+  type TenantContext,
 } from "@organizeup/db";
 import { parseBRL, toDbAmount } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
@@ -20,82 +20,123 @@ export interface ReserveFormState {
   message: string | null;
 }
 
-const schema = z.object({
-  targetMonths: z.coerce
-    .number({ message: "Informe de 1 a 60 meses." })
-    .int("Informe de 1 a 60 meses.")
-    .min(1, "Informe de 1 a 60 meses.")
-    .max(60, "Informe de 1 a 60 meses."),
-  monthly: z.string().trim(),
-  contribution: z.string().trim(),
-  accountIds: z.array(z.string()).max(100),
-});
+const READ_ONLY: ReserveFormState = {
+  ok: false,
+  message: "Seu papel nesta família não permite alterações.",
+};
 
-/** Salva a meta e quais contas formam a reserva. */
-export async function saveReserve(
+const monthsSchema = z.coerce
+  .number({ message: "Informe de 1 a 60 meses." })
+  .int("Informe de 1 a 60 meses.")
+  .min(1, "Informe de 1 a 60 meses.")
+  .max(60, "Informe de 1 a 60 meses.");
+
+type FundPatch = Partial<
+  Pick<typeof emergencyFund.$inferInsert, "targetMonths" | "monthlyAmount" | "contribution">
+>;
+
+/** Muda só o que veio em `patch`: cada parte da tela salva por conta própria. */
+async function saveFund(ctx: TenantContext, patch: FundPatch, message: string) {
+  await withHousehold(ctx, async (tx) => {
+    await tx
+      .insert(emergencyFund)
+      .values({ householdId: ctx.householdId, ...patch })
+      .onConflictDoUpdate({
+        target: emergencyFund.householdId,
+        set: { ...patch, updatedAt: new Date() },
+      });
+    await audit(tx, ctx, "update", "emergency_fund", ctx.householdId);
+  });
+  revalidatePath("/app", "layout");
+  return { ok: true, message };
+}
+
+/** Valor em reais opcional: em branco vira null. Lança erro se não for um valor válido. */
+function optionalAmount(raw: FormDataEntryValue | null): string | null {
+  const text = String(raw ?? "").trim();
+  if (!text) return null;
+  const value = parseBRL(text);
+  if (value.lte(0) || value.gte("1000000000000")) throw new RangeError("fora do limite");
+  return toDbAmount(value);
+}
+
+/** Quantos meses de gasto essencial a reserva deve cobrir. */
+export async function saveReserveMonths(
   _prev: ReserveFormState,
   form: FormData,
 ): Promise<ReserveFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx))
-    return { ok: false, message: "Seu papel nesta família não permite alterações." };
-  const parsed = schema.safeParse({
-    targetMonths: form.get("targetMonths"),
-    monthly: form.get("monthly") ?? "",
-    contribution: form.get("contribution") ?? "",
-    accountIds: form.getAll("accountIds").map(String),
-  });
+  if (!canWrite(ctx)) return READ_ONLY;
+  const parsed = monthsSchema.safeParse(form.get("targetMonths"));
   if (!parsed.success)
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
-  const { targetMonths, accountIds } = parsed.data;
+  return saveFund(ctx, { targetMonths: parsed.data }, "Meses salvos.");
+}
 
-  let monthlyAmount: string | null = null;
-  if (parsed.data.monthly) {
-    try {
-      const value = parseBRL(parsed.data.monthly);
-      if (value.lte(0)) throw new RangeError("não positivo");
-      monthlyAmount = toDbAmount(value);
-    } catch {
-      return { ok: false, message: "Informe o gasto essencial como 3.500,00." };
-    }
+/** Gasto essencial informado pela família. Em branco, volta a ser calculado pelos lançamentos. */
+export async function saveReserveEssential(
+  _prev: ReserveFormState,
+  form: FormData,
+): Promise<ReserveFormState> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx)) return READ_ONLY;
+  let monthlyAmount: string | null;
+  try {
+    monthlyAmount = optionalAmount(form.get("monthly"));
+  } catch {
+    return { ok: false, message: "Informe o gasto essencial como 3.500,00." };
   }
+  return saveFund(ctx, { monthlyAmount }, "Gasto essencial salvo.");
+}
 
-  let contribution: string | null = null;
-  if (parsed.data.contribution) {
-    try {
-      const value = parseBRL(parsed.data.contribution);
-      if (value.lte(0) || value.gte("1000000000000")) throw new RangeError("fora do limite");
-      contribution = toDbAmount(value);
-    } catch {
-      return { ok: false, message: "Informe quanto guardar por mês como 500,00." };
-    }
+/** Quanto a família separa por mês para a reserva. Não é o gasto essencial. */
+export async function saveReserveContribution(
+  _prev: ReserveFormState,
+  form: FormData,
+): Promise<ReserveFormState> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx)) return READ_ONLY;
+  let contribution: string | null;
+  try {
+    contribution = optionalAmount(form.get("contribution"));
+  } catch {
+    return { ok: false, message: "Informe quanto guardar por mês como 500,00." };
   }
+  return saveFund(ctx, { contribution }, "Valor salvo.");
+}
 
-  await withHousehold(ctx, async (tx) => {
-    await tx
-      .insert(emergencyFund)
-      .values({ householdId: ctx.householdId, targetMonths, monthlyAmount, contribution })
-      .onConflictDoUpdate({
-        target: emergencyFund.householdId,
-        set: { targetMonths, monthlyAmount, contribution, updatedAt: new Date() },
-      });
-    await tx.delete(earmarks).where(eq(earmarks.purpose, "reserva"));
-    if (accountIds.length > 0) {
-      const valid = await tx
+const toggleSchema = z.object({ accountId: z.string().min(1), selected: z.boolean() });
+
+/** Marca ou desmarca uma conta como parte da reserva (ADR-0007: a conta entra inteira). */
+export async function toggleReserveAccount(
+  accountId: string,
+  selected: boolean,
+): Promise<ReserveFormState> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx)) return READ_ONLY;
+  const parsed = toggleSchema.safeParse({ accountId, selected });
+  if (!parsed.success) return { ok: false, message: "Conta inválida." };
+
+  const changed = await withHousehold(ctx, async (tx) => {
+    if (!parsed.data.selected) {
+      await tx
+        .delete(earmarks)
+        .where(and(eq(earmarks.accountId, parsed.data.accountId), eq(earmarks.purpose, "reserva")));
+    } else {
+      const [account] = await tx
         .select({ id: accounts.id })
         .from(accounts)
-        .where(and(inArray(accounts.id, accountIds), eq(accounts.archived, false)));
-      if (valid.length > 0)
-        await tx.insert(earmarks).values(
-          valid.map((account) => ({
-            householdId: ctx.householdId,
-            accountId: account.id,
-            purpose: "reserva" as const,
-          })),
-        );
+        .where(and(eq(accounts.id, parsed.data.accountId), eq(accounts.archived, false)));
+      if (!account) return false;
+      await tx
+        .insert(earmarks)
+        .values({ householdId: ctx.householdId, accountId: account.id, purpose: "reserva" })
+        .onConflictDoNothing();
     }
     await audit(tx, ctx, "update", "emergency_fund", ctx.householdId);
+    return true;
   });
+  if (!changed) return { ok: false, message: "Esta conta não está mais disponível." };
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Reserva salva." };
+  return { ok: true, message: null };
 }

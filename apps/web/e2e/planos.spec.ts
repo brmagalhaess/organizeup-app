@@ -121,7 +121,11 @@ test("viagem com custos, aporte mensal e calendário", async ({ page }) => {
   // A data aparece no calendário do mês da viagem, e sai junto com a viagem.
   const month = startOn.slice(0, 7);
   await page.goto(`/app/calendario?m=${month}`);
-  await expect(page.getByText("Viagem: Gramado")).not.toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Itens do dia" })).toContainText("Viagem: Gramado");
+  await expect(page.getByRole("list", { name: "Itens do dia" })).toContainText("Viagem");
+  await expect(
+    page.getByRole("group", { name: "Filtrar por tipo" }).getByRole("button", { name: /^Viagem/ }),
+  ).toContainText("1");
 
   await page.goto("/app/viagens");
   await page.getByRole("button", { name: "Excluir Gramado" }).click();

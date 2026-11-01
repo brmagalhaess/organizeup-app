@@ -10,6 +10,7 @@ import {
   lte,
   netWorthInputs,
   transactions,
+  trips,
   type TenantTx,
 } from "@organizeup/db";
 import {
@@ -27,7 +28,8 @@ import {
   yearMonthOf,
   type YearMonth,
 } from "@organizeup/domain";
-import { loadCommitments } from "./commitments";
+import { calendarItemType, type CalendarItemType } from "./calendar-types";
+import { loadCommitments, systemCategories } from "./commitments";
 
 /** Até onde o saldo previsto faz sentido: depois disso, são só as contas fixas somadas. */
 const MAX_PROJECTION_MONTHS = 24;
@@ -78,12 +80,25 @@ export async function calendarMonth(tx: TenantTx, input: { today: string; month:
     balances = projectDailyBalance(toDbAmount(total), today, pending, cells.days);
   }
 
+  const items = groupCalendarItems(entries, eventsInMonth(eventRows, month), cards, month);
+  const system = await systemCategories(tx);
+  const tripRows = await tx.select({ eventId: trips.calendarEventId }).from(trips);
+  const typeContext = {
+    categoryOf: new Map(entries.map((entry) => [entry.key, entry.categoryId])),
+    system,
+    tripEvents: new Set(tripRows.flatMap((trip) => (trip.eventId ? [trip.eventId] : []))),
+  };
+  const types: Record<string, CalendarItemType> = {};
+  for (const item of Object.values(items).flat())
+    types[item.key] = calendarItemType(item, typeContext);
+
   return {
     month,
     current,
     today,
     cells,
-    items: groupCalendarItems(entries, eventsInMonth(eventRows, month), cards, month),
+    items,
+    types,
     balances,
     summary: summarizeMonth(entries),
     lowest: lowestBalance(balances),

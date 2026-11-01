@@ -32,6 +32,7 @@ export {
   systemCategories,
 } from "./commitments";
 export { calendarMonth } from "./calendar-view";
+export type { CalendarItemType } from "./calendar-types";
 export { monthlyPlanView } from "./plan-view";
 export { currentDividendPlan } from "./retirement-view";
 export {
