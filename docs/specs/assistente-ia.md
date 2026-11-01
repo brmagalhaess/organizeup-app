@@ -102,7 +102,9 @@ transação aberta durante a chamada ao modelo.
   com quanto cada uma antecipa em meses ou anos, calculado por `packages/domain`.
 - **Conversa:** botão do assistente em todas as telas, resposta em tempo real, ferramentas visíveis
   ("olhei seus lançamentos de outubro"), botões de ação nas respostas e simulações.
-- **Ativação:** explica o que é enviado, para quem e por quê; aceite e nível de autonomia.
+- **Ativação:** diz para que serve, o que usa e o que fica de fora, sem nome de fornecedor, a pedido do
+  fundador em 2026-11-01. O aceite cita o processamento fora do Brasil (LGPD, art. 33, VIII), e a Política de
+  Privacidade traz fornecedor, prazos e transferência. Nível de autonomia na mesma tela.
 
 ## 7. Autonomia da engenharia
 
