@@ -1,4 +1,4 @@
-import { captureEvent, describeClientError } from "@organizeup/db";
+import { captureEvent, describeClientError, normalizeRoute } from "@organizeup/db";
 import { z } from "zod";
 import { findPersonalData } from "@/lib/ops-content";
 import { createRateLimiter } from "@/lib/rate-limit";
@@ -48,6 +48,8 @@ export async function POST(request: Request) {
   }
   const parsed = screenErrorSchema.safeParse(raw);
   if (!parsed.success) return new Response(null, { status: 422 });
-  await captureEvent(describeClientError(parsed.data.fingerprint, parsed.data.route));
+  await captureEvent(
+    describeClientError(parsed.data.fingerprint, normalizeRoute(parsed.data.route)),
+  );
   return new Response(null, { status: 204 });
 }

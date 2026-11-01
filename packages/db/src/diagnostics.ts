@@ -39,25 +39,129 @@ const CAPTURE_TIMEOUT_MS = 2000;
 const MAX_FRAMES = 8;
 const UNKNOWN_ROUTE = "/desconhecida";
 
-const NAMED_ROUTE = /^(?:job|agente|acao):[a-z0-9_-]{1,80}$/;
-const PLAIN_SEGMENT = /^[a-z][a-z-]{0,39}$/;
-const PARAM_SEGMENT = /^\[{1,2}(?:\.{3})?[A-Za-z0-9_-]{1,40}\]{1,2}$/;
-const ROUTE_GROUP = /^\(.*\)$/;
+// Catálogo fechado: novos caminhos precisam ser incluídos aqui para aparecer nos diagnósticos.
+// Valores dinâmicos e nomes de parâmetros nunca são copiados para o evento.
+const KNOWN_ROUTES = [
+  "/",
+  "/admin",
+  "/admin/agentes",
+  "/admin/auditoria",
+  "/admin/controles",
+  "/admin/familias",
+  "/admin/familias/[id]",
+  "/admin/sistema",
+  "/admin/usuarios",
+  "/admin/usuarios/[id]",
+  "/api/assistente",
+  "/api/assistente/conversas",
+  "/api/assistente/conversas/[id]",
+  "/api/ativos",
+  "/api/auth/[...all]",
+  "/api/diagnostics",
+  "/api/health",
+  "/api/mcp/ops",
+  "/api/ops/agents",
+  "/api/ops/context",
+  "/api/ops/deployments",
+  "/api/ops/diagnostics",
+  "/api/ops/memory",
+  "/api/ops/reports",
+  "/app",
+  "/app/aposentadoria",
+  "/app/calendario",
+  "/app/cartoes",
+  "/app/categorias",
+  "/app/completar",
+  "/app/configuracoes",
+  "/app/contas",
+  "/app/dividas",
+  "/app/escolher",
+  "/app/escolher/abrir",
+  "/app/exportar",
+  "/app/familia",
+  "/app/importar",
+  "/app/investimentos",
+  "/app/lancamentos",
+  "/app/metas",
+  "/app/metas/[id]",
+  "/app/novo-household",
+  "/app/patrimonio",
+  "/app/plano",
+  "/app/proventos",
+  "/app/renda",
+  "/app/reserva",
+  "/app/sugestoes",
+  "/app/suspensa",
+  "/app/viagens",
+  "/app/viagens/[id]",
+  "/cadastro",
+  "/conta-bloqueada",
+  "/convite/[id]",
+  "/convite/[id]/aceitar",
+  "/entrar",
+  "/esqueci-senha",
+  "/privacidade",
+  "/redefinir-senha",
+  "/termos",
+];
+const KNOWN_NAMES = new Set([
+  "acao:admin_access_log_failed",
+  "acao:admin_agent_toggle_failed",
+  "acao:admin_agents_run_failed",
+  "acao:admin_ai_failed",
+  "acao:admin_ai_test_failed",
+  "acao:admin_audit_failed",
+  "acao:admin_families_failed",
+  "acao:admin_family_delete_failed",
+  "acao:admin_family_suspension_failed",
+  "acao:admin_insights_run_failed",
+  "acao:admin_maintenance_failed",
+  "acao:admin_notice_failed",
+  "acao:admin_notice_remove_failed",
+  "acao:admin_owner_contact_failed",
+  "acao:admin_password_reset_failed",
+  "acao:admin_pgboss_failed",
+  "acao:admin_signup_failed",
+  "acao:admin_stats_run_failed",
+  "acao:admin_user_block_failed",
+  "acao:admin_user_delete_failed",
+  "acao:admin_user_reveal_failed",
+  "acao:admin_user_sessions_failed",
+  "acao:admin_users_failed",
+  "acao:goal_replan_failed",
+  "acao:prepare_import_failed",
+  "agente:aposentadoria",
+  "agente:categorias",
+  "agente:fuso",
+  "agente:dicas",
+  "agente:investimentos",
+  "agente:mercado",
+  "agente:metas",
+  "agente:viagens",
+  "job:ai-insights",
+  "job:daily-agents",
+  "job:market-data",
+  "job:net-worth-snapshot",
+  "job:ops-heartbeat",
+  "job:pg-boss",
+  "job:platform-stats",
+]);
 
-/**
- * Rota sem parâmetro nem query string. Aceita o caminho do arquivo que o Next informa e o endereço
- * vindo do navegador: segmento fora do formato de rota vira `[id]`, para não sobrar valor nenhum.
- */
+/** Só devolve identificadores do catálogo, nunca segmentos fornecidos por quem chama. */
 export function normalizeRoute(route: string): string {
-  if (NAMED_ROUTE.test(route)) return route;
+  if (KNOWN_NAMES.has(route)) return route;
   const path = route.split(/[?#]/, 1)[0]!;
   if (!path.startsWith("/")) return UNKNOWN_ROUTE;
-  const segments = path.split("/").filter((part) => part && !ROUTE_GROUP.test(part));
+  const segments = path.split("/").filter((part) => part && !/^\(.*\)$/.test(part));
   if (segments.at(-1) === "page" || segments.at(-1) === "route") segments.pop();
-  const clean = segments
-    .slice(0, 12)
-    .map((part) => (PLAIN_SEGMENT.test(part) || PARAM_SEGMENT.test(part) ? part : "[id]"));
-  return `/${clean.join("/")}`;
+  for (const known of KNOWN_ROUTES) {
+    const template = known.split("/").filter(Boolean);
+    const catchAll = template.at(-1) === "[...all]";
+    if (catchAll ? segments.length < template.length : segments.length !== template.length)
+      continue;
+    if (template.every((part, i) => part.startsWith("[") || part === segments[i])) return known;
+  }
+  return UNKNOWN_ROUTE;
 }
 
 const BUILT_FILE = /\.next\/server\/.+$/;
@@ -153,7 +257,8 @@ export function describeError(error: unknown, origin: DiagnosticOrigin): Diagnos
 
 /** Erro visto no navegador: lá só se sabe a impressão digital enviada pela tela e a rota. */
 export function describeClientError(clientFingerprint: string, route: string): DiagnosticEvent {
-  const clean = normalizeRoute(route);
+  // O fluxo público só identifica caminhos de telas; nomes internos não vêm do navegador.
+  const clean = route.startsWith("/") ? normalizeRoute(route) : UNKNOWN_ROUTE;
   return {
     fingerprint: diagnosticFingerprint(["web", "client", clean, clientFingerprint]),
     service: "web",
