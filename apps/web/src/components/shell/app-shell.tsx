@@ -68,6 +68,20 @@ const SUGGESTIONS_HREF = "/app/sugestoes";
 
 /** Telas já traduzidas. As outras seguem em português e avisam isso ao leitor de tela. */
 const TRANSLATED_SCREENS = new Set(["/app", "/app/configuracoes"]);
+const TRANSLATED_AREAS = [
+  "/app/plano",
+  "/app/reserva",
+  "/app/patrimonio",
+  "/app/investimentos",
+  "/app/proventos",
+  "/app/metas",
+  "/app/aposentadoria",
+  "/app/viagens",
+  "/app/familia",
+];
+const isTranslated = (pathname: string) =>
+  TRANSLATED_SCREENS.has(pathname) ||
+  TRANSLATED_AREAS.some((area) => pathname === area || pathname.startsWith(`${area}/`));
 
 const groups: Array<{ title: keyof Messages["shell"]["groups"]; items: NavItem[] }> = [
   {
@@ -360,7 +374,7 @@ export function AppShell({
           ))}
           {notice ? <NoticeBanner notice={notice} /> : null}
           <main
-            lang={TRANSLATED_SCREENS.has(pathname) ? undefined : DEFAULT_LOCALE}
+            lang={isTranslated(pathname) ? undefined : DEFAULT_LOCALE}
             className="flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8 2xl:px-14"
           >
             {children}

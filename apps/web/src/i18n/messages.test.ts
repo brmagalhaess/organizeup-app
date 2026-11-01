@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { parse, TYPE, type MessageFormatElement } from "@formatjs/icu-messageformat-parser";
 import { createTranslator } from "next-intl";
@@ -155,5 +155,32 @@ describe("telas traduzidas", () => {
     "app/app/(painel)/configuracoes/page.tsx",
   ])("%s não tem pt-BR escrito no código", (file) => {
     expect(read(file)).not.toContain('"pt-BR"');
+  });
+
+  const sourceFiles = (dir: string): string[] =>
+    readdirSync(path.resolve(import.meta.dirname, "..", dir)).flatMap((name) => {
+      const file = `${dir}/${name}`;
+      if (statSync(path.resolve(import.meta.dirname, "..", file)).isDirectory()) {
+        return sourceFiles(file);
+      }
+      return /\.tsx?$/.test(name) && !name.includes(".test.") ? [file] : [];
+    });
+
+  it.each(
+    [
+      "app/app/(painel)/plano",
+      "app/app/(painel)/reserva",
+      "app/app/(painel)/patrimonio",
+      "app/app/(painel)/investimentos",
+      "app/app/(painel)/proventos",
+      "app/app/(painel)/metas",
+      "app/app/(painel)/aposentadoria",
+      "app/app/(painel)/viagens",
+      "app/app/(painel)/familia",
+    ].flatMap(sourceFiles),
+  )("%s usa o idioma da pessoa", (file) => {
+    const source = read(file);
+    expect(source).not.toContain('"pt-BR"');
+    expect(source).not.toMatch(/\b(parseBRL|formatBRL|formatBRLCompact|formatBRLShort)\b/);
   });
 });

@@ -127,3 +127,67 @@ test("anota na conversa, mostra em Configurações e apaga de verdade", async ({
   await page.getByRole("dialog").getByRole("button", { name: "Apagar tudo" }).click();
   await expect(page.getByText("Nada anotado ainda")).toBeVisible();
 });
+
+const PANEL_TEXTS = [
+  {
+    locale: "en",
+    settings: "Idioma",
+    name: "Assistant",
+    title: "Before you start",
+    outside: "including outside Brazil",
+    level: /Organize/,
+    consent: /I authorize the use/,
+    submit: "Turn on the assistant",
+    question: "Your question",
+    suggestion: "How did this month go?",
+    send: "Send",
+    tools: "What the assistant looked at",
+    looked: "looked at the month’s summary",
+    previous: "Previous conversations",
+  },
+  {
+    locale: "es",
+    settings: "Idioma",
+    name: "Asistente",
+    title: "Antes de empezar",
+    outside: "incluso fuera de Brasil",
+    level: /Organizar/,
+    consent: /Autorizo el uso/,
+    submit: "Activar el asistente",
+    question: "Tu pregunta",
+    suggestion: "¿Cómo fue este mes?",
+    send: "Enviar",
+    tools: "Qué revisó el asistente",
+    looked: "revisé el resumen del mes",
+    previous: "Conversaciones anteriores",
+  },
+];
+
+for (const texts of PANEL_TEXTS) {
+  test(`ativação e conversa em ${texts.locale}, com os botões prontos no idioma`, async ({
+    page,
+  }) => {
+    await signUp(page, "Eva");
+    await page.goto("/app/configuracoes");
+    await page.getByLabel("Idioma", { exact: true }).selectOption(texts.locale);
+    await expect(page.locator("html")).toHaveAttribute("lang", texts.locale);
+
+    await page.getByRole("button", { name: texts.name, exact: true }).click();
+    const panel = page.getByRole("dialog", { name: texts.name });
+    await expect(panel.getByRole("heading", { name: texts.title })).toBeVisible();
+    await expect(panel.getByRole("radio", { name: texts.level })).toBeChecked();
+    await expect(panel.getByRole("checkbox", { name: texts.consent })).toBeVisible();
+    await expect(panel.getByText(texts.outside)).toBeVisible();
+    await expect(panel).not.toContainText(/[ãõç]|você|Autorizo o/);
+    expect(await violations(page)).toEqual([]);
+
+    await panel.getByRole("checkbox", { name: texts.consent }).check();
+    await panel.getByRole("button", { name: texts.submit }).click();
+    await expect(panel.getByLabel(texts.question)).toBeVisible();
+    await panel.getByRole("button", { name: texts.suggestion, exact: true }).click();
+    await expect(panel.getByRole("list", { name: texts.tools })).toContainText(texts.looked);
+    await expect(panel.getByRole("button", { name: texts.send })).toBeVisible();
+    await expect(panel.getByRole("button", { name: texts.previous })).toBeVisible();
+    expect(await violations(page)).toEqual([]);
+  });
+}

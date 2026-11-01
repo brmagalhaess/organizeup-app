@@ -132,19 +132,17 @@ test("trocar de idioma traduz menu, painel e Configurações, e recarregar mant�
   expect(pageErrors).toEqual([]);
 });
 
-test("tela ainda não traduzida segue em português, sem chave crua", async ({ page }, testInfo) => {
+test("tela ainda não traduzida segue em português, sem chave crua", async ({ page }) => {
   await signUpAndCreateFamily(page, "Nina");
   await page.goto("/app/configuracoes");
   await chooseLanguage(page, "Idioma", "en", "Settings");
 
-  await page.goto("/app/metas");
-  await expect(page.getByRole("heading", { level: 1, name: "Metas" })).toBeVisible();
+  await page.goto("/app/completar");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Sua família");
   await expect(page.locator("main")).toHaveAttribute("lang", "pt-BR");
   await expectNoAxeViolations(page);
   await expect(page.locator("body")).not.toContainText(/shell\.nav|dashboard\.|settings\./);
-  if (testInfo.project.name !== "mobile") {
-    await expect(nav(page, "Main menu").getByRole("link", { name: "Goals" })).toBeVisible();
-  }
 
   await page.goto("/termos");
   await expect(page.getByRole("heading", { level: 1, name: "Termos de Uso" })).toBeVisible();
