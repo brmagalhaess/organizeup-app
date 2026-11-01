@@ -5,6 +5,7 @@ import {
   householdTimezone,
   investments,
   investmentTrades,
+  loadStockEvents,
   people,
   retirementScenarios,
   tripCosts,
@@ -60,6 +61,7 @@ export async function loadRetirement(ctx: TenantContext) {
   return withHousehold(ctx, async (tx) => {
     const today = todayIn(await householdTimezone(tx, ctx.householdId));
     const [year, month] = today.split("-").map(Number) as [number, number];
+    const events = await loadStockEvents(tx);
     const [personRows, scenarios, holdings, trades] = await Promise.all([
       tx.select().from(people).orderBy(asc(people.createdAt)),
       tx.select().from(retirementScenarios).orderBy(asc(retirementScenarios.createdAt)),
@@ -70,6 +72,7 @@ export async function loadRetirement(ctx: TenantContext) {
       holdings.map((holding) => ({
         ...holding,
         trades: trades.filter((trade) => trade.investmentId === holding.id),
+        events: events.filter((event) => event.investmentId === holding.id),
       })),
     ).total;
     const ageMonths = (person: (typeof personRows)[number]) =>

@@ -2,7 +2,7 @@
 import { History, Pencil, Plus, Tag, Target, Trash2, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { formatBRL, isUnitPriced, money } from "@organizeup/domain";
+import { formatBRL, isUnitPriced, money, stockEventKind } from "@organizeup/domain";
 import {
   Badge,
   Button,
@@ -497,6 +497,12 @@ export function PortfolioBoard({
                               ? ` · ${quantityText(row.position.quantity)} a ${formatBRL(row.position.averagePrice)} em média`
                               : ""}
                           </p>
+                          {row.events.map((event) => (
+                            <p key={event.id} className="text-xs text-muted">
+                              Quantidade ajustada por {stockEventKind(event.note)} em{" "}
+                              {fullDate(event.comDate)}
+                            </p>
+                          ))}
                           {row.position.oversold ? (
                             <p className="text-xs text-danger">
                               Há venda maior que a posição. Confira as operações.
