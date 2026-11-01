@@ -9,6 +9,16 @@ const db = vi.hoisted(() => ({
 vi.mock("@organizeup/agents", () => agents);
 vi.mock("@organizeup/db", () => db);
 vi.mock("@/lib/session", () => ({ requireTenant: async () => ({ ctx }) }));
+vi.mock("next-intl/server", async () => {
+  const { createTranslator } = await import("next-intl");
+  const { messagesFor } = await import("@/i18n/messages");
+  const messages = messagesFor("pt-BR");
+  return {
+    getMessages: async () => messages,
+    getTranslations: async (namespace: string) =>
+      createTranslator({ locale: "pt-BR", messages, namespace } as never),
+  };
+});
 
 const { POST } = await import("./route");
 const { GET } = await import("./[id]/route");

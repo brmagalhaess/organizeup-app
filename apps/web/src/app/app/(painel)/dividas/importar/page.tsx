@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { debtFileGate } from "@organizeup/ai";
 import { canWrite } from "@organizeup/db";
 import {
@@ -12,7 +13,10 @@ import { loadDebtFiles, loadDebts } from "@/lib/commitments";
 import { requireTenant } from "@/lib/session";
 import { DebtImport, type ReviewItem } from "./debt-import";
 
-export const metadata: Metadata = { title: "Importar dívidas" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("dividas.import");
+  return { title: t("metaTitle") };
+}
 
 /** Rascunho da leitura. Coluna jsonb: só o que tem a forma esperada vira conferência. */
 const extractionOf = (value: unknown): DebtExtraction | null =>
@@ -24,6 +28,7 @@ export default async function DebtImportPage({
   searchParams: Promise<{ arquivo?: string | string[] }>;
 }) {
   const { ctx } = await requireTenant();
+  const t = await getTranslations("dividas");
   const { arquivo } = await searchParams;
   const [data, files, gate] = await Promise.all([
     loadDebts(ctx),
@@ -74,9 +79,9 @@ export default async function DebtImportPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Dívidas"
-        title="Importar arquivo de dívidas"
-        description="Envie contrato, renegociação, extrato ou planilha. Você confere tudo antes de gravar."
+        eyebrow={t("eyebrow")}
+        title={t("import.title")}
+        description={t("import.description")}
       />
       {canWrite(ctx) ? (
         <DebtImport
@@ -90,7 +95,7 @@ export default async function DebtImportPage({
         />
       ) : (
         <Card>
-          <p className="text-sm text-muted">Seu papel nesta família não permite importar.</p>
+          <p className="text-sm text-muted">{t("import.noPermission")}</p>
         </Card>
       )}
     </div>
