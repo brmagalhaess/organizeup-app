@@ -145,6 +145,15 @@ export const legalAcceptance = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.version] })],
 );
 
+/** Preferências da pessoa (idioma). Fora de `user` pelo mesmo motivo de `userAccess`. */
+export const userPreferences = pgTable("user_preferences", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  locale: text("locale").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
 /** Mapa no formato que o adapter Drizzle do Better Auth espera (nomes de modelo padrão). */
 export const betterAuthSchema = {
   user,

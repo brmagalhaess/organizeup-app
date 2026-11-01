@@ -3,7 +3,7 @@
 // faltando vale como "liberado", e a web sobe antes do worker sem derrubar nada.
 import { eq, sql } from "drizzle-orm";
 import { appPool } from "./client";
-import { featureFlags, householdAccess, userAccess } from "./schema";
+import { featureFlags, householdAccess, userAccess, userPreferences } from "./schema";
 
 /** 42703 (coluna) e 42P01 (tabela): a versão nova subiu antes da migração. */
 export function isSchemaLag(error: unknown): boolean {
@@ -38,6 +38,31 @@ export async function userIsBlocked(userId: string): Promise<boolean> {
       .from(userAccess)
       .where(eq(userAccess.id, userId));
     return Boolean(row?.blockedAt);
+  }, false);
+}
+
+/** Idioma guardado na conta. Sem escolha, ou sem a tabela ainda, devolve null. */
+export async function readUserLocale(userId: string): Promise<string | null> {
+  return tolerateSchemaLag(async () => {
+    const [row] = await appPool()
+      .db.select({ locale: userPreferences.locale })
+      .from(userPreferences)
+      .where(eq(userPreferences.userId, userId));
+    return row?.locale ?? null;
+  }, null);
+}
+
+/** Grava o idioma na conta. Devolve false enquanto a tabela não chegou: aí só o cookie vale. */
+export async function saveUserLocale(userId: string, locale: string): Promise<boolean> {
+  return tolerateSchemaLag(async () => {
+    await appPool()
+      .db.insert(userPreferences)
+      .values({ userId, locale })
+      .onConflictDoUpdate({
+        target: userPreferences.userId,
+        set: { locale, updatedAt: new Date() },
+      });
+    return true;
   }, false);
 }
 

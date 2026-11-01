@@ -24,6 +24,8 @@ export {
   isSchemaLag,
   parsePlatformFlags,
   readPlatformFlags,
+  readUserLocale,
+  saveUserLocale,
   suspendedHouseholdIds,
   tolerateSchemaLag,
   userIsBlocked,

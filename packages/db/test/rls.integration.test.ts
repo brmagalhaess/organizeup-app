@@ -1,7 +1,7 @@
 // Teste de isolamento entre households (obrigatório no CI — ver ADR-0002).
 import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import postgres from "postgres";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 const urls = inject("dbUrls");
 process.env.DATABASE_URL = urls.app;
@@ -3662,6 +3662,65 @@ describe("assistente com IA (ADR-0018)", () => {
     const owner = await ctxFor(A.owner, A.household);
     const rows = await db.withHousehold(owner, (tx) => tx.select().from(assistantThreads));
     expect(rows.map((row) => row.id)).toEqual([threadId]);
+  });
+});
+
+describe("idioma da pessoa", () => {
+  const id = "user-a-idioma";
+  const other = "user-a-outro-idioma";
+
+  beforeAll(async () => {
+    await db.withAdmin("seed do teste de idioma", (admin) =>
+      admin.insert(user).values([
+        { id, name: "Ida", email: "ida@example.com" },
+        { id: other, name: "Oto", email: "oto@example.com" },
+      ]),
+    );
+  });
+
+  afterAll(async () => {
+    await db.withAdmin("limpeza do teste de idioma", (admin) =>
+      admin.delete(user).where(inArray(user.id, [id, other])),
+    );
+  });
+
+  it("cada pessoa tem o seu, mesmo na mesma família", async () => {
+    expect(await db.readUserLocale(id)).toBeNull();
+    expect(await db.saveUserLocale(id, "en")).toBe(true);
+    expect(await db.saveUserLocale(other, "es")).toBe(true);
+    expect(await db.saveUserLocale(id, "pt-BR")).toBe(true);
+    expect(await db.readUserLocale(id)).toBe("pt-BR");
+    expect(await db.readUserLocale(other)).toBe("es");
+  });
+
+  it("o banco recusa o que não é etiqueta de idioma", async () => {
+    await expect(db.saveUserLocale(id, "<script>")).rejects.toThrow();
+    expect(await db.readUserLocale(id)).toBe("pt-BR");
+  });
+
+  it("apagar a conta leva a preferência junto", async () => {
+    const gone = "user-a-idioma-sai";
+    await db.withAdmin("seed do teste de idioma", (admin) =>
+      admin.insert(user).values({ id: gone, name: "Sai", email: "sai@example.com" }),
+    );
+    await db.saveUserLocale(gone, "en");
+    await db.withAdmin("limpeza do teste de idioma", (admin) =>
+      admin.delete(user).where(eq(user.id, gone)),
+    );
+    expect(await db.readUserLocale(gone)).toBeNull();
+  });
+
+  it("antes da migração chegar, ler devolve nada e gravar não estoura", async () => {
+    const raw = postgres(urls.owner, { max: 1, onnotice: () => {} });
+    await raw`alter table user_preferences rename to user_preferences_escondida`;
+    try {
+      expect(await db.readUserLocale(other)).toBeNull();
+      expect(await db.saveUserLocale(other, "en")).toBe(false);
+    } finally {
+      await raw`alter table user_preferences_escondida rename to user_preferences`;
+      await raw.end();
+    }
+    expect(await db.readUserLocale(other)).toBe("es");
   });
 });
 
