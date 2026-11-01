@@ -1,4 +1,5 @@
 "use server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -16,9 +17,10 @@ import {
   withHousehold,
 } from "@organizeup/db";
 import { isYearMonth } from "@organizeup/domain";
+import { knownText } from "@/i18n/known-text";
 import { audit } from "@/lib/audit";
 import {
-  adultProfileShape,
+  adultProfileFor,
   birthField,
   birthParts,
   markOnboardingDone,
@@ -29,6 +31,7 @@ import {
   weddingSchema,
 } from "@/lib/onboarding";
 import { requireTenant } from "@/lib/session";
+import ptBR from "../../../../../messages/pt-BR.json";
 
 export interface CompletarState {
   ok: boolean;
@@ -36,18 +39,24 @@ export interface CompletarState {
   fieldErrors?: Record<string, string>;
 }
 
-const blocked: CompletarState = {
+const blocked = async (): Promise<CompletarState> => ({
   ok: false,
-  message: "Seu papel nesta família não permite alterações.",
-};
+  message: (await getTranslations("settings"))("noPermission"),
+});
 
-function fieldErrors(error: z.ZodError, suffix = ""): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = `${String(issue.path[0] ?? "form")}${suffix}`;
-    out[key] ??= issue.message;
-  }
-  return out;
+/** As validações são as mesmas de outras telas: o texto em português vira o do idioma da pessoa. */
+async function errorTexts() {
+  const { familiaOnboarding } = await getMessages();
+  const translate = (text: string) =>
+    knownText(text, ptBR.familiaOnboarding.errors, familiaOnboarding.errors);
+  return (error: z.ZodError, suffix = ""): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const issue of error.issues) {
+      const key = `${String(issue.path[0] ?? "form")}${suffix}`;
+      out[key] ??= translate(issue.message);
+    }
+    return out;
+  };
 }
 
 const text = (form: FormData, name: string) => String(form.get(name) ?? "");
@@ -74,7 +83,9 @@ export async function saveFamilyStep(
   form: FormData,
 ): Promise<CompletarState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
+  if (!canWrite(ctx)) return blocked();
+  const fieldErrors = await errorTexts();
+  const t = await getTranslations("familiaOnboarding");
   const onlyPerson = form.get("intent") === "person";
   const hasPerson = onlyPerson || text(form, "personName").trim() !== "";
 
@@ -95,7 +106,7 @@ export async function saveFamilyStep(
   const errors: Record<string, string> = {
     ...(person && !person.success ? fieldErrors(person.error) : {}),
     ...(onlyPerson || wedding.success ? {} : fieldErrors(wedding.error)),
-    ...(onlyPerson || birth.success ? {} : { birth: "Use mês/ano válidos." }),
+    ...(onlyPerson || birth.success ? {} : { birth: t("errors.monthYear") }),
   };
   if (Object.keys(errors).length > 0) return { ok: false, message: null, fieldErrors: errors };
 
@@ -127,20 +138,22 @@ export async function saveFamilyStep(
 
   if (onlyPerson) {
     revalidatePath("/app", "layout");
-    return { ok: true, message: "Pessoa adicionada." };
+    return { ok: true, message: t("complete.personAdded") };
   }
   nextStep(2);
 }
 
-const retirementSchema = z.object({
-  retirementYear: planShape.retirementYear,
-  targetIncome: optionalAmount("Informe a renda como 6.000,00.", { positive: true }),
-  expectedYield: optionalAmount("Informe um percentual até 30, como 6 ou 6,5.", {
-    positive: true,
-    max: "30",
-  }),
-});
-const adultSchema = z.object(adultProfileShape);
+const retirementSchema = (locale: string) =>
+  z.object({
+    retirementYear: planShape.retirementYear,
+    targetIncome: optionalAmount("Informe a renda como 6.000,00.", { positive: true }, locale),
+    expectedYield: optionalAmount(
+      "Informe um percentual até 30, como 6 ou 6,5.",
+      { positive: true, max: "30" },
+      locale,
+    ),
+  });
+const adultSchema = (locale: string) => z.object(adultProfileFor(locale));
 
 /** Passo 2: ano, renda e rendimento do plano e uma linha opcional por adulto. */
 export async function saveRetirementStep(
@@ -148,17 +161,19 @@ export async function saveRetirementStep(
   form: FormData,
 ): Promise<CompletarState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
-  const plan = retirementSchema.safeParse({
+  if (!canWrite(ctx)) return blocked();
+  const fieldErrors = await errorTexts();
+  const locale = await getLocale();
+  const plan = retirementSchema(locale).safeParse({
     retirementYear: text(form, "retirementYear"),
     targetIncome: text(form, "targetIncome"),
     expectedYield: text(form, "expectedYield"),
   });
   const errors = plan.success ? {} : fieldErrors(plan.error);
 
-  const adults: Array<{ id: string; data: z.output<typeof adultSchema> }> = [];
+  const adults: Array<{ id: string; data: z.output<ReturnType<typeof adultSchema>> }> = [];
   for (const id of form.getAll("adultId").map(String)) {
-    const adult = adultSchema.safeParse({
+    const adult = adultSchema(locale).safeParse({
       workStatus: text(form, `workStatus:${id}`),
       inssContributor: text(form, `inssContributor:${id}`),
       expectedPension: text(form, `expectedPension:${id}`),
@@ -203,7 +218,8 @@ export async function saveTripsStep(
   form: FormData,
 ): Promise<CompletarState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
+  if (!canWrite(ctx)) return blocked();
+  const fieldErrors = await errorTexts();
   const parsed = tripsSchema.safeParse({
     tripsPerYear: text(form, "tripsPerYear"),
     tripDays: text(form, "tripDays"),
@@ -220,20 +236,22 @@ export async function saveTripsStep(
   nextStep(4);
 }
 
-const goalSchema = z.object({
-  goalName: z.string().trim().min(1, "Informe o nome da meta.").max(80),
-  goalKind: z.enum(GOAL_KINDS, { message: "Escolha o tipo." }),
-  goalAmount: optionalAmount("Informe o valor como 80.000,00.", { positive: true }).refine(
-    (value) => value !== null,
-    "Informe quanto custa.",
-  ),
-  goalMonth: z
-    .string()
-    .trim()
-    .transform((value) => (value === "" ? null : value))
-    .refine((value) => value === null || isYearMonth(value), "Use mês/ano válidos."),
-  goalAccount: z.string().min(1, "Escolha a conta de onde sai."),
-});
+const goalSchema = (locale: string) =>
+  z.object({
+    goalName: z.string().trim().min(1, "Informe o nome da meta.").max(80),
+    goalKind: z.enum(GOAL_KINDS, { message: "Escolha o tipo." }),
+    goalAmount: optionalAmount(
+      "Informe o valor como 80.000,00.",
+      { positive: true },
+      locale,
+    ).refine((value) => value !== null, "Informe quanto custa."),
+    goalMonth: z
+      .string()
+      .trim()
+      .transform((value) => (value === "" ? null : value))
+      .refine((value) => value === null || isYearMonth(value), "Use mês/ano válidos."),
+    goalAccount: z.string().min(1, "Escolha a conta de onde sai."),
+  });
 
 /** Passo 4: cria a primeira meta, se a família preencheu, e encerra o cadastro. */
 export async function finishOnboarding(
@@ -241,10 +259,12 @@ export async function finishOnboarding(
   form: FormData,
 ): Promise<CompletarState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
+  if (!canWrite(ctx)) return blocked();
+  const fieldErrors = await errorTexts();
+  const [t, locale] = await Promise.all([getTranslations("familiaOnboarding"), getLocale()]);
   const hasGoal = text(form, "goalName").trim() !== "" || text(form, "goalAmount").trim() !== "";
   const goal = hasGoal
-    ? goalSchema.safeParse({
+    ? goalSchema(locale).safeParse({
         goalName: text(form, "goalName"),
         goalKind: text(form, "goalKind"),
         goalAmount: text(form, "goalAmount"),
@@ -262,7 +282,7 @@ export async function finishOnboarding(
         .select({ id: accounts.id })
         .from(accounts)
         .where(and(eq(accounts.id, goalAccount), eq(accounts.archived, false)));
-      if (!account) return "Escolha a conta de onde sai.";
+      if (!account) return t("errors.goalAccount");
       const [created] = await tx
         .insert(goals)
         .values({

@@ -42,6 +42,19 @@ describe("valores da dívida", () => {
     });
   });
 
+  it("lê o número no formato do idioma, com a mensagem dele", () => {
+    const english = form({ ...base, balance: "12,500.00", monthlyRate: "2.15" });
+    expect(parseDebtTerms(english, "en")).toMatchObject({
+      ok: true,
+      terms: { balance: "12500.00", monthlyRate: "2.1500" },
+    });
+    const errors = { balance: "Enter the balance" } as never;
+    expect(parseDebtTerms(form({ ...base, balance: "" }), "en", errors)).toMatchObject({
+      ok: false,
+      fieldErrors: { balance: "Enter the balance" },
+    });
+  });
+
   it("aponta o campo errado", () => {
     expect(parseDebtTerms(form({ ...base, balance: "", installments: "0" }))).toMatchObject({
       ok: false,

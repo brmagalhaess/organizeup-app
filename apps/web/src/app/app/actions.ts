@@ -96,14 +96,21 @@ export async function bootstrapHousehold(input: {
   state?: string;
 }): Promise<ActionState> {
   const { session, ctx } = await requireTenant();
-  if (ctx.role !== "owner") return { ok: false, message: "Somente o responsável pode configurar." };
+  const t = await getTranslations("familiaOnboarding.create");
+  if (ctx.role !== "owner") return { ok: false, message: t("ownerOnly") };
   const parsed = settingsSchema.safeParse({
     city: input.city ?? "",
     state: input.state ?? "",
     timezone: "America/Sao_Paulo",
   });
-  if (!parsed.success)
-    return { ok: false, message: "Dados inválidos.", fieldErrors: fieldErrors(parsed.error) };
+  if (!parsed.success) {
+    const tSettings = await getTranslations("settings.home");
+    const fieldErrors = translated(parsed.error, {
+      state: tSettings("stateError"),
+      timezone: tSettings("timezoneError"),
+    });
+    return { ok: false, message: t("invalid"), fieldErrors };
+  }
 
   await withHousehold(ctx, async (tx) => {
     await tx

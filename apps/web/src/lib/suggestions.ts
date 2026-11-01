@@ -31,15 +31,14 @@ export type BulkKind = (typeof BULK_KINDS)[number];
 /** Quantos dias "O que o assistente fez sozinho" olha para trás. */
 const AUTOMATIC_DAYS = 7;
 
-const GROUPS: Array<{ title: string; kinds: SuggestionKind[] }> = [
-  {
-    title: "Quanto guardar por mês",
-    kinds: ["aporte_reserva", "aporte_investimento", "aporte_divida"],
-  },
-  { title: "Viagens", kinds: ["viagem"] },
-  { title: "Metas", kinds: ["meta"] },
-  { title: "Investimentos", kinds: ["investimento"] },
-  { title: "Lembretes", kinds: ["lembrete"] },
+export type SuggestionGroupKey = "aportes" | "viagens" | "metas" | "investimentos" | "lembretes";
+
+const GROUPS: Array<{ key: SuggestionGroupKey; kinds: SuggestionKind[] }> = [
+  { key: "aportes", kinds: ["aporte_reserva", "aporte_investimento", "aporte_divida"] },
+  { key: "viagens", kinds: ["viagem"] },
+  { key: "metas", kinds: ["meta"] },
+  { key: "investimentos", kinds: ["investimento"] },
+  { key: "lembretes", kinds: ["lembrete"] },
 ];
 
 export interface PendingItem {
@@ -59,12 +58,12 @@ export interface AutomaticItem {
 
 export interface SuggestionBulk {
   kind: BulkKind;
-  /** Pergunta do ConfirmSheet de "Aplicar tudo". */
-  question: string;
+  /** Quantos itens a pergunta do ConfirmSheet de "Aplicar tudo" cita. */
+  count: number;
 }
 
 export interface SuggestionGroup {
-  title: string;
+  key: SuggestionGroupKey;
   items: PendingItem[];
   bulk: SuggestionBulk | null;
 }
@@ -138,13 +137,7 @@ function bulkOf(rows: PendingRow[]): SuggestionBulk | null {
   for (const kind of BULK_KINDS) {
     const same = rows.filter((row) => row.kind === kind);
     if (same.length < 2) continue;
-    return {
-      kind,
-      question:
-        kind === "investimento"
-          ? `Marcar ${same.length} avisos de investimentos como vistos?`
-          : `Marcar ${same.length} lembretes como vistos?`,
-    };
+    return { kind, count: same.length };
   }
   return null;
 }
@@ -178,9 +171,9 @@ export async function loadSuggestions(ctx: TenantContext): Promise<{
             ),
           )
           .orderBy(desc(householdSuggestions.decidedAt));
-        const groups = GROUPS.flatMap(({ title, kinds }) => {
+        const groups = GROUPS.flatMap(({ key, kinds }) => {
           const rows = pending.filter((row) => kinds.includes(row.kind));
-          return rows.length === 0 ? [] : [{ title, items: rows.map(toItem), bulk: bulkOf(rows) }];
+          return rows.length === 0 ? [] : [{ key, items: rows.map(toItem), bulk: bulkOf(rows) }];
         });
         return { groups, automatic };
       }),

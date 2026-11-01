@@ -1,4 +1,6 @@
 "use server";
+import type { Messages } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -16,11 +18,12 @@ import {
 import {
   addMonths,
   firstIncomeMonth,
-  parseBRL,
+  parseMoney,
   toDbAmount,
   todayIn,
   yearMonthOf,
 } from "@organizeup/domain";
+import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
 
@@ -30,14 +33,13 @@ export interface IncomeFormState {
   fieldErrors?: Record<string, string>;
 }
 
-const READ_ONLY = "Seu papel nesta família não permite alterações.";
 const LIMIT = "1000000000000";
 
-const amountField = (message: string, optional = false) =>
+const amountField = (message: string, locale: Locale, optional = false) =>
   z.string().transform((value, ctx) => {
     if (optional && !value.trim()) return "0.00";
     try {
-      const parsed = parseBRL(value);
+      const parsed = parseMoney(value, locale);
       if (parsed.lt(0) || parsed.gte(LIMIT) || (!optional && parsed.isZero()))
         throw new RangeError("fora do limite");
       return toDbAmount(parsed);
@@ -47,34 +49,41 @@ const amountField = (message: string, optional = false) =>
     }
   });
 
-const schema = z.object({
-  id: z.string(),
-  name: z.string().trim().min(1, "Informe de onde vem a renda.").max(80),
-  kind: z.enum(INCOME_KINDS, { message: "Escolha o tipo de renda." }),
-  amount: amountField("Informe o valor, como 4.500,00."),
-  dependents: z.coerce
-    .number({ message: "Informe de 0 a 20 dependentes." })
-    .int("Informe de 0 a 20 dependentes.")
-    .min(0, "Informe de 0 a 20 dependentes.")
-    .max(20, "Informe de 0 a 20 dependentes."),
-  pensionAmount: amountField("Informe a pensão como 300,00.", true),
-  otherDiscounts: amountField("Informe os descontos como 150,00.", true),
-  vacationMonth: z.coerce.number().int().min(0).max(12),
-  payDay: z.coerce
-    .number({ message: "Informe o dia do pagamento, de 1 a 31." })
-    .int("Informe o dia do pagamento, de 1 a 31.")
-    .min(1, "Informe o dia do pagamento, de 1 a 31.")
-    .max(31, "Informe o dia do pagamento, de 1 a 31."),
-  accountId: z.string().min(1, "Escolha a conta."),
-  categoryId: z.string().min(1, "Escolha a categoria."),
-  personId: z.string(),
-});
+const schema = (errors: Messages["renda"]["errors"], locale: Locale) =>
+  z.object({
+    id: z.string(),
+    name: z.string().trim().min(1, errors.name).max(80),
+    kind: z.enum(INCOME_KINDS, { message: errors.kind }),
+    amount: amountField(errors.amount, locale),
+    dependents: z.coerce
+      .number({ message: errors.dependents })
+      .int(errors.dependents)
+      .min(0, errors.dependents)
+      .max(20, errors.dependents),
+    pensionAmount: amountField(errors.pension, locale, true),
+    otherDiscounts: amountField(errors.otherDiscounts, locale, true),
+    vacationMonth: z.coerce.number().int().min(0).max(12),
+    payDay: z.coerce
+      .number({ message: errors.payDay })
+      .int(errors.payDay)
+      .min(1, errors.payDay)
+      .max(31, errors.payDay),
+    accountId: z.string().min(1, errors.account),
+    categoryId: z.string().min(1, errors.category),
+    personId: z.string(),
+  });
 
 /** Cria uma renda ou edita a do `id`. Só a CLT é calculada pelo bruto. */
 export async function saveIncome(_prev: IncomeFormState, form: FormData): Promise<IncomeFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
-  const parsed = schema.safeParse({
+  if (!canWrite(ctx))
+    return { ok: false, message: (await getTranslations("settings"))("noPermission") };
+  const [t, locale, messages] = await Promise.all([
+    getTranslations("renda"),
+    getLocale(),
+    getMessages(),
+  ]);
+  const parsed = schema(messages.renda.errors, locale).safeParse({
     id: form.get("id") ?? "",
     name: form.get("name") ?? "",
     kind: form.get("kind"),
@@ -115,18 +124,18 @@ export async function saveIncome(_prev: IncomeFormState, form: FormData): Promis
       .select({ id: accounts.id })
       .from(accounts)
       .where(eq(accounts.id, data.accountId));
-    if (!account) return "Escolha uma conta válida.";
+    if (!account) return t("errors.invalidAccount");
     const [category] = await tx
       .select({ kind: categories.kind })
       .from(categories)
       .where(eq(categories.id, data.categoryId));
-    if (category?.kind !== "receita") return "Escolha uma categoria de receita.";
+    if (category?.kind !== "receita") return t("errors.incomeCategory");
     if (values.personId) {
       const [person] = await tx
         .select({ id: people.id })
         .from(people)
         .where(eq(people.id, values.personId));
-      if (!person) return "Escolha uma pessoa válida.";
+      if (!person) return t("errors.invalidPerson");
     }
 
     if (data.id) {
@@ -148,7 +157,7 @@ export async function saveIncome(_prev: IncomeFormState, form: FormData): Promis
   });
   if (failure) return { ok: false, message: failure };
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Renda salva." };
+  return { ok: true, message: t("saved") };
 }
 
 /** Sem nada recebido, apaga. Com histórico, para de prever a partir deste mês. */

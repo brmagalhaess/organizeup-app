@@ -1,4 +1,6 @@
 "use server";
+import type { Messages } from "next-intl";
+import { getMessages, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { and, canWrite, categories, ENTRY_KINDS, eq, withHousehold } from "@organizeup/db";
@@ -10,12 +12,13 @@ export interface CategoryFormState {
   message: string | null;
 }
 
-const categorySchema = z.object({
-  id: z.string(),
-  name: z.string().trim().min(1, "Informe o nome da categoria.").max(60),
-  kind: z.enum(ENTRY_KINDS),
-  essential: z.boolean(),
-});
+const categorySchema = (errors: Messages["categorias"]["errors"]) =>
+  z.object({
+    id: z.string(),
+    name: z.string().trim().min(1, errors.name).max(60),
+    kind: z.enum(ENTRY_KINDS),
+    essential: z.boolean(),
+  });
 
 /** Cria uma categoria ou edita a do `id`. */
 export async function saveCategory(
@@ -24,15 +27,16 @@ export async function saveCategory(
 ): Promise<CategoryFormState> {
   const { ctx } = await requireTenant();
   if (!canWrite(ctx))
-    return { ok: false, message: "Seu papel nesta família não permite alterações." };
-  const parsed = categorySchema.safeParse({
+    return { ok: false, message: (await getTranslations("settings"))("noPermission") };
+  const t = await getTranslations("categorias");
+  const parsed = categorySchema((await getMessages()).categorias.errors).safeParse({
     id: form.get("id") ?? "",
     name: form.get("name") ?? "",
     kind: form.get("kind"),
     essential: form.get("essential") === "on",
   });
   if (!parsed.success)
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
+    return { ok: false, message: parsed.error.issues[0]?.message ?? t("errors.check") };
   const { id, name, kind, essential } = parsed.data;
 
   const failure = await withHousehold(ctx, async (tx) => {
@@ -40,7 +44,7 @@ export async function saveCategory(
       .select({ id: categories.id })
       .from(categories)
       .where(and(eq(categories.kind, kind), eq(categories.name, name)));
-    if (same && same.id !== id) return "Já existe uma categoria com esse nome.";
+    if (same && same.id !== id) return t("errors.duplicate");
     if (id) {
       // O tipo não muda: lançamentos da categoria dependem dele.
       await tx.update(categories).set({ name, essential }).where(eq(categories.id, id));
@@ -56,7 +60,7 @@ export async function saveCategory(
   });
   if (failure) return { ok: false, message: failure };
   revalidatePath("/app", "layout");
-  return { ok: true, message: id ? "Categoria salva." : "Categoria criada." };
+  return { ok: true, message: t(id ? "saved" : "created") };
 }
 
 /** Arquiva ou reativa. A categoria some dos formulários; o histórico continua. */

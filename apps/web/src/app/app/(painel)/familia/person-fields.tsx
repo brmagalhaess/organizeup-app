@@ -1,5 +1,7 @@
 "use client";
+import { useLocale, useTranslations } from "next-intl";
 import { Field, Input, Select } from "@/components/ui";
+import { monthNames } from "@/i18n/format";
 
 export const WORK_STATUS_LABEL: Record<string, string> = {
   clt: "CLT (carteira assinada)",
@@ -11,20 +13,15 @@ export const WORK_STATUS_LABEL: Record<string, string> = {
   outro: "Outro",
 };
 
-const MONTHS = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-];
+const WORK_STATUSES = [
+  "clt",
+  "pj_autonomo",
+  "servidor",
+  "aposentado",
+  "estudante",
+  "sem_renda",
+  "outro",
+] as const;
 
 type Errors = Record<string, string> | undefined;
 
@@ -46,34 +43,31 @@ export function AdultFields({
   errors: Errors;
   pensionHint: string;
 }) {
+  const t = useTranslations("familiaOnboarding.person");
   const inss = values?.inssContributor;
   return (
     <>
-      <Field label="Situação de trabalho" error={errors?.[`workStatus${suffix}`]}>
+      <Field label={t("workStatus")} error={errors?.[`workStatus${suffix}`]}>
         <Select name={`workStatus${suffix}`} defaultValue={values?.workStatus ?? ""}>
-          <option value="">Não informado</option>
-          {Object.entries(WORK_STATUS_LABEL).map(([value, label]) => (
+          <option value="">{t("notInformed")}</option>
+          {WORK_STATUSES.map((value) => (
             <option key={value} value={value}>
-              {label}
+              {t(`work.${value}`)}
             </option>
           ))}
         </Select>
       </Field>
-      <Field label="Contribui para o INSS?" error={errors?.[`inssContributor${suffix}`]}>
+      <Field label={t("inss")} error={errors?.[`inssContributor${suffix}`]}>
         <Select
           name={`inssContributor${suffix}`}
           defaultValue={inss === true ? "sim" : inss === false ? "nao" : ""}
         >
-          <option value="">Não informado</option>
-          <option value="sim">Sim</option>
-          <option value="nao">Não</option>
+          <option value="">{t("notInformed")}</option>
+          <option value="sim">{t("yes")}</option>
+          <option value="nao">{t("no")}</option>
         </Select>
       </Field>
-      <Field
-        label="Benefício mensal esperado (R$)"
-        hint={pensionHint}
-        error={errors?.[`expectedPension${suffix}`]}
-      >
+      <Field label={t("pension")} hint={pensionHint} error={errors?.[`expectedPension${suffix}`]}>
         <Input
           name={`expectedPension${suffix}`}
           inputMode="decimal"
@@ -91,9 +85,11 @@ export interface WeddingValues {
 }
 
 export function WeddingFields({ values, errors }: { values: WeddingValues; errors: Errors }) {
+  const t = useTranslations("familiaOnboarding.person");
+  const locale = useLocale();
   return (
     <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_5.5rem] gap-3">
-      <Field label="Dia" error={errors?.weddingDay}>
+      <Field label={t("day")} error={errors?.weddingDay}>
         <Input
           name="weddingDay"
           type="number"
@@ -103,17 +99,17 @@ export function WeddingFields({ values, errors }: { values: WeddingValues; error
           defaultValue={values.day ?? ""}
         />
       </Field>
-      <Field label="Mês" error={errors?.weddingMonth}>
+      <Field label={t("month")} error={errors?.weddingMonth}>
         <Select name="weddingMonth" defaultValue={values.month ?? ""}>
-          <option value="">Escolha</option>
-          {MONTHS.map((name, index) => (
+          <option value="">{t("choose")}</option>
+          {monthNames(locale).map((name, index) => (
             <option key={name} value={index + 1}>
               {name}
             </option>
           ))}
         </Select>
       </Field>
-      <Field label="Ano" error={errors?.weddingYear}>
+      <Field label={t("year")} error={errors?.weddingYear}>
         <Input
           name="weddingYear"
           type="number"

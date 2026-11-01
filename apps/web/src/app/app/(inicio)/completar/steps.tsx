@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { startTransition, useActionState, type MouseEvent } from "react";
 import {
@@ -18,22 +19,16 @@ import {
 
 const initial: CompletarState = { ok: false, message: null };
 
-const RELATION_LABEL: Record<string, string> = {
-  conjuge: "Cônjuge",
-  filho: "Filho(a)",
-  pai_mae: "Pai/Mãe",
-  outro: "Outro",
-};
-
-const GOAL_KIND_LABEL: Record<string, string> = {
-  veiculo: "Carro ou moto",
-  imovel: "Casa ou apartamento",
-  reforma: "Reforma",
-  educacao: "Estudos",
-  compra: "Compra",
-  evento: "Festa ou evento",
-  outro: "Outro",
-};
+const RELATIONS = ["conjuge", "filho", "pai_mae", "outro"] as const;
+const GOAL_KINDS = [
+  "veiculo",
+  "imovel",
+  "reforma",
+  "educacao",
+  "compra",
+  "evento",
+  "outro",
+] as const;
 
 function Footer({
   pending,
@@ -44,14 +39,16 @@ function Footer({
   label: string;
   skipTo: number | null;
 }) {
+  const t = useTranslations("familiaOnboarding.complete");
+  const tCommon = useTranslations("common");
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : label}
+        {pending ? tCommon("saving") : label}
       </Button>
       {skipTo ? (
         <Link href={`/app/completar?passo=${skipTo}`} className={buttonClass("ghost")}>
-          Pular por agora
+          {t("skip")}
         </Link>
       ) : null}
     </div>
@@ -67,7 +64,13 @@ export function FamilyStep({
   others: Array<{ id: string; name: string; relation: string }>;
   wedding: WeddingValues;
 }) {
+  const t = useTranslations("familiaOnboarding.family");
+  const tComplete = useTranslations("familiaOnboarding.complete");
   const [state, action, pending] = useActionState(saveFamilyStep, initial);
+  const relationLabel = (relation: string) => {
+    const known = RELATIONS.find((item) => item === relation);
+    return known ? t(`relations.${known}`) : relation;
+  };
 
   function addOnly(event: MouseEvent<HTMLButtonElement>) {
     const data = new FormData(event.currentTarget.form!);
@@ -80,8 +83,8 @@ export function FamilyStep({
       {titular ? (
         <div className="rounded-xl border border-line bg-brand-50 p-4">
           <Field
-            label={`Nascimento de ${titular.name}`}
-            hint="Só mês e ano. É a base do plano de aposentadoria."
+            label={t("birthOf", { name: titular.name })}
+            hint={t("birthHint")}
             error={state.fieldErrors?.birth}
           >
             <Input name="birth" type="month" defaultValue={titular.birth} />
@@ -90,56 +93,52 @@ export function FamilyStep({
       ) : null}
 
       <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="mb-1 text-sm font-semibold">Outras pessoas</legend>
+        <legend className="mb-1 text-sm font-semibold">{t("others")}</legend>
         {others.length > 0 ? (
-          <ul aria-label="Pessoas da família" className="m-0 list-none divide-y divide-line p-0">
+          <ul aria-label={t("people")} className="m-0 list-none divide-y divide-line p-0">
             {others.map((person) => (
               <li key={person.id} className="flex justify-between gap-3 py-2 text-sm">
                 <span className="truncate font-medium">{person.name}</span>
-                <span className="text-muted">
-                  {RELATION_LABEL[person.relation] ?? person.relation}
-                </span>
+                <span className="text-muted">{relationLabel(person.relation)}</span>
               </li>
             ))}
           </ul>
         ) : null}
         {/* Muda a chave quando a pessoa entra na lista: os campos voltam a ficar vazios. */}
         <div key={others.length} className="flex flex-col gap-3">
-          <Field label="Nome" error={state.fieldErrors?.personName}>
+          <Field label={t("name")} error={state.fieldErrors?.personName}>
             <Input name="personName" maxLength={120} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Relação" error={state.fieldErrors?.personRelation}>
+            <Field label={t("relation")} error={state.fieldErrors?.personRelation}>
               <Select name="personRelation" defaultValue="conjuge">
-                {Object.entries(RELATION_LABEL).map(([value, label]) => (
+                {RELATIONS.map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {t(`relations.${value}`)}
                   </option>
                 ))}
               </Select>
             </Field>
-            <Field label="Nascimento" error={state.fieldErrors?.personBirth}>
+            <Field label={t("birth")} error={state.fieldErrors?.personBirth}>
               <Input name="personBirth" type="month" />
             </Field>
           </div>
         </div>
         <div>
           <Button type="button" variant="secondary" small disabled={pending} onClick={addOnly}>
-            Adicionar pessoa
+            {t("add")}
           </Button>
         </div>
       </fieldset>
 
       <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="mb-1 text-sm font-semibold">Casamento</legend>
-        <p className="text-xs text-muted">
-          Opcional. Com o dia, entra no calendário como “Aniversário de casamento”.
-        </p>
+        <legend className="mb-1 text-sm font-semibold">{t("wedding")}</legend>
+        <p className="text-xs text-muted">{t("weddingHint")}</p>
         <WeddingFields values={wedding} errors={state.fieldErrors} />
       </fieldset>
 
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
-      <Footer pending={pending} label="Continuar" skipTo={2} />
+      <Footer pending={pending} label={tComplete("continue")} skipTo={2} />
     </form>
   );
 }
@@ -163,11 +162,13 @@ export function RetirementStep({
     expectedPension: string;
   }>;
 }) {
+  const t = useTranslations("familiaOnboarding.retirement");
+  const tComplete = useTranslations("familiaOnboarding.complete");
   const [state, action, pending] = useActionState(saveRetirementStep, initial);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-5">
       <Field
-        label="Ano em que querem parar"
+        label={t("year")}
         error={state.fieldErrors?.retirementYear}
         {...(suggestion ? { hint: suggestion } : {})}
       >
@@ -180,18 +181,10 @@ export function RetirementStep({
           defaultValue={retirementYear ?? ""}
         />
       </Field>
-      <Field
-        label="Renda que você quer por mês"
-        hint="Vazio: usamos seu gasto médio"
-        error={state.fieldErrors?.targetIncome}
-      >
+      <Field label={t("income")} hint={t("incomeHint")} error={state.fieldErrors?.targetIncome}>
         <Input name="targetIncome" inputMode="decimal" defaultValue={targetIncome} />
       </Field>
-      <Field
-        label="Rendimento anual da carteira (%)"
-        hint="Quanto a carteira paga em proventos por ano. Ex.: R$ 100 mil que pagam R$ 6 mil = 6%."
-        error={state.fieldErrors?.expectedYield}
-      >
+      <Field label={t("yield")} hint={t("yieldHint")} error={state.fieldErrors?.expectedYield}>
         <Input name="expectedYield" inputMode="decimal" defaultValue={expectedYield} />
       </Field>
 
@@ -203,13 +196,13 @@ export function RetirementStep({
             suffix={`:${adult.id}`}
             values={adult}
             errors={state.fieldErrors}
-            pensionHint="Se não sabe, pule; dá para preencher depois em Família"
+            pensionHint={t("pensionHint")}
           />
         </fieldset>
       ))}
 
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
-      <Footer pending={pending} label="Continuar" skipTo={3} />
+      <Footer pending={pending} label={tComplete("continue")} skipTo={3} />
     </form>
   );
 }
@@ -221,10 +214,12 @@ export function TripsStep({
   tripsPerYear: number;
   tripDays: number | null;
 }) {
+  const t = useTranslations("familiaOnboarding.trips");
+  const tComplete = useTranslations("familiaOnboarding.complete");
   const [state, action, pending] = useActionState(saveTripsStep, initial);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-5">
-      <Field label="Quantas viagens por ano" error={state.fieldErrors?.tripsPerYear}>
+      <Field label={t("perYear")} error={state.fieldErrors?.tripsPerYear}>
         <Input
           name="tripsPerYear"
           type="number"
@@ -234,7 +229,7 @@ export function TripsStep({
           defaultValue={tripsPerYear}
         />
       </Field>
-      <Field label="Quantos dias costumam durar" error={state.fieldErrors?.tripDays}>
+      <Field label={t("days")} error={state.fieldErrors?.tripDays}>
         <Input
           name="tripDays"
           type="number"
@@ -245,41 +240,37 @@ export function TripsStep({
         />
       </Field>
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
-      <Footer pending={pending} label="Continuar" skipTo={4} />
+      <Footer pending={pending} label={tComplete("continue")} skipTo={4} />
     </form>
   );
 }
 
 export function GoalStep({ accounts }: { accounts: Array<{ id: string; name: string }> }) {
+  const t = useTranslations("familiaOnboarding.goal");
+  const tComplete = useTranslations("familiaOnboarding.complete");
   const [state, action, pending] = useActionState(finishOnboarding, initial);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-5">
-      <p className="text-sm text-muted">
-        Opcional. Sem uma meta em mente? Deixe em branco e conclua.
-      </p>
-      <Field label="Nome da meta" error={state.fieldErrors?.goalName}>
+      <p className="text-sm text-muted">{t("optional")}</p>
+      <Field label={t("name")} error={state.fieldErrors?.goalName}>
         <Input name="goalName" maxLength={80} />
       </Field>
-      <Field label="Tipo" error={state.fieldErrors?.goalKind}>
+      <Field label={t("kind")} error={state.fieldErrors?.goalKind}>
         <Select name="goalKind" defaultValue="veiculo">
-          {Object.entries(GOAL_KIND_LABEL).map(([value, label]) => (
+          {GOAL_KINDS.map((value) => (
             <option key={value} value={value}>
-              {label}
+              {t(`kinds.${value}`)}
             </option>
           ))}
         </Select>
       </Field>
-      <Field label="Quanto custa (R$)" error={state.fieldErrors?.goalAmount}>
+      <Field label={t("amount")} error={state.fieldErrors?.goalAmount}>
         <Input name="goalAmount" inputMode="decimal" />
       </Field>
-      <Field label="Quando quer ter conquistado" error={state.fieldErrors?.goalMonth}>
+      <Field label={t("month")} error={state.fieldErrors?.goalMonth}>
         <Input name="goalMonth" type="month" />
       </Field>
-      <Field
-        label="De onde sai"
-        hint="A conta de onde o dinheiro sai todo mês."
-        error={state.fieldErrors?.goalAccount}
-      >
+      <Field label={t("account")} hint={t("accountHint")} error={state.fieldErrors?.goalAccount}>
         <Select name="goalAccount" defaultValue={accounts[0]?.id ?? ""}>
           {accounts.map((account) => (
             <option key={account.id} value={account.id}>
@@ -289,7 +280,7 @@ export function GoalStep({ accounts }: { accounts: Array<{ id: string; name: str
         </Select>
       </Field>
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
-      <Footer pending={pending} label="Concluir" skipTo={null} />
+      <Footer pending={pending} label={tComplete("finish")} skipTo={null} />
     </form>
   );
 }

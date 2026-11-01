@@ -1,5 +1,6 @@
 "use client";
 import { Archive, ArchiveRestore, Pencil, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useState } from "react";
 import {
   Badge,
@@ -33,6 +34,8 @@ function CategoryForm({
   kind: "receita" | "despesa";
   onDone: () => void;
 }) {
+  const t = useTranslations("categorias.form");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(saveCategory, initial);
   useEffect(() => {
     if (state.ok) onDone();
@@ -40,22 +43,22 @@ function CategoryForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="id" value={category?.id ?? ""} />
-      <Field label="Nome da categoria">
+      <Field label={t("name")}>
         <Input
           name="name"
           required
           maxLength={60}
-          placeholder="Ex.: Pet"
+          placeholder={t("nameExample")}
           defaultValue={category?.name}
         />
       </Field>
       {category ? (
         <input type="hidden" name="kind" value={category.kind} />
       ) : (
-        <Field label="Tipo">
+        <Field label={t("type")}>
           <Select name="kind" defaultValue={kind}>
-            <option value="despesa">Despesa</option>
-            <option value="receita">Receita</option>
+            <option value="despesa">{t("expense")}</option>
+            <option value="receita">{t("income")}</option>
           </Select>
         </Field>
       )}
@@ -66,11 +69,11 @@ function CategoryForm({
           defaultChecked={category?.essential}
           className="size-5 accent-brand-500"
         />
-        É um gasto essencial
+        {t("essential")}
       </label>
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar categoria"}
+        {pending ? tCommon("saving") : t("save")}
       </Button>
     </form>
   );
@@ -87,22 +90,26 @@ function Group({
   writable: boolean;
   onEdit: (category: CategoryRow) => void;
 }) {
+  const t = useTranslations("categorias");
   return (
-    <Card title={title} description={`${rows.length} categorias`}>
+    <Card title={title} description={t("count", { count: rows.length })}>
       <ul aria-label={title} className="m-0 list-none divide-y divide-line p-0">
         {rows.map((category) => (
           <li key={category.id} className="flex items-center gap-2 py-1.5">
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{category.name}</span>
-            {category.essential ? <Badge>Essencial</Badge> : null}
+            {category.essential ? <Badge>{t("essential")}</Badge> : null}
             {writable ? (
               <div className="flex shrink-0">
-                <IconButton label={`Editar ${category.name}`} onClick={() => onEdit(category)}>
+                <IconButton
+                  label={t("actions.edit", { name: category.name })}
+                  onClick={() => onEdit(category)}
+                >
                   <Pencil className="size-4" aria-hidden="true" />
                 </IconButton>
                 <form action={setCategoryArchived}>
                   <input type="hidden" name="id" value={category.id} />
                   <input type="hidden" name="archived" value="true" />
-                  <IconButton type="submit" label={`Arquivar ${category.name}`}>
+                  <IconButton type="submit" label={t("actions.archive", { name: category.name })}>
                     <Archive className="size-4" aria-hidden="true" />
                   </IconButton>
                 </form>
@@ -116,6 +123,7 @@ function Group({
 }
 
 export function CategoriesBoard({ rows, writable }: { rows: CategoryRow[]; writable: boolean }) {
+  const t = useTranslations("categorias");
   const [editing, setEditing] = useState<{ nonce: number; category: CategoryRow | null } | null>(
     null,
   );
@@ -131,20 +139,20 @@ export function CategoriesBoard({ rows, writable }: { rows: CategoryRow[]; writa
         <div className="flex justify-end">
           <Button variant="secondary" onClick={() => open(null)}>
             <Plus className="size-4" aria-hidden="true" />
-            Nova categoria
+            {t("new")}
           </Button>
         </div>
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Group
-          title="Despesas"
+          title={t("expenses")}
           rows={active.filter((row) => row.kind === "despesa")}
           writable={writable}
           onEdit={open}
         />
         <Group
-          title="Receitas"
+          title={t("income")}
           rows={active.filter((row) => row.kind === "receita")}
           writable={writable}
           onEdit={open}
@@ -152,7 +160,7 @@ export function CategoriesBoard({ rows, writable }: { rows: CategoryRow[]; writa
       </div>
 
       {archived.length > 0 ? (
-        <Card title="Arquivadas" description="Fora dos formulários; o histórico continua.">
+        <Card title={t("archived.title")} description={t("archived.text")}>
           <ul className="m-0 list-none divide-y divide-line p-0">
             {archived.map((category) => (
               <li key={category.id} className="flex items-center justify-between gap-3 py-1.5">
@@ -161,7 +169,7 @@ export function CategoriesBoard({ rows, writable }: { rows: CategoryRow[]; writa
                   <form action={setCategoryArchived}>
                     <input type="hidden" name="id" value={category.id} />
                     <input type="hidden" name="archived" value="false" />
-                    <IconButton type="submit" label={`Reativar ${category.name}`}>
+                    <IconButton type="submit" label={t("actions.restore", { name: category.name })}>
                       <ArchiveRestore className="size-4" aria-hidden="true" />
                     </IconButton>
                   </form>
@@ -175,7 +183,7 @@ export function CategoriesBoard({ rows, writable }: { rows: CategoryRow[]; writa
       <Sheet
         open={editing !== null}
         onClose={close}
-        title={editing?.category ? "Editar categoria" : "Nova categoria"}
+        title={t(editing?.category ? "sheet.edit" : "sheet.new")}
       >
         <CategoryForm
           key={editing?.nonce}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import {
   accounts,
@@ -13,13 +14,17 @@ import {
 } from "@organizeup/db";
 import { buttonClass } from "@/components/styles";
 import { Card } from "@/components/ui";
+import { toAmountInput } from "@/i18n/format";
 import { isPlanAdult } from "@/lib/onboarding";
 import { requireTenant } from "@/lib/session";
 import { FamilyStep, GoalStep, RetirementStep, TripsStep } from "./steps";
 
-export const metadata: Metadata = { title: "Completar cadastro" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("familiaOnboarding.complete");
+  return { title: t("metaTitle") };
+}
 
-const STEPS = ["Sua família", "Aposentadoria", "Viagens", "Primeira meta"];
+const STEPS = ["family", "retirement", "trips", "goal"] as const;
 const DEFAULT_RETIREMENT_AGE = 65;
 
 function currentStep(passo: string | undefined) {
@@ -32,26 +37,30 @@ const birthValue = (person: { birthYear: number | null; birthMonth: number | nul
     ? `${person.birthYear}-${String(person.birthMonth).padStart(2, "0")}`
     : "";
 
-const comma = (value: string | null | undefined) => value?.replace(".", ",") ?? "";
-
 export default async function CompletarPage({
   searchParams,
 }: {
   searchParams: Promise<{ passo?: string }>;
 }) {
   const { ctx } = await requireTenant();
+  const [t, locale] = await Promise.all([
+    getTranslations("familiaOnboarding.complete"),
+    getLocale(),
+  ]);
+  const fieldValue = (value: string | null | undefined) =>
+    value ? toAmountInput(value, locale) : "";
   const panelLink = (
     <Link href="/app" className="text-sm font-semibold text-brand-700 underline">
-      Voltar ao painel
+      {t("backToPanel")}
     </Link>
   );
 
   if (!canWrite(ctx)) {
     return (
       <>
-        <h1 className="font-display text-2xl font-medium">Completar cadastro</h1>
+        <h1 className="font-display text-2xl font-medium">{t("title")}</h1>
         <Card>
-          <p className="text-sm">Só o responsável ou um adulto pode completar o cadastro.</p>
+          <p className="text-sm">{t("adultsOnly")}</p>
           <p className="mt-3">{panelLink}</p>
         </Card>
       </>
@@ -83,26 +92,33 @@ export default async function CompletarPage({
       <div className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="font-display text-2xl font-medium">
-            Passo {step} de {STEPS.length} · {STEPS[step - 1]}
+            {t("stepTitle", {
+              step,
+              total: STEPS.length,
+              name: t(`steps.${STEPS[step - 1] ?? "family"}`),
+            })}
           </h1>
           <span className="shrink-0">{panelLink}</span>
         </div>
         <progress
           value={step}
           max={STEPS.length}
-          aria-label="Progresso do cadastro"
+          aria-label={t("progress")}
           className="h-2 w-full accent-brand-500"
         />
         <p className="text-sm text-muted">
-          Esses dados ficam só na sua família e servem para o plano de aposentadoria.{" "}
-          <a
-            href="/privacidade"
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-brand-700 underline"
-          >
-            Veja o que mudou.
-          </a>
+          {t.rich("privacy", {
+            link: (chunks) => (
+              <a
+                href="/privacidade"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-brand-700 underline"
+              >
+                {chunks}
+              </a>
+            ),
+          })}
         </p>
       </div>
 
@@ -126,10 +142,14 @@ export default async function CompletarPage({
             suggestion={
               settings?.retirementYear || !titular || !suggestedYear
                 ? null
-                : `Sugerimos ${suggestedYear}, quando ${titular.name} faz ${DEFAULT_RETIREMENT_AGE} anos.`
+                : t("suggestedYear", {
+                    year: String(suggestedYear),
+                    name: titular.name,
+                    age: DEFAULT_RETIREMENT_AGE,
+                  })
             }
-            targetIncome={comma(plan?.targetIncome)}
-            expectedYield={comma(plan?.expectedYield)}
+            targetIncome={fieldValue(plan?.targetIncome)}
+            expectedYield={fieldValue(plan?.expectedYield)}
             adults={personRows
               .filter((person) => isPlanAdult(person.relation))
               .map((person) => ({
@@ -137,7 +157,7 @@ export default async function CompletarPage({
                 name: person.name,
                 workStatus: person.workStatus ?? "",
                 inssContributor: person.inssContributor,
-                expectedPension: comma(person.expectedPension),
+                expectedPension: fieldValue(person.expectedPension),
               }))}
           />
         ) : null}
@@ -152,7 +172,7 @@ export default async function CompletarPage({
 
       {step > 1 ? (
         <Link href={`/app/completar?passo=${step - 1}`} className={buttonClass("ghost", true)}>
-          Voltar ao passo anterior
+          {t("previous")}
         </Link>
       ) : null}
     </>

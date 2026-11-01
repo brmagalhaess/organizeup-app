@@ -1,14 +1,13 @@
 "use client";
 import { AlertTriangle, Info, Pencil, Plus, Trash2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import {
   calculatePayslip,
   calculateThirteenth,
   calculateVacation,
-  formatBRL,
-  formatYearMonth,
   money,
-  parseBRL,
+  parseMoney,
   toDbAmount,
   type IncomeKind,
   type Payslip,
@@ -31,36 +30,16 @@ import {
   Sheet,
   StatTile,
 } from "@/components/ui";
+import { formatAmount, formatMonthYear, monthName, monthNames, toAmountInput } from "@/i18n/format";
 import type { loadIncome } from "@/lib/income-data";
 import { saveIncome, stopIncome, type IncomeFormState } from "./actions";
 
 type Data = Awaited<ReturnType<typeof loadIncome>>;
 type Source = Data["sources"][number];
 
-const KIND_LABEL: Record<IncomeKind, string> = {
-  clt: "Salário CLT",
-  pj_autonomo: "PJ ou autônomo",
-  aposentadoria_pensao: "Aposentadoria ou pensão",
-  aluguel: "Aluguel recebido",
-  outro: "Outra renda",
-};
+const KINDS: IncomeKind[] = ["clt", "pj_autonomo", "aposentadoria_pensao", "aluguel", "outro"];
 
-const MONTHS = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-];
-
-/** Categoria padrão de cada tipo de renda. */
+/** Categoria padrão de cada tipo de renda, pelo nome gravado na criação da família. */
 const DEFAULT_CATEGORY: Record<IncomeKind, string> = {
   clt: "Salário",
   pj_autonomo: "Trabalho autônomo",
@@ -70,7 +49,6 @@ const DEFAULT_CATEGORY: Record<IncomeKind, string> = {
 };
 
 const initial: IncomeFormState = { ok: false, message: null };
-const comma = (value: string) => value.replace(".", ",");
 const hasValue = (value: string) => !money(value).isZero();
 
 interface Draft {
@@ -91,6 +69,7 @@ function Line({
   negative?: boolean;
   strong?: boolean;
 }) {
+  const locale = useLocale();
   return (
     <div
       className={cx(
@@ -101,34 +80,39 @@ function Line({
       <dt className={strong ? "" : "text-muted"}>{label}</dt>
       <dd className="m-0 whitespace-nowrap font-medium tabular-nums">
         {negative ? "− " : ""}
-        {formatBRL(value)}
+        {formatAmount(value, locale)}
       </dd>
     </div>
   );
 }
 
 function PayslipLines({ slip }: { slip: Payslip }) {
+  const t = useTranslations("renda.slip");
   return (
     <dl className="m-0">
-      <Line label="Salário bruto" value={slip.gross} />
-      <Line label="INSS" value={slip.inss} negative />
-      <Line label="Imposto de renda" value={slip.tax} negative />
-      {hasValue(slip.pension) ? <Line label="Pensão" value={slip.pension} negative /> : null}
+      <Line label={t("gross")} value={slip.gross} />
+      <Line label={t("inss")} value={slip.inss} negative />
+      <Line label={t("tax")} value={slip.tax} negative />
+      {hasValue(slip.pension) ? <Line label={t("pension")} value={slip.pension} negative /> : null}
       {hasValue(slip.otherDiscounts) ? (
-        <Line label="Outros descontos" value={slip.otherDiscounts} negative />
+        <Line label={t("otherDiscounts")} value={slip.otherDiscounts} negative />
       ) : null}
-      <Line label="Líquido estimado" value={slip.net} strong />
+      <Line label={t("net")} value={slip.net} strong />
     </dl>
   );
 }
 
-function taxNote(slip: Payslip) {
-  const deduction =
-    slip.deduction === "simplificado"
-      ? "Usamos o desconto simplificado, que foi melhor neste caso."
-      : "Usamos as deduções legais, que foram melhores neste caso.";
-  if (!hasValue(slip.reduction)) return deduction;
-  return `${deduction} A redução da lei tirou ${formatBRL(slip.reduction)} do imposto.`;
+function TaxNote({ slip, className }: { slip: Payslip; className: string }) {
+  const t = useTranslations("renda.slip");
+  const locale = useLocale();
+  const deduction = t(slip.deduction === "simplificado" ? "simplified" : "legal");
+  return (
+    <p className={className}>
+      {hasValue(slip.reduction)
+        ? `${deduction} ${t("reduction", { value: formatAmount(slip.reduction, locale) })}`
+        : deduction}
+    </p>
+  );
 }
 
 function ExtraPay({
@@ -138,27 +122,29 @@ function ExtraPay({
   thirteenth: ThirteenthSalary;
   vacation: VacationPay;
 }) {
+  const t = useTranslations("renda.extra");
+  const tSlip = useTranslations("renda.slip");
+  const locale = useLocale();
   const uncertain = !money(vacation.net).equals(vacation.netWithReduction);
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <section aria-label="13º salário" className="rounded-xl bg-card-soft p-4">
-        <h3 className="text-sm font-semibold">13º salário</h3>
+      <section aria-label={t("thirteenth")} className="rounded-xl bg-card-soft p-4">
+        <h3 className="text-sm font-semibold">{t("thirteenth")}</h3>
         <dl className="m-0 mt-1">
-          <Line label="1ª parcela, novembro" value={thirteenth.firstInstallment} />
-          <Line label="2ª parcela, dezembro" value={thirteenth.secondInstallment} />
-          <Line label="Total líquido" value={thirteenth.net} strong />
+          <Line label={t("first")} value={thirteenth.firstInstallment} />
+          <Line label={t("second")} value={thirteenth.secondInstallment} />
+          <Line label={t("total")} value={thirteenth.net} strong />
         </dl>
       </section>
-      <section aria-label="Férias" className="rounded-xl bg-card-soft p-4">
-        <h3 className="text-sm font-semibold">Férias de 30 dias</h3>
+      <section aria-label={t("vacationLabel")} className="rounded-xl bg-card-soft p-4">
+        <h3 className="text-sm font-semibold">{t("vacation")}</h3>
         <dl className="m-0 mt-1">
-          <Line label="Salário + 1/3" value={vacation.gross} />
-          <Line label="Líquido estimado" value={vacation.net} strong />
+          <Line label={t("vacationGross")} value={vacation.gross} />
+          <Line label={tSlip("net")} value={vacation.net} strong />
         </dl>
         {uncertain ? (
           <p className="mt-2 text-xs text-muted">
-            Pode vir até {formatBRL(vacation.netWithReduction)}. A Receita ainda não explicou se a
-            redução vale para férias, então prevemos o valor menor.
+            {t("uncertain", { value: formatAmount(vacation.netWithReduction, locale) })}
           </p>
         ) : null}
       </section>
@@ -175,6 +161,9 @@ function Simulator({
   writable: boolean;
   onRegister: (draft: Draft) => void;
 }) {
+  const t = useTranslations("renda.simulator");
+  const locale = useLocale();
+  const zero = toAmountInput("0.00", locale);
   const [draft, setDraft] = useState<Draft>({
     gross: "",
     dependents: "0",
@@ -187,7 +176,7 @@ function Simulator({
   const result = useMemo(() => {
     const read = (text: string) => {
       if (!text.trim()) return "0.00";
-      const value = parseBRL(text);
+      const value = parseMoney(text, locale);
       if (value.lt(0)) throw new RangeError("negativo");
       return toDbAmount(value);
     };
@@ -210,27 +199,21 @@ function Simulator({
     } catch {
       return "invalid";
     }
-  }, [draft, data.table]);
+  }, [draft, data.table, locale]);
 
   return (
-    <Card
-      title="Simulador de salário"
-      description="Veja quanto de um salário CLT sobra depois dos descontos."
-    >
+    <Card title={t("title")} description={t("text")}>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="grid grid-cols-2 content-start gap-3">
-          <Field
-            label="Salário bruto (R$)"
-            error={result === "invalid" ? "Confira os valores, como 4.500,00." : undefined}
-          >
+          <Field label={t("gross")} error={result === "invalid" ? t("invalid") : undefined}>
             <Input
               inputMode="decimal"
-              placeholder="0,00"
+              placeholder={zero}
               value={draft.gross}
               onChange={set("gross")}
             />
           </Field>
-          <Field label="Dependentes">
+          <Field label={t("dependents")}>
             <Input
               type="number"
               min={0}
@@ -239,18 +222,18 @@ function Simulator({
               onChange={set("dependents")}
             />
           </Field>
-          <Field label="Pensão (R$)" hint="Alimentícia, por decisão judicial ou acordo.">
+          <Field label={t("pension")} hint={t("pensionHint")}>
             <Input
               inputMode="decimal"
-              placeholder="0,00"
+              placeholder={zero}
               value={draft.pension}
               onChange={set("pension")}
             />
           </Field>
-          <Field label="Outros descontos (R$)" hint="Plano de saúde, vale e outros.">
+          <Field label={t("otherDiscounts")} hint={t("otherDiscountsHint")}>
             <Input
               inputMode="decimal"
-              placeholder="0,00"
+              placeholder={zero}
               value={draft.otherDiscounts}
               onChange={set("otherDiscounts")}
             />
@@ -260,12 +243,10 @@ function Simulator({
           {result && result !== "invalid" ? (
             <>
               <PayslipLines slip={result.slip} />
-              <p className="mt-2 text-xs text-muted">{taxNote(result.slip)}</p>
+              <TaxNote slip={result.slip} className="mt-2 text-xs text-muted" />
             </>
           ) : (
-            <p className="rounded-xl bg-card-soft p-4 text-sm text-muted">
-              Digite o salário bruto para ver o resultado.
-            </p>
+            <p className="rounded-xl bg-card-soft p-4 text-sm text-muted">{t("prompt")}</p>
           )}
         </div>
       </div>
@@ -276,7 +257,7 @@ function Simulator({
             <div>
               <Button variant="secondary" onClick={() => onRegister(draft)}>
                 <Plus className="size-4" aria-hidden="true" />
-                Cadastrar esta renda
+                {t("register")}
               </Button>
             </div>
           ) : null}
@@ -297,6 +278,11 @@ function IncomeForm({
   data: Data;
   onDone: () => void;
 }) {
+  const t = useTranslations("renda");
+  const tForm = useTranslations("renda.form");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
+  const zero = toAmountInput("0.00", locale);
   const [state, action, pending] = useActionState(saveIncome, initial);
   const [kind, setKind] = useState<IncomeKind>(source?.kind ?? "clt");
   const clt = kind === "clt";
@@ -309,42 +295,39 @@ function IncomeForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="id" value={source?.id ?? ""} />
-      <Field label="Tipo de renda" error={errors.kind}>
+      <Field label={tForm("kind")} error={errors.kind}>
         <Select
           name="kind"
           value={kind}
           onChange={(event) => setKind(event.target.value as IncomeKind)}
         >
-          {Object.entries(KIND_LABEL).map(([value, label]) => (
+          {KINDS.map((value) => (
             <option key={value} value={value}>
-              {label}
+              {t(`kinds.${value}`)}
             </option>
           ))}
         </Select>
       </Field>
-      <Field label={clt ? "Empresa" : "De onde vem"} error={errors.name}>
+      <Field label={tForm(clt ? "company" : "source")} error={errors.name}>
         <Input
           name="name"
           required
           maxLength={80}
-          placeholder={clt ? "Ex.: Empresa Exemplo" : "Ex.: Aluguel da sala"}
+          placeholder={tForm(clt ? "companyExample" : "sourceExample")}
           defaultValue={source?.name}
         />
       </Field>
       <div className="grid grid-cols-[3fr_2fr] gap-3">
-        <Field
-          label={clt ? "Salário bruto (R$)" : "Valor que cai na conta (R$)"}
-          error={errors.amount}
-        >
+        <Field label={tForm(clt ? "gross" : "net")} error={errors.amount}>
           <Input
             name="amount"
             inputMode="decimal"
             required
-            placeholder="0,00"
-            defaultValue={source ? comma(source.amount) : draft?.gross}
+            placeholder={zero}
+            defaultValue={source ? toAmountInput(source.amount, locale) : draft?.gross}
           />
         </Field>
-        <Field label="Dia do pagamento" error={errors.payDay}>
+        <Field label={tForm("payDay")} error={errors.payDay}>
           <Input
             name="payDay"
             type="number"
@@ -358,7 +341,7 @@ function IncomeForm({
       {clt ? (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Dependentes" error={errors.dependents}>
+            <Field label={tForm("dependents")} error={errors.dependents}>
               <Input
                 name="dependents"
                 type="number"
@@ -367,10 +350,10 @@ function IncomeForm({
                 defaultValue={source?.dependents ?? (draft?.dependents || 0)}
               />
             </Field>
-            <Field label="Mês das férias" error={errors.vacationMonth}>
+            <Field label={tForm("vacationMonth")} error={errors.vacationMonth}>
               <Select name="vacationMonth" defaultValue={source?.vacationMonth ?? 0}>
-                <option value={0}>Ainda não sei</option>
-                {MONTHS.map((month, index) => (
+                <option value={0}>{tForm("notSure")}</option>
+                {monthNames(locale).map((month, index) => (
                   <option key={month} value={index + 1}>
                     {month}
                   </option>
@@ -379,26 +362,28 @@ function IncomeForm({
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Pensão (R$)" error={errors.pensionAmount}>
+            <Field label={tForm("pension")} error={errors.pensionAmount}>
               <Input
                 name="pensionAmount"
                 inputMode="decimal"
-                placeholder="0,00"
-                defaultValue={source ? comma(source.pensionAmount) : draft?.pension}
+                placeholder={zero}
+                defaultValue={source ? toAmountInput(source.pensionAmount, locale) : draft?.pension}
               />
             </Field>
-            <Field label="Outros descontos (R$)" error={errors.otherDiscounts}>
+            <Field label={tForm("otherDiscounts")} error={errors.otherDiscounts}>
               <Input
                 name="otherDiscounts"
                 inputMode="decimal"
-                placeholder="0,00"
-                defaultValue={source ? comma(source.otherDiscounts) : draft?.otherDiscounts}
+                placeholder={zero}
+                defaultValue={
+                  source ? toAmountInput(source.otherDiscounts, locale) : draft?.otherDiscounts
+                }
               />
             </Field>
           </div>
         </>
       ) : null}
-      <Field label="Conta que recebe" error={errors.accountId}>
+      <Field label={tForm("account")} error={errors.accountId}>
         <Select name="accountId" required defaultValue={source?.accountId}>
           {data.accounts.map((account) => (
             <option key={account.id} value={account.id}>
@@ -408,7 +393,7 @@ function IncomeForm({
         </Select>
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Categoria" error={errors.categoryId}>
+        <Field label={tForm("category")} error={errors.categoryId}>
           <Select
             key={kind}
             name="categoryId"
@@ -422,9 +407,9 @@ function IncomeForm({
             ))}
           </Select>
         </Field>
-        <Field label="De quem é" error={errors.personId}>
+        <Field label={tForm("person")} error={errors.personId}>
           <Select name="personId" defaultValue={source?.personId ?? ""}>
-            <option value="">Da família</option>
+            <option value="">{tForm("family")}</option>
             {data.people.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.name}
@@ -434,13 +419,11 @@ function IncomeForm({
         </Field>
       </div>
       {source?.hasReceipts ? (
-        <p className="rounded-xl bg-brand-50 p-3 text-sm text-muted">
-          O que você já recebeu não muda. A alteração vale para as próximas previsões.
-        </p>
+        <p className="rounded-xl bg-brand-50 p-3 text-sm text-muted">{tForm("received")}</p>
       ) : null}
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar renda"}
+        {pending ? tCommon("saving") : tForm("save")}
       </Button>
     </form>
   );
@@ -459,6 +442,9 @@ function SourceCard({
   onEdit: () => void;
   onStop: () => void;
 }) {
+  const t = useTranslations("renda");
+  const locale = useLocale();
+  const { name } = source;
   const person = data.people.find((p) => p.id === source.personId)?.name;
   return (
     <Card>
@@ -466,17 +452,17 @@ function SourceCard({
         <div className="min-w-0">
           <h2 className="font-semibold">{source.name}</h2>
           <p className="text-xs text-muted">
-            {KIND_LABEL[source.kind]}
-            {person ? ` · ${person}` : ""} · todo dia {source.payDay}
+            {t(`kinds.${source.kind}`)}
+            {person ? ` · ${person}` : ""} · {t("card.payDay", { day: source.payDay })}
           </p>
         </div>
         {writable ? (
           <div className="flex shrink-0">
-            <IconButton label={`Editar ${source.name}`} onClick={onEdit}>
+            <IconButton label={t("card.edit", { name })} onClick={onEdit}>
               <Pencil className="size-4" aria-hidden="true" />
             </IconButton>
             <IconButton
-              label={`${source.hasReceipts ? "Encerrar" : "Excluir"} ${source.name}`}
+              label={t(source.hasReceipts ? "card.close" : "card.delete", { name })}
               onClick={onStop}
             >
               <Trash2 className="size-4" aria-hidden="true" />
@@ -487,21 +473,21 @@ function SourceCard({
       {source.payslip && source.thirteenth && source.vacation ? (
         <div className="mt-3 flex flex-col gap-3">
           <PayslipLines slip={source.payslip} />
-          <p className="text-xs text-muted">{taxNote(source.payslip)}</p>
+          <TaxNote slip={source.payslip} className="text-xs text-muted" />
           <ExtraPay thirteenth={source.thirteenth} vacation={source.vacation} />
           {source.vacationMonth ? (
             <div>
-              <Badge>Férias em {MONTHS[source.vacationMonth - 1]?.toLowerCase()}</Badge>
+              <Badge>
+                {t("extra.vacationIn", { month: monthName(source.vacationMonth, locale) })}
+              </Badge>
             </div>
           ) : (
-            <p className="text-xs text-muted">
-              Sem mês de férias definido: a previsão fica como salário normal o ano todo.
-            </p>
+            <p className="text-xs text-muted">{t("extra.noVacation")}</p>
           )}
         </div>
       ) : (
         <p className="mt-3 text-2xl font-semibold tabular-nums tracking-tight">
-          {formatBRL(source.monthly)}
+          {formatAmount(source.monthly, locale)}
         </p>
       )}
     </Card>
@@ -509,6 +495,8 @@ function SourceCard({
 }
 
 export function IncomeBoard({ data, writable }: { data: Data; writable: boolean }) {
+  const t = useTranslations("renda");
+  const locale = useLocale();
   const [editing, setEditing] = useState<{
     nonce: number;
     source: Source | null;
@@ -523,14 +511,14 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Renda"
-        title="Quanto entra por mês"
-        description="Cadastre sua renda uma vez. Ela aparece sozinha no mês, no calendário e nos vencimentos."
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description")}
         actions={
           writable ? (
             <Button variant="secondary" onClick={() => open(null)}>
               <Plus className="size-4" aria-hidden="true" />
-              Nova renda
+              {t("new")}
             </Button>
           ) : null
         }
@@ -538,11 +526,7 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
 
       <div className="flex items-start gap-2 rounded-xl bg-card p-3 text-sm text-muted">
         <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        <p>
-          É uma estimativa com as tabelas oficiais de {formatYearMonth(data.table.validFrom)}. O
-          holerite real pode ser diferente: horas extras, faltas, benefícios e regras da empresa
-          mudam o valor.
-        </p>
+        <p>{t("estimate", { month: formatMonthYear(data.table.validFrom, locale) })}</p>
       </div>
 
       {data.recurringIncome > 0 && data.sources.length > 0 ? (
@@ -551,20 +535,23 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
           className="flex items-start gap-2 rounded-xl bg-warning-soft p-3 text-sm text-warning"
         >
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <p>
-            Você também tem receita que repete todo mês em Lançamentos. Se for a mesma renda, pare
-            de repetir por lá para não contar em dobro.
-          </p>
+          <p>{t("doubleCount")}</p>
         </div>
       ) : null}
 
       {data.sources.length > 0 ? (
         <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
-          <StatTile label="Líquido por mês" value={formatBRL(data.summary.monthly)} />
-          <StatTile label="Bruto por mês" value={formatBRL(data.summary.gross)} />
-          <StatTile label="Descontos por mês" value={formatBRL(data.summary.discounts)} />
+          <StatTile label={t("stats.net")} value={formatAmount(data.summary.monthly, locale)} />
+          <StatTile label={t("stats.gross")} value={formatAmount(data.summary.gross, locale)} />
+          <StatTile
+            label={t("stats.discounts")}
+            value={formatAmount(data.summary.discounts, locale)}
+          />
           {hasPayroll ? (
-            <StatTile label="13º líquido" value={formatBRL(data.summary.thirteenth)} />
+            <StatTile
+              label={t("stats.thirteenth")}
+              value={formatAmount(data.summary.thirteenth, locale)}
+            />
           ) : null}
         </dl>
       ) : null}
@@ -572,9 +559,11 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
       {data.sources.length === 0 ? (
         <Card>
           <EmptyState
-            title="Nenhuma renda cadastrada"
-            text="Cadastre salário, aposentadoria, aluguel ou outra entrada. Na CLT, calculamos INSS, imposto, 13º e férias."
-            action={writable ? <Button onClick={() => open(null)}>Cadastrar renda</Button> : null}
+            title={t("empty.title")}
+            text={t("empty.text")}
+            action={
+              writable ? <Button onClick={() => open(null)}>{t("empty.action")}</Button> : null
+            }
           />
         </Card>
       ) : (
@@ -597,7 +586,7 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
       <Sheet
         open={editing !== null}
         onClose={close}
-        title={editing?.source ? "Editar renda" : "Nova renda"}
+        title={t(editing?.source ? "sheet.edit" : "sheet.new")}
       >
         <IncomeForm
           key={editing?.nonce}
@@ -610,13 +599,11 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
       <ConfirmSheet
         open={stopping !== null}
         onClose={() => setStopping(null)}
-        title={stopping?.hasReceipts ? "Encerrar renda" : "Excluir renda"}
-        text={
-          stopping?.hasReceipts
-            ? `"${stopping?.name ?? ""}" para de aparecer a partir deste mês. O que você já recebeu continua nos lançamentos.`
-            : `"${stopping?.name ?? ""}" e as previsões dela serão apagadas.`
-        }
-        confirmLabel={stopping?.hasReceipts ? "Encerrar" : "Excluir"}
+        title={t(stopping?.hasReceipts ? "stop.closeTitle" : "stop.deleteTitle")}
+        text={t(stopping?.hasReceipts ? "stop.closeText" : "stop.deleteText", {
+          name: stopping?.name ?? "",
+        })}
+        confirmLabel={t(stopping?.hasReceipts ? "stop.closeConfirm" : "stop.deleteConfirm")}
         action={stopIncome}
         hidden={{ id: stopping?.id ?? "" }}
       />

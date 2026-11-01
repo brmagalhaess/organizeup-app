@@ -1,5 +1,5 @@
 "use client";
-import { amountClass, confirmLabel, cx, doneLabel, isGoalEntry } from "@/components/styles";
+import { amountClass, confirmAction, cx, isGoalEntry } from "@/components/styles";
 import {
   AlertCircle,
   ArrowRight,
@@ -10,9 +10,11 @@ import {
   Repeat,
   Trash2,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { formatBRL, formatMoney, formatShortDate, type MonthEntry } from "@organizeup/domain";
+import type { MonthEntry } from "@organizeup/domain";
+import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { useEntryDialog } from "@/components/shell/entry-context";
 import {
   Badge,
@@ -25,7 +27,8 @@ import {
   Input,
   Select,
 } from "@/components/ui";
-import { confirmEntry, deleteEntry, stopPlan } from "./actions";
+import { formatAmount, formatDayMonth } from "@/i18n/format";
+import { deleteEntry, stopPlan } from "./actions";
 import { PlanLink } from "./plan-link";
 
 interface Named {
@@ -42,27 +45,30 @@ const SCHEDULED_PAGES: Partial<Record<MonthEntry["source"], string>> = {
 };
 
 function StatusBadge({ entry, today }: { entry: MonthEntry; today: string }) {
+  const t = useTranslations("lancamentos.status");
   if (entry.status === "realizado")
     return (
       <Badge tone="success">
         <Check className="size-3" aria-hidden="true" />
-        {doneLabel({
-          kind: entry.kind,
-          source: isGoalEntry(entry.description) ? "meta" : entry.source,
-        })}
+        {t(
+          `done.${confirmAction({
+            kind: entry.kind,
+            source: isGoalEntry(entry.description) ? "meta" : entry.source,
+          })}`,
+        )}
       </Badge>
     );
   if (entry.date < today)
     return (
       <Badge tone="danger">
         <AlertCircle className="size-3" aria-hidden="true" />
-        Atrasado
+        {t("overdue")}
       </Badge>
     );
   return (
     <Badge>
       <Clock className="size-3" aria-hidden="true" />
-      Previsto
+      {t("planned")}
     </Badge>
   );
 }
@@ -80,39 +86,40 @@ function RowActions({
   onRemove: (entry: MonthEntry) => void;
   onStop: (entry: MonthEntry) => void;
 }) {
+  const t = useTranslations("lancamentos.row");
+  const tConfirm = useTranslations("dashboard.confirm");
+  const name = entry.description;
   return (
     <div className="flex items-center gap-1 sm:justify-end">
       {entry.status === "previsto" ? (
-        <form action={confirmEntry}>
-          <input type="hidden" name="key" value={entry.key} />
-          <input type="hidden" name="month" value={month} />
-          <Button type="submit" variant="secondary" small>
-            {confirmLabel(entry)}
-          </Button>
-        </form>
+        <ConfirmEntryButton
+          entryKey={entry.key}
+          month={month}
+          label={tConfirm(confirmAction(entry))}
+        />
       ) : null}
       {entry.source === "meta" ? (
         <PlanLink description={entry.description} />
       ) : SCHEDULED_PAGES[entry.source] ? (
         <Link
           href={SCHEDULED_PAGES[entry.source]!}
-          aria-label={`Abrir ${entry.description}`}
-          title="Abrir"
+          aria-label={t("open", { name })}
+          title={t("openShort")}
           className="inline-flex size-9 items-center justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-ink"
         >
           <ArrowRight className="size-4" aria-hidden="true" />
         </Link>
       ) : (
-        <IconButton label={`Editar ${entry.description}`} onClick={() => onEdit(entry)}>
+        <IconButton label={t("edit", { name })} onClick={() => onEdit(entry)}>
           <Pencil className="size-4" aria-hidden="true" />
         </IconButton>
       )}
       {SCHEDULED_PAGES[entry.source] ? null : entry.source === "lancamento" ? (
-        <IconButton label={`Excluir ${entry.description}`} onClick={() => onRemove(entry)}>
+        <IconButton label={t("delete", { name })} onClick={() => onRemove(entry)}>
           <Trash2 className="size-4" aria-hidden="true" />
         </IconButton>
       ) : (
-        <IconButton label={`Parar de repetir ${entry.description}`} onClick={() => onStop(entry)}>
+        <IconButton label={t("stop", { name })} onClick={() => onStop(entry)}>
           <CalendarX2 className="size-4" aria-hidden="true" />
         </IconButton>
       )}
@@ -133,6 +140,8 @@ export function EntriesTable({
   categories: Named[];
   accounts: Named[];
 }) {
+  const t = useTranslations("lancamentos");
+  const locale = useLocale();
   const { openNew, openEdit, writable } = useEntryDialog();
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("");
@@ -144,13 +153,13 @@ export function EntriesTable({
   const categoryName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const accountName = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
 
-  const search = query.trim().toLocaleLowerCase("pt-BR");
+  const search = query.trim().toLocaleLowerCase(locale);
   const visible = entries.filter(
     (entry) =>
       (!kind || entry.kind === kind) &&
       (!status || entry.status === status) &&
       (!category || entry.categoryId === category) &&
-      (!search || entry.description.toLocaleLowerCase("pt-BR").includes(search)),
+      (!search || entry.description.toLocaleLowerCase(locale).includes(search)),
   );
   const usedCategories = categories.filter((c) => entries.some((e) => e.categoryId === c.id));
 
@@ -158,9 +167,9 @@ export function EntriesTable({
     return (
       <Card>
         <EmptyState
-          title="Nada por aqui neste mês"
-          text="Lance sua renda e suas contas para ver o mês tomar forma."
-          action={writable ? <Button onClick={() => openNew()}>Novo lançamento</Button> : null}
+          title={t("empty.title")}
+          text={t("empty.text")}
+          action={writable ? <Button onClick={() => openNew()}>{t("empty.action")}</Button> : null}
         />
       </Card>
     );
@@ -169,33 +178,33 @@ export function EntriesTable({
     <Card>
       <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-[minmax(0,1fr)_repeat(3,11rem)]">
         <div className="col-span-2 xl:col-span-1">
-          <Field label="Buscar">
+          <Field label={t("filters.search")}>
             <Input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Descrição"
+              placeholder={t("filters.searchPlaceholder")}
             />
           </Field>
         </div>
-        <Field label="Tipo">
+        <Field label={t("filters.type")}>
           <Select value={kind} onChange={(event) => setKind(event.target.value)}>
-            <option value="">Todos</option>
-            <option value="receita">Receitas</option>
-            <option value="despesa">Despesas</option>
+            <option value="">{t("filters.allTypes")}</option>
+            <option value="receita">{t("filters.income")}</option>
+            <option value="despesa">{t("filters.expenses")}</option>
           </Select>
         </Field>
-        <Field label="Situação">
+        <Field label={t("filters.status")}>
           <Select value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="">Todas</option>
-            <option value="realizado">Pagos e recebidos</option>
-            <option value="previsto">Em aberto</option>
+            <option value="">{t("filters.allStatuses")}</option>
+            <option value="realizado">{t("filters.settled")}</option>
+            <option value="previsto">{t("filters.open")}</option>
           </Select>
         </Field>
         <div className="col-span-2 xl:col-span-1">
-          <Field label="Categoria">
+          <Field label={t("filters.category")}>
             <Select value={category} onChange={(event) => setCategory(event.target.value)}>
-              <option value="">Todas</option>
+              <option value="">{t("filters.allCategories")}</option>
               {usedCategories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -207,40 +216,37 @@ export function EntriesTable({
       </div>
 
       {visible.length === 0 ? (
-        <EmptyState
-          title="Nenhum lançamento encontrado"
-          text="Tente mudar a busca ou os filtros."
-        />
+        <EmptyState title={t("empty.noResultsTitle")} text={t("empty.noResultsText")} />
       ) : (
         <div className="relative -mx-5 overflow-x-auto sm:-mx-6">
           <table className="w-full border-collapse text-sm">
-            <caption className="sr-only">Lançamentos do mês</caption>
+            <caption className="sr-only">{t("table.caption")}</caption>
             <thead>
               <tr className="border-y border-line text-left text-xs text-muted">
                 <th scope="col" className="py-2 pl-5 pr-3 font-medium sm:pl-6">
-                  Data
+                  {t("table.date")}
                 </th>
                 <th scope="col" className="px-3 py-2 font-medium">
-                  Descrição
+                  {t("table.description")}
                 </th>
                 <th scope="col" className="hidden px-3 py-2 font-medium md:table-cell">
-                  Categoria
+                  {t("table.category")}
                 </th>
                 <th scope="col" className="hidden px-3 py-2 font-medium lg:table-cell">
-                  Conta
+                  {t("table.account")}
                 </th>
                 <th scope="col" className="hidden px-3 py-2 font-medium sm:table-cell">
-                  Situação
+                  {t("table.status")}
                 </th>
                 <th scope="col" className="py-2 pl-3 pr-5 text-right font-medium sm:pr-3">
-                  Valor
+                  {t("table.amount")}
                 </th>
                 {writable ? (
                   <th
                     scope="col"
                     className="hidden py-2 pl-3 pr-5 text-right font-medium sm:table-cell sm:pr-6"
                   >
-                    <span className="sr-only">Ações</span>
+                    <span className="sr-only">{t("table.actions")}</span>
                   </th>
                 ) : null}
               </tr>
@@ -249,7 +255,7 @@ export function EntriesTable({
               {visible.map((entry) => (
                 <tr key={entry.key} className="border-b border-line last:border-0">
                   <td className="py-3 pl-5 pr-3 align-top tabular-nums text-muted sm:pl-6">
-                    {formatShortDate(entry.date)}
+                    {formatDayMonth(entry.date, locale)}
                   </td>
                   <td className="min-w-40 px-3 py-3 align-top">
                     <p className="flex items-center gap-1.5 font-medium">
@@ -258,7 +264,7 @@ export function EntriesTable({
                         <Repeat
                           className="size-3.5 shrink-0 text-muted"
                           role="img"
-                          aria-label="Repete todo mês"
+                          aria-label={t("row.repeats")}
                         />
                       ) : null}
                     </p>
@@ -298,13 +304,13 @@ export function EntriesTable({
                     {entry.kind === "receita" ? "+ " : "− "}
                     {entry.originalAmount && entry.originalCurrency ? (
                       <>
-                        {formatMoney(entry.originalAmount, entry.originalCurrency)}
+                        {formatAmount(entry.originalAmount, locale, "full", entry.originalCurrency)}
                         <span className="block text-xs font-normal text-muted">
-                          ≈ {formatBRL(entry.amount)}
+                          ≈ {formatAmount(entry.amount, locale)}
                         </span>
                       </>
                     ) : (
-                      formatBRL(entry.amount)
+                      formatAmount(entry.amount, locale)
                     )}
                   </td>
                   {writable ? (
@@ -328,18 +334,18 @@ export function EntriesTable({
       <ConfirmSheet
         open={removing !== null}
         onClose={() => setRemoving(null)}
-        title="Excluir lançamento"
-        text={`"${removing?.description ?? ""}" será apagado. Isso não pode ser desfeito.`}
-        confirmLabel="Excluir"
+        title={t("remove.title")}
+        text={t("remove.text", { name: removing?.description ?? "" })}
+        confirmLabel={t("remove.confirm")}
         action={deleteEntry}
         hidden={{ id: removing?.id ?? "" }}
       />
       <ConfirmSheet
         open={stopping !== null}
         onClose={() => setStopping(null)}
-        title="Parar de repetir"
-        text={`"${stopping?.description ?? ""}" deixa de aparecer a partir deste mês. O que já foi pago continua no histórico.`}
-        confirmLabel="Parar de repetir"
+        title={t("stop.title")}
+        text={t("stop.text", { name: stopping?.description ?? "" })}
+        confirmLabel={t("stop.confirm")}
         action={stopPlan}
         hidden={{ id: stopping?.id ?? "", month }}
       />

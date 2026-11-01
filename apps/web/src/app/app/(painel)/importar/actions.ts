@@ -1,4 +1,5 @@
 "use server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -28,7 +29,6 @@ import {
   buildMonthEntries,
   CARD_CATEGORY,
   categorizeRow,
-  currencyName,
   entryFromTyped,
   fitsAmount,
   importReport,
@@ -49,13 +49,13 @@ import {
   type ReconciledRow,
 } from "@organizeup/domain";
 import type { TenantTx } from "@organizeup/db";
+import { formatDate } from "@/i18n/format";
 import { audit } from "@/lib/audit";
 import { loadCommitments } from "@/lib/commitments";
 import { confirmCommitment, goalEntryLink, reverseGoalSaved } from "@/lib/confirm-entry";
 import { reportActionFailure } from "@/lib/diagnostics";
 import { requireTenant } from "@/lib/session";
 
-const READ_ONLY = "Seu papel nesta família não permite alterações.";
 export type PreparedRow = ReconciledRow & CategoryProposal;
 
 const MAX_ROWS = 2000;
@@ -95,7 +95,17 @@ const commitSchema = z.object({
     .max(MAX_ROWS),
 });
 
-const fullDate = (date: string) => date.split("-").reverse().join("/");
+const readOnly = async () => (await getTranslations("settings"))("noPermission");
+
+/** Mensagens de quem converte as linhas, já no idioma da pessoa. */
+async function converterTexts() {
+  const [t, locale] = await Promise.all([getTranslations("importar.errors"), getLocale()]);
+  return {
+    noQuote: (currency: Currency, date: string) =>
+      t("noQuote", { currency, date: formatDate(date, locale) }),
+    overLimit: t("overLimit"),
+  };
+}
 
 /**
  * Converte as linhas do arquivo, que estão na moeda da conta, pela cotação da data de cada uma. Devolve
@@ -105,6 +115,7 @@ async function rowConverter(
   tx: TenantTx,
   currency: Currency,
   rows: Array<{ date: string; amount: string }>,
+  texts: Awaited<ReturnType<typeof converterTexts>>,
 ): Promise<((row: { date: string; amount: string }) => EntryMoney) | string> {
   const dates = rows.map((row) => row.date).sort();
   const series = isForeign(currency) ? await fxSeries(tx, currency, dates[0]!, dates.at(-1)!) : [];
@@ -112,9 +123,8 @@ async function rowConverter(
     entryFromTyped(row.amount, currency, isForeign(currency) ? quoteOn(series, row.date) : null);
   for (const row of rows) {
     const entry = convert(row);
-    if (!entry)
-      return `Ainda não temos a cotação do ${currencyName(currency)} para ${fullDate(row.date)}. Importe um período mais recente.`;
-    if (!fitsAmount(entry.amount)) return "Um dos valores do arquivo passa do limite em reais.";
+    if (!entry) return texts.noQuote(currency, row.date);
+    if (!fitsAmount(entry.amount)) return texts.overLimit;
   }
   return (row) => convert(row)!;
 }
@@ -124,10 +134,11 @@ export async function prepareImport(
   input: z.input<typeof prepareSchema>,
 ): Promise<{ ok: true; rows: PreparedRow[] } | { ok: false; message: string }> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
+  if (!canWrite(ctx)) return { ok: false, message: await readOnly() };
+  const t = await getTranslations("importar.errors");
+  const texts = await converterTexts();
   const parsed = prepareSchema.safeParse(input);
-  if (!parsed.success)
-    return { ok: false, message: "Não conseguimos ler os lançamentos deste arquivo." };
+  if (!parsed.success) return { ok: false, message: t("unreadable") };
   const { accountId, source } = parsed.data;
   const rows = withFingerprints(parsed.data.rows, source);
 
@@ -140,7 +151,7 @@ export async function prepareImport(
   const prepared = await withHousehold(ctx, async (tx) => {
     const currency = await accountCurrency(tx, accountId);
     if (!currency) return null;
-    const converted = await rowConverter(tx, currency, rows);
+    const converted = await rowConverter(tx, currency, rows, texts);
     if (typeof converted === "string") return converted;
 
     const inRange = await tx
@@ -218,12 +229,8 @@ export async function prepareImport(
     reportActionFailure("prepare_import_failed", error);
     return "falhou" as const;
   });
-  if (prepared === "falhou")
-    return {
-      ok: false,
-      message: "O servidor falhou ao conferir este extrato. Tente de novo; se repetir, nos avise.",
-    };
-  if (!prepared) return { ok: false, message: "Escolha uma conta válida." };
+  if (prepared === "falhou") return { ok: false, message: t("serverFailed") };
+  if (!prepared) return { ok: false, message: t("invalidAccount") };
   if (typeof prepared === "string") return { ok: false, message: prepared };
   return { ok: true, rows: prepared };
 }
@@ -235,16 +242,18 @@ export async function commitImport(
   { ok: true; imported: number; settled: number; summary: string } | { ok: false; message: string }
 > {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
+  if (!canWrite(ctx)) return { ok: false, message: await readOnly() };
+  const t = await getTranslations("importar.errors");
+  const texts = await converterTexts();
   const parsed = commitSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, message: "Revise os lançamentos e tente de novo." };
+  if (!parsed.success) return { ok: false, message: t("reviewRows") };
   const { accountId, source } = parsed.data;
   const dates = parsed.data.rows.map((row) => row.date).sort();
 
   const result = await withHousehold(ctx, async (tx) => {
     const currency = await accountCurrency(tx, accountId);
-    if (!currency) return "Escolha uma conta válida.";
-    const converted = await rowConverter(tx, currency, parsed.data.rows);
+    if (!currency) return t("invalidAccount");
+    const converted = await rowConverter(tx, currency, parsed.data.rows, texts);
     if (typeof converted === "string") return converted;
     const categoryRows = await tx
       .select({
@@ -285,8 +294,7 @@ export async function commitImport(
       categoryId: row.categoryId ?? idOf(row.kind, row.newCategory?.name ?? "") ?? "",
     }));
     const kinds = new Map(categoryRows.map((c) => [c.id, c.kind]));
-    if (rows.some((row) => kinds.get(row.categoryId) !== row.kind))
-      return "Escolha uma categoria válida em cada lançamento.";
+    if (rows.some((row) => kinds.get(row.categoryId) !== row.kind)) return t("invalidCategory");
 
     const [batch] = await tx
       .insert(importBatches)
@@ -308,7 +316,7 @@ export async function commitImport(
       const mark = { importFingerprint: row.fingerprint, importBatchId: batchId };
       const done =
         row.matchKey !== null &&
-        (await confirmCommitment(tx, ctx, row.matchKey, row.matchMonth ?? "", mark));
+        (await confirmCommitment(tx, ctx, row.matchKey, row.matchMonth ?? "", mark)).done;
       if (done) settled += 1;
       else plain.push(row);
     }

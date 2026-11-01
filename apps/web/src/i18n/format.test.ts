@@ -2,12 +2,18 @@ import { formatBRL, formatBRLCompact, formatMonthShort, formatYearMonth } from "
 import { describe, expect, it } from "vitest";
 import {
   formatAmount,
+  formatDate,
   formatDayMonth,
+  formatDayName,
   formatInstant,
   formatLongDate,
   formatMonthAbbr,
   formatMonthYear,
   formatPercent,
+  formatWeekdayName,
+  monthNames,
+  toAmountInput,
+  weekdayNames,
 } from "./format";
 
 const plain = (text: string) => text.replace(/\s/g, " ");
@@ -31,6 +37,34 @@ describe("em português nada muda", () => {
   it("percentual dá o texto de sempre", () => {
     expect(formatPercent(12, "pt-BR")).toBe("12%");
     expect(formatPercent(100, "pt-BR")).toBe("100%");
+  });
+
+  it("calendário e formulários dão o texto de sempre", () => {
+    expect(formatDate("2026-10-30", "pt-BR")).toBe("30/10/2026");
+    expect(formatDayName("2026-11-05", "pt-BR")).toBe("5 de novembro");
+    expect(formatWeekdayName("2026-11-05", "pt-BR")).toBe("quinta-feira, 5 de novembro");
+    expect(weekdayNames("pt-BR")).toEqual(["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]);
+    expect(monthNames("pt-BR").slice(0, 3)).toEqual(["Janeiro", "Fevereiro", "Março"]);
+    expect(toAmountInput("1234.56", "pt-BR")).toBe("1234,56");
+  });
+});
+
+describe("semana e campos em inglês e espanhol", () => {
+  it("a semana começa no domingo em todos os idiomas", () => {
+    expect(weekdayNames("en")[0]).toBe("Sun");
+    expect(weekdayNames("es")).toEqual(["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]);
+  });
+
+  it("datas e meses seguem o idioma", () => {
+    expect(formatDate("2026-10-30", "en")).toBe("10/30/2026");
+    expect(formatWeekdayName("2026-11-05", "es")).toBe("jueves, 5 de noviembre");
+    expect(monthNames("en")[11]).toBe("December");
+    expect(monthNames("es")[0]).toBe("Enero");
+  });
+
+  it("campo de valor vem com o decimal do idioma", () => {
+    expect(toAmountInput("1234.56", "en")).toBe("1234.56");
+    expect(toAmountInput("1234.56", "es")).toBe("1234,56");
   });
 });
 
