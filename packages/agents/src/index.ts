@@ -32,6 +32,20 @@ export {
   systemCategories,
 } from "./commitments";
 export { calendarMonth } from "./calendar-view";
+export { currentDebtPlan, type DebtPlanView } from "./debt-view";
+export {
+  confirmDebtDocument,
+  createDebtWithSchedule,
+  deleteDebtDocument,
+  listDebtDocuments,
+  loadDebtDocumentFile,
+  saveDebtDocument,
+  updateDebtTerms,
+  type ConfirmDebtDocument,
+  type DebtDocumentRow,
+  type NewDebt,
+  type SaveDebtDocumentResult,
+} from "./debt-documents";
 export { monthlyPlanView } from "./plan-view";
 export { currentDividendPlan } from "./retirement-view";
 export {
@@ -52,6 +66,7 @@ export type {
   ReportAposentadoria,
   ReportCategorias,
   ReportData,
+  ReportDividas,
   ReportInvestimentos,
   ReportMetas,
   ReportSurplus,
@@ -68,6 +83,7 @@ export {
   INVESTIMENTOS_AGENT,
   runInvestimentosAgent,
 } from "./run-investimentos";
+export { DIVIDAS_AGENT, runDividasAgent } from "./run-dividas";
 export { METAS_AGENT, runMetasAgent } from "./run-metas";
 export { loadDestinations, runViagensAgent, VIAGENS_AGENT } from "./run-viagens";
 export {

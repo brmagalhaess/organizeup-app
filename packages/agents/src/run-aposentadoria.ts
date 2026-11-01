@@ -1,7 +1,17 @@
 // Agente diário de aposentadoria (ADR-0015). Mede o que sobra por mês, divide entre reserva,
 // dívidas caras, aposentadoria, metas e viagens, e recalcula o plano por proventos com o aporte
 // real. Tudo vira sugestão; a família decide. Estimativa, não promessa.
-import { debts, eq, gte, sql, tripCosts, tripPeople, trips, type TenantTx } from "@organizeup/db";
+import {
+  debtPlanReports,
+  debts,
+  eq,
+  gte,
+  sql,
+  tripCosts,
+  tripPeople,
+  trips,
+  type TenantTx,
+} from "@organizeup/db";
 import {
   availableToAllocate,
   formatBRL,
@@ -148,8 +158,14 @@ export async function runAposentadoriaAgent(
     });
   }
 
-  // Dívidas caras: o extra vai primeiro para a de juro maior.
-  let debtLeft = money(allocation.debt);
+  // Dívidas caras: o extra vai primeiro para a de juro maior. Quem decide é o agente de dívidas, que
+  // roda antes; esta conta só vale no dia em que ele não rodou.
+  const planned = await tx
+    .select({ id: debtPlanReports.id })
+    .from(debtPlanReports)
+    .where(eq(debtPlanReports.day, today))
+    .limit(1);
+  let debtLeft = planned.length > 0 ? money(0) : money(allocation.debt);
   for (const debt of expensive) {
     if (debtLeft.lte(0)) break;
     const extra = debtLeft.gt(debt.balance) ? money(debt.balance) : debtLeft;
@@ -208,7 +224,8 @@ export async function runAposentadoriaAgent(
     });
   }
 
-  const decisions = await loadDecisions(tx, today, APOSENTADORIA_AGENT);
+  // Sem filtro de agente: `aporte_divida` pode ter nascido no agente de dívidas.
+  const decisions = await loadDecisions(tx, today);
   const suggestions = await upsertPending(tx, householdId, APOSENTADORIA_AGENT, decisions, pending);
 
   const data: ReportAposentadoria = {

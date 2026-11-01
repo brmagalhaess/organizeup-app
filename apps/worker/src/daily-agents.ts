@@ -1,5 +1,5 @@
-// Agentes diários do produto (ADR-0015): categorias, investimentos, aposentadoria, viagens e metas,
-// para cada família ativa, cada agente na própria transação com RLS. A divisão do que sobra passa
+// Agentes diários do produto (ADR-0015): categorias, investimentos, dívidas, aposentadoria, viagens e
+// metas, para cada família ativa, cada agente na própria transação com RLS. A divisão do que sobra passa
 // em memória do agente de aposentadoria para viagens e metas; se ele falhar, os dois leem o
 // relatório de hoje ou pulam. Logs só com householdId, agente, código do erro e contagens.
 import {
@@ -16,10 +16,12 @@ import { todayIn, type Allocation } from "@organizeup/domain";
 import {
   APOSENTADORIA_AGENT,
   CATEGORIAS_AGENT,
+  DIVIDAS_AGENT,
   INVESTIMENTOS_AGENT,
   METAS_AGENT,
   runAposentadoriaAgent,
   runCategoriasAgent,
+  runDividasAgent,
   runInvestimentosAgent,
   runMetasAgent,
   runViagensAgent,
@@ -34,10 +36,14 @@ interface Log {
   info: (data: object, message: string) => void;
 }
 
-/** Ordem de execução: a aposentadoria vem antes de viagens e metas, que usam a divisão dela. */
+/**
+ * Ordem de execução: dívidas vem antes da aposentadoria, que usa a dívida cara; a aposentadoria vem
+ * antes de viagens e metas, que usam a divisão dela.
+ */
 export const DAILY_AGENTS = [
   CATEGORIAS_AGENT,
   INVESTIMENTOS_AGENT,
+  DIVIDAS_AGENT,
   APOSENTADORIA_AGENT,
   VIAGENS_AGENT,
   METAS_AGENT,
@@ -127,6 +133,7 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
 
     await run(CATEGORIAS_AGENT, (tx) => runCategoriasAgent(tx, input));
     await run(INVESTIMENTOS_AGENT, (tx) => runInvestimentosAgent(tx, input));
+    await run(DIVIDAS_AGENT, (tx) => runDividasAgent(tx, input));
     const retirement = await run(APOSENTADORIA_AGENT, async (tx) => {
       const result = await runAposentadoriaAgent(tx, input);
       allocation = result.allocation;

@@ -1,4 +1,4 @@
-/** Os cinco agentes diários, na ordem em que rodam, explicados sem jargão. */
+/** Os seis agentes diários, na ordem em que rodam, explicados sem jargão. */
 export const DAILY_AGENTS_INFO = [
   {
     id: "categorias",
@@ -9,6 +9,11 @@ export const DAILY_AGENTS_INFO = [
     id: "investimentos",
     name: "Investimentos",
     text: "Avisa de preço antigo e de carteira fora da divisão que a família escolheu.",
+  },
+  {
+    id: "dividas",
+    name: "Dívidas",
+    text: "Compara as estratégias de quitação, diz qual dívida atacar e aponta juro alto e dado faltando.",
   },
   {
     id: "aposentadoria",

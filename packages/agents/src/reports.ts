@@ -2,6 +2,7 @@
 // São `type` (não `interface`) para caberem em `Record<string, unknown>` da coluna jsonb.
 import type {
   Allocation,
+  DebtPlan,
   DividendPlan,
   GoalPlan,
   ReportCategorias,
@@ -65,6 +66,11 @@ export type ReportViagens = {
 export type ReportMetas = {
   budget: string;
   goals: GoalPlan[];
+};
+
+/** Plano de saída das dívidas. Fica em `debt_plan_reports`, por dia (ADR-0019). */
+export type ReportDividas = {
+  plan: DebtPlan | null;
 };
 
 export type { ReportCategorias };
