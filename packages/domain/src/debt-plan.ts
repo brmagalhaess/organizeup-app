@@ -10,6 +10,7 @@ import {
   type PayoffResult,
   type PayoffStrategy,
 } from "./debt";
+import { message, type Message } from "./messages";
 import { formatBRL, money, toDbAmount } from "./money";
 
 /** Juro ao mês a partir do qual vale procurar portabilidade ou renegociar. Decisão no ADR-0019. */
@@ -209,4 +210,14 @@ export function debtPlanHeadline(plan: DebtPlan): string {
   if (best.payoffMonth === null) return "Com o que você paga hoje, as dívidas não terminam";
   const when = `Quite tudo em ${formatYearMonth(best.payoffMonth)}`;
   return money(best.saved).isZero() ? when : `${when} e economize ${formatBRL(best.saved)}`;
+}
+
+/** A mesma frase, por chave. */
+export function debtPlanHeadlineMessage(plan: DebtPlan): Message {
+  const best = recommendedStrategy(plan);
+  if (best.payoffMonth === null) return message("frases.relDividasNaoTerminam");
+  const month = { month: best.payoffMonth };
+  return money(best.saved).isZero()
+    ? message("frases.relDividasQuite", { month })
+    : message("frases.relDividasQuiteEconomize", { month, saved: { money: best.saved } });
 }

@@ -5,6 +5,7 @@
 // do extrato é dado não confiável: só serve para comparar palavras.
 import { CARD_CATEGORY } from "./card";
 import { DEBT_CATEGORY } from "./debt";
+import { message, sentences, type Message } from "./messages";
 import { money, toDbAmount } from "./money";
 import { normalizeDescription, type StatementKind, type StatementRow } from "./statement";
 
@@ -318,6 +319,8 @@ export interface ImportOutcomeRow {
 export interface ImportReport {
   title: string;
   summary: string;
+  /** O mesmo relatório, por chave, para sair no idioma de quem lê. */
+  message: Message;
   data: {
     rows: number;
     bySource: Record<CategorySource, number>;
@@ -344,9 +347,30 @@ export function importReport(
   const created =
     createdCategories.length > 0 ? ` Categorias criadas: ${createdCategories.join(", ")}.` : "";
   const fixes = corrected > 0 ? ` A família corrigiu ${corrected}.` : "";
+  const counts = {
+    rows: rows.length,
+    memory: bySource.memoria,
+    words: bySource.palavra + bySource.nova,
+    noClue: bySource.revisar,
+  };
   return {
     title: `Extrato de ${period.start} a ${period.end}`,
     summary: `${parts.join(", ")}.${created}${fixes}`,
+    message: message("relatorioImportacao", {
+      start: { date: period.start },
+      end: { date: period.end },
+      parts: sentences([
+        message("frases.relImportacao", counts),
+        ...(createdCategories.length > 0
+          ? [
+              message("frases.relImportacaoCriadas", {
+                names: { categories: createdCategories },
+              }),
+            ]
+          : []),
+        ...(corrected > 0 ? [message("frases.relImportacaoCorrigiu", { count: corrected })] : []),
+      ]),
+    }),
     data: { rows: rows.length, bySource, corrected, createdCategories },
   };
 }
@@ -859,6 +883,8 @@ export interface ReportCategorias {
 export interface DailyCategoryReport {
   title: string;
   summary: string;
+  /** O mesmo relatório, por chave, para sair no idioma de quem lê. */
+  message: Message;
   data: ReportCategorias;
 }
 
@@ -873,6 +899,34 @@ export function withAiSummary(summary: string, ia: ReportCategoriasIa): string {
   return (
     `${base} ${AI_MARK} ${plural(ia.moved, "lançamento movido", "lançamentos movidos")}.` + created
   );
+}
+
+/** O relatório do dia, por chave. O dia vai na chave porque a etapa de IA soma depois. */
+export function categoryReportMessage(
+  counts: ReportCategorias,
+  day: string,
+): Message<"relatorioCategorias"> {
+  const created = (names: string[]) =>
+    names.length > 0
+      ? [message("frases.relCategoriasCriadas", { names: { categories: names } })]
+      : [];
+  return message("relatorioCategorias", {
+    day: { date: day },
+    parts: sentences([
+      message("frases.relCategorias", {
+        reviewed: counts.reviewed,
+        moved: counts.moved,
+        merges: counts.merges,
+      }),
+      ...created(counts.created),
+      ...(counts.ia
+        ? [
+            message("frases.relCategoriasIa", { moved: counts.ia.moved }),
+            ...created(counts.ia.created),
+          ]
+        : []),
+    ]),
+  });
 }
 
 /** Relatório do dia do agente de categorias, para `household_reports` (kind `categorias`). */
@@ -890,15 +944,17 @@ export function dailyCategoryReport(counts: {
     `${plural(counts.reviewed, "lançamento revisado", "lançamentos revisados")}, ` +
     `${plural(counts.moved, "movido sozinho", "movidos sozinhos")}, ` +
     `${plural(counts.merges, "fusão feita", "fusões feitas")}.${created}`;
+  const data: ReportCategorias = {
+    reviewed: counts.reviewed,
+    moved: counts.moved,
+    created: counts.created,
+    merges: counts.merges,
+    ...(counts.ia ? { ia: counts.ia } : {}),
+  };
   return {
     title: counts.day ? `Categorias revisadas em ${counts.day}` : "Revisão de categorias",
     summary: counts.ia ? withAiSummary(summary, counts.ia) : summary,
-    data: {
-      reviewed: counts.reviewed,
-      moved: counts.moved,
-      created: counts.created,
-      merges: counts.merges,
-      ...(counts.ia ? { ia: counts.ia } : {}),
-    },
+    message: categoryReportMessage(data, counts.day ?? ""),
+    data,
   };
 }

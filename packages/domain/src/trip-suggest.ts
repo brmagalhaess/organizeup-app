@@ -3,6 +3,7 @@
 // encaixa as viagens no orçamento mensal de viagens. Valores aproximados; a família confere passagem
 // e hospedagem antes de fechar, e nada é criado sem ela aceitar.
 import { addMonths, yearMonthOf, type YearMonth } from "./cashflow";
+import { message, type Message } from "./messages";
 import { formatBRL, money, toCents, toDbAmount, type MoneyValue } from "./money";
 import { monthsBetween } from "./trip";
 
@@ -86,6 +87,8 @@ export interface TripSuggestion {
   confidence: "baixa" | "media";
   source: string;
   note: string;
+  /** A mesma nota, por chave, para sair no idioma de quem lê. */
+  noteMessages: Message[];
 }
 
 interface Costed {
@@ -291,15 +294,26 @@ export function suggestTrips(input: TripSuggestInput): TripSuggestion[] {
     .map((costed, i): TripSuggestion => {
       const month = addMonths(currentMonth, offsets[i]!);
       const notes: string[] = [];
+      const noteMessages: Message[] = [];
       if (nothingFits && extraPerMonth.gt(0)) {
         notes.push(`Guarde ${formatBRL(extraPerMonth)} a mais por mês para esta viagem caber.`);
+        noteMessages.push(
+          message("frases.viagemGuardeMais", { amount: { money: toDbAmount(extraPerMonth) } }),
+        );
       }
       if (weddingOffset !== null && offsets[i] === weddingOffset) {
         notes.push("No mês do aniversário de casamento.");
+        noteMessages.push(message("frases.viagemCasamento"));
       }
       if (costed.destination.bestMonths.includes(monthNumber(month))) {
         notes.push(
           `${MONTH_NAMES[monthNumber(month) - 1]} é boa época para ${costed.destination.name}.`,
+        );
+        noteMessages.push(
+          message("frases.viagemBoaEpoca", {
+            month: { monthName: monthNumber(month) },
+            name: costed.destination.name,
+          }),
         );
       }
       return {
@@ -321,6 +335,7 @@ export function suggestTrips(input: TripSuggestInput): TripSuggestion[] {
         confidence: costed.destination.confidence,
         source: costed.destination.source,
         note: notes.join(" "),
+        noteMessages,
       };
     })
     .sort((a, b) => a.month.localeCompare(b.month));
