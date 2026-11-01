@@ -268,6 +268,11 @@ export function MarketCard({
             {formatCount(status.callsToday)} de {formatCount(maxCalls)}
           </Fact>
           <Fact label="Eventos em ações">{formatCount(status.stockEvents)}</Fact>
+          <Fact label="Cotações de dólar e euro">
+            {status.fxLatest
+              ? `${formatCount(status.fxRates)}, até ${status.fxLatest.split("-").reverse().join("/")}`
+              : "Nenhuma ainda"}
+          </Fact>
         </Facts>
       )}
     </Card>

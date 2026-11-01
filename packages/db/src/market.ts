@@ -271,6 +271,9 @@ export interface MarketStatus {
   tickers: number;
   stockEvents: number;
   callsToday: number;
+  /** Cotações de moeda guardadas e a data da mais nova. */
+  fxRates: number;
+  fxLatest: string | null;
 }
 
 /** Contagens das tabelas globais para o painel do serviço. Sem as tabelas ainda, tudo zerado. */
@@ -281,10 +284,12 @@ export function marketStatus(day: string): Promise<MarketStatus> {
     tickers: 0,
     stockEvents: 0,
     callsToday: 0,
+    fxRates: 0,
+    fxLatest: null,
   };
   return tolerateSchemaLag(async () => {
     const { db } = appPool();
-    const [[assets], [tickers], [events], callsToday] = await Promise.all([
+    const [[assets], [tickers], [events], [fx], callsToday] = await Promise.all([
       db
         .select({
           n: count(),
@@ -293,6 +298,7 @@ export function marketStatus(day: string): Promise<MarketStatus> {
         .from(marketAssets),
       db.select({ n: count() }).from(marketTickers),
       db.select({ n: count() }).from(marketStockEvents),
+      db.select({ n: count(), latest: sql<string | null>`max(${marketFx.date})` }).from(marketFx),
       marketCallsOn(day),
     ]);
     return {
@@ -301,6 +307,8 @@ export function marketStatus(day: string): Promise<MarketStatus> {
       tickers: tickers?.n ?? 0,
       stockEvents: events?.n ?? 0,
       callsToday,
+      fxRates: fx?.n ?? 0,
+      fxLatest: fx?.latest ?? null,
     };
   }, empty);
 }
