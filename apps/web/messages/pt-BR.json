@@ -704,5 +704,44 @@
       "notFound": "Cartão não encontrado.",
       "datesLocked": "Este cartão já tem fatura paga, então as datas não podem mudar. Para novas datas, arquive-o e crie outro."
     }
+  },
+  "categorias": {
+    "metaTitle": "Categorias",
+    "title": "Categorias",
+    "description": "Como seus lançamentos são agrupados nos relatórios.",
+    "new": "Nova categoria",
+    "count": "{count, plural, other {# categorias}}",
+    "expenses": "Despesas",
+    "income": "Receitas",
+    "essential": "Essencial",
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Arquivar {name}",
+      "restore": "Reativar {name}"
+    },
+    "archived": {
+      "title": "Arquivadas",
+      "text": "Fora dos formulários; o histórico continua."
+    },
+    "sheet": {
+      "edit": "Editar categoria",
+      "new": "Nova categoria"
+    },
+    "form": {
+      "name": "Nome da categoria",
+      "nameExample": "Ex.: Pet",
+      "type": "Tipo",
+      "expense": "Despesa",
+      "income": "Receita",
+      "essential": "É um gasto essencial",
+      "save": "Salvar categoria"
+    },
+    "saved": "Categoria salva.",
+    "created": "Categoria criada.",
+    "errors": {
+      "name": "Informe o nome da categoria.",
+      "check": "Verifique.",
+      "duplicate": "Já existe uma categoria com esse nome."
+    }
   }
 }

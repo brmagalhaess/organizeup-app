@@ -704,5 +704,44 @@
       "notFound": "Tarjeta no encontrada.",
       "datesLocked": "Esta tarjeta ya tiene un resumen pagado, así que las fechas no pueden cambiar. Para fechas nuevas, archívala y crea otra."
     }
+  },
+  "categorias": {
+    "metaTitle": "Categorías",
+    "title": "Categorías",
+    "description": "Cómo se agrupan tus movimientos en los informes.",
+    "new": "Nueva categoría",
+    "count": "{count, plural, =1 {1 categoría} other {# categorías}}",
+    "expenses": "Gastos",
+    "income": "Ingresos",
+    "essential": "Esencial",
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Archivar {name}",
+      "restore": "Reactivar {name}"
+    },
+    "archived": {
+      "title": "Archivadas",
+      "text": "Fuera de los formularios; el historial sigue."
+    },
+    "sheet": {
+      "edit": "Editar categoría",
+      "new": "Nueva categoría"
+    },
+    "form": {
+      "name": "Nombre de la categoría",
+      "nameExample": "Ej.: Mascotas",
+      "type": "Tipo",
+      "expense": "Gasto",
+      "income": "Ingreso",
+      "essential": "Es un gasto esencial",
+      "save": "Guardar categoría"
+    },
+    "saved": "Categoría guardada.",
+    "created": "Categoría creada.",
+    "errors": {
+      "name": "Escribe el nombre de la categoría.",
+      "check": "Revisa los datos.",
+      "duplicate": "Ya existe una categoría con ese nombre."
+    }
   }
 }

@@ -704,5 +704,44 @@
       "notFound": "Card not found.",
       "datesLocked": "This card already has a paid statement, so its dates can't change. For new dates, archive it and create another one."
     }
+  },
+  "categorias": {
+    "metaTitle": "Categories",
+    "title": "Categories",
+    "description": "How your transactions are grouped in reports.",
+    "new": "New category",
+    "count": "{count, plural, =1 {1 category} other {# categories}}",
+    "expenses": "Expenses",
+    "income": "Income",
+    "essential": "Essential",
+    "actions": {
+      "edit": "Edit {name}",
+      "archive": "Archive {name}",
+      "restore": "Reactivate {name}"
+    },
+    "archived": {
+      "title": "Archived",
+      "text": "Left out of forms; the history stays."
+    },
+    "sheet": {
+      "edit": "Edit category",
+      "new": "New category"
+    },
+    "form": {
+      "name": "Category name",
+      "nameExample": "E.g.: Pets",
+      "type": "Type",
+      "expense": "Expense",
+      "income": "Income",
+      "essential": "It's an essential expense",
+      "save": "Save category"
+    },
+    "saved": "Category saved.",
+    "created": "Category created.",
+    "errors": {
+      "name": "Enter the category name.",
+      "check": "Please check.",
+      "duplicate": "A category with this name already exists."
+    }
   }
 }
