@@ -10,6 +10,7 @@ import { aiLimits, assistantState, serviceDay, type AiLimits, type AssistantStat
 import { errorCode, reportFailure, type AssistantErrorCode } from "./api-errors";
 import type { ModelClient, ModelMessage, ModelStream, StreamParams } from "./client";
 import { SYSTEM_PROMPT, turnContext } from "./instructions";
+import { memoriesForTurn, type TurnMemory } from "./memories";
 import { CHAT_ROUTE, MODEL, usageOf, type AiRoute, type ModelUsage } from "./models";
 import { loadPrivacyFilter, type PrivacyFilter } from "./privacy";
 import {
@@ -136,12 +137,13 @@ interface Prepared {
   today: string;
   privacy: PrivacyFilter;
   history: MessageParam[];
+  memories: TurnMemory[];
 }
 
 /** Grava a pergunta antes de chamar o modelo: se a chamada cair, ela continua na conversa. */
 async function prepare(input: ChatTurnInput): Promise<Prepared | null> {
   const { ctx, message } = input;
-  return withHousehold(ctx, async (tx) => {
+  const prepared = await withHousehold(ctx, async (tx) => {
     const privacy = await loadPrivacyFilter(tx, ctx.householdId);
     const today = todayIn(await householdTimezone(tx, ctx.householdId));
     let threadId = input.threadId ?? null;
@@ -155,6 +157,15 @@ async function prepare(input: ChatTurnInput): Promise<Prepared | null> {
     await appendMessage(tx, ctx, threadId, "user", { text: message });
     return { threadId, today, privacy, history: historyParams(earlier, privacy) };
   });
+  if (!prepared) return null;
+  const memories = await memoriesForTurn(ctx, prepared.today);
+  return {
+    ...prepared,
+    memories: memories.map((memory) => ({
+      ...memory,
+      texto: prepared.privacy.scrub(memory.texto),
+    })),
+  };
 }
 
 interface Answer {
@@ -194,7 +205,7 @@ async function converse(input: ChatTurnInput, prepared: Prepared): Promise<Answe
   const messages: MessageParam[] = [
     ...prepared.history,
     { role: "user", content: question },
-    { role: "system", content: turnContext({ today: prepared.today }) },
+    { role: "system", content: turnContext(prepared) },
   ];
   const answer: Answer = {
     text: "",

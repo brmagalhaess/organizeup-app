@@ -8,7 +8,8 @@ export type InsightRejection = "numero" | "ativo" | "recomendacao" | "nome" | "i
 const TICKER = /\b[A-Z]{4}\d{1,2}\b/;
 const ASSET_ORDER =
   /\b(compre|comprar|venda|vender|mantenha|manter|invista|investir|troque|resgate|resgatar)\b[^.!?]{0,60}\b(ações|ação|fundos?|fiis?|etfs?|bdrs?|cdbs?|lcis?|lcas?|tesouro|cripto\w*|bitcoin)\b/i;
-const INSTRUCTION = /https?:|www\.|<|\b(ignore|ignorar|instruções|system prompt)\b/i;
+/** Texto que tenta mandar no modelo. Vale também para o que vira memória da família. */
+export const INSTRUCTION = /https?:|www\.|<|\b(ignore|ignorar|instruções|system prompt)\b/i;
 const PERCENT = /(\d+(?:[.,]\d+)?)\s?%/g;
 
 function uncheckedPercents(text: string, known: number[]): boolean {
