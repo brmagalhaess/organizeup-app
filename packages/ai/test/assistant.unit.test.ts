@@ -1,7 +1,7 @@
 // Regras puras do assistente: privacidade, custo, verificação, endereço do modelo e esquemas.
 import { describe, expect, it } from "vitest";
 import { aiLimits } from "../src/access";
-import { assistantConfigured, modelBaseUrl } from "../src/client";
+import { assistantConfigured, modelBaseUrl, workspaceHeaders } from "../src/client";
 import { SYSTEM_PROMPT, turnContext } from "../src/instructions";
 import { echoContent, requestParams } from "../src/loop";
 import { CHAT_ROUTE, costUsd, MODEL, PRICES, usageOf } from "../src/models";
@@ -9,6 +9,15 @@ import { createPrivacyFilter, personLabels, untrusted } from "../src/privacy";
 import { ALL_TOOLS, apiToolsFor, toolsFor } from "../src/tools";
 import { knownNumbers, mentionsInvestment, uncheckedAmounts } from "../src/verify";
 import { modelMessage } from "./fake-client";
+
+describe("workspace da chave", () => {
+  it("só manda o cabeçalho quando a variável existe", () => {
+    expect(workspaceHeaders({})).toEqual({});
+    expect(workspaceHeaders({ ANTHROPIC_WORKSPACE_ID: " wrkspc_x " })).toEqual({
+      "anthropic-workspace-id": "wrkspc_x",
+    });
+  });
+});
 
 describe("privacidade", () => {
   const filter = createPrivacyFilter([

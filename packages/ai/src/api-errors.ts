@@ -14,10 +14,11 @@ export function apiMessage(error: APIError): string {
   return typeof message === "string" ? message : "";
 }
 
-/** A API não dá tipo próprio a estes 400: falta de crédito e beta recusado só aparecem no texto. */
+/** A API não dá tipo próprio a estes 400: crédito, workspace e beta só aparecem no texto. */
 export function apiReason(error: APIError): string {
   const message = apiMessage(error);
   if (error.status === 402 || /credit balance/i.test(message)) return "sem-credito";
+  if (/workspace/i.test(message)) return "sem-workspace";
   if (/anthropic-beta/i.test(message)) return "beta-recusado";
   if (/too long|too large/i.test(message)) return "longa-demais";
   return FIELD_PATH.exec(message)?.[0] ?? "outro";
@@ -31,7 +32,7 @@ export function errorCode(error: unknown): AssistantErrorCode {
   if (error instanceof Anthropic.InternalServerError) return "indisponivel";
   if (error instanceof Anthropic.APIError) {
     const reason = apiReason(error);
-    if (reason === "sem-credito") return "chave_invalida";
+    if (reason === "sem-credito" || reason === "sem-workspace") return "chave_invalida";
     if (reason === "longa-demais") return "muito_longa";
   }
   return "falha";

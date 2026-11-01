@@ -38,11 +38,20 @@ export function modelBaseUrl(env: Record<string, string | undefined> = process.e
 export const assistantConfigured = (env: Record<string, string | undefined> = process.env) =>
   Boolean(env.ANTHROPIC_API_KEY);
 
+/** Chave que não pertence a um workspace precisa dizer qual usar em toda chamada. */
+export function workspaceHeaders(
+  env: Record<string, string | undefined> = process.env,
+): Record<string, string> {
+  const workspace = env.ANTHROPIC_WORKSPACE_ID?.trim();
+  return workspace ? { "anthropic-workspace-id": workspace } : {};
+}
+
 export function createModelClient(): ModelClient {
   const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY ?? null,
     authToken: null,
     baseURL: modelBaseUrl(),
+    defaultHeaders: workspaceHeaders(),
     timeout: TIMEOUT_MS,
   });
   return {

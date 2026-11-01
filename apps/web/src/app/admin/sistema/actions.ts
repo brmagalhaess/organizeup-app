@@ -7,6 +7,7 @@ import { done, failed, type AdminResult } from "../painel-result";
 
 const REASONS: Record<string, string> = {
   "sem-credito": "a conta da API está sem crédito",
+  "sem-workspace": "falta ANTHROPIC_WORKSPACE_ID em ou3-web",
   "beta-recusado": "a API não liberou um recurso que o sistema pede",
   recusa: "o modelo recusou a pergunta de teste",
   "sem-fim": "o modelo não terminou em três passos",

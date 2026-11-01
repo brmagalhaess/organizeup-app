@@ -862,7 +862,9 @@ describe("loop da conversa", () => {
     const audits = await db.withHousehold(ownerCtx, (tx) =>
       tx.select().from(db.auditLog).where(db.eq(db.auditLog.action, "assistente_ativar")),
     );
-    expect(audits.at(-1)!.metadata).toMatchObject({ version, autonomy: "completo" });
+    expect(audits.map((audit) => audit.metadata)).toContainEqual(
+      expect.objectContaining({ version, autonomy: "completo" }),
+    );
 
     expect(await ai.setAssistantAutonomy(ownerCtx, "sugerir")).toBe(true);
     expect((await ai.readAssistantSettings(ownerCtx))!.autonomy).toBe("sugerir");

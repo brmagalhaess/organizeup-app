@@ -37,7 +37,8 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      `ADMIN_EMAILS` **não** vai para produção: só desenvolvimento e e2e, porque um e-mail sem conta pode
      ser tomado por quem se cadastrar com ele (ADR-0016).
      `ANTHROPIC_API_KEY` (chave da API da Anthropic, só no `ou3-web`, nunca com `NEXT_PUBLIC`; vazia, o assistente
-     aparece como indisponível e o resto segue igual), `AI_MONTHLY_BUDGET_USD` (opcional; padrão 50, teto do
+     aparece como indisponível e o resto segue igual), `ANTHROPIC_WORKSPACE_ID` (`wrkspc_...`, obrigatório quando a
+     chave não pertence a um workspace; o botão **Testar a IA** em `/admin/sistema` avisa), `AI_MONTHLY_BUDGET_USD` (opcional; padrão 50, teto do
      serviço no mês) e `AI_FAMILY_DAILY_TOKENS` (opcional; padrão 200000, teto por família e dia). Ao bater o teto
      mensal o assistente para sozinho e o painel avisa. Para desligar na hora, use `/admin/controles` (ADR-0018).
    - E2E (fora do Dokploy): `assistente.spec.ts` precisa de `E2E_ASSISTANT=1` no Playwright e do servidor em

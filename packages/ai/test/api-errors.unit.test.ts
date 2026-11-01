@@ -13,6 +13,7 @@ const badRequest = (message: string) =>
 describe("motivo do erro da API", () => {
   it.each([
     ["Your credit balance is too low to access the API.", "sem-credito", "chave_invalida"],
+    ["This API key is not scoped to a workspace.", "sem-workspace", "chave_invalida"],
     ["Unexpected value(s) `x` for the `anthropic-beta` header.", "beta-recusado", "falha"],
     ["prompt is too long: 2 tokens > 1 maximum", "longa-demais", "muito_longa"],
     ["messages.1.content: Input should be a valid list", "messages.1.content", "falha"],
