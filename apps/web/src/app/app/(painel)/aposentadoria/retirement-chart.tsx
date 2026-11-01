@@ -1,6 +1,8 @@
 "use client";
-import { formatBRL, formatBRLCompact, money, percentOf, toDbAmount } from "@organizeup/domain";
+import { useLocale, useTranslations } from "next-intl";
+import { money, percentOf, toDbAmount } from "@organizeup/domain";
 import { cx } from "@/components/styles";
+import { formatAmount } from "@/i18n/format";
 
 interface Point {
   age: number;
@@ -9,6 +11,8 @@ interface Point {
 
 /** Patrimônio por idade: sobe até parar e desce depois. Uma série; a tabela serve leitor de tela. */
 export function RetirementChart({ points, targetAge }: { points: Point[]; targetAge: number }) {
+  const t = useTranslations("aposentadoria.retirementChart");
+  const locale = useLocale();
   const top = points.reduce(
     (acc, point) => (money(point.value).gt(acc) ? money(point.value) : acc),
     money(0),
@@ -19,8 +23,8 @@ export function RetirementChart({ points, targetAge }: { points: Point[]; target
     <div>
       <div className="grid grid-cols-[4rem_minmax(0,1fr)] gap-2">
         <div className="flex h-40 flex-col justify-between text-right text-xs tabular-nums text-muted">
-          <span>{formatBRLCompact(max)}</span>
-          <span>R$ 0</span>
+          <span>{formatAmount(max, locale, "compact")}</span>
+          <span>{t("zero")}</span>
         </div>
         <div>
           <div className="flex h-40 items-end border-b border-line">
@@ -28,7 +32,10 @@ export function RetirementChart({ points, targetAge }: { points: Point[]; target
               <button
                 key={point.age}
                 type="button"
-                aria-label={`Aos ${point.age} anos: ${formatBRL(point.value)}`}
+                aria-label={t("barLabel", {
+                  age: point.age,
+                  amount: formatAmount(point.value, locale),
+                })}
                 className="group relative flex h-full min-w-0 flex-1 items-end justify-center rounded-t hover:bg-brand-50/60"
               >
                 <span
@@ -49,9 +56,11 @@ export function RetirementChart({ points, targetAge }: { points: Point[]; target
                     index < points.length / 2 ? "left-full" : "right-full",
                   )}
                 >
-                  <span className="mb-1 block font-semibold">Aos {point.age} anos</span>
+                  <span className="mb-1 block font-semibold">
+                    {t("barTitle", { age: point.age })}
+                  </span>
                   <span className="font-medium tabular-nums text-ink">
-                    {formatBRL(point.value)}
+                    {formatAmount(point.value, locale)}
                   </span>
                 </span>
               </button>
@@ -66,23 +75,21 @@ export function RetirementChart({ points, targetAge }: { points: Point[]; target
           </div>
         </div>
       </div>
-      <p className="mt-2 text-xs text-muted">
-        Idade. A parte clara é depois de parar de trabalhar.
-      </p>
+      <p className="mt-2 text-xs text-muted">{t("note")}</p>
 
       <table className="sr-only">
-        <caption>Patrimônio projetado por idade</caption>
+        <caption>{t("caption")}</caption>
         <thead>
           <tr>
-            <th scope="col">Idade</th>
-            <th scope="col">Patrimônio</th>
+            <th scope="col">{t("age")}</th>
+            <th scope="col">{t("netWorth")}</th>
           </tr>
         </thead>
         <tbody>
           {points.map((point) => (
             <tr key={point.age}>
               <th scope="row">{point.age}</th>
-              <td>{formatBRL(point.value)}</td>
+              <td>{formatAmount(point.value, locale)}</td>
             </tr>
           ))}
         </tbody>

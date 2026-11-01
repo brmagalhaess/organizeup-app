@@ -520,6 +520,318 @@
       "percentSum": "La suma de las metas supera el 100 %."
     }
   },
+  "proventos": {
+    "metaTitle": "Dividendos",
+    "eyebrow": "Dividendos",
+    "description": "Recibido en los últimos 12 meses, después de impuestos.",
+    "add": "Nuevo dividendo",
+    "saving": "Guardando…",
+    "kinds": {
+      "dividendo": "Dividendo",
+      "jcp": "JCP",
+      "rendimento": "Rendimiento"
+    },
+    "kindOptions": {
+      "dividendo": "Dividendo",
+      "jcp": "JCP (intereses sobre el capital, un pago de Brasil)",
+      "rendimento": "Rendimiento (de un FII, un fondo inmobiliario de Brasil)"
+    },
+    "form": {
+      "investment": "Inversión",
+      "kind": "Tipo",
+      "paidOn": "Fecha de pago",
+      "gross": "Valor bruto (R$)",
+      "withheld": "Impuesto retenido (R$)",
+      "withheldHint": "Como aparece en el extracto.",
+      "amountPlaceholder": "0,00",
+      "save": "Guardar dividendo"
+    },
+    "line": {
+      "automatic": "automático",
+      "gross": "{amount} brutos",
+      "market": "fecha con derecho {date} · fuente: {source}",
+      "remove": "Eliminar dividendo de {name}"
+    },
+    "goal": {
+      "title": "Meta de dividendos",
+      "label": "Meta de ingreso mensual (R$)",
+      "hint": "Déjalo vacío para quitar la meta.",
+      "placeholder": "1.500,00",
+      "save": "Guardar meta"
+    },
+    "outlook": {
+      "yield": "Rendimiento anual de la cartera",
+      "noData": "Sin datos",
+      "yieldBasis": {
+        "observado_12m": "Según los dividendos de los últimos 12 meses.",
+        "observado_anualizado": "{months, plural, =1 {Basado en 1 mes.} other {Basado en # meses.}}",
+        "informado": "Indicado por ti.",
+        "suspeito": "Los dividendos registrados parecen fuera de lo normal. Revisa los valores.",
+        "sem_dados": "Registra dividendos para calcularlo."
+      },
+      "currentIncome": "Ingreso mensual actual",
+      "currentIncomeHint": "Dividendos de 12 meses divididos entre 12.",
+      "target": "Ingreso objetivo",
+      "targetHint": {
+        "informado": "Indicaste este valor. La cartera ya cubre {percent} de lo que falta.",
+        "gasto_medio": "Igual a tu gasto promedio. La cartera ya cubre {percent} de lo que falta.",
+        "essencial_120": "Tu gasto esencial más un 20 %. La cartera ya cubre {percent} de lo que falta.",
+        "sem_dados": "La cartera ya cubre {percent} de lo que falta."
+      },
+      "targetMissing": "Defínelo en <link>Jubilación</link>."
+    },
+    "forecast": {
+      "title": "Previsión por mes",
+      "description": "Cada valor es una previsión según el historial; no es una garantía.",
+      "empty": "La previsión aparece cuando haya dividendos en los últimos 12 meses.",
+      "caption": "Dividendos previstos por mes",
+      "month": "Mes",
+      "amount": "Previsto"
+    },
+    "noInvestments": {
+      "title": "Primero, agrega una inversión",
+      "text": "Los dividendos se vinculan a las inversiones de tu cartera.",
+      "action": "Ir a Inversiones"
+    },
+    "stats": {
+      "average": "Promedio mensual",
+      "last12Months": "En los últimos 12 meses.",
+      "thisYear": "Este año",
+      "withheld": "Impuesto retenido",
+      "goal": "Meta mensual",
+      "noGoal": "Sin meta",
+      "goalCoverage": "El promedio ya cubre {percent} de la meta."
+    },
+    "monthly": {
+      "title": "Mes a mes",
+      "setGoal": "Definir meta"
+    },
+    "upcoming": {
+      "title": "Por recibir",
+      "description": "{amount} ya anunciados, sin el impuesto. Solo entran en los totales en la fecha de pago.",
+      "list": "Dividendos por recibir"
+    },
+    "received": {
+      "title": "Recibidos",
+      "list": "Dividendos recibidos",
+      "emptyTitle": "Aún no hay dividendos",
+      "emptyText": "Con el código del activo completado en Inversiones, aparecen solos. También puedes registrarlos a mano."
+    },
+    "byInvestment": {
+      "title": "Por inversión",
+      "description": "Últimos 12 meses, sobre lo que pagaste.",
+      "empty": "Aparece cuando haya dividendos en los últimos 12 meses."
+    },
+    "automaticNote": "Los dividendos automáticos usan la cantidad que registraste en la fecha con derecho (el último día para tener el activo y recibir el pago) y el impuesto previsto por la ley. Revisa siempre el extracto de tu corredora; cuando el impuesto no es seguro, el dividendo queda para que lo registres tú.",
+    "remove": {
+      "title": "Eliminar dividendo",
+      "textAutomatic": "El dividendo automático de {name} sale del historial y no vuelve solo.",
+      "text": "El dividendo de {name} sale del historial.",
+      "confirm": "Eliminar"
+    },
+    "chart": {
+      "zero": "0 R$",
+      "caption": "Dividendos netos por mes",
+      "month": "Mes",
+      "net": "Valor neto"
+    },
+    "errors": {
+      "investmentRequired": "Elige la inversión.",
+      "investmentInvalid": "Elige una inversión válida.",
+      "kindRequired": "Elige el tipo.",
+      "dateRequired": "Indica la fecha.",
+      "dateInvalid": "Fecha no válida.",
+      "grossFormat": "Indica el valor como 120,50.",
+      "grossRequired": "Indica el valor recibido.",
+      "withheldFormat": "Indica el impuesto como 18,00.",
+      "withheldTooHigh": "El impuesto no puede superar el valor bruto.",
+      "goalFormat": "Indica la meta como 1.500,00.",
+      "check": "Revisa los datos."
+    }
+  },
+  "aposentadoria": {
+    "metaTitle": "Jubilación",
+    "eyebrow": "Jubilación",
+    "title": "Cuánto guardar para dejar de trabajar",
+    "description": "Todo en dinero de hoy.",
+    "plan": {
+      "heading": "Vivir de los rendimientos",
+      "intro": "La cartera paga las cuentas y no se acaba. Este es el plan que sigue el asistente.",
+      "disclaimer": "Estimación. Los dividendos pasados no garantizan dividendos futuros; nada aquí es una recomendación de inversión.",
+      "formTitle": "Tu plan",
+      "formDescription": "Lo que quede vacío lo calcula el asistente por ti.",
+      "targetIncome": "Ingreso que quieres al mes (R$)",
+      "targetIncomeHint": "Vacío: usamos tu gasto promedio.",
+      "targetIncomePlaceholder": "8.000,00",
+      "expectedYield": "Rendimiento anual de la cartera (%)",
+      "expectedYieldHint": "Cuánto paga la cartera en dividendos al año. Ej.: 100 mil R$ que pagan 6 mil R$ = 6 %.",
+      "expectedYieldPlaceholder": "6,00",
+      "contribution": "Cuánto guardar al mes (R$)",
+      "contributionHint": "Vacío: usamos el valor sugerido.",
+      "contributionPlaceholder": "1.000,00",
+      "advanced": "Ajustes avanzados",
+      "growth": "Crecimiento de los dividendos (%)",
+      "growthHint": "Al año, por encima de la inflación. Si tienes dudas, deja 0.",
+      "saving": "Guardando…",
+      "save": "Guardar plan"
+    },
+    "saving": {
+      "title": "Guarda al mes: <value>{amount}</value>",
+      "split": "({reserve} al fondo de emergencia + {investment} a inversiones)",
+      "debt": "Antes de eso, {amount} al mes se destinan a pagar deudas caras.",
+      "basisPlanned": "Calculado con tu ingreso y los gastos previstos.",
+      "basisActual": "{months, plural, =1 {Calculado con lo que sobró el último mes.} other {Calculado con lo que sobró en los últimos # meses.}}",
+      "none": "Hoy no sobra dinero para guardar. Registra tu ingreso y tus gastos, o revisa los egresos.",
+      "accepted": "Este es el valor de tu plan.",
+      "current": "Hoy el plan usa {amount} en inversiones.",
+      "accept": "Aceptar este valor"
+    },
+    "facts": {
+      "target": "Ingreso que quieres al mes",
+      "targetBasis": {
+        "informado": "indicado por ti",
+        "gasto_medio": "igual a tu gasto promedio",
+        "essencial_120": "tu gasto esencial más un 20 %"
+      },
+      "targetBasisWithPension": {
+        "informado": "indicado por ti; {amount} vienen del INSS (seguridad social de Brasil) o de una pensión",
+        "gasto_medio": "igual a tu gasto promedio; {amount} vienen del INSS (seguridad social de Brasil) o de una pensión",
+        "essencial_120": "tu gasto esencial más un 20 %; {amount} vienen del INSS (seguridad social de Brasil) o de una pensión"
+      },
+      "current": "Ingreso actual en dividendos",
+      "currentHint": "ya cubre {percent}",
+      "yield": "Rendimiento anual de la cartera",
+      "yieldBasis": {
+        "observed12m": "según los dividendos de los últimos 12 meses",
+        "annualized": "{months, plural, =1 {basado en 1 mes} other {basado en # meses}}",
+        "suspicious": "los dividendos indican {percent}, fuera de lo esperado; usamos el valor indicado",
+        "informed": "indicado por ti"
+      },
+      "required": "Cuánto necesitas tener invertido",
+      "requiredGap": "faltan {amount}",
+      "requiredDone": "ya tienes este valor",
+      "incomeBase": "Cartera que paga ingresos",
+      "incomeBaseHint": "inversiones con dividendos en los últimos 12 meses",
+      "otherBase": "Otras inversiones",
+      "otherBaseHint": "aún no pagan dividendos",
+      "otherBaseNote": "Nota: contamos las otras inversiones en lo que ya tienes, suponiendo que algún día pasen a activos que pagan ingresos.",
+      "untilTitle": "Para cuándo",
+      "neverCloses": "Guardando {amount} al mes, la cartera no alcanza la meta en 60 años.",
+      "closes": "Guardando {amount} al mes, la cartera alcanza la meta en {year}.",
+      "requiredContribution": "Para alcanzarla en {year} se necesitarían {amount} al mes.",
+      "projectedIncome": "En {year} la cartera pagaría {amount} al mes.",
+      "pensionLater": "{amount} del INSS entran solo en {year}."
+    },
+    "missing": {
+      "planTitle": "Completa tu plan de jubilación",
+      "planNoYear": "Dinos en qué año quieren dejar de trabajar. Con eso calculamos cuánto guardar al mes.",
+      "planNoIncome": "Indica el ingreso que quieres al mes o registra tus gastos.",
+      "planAction": "Completar registro",
+      "yieldTitle": "Indica el rendimiento anual de la cartera o registra dividendos",
+      "yieldText": "Sin eso no podemos calcular cuánto necesitas tener invertido.",
+      "yieldAction": "Registrar dividendos"
+    },
+    "dividendChart": {
+      "summary": "Cartera proyectada de {first} en {firstYear} a {last} en {lastYear}, pagando {income} al mes. Cuánto necesitas tener invertido: {required}.",
+      "zero": "0 R$",
+      "incomePerMonth": "{amount} al mes",
+      "note": "Cartera al comienzo de cada año. La línea punteada es cuánto necesitas tener invertido; la parte clara es a partir de {year}.",
+      "caption": "Cartera proyectada e ingreso mensual por año",
+      "year": "Año",
+      "portfolio": "Cartera",
+      "income": "Ingreso al mes"
+    },
+    "compare": {
+      "title": "Comparar: gastar lo que guardaste",
+      "description": "Otra forma de verlo: el dinero se va usando hasta los {age} años. Solo como comparación.",
+      "intro": "Compara escenarios cambiando la edad, el ingreso y el aporte.",
+      "add": "Nuevo escenario",
+      "emptyTitle": "Arma el primer escenario",
+      "emptyText": "Dinos a qué edad quieres dejar de trabajar y cuánto quieres recibir. Te mostramos cuánto guardar al mes.",
+      "emptyAction": "Crear escenario",
+      "disclaimer": "Estimación hecha con los datos y supuestos que indicaste. No es una promesa de resultados ni una recomendación de inversión.",
+      "editTitle": "Editar escenario",
+      "removeTitle": "Eliminar escenario",
+      "removeText": "\"{name}\" se eliminará.",
+      "removeConfirm": "Eliminar"
+    },
+    "scenario": {
+      "description": "{name}, {age} años. Dejar de trabajar a los {targetAge}.",
+      "edit": "Editar {name}",
+      "remove": "Eliminar {name}",
+      "closes": "El plan cuadra",
+      "percentOfNeeded": "{percent} de lo necesario",
+      "projectedOfNeeded": "{projected} de {needed}",
+      "requiredContribution": "Aporte que cierra la cuenta",
+      "alreadyStopped": "Ya dejó de trabajar",
+      "perMonth": "{amount} al mes",
+      "sustainableIncome": "Ingreso que sostiene el plan",
+      "lasts": "El dinero dura",
+      "untilAge": "Hasta los {age} años",
+      "extra": "Para llegar, faltan {amount} al mes además de lo que guardas hoy, o ajusta la edad y el ingreso deseado.",
+      "assumptions": "Supuestos: retorno de {before} hasta dejar de trabajar y {after} después, al año por encima de la inflación. Sin impuestos."
+    },
+    "scenarioForm": {
+      "name": "Nombre del escenario",
+      "namePlaceholder": "Ej.: Dejar de trabajar a los 60",
+      "person": "Para quién",
+      "birth": "Mes y año de nacimiento",
+      "birthHint": "Lo necesitamos para saber cuánto tiempo falta.",
+      "targetAge": "Dejar de trabajar a los",
+      "lifeExpectancy": "Planificar hasta los",
+      "lifeExpectancyHint": "Hasta qué edad debe durar el dinero.",
+      "targetIncome": "Ingreso deseado al mes (R$)",
+      "targetIncomeHint": "En dinero de hoy.",
+      "targetIncomePlaceholder": "8.000,00",
+      "otherIncome": "INSS y otros ingresos al mes (R$)",
+      "otherIncomeHint": "El INSS es la seguridad social de Brasil. Consulta tu estimación en el sitio o la app Meu INSS.",
+      "amountPlaceholder": "0,00",
+      "saved": "Ya guardado (R$)",
+      "savedHint": "Vacío usa tu cartera de inversiones: {amount}.",
+      "savedPlaceholder": "Usar la cartera",
+      "contribution": "Cuánto guardas al mes (R$)",
+      "returnBefore": "Retorno hasta dejar de trabajar (%)",
+      "returnAfter": "Retorno después (%)",
+      "returnHint": "Al año, por encima de la inflación.",
+      "returnNote": "Los retornos son solo un punto de partida para que los ajustes. Nadie garantiza estos números.",
+      "saving": "Guardando…",
+      "save": "Guardar escenario"
+    },
+    "retirementChart": {
+      "zero": "0 R$",
+      "barLabel": "A los {age} años: {amount}",
+      "barTitle": "A los {age} años",
+      "note": "Edad. La parte clara es después de dejar de trabajar.",
+      "caption": "Patrimonio proyectado por edad",
+      "age": "Edad",
+      "netWorth": "Patrimonio"
+    },
+    "errors": {
+      "check": "Revisa los datos.",
+      "personRequired": "Elige a la persona.",
+      "personInvalid": "Elige una persona válida.",
+      "birthInvalid": "Usa un mes y un año válidos.",
+      "birthRequired": "Indica el mes y el año de nacimiento.",
+      "nameRequired": "Ponle un nombre al escenario.",
+      "targetAgeRequired": "Indica la edad.",
+      "targetAgeMin": "Usa una edad desde 30.",
+      "targetAgeMax": "Usa una edad hasta 100.",
+      "lifeExpectancyRequired": "Indica hasta qué edad planificar.",
+      "lifeExpectancyMin": "Usa una edad desde 50.",
+      "lifeExpectancyMax": "Usa una edad hasta 120.",
+      "lifeExpectancyAfterTarget": "Planifica hasta una edad mayor que la de dejar de trabajar.",
+      "targetIncomeFormat": "Indica el ingreso como 8.000,00.",
+      "otherIncomeFormat": "Indica el INSS y otros ingresos como 3.000,00.",
+      "contributionFormat": "Indica el aporte como 1.000,00.",
+      "savedFormat": "Indica el valor como 50.000,00.",
+      "returnRange": "Usa un retorno entre -5 % y 20 % al año.",
+      "yieldRange": "Usa un rendimiento anual entre 0,01 % y 30 %.",
+      "planContributionFormat": "Indica el valor como 1.000,00.",
+      "growthRange": "Usa un crecimiento entre -5 % y 15 % al año.",
+      "planSaved": "Plan guardado.",
+      "reload": "Recarga la página e inténtalo de nuevo."
+    }
+  },
   "meta": {
     "description": "Las finanzas de tu familia, sus sueños y la jubilación en un solo plan."
   },

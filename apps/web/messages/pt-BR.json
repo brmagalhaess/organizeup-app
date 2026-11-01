@@ -520,6 +520,318 @@
       "percentSum": "A soma das metas passa de 100%."
     }
   },
+  "proventos": {
+    "metaTitle": "Proventos",
+    "eyebrow": "Proventos",
+    "description": "Recebido nos últimos 12 meses, já sem o imposto.",
+    "add": "Novo provento",
+    "saving": "Salvando…",
+    "kinds": {
+      "dividendo": "Dividendo",
+      "jcp": "JCP",
+      "rendimento": "Rendimento"
+    },
+    "kindOptions": {
+      "dividendo": "Dividendo",
+      "jcp": "JCP",
+      "rendimento": "Rendimento"
+    },
+    "form": {
+      "investment": "Investimento",
+      "kind": "Tipo",
+      "paidOn": "Data do pagamento",
+      "gross": "Valor bruto (R$)",
+      "withheld": "Imposto retido (R$)",
+      "withheldHint": "Como aparece no extrato.",
+      "amountPlaceholder": "0,00",
+      "save": "Salvar provento"
+    },
+    "line": {
+      "automatic": "automático",
+      "gross": "bruto de {amount}",
+      "market": "data-com {date} · fonte: {source}",
+      "remove": "Excluir provento de {name}"
+    },
+    "goal": {
+      "title": "Meta de proventos",
+      "label": "Meta de renda por mês (R$)",
+      "hint": "Deixe vazio para tirar a meta.",
+      "placeholder": "1.500,00",
+      "save": "Salvar meta"
+    },
+    "outlook": {
+      "yield": "Rendimento anual da carteira",
+      "noData": "Sem dados",
+      "yieldBasis": {
+        "observado_12m": "Pelos proventos dos últimos 12 meses.",
+        "observado_anualizado": "Baseado em {months} meses.",
+        "informado": "Informado por você.",
+        "suspeito": "Os proventos registrados parecem fora do normal. Confira os valores.",
+        "sem_dados": "Registre proventos para calcular."
+      },
+      "currentIncome": "Renda mensal atual",
+      "currentIncomeHint": "Proventos de 12 meses divididos por 12.",
+      "target": "Renda alvo",
+      "targetHint": {
+        "informado": "Você informou este valor. A carteira já cobre {percent} do que falta.",
+        "gasto_medio": "Igual ao seu gasto médio. A carteira já cobre {percent} do que falta.",
+        "essencial_120": "Seu gasto essencial mais 20%. A carteira já cobre {percent} do que falta.",
+        "sem_dados": "A carteira já cobre {percent} do que falta."
+      },
+      "targetMissing": "Defina em <link>Aposentadoria</link>."
+    },
+    "forecast": {
+      "title": "Previsto por mês",
+      "description": "Cada valor é uma previsão pelo histórico; não é garantia.",
+      "empty": "A previsão aparece quando houver proventos nos últimos 12 meses.",
+      "caption": "Proventos previstos por mês",
+      "month": "Mês",
+      "amount": "Previsto"
+    },
+    "noInvestments": {
+      "title": "Primeiro, um investimento",
+      "text": "Os proventos ficam ligados aos investimentos da sua carteira.",
+      "action": "Ir para Investimentos"
+    },
+    "stats": {
+      "average": "Média por mês",
+      "last12Months": "Nos últimos 12 meses.",
+      "thisYear": "Neste ano",
+      "withheld": "Imposto retido",
+      "goal": "Meta por mês",
+      "noGoal": "Sem meta",
+      "goalCoverage": "A média já cobre {percent} da meta."
+    },
+    "monthly": {
+      "title": "Mês a mês",
+      "setGoal": "Definir meta"
+    },
+    "upcoming": {
+      "title": "A receber",
+      "description": "{amount} já anunciados, sem o imposto. Só entram nos totais na data do pagamento.",
+      "list": "Proventos a receber"
+    },
+    "received": {
+      "title": "Recebidos",
+      "list": "Proventos recebidos",
+      "emptyTitle": "Nenhum provento ainda",
+      "emptyText": "Com o código do ativo preenchido em Investimentos, eles aparecem sozinhos. Também dá para registrar à mão."
+    },
+    "byInvestment": {
+      "title": "Por investimento",
+      "description": "Últimos 12 meses, sobre o que você pagou.",
+      "empty": "Aparece quando houver provento nos últimos 12 meses."
+    },
+    "automaticNote": "Proventos automáticos usam a quantidade que você registrou na data-com e o imposto previsto em lei. Confira sempre no extrato da corretora; quando o imposto não é certo, o provento fica para você lançar.",
+    "remove": {
+      "title": "Excluir provento",
+      "textAutomatic": "O provento automático de {name} sai do histórico e não volta sozinho.",
+      "text": "O provento de {name} sai do histórico.",
+      "confirm": "Excluir"
+    },
+    "chart": {
+      "zero": "R$ 0",
+      "caption": "Proventos líquidos por mês",
+      "month": "Mês",
+      "net": "Valor líquido"
+    },
+    "errors": {
+      "investmentRequired": "Escolha o investimento.",
+      "investmentInvalid": "Escolha um investimento válido.",
+      "kindRequired": "Escolha o tipo.",
+      "dateRequired": "Informe a data.",
+      "dateInvalid": "Data inválida.",
+      "grossFormat": "Informe o valor como 120,50.",
+      "grossRequired": "Informe o valor recebido.",
+      "withheldFormat": "Informe o imposto como 18,00.",
+      "withheldTooHigh": "O imposto não pode passar do valor bruto.",
+      "goalFormat": "Informe a meta como 1.500,00.",
+      "check": "Verifique."
+    }
+  },
+  "aposentadoria": {
+    "metaTitle": "Aposentadoria",
+    "eyebrow": "Aposentadoria",
+    "title": "Quanto guardar para parar",
+    "description": "Tudo em dinheiro de hoje.",
+    "plan": {
+      "heading": "Viver dos rendimentos",
+      "intro": "A carteira paga as contas e não acaba. Este é o plano que o assistente acompanha.",
+      "disclaimer": "Estimativa. Proventos passados não garantem proventos futuros; nada aqui é recomendação de investimento.",
+      "formTitle": "Seu plano",
+      "formDescription": "O que ficar vazio o assistente calcula para você.",
+      "targetIncome": "Renda que você quer por mês (R$)",
+      "targetIncomeHint": "Vazio: usamos seu gasto médio.",
+      "targetIncomePlaceholder": "8.000,00",
+      "expectedYield": "Rendimento anual da carteira (%)",
+      "expectedYieldHint": "Quanto a carteira paga em proventos por ano. Ex.: R$ 100 mil que pagam R$ 6 mil = 6%.",
+      "expectedYieldPlaceholder": "6,00",
+      "contribution": "Quanto guardar por mês (R$)",
+      "contributionHint": "Vazio: usamos o valor sugerido.",
+      "contributionPlaceholder": "1.000,00",
+      "advanced": "Ajustes avançados",
+      "growth": "Crescimento dos proventos (%)",
+      "growthHint": "Ao ano, acima da inflação. Na dúvida, deixe 0.",
+      "saving": "Salvando…",
+      "save": "Salvar plano"
+    },
+    "saving": {
+      "title": "Guarde por mês: <value>{amount}</value>",
+      "split": "({reserve} na reserva + {investment} em investimentos)",
+      "debt": "Antes disso, {amount} por mês vão para quitar dívidas caras.",
+      "basisPlanned": "Calculado pela sua renda e pelas despesas previstas.",
+      "basisActual": "Calculado pelo que sobrou nos últimos {months} meses.",
+      "none": "Hoje não sobra dinheiro para guardar. Registre sua renda e seus gastos, ou reveja as despesas.",
+      "accepted": "Este é o valor do seu plano.",
+      "current": "Hoje o plano usa {amount} em investimentos.",
+      "accept": "Aceitar este valor"
+    },
+    "facts": {
+      "target": "Renda que você quer por mês",
+      "targetBasis": {
+        "informado": "informada por você",
+        "gasto_medio": "igual ao seu gasto médio",
+        "essencial_120": "seu gasto essencial mais 20%"
+      },
+      "targetBasisWithPension": {
+        "informado": "informada por você; {amount} vêm do INSS ou pensão",
+        "gasto_medio": "igual ao seu gasto médio; {amount} vêm do INSS ou pensão",
+        "essencial_120": "seu gasto essencial mais 20%; {amount} vêm do INSS ou pensão"
+      },
+      "current": "Renda atual em proventos",
+      "currentHint": "já cobre {percent}",
+      "yield": "Rendimento anual da carteira",
+      "yieldBasis": {
+        "observed12m": "pelos proventos dos últimos 12 meses",
+        "annualized": "baseado em {months} meses",
+        "suspicious": "os proventos indicam {percent}, fora do esperado; usamos o informado",
+        "informed": "informado"
+      },
+      "required": "Quanto precisa ter investido",
+      "requiredGap": "faltam {amount}",
+      "requiredDone": "você já tem esse valor",
+      "incomeBase": "Carteira que paga renda",
+      "incomeBaseHint": "investimentos com proventos nos últimos 12 meses",
+      "otherBase": "Outros investimentos",
+      "otherBaseHint": "ainda não pagam proventos",
+      "otherBaseNote": "Nota: contamos os outros investimentos no que você já tem, supondo que um dia eles passem para ativos que pagam renda.",
+      "untilTitle": "Até quando",
+      "neverCloses": "Guardando {amount} por mês, a carteira não fecha em 60 anos.",
+      "closes": "Guardando {amount} por mês, a carteira fecha em {year}.",
+      "requiredContribution": "Para fechar em {year} seria preciso {amount} por mês.",
+      "projectedIncome": "Em {year} a carteira pagaria {amount} por mês.",
+      "pensionLater": "{amount} de INSS entra só em {year}."
+    },
+    "missing": {
+      "planTitle": "Complete seu plano de aposentadoria",
+      "planNoYear": "Diga em que ano querem parar de trabalhar. Com isso calculamos quanto guardar por mês.",
+      "planNoIncome": "Informe a renda que você quer por mês ou registre seus gastos.",
+      "planAction": "Completar cadastro",
+      "yieldTitle": "Informe o rendimento anual da carteira ou registre proventos",
+      "yieldText": "Sem isso não dá para calcular quanto precisa ter investido.",
+      "yieldAction": "Registrar proventos"
+    },
+    "dividendChart": {
+      "summary": "Carteira projetada de {first} em {firstYear} para {last} em {lastYear}, pagando {income} por mês. Quanto precisa ter investido: {required}.",
+      "zero": "R$ 0",
+      "incomePerMonth": "{amount} por mês",
+      "note": "Carteira no começo de cada ano. A linha tracejada é quanto precisa ter investido; a parte clara é a partir de {year}.",
+      "caption": "Carteira projetada e renda mensal por ano",
+      "year": "Ano",
+      "portfolio": "Carteira",
+      "income": "Renda por mês"
+    },
+    "compare": {
+      "title": "Comparar: gastar o que guardou",
+      "description": "Outro jeito de ver: o dinheiro vai sendo usado até os {age} anos. Só comparação.",
+      "intro": "Compare cenários mudando idade, renda e aporte.",
+      "add": "Novo cenário",
+      "emptyTitle": "Monte o primeiro cenário",
+      "emptyText": "Diga com que idade quer parar e quanto quer receber. Mostramos quanto guardar por mês.",
+      "emptyAction": "Criar cenário",
+      "disclaimer": "Estimativa feita com os dados e premissas que você informou. Não é promessa de resultado nem recomendação de investimento.",
+      "editTitle": "Editar cenário",
+      "removeTitle": "Excluir cenário",
+      "removeText": "\"{name}\" será apagado.",
+      "removeConfirm": "Excluir"
+    },
+    "scenario": {
+      "description": "{name}, {age} anos. Parar aos {targetAge}.",
+      "edit": "Editar {name}",
+      "remove": "Excluir {name}",
+      "closes": "O plano fecha",
+      "percentOfNeeded": "{percent} do necessário",
+      "projectedOfNeeded": "{projected} de {needed}",
+      "requiredContribution": "Aporte que fecha a conta",
+      "alreadyStopped": "Já parou",
+      "perMonth": "{amount} por mês",
+      "sustainableIncome": "Renda que o plano sustenta",
+      "lasts": "O dinheiro dura",
+      "untilAge": "Até os {age} anos",
+      "extra": "Para chegar lá, faltam {amount} por mês além do que você guarda hoje, ou ajuste a idade e a renda desejada.",
+      "assumptions": "Premissas: retorno de {before} até parar e {after} depois, ao ano acima da inflação. Sem impostos."
+    },
+    "scenarioForm": {
+      "name": "Nome do cenário",
+      "namePlaceholder": "Ex.: Parar aos 60",
+      "person": "Para quem",
+      "birth": "Mês e ano de nascimento",
+      "birthHint": "Precisamos disso para saber quanto tempo falta.",
+      "targetAge": "Parar aos",
+      "lifeExpectancy": "Planejar até os",
+      "lifeExpectancyHint": "Até que idade o dinheiro deve durar.",
+      "targetIncome": "Renda desejada por mês (R$)",
+      "targetIncomeHint": "Em dinheiro de hoje.",
+      "targetIncomePlaceholder": "8.000,00",
+      "otherIncome": "INSS e outras rendas por mês (R$)",
+      "otherIncomeHint": "Veja a estimativa do INSS no site ou app Meu INSS.",
+      "amountPlaceholder": "0,00",
+      "saved": "Já guardado (R$)",
+      "savedHint": "Vazio usa a sua carteira de investimentos: {amount}.",
+      "savedPlaceholder": "Usar a carteira",
+      "contribution": "Quanto você guarda por mês (R$)",
+      "returnBefore": "Retorno até parar (%)",
+      "returnAfter": "Retorno depois (%)",
+      "returnHint": "Ao ano, acima da inflação.",
+      "returnNote": "Os retornos são só um ponto de partida para você ajustar. Ninguém garante esses números.",
+      "saving": "Salvando…",
+      "save": "Salvar cenário"
+    },
+    "retirementChart": {
+      "zero": "R$ 0",
+      "barLabel": "Aos {age} anos: {amount}",
+      "barTitle": "Aos {age} anos",
+      "note": "Idade. A parte clara é depois de parar de trabalhar.",
+      "caption": "Patrimônio projetado por idade",
+      "age": "Idade",
+      "netWorth": "Patrimônio"
+    },
+    "errors": {
+      "check": "Verifique.",
+      "personRequired": "Escolha a pessoa.",
+      "personInvalid": "Escolha uma pessoa válida.",
+      "birthInvalid": "Use mês e ano válidos.",
+      "birthRequired": "Informe o mês e o ano de nascimento.",
+      "nameRequired": "Dê um nome ao cenário.",
+      "targetAgeRequired": "Informe a idade.",
+      "targetAgeMin": "Use idade a partir de 30.",
+      "targetAgeMax": "Use idade até 100.",
+      "lifeExpectancyRequired": "Informe até que idade planejar.",
+      "lifeExpectancyMin": "Use idade a partir de 50.",
+      "lifeExpectancyMax": "Use idade até 120.",
+      "lifeExpectancyAfterTarget": "Planeje até uma idade maior que a de parar.",
+      "targetIncomeFormat": "Informe a renda como 8.000,00.",
+      "otherIncomeFormat": "Informe o INSS e outras rendas como 3.000,00.",
+      "contributionFormat": "Informe o aporte como 1.000,00.",
+      "savedFormat": "Informe o valor como 50.000,00.",
+      "returnRange": "Use retorno entre -5% e 20% ao ano.",
+      "yieldRange": "Use rendimento anual entre 0,01% e 30%.",
+      "planContributionFormat": "Informe o valor como 1.000,00.",
+      "growthRange": "Use crescimento entre -5% e 15% ao ano.",
+      "planSaved": "Plano salvo.",
+      "reload": "Recarregue a página e tente de novo."
+    }
+  },
   "meta": {
     "description": "Finanças da família, sonhos e aposentadoria em um só plano."
   },

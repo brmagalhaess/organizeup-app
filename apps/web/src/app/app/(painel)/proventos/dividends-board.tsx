@@ -1,8 +1,9 @@
 "use client";
 import { Plus, Target, Trash2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useEffect, useState, type ReactNode } from "react";
-import { formatBRL, formatYearMonth, money, netDividend } from "@organizeup/domain";
+import { money, netDividend } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import {
   Badge,
@@ -20,6 +21,14 @@ import {
   StatTile,
   submitKeeping,
 } from "@/components/ui";
+import {
+  formatAmount,
+  formatDate,
+  formatMonthYear,
+  formatPercent,
+  formatPercentExact,
+  toFieldValue,
+} from "@/i18n/format";
 import type { loadDividends } from "@/lib/investments";
 import { addDividend, deleteDividend, saveGoal, type FormState } from "./actions";
 import { DividendsChart } from "./dividends-chart";
@@ -29,23 +38,19 @@ type Data = Awaited<ReturnType<typeof loadDividends>>;
 type Row = Data["rows"][number];
 type Outlook = NonNullable<Awaited<ReturnType<typeof loadDividendOutlook>>>;
 
-const KIND_LABEL: Record<string, string> = {
-  dividendo: "Dividendo",
-  jcp: "JCP",
-  rendimento: "Rendimento",
-};
+const KINDS = ["dividendo", "jcp", "rendimento"] as const;
 
 const initial: FormState = { ok: false, message: null };
-const fullDate = (date: string) => date.split("-").reverse().join("/");
 
 function DividendForm({ data, onDone }: { data: Data; onDone: () => void }) {
+  const t = useTranslations("proventos");
   const [state, action, pending] = useActionState(addDividend, initial);
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
-      <Field label="Investimento">
+      <Field label={t("form.investment")}>
         <Select name="investmentId" required>
           {data.investments.map((investment) => (
             <option key={investment.id} value={investment.id}>
@@ -55,30 +60,35 @@ function DividendForm({ data, onDone }: { data: Data; onDone: () => void }) {
         </Select>
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Tipo">
+        <Field label={t("form.kind")}>
           <Select name="kind" defaultValue="dividendo">
-            {Object.entries(KIND_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+            {KINDS.map((kind) => (
+              <option key={kind} value={kind}>
+                {t(`kindOptions.${kind}`)}
               </option>
             ))}
           </Select>
         </Field>
-        <Field label="Data do pagamento">
+        <Field label={t("form.paidOn")}>
           <Input name="paidOn" type="date" required defaultValue={data.today} />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Valor bruto (R$)">
-          <Input name="gross" inputMode="decimal" required placeholder="0,00" />
+        <Field label={t("form.gross")}>
+          <Input
+            name="gross"
+            inputMode="decimal"
+            required
+            placeholder={t("form.amountPlaceholder")}
+          />
         </Field>
-        <Field label="Imposto retido (R$)" hint="Como aparece no extrato.">
-          <Input name="withheld" inputMode="decimal" placeholder="0,00" />
+        <Field label={t("form.withheld")} hint={t("form.withheldHint")}>
+          <Input name="withheld" inputMode="decimal" placeholder={t("form.amountPlaceholder")} />
         </Field>
       </div>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar provento"}
+        {pending ? t("saving") : t("form.save")}
       </Button>
     </form>
   );
@@ -93,27 +103,34 @@ function DividendLine({
   writable: boolean;
   onRemove: (row: Row) => void;
 }) {
+  const t = useTranslations("proventos");
+  const locale = useLocale();
   return (
     <li className="flex items-center gap-3 py-2 text-sm">
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2 font-medium">
           {row.label}
-          <Badge>{KIND_LABEL[row.kind]}</Badge>
-          {row.source === "agente" ? <Badge tone="success">automático</Badge> : null}
+          <Badge>{t(`kinds.${row.kind}`)}</Badge>
+          {row.source === "agente" ? <Badge tone="success">{t("line.automatic")}</Badge> : null}
         </p>
         <p className="text-xs text-muted">
-          {fullDate(row.paidOn)}
-          {money(row.withheld).gt(0) ? ` · bruto de ${formatBRL(row.gross)}` : ""}
+          {formatDate(row.paidOn, locale)}
+          {money(row.withheld).gt(0)
+            ? ` · ${t("line.gross", { amount: formatAmount(row.gross, locale) })}`
+            : ""}
           {row.market
-            ? ` · data-com ${fullDate(row.market.comDate)} · fonte: ${row.market.source}`
+            ? ` · ${t("line.market", {
+                date: formatDate(row.market.comDate, locale),
+                source: row.market.source,
+              })}`
             : ""}
         </p>
       </div>
       <span className="whitespace-nowrap font-medium tabular-nums">
-        {formatBRL(netDividend(row))}
+        {formatAmount(netDividend(row), locale)}
       </span>
       {writable ? (
-        <IconButton label={`Excluir provento de ${row.label}`} onClick={() => onRemove(row)}>
+        <IconButton label={t("line.remove", { name: row.label })} onClick={() => onRemove(row)}>
           <Trash2 className="size-4" aria-hidden="true" />
         </IconButton>
       ) : null}
@@ -122,82 +139,64 @@ function DividendLine({
 }
 
 function GoalForm({ data, onDone }: { data: Data; onDone: () => void }) {
+  const t = useTranslations("proventos");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(saveGoal, initial);
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
-      <Field label="Meta de renda por mês (R$)" hint="Deixe vazio para tirar a meta.">
+      <Field label={t("goal.label")} hint={t("goal.hint")}>
         <Input
           name="monthlyAmount"
           inputMode="decimal"
-          placeholder="1.500,00"
-          defaultValue={data.goal?.replace(".", ",") ?? ""}
+          placeholder={t("goal.placeholder")}
+          defaultValue={toFieldValue(data.goal, locale)}
         />
       </Field>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar meta"}
+        {pending ? t("saving") : t("goal.save")}
       </Button>
     </form>
   );
 }
 
-const TARGET_BASIS: Record<Outlook["targetBasis"], string> = {
-  informado: "Você informou este valor.",
-  gasto_medio: "Igual ao seu gasto médio.",
-  essencial_120: "Seu gasto essencial mais 20%.",
-  sem_dados: "",
-};
-
-function yieldHint(outlook: Outlook) {
-  switch (outlook.yieldBasis) {
-    case "observado_12m":
-      return "Pelos proventos dos últimos 12 meses.";
-    case "observado_anualizado":
-      return `Baseado em ${outlook.yieldMonthsBasis ?? 0} meses.`;
-    case "informado":
-      return "Informado por você.";
-    case "suspeito":
-      return "Os proventos registrados parecem fora do normal. Confira os valores.";
-    default:
-      return "Registre proventos para calcular.";
-  }
-}
-
 function OutlookTiles({ outlook }: { outlook: Outlook }) {
+  const t = useTranslations("proventos.outlook");
+  const locale = useLocale();
   return (
     <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-3">
       <StatTile
-        label="Rendimento anual da carteira"
+        label={t("yield")}
         value={
           outlook.yieldUsed === null
-            ? "Sem dados"
-            : `${money(outlook.yieldUsed).toDecimalPlaces(1).toNumber().toLocaleString("pt-BR")}%`
+            ? t("noData")
+            : formatPercentExact(money(outlook.yieldUsed).toDecimalPlaces(1).toNumber(), locale, 1)
         }
-        hint={yieldHint(outlook)}
+        hint={t(`yieldBasis.${outlook.yieldBasis}`, { months: outlook.yieldMonthsBasis ?? 0 })}
       />
       <StatTile
-        label="Renda mensal atual"
-        value={formatBRL(outlook.currentIncome)}
-        hint="Proventos de 12 meses divididos por 12."
+        label={t("currentIncome")}
+        value={formatAmount(outlook.currentIncome, locale)}
+        hint={t("currentIncomeHint")}
       />
       <StatTile
-        label="Renda alvo"
-        value={outlook.targetIncome ? formatBRL(outlook.targetIncome) : "Sem dados"}
+        label={t("target")}
+        value={outlook.targetIncome ? formatAmount(outlook.targetIncome, locale) : t("noData")}
         hint={
-          outlook.targetIncome ? (
-            `${TARGET_BASIS[outlook.targetBasis]} A carteira já cobre ${outlook.coverage}% do que falta.`
-          ) : (
-            <>
-              Defina em{" "}
-              <Link href="/app/aposentadoria" className="font-medium underline">
-                Aposentadoria
-              </Link>
-              .
-            </>
-          )
+          outlook.targetIncome
+            ? t(`targetHint.${outlook.targetBasis}`, {
+                percent: formatPercent(outlook.coverage, locale),
+              })
+            : t.rich("targetMissing", {
+                link: (chunks) => (
+                  <Link href="/app/aposentadoria" className="font-medium underline">
+                    {chunks}
+                  </Link>
+                ),
+              })
         }
       />
     </dl>
@@ -205,34 +204,33 @@ function OutlookTiles({ outlook }: { outlook: Outlook }) {
 }
 
 function ForecastCard({ months }: { months: Outlook["forecast"] }) {
+  const t = useTranslations("proventos.forecast");
+  const locale = useLocale();
   return (
-    <Card
-      title="Previsto por mês"
-      description="Cada valor é uma previsão pelo histórico; não é garantia."
-    >
+    <Card title={t("title")} description={t("description")}>
       {months.length === 0 ? (
-        <p className="text-sm text-muted">
-          A previsão aparece quando houver proventos nos últimos 12 meses.
-        </p>
+        <p className="text-sm text-muted">{t("empty")}</p>
       ) : (
         <table className="w-full text-sm">
-          <caption className="sr-only">Proventos previstos por mês</caption>
+          <caption className="sr-only">{t("caption")}</caption>
           <thead>
             <tr className="text-left text-muted">
               <th scope="col" className="py-1.5 font-medium">
-                Mês
+                {t("month")}
               </th>
               <th scope="col" className="py-1.5 text-right font-medium">
-                Previsto
+                {t("amount")}
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {months.map((row) => (
               <tr key={row.month}>
-                <td className="py-1.5 first-letter:uppercase">{formatYearMonth(row.month)}</td>
+                <td className="py-1.5 first-letter:uppercase">
+                  {formatMonthYear(row.month, locale)}
+                </td>
                 <td className="py-1.5 text-right font-medium tabular-nums">
-                  {formatBRL(row.amount)}
+                  {formatAmount(row.amount, locale)}
                 </td>
               </tr>
             ))}
@@ -254,6 +252,8 @@ export function DividendsBoard({
   writable: boolean;
   insights: ReactNode;
 }) {
+  const t = useTranslations("proventos");
+  const locale = useLocale();
   const [sheet, setSheet] = useState<{ type: "new" | "goal"; nonce: number } | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
   const close = () => setSheet(null);
@@ -264,14 +264,14 @@ export function DividendsBoard({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Proventos"
-        title={formatBRL(summary.last12)}
-        description="Recebido nos últimos 12 meses, já sem o imposto."
+        eyebrow={t("eyebrow")}
+        title={formatAmount(summary.last12, locale)}
+        description={t("description")}
         actions={
           canAdd ? (
             <Button variant="secondary" onClick={() => open("new")}>
               <Plus className="size-4" aria-hidden="true" />
-              Novo provento
+              {t("add")}
             </Button>
           ) : null
         }
@@ -281,11 +281,11 @@ export function DividendsBoard({
       {data.investments.length === 0 ? (
         <Card>
           <EmptyState
-            title="Primeiro, um investimento"
-            text="Os proventos ficam ligados aos investimentos da sua carteira."
+            title={t("noInvestments.title")}
+            text={t("noInvestments.text")}
             action={
               <Link href="/app/investimentos" className={buttonClass("secondary", true)}>
-                Ir para Investimentos
+                {t("noInvestments.action")}
               </Link>
             }
           />
@@ -294,23 +294,25 @@ export function DividendsBoard({
         <>
           <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatTile
-              label="Média por mês"
-              value={formatBRL(summary.monthlyAverage)}
-              hint="Nos últimos 12 meses."
+              label={t("stats.average")}
+              value={formatAmount(summary.monthlyAverage, locale)}
+              hint={t("stats.last12Months")}
             />
-            <StatTile label="Neste ano" value={formatBRL(summary.thisYear)} />
+            <StatTile label={t("stats.thisYear")} value={formatAmount(summary.thisYear, locale)} />
             <StatTile
-              label="Imposto retido"
-              value={formatBRL(summary.withheld12)}
-              hint="Nos últimos 12 meses."
+              label={t("stats.withheld")}
+              value={formatAmount(summary.withheld12, locale)}
+              hint={t("stats.last12Months")}
             />
             <StatTile
-              label="Meta por mês"
-              value={data.goal ? formatBRL(data.goal) : "Sem meta"}
+              label={t("stats.goal")}
+              value={data.goal ? formatAmount(data.goal, locale) : t("stats.noGoal")}
               hint={
                 summary.goalPercent === null
                   ? undefined
-                  : `A média já cobre ${summary.goalPercent}% da meta.`
+                  : t("stats.goalCoverage", {
+                      percent: formatPercent(summary.goalPercent, locale),
+                    })
               }
             />
           </dl>
@@ -318,12 +320,12 @@ export function DividendsBoard({
           {outlook ? <OutlookTiles outlook={outlook} /> : null}
 
           <Card
-            title="Mês a mês"
+            title={t("monthly.title")}
             actions={
               writable ? (
                 <Button variant="secondary" small onClick={() => open("goal")}>
                   <Target className="size-4" aria-hidden="true" />
-                  Definir meta
+                  {t("monthly.setGoal")}
                 </Button>
               ) : null
             }
@@ -335,11 +337,13 @@ export function DividendsBoard({
 
           {data.upcoming.length > 0 ? (
             <Card
-              title="A receber"
-              description={`${formatBRL(data.upcomingNet)} já anunciados, sem o imposto. Só entram nos totais na data do pagamento.`}
+              title={t("upcoming.title")}
+              description={t("upcoming.description", {
+                amount: formatAmount(data.upcomingNet, locale),
+              })}
             >
               <ul
-                aria-label="Proventos a receber"
+                aria-label={t("upcoming.list")}
                 className="m-0 list-none divide-y divide-line p-0"
               >
                 {data.upcoming.map((row) => (
@@ -350,15 +354,12 @@ export function DividendsBoard({
           ) : null}
 
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-            <Card title="Recebidos">
+            <Card title={t("received.title")}>
               {data.rows.length === 0 ? (
-                <EmptyState
-                  title="Nenhum provento ainda"
-                  text="Com o código do ativo preenchido em Investimentos, eles aparecem sozinhos. Também dá para registrar à mão."
-                />
+                <EmptyState title={t("received.emptyTitle")} text={t("received.emptyText")} />
               ) : (
                 <ul
-                  aria-label="Proventos recebidos"
+                  aria-label={t("received.list")}
                   className="m-0 list-none divide-y divide-line p-0"
                 >
                   {data.rows.map((row) => (
@@ -373,14 +374,12 @@ export function DividendsBoard({
               )}
             </Card>
 
-            <Card title="Por investimento" description="Últimos 12 meses, sobre o que você pagou.">
+            <Card title={t("byInvestment.title")} description={t("byInvestment.description")}>
               {data.byInvestment.length === 0 ? (
-                <p className="text-sm text-muted">
-                  Aparece quando houver provento nos últimos 12 meses.
-                </p>
+                <p className="text-sm text-muted">{t("byInvestment.empty")}</p>
               ) : (
                 <ul
-                  aria-label="Por investimento"
+                  aria-label={t("byInvestment.title")}
                   className="m-0 list-none divide-y divide-line p-0"
                 >
                   {data.byInvestment.map((item) => (
@@ -390,9 +389,9 @@ export function DividendsBoard({
                     >
                       <span className="min-w-0 truncate font-medium">{item.label}</span>
                       <span className="whitespace-nowrap tabular-nums">
-                        {formatBRL(item.net)}
+                        {formatAmount(item.net, locale)}
                         {item.yieldOnCost !== null
-                          ? ` · ${item.yieldOnCost.toLocaleString("pt-BR")}%`
+                          ? ` · ${formatPercentExact(item.yieldOnCost, locale)}`
                           : ""}
                       </span>
                     </li>
@@ -401,18 +400,14 @@ export function DividendsBoard({
               )}
             </Card>
           </div>
-          <p className="text-xs text-muted">
-            Proventos automáticos usam a quantidade que você registrou na data-com e o imposto
-            previsto em lei. Confira sempre no extrato da corretora; quando o imposto não é certo, o
-            provento fica para você lançar.
-          </p>
+          <p className="text-xs text-muted">{t("automaticNote")}</p>
         </>
       )}
 
       <Sheet
         open={sheet !== null}
         onClose={close}
-        title={sheet?.type === "goal" ? "Meta de proventos" : "Novo provento"}
+        title={sheet?.type === "goal" ? t("goal.title") : t("add")}
       >
         {sheet?.type === "new" ? (
           <DividendForm key={sheet.nonce} data={data} onDone={close} />
@@ -422,13 +417,13 @@ export function DividendsBoard({
       <ConfirmSheet
         open={removing !== null}
         onClose={() => setRemoving(null)}
-        title="Excluir provento"
+        title={t("remove.title")}
         text={
           removing?.source === "agente"
-            ? `O provento automático de ${removing.label} sai do histórico e não volta sozinho.`
-            : `O provento de ${removing?.label ?? ""} sai do histórico.`
+            ? t("remove.textAutomatic", { name: removing.label })
+            : t("remove.text", { name: removing?.label ?? "" })
         }
-        confirmLabel="Excluir"
+        confirmLabel={t("remove.confirm")}
         action={deleteDividend}
         hidden={{ id: removing?.id ?? "" }}
       />

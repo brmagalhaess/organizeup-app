@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
 import { PageHeader } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
@@ -7,19 +8,22 @@ import { requireTenant } from "@/lib/session";
 import { DividendPlan } from "./dividend-plan";
 import { RetirementBoard } from "./retirement-board";
 
-export const metadata: Metadata = { title: "Aposentadoria" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("aposentadoria");
+  return { title: t("metaTitle") };
+}
 
 export default async function RetirementPage() {
   const { ctx } = await requireTenant();
-  const [data, dividendPlan] = await Promise.all([loadRetirement(ctx), loadDividendPlan(ctx)]);
+  const [data, dividendPlan, t] = await Promise.all([
+    loadRetirement(ctx),
+    loadDividendPlan(ctx),
+    getTranslations("aposentadoria"),
+  ]);
   const writable = canWrite(ctx);
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Aposentadoria"
-        title="Quanto guardar para parar"
-        description="Tudo em dinheiro de hoje."
-      />
+      <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
       <Insights screen="aposentadoria" />
       <DividendPlan data={dividendPlan} writable={writable} />
       <RetirementBoard

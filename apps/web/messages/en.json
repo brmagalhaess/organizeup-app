@@ -520,6 +520,318 @@
       "percentSum": "The targets add up to more than 100%."
     }
   },
+  "proventos": {
+    "metaTitle": "Dividends",
+    "eyebrow": "Dividends",
+    "description": "Received in the last 12 months, after tax.",
+    "add": "New dividend",
+    "saving": "Saving…",
+    "kinds": {
+      "dividendo": "Dividend",
+      "jcp": "JCP",
+      "rendimento": "Income"
+    },
+    "kindOptions": {
+      "dividendo": "Dividend",
+      "jcp": "JCP (interest on equity, a Brazilian payout)",
+      "rendimento": "Income (from an FII, a Brazilian real estate fund)"
+    },
+    "form": {
+      "investment": "Investment",
+      "kind": "Type",
+      "paidOn": "Payment date",
+      "gross": "Gross amount (R$)",
+      "withheld": "Tax withheld (R$)",
+      "withheldHint": "As shown on your statement.",
+      "amountPlaceholder": "0.00",
+      "save": "Save dividend"
+    },
+    "line": {
+      "automatic": "automatic",
+      "gross": "{amount} gross",
+      "market": "cum-dividend date {date} · source: {source}",
+      "remove": "Delete dividend from {name}"
+    },
+    "goal": {
+      "title": "Dividend goal",
+      "label": "Monthly income goal (R$)",
+      "hint": "Leave blank to remove the goal.",
+      "placeholder": "1,500.00",
+      "save": "Save goal"
+    },
+    "outlook": {
+      "yield": "Annual portfolio yield",
+      "noData": "No data",
+      "yieldBasis": {
+        "observado_12m": "Based on dividends from the last 12 months.",
+        "observado_anualizado": "{months, plural, =1 {Based on 1 month.} other {Based on # months.}}",
+        "informado": "Entered by you.",
+        "suspeito": "The recorded dividends look unusual. Check the amounts.",
+        "sem_dados": "Record dividends to calculate this."
+      },
+      "currentIncome": "Current monthly income",
+      "currentIncomeHint": "12 months of dividends divided by 12.",
+      "target": "Target income",
+      "targetHint": {
+        "informado": "You entered this amount. The portfolio already covers {percent} of what’s missing.",
+        "gasto_medio": "Same as your average spending. The portfolio already covers {percent} of what’s missing.",
+        "essencial_120": "Your essential spending plus 20%. The portfolio already covers {percent} of what’s missing.",
+        "sem_dados": "The portfolio already covers {percent} of what’s missing."
+      },
+      "targetMissing": "Set it in <link>Retirement</link>."
+    },
+    "forecast": {
+      "title": "Forecast by month",
+      "description": "Each amount is a forecast based on history, not a guarantee.",
+      "empty": "The forecast appears once there are dividends in the last 12 months.",
+      "caption": "Forecast dividends by month",
+      "month": "Month",
+      "amount": "Forecast"
+    },
+    "noInvestments": {
+      "title": "First, add an investment",
+      "text": "Dividends are linked to the investments in your portfolio.",
+      "action": "Go to Investments"
+    },
+    "stats": {
+      "average": "Monthly average",
+      "last12Months": "Over the last 12 months.",
+      "thisYear": "This year",
+      "withheld": "Tax withheld",
+      "goal": "Monthly goal",
+      "noGoal": "No goal",
+      "goalCoverage": "The average already covers {percent} of the goal."
+    },
+    "monthly": {
+      "title": "Month by month",
+      "setGoal": "Set goal"
+    },
+    "upcoming": {
+      "title": "Upcoming",
+      "description": "{amount} already announced, after tax. They only count toward totals on the payment date.",
+      "list": "Upcoming dividends"
+    },
+    "received": {
+      "title": "Received",
+      "list": "Dividends received",
+      "emptyTitle": "No dividends yet",
+      "emptyText": "Once the asset ticker is filled in under Investments, they show up on their own. You can also add them by hand."
+    },
+    "byInvestment": {
+      "title": "By investment",
+      "description": "Last 12 months, on what you paid.",
+      "empty": "Shows up once there are dividends in the last 12 months."
+    },
+    "automaticNote": "Automatic dividends use the quantity you recorded on the cum-dividend date (the last day to own the asset and receive the payout) and the tax set by law. Always check your brokerage statement; when the tax isn’t certain, the dividend is left for you to enter.",
+    "remove": {
+      "title": "Delete dividend",
+      "textAutomatic": "The automatic dividend from {name} leaves the history and won’t come back on its own.",
+      "text": "The dividend from {name} leaves the history.",
+      "confirm": "Delete"
+    },
+    "chart": {
+      "zero": "R$0",
+      "caption": "Net dividends by month",
+      "month": "Month",
+      "net": "Net amount"
+    },
+    "errors": {
+      "investmentRequired": "Choose the investment.",
+      "investmentInvalid": "Choose a valid investment.",
+      "kindRequired": "Choose the type.",
+      "dateRequired": "Enter the date.",
+      "dateInvalid": "Invalid date.",
+      "grossFormat": "Enter the amount like 120.50.",
+      "grossRequired": "Enter the amount received.",
+      "withheldFormat": "Enter the tax like 18.00.",
+      "withheldTooHigh": "The tax can’t be more than the gross amount.",
+      "goalFormat": "Enter the goal like 1,500.00.",
+      "check": "Check the information."
+    }
+  },
+  "aposentadoria": {
+    "metaTitle": "Retirement",
+    "eyebrow": "Retirement",
+    "title": "How much to save to stop working",
+    "description": "Everything in today’s money.",
+    "plan": {
+      "heading": "Living off your investment income",
+      "intro": "The portfolio pays the bills and doesn’t run out. This is the plan the assistant tracks.",
+      "disclaimer": "Estimate. Past dividends don’t guarantee future dividends; nothing here is investment advice.",
+      "formTitle": "Your plan",
+      "formDescription": "The assistant calculates anything you leave blank.",
+      "targetIncome": "Monthly income you want (R$)",
+      "targetIncomeHint": "Blank: we use your average spending.",
+      "targetIncomePlaceholder": "8,000.00",
+      "expectedYield": "Annual portfolio yield (%)",
+      "expectedYieldHint": "How much the portfolio pays in dividends per year. E.g.: R$100K paying R$6K = 6%.",
+      "expectedYieldPlaceholder": "6.00",
+      "contribution": "How much to save per month (R$)",
+      "contributionHint": "Blank: we use the suggested amount.",
+      "contributionPlaceholder": "1,000.00",
+      "advanced": "Advanced settings",
+      "growth": "Dividend growth (%)",
+      "growthHint": "Per year, above inflation. If unsure, leave 0.",
+      "saving": "Saving…",
+      "save": "Save plan"
+    },
+    "saving": {
+      "title": "Save per month: <value>{amount}</value>",
+      "split": "({reserve} to the emergency fund + {investment} to investments)",
+      "debt": "Before that, {amount} a month goes to paying off expensive debt.",
+      "basisPlanned": "Calculated from your income and planned expenses.",
+      "basisActual": "{months, plural, =1 {Calculated from what was left over last month.} other {Calculated from what was left over in the last # months.}}",
+      "none": "There’s no money left to save right now. Record your income and spending, or review your expenses.",
+      "accepted": "This is the amount in your plan.",
+      "current": "Today the plan uses {amount} in investments.",
+      "accept": "Accept this amount"
+    },
+    "facts": {
+      "target": "Monthly income you want",
+      "targetBasis": {
+        "informado": "entered by you",
+        "gasto_medio": "same as your average spending",
+        "essencial_120": "your essential spending plus 20%"
+      },
+      "targetBasisWithPension": {
+        "informado": "entered by you; {amount} comes from INSS (Brazilian social security) or a pension",
+        "gasto_medio": "same as your average spending; {amount} comes from INSS (Brazilian social security) or a pension",
+        "essencial_120": "your essential spending plus 20%; {amount} comes from INSS (Brazilian social security) or a pension"
+      },
+      "current": "Current income from dividends",
+      "currentHint": "already covers {percent}",
+      "yield": "Annual portfolio yield",
+      "yieldBasis": {
+        "observed12m": "based on dividends from the last 12 months",
+        "annualized": "{months, plural, =1 {based on 1 month} other {based on # months}}",
+        "suspicious": "dividends point to {percent}, which is unusual; we used the amount you entered",
+        "informed": "entered by you"
+      },
+      "required": "How much you need invested",
+      "requiredGap": "{amount} to go",
+      "requiredDone": "you already have this amount",
+      "incomeBase": "Income-paying portfolio",
+      "incomeBaseHint": "investments with dividends in the last 12 months",
+      "otherBase": "Other investments",
+      "otherBaseHint": "don’t pay dividends yet",
+      "otherBaseNote": "Note: we count your other investments in what you already have, assuming they’ll move into income-paying assets one day.",
+      "untilTitle": "By when",
+      "neverCloses": "Saving {amount} a month, the portfolio doesn’t reach the goal within 60 years.",
+      "closes": "Saving {amount} a month, the portfolio reaches the goal in {year}.",
+      "requiredContribution": "To reach it by {year}, you would need {amount} a month.",
+      "projectedIncome": "In {year} the portfolio would pay {amount} a month.",
+      "pensionLater": "{amount} from INSS only starts in {year}."
+    },
+    "missing": {
+      "planTitle": "Complete your retirement plan",
+      "planNoYear": "Tell us what year you want to stop working. With that, we calculate how much to save per month.",
+      "planNoIncome": "Enter the monthly income you want or record your spending.",
+      "planAction": "Complete your profile",
+      "yieldTitle": "Enter the annual portfolio yield or record dividends",
+      "yieldText": "Without it, we can’t calculate how much you need invested.",
+      "yieldAction": "Record dividends"
+    },
+    "dividendChart": {
+      "summary": "Projected portfolio from {first} in {firstYear} to {last} in {lastYear}, paying {income} a month. How much you need invested: {required}.",
+      "zero": "R$0",
+      "incomePerMonth": "{amount} a month",
+      "note": "Portfolio at the start of each year. The dashed line is how much you need invested; the light part starts in {year}.",
+      "caption": "Projected portfolio and monthly income by year",
+      "year": "Year",
+      "portfolio": "Portfolio",
+      "income": "Income per month"
+    },
+    "compare": {
+      "title": "Compare: spending what you saved",
+      "description": "Another way to look at it: the money gets used up by age {age}. For comparison only.",
+      "intro": "Compare scenarios by changing age, income and contribution.",
+      "add": "New scenario",
+      "emptyTitle": "Build your first scenario",
+      "emptyText": "Tell us what age you want to stop and how much you want to receive. We’ll show how much to save per month.",
+      "emptyAction": "Create scenario",
+      "disclaimer": "Estimate based on the data and assumptions you entered. It is neither a promise of results nor an investment recommendation.",
+      "editTitle": "Edit scenario",
+      "removeTitle": "Delete scenario",
+      "removeText": "\"{name}\" will be deleted.",
+      "removeConfirm": "Delete"
+    },
+    "scenario": {
+      "description": "{name}, age {age}. Stop at {targetAge}.",
+      "edit": "Edit {name}",
+      "remove": "Delete {name}",
+      "closes": "The plan adds up",
+      "percentOfNeeded": "{percent} of what’s needed",
+      "projectedOfNeeded": "{projected} of {needed}",
+      "requiredContribution": "Contribution that closes the gap",
+      "alreadyStopped": "Already stopped",
+      "perMonth": "{amount} a month",
+      "sustainableIncome": "Income the plan sustains",
+      "lasts": "The money lasts",
+      "untilAge": "Until age {age}",
+      "extra": "To get there, you need {amount} more a month on top of what you save today, or adjust the age and the income you want.",
+      "assumptions": "Assumptions: {before} return until stopping and {after} after, per year above inflation. No taxes."
+    },
+    "scenarioForm": {
+      "name": "Scenario name",
+      "namePlaceholder": "E.g.: Stop at 60",
+      "person": "For whom",
+      "birth": "Birth month and year",
+      "birthHint": "We need this to know how much time is left.",
+      "targetAge": "Stop at age",
+      "lifeExpectancy": "Plan until age",
+      "lifeExpectancyHint": "The age the money should last until.",
+      "targetIncome": "Desired monthly income (R$)",
+      "targetIncomeHint": "In today’s money.",
+      "targetIncomePlaceholder": "8,000.00",
+      "otherIncome": "INSS and other monthly income (R$)",
+      "otherIncomeHint": "INSS is Brazilian social security. See your estimate on the Meu INSS website or app.",
+      "amountPlaceholder": "0.00",
+      "saved": "Already saved (R$)",
+      "savedHint": "Blank uses your investment portfolio: {amount}.",
+      "savedPlaceholder": "Use the portfolio",
+      "contribution": "How much you save per month (R$)",
+      "returnBefore": "Return until stopping (%)",
+      "returnAfter": "Return after (%)",
+      "returnHint": "Per year, above inflation.",
+      "returnNote": "These returns are just a starting point for you to adjust. Nobody guarantees these numbers.",
+      "saving": "Saving…",
+      "save": "Save scenario"
+    },
+    "retirementChart": {
+      "zero": "R$0",
+      "barLabel": "At age {age}: {amount}",
+      "barTitle": "At age {age}",
+      "note": "Age. The light part is after you stop working.",
+      "caption": "Projected net worth by age",
+      "age": "Age",
+      "netWorth": "Net worth"
+    },
+    "errors": {
+      "check": "Check the information.",
+      "personRequired": "Choose the person.",
+      "personInvalid": "Choose a valid person.",
+      "birthInvalid": "Use a valid month and year.",
+      "birthRequired": "Enter the birth month and year.",
+      "nameRequired": "Give the scenario a name.",
+      "targetAgeRequired": "Enter the age.",
+      "targetAgeMin": "Use an age of 30 or above.",
+      "targetAgeMax": "Use an age of 100 or below.",
+      "lifeExpectancyRequired": "Enter the age to plan until.",
+      "lifeExpectancyMin": "Use an age of 50 or above.",
+      "lifeExpectancyMax": "Use an age of 120 or below.",
+      "lifeExpectancyAfterTarget": "Plan until an age higher than the one you stop at.",
+      "targetIncomeFormat": "Enter the income like 8,000.00.",
+      "otherIncomeFormat": "Enter INSS and other income like 3,000.00.",
+      "contributionFormat": "Enter the contribution like 1,000.00.",
+      "savedFormat": "Enter the amount like 50,000.00.",
+      "returnRange": "Use a return between -5% and 20% a year.",
+      "yieldRange": "Use an annual yield between 0.01% and 30%.",
+      "planContributionFormat": "Enter the amount like 1,000.00.",
+      "growthRange": "Use growth between -5% and 15% a year.",
+      "planSaved": "Plan saved.",
+      "reload": "Reload the page and try again."
+    }
+  },
   "meta": {
     "description": "Your family's money, dreams and retirement in one plan."
   },

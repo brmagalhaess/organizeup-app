@@ -1,14 +1,8 @@
 "use client";
-import {
-  formatBRL,
-  formatBRLCompact,
-  formatMonthShort,
-  formatYearMonth,
-  money,
-  percentOf,
-  toDbAmount,
-} from "@organizeup/domain";
+import { useLocale, useTranslations } from "next-intl";
+import { money, percentOf, toDbAmount } from "@organizeup/domain";
 import { cx } from "@/components/styles";
+import { formatAmount, formatMonthAbbr, formatMonthYear } from "@/i18n/format";
 
 interface Point {
   month: string;
@@ -17,6 +11,8 @@ interface Point {
 
 /** Barras de proventos líquidos por mês. Uma série só; a tabela atende leitores de tela. */
 export function DividendsChart({ points }: { points: Point[] }) {
+  const t = useTranslations("proventos.chart");
+  const locale = useLocale();
   const top = points.reduce(
     (acc, point) => (money(point.net).gt(acc) ? money(point.net) : acc),
     money(0),
@@ -26,8 +22,8 @@ export function DividendsChart({ points }: { points: Point[] }) {
     <div>
       <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-2">
         <div className="flex h-44 flex-col justify-between text-right text-xs tabular-nums text-muted">
-          <span>{formatBRLCompact(max)}</span>
-          <span>R$ 0</span>
+          <span>{formatAmount(max, locale, "compact")}</span>
+          <span>{t("zero")}</span>
         </div>
         <div>
           <div className="flex h-44 items-end border-b border-line">
@@ -35,7 +31,7 @@ export function DividendsChart({ points }: { points: Point[] }) {
               <button
                 key={point.month}
                 type="button"
-                aria-label={`${formatYearMonth(point.month)}: ${formatBRL(point.net)}`}
+                aria-label={`${formatMonthYear(point.month, locale)}: ${formatAmount(point.net, locale)}`}
                 className="group relative flex h-full min-w-0 flex-1 items-end justify-center rounded-t-lg hover:bg-brand-50/60"
               >
                 <span
@@ -54,9 +50,11 @@ export function DividendsChart({ points }: { points: Point[] }) {
                   )}
                 >
                   <span className="mb-1 block font-semibold first-letter:uppercase">
-                    {formatYearMonth(point.month)}
+                    {formatMonthYear(point.month, locale)}
                   </span>
-                  <span className="font-medium tabular-nums text-ink">{formatBRL(point.net)}</span>
+                  <span className="font-medium tabular-nums text-ink">
+                    {formatAmount(point.net, locale)}
+                  </span>
                 </span>
               </button>
             ))}
@@ -65,7 +63,7 @@ export function DividendsChart({ points }: { points: Point[] }) {
             {points.map((point, index) => (
               <span key={point.month} className="min-w-0 flex-1">
                 <span className={index % 2 === 1 ? "hidden sm:inline" : undefined}>
-                  {formatMonthShort(point.month)}
+                  {formatMonthAbbr(point.month, locale)}
                 </span>
               </span>
             ))}
@@ -74,18 +72,18 @@ export function DividendsChart({ points }: { points: Point[] }) {
       </div>
 
       <table className="sr-only">
-        <caption>Proventos líquidos por mês</caption>
+        <caption>{t("caption")}</caption>
         <thead>
           <tr>
-            <th scope="col">Mês</th>
-            <th scope="col">Valor líquido</th>
+            <th scope="col">{t("month")}</th>
+            <th scope="col">{t("net")}</th>
           </tr>
         </thead>
         <tbody>
           {points.map((point) => (
             <tr key={point.month}>
-              <th scope="row">{formatYearMonth(point.month)}</th>
-              <td>{formatBRL(point.net)}</td>
+              <th scope="row">{formatMonthYear(point.month, locale)}</th>
+              <td>{formatAmount(point.net, locale)}</td>
             </tr>
           ))}
         </tbody>

@@ -1,7 +1,8 @@
 "use client";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useActionState, useEffect, useState } from "react";
-import { formatBRL, money } from "@organizeup/domain";
+import { money } from "@organizeup/domain";
 import {
   Button,
   Card,
@@ -15,15 +16,16 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
+import { formatAmount, formatPercent, toFieldValue } from "@/i18n/format";
 import type { loadRetirement } from "@/lib/planning";
 import { deleteScenario, saveScenario, type FormState } from "./actions";
 import { RetirementChart } from "./retirement-chart";
+import { percentValue } from "./stored-number";
 
 type Data = Awaited<ReturnType<typeof loadRetirement>>;
 type Scenario = Data["scenarios"][number];
 
 const initial: FormState = { ok: false, message: null };
-const comma = (value: string | null | undefined) => value?.replace(".", ",") ?? "";
 
 function ScenarioForm({
   scenario,
@@ -34,6 +36,8 @@ function ScenarioForm({
   data: Data;
   onDone: () => void;
 }) {
+  const t = useTranslations("aposentadoria.scenarioForm");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(saveScenario, initial);
   const [personId, setPersonId] = useState(scenario?.personId ?? data.people[0]?.id ?? "");
   useEffect(() => {
@@ -43,16 +47,16 @@ function ScenarioForm({
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <input type="hidden" name="id" value={scenario?.id ?? ""} />
-      <Field label="Nome do cenário">
+      <Field label={t("name")}>
         <Input
           name="name"
           required
           maxLength={60}
-          placeholder="Ex.: Parar aos 60"
+          placeholder={t("namePlaceholder")}
           defaultValue={scenario?.name}
         />
       </Field>
-      <Field label="Para quem">
+      <Field label={t("person")}>
         <Select
           name="personId"
           value={personId}
@@ -66,15 +70,12 @@ function ScenarioForm({
         </Select>
       </Field>
       {person && !person.hasBirth ? (
-        <Field
-          label="Mês e ano de nascimento"
-          hint="Precisamos disso para saber quanto tempo falta."
-        >
+        <Field label={t("birth")} hint={t("birthHint")}>
           <Input name="birth" type="month" required />
         </Field>
       ) : null}
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Parar aos">
+        <Field label={t("targetAge")}>
           <Input
             name="targetAge"
             inputMode="numeric"
@@ -82,7 +83,7 @@ function ScenarioForm({
             defaultValue={scenario?.targetAge ?? 65}
           />
         </Field>
-        <Field label="Planejar até os" hint="Até que idade o dinheiro deve durar.">
+        <Field label={t("lifeExpectancy")} hint={t("lifeExpectancyHint")}>
           <Input
             name="lifeExpectancy"
             inputMode="numeric"
@@ -91,69 +92,64 @@ function ScenarioForm({
           />
         </Field>
       </div>
-      <Field label="Renda desejada por mês (R$)" hint="Em dinheiro de hoje.">
+      <Field label={t("targetIncome")} hint={t("targetIncomeHint")}>
         <Input
           name="targetIncome"
           inputMode="decimal"
           required
-          placeholder="8.000,00"
-          defaultValue={comma(scenario?.targetIncome)}
+          placeholder={t("targetIncomePlaceholder")}
+          defaultValue={toFieldValue(scenario?.targetIncome, locale)}
         />
       </Field>
-      <Field
-        label="INSS e outras rendas por mês (R$)"
-        hint="Veja a estimativa do INSS no site ou app Meu INSS."
-      >
+      <Field label={t("otherIncome")} hint={t("otherIncomeHint")}>
         <Input
           name="otherIncome"
           inputMode="decimal"
-          placeholder="0,00"
-          defaultValue={comma(scenario?.otherIncome)}
+          placeholder={t("amountPlaceholder")}
+          defaultValue={toFieldValue(scenario?.otherIncome, locale)}
         />
       </Field>
       <Field
-        label="Já guardado (R$)"
-        hint={`Vazio usa a sua carteira de investimentos: ${formatBRL(data.portfolio)}.`}
+        label={t("saved")}
+        hint={t("savedHint", { amount: formatAmount(data.portfolio, locale) })}
       >
         <Input
           name="saved"
           inputMode="decimal"
-          placeholder="Usar a carteira"
-          defaultValue={comma(scenario?.saved)}
+          placeholder={t("savedPlaceholder")}
+          defaultValue={toFieldValue(scenario?.saved, locale)}
         />
       </Field>
-      <Field label="Quanto você guarda por mês (R$)">
+      <Field label={t("contribution")}>
         <Input
           name="monthlyContribution"
           inputMode="decimal"
-          placeholder="0,00"
-          defaultValue={comma(scenario?.monthlyContribution)}
+          placeholder={t("amountPlaceholder")}
+          defaultValue={toFieldValue(scenario?.monthlyContribution, locale)}
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Retorno até parar (%)" hint="Ao ano, acima da inflação.">
+        <Field label={t("returnBefore")} hint={t("returnHint")}>
           <Input
             name="returnBefore"
             inputMode="decimal"
             required
-            defaultValue={comma(scenario?.returnBefore) || "4,00"}
+            defaultValue={toFieldValue(scenario?.returnBefore ?? "4.00", locale)}
           />
         </Field>
-        <Field label="Retorno depois (%)" hint="Ao ano, acima da inflação.">
+        <Field label={t("returnAfter")} hint={t("returnHint")}>
           <Input
             name="returnAfter"
             inputMode="decimal"
             required
-            defaultValue={comma(scenario?.returnAfter) || "2,00"}
+            defaultValue={toFieldValue(scenario?.returnAfter ?? "2.00", locale)}
           />
         </Field>
       </div>
-      <p className="text-xs text-muted">
-        Os retornos são só um ponto de partida para você ajustar. Ninguém garante esses números.
-      </p>
+      <p className="text-xs text-muted">{t("returnNote")}</p>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar cenário"}
+        {pending ? t("saving") : t("save")}
       </Button>
     </form>
   );
@@ -179,20 +175,27 @@ function ScenarioCard({
   onEdit: () => void;
   onRemove: () => void;
 }) {
+  const t = useTranslations("aposentadoria.scenario");
+  const locale = useLocale();
+  const amount = (value: Parameters<typeof formatAmount>[0]) => formatAmount(value, locale);
   const { result } = scenario;
   const required = result.requiredContribution;
   const extra = required === null ? null : money(required).minus(scenario.monthlyContribution);
   return (
     <Card
       title={scenario.name}
-      description={`${scenario.personName}, ${scenario.age} anos. Parar aos ${scenario.targetAge}.`}
+      description={t("description", {
+        name: scenario.personName,
+        age: scenario.age,
+        targetAge: scenario.targetAge,
+      })}
       actions={
         writable ? (
           <div className="flex">
-            <IconButton label={`Editar ${scenario.name}`} onClick={onEdit}>
+            <IconButton label={t("edit", { name: scenario.name })} onClick={onEdit}>
               <Pencil className="size-4" aria-hidden="true" />
             </IconButton>
-            <IconButton label={`Excluir ${scenario.name}`} onClick={onRemove}>
+            <IconButton label={t("remove", { name: scenario.name })} onClick={onRemove}>
               <Trash2 className="size-4" aria-hidden="true" />
             </IconButton>
           </div>
@@ -202,10 +205,15 @@ function ScenarioCard({
       <div className="text-sm">
         <div className="flex items-baseline justify-between gap-3">
           <span className="font-medium">
-            {result.percent >= 100 ? "O plano fecha" : `${result.percent}% do necessário`}
+            {result.percent >= 100
+              ? t("closes")
+              : t("percentOfNeeded", { percent: formatPercent(result.percent, locale) })}
           </span>
           <span className="tabular-nums text-muted">
-            {formatBRL(result.projected)} de {formatBRL(result.needed)}
+            {t("projectedOfNeeded", {
+              projected: amount(result.projected),
+              needed: amount(result.needed),
+            })}
           </span>
         </div>
         <div className="mt-1.5 h-2 rounded-full bg-brand-50" aria-hidden="true">
@@ -215,35 +223,32 @@ function ScenarioCard({
 
       <dl className="m-0 mt-4 grid grid-cols-1 gap-3 rounded-xl bg-card-soft p-4 text-sm sm:grid-cols-3">
         <Fact
-          label="Aporte que fecha a conta"
-          value={required === null ? "Já parou" : `${formatBRL(required)} por mês`}
-        />
-        <Fact
-          label="Renda que o plano sustenta"
-          value={`${formatBRL(result.sustainableIncome)} por mês`}
-        />
-        <Fact
-          label="O dinheiro dura"
+          label={t("requiredContribution")}
           value={
-            result.runsOutAtAge === null
-              ? `Até os ${scenario.lifeExpectancy} anos`
-              : `Até os ${result.runsOutAtAge} anos`
+            required === null ? t("alreadyStopped") : t("perMonth", { amount: amount(required) })
           }
+        />
+        <Fact
+          label={t("sustainableIncome")}
+          value={t("perMonth", { amount: amount(result.sustainableIncome) })}
+        />
+        <Fact
+          label={t("lasts")}
+          value={t("untilAge", { age: result.runsOutAtAge ?? scenario.lifeExpectancy })}
         />
       </dl>
       {extra !== null && extra.gt(0) ? (
-        <p className="mt-3 text-sm">
-          Para chegar lá, faltam {formatBRL(extra)} por mês além do que você guarda hoje, ou ajuste
-          a idade e a renda desejada.
-        </p>
+        <p className="mt-3 text-sm">{t("extra", { amount: amount(extra) })}</p>
       ) : null}
 
       <div className="mt-4">
         <RetirementChart points={result.series} targetAge={scenario.targetAge} />
       </div>
       <p className="mt-3 text-xs text-muted">
-        Premissas: retorno de {comma(scenario.returnBefore)}% até parar e{" "}
-        {comma(scenario.returnAfter)}% depois, ao ano acima da inflação. Sem impostos.
+        {t("assumptions", {
+          before: percentValue(scenario.returnBefore, locale),
+          after: percentValue(scenario.returnAfter, locale),
+        })}
       </p>
     </Card>
   );
@@ -259,6 +264,7 @@ export function RetirementBoard({
   /** Sem plano de rendimentos válido, ou com cenários já criados, a comparação começa aberta. */
   startOpen: boolean;
 }) {
+  const t = useTranslations("aposentadoria.compare");
   const [editing, setEditing] = useState<{ nonce: number; scenario: Scenario | null } | null>(null);
   const [removing, setRemoving] = useState<Scenario | null>(null);
   const [expanded, setExpanded] = useState(startOpen);
@@ -271,19 +277,19 @@ export function RetirementBoard({
     <div>
       <details open={expanded} onToggle={(event) => setExpanded(event.currentTarget.open)}>
         <summary className="cursor-pointer rounded-2xl border border-line bg-card p-4 shadow-card sm:px-6">
-          <span className="font-semibold">Comparar: gastar o que guardou</span>
+          <span className="font-semibold">{t("title")}</span>
           <span className="mt-0.5 block text-sm text-muted">
-            Outro jeito de ver: o dinheiro vai sendo usado até os {untilAge} anos. Só comparação.
+            {t("description", { age: untilAge })}
           </span>
         </summary>
 
         <div className="mt-4 flex flex-col gap-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted">Compare cenários mudando idade, renda e aporte.</p>
+            <p className="text-sm text-muted">{t("intro")}</p>
             {writable ? (
               <Button variant="secondary" onClick={() => open(null)}>
                 <Plus className="size-4" aria-hidden="true" />
-                Novo cenário
+                {t("add")}
               </Button>
             ) : null}
           </div>
@@ -291,12 +297,12 @@ export function RetirementBoard({
           {data.scenarios.length === 0 ? (
             <Card>
               <EmptyState
-                title="Monte o primeiro cenário"
-                text="Diga com que idade quer parar e quanto quer receber. Mostramos quanto guardar por mês."
+                title={t("emptyTitle")}
+                text={t("emptyText")}
                 action={
                   writable ? (
                     <Button variant="secondary" small onClick={() => open(null)}>
-                      Criar cenário
+                      {t("emptyAction")}
                     </Button>
                   ) : undefined
                 }
@@ -316,17 +322,14 @@ export function RetirementBoard({
             </div>
           )}
 
-          <p className="text-xs text-muted">
-            Estimativa feita com os dados e premissas que você informou. Não é promessa de resultado
-            nem recomendação de investimento.
-          </p>
+          <p className="text-xs text-muted">{t("disclaimer")}</p>
         </div>
       </details>
 
       <Sheet
         open={editing !== null}
         onClose={close}
-        title={editing?.scenario ? "Editar cenário" : "Novo cenário"}
+        title={editing?.scenario ? t("editTitle") : t("add")}
       >
         <ScenarioForm
           key={editing?.nonce}
@@ -338,9 +341,9 @@ export function RetirementBoard({
       <ConfirmSheet
         open={removing !== null}
         onClose={() => setRemoving(null)}
-        title="Excluir cenário"
-        text={`"${removing?.name ?? ""}" será apagado.`}
-        confirmLabel="Excluir"
+        title={t("removeTitle")}
+        text={t("removeText", { name: removing?.name ?? "" })}
+        confirmLabel={t("removeConfirm")}
         action={deleteScenario}
         hidden={{ id: removing?.id ?? "" }}
       />

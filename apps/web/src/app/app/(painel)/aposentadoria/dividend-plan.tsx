@@ -1,7 +1,8 @@
 "use client";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState } from "react";
-import { formatBRL, money, type DividendPlan as Plan } from "@organizeup/domain";
+import { money } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import {
   Button,
@@ -13,36 +14,20 @@ import {
   StatTile,
   submitKeeping,
 } from "@/components/ui";
+import { formatAmount, formatPercent, toFieldValue } from "@/i18n/format";
 import type { loadDividendPlan } from "@/lib/planning";
 import { acceptSavingAmounts, saveRetirementPlan, type FormState } from "./actions";
 import { DividendChart } from "./dividend-chart";
+import { percentValue } from "./stored-number";
 
 type Data = Awaited<ReturnType<typeof loadDividendPlan>>;
 
 const initial: FormState = { ok: false, message: null };
-const comma = (value: string | null | undefined) => value?.replace(".", ",") ?? "";
-
-const TARGET_BASIS: Record<Plan["targetBasis"], string> = {
-  informado: "informada por você",
-  gasto_medio: "igual ao seu gasto médio",
-  essencial_120: "seu gasto essencial mais 20%",
-  sem_dados: "",
-};
-
-function yieldHint(plan: Plan): string {
-  switch (plan.yieldBasis) {
-    case "observado_12m":
-      return "pelos proventos dos últimos 12 meses";
-    case "observado_anualizado":
-      return `baseado em ${plan.yieldMonthsBasis} meses`;
-    case "suspeito":
-      return `os proventos indicam ${comma(plan.observedYield)}%, fora do esperado; usamos o informado`;
-    default:
-      return "informado";
-  }
-}
 
 function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) {
+  const t = useTranslations("aposentadoria.saving");
+  const tPlan = useTranslations("aposentadoria.plan");
+  const locale = useLocale();
   const { suggested, surplus, contribution } = data;
   const [state, action, pending] = useActionState(acceptSavingAmounts, initial);
   const none = money(suggested.total).isZero();
@@ -50,41 +35,43 @@ function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) 
     <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card-soft p-5 sm:p-6">
       <div>
         <p className="text-lg font-semibold sm:text-2xl">
-          Guarde por mês: <span className="tabular-nums">{formatBRL(suggested.total)}</span>
+          {t.rich("title", {
+            amount: formatAmount(suggested.total, locale),
+            value: (chunks) => <span className="tabular-nums">{chunks}</span>,
+          })}
         </p>
         <p className="mt-1 text-sm tabular-nums">
-          ({formatBRL(suggested.reserve)} na reserva + {formatBRL(suggested.investment)} em
-          investimentos)
+          {t("split", {
+            reserve: formatAmount(suggested.reserve, locale),
+            investment: formatAmount(suggested.investment, locale),
+          })}
         </p>
       </div>
       {money(suggested.debt).gt(0) ? (
-        <p className="text-sm">
-          Antes disso, {formatBRL(suggested.debt)} por mês vão para quitar dívidas caras.
-        </p>
+        <p className="text-sm">{t("debt", { amount: formatAmount(suggested.debt, locale) })}</p>
       ) : null}
       <p className="text-xs text-muted">
         {surplus.basis === "previsto"
-          ? "Calculado pela sua renda e pelas despesas previstas."
-          : `Calculado pelo que sobrou nos últimos ${surplus.months} meses.`}
+          ? t("basisPlanned")
+          : t("basisActual", { months: surplus.months })}
       </p>
       {none ? (
-        <p className="text-sm">
-          Hoje não sobra dinheiro para guardar. Registre sua renda e seus gastos, ou reveja as
-          despesas.
-        </p>
+        <p className="text-sm">{t("none")}</p>
       ) : suggested.accepted ? (
-        <p className="text-sm font-medium">Este é o valor do seu plano.</p>
+        <p className="text-sm font-medium">{t("accepted")}</p>
       ) : (
         <>
           {data.form.monthlyContribution !== null ? (
-            <p className="text-sm">Hoje o plano usa {formatBRL(contribution)} em investimentos.</p>
+            <p className="text-sm">
+              {t("current", { amount: formatAmount(contribution, locale) })}
+            </p>
           ) : null}
           {writable ? (
             <form onSubmit={submitKeeping(action)} className="flex flex-col gap-2 sm:items-start">
               <input type="hidden" name="reserve" value={suggested.reserve} />
               <input type="hidden" name="investment" value={suggested.investment} />
               <Button type="submit" disabled={pending}>
-                {pending ? "Salvando…" : "Aceitar este valor"}
+                {pending ? tPlan("saving") : t("accept")}
               </Button>
               <FormMessage message={state.message} />
             </form>
@@ -96,79 +83,97 @@ function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) 
 }
 
 function PlanFacts({ data, targetYear }: { data: Data; targetYear: number }) {
+  const t = useTranslations("aposentadoria.facts");
+  const locale = useLocale();
   const { plan, contribution } = data;
+  const amount = (value: string) => formatAmount(value, locale);
   const closes = plan.yearWithContribution;
   const others = money(plan.otherBase).gt(0);
+
+  const yieldHint = () => {
+    switch (plan.yieldBasis) {
+      case "observado_12m":
+        return t("yieldBasis.observed12m");
+      case "observado_anualizado":
+        return t("yieldBasis.annualized", { months: plan.yieldMonthsBasis ?? 0 });
+      case "suspeito":
+        return t("yieldBasis.suspicious", {
+          percent: percentValue(plan.observedYield ?? "0", locale),
+        });
+      default:
+        return t("yieldBasis.informed");
+    }
+  };
+
+  const targetHint = () => {
+    if (plan.targetBasis === "sem_dados") return undefined;
+    return money(plan.otherIncome).gt(0)
+      ? t(`targetBasisWithPension.${plan.targetBasis}`, { amount: amount(plan.otherIncome) })
+      : t(`targetBasis.${plan.targetBasis}`);
+  };
+
   return (
     <>
       <dl className="m-0 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatTile
-          label="Renda que você quer por mês"
-          value={formatBRL(plan.targetIncome ?? "0")}
-          hint={
-            money(plan.otherIncome).gt(0)
-              ? `${TARGET_BASIS[plan.targetBasis]}; ${formatBRL(plan.otherIncome)} vêm do INSS ou pensão`
-              : TARGET_BASIS[plan.targetBasis]
-          }
+          label={t("target")}
+          value={amount(plan.targetIncome ?? "0")}
+          hint={targetHint()}
         />
         <StatTile
-          label="Renda atual em proventos"
-          value={formatBRL(plan.currentIncome)}
-          hint={`já cobre ${plan.coverage}%`}
+          label={t("current")}
+          value={amount(plan.currentIncome)}
+          hint={t("currentHint", { percent: formatPercent(plan.coverage, locale) })}
         />
         <StatTile
-          label="Rendimento anual da carteira"
-          value={`${comma(plan.yieldUsed)}%`}
-          hint={yieldHint(plan)}
+          label={t("yield")}
+          value={percentValue(plan.yieldUsed ?? "0", locale)}
+          hint={yieldHint()}
         />
         <StatTile
-          label="Quanto precisa ter investido"
-          value={formatBRL(plan.requiredPortfolio ?? "0")}
+          label={t("required")}
+          value={amount(plan.requiredPortfolio ?? "0")}
           hint={
             money(plan.portfolioGap ?? "0").gt(0)
-              ? `faltam ${formatBRL(plan.portfolioGap ?? "0")}`
-              : "você já tem esse valor"
+              ? t("requiredGap", { amount: amount(plan.portfolioGap ?? "0") })
+              : t("requiredDone")
           }
         />
         <StatTile
-          label="Carteira que paga renda"
-          value={formatBRL(plan.incomeBase)}
-          hint="investimentos com proventos nos últimos 12 meses"
+          label={t("incomeBase")}
+          value={amount(plan.incomeBase)}
+          hint={t("incomeBaseHint")}
         />
-        <StatTile
-          label="Outros investimentos"
-          value={formatBRL(plan.otherBase)}
-          hint="ainda não pagam proventos"
-        />
+        <StatTile label={t("otherBase")} value={amount(plan.otherBase)} hint={t("otherBaseHint")} />
       </dl>
-      {others ? (
-        <p className="text-xs text-muted">
-          Nota: contamos os outros investimentos no que você já tem, supondo que um dia eles passem
-          para ativos que pagam renda.
-        </p>
-      ) : null}
+      {others ? <p className="text-xs text-muted">{t("otherBaseNote")}</p> : null}
 
-      <Card title="Até quando">
+      <Card title={t("untilTitle")}>
         <ul className="m-0 flex list-none flex-col gap-2 p-0 text-sm">
           <li>
             {closes === null
-              ? `Guardando ${formatBRL(contribution)} por mês, a carteira não fecha em 60 anos.`
-              : `Guardando ${formatBRL(contribution)} por mês, a carteira fecha em ${closes}.`}
+              ? t("neverCloses", { amount: amount(contribution) })
+              : t("closes", { amount: amount(contribution), year: closes })}
           </li>
           {plan.requiredContribution !== null && money(plan.requiredContribution).gt(0) ? (
             <li>
-              Para fechar em {targetYear} seria preciso {formatBRL(plan.requiredContribution)} por
-              mês.
+              {t("requiredContribution", {
+                year: targetYear,
+                amount: amount(plan.requiredContribution),
+              })}
             </li>
           ) : null}
           {plan.projectedIncomeAtTarget !== null ? (
             <li>
-              Em {targetYear} a carteira pagaria {formatBRL(plan.projectedIncomeAtTarget)} por mês.
+              {t("projectedIncome", {
+                year: targetYear,
+                amount: amount(plan.projectedIncomeAtTarget),
+              })}
             </li>
           ) : null}
           {plan.pensionsLater.map((pension) => (
             <li key={`${pension.fromYear}-${pension.amount}`}>
-              {formatBRL(pension.amount)} de INSS entra só em {pension.fromYear}.
+              {t("pensionLater", { amount: amount(pension.amount), year: pension.fromYear })}
             </li>
           ))}
         </ul>
@@ -187,32 +192,29 @@ function PlanFacts({ data, targetYear }: { data: Data; targetYear: number }) {
 }
 
 function MissingData({ data }: { data: Data }) {
+  const t = useTranslations("aposentadoria.missing");
   const { plan, targetYear } = data;
   const noIncome = plan.status === "sem_dados";
   return (
     <div className="flex flex-col gap-3">
       {targetYear === null || noIncome ? (
         <EmptyState
-          title="Complete seu plano de aposentadoria"
-          text={
-            targetYear === null
-              ? "Diga em que ano querem parar de trabalhar. Com isso calculamos quanto guardar por mês."
-              : "Informe a renda que você quer por mês ou registre seus gastos."
-          }
+          title={t("planTitle")}
+          text={targetYear === null ? t("planNoYear") : t("planNoIncome")}
           action={
             <Link href="/app/completar" className={buttonClass("secondary", true)}>
-              Completar cadastro
+              {t("planAction")}
             </Link>
           }
         />
       ) : null}
       {plan.status === "sem_yield" ? (
         <EmptyState
-          title="Informe o rendimento anual da carteira ou registre proventos"
-          text="Sem isso não dá para calcular quanto precisa ter investido."
+          title={t("yieldTitle")}
+          text={t("yieldText")}
           action={
             <Link href="/app/proventos" className={buttonClass("secondary", true)}>
-              Registrar proventos
+              {t("yieldAction")}
             </Link>
           }
         />
@@ -222,54 +224,48 @@ function MissingData({ data }: { data: Data }) {
 }
 
 function PlanForm({ data }: { data: Data }) {
+  const t = useTranslations("aposentadoria.plan");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(saveRetirementPlan, initial);
   const { form } = data;
   return (
-    <Card title="Seu plano" description="O que ficar vazio o assistente calcula para você.">
+    <Card title={t("formTitle")} description={t("formDescription")}>
       <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Field label="Renda que você quer por mês (R$)" hint="Vazio: usamos seu gasto médio.">
+          <Field label={t("targetIncome")} hint={t("targetIncomeHint")}>
             <Input
               name="targetIncome"
               inputMode="decimal"
-              placeholder="8.000,00"
-              defaultValue={comma(form.targetIncome)}
+              placeholder={t("targetIncomePlaceholder")}
+              defaultValue={toFieldValue(form.targetIncome, locale)}
             />
           </Field>
-          <Field
-            label="Rendimento anual da carteira (%)"
-            hint="Quanto a carteira paga em proventos por ano. Ex.: R$ 100 mil que pagam R$ 6 mil = 6%."
-          >
+          <Field label={t("expectedYield")} hint={t("expectedYieldHint")}>
             <Input
               name="expectedYield"
               inputMode="decimal"
-              placeholder="6,00"
-              defaultValue={comma(form.expectedYield)}
+              placeholder={t("expectedYieldPlaceholder")}
+              defaultValue={toFieldValue(form.expectedYield, locale)}
             />
           </Field>
-          <Field label="Quanto guardar por mês (R$)" hint="Vazio: usamos o valor sugerido.">
+          <Field label={t("contribution")} hint={t("contributionHint")}>
             <Input
               key={form.monthlyContribution ?? ""}
               name="monthlyContribution"
               inputMode="decimal"
-              placeholder="1.000,00"
-              defaultValue={comma(form.monthlyContribution)}
+              placeholder={t("contributionPlaceholder")}
+              defaultValue={toFieldValue(form.monthlyContribution, locale)}
             />
           </Field>
         </div>
         <details className="text-sm">
-          <summary className="w-fit cursor-pointer rounded-lg font-medium">
-            Ajustes avançados
-          </summary>
+          <summary className="w-fit cursor-pointer rounded-lg font-medium">{t("advanced")}</summary>
           <div className="mt-3 max-w-sm">
-            <Field
-              label="Crescimento dos proventos (%)"
-              hint="Ao ano, acima da inflação. Na dúvida, deixe 0."
-            >
+            <Field label={t("growth")} hint={t("growthHint")}>
               <Input
                 name="dividendGrowth"
                 inputMode="decimal"
-                defaultValue={comma(form.dividendGrowth)}
+                defaultValue={toFieldValue(form.dividendGrowth, locale)}
               />
             </Field>
           </div>
@@ -277,7 +273,7 @@ function PlanForm({ data }: { data: Data }) {
         <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
         <div>
           <Button type="submit" disabled={pending}>
-            {pending ? "Salvando…" : "Salvar plano"}
+            {pending ? t("saving") : t("save")}
           </Button>
         </div>
       </form>
@@ -286,16 +282,15 @@ function PlanForm({ data }: { data: Data }) {
 }
 
 export function DividendPlan({ data, writable }: { data: Data; writable: boolean }) {
+  const t = useTranslations("aposentadoria.plan");
   const { plan, targetYear } = data;
   return (
     <section aria-labelledby="viver-dos-rendimentos" className="flex flex-col gap-4">
       <div>
         <h2 id="viver-dos-rendimentos" className="font-display text-2xl font-medium">
-          Viver dos rendimentos
+          {t("heading")}
         </h2>
-        <p className="mt-1 text-sm text-muted">
-          A carteira paga as contas e não acaba. Este é o plano que o assistente acompanha.
-        </p>
+        <p className="mt-1 text-sm text-muted">{t("intro")}</p>
       </div>
 
       {plan.status === "ok" && targetYear !== null ? (
@@ -309,10 +304,7 @@ export function DividendPlan({ data, writable }: { data: Data; writable: boolean
 
       {writable ? <PlanForm data={data} /> : null}
 
-      <p className="text-xs text-muted">
-        Estimativa. Proventos passados não garantem proventos futuros; nada aqui é recomendação de
-        investimento.
-      </p>
+      <p className="text-xs text-muted">{t("disclaimer")}</p>
     </section>
   );
 }
