@@ -126,16 +126,25 @@ Regras e memória não resolvem extrato que caiu em categoria genérica, e isso 
   quantidade, valor médio e nomes de categorias. A limpeza roda antes de normalizar, porque normalizar desmonta e-mail e
   CPF, e de novo depois, para pegar nome colado em número. Categoria genérica ou de sistema não aparece como destino.
 - **O que não entra:** categorias de meta, aporte, cartão, dívida e transferência, como origem e como destino, e
-  estabelecimento com sugestão pendente, desfeita ou ignorada há menos de 30 dias. Sem isso, o que já foi decidido
+  estabelecimento com sugestão desfeita ou ignorada há menos de 30 dias. Sem isso, o que já foi decidido
   ficaria no topo toda noite e o resto do histórico nunca seria visto.
 - **O modelo só opina.** `planCategoryMoves`, em `packages/domain`, valida cada resposta: categoria existente do
   mesmo tipo, nome novo curto e sem nome de pessoa, no máximo 5 novos por noite, e quase-duplicata funde na existente.
-- **Regra 7.** Confiança média ou alta aplica sozinha o que é derivado (`revisar`, `importacao` e `agente` em
-  categoria genérica), com Desfazer, e grava `category_memory` com `source = 'agente'`. `familia` e confiança baixa viram
-  sugestão pendente. Quem escolheu o nível **Sugerir** só recebe sugestões. O limite de 5 ações por dia da §4 vale para o
+- **Regra 7, com a decisão do fundador em 2026-11-01** ("O agente de categoria não precisa perguntar se é para mudar a
+  categoria, ele deve mudar sem precisar de aprovação. Não precisa ir como sugestão, somente mude."; ver ADR-0015).
+  Confiança média ou alta aplica sozinha o que está em categoria genérica, seja qual for a origem, inclusive `familia`,
+  e o que ficou `revisar`, com Desfazer e notificação, e grava `category_memory` com `source = 'agente'`. Nada vira
+  sugestão pendente. O nível **Sugerir** também muda direto, porque a decisão vale em todo nível. Sem o aceite do
+  assistente, a etapa de IA não roda, e só a parte por regras muda. O limite de 5 ações por dia da §4 vale para o
   assistente da conversa, não para esta etapa, que trabalha por lote.
-- **Desfeito bloqueia o estabelecimento, não só o destino.** O modelo não é consultado de novo sobre ele. Categoria
-  criada pela mudança desfeita é arquivada se ficou sem uso.
+- **Confiança baixa** não muda nem pergunta: vira a mesma marca `sem_pista`, e o estabelecimento é avaliado de novo em
+  30 dias.
+- **`sugerir_categoria`** segue o mesmo critério, em qualquer nível: muda na hora o que está em categoria genérica ou
+  `revisar`, com notificação e Desfazer, dentro do limite de 5 por dia. Lançamento em categoria específica não muda nem
+  vira sugestão, mesmo que a pessoa peça, e estabelecimento desfeito também não: ela troca direto no lançamento. As
+  outras ferramentas de escrita continuam só criando sugestão.
+- **Desfeito bloqueia o estabelecimento, não só o destino.** O modelo não é consultado de novo sobre ele, e as regras
+  também não o movem. Categoria criada pela mudança desfeita é arquivada se ficou sem uso.
 - **Sem resposta aproveitável** (o modelo não soube, ou a resposta foi recusada) vira marca `ignorada` com chave
   `sem_pista`, sem nada na tela, e o estabelecimento fica de fora por 30 dias.
 - **Relatório:** a parte da IA vai em `data.ia` do relatório `categorias` do dia e sobrevive a uma nova rodada das regras.

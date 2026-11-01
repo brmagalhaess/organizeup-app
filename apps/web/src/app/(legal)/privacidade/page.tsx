@@ -89,9 +89,11 @@ export default function PrivacyPage() {
       </p>
       <p>
         O que você informou só muda com o seu aceite. O que o sistema calcula, como o plano de uma
-        meta, é refeito todo dia. Quando um assistente move um lançamento que ficou para revisar ou
-        em uma categoria genérica sem você ter escolhido, a mudança aparece em Sugestões, e você
-        pode desfazer. Categoria que você escolheu só muda com o seu aceite.
+        meta, é refeito todo dia. A categoria é a exceção: um assistente muda sozinho, sem pedir
+        aceite, o lançamento que ficou para revisar ou em uma categoria genérica, como Outras
+        despesas, mesmo que você mesmo o tenha colocado lá, e junta categorias quase iguais. Cada
+        mudança aparece em Notificações, com o antes e o depois, e você pode desfazer. Lançamento
+        que você colocou em uma categoria específica não muda sozinho.
       </p>
 
       <h2>Assistente com inteligência artificial</h2>

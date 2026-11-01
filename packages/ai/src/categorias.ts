@@ -1,7 +1,7 @@
 // Categorias com IA (ADR-0018): de madrugada, depois das regras, o modelo classifica o que ficou em
 // categoria genérica. Uma chamada por família e por dia, sem ferramentas e sem transação aberta. O
-// modelo só opina: a resposta passa por `planCategoryMoves` e quem grava é `applyCategoryPlan`. Log
-// só com contagens. Sem o aceite da madrugada, nada sai.
+// modelo só opina: a resposta passa por `planCategoryMoves` e quem grava é `applyCategoryPlan`, em
+// qualquer nível de autonomia. Log só com contagens. Sem o aceite da madrugada, nada sai.
 import {
   applyCategoryPlan,
   loadCategoryCandidates,
@@ -26,7 +26,7 @@ import {
   type CategoryOption,
 } from "@organizeup/domain";
 import { z } from "zod";
-import { aiLimits, readAssistantSettings, serviceDay, type AiLimits } from "./access";
+import { aiLimits, serviceDay, type AiLimits } from "./access";
 import type { ModelClient, ModelMessage, StreamParams } from "./client";
 import { nightGate, type InsightGate } from "./insights/nightly";
 import { rejectionOf } from "./insights/verify";
@@ -174,8 +174,6 @@ export interface CategoryReviewRun {
   groups: number;
   /** Lançamentos movidos. */
   moved: number;
-  /** Sugestões pendentes gravadas. */
-  suggestions: number;
   created: number;
   /** Grupos sem resposta aproveitável. */
   skipped: number;
@@ -197,7 +195,6 @@ export async function runCategoryReview(input: CategoryReviewInput): Promise<Cat
     gate: "pronto",
     groups: 0,
     moved: 0,
-    suggestions: 0,
     created: 0,
     skipped: 0,
     invalid: false,
@@ -205,7 +202,6 @@ export async function runCategoryReview(input: CategoryReviewInput): Promise<Cat
   const gate = await tolerateSchemaLag(() => categoryGate(ctx, day, limits), "desligado" as const);
   if (gate !== "pronto") return { ...run, gate };
 
-  const settings = await readAssistantSettings(ctx);
   const { today, privacy, review } = await withHousehold(ctx, async (tx) => {
     const today = todayIn(await householdTimezone(tx, ctx.householdId));
     return {
@@ -248,13 +244,11 @@ export async function runCategoryReview(input: CategoryReviewInput): Promise<Cat
       householdId: ctx.householdId,
       plan,
       sent: review.groups.length,
-      suggestOnly: settings?.autonomy === "sugerir",
     }),
   );
   return {
     ...run,
     moved: applied.moved,
-    suggestions: applied.suggestions,
     created: applied.created.length,
     skipped: applied.skipped,
   };

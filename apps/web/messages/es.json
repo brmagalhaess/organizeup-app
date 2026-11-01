@@ -385,5 +385,51 @@
       "wrongPassword": "Contraseña incorrecta."
     },
     "noPermission": "Tu papel en esta familia no permite cambios."
+  },
+  "notificacoes": {
+    "metaTitle": "Notificaciones",
+    "title": "Notificaciones",
+    "description": "Lo que el asistente cambió por su cuenta, con el antes y el después.",
+    "bell": "{count, plural, =0 {Notificaciones} one {Notificaciones, # sin leer} other {Notificaciones, # sin leer}}",
+    "filterLabel": "Filtrar notificaciones",
+    "filters": {
+      "all": "Todas",
+      "unread": "Sin leer",
+      "read": "Leídas"
+    },
+    "markAll": "Marcar todas como leídas",
+    "allRead": "Todo marcado como leído.",
+    "noPermission": "Tu papel en esta familia no permite cambios.",
+    "failed": "No se pudo terminar ahora. Actualiza la página e inténtalo de nuevo.",
+    "undo": "Deshacer",
+    "undoLabel": "Deshacer: {title}",
+    "undoDone": "Deshecho. El asistente ya no toca estos movimientos.",
+    "undoFailed": "No se pudo deshacer: ya se deshizo o alguien cambió estos movimientos.",
+    "undone": "Deshecho",
+    "unreadTag": "Sin leer",
+    "newCategory": "Categoría nueva",
+    "open": "Ver en Sugerencias",
+    "change": "{from} → {to}",
+    "changeDetail": "{merchant}: {entries}, {sum}",
+    "mergeDetail": "Categorías unidas: {entries}, {sum}",
+    "summary": "{changes, plural, one {Y # cambio más esta noche} other {Y # cambios más esta noche}}",
+    "summaryDetail": "{entries}, {sum}. Todo está en Sugerencias, con Deshacer.",
+    "entries": "{count, plural, =0 {ningún movimiento} one {# movimiento} other {# movimientos}}",
+    "unavailableTitle": "Notificaciones no disponibles",
+    "unavailableText": "Estamos actualizando el servicio. Inténtalo de nuevo en unos minutos.",
+    "empty": {
+      "all": {
+        "title": "Aún no hay notificaciones",
+        "text": "Cuando el asistente cambie algo por su cuenta, aquí verás el antes y el después."
+      },
+      "unread": {
+        "title": "Nada nuevo por aquí",
+        "text": "Ya marcaste todo como leído."
+      },
+      "read": {
+        "title": "Nada leído todavía",
+        "text": "Lo que marques como leído queda aquí."
+      }
+    }
   }
 }

@@ -41,6 +41,7 @@ import { DEFAULT_LOCALE } from "@/i18n/locales";
 import { authClient } from "@/lib/auth-client";
 import { EntryDialogProvider, useEntryDialog } from "./entry-context";
 import type { EntryOptions } from "./entry-form";
+import { NotificationBell } from "./notification-bell";
 
 interface NavItem {
   href: string;
@@ -67,7 +68,7 @@ export interface ShellBanner {
 const SUGGESTIONS_HREF = "/app/sugestoes";
 
 /** Telas já traduzidas. As outras seguem em português e avisam isso ao leitor de tela. */
-const TRANSLATED_SCREENS = new Set(["/app", "/app/configuracoes"]);
+const TRANSLATED_SCREENS = new Set(["/app", "/app/configuracoes", "/app/notificacoes"]);
 
 const groups: Array<{ title: keyof Messages["shell"]["groups"]; items: NavItem[] }> = [
   {
@@ -311,6 +312,7 @@ export function AppShell({
   notice = null,
   banners = [],
   pendingSuggestions,
+  unreadNotifications,
   assistant,
 }: {
   children: ReactNode;
@@ -324,6 +326,7 @@ export function AppShell({
   notice?: ShellNotice | null;
   banners?: ShellBanner[];
   pendingSuggestions: number;
+  unreadNotifications: number;
   assistant: AssistantState;
 }) {
   const t = useTranslations("shell");
@@ -338,9 +341,12 @@ export function AppShell({
     >
       <div className="min-h-dvh lg:grid lg:grid-cols-[16.5rem_minmax(0,1fr)]">
         <aside className="sticky top-0 hidden h-dvh flex-col gap-4 bg-pine p-4 lg:flex">
-          <Link href="/app" className="px-3 pt-2 font-display text-xl font-semibold text-white">
-            OrganizeUp
-          </Link>
+          <div className="flex items-center justify-between pt-1">
+            <Link href="/app" className="px-3 font-display text-xl font-semibold text-white">
+              OrganizeUp
+            </Link>
+            <NotificationBell unread={unreadNotifications} />
+          </div>
           <QuickAdd className="w-full" />
           <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-color:rgb(255_255_255/0.3)_transparent] [scrollbar-width:thin]">
             <Navigation pendingSuggestions={pendingSuggestions} />
@@ -353,7 +359,10 @@ export function AppShell({
             <Link href="/app" className="font-display text-lg font-semibold text-white">
               OrganizeUp
             </Link>
-            <span className="truncate text-sm text-white/85">{familyName}</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm text-white/85">{familyName}</span>
+              <NotificationBell unread={unreadNotifications} />
+            </div>
           </header>
           {banners.map((banner) => (
             <ServiceBanner key={banner.key} banner={banner} />

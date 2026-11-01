@@ -1,6 +1,6 @@
 import "server-only";
 import {
-  categoriaPayloadSchema,
+  AUTOMATIC_SUGGESTION_KINDS,
   linkPayloadSchema,
   viagemPayloadSchema,
   type ViagemPayload,
@@ -13,6 +13,7 @@ import {
   gte,
   householdSettings,
   householdSuggestions,
+  notInArray,
   people,
   sql,
   tolerateSchemaLag,
@@ -24,14 +25,13 @@ import {
 import { ageFromBirth, DEFAULT_TIMEZONE, todayIn, TRIP_RULES } from "@organizeup/domain";
 
 /** Só estes tipos aceitam "Aplicar tudo": nenhum deles decide sobre dinheiro da família. */
-export const BULK_KINDS = ["categoria", "investimento", "lembrete"] as const;
+export const BULK_KINDS = ["investimento", "lembrete"] as const;
 export type BulkKind = (typeof BULK_KINDS)[number];
 
 /** Quantos dias "O que o assistente fez sozinho" olha para trás. */
 const AUTOMATIC_DAYS = 7;
 
 const GROUPS: Array<{ title: string; kinds: SuggestionKind[] }> = [
-  { title: "Categorias", kinds: ["categoria", "fusao_categoria"] },
   {
     title: "Quanto guardar por mês",
     kinds: ["aporte_reserva", "aporte_investimento", "aporte_divida"],
@@ -84,6 +84,15 @@ const pendingColumns = {
 
 export { tolerateSchemaLag } from "@organizeup/db";
 
+/**
+ * O que espera a família. Categoria não pergunta mais: pendente antiga é resolvida na próxima rodada do
+ * agente, e até lá não aparece.
+ */
+const waitingForFamily = and(
+  eq(householdSuggestions.status, "pendente"),
+  notInArray(householdSuggestions.kind, [...AUTOMATIC_SUGGESTION_KINDS]),
+);
+
 export const noticeCookie = (key: string) => `ou_notice_${key}`;
 
 /** Segundos até a próxima meia-noite no fuso da família. */
@@ -107,7 +116,7 @@ export async function countPending(tx: TenantTx): Promise<number> {
   const [row] = await tx
     .select({ total: sql<number>`count(*)::int` })
     .from(householdSuggestions)
-    .where(eq(householdSuggestions.status, "pendente"));
+    .where(waitingForFamily);
   return row?.total ?? 0;
 }
 
@@ -125,23 +134,10 @@ const toItem = (row: PendingRow): PendingItem => ({
   href: hrefOf(row),
 });
 
-/** Quantos lançamentos as sugestões de categoria movem somadas. */
-function movedTransactions(rows: PendingRow[]): number {
-  return rows.reduce((total, row) => {
-    const parsed = categoriaPayloadSchema.safeParse(row.payload);
-    return total + (parsed.success ? parsed.data.transactionIds.length : 0);
-  }, 0);
-}
-
 function bulkOf(rows: PendingRow[]): SuggestionBulk | null {
   for (const kind of BULK_KINDS) {
     const same = rows.filter((row) => row.kind === kind);
     if (same.length < 2) continue;
-    if (kind === "categoria")
-      return {
-        kind,
-        question: `Mover ${movedTransactions(same)} lançamentos para as categorias sugeridas?`,
-      };
     return {
       kind,
       question:
@@ -164,7 +160,7 @@ export async function loadSuggestions(ctx: TenantContext): Promise<{
         const pending = await tx
           .select(pendingColumns)
           .from(householdSuggestions)
-          .where(eq(householdSuggestions.status, "pendente"))
+          .where(waitingForFamily)
           .orderBy(desc(householdSuggestions.createdAt));
         const since = new Date(Date.now() - AUTOMATIC_DAYS * 86_400_000);
         const automatic = await tx
@@ -224,7 +220,7 @@ export async function loadTopSuggestions(
         const items = await tx
           .select({ id: householdSuggestions.id, title: householdSuggestions.title })
           .from(householdSuggestions)
-          .where(eq(householdSuggestions.status, "pendente"))
+          .where(waitingForFamily)
           .orderBy(desc(householdSuggestions.createdAt))
           .limit(limit);
         return { items, total: await countPending(tx) };

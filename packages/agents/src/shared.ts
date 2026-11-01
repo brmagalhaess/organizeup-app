@@ -215,6 +215,41 @@ export async function recordApplied(
   return row!.id;
 }
 
+/** Grava na mesma linha o que o agente fez: uma sugestão pendente, ou a mudança do dia que cresceu. */
+export async function markApplied(
+  tx: TenantTx,
+  id: string,
+  item: PendingSuggestion,
+): Promise<void> {
+  await tx
+    .update(householdSuggestions)
+    .set({
+      title: clamp(item.title, MAX_TITLE),
+      body: clamp(item.body, MAX_BODY),
+      payload: item.payload,
+      status: "aplicada",
+      appliedBy: "agente",
+      decidedAt: new Date(),
+    })
+    .where(eq(householdSuggestions.id, id));
+}
+
+/**
+ * Fecha sem efeito uma sugestão pendente que a regra não permite. A chave muda porque ninguém decidiu
+ * nada: com a chave antiga, ela contaria como "Agora não" e seguraria o estabelecimento por 30 dias.
+ */
+export async function closePending(tx: TenantTx, id: string, dedupeKey: string): Promise<void> {
+  await tx
+    .update(householdSuggestions)
+    .set({
+      status: "ignorada",
+      appliedBy: "agente",
+      dedupeKey: `fechada:${dedupeKey}`.slice(0, 160),
+      decidedAt: new Date(),
+    })
+    .where(eq(householdSuggestions.id, id));
+}
+
 /**
  * Marca algo que o agente decidiu deixar de lado: fica como `ignorada`, sem pendência para a família,
  * e `loadDecisions` tira da fila por 30 dias.

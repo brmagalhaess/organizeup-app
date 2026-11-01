@@ -44,12 +44,12 @@ export const AUTONOMY_OPTIONS = [
   {
     value: "sugerir",
     label: "Sugerir",
-    text: "Só dá dicas e sugestões. Você decide tudo.",
+    text: "Dá dicas e sugestões para você decidir. Só as categorias genéricas mudam sozinhas, com Desfazer.",
   },
   {
     value: "organizar",
     label: "Organizar",
-    text: "Também arruma sozinho o que ficou para revisar, sempre com Desfazer.",
+    text: "Igual ao Sugerir: arruma sozinho as categorias genéricas e o que ficou para revisar, sempre com Desfazer.",
   },
   {
     value: "completo",

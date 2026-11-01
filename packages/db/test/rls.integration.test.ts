@@ -3317,6 +3317,124 @@ describe("dicas por tela", () => {
   });
 });
 
+describe("notificações da família", () => {
+  const { householdNotifications, householdSuggestions } = db;
+  const row = (household: string, title: string, suggestionId: string | null = null) => ({
+    householdId: household,
+    kind: "categoria" as const,
+    title,
+    body: "Texto",
+    data: { type: "alteracao" },
+    suggestionId,
+    dedupeKey: title,
+  });
+  const suggestion = (household: string) => ({
+    householdId: household,
+    agent: "categorias",
+    kind: "categoria" as const,
+    title: "Mudança",
+    body: "Texto",
+    status: "aplicada" as const,
+    appliedBy: "agente" as const,
+    dedupeKey: `notificacao:${household}`,
+  });
+
+  it("outra família não lê, não muda e não grava em nome dela", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const ctxB = await ctxFor(B.owner, B.household);
+    await db.withHousehold(owner, (tx) =>
+      tx.insert(householdNotifications).values(row(A.household, "Aviso A")),
+    );
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(householdNotifications)).toHaveLength(0);
+      const changed = await tx
+        .update(householdNotifications)
+        .set({ readAt: new Date() })
+        .returning({ id: householdNotifications.id });
+      expect(changed).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(householdNotifications).values(row(A.household, "Forjada")),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("quem só vê lê, mas não marca como lida nem grava", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    await db.withHousehold(viewer, async (tx) => {
+      expect(await tx.select().from(householdNotifications)).toHaveLength(1);
+      const changed = await tx
+        .update(householdNotifications)
+        .set({ readAt: new Date() })
+        .returning({ id: householdNotifications.id });
+      expect(changed).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        tx.insert(householdNotifications).values(row(A.household, "Sem permissão")),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("não aponta para a sugestão de outra família, e o aviso fica quando a sugestão sai", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const ctxB = await ctxFor(B.owner, B.household);
+    const [theirs] = await db.withHousehold(ctxB, (tx) =>
+      tx
+        .insert(householdSuggestions)
+        .values(suggestion(B.household))
+        .returning({ id: householdSuggestions.id }),
+    );
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.insert(householdNotifications).values(row(A.household, "Outra", theirs!.id)),
+      ),
+    ).rejects.toThrow();
+
+    const [mine] = await db.withHousehold(owner, (tx) =>
+      tx
+        .insert(householdSuggestions)
+        .values(suggestion(A.household))
+        .returning({ id: householdSuggestions.id }),
+    );
+    await db.withHousehold(owner, async (tx) => {
+      await tx.insert(householdNotifications).values(row(A.household, "Própria", mine!.id));
+      await tx.delete(householdSuggestions).where(eq(householdSuggestions.id, mine!.id));
+      const [left] = await tx
+        .select()
+        .from(householdNotifications)
+        .where(eq(householdNotifications.dedupeKey, "Própria"));
+      expect(left).toMatchObject({ title: "Própria", suggestionId: null });
+    });
+    await db.withHousehold(ctxB, (tx) => tx.delete(householdSuggestions));
+  });
+
+  it("não repete a chave na família e confere o formato do tipo e do link", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.insert(householdNotifications).values(row(A.household, "Aviso A")),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.execute(
+          sql`insert into household_notifications (household_id, kind, title, body, dedupe_key)
+               values (${A.household}, 'Tipo Livre!', 't', 'b', 'tipo')`,
+        ),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx
+          .insert(householdNotifications)
+          .values({ ...row(A.household, "Link"), href: "https://example.com" }),
+      ),
+    ).rejects.toThrow();
+  });
+});
+
 describe("memória da família (ADR-0018)", () => {
   const { householdMemories } = db;
   const row = (household: string, content: string) => ({

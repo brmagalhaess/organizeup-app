@@ -1,7 +1,6 @@
 "use server";
 import {
   applySuggestion as apply,
-  categoriaPayloadSchema,
   dismissSuggestion as dismiss,
   undoSuggestion as undo,
   type ApplyResult,
@@ -62,23 +61,18 @@ export async function applyAll(form: FormData): Promise<ApplyResult> {
   const kind = bulkSchema.safeParse(form.get("kind"));
   if (!kind.success) return { ok: false, message: "Este tipo de sugestão é decidido uma a uma." };
 
-  const { applied, failed, moved } = await withHousehold(ctx, async (tx) => {
+  const { applied, failed } = await withHousehold(ctx, async (tx) => {
     const rows = await tx
-      .select({ id: householdSuggestions.id, payload: householdSuggestions.payload })
+      .select({ id: householdSuggestions.id })
       .from(householdSuggestions)
       .where(
         and(eq(householdSuggestions.status, "pendente"), eq(householdSuggestions.kind, kind.data)),
       );
-    const totals = { applied: 0, failed: 0, moved: 0 };
+    const totals = { applied: 0, failed: 0 };
     for (const row of rows) {
       const result = await apply(tx, ctx, row.id);
-      if (!result.ok) {
-        totals.failed += 1;
-        continue;
-      }
-      totals.applied += 1;
-      const payload = categoriaPayloadSchema.safeParse(row.payload);
-      if (payload.success) totals.moved += payload.data.transactionIds.length;
+      if (result.ok) totals.applied += 1;
+      else totals.failed += 1;
     }
     return totals;
   });
@@ -86,10 +80,7 @@ export async function applyAll(form: FormData): Promise<ApplyResult> {
   if (applied === 0)
     return { ok: false, message: "Nada foi aplicado. Atualize a página e tente de novo." };
   revalidatePath("/app", "layout");
-  const done =
-    kind.data === "categoria"
-      ? `${moved} ${moved === 1 ? "lançamento movido" : "lançamentos movidos"}.`
-      : `${applied} ${applied === 1 ? "aviso marcado como visto" : "avisos marcados como vistos"}.`;
+  const done = `${applied} ${applied === 1 ? "aviso marcado como visto" : "avisos marcados como vistos"}.`;
   return {
     ok: true,
     message: failed > 0 ? `${done} ${failed} não ${failed === 1 ? "deu" : "deram"} certo.` : done,
