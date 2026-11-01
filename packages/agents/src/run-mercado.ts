@@ -13,6 +13,7 @@ import {
   saveMarketDividends,
   saveMarketIndices,
   saveMarketQuote,
+  saveMarketStockEvents,
   saveMarketTicker,
   withWorkerHousehold,
 } from "@organizeup/db";
@@ -64,6 +65,7 @@ export interface MarketRunResult {
   calls: number;
   quotes: number;
   dividends: number;
+  stockEvents: number;
   indices: number;
   unknown: number;
   noPlan: number;
@@ -123,6 +125,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     calls: 0,
     quotes: 0,
     dividends: 0,
+    stockEvents: 0,
     indices: 0,
     unknown: 0,
     noPlan: 0,
@@ -180,10 +183,13 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     if (index > 0) await sleep(pause);
     try {
       await spend();
-      const { dividends, ...quote } = await fetchBrapiQuote(ticker, client);
+      const { dividends, stockEvents, ...quote } = await fetchBrapiQuote(ticker, client);
       await saveMarketQuote({ ...quote, source: BRAPI_SOURCE });
       result.quotes += 1;
       result.dividends += await saveMarketDividends(dividends);
+      result.stockEvents += await saveMarketStockEvents(
+        stockEvents.map((event) => ({ ...event, ticker, source: BRAPI_SOURCE })),
+      );
 
       // FII: a rota de ações não traz rendimentos; a própria tem uma chamada a mais.
       let dividendsRetryOn: string | null = null;
@@ -238,7 +244,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     ok: result.quotes,
     failed: result.failed,
     suggestions: 0,
-    applied: result.dividends + result.indices,
+    applied: result.dividends + result.stockEvents + result.indices,
     durationMs: Date.now() - startedAt,
   });
   log.info({ ...result }, "mercado: rodada concluída");

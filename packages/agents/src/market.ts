@@ -153,9 +153,18 @@ function stockEventsOf(rows: StockDividend[]): Array<StockEvent & { note: string
     const label = STOCK_EVENT_LABELS[row.label];
     if (!label || !row.lastDatePrior) return [];
     const note = row.completeFactor ? `${label} de ${row.completeFactor}` : label;
-    return [{ comDate: marketDateOf(row.lastDatePrior), factor: row.factor, note }];
+    return [
+      { comDate: marketDateOf(row.lastDatePrior), factor: row.factor, note: note.slice(0, 120) },
+    ];
   });
 }
+
+/** Eventos como a tabela guarda: 8 casas, sem o que arredondaria para zero (a fonte não confirma). */
+const storableStockEvents = (events: Array<StockEvent & { note: string }>) =>
+  events.flatMap((event) => {
+    const factor = money(event.factor).toFixed(8);
+    return money(factor).gt(0) ? [{ ...event, factor }] : [];
+  });
 
 /**
  * Filtra o que dá para usar. Fica de fora o que a fonte não confirma: `verified` falso (em ações,
@@ -206,6 +215,8 @@ export interface BrapiQuote {
   quotedAt: Date;
   lastStockEventOn: string | null;
   lastStockEventNote: string | null;
+  /** Todos os desdobramentos, grupamentos e bonificações que a fonte traz. */
+  stockEvents: Array<StockEvent & { note: string }>;
   dividends: MarketDividendRow[];
 }
 
@@ -242,6 +253,7 @@ export async function fetchBrapiQuote(
     quotedAt: new Date(quote.regularMarketTime),
     lastStockEventOn: latest?.comDate ?? null,
     lastStockEventNote: latest?.note ?? null,
+    stockEvents: storableStockEvents(events),
     dividends,
   };
 }
