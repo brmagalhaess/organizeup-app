@@ -12,6 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@organizeup/agents": "workspace:*",
     "@organizeup/db": "workspace:*",
     "@organizeup/domain": "workspace:*",
