@@ -3,6 +3,7 @@ import {
   databaseStatus,
   findAgentMemories,
   listDeployments,
+  listDiagnostics,
   listQueueCounts,
   listReports,
   listWorkerHeartbeats,
@@ -30,6 +31,15 @@ const queueColumns: Column[] = [
   { key: "last", label: "Última conclusão" },
 ];
 
+const errorColumns: Column[] = [
+  { key: "type", label: "Erro", primary: true },
+  { key: "route", label: "Onde" },
+  { key: "service", label: "Serviço" },
+  { key: "count", label: "Vezes", align: "right" },
+  { key: "last", label: "Última vez" },
+  { key: "commit", label: "Versão" },
+];
+
 const REPORT_KINDS: Record<string, string> = {
   saude: "Saúde",
   semanal: "Semanal",
@@ -49,8 +59,8 @@ export default async function AdminSystemPage() {
   const session = await requireAdmin();
   await noteAdminAccess(session.user.id, "sistema:ver");
 
-  const [database, workers, queues, deployments, reports, memories, migrations] = await Promise.all(
-    [
+  const [database, workers, queues, deployments, reports, memories, migrations, errors] =
+    await Promise.all([
       databaseStatus(),
       listWorkerHeartbeats(),
       listQueueCounts(),
@@ -58,8 +68,8 @@ export default async function AdminSystemPage() {
       listReports({ limit: 10 }),
       findAgentMemories({ limit: 12 }),
       hasAdminDatabase() ? adminMigrations() : [],
-    ],
-  );
+      listDiagnostics({ limit: 20 }),
+    ]);
   const webCommit = process.env.APP_COMMIT ?? "dev";
   const freshest = workers[0] ? minutesSince(workers[0].lastSeenAt) : null;
   const workerOk = freshest !== null && freshest <= WORKER_STALE_MINUTES;
@@ -144,6 +154,38 @@ export default async function AdminSystemPage() {
           />
         </dl>
       </section>
+
+      <Card
+        title="Erros"
+        description="O que falhou e segue aberto. A equipe de agentes lê esta lista toda manhã."
+      >
+        {errors.length === 0 ? (
+          <EmptyState title="Nenhum erro aberto" text="Quando algo falhar, aparece aqui." />
+        ) : (
+          <AdminTable
+            caption="Erros abertos"
+            columns={errorColumns}
+            rows={errors.map((error) => ({
+              id: error.fingerprint,
+              cells: {
+                type: (
+                  <>
+                    <span className="font-mono">{error.errorType}</span>
+                    {error.code ? (
+                      <span className="ml-2 font-mono text-muted">{error.code}</span>
+                    ) : null}
+                  </>
+                ),
+                route: <span className="break-all font-mono">{error.route}</span>,
+                service: error.service === "web" ? "Web" : "Worker",
+                count: formatCount(error.count),
+                last: formatDateTime(error.lastSeenAt),
+                commit: <span className="font-mono">{shortCommit(error.commits[0] ?? "")}</span>,
+              },
+            }))}
+          />
+        )}
+      </Card>
 
       <Card title="Filas" description="Tarefas do worker, por fila.">
         {queues.length === 0 ? (
