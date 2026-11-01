@@ -1318,5 +1318,98 @@
       "date": "Invalid date.",
       "check": "Please check."
     }
+  },
+  "sugestoes": {
+    "metaTitle": "Suggestions",
+    "eyebrow": "Assistant",
+    "title": "Suggestions",
+    "description": "What the assistant noticed in your finances. Anything that's your decision waits for you to accept it.",
+    "groups": {
+      "categorias": "Categories",
+      "aportes": "How much to save per month",
+      "viagens": "Trips",
+      "metas": "Goals",
+      "investimentos": "Investments",
+      "lembretes": "Reminders"
+    },
+    "pending": {
+      "title": "For you to decide",
+      "emptyTitle": "Nothing to review for now",
+      "emptyText": "The assistant comes by every night and leaves here what it notices.",
+      "open": "Open",
+      "openItem": "Open: {name}",
+      "addTrip": "Add to my trips",
+      "applyAll": "Apply all",
+      "applyAllIn": "Apply all in {name}"
+    },
+    "bulk": {
+      "categoria": "Move {count} transactions to the suggested categories?",
+      "investimento": "Mark {count} investment notices as seen?",
+      "lembrete": "Mark {count} reminders as seen?"
+    },
+    "automatic": {
+      "title": "What the assistant did on its own",
+      "period": "In the last 7 days.",
+      "empty": "No changes in the last 7 days.",
+      "undo": "Undo",
+      "undoItem": "Undo: {name}"
+    },
+    "decision": {
+      "accept": "Accept",
+      "later": "Not now",
+      "labeled": "{action}: {name}",
+      "laterHint": "We'll suggest it again in 30 days",
+      "failed": "We couldn't finish this right now. Refresh the page and try again."
+    },
+    "errors": {
+      "notFound": "Suggestion not found.",
+      "oneByOne": "This type of suggestion is decided one at a time.",
+      "nothingApplied": "Nothing was applied. Refresh the page and try again."
+    },
+    "applied": {
+      "moved": "{count, plural, =1 {1 transaction moved} other {# transactions moved}}.",
+      "seen": "{count, plural, =1 {1 notice marked as seen} other {# notices marked as seen}}.",
+      "failed": "{count, plural, =1 {1 didn't work} other {# didn't work}}.",
+      "tripCreated": "Trip to {name} created. Adjust dates and costs in Trips.",
+      "goalCreated": "Goal {name} created. Adjust the details in Goals."
+    },
+    "agent": {
+      "readOnly": "Your role in this family doesn't allow changes.",
+      "notFound": "Suggestion not found.",
+      "decided": "This suggestion has already been decided.",
+      "outdated": "This suggestion is out of date. Ask the assistant for a new one.",
+      "debtExtra": "Agreed: you record the extra payment on the debts screen.",
+      "noted": "Noted.",
+      "dismissed": "All right. We'll suggest it again in 30 days, if it still makes sense.",
+      "onlyApplied": "Only what was applied can be undone.",
+      "incomplete": "Couldn't undo: this suggestion's data is incomplete.",
+      "undone": "Undone.",
+      "undoneDividends": "Undone. These dividends won't come back on their own; the price returns with the next new quote.",
+      "undoneStock": "Undone. The quantity went back to what it was, and this adjustment won't come back on its own.",
+      "noTarget": "Suggestion without a target category.",
+      "categoryGone": "The suggested category no longer exists.",
+      "entriesGone": "Those transactions no longer exist.",
+      "noPrevious": "It can't be undone: the previous state wasn't saved.",
+      "changedByOther": "Someone already changed those transactions; nothing was undone.",
+      "returned": "Transactions returned. The assistant won't touch them again.",
+      "oneCategoryGone": "One of the categories no longer exists.",
+      "merged": "Categories merged. The old one was archived.",
+      "oldCategoryGone": "The old category was deleted; nothing was undone.",
+      "split": "Categories separated again.",
+      "reserveSaved": "Emergency fund amount saved.",
+      "reserveRestored": "Emergency fund amount restored.",
+      "planSaved": "Monthly savings amount saved in the retirement plan.",
+      "planRestored": "Plan amount restored.",
+      "notAssistantTrip": "This trip wasn't created by the assistant.",
+      "tripRemoved": "Trip removed.",
+      "tripGone": "The trip no longer existed.",
+      "goalGone": "This goal no longer exists.",
+      "goalNoted": "Noted. Adjust the goal's amount or date when you can.",
+      "goalDate": "Goal date adjusted. The plan is recalculated in the next run.",
+      "goalHasValues": "The goal has already received money; nothing was undone.",
+      "goalRemoved": "Goal removed.",
+      "goalDateChanged": "The goal date was already changed; nothing was undone.",
+      "goalDateRestored": "Goal date restored."
+    }
   }
 }

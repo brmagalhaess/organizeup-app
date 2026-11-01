@@ -2,18 +2,15 @@
 // Botões e retorno de uma sugestão, usados em Sugestões, Viagens e Investimentos. O estado fica em
 // quem chama: aceitar tira o cartão da tela, e a mensagem precisa sobreviver a ele.
 import type { ApplyResult } from "@organizeup/agents";
+import { useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
 import { Button, FormMessage } from "@/components/ui";
 import { applySuggestion, dismissSuggestion } from "./actions";
 
 type SuggestionAction = (form: FormData) => Promise<ApplyResult>;
 
-const FAILED: ApplyResult = {
-  ok: false,
-  message: "Não foi possível concluir agora. Atualize a página e tente de novo.",
-};
-
 export function useSuggestionActions() {
+  const t = useTranslations("sugestoes.decision");
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<ApplyResult | null>(null);
   const [, startTransition] = useTransition();
@@ -22,7 +19,7 @@ export function useSuggestionActions() {
     try {
       setResult(await action(form));
     } catch {
-      setResult(FAILED);
+      setResult({ ok: false, message: t("failed") });
     }
   }
 
@@ -48,7 +45,7 @@ export function SuggestionFeedback({ result }: { result: ApplyResult | null }) {
 export function DecisionButtons({
   id,
   title,
-  acceptLabel = "Aceitar",
+  acceptLabel,
   actions,
 }: {
   id: string;
@@ -56,6 +53,8 @@ export function DecisionButtons({
   acceptLabel?: string;
   actions: SuggestionActions;
 }) {
+  const t = useTranslations("sugestoes.decision");
+  const accept = acceptLabel ?? t("accept");
   const hintId = useId();
   const disabled = actions.busy !== null;
   return (
@@ -63,23 +62,23 @@ export function DecisionButtons({
       <Button
         small
         disabled={disabled}
-        aria-label={`${acceptLabel}: ${title}`}
+        aria-label={t("labeled", { action: accept, name: title })}
         onClick={() => actions.run(applySuggestion, id)}
       >
-        {acceptLabel}
+        {accept}
       </Button>
       <Button
         variant="secondary"
         small
         disabled={disabled}
-        aria-label={`Agora não: ${title}`}
+        aria-label={t("labeled", { action: t("later"), name: title })}
         aria-describedby={hintId}
         onClick={() => actions.run(dismissSuggestion, id)}
       >
-        Agora não
+        {t("later")}
       </Button>
       <span id={hintId} className="text-xs text-muted">
-        Voltamos a sugerir daqui a 30 dias
+        {t("laterHint")}
       </span>
     </div>
   );

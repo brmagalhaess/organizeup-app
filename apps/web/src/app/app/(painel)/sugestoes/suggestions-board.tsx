@@ -1,7 +1,9 @@
 "use client";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState } from "react";
 import { Button, Card, ConfirmSheet, EmptyState, PageHeader } from "@/components/ui";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
 import type { loadSuggestions, PendingItem, SuggestionBulk } from "@/lib/suggestions";
 import { applyAll, undoSuggestion } from "./actions";
 import {
@@ -22,17 +24,22 @@ function PendingCard({
   writable: boolean;
   actions: SuggestionActions;
 }) {
+  const t = useTranslations("sugestoes.pending");
   return (
     <li className="py-3 first:pt-0 last:pb-0">
-      <p className="text-sm font-medium">{item.title}</p>
-      <p className="mt-1 text-sm text-muted">{item.body}</p>
+      <p lang={DEFAULT_LOCALE} className="text-sm font-medium">
+        {item.title}
+      </p>
+      <p lang={DEFAULT_LOCALE} className="mt-1 text-sm text-muted">
+        {item.body}
+      </p>
       {item.href ? (
         <Link
           href={item.href}
-          aria-label={`Abrir: ${item.title}`}
+          aria-label={t("openItem", { name: item.title })}
           className="mt-1 inline-block text-sm font-medium underline underline-offset-2"
         >
-          Abrir
+          {t("open")}
         </Link>
       ) : null}
       {writable ? (
@@ -40,7 +47,7 @@ function PendingCard({
           id={item.id}
           title={item.title}
           actions={actions}
-          {...(item.kind === "viagem" ? { acceptLabel: "Adicionar às minhas viagens" } : {})}
+          {...(item.kind === "viagem" ? { acceptLabel: t("addTrip") } : {})}
         />
       ) : null}
     </li>
@@ -48,74 +55,77 @@ function PendingCard({
 }
 
 export function SuggestionsBoard({ data, writable }: { data: Data; writable: boolean }) {
+  const t = useTranslations("sugestoes");
   const actions = useSuggestionActions();
   const [bulk, setBulk] = useState<SuggestionBulk | null>(null);
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Assistente"
-        title="Sugestões"
-        description="O que o assistente notou nas suas finanças. O que for decisão sua espera você aceitar."
-      />
+      <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
       <SuggestionFeedback result={actions.result} />
 
-      <Card title="Para você decidir">
+      <Card title={t("pending.title")}>
         {data.groups.length === 0 ? (
-          <EmptyState
-            title="Nada para revisar por enquanto"
-            text="O assistente passa por aqui toda madrugada e deixa aqui o que notar."
-          />
+          <EmptyState title={t("pending.emptyTitle")} text={t("pending.emptyText")} />
         ) : (
           <div className="flex flex-col gap-6">
-            {data.groups.map((group) => (
-              <section key={group.title} aria-label={group.title}>
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold">{group.title}</h3>
-                  {writable && group.bulk ? (
-                    <Button
-                      variant="secondary"
-                      small
-                      aria-label={`Aplicar tudo em ${group.title}`}
-                      onClick={() => setBulk(group.bulk)}
-                    >
-                      Aplicar tudo
-                    </Button>
-                  ) : null}
-                </div>
-                <ul aria-label={group.title} className="m-0 list-none divide-y divide-line p-0">
-                  {group.items.map((item) => (
-                    <PendingCard key={item.id} item={item} writable={writable} actions={actions} />
-                  ))}
-                </ul>
-              </section>
-            ))}
+            {data.groups.map((group) => {
+              const title = t(`groups.${group.key}`);
+              return (
+                <section key={group.key} aria-label={title}>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">{title}</h3>
+                    {writable && group.bulk ? (
+                      <Button
+                        variant="secondary"
+                        small
+                        aria-label={t("pending.applyAllIn", { name: title })}
+                        onClick={() => setBulk(group.bulk)}
+                      >
+                        {t("pending.applyAll")}
+                      </Button>
+                    ) : null}
+                  </div>
+                  <ul aria-label={title} className="m-0 list-none divide-y divide-line p-0">
+                    {group.items.map((item) => (
+                      <PendingCard
+                        key={item.id}
+                        item={item}
+                        writable={writable}
+                        actions={actions}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
           </div>
         )}
       </Card>
 
-      <Card title="O que o assistente fez sozinho" description="Nos últimos 7 dias.">
+      <Card title={t("automatic.title")} description={t("automatic.period")}>
         {data.automatic.length === 0 ? (
-          <p className="text-sm text-muted">Nenhuma alteração nos últimos 7 dias.</p>
+          <p className="text-sm text-muted">{t("automatic.empty")}</p>
         ) : (
-          <ul
-            aria-label="O que o assistente fez sozinho"
-            className="m-0 list-none divide-y divide-line p-0"
-          >
+          <ul aria-label={t("automatic.title")} className="m-0 list-none divide-y divide-line p-0">
             {data.automatic.map((item) => (
               <li key={item.id} className="py-3 first:pt-0 last:pb-0">
-                <p className="text-sm font-medium">{item.title}</p>
-                <p className="mt-1 text-sm text-muted">{item.body}</p>
+                <p lang={DEFAULT_LOCALE} className="text-sm font-medium">
+                  {item.title}
+                </p>
+                <p lang={DEFAULT_LOCALE} className="mt-1 text-sm text-muted">
+                  {item.body}
+                </p>
                 {writable ? (
                   <Button
                     variant="secondary"
                     small
                     className="mt-3"
                     disabled={actions.busy !== null}
-                    aria-label={`Desfazer: ${item.title}`}
+                    aria-label={t("automatic.undoItem", { name: item.title })}
                     onClick={() => actions.run(undoSuggestion, item.id)}
                   >
-                    Desfazer
+                    {t("automatic.undo")}
                   </Button>
                 ) : null}
               </li>
@@ -127,9 +137,9 @@ export function SuggestionsBoard({ data, writable }: { data: Data; writable: boo
       <ConfirmSheet
         open={bulk !== null}
         onClose={() => setBulk(null)}
-        title="Aplicar tudo"
-        text={bulk?.question ?? ""}
-        confirmLabel="Aplicar tudo"
+        title={t("pending.applyAll")}
+        text={bulk ? t(`bulk.${bulk.kind}`, { count: bulk.count }) : ""}
+        confirmLabel={t("pending.applyAll")}
         action={(form) => actions.settle(applyAll, form)}
         hidden={{ kind: bulk?.kind ?? "" }}
       />

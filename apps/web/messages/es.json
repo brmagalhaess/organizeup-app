@@ -1318,5 +1318,98 @@
       "date": "Fecha no válida.",
       "check": "Revisa los datos."
     }
+  },
+  "sugestoes": {
+    "metaTitle": "Sugerencias",
+    "eyebrow": "Asistente",
+    "title": "Sugerencias",
+    "description": "Lo que el asistente notó en tus finanzas. Lo que sea decisión tuya espera a que lo aceptes.",
+    "groups": {
+      "categorias": "Categorías",
+      "aportes": "Cuánto ahorrar al mes",
+      "viagens": "Viajes",
+      "metas": "Metas",
+      "investimentos": "Inversiones",
+      "lembretes": "Recordatorios"
+    },
+    "pending": {
+      "title": "Para que decidas",
+      "emptyTitle": "Nada que revisar por ahora",
+      "emptyText": "El asistente pasa por aquí cada madrugada y deja lo que nota.",
+      "open": "Abrir",
+      "openItem": "Abrir: {name}",
+      "addTrip": "Añadir a mis viajes",
+      "applyAll": "Aplicar todo",
+      "applyAllIn": "Aplicar todo en {name}"
+    },
+    "bulk": {
+      "categoria": "¿Mover {count} movimientos a las categorías sugeridas?",
+      "investimento": "¿Marcar {count} avisos de inversiones como vistos?",
+      "lembrete": "¿Marcar {count} recordatorios como vistos?"
+    },
+    "automatic": {
+      "title": "Lo que el asistente hizo solo",
+      "period": "En los últimos 7 días.",
+      "empty": "Ningún cambio en los últimos 7 días.",
+      "undo": "Deshacer",
+      "undoItem": "Deshacer: {name}"
+    },
+    "decision": {
+      "accept": "Aceptar",
+      "later": "Ahora no",
+      "labeled": "{action}: {name}",
+      "laterHint": "Volveremos a sugerirlo dentro de 30 días",
+      "failed": "No se pudo completar ahora. Actualiza la página e inténtalo de nuevo."
+    },
+    "errors": {
+      "notFound": "Sugerencia no encontrada.",
+      "oneByOne": "Este tipo de sugerencia se decide de una en una.",
+      "nothingApplied": "No se aplicó nada. Actualiza la página e inténtalo de nuevo."
+    },
+    "applied": {
+      "moved": "{count, plural, =1 {1 movimiento movido} other {# movimientos movidos}}.",
+      "seen": "{count, plural, =1 {1 aviso marcado como visto} other {# avisos marcados como vistos}}.",
+      "failed": "{count, plural, =1 {1 no funcionó} other {# no funcionaron}}.",
+      "tripCreated": "Viaje a {name} creado. Ajusta fechas y costos en Viajes.",
+      "goalCreated": "Meta {name} creada. Ajusta los detalles en Metas."
+    },
+    "agent": {
+      "readOnly": "Tu rol en esta familia no permite cambios.",
+      "notFound": "Sugerencia no encontrada.",
+      "decided": "Esta sugerencia ya se decidió.",
+      "outdated": "Esta sugerencia está desactualizada. Pide una nueva al asistente.",
+      "debtExtra": "De acuerdo: registras el pago extra en la pantalla de deudas.",
+      "noted": "Anotado.",
+      "dismissed": "De acuerdo. Volveremos a sugerirlo dentro de 30 días, si aún tiene sentido.",
+      "onlyApplied": "Solo se puede deshacer lo que se aplicó.",
+      "incomplete": "No se pudo deshacer: los datos de esta sugerencia están incompletos.",
+      "undone": "Deshecho.",
+      "undoneDividends": "Deshecho. Estos dividendos no vuelven solos; el precio vuelve con la próxima cotización nueva.",
+      "undoneStock": "Deshecho. La cantidad volvió a lo que era, y este ajuste no vuelve solo.",
+      "noTarget": "Sugerencia sin categoría de destino.",
+      "categoryGone": "La categoría sugerida ya no existe.",
+      "entriesGone": "Esos movimientos ya no existen.",
+      "noPrevious": "No se puede deshacer: el estado anterior no se guardó.",
+      "changedByOther": "Alguien ya cambió esos movimientos; no se deshizo nada.",
+      "returned": "Movimientos devueltos. El asistente ya no los toca.",
+      "oneCategoryGone": "Una de las categorías ya no existe.",
+      "merged": "Categorías unidas. La antigua se archivó.",
+      "oldCategoryGone": "La categoría antigua se eliminó; no se deshizo nada.",
+      "split": "Categorías separadas de nuevo.",
+      "reserveSaved": "Importe del fondo guardado.",
+      "reserveRestored": "Importe del fondo restaurado.",
+      "planSaved": "Cuánto ahorrar al mes guardado en el plan de jubilación.",
+      "planRestored": "Importe del plan restaurado.",
+      "notAssistantTrip": "Este viaje no lo creó el asistente.",
+      "tripRemoved": "Viaje eliminado.",
+      "tripGone": "El viaje ya no existía.",
+      "goalGone": "Esta meta ya no existe.",
+      "goalNoted": "Anotado. Ajusta el importe o la fecha de la meta cuando puedas.",
+      "goalDate": "Fecha de la meta ajustada. El plan se recalcula en la próxima ronda.",
+      "goalHasValues": "La meta ya recibió importes; no se deshizo nada.",
+      "goalRemoved": "Meta eliminada.",
+      "goalDateChanged": "La fecha de la meta ya se cambió; no se deshizo nada.",
+      "goalDateRestored": "Fecha de la meta restaurada."
+    }
   }
 }
