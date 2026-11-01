@@ -385,5 +385,141 @@
       "wrongPassword": "Contraseña incorrecta."
     },
     "noPermission": "Tu papel en esta familia no permite cambios."
+  },
+  "lancamentos": {
+    "metaTitle": "Movimientos",
+    "eyebrow": "Movimientos",
+    "description": "Todo lo que entró, salió y aún vence este mes.",
+    "importStatement": "Importar extracto",
+    "previousMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente",
+    "stats": {
+      "received": "Entró",
+      "spent": "Salió",
+      "balance": "Sobró hasta ahora",
+      "forecast": "Previsión para fin de mes",
+      "forecastHint": "Incluye lo que aún va a entrar y salir."
+    },
+    "status": {
+      "overdue": "Atrasado",
+      "planned": "Previsto",
+      "done": {
+        "expense": "Pagado",
+        "goal": "Ahorrado",
+        "income": "Cobrado"
+      }
+    },
+    "row": {
+      "open": "Abrir {name}",
+      "openShort": "Abrir",
+      "edit": "Editar {name}",
+      "delete": "Eliminar {name}",
+      "stop": "Dejar de repetir {name}",
+      "repeats": "Se repite cada mes"
+    },
+    "plan": {
+      "badge": "Plan",
+      "open": "Abrir meta {name}",
+      "title": "Valor calculado por el asistente; abre Metas para ajustarlo"
+    },
+    "empty": {
+      "title": "Nada por aquí este mes",
+      "text": "Registra tus ingresos y tus cuentas para ver cómo toma forma el mes.",
+      "action": "Nuevo movimiento",
+      "noResultsTitle": "No se encontró ningún movimiento",
+      "noResultsText": "Prueba a cambiar la búsqueda o los filtros."
+    },
+    "filters": {
+      "search": "Buscar",
+      "searchPlaceholder": "Descripción",
+      "type": "Tipo",
+      "allTypes": "Todos",
+      "income": "Ingresos",
+      "expenses": "Gastos",
+      "status": "Estado",
+      "allStatuses": "Todos",
+      "settled": "Pagados y cobrados",
+      "open": "Pendientes",
+      "category": "Categoría",
+      "allCategories": "Todas"
+    },
+    "table": {
+      "caption": "Movimientos del mes",
+      "date": "Fecha",
+      "description": "Descripción",
+      "category": "Categoría",
+      "account": "Cuenta",
+      "status": "Estado",
+      "amount": "Importe",
+      "actions": "Acciones"
+    },
+    "remove": {
+      "title": "Eliminar movimiento",
+      "text": "\"{name}\" se eliminará. Esta acción no se puede deshacer.",
+      "confirm": "Eliminar"
+    },
+    "stop": {
+      "title": "Dejar de repetir",
+      "text": "\"{name}\" dejará de aparecer a partir de este mes. Lo que ya se pagó sigue en el historial.",
+      "confirm": "Dejar de repetir"
+    },
+    "sheet": {
+      "new": "Nuevo movimiento",
+      "edit": "Editar movimiento"
+    },
+    "form": {
+      "type": "Tipo",
+      "expense": "Gasto",
+      "income": "Ingreso",
+      "description": "Descripción",
+      "expenseExample": "Ej.: Factura de luz",
+      "incomeExample": "Ej.: Salario",
+      "amount": "Importe ({symbol})",
+      "date": "Fecha",
+      "category": "Categoría",
+      "account": "Cuenta",
+      "accountOrCard": "Cuenta o tarjeta",
+      "cards": "Tarjetas",
+      "installments": "Cuotas",
+      "installmentsHint": "Cada cuota entra en un resumen de tarjeta.",
+      "paid": "Ya se pagó",
+      "received": "Ya se cobró",
+      "repeat": "Se repite cada mes",
+      "planNotice": "Esta cuenta se repite cada mes. El cambio vale para todos los meses pendientes y de la fecha solo usamos el día.",
+      "saveChanges": "Guardar cambios",
+      "save": "Guardar movimiento",
+      "noQuote": "Todavía no tenemos la cotización de esta fecha.",
+      "fxPreview": "≈ {value}, cotización del {date}",
+      "fxRate": "Cotización del {date}"
+    },
+    "saved": "Movimiento guardado.",
+    "errors": {
+      "kind": "Elige ingreso o gasto.",
+      "description": "Escribe una descripción.",
+      "amount": "Escribe un importe mayor que cero, como 150,90.",
+      "date": "Indica la fecha.",
+      "invalidDate": "Fecha no válida.",
+      "category": "Elige una categoría.",
+      "account": "Elige una cuenta.",
+      "installments": "Indica de 1 a 72 cuotas.",
+      "invalidCategory": "Elige una categoría válida.",
+      "cardExpensesOnly": "La tarjeta solo admite gastos.",
+      "invalidCard": "Elige una tarjeta válida.",
+      "invalidAccount": "Elige una cuenta válida.",
+      "overLimit": "Este importe supera el límite en reales.",
+      "noRepeat": "Las cuentas en dólares o euros todavía no admiten pagos que se repiten. Regístralo mes a mes o usa una cuenta en reales.",
+      "notFound": "Movimiento no encontrado.",
+      "recurringMonth": "El movimiento de una cuenta recurrente debe seguir en el mismo mes.",
+      "goalEntry": "Este movimiento ahorra dinero para una meta. Para cambiarlo, elimínalo y confírmalo de nuevo.",
+      "planNotFound": "Previsión no encontrada.",
+      "statementPaid": "El resumen de {month} ya se pagó. Usa una fecha posterior a su cierre.",
+      "noQuote": "Todavía no tenemos la cotización del {currency, select, USD {dólar} EUR {euro} other {real}} de esta fecha. Inténtalo más tarde o usa otra fecha."
+    },
+    "confirmNotice": {
+      "title": "Todavía sin cotización",
+      "text": "No se confirmó nada. Esta cuenta está en {currency, select, USD {dólares} EUR {euros} other {reales}} y todavía no tenemos la cotización del {date}. Inténtalo más tarde.",
+      "close": "Entendido",
+      "failed": "No se pudo confirmar ahora. Inténtalo de nuevo."
+    }
   }
 }

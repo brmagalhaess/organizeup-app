@@ -385,5 +385,141 @@
       "wrongPassword": "Incorrect password."
     },
     "noPermission": "Your role in this family doesn't allow changes."
+  },
+  "lancamentos": {
+    "metaTitle": "Transactions",
+    "eyebrow": "Transactions",
+    "description": "Everything that came in, went out and is still due this month.",
+    "importStatement": "Import statement",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "stats": {
+      "received": "Money in",
+      "spent": "Money out",
+      "balance": "Left so far",
+      "forecast": "End-of-month forecast",
+      "forecastHint": "Includes what is still coming in and going out."
+    },
+    "status": {
+      "overdue": "Overdue",
+      "planned": "Upcoming",
+      "done": {
+        "expense": "Paid",
+        "goal": "Saved",
+        "income": "Received"
+      }
+    },
+    "row": {
+      "open": "Open {name}",
+      "openShort": "Open",
+      "edit": "Edit {name}",
+      "delete": "Delete {name}",
+      "stop": "Stop repeating {name}",
+      "repeats": "Repeats every month"
+    },
+    "plan": {
+      "badge": "Plan",
+      "open": "Open goal {name}",
+      "title": "Amount calculated by the assistant; open Goals to adjust it"
+    },
+    "empty": {
+      "title": "Nothing here this month",
+      "text": "Add your income and bills to see the month take shape.",
+      "action": "New transaction",
+      "noResultsTitle": "No transactions found",
+      "noResultsText": "Try changing the search or filters."
+    },
+    "filters": {
+      "search": "Search",
+      "searchPlaceholder": "Description",
+      "type": "Type",
+      "allTypes": "All",
+      "income": "Income",
+      "expenses": "Expenses",
+      "status": "Status",
+      "allStatuses": "All",
+      "settled": "Paid and received",
+      "open": "Open",
+      "category": "Category",
+      "allCategories": "All"
+    },
+    "table": {
+      "caption": "Transactions for the month",
+      "date": "Date",
+      "description": "Description",
+      "category": "Category",
+      "account": "Account",
+      "status": "Status",
+      "amount": "Amount",
+      "actions": "Actions"
+    },
+    "remove": {
+      "title": "Delete transaction",
+      "text": "\"{name}\" will be deleted. This cannot be undone.",
+      "confirm": "Delete"
+    },
+    "stop": {
+      "title": "Stop repeating",
+      "text": "\"{name}\" will no longer appear from this month on. What has already been paid stays in your history.",
+      "confirm": "Stop repeating"
+    },
+    "sheet": {
+      "new": "New transaction",
+      "edit": "Edit transaction"
+    },
+    "form": {
+      "type": "Type",
+      "expense": "Expense",
+      "income": "Income",
+      "description": "Description",
+      "expenseExample": "E.g.: Electricity bill",
+      "incomeExample": "E.g.: Salary",
+      "amount": "Amount ({symbol})",
+      "date": "Date",
+      "category": "Category",
+      "account": "Account",
+      "accountOrCard": "Account or card",
+      "cards": "Credit cards",
+      "installments": "Installments",
+      "installmentsHint": "Each installment goes on one statement.",
+      "paid": "Already paid",
+      "received": "Already received",
+      "repeat": "Repeats every month",
+      "planNotice": "This bill repeats every month. The change applies to all open months, and only the day of the date is used.",
+      "saveChanges": "Save changes",
+      "save": "Save transaction",
+      "noQuote": "We don't have the exchange rate for this date yet.",
+      "fxPreview": "≈ {value}, rate of {date}",
+      "fxRate": "Rate of {date}"
+    },
+    "saved": "Transaction saved.",
+    "errors": {
+      "kind": "Choose income or expense.",
+      "description": "Enter a description.",
+      "amount": "Enter an amount greater than zero, like 150.90.",
+      "date": "Enter the date.",
+      "invalidDate": "Invalid date.",
+      "category": "Choose a category.",
+      "account": "Choose an account.",
+      "installments": "Enter 1 to 72 installments.",
+      "invalidCategory": "Choose a valid category.",
+      "cardExpensesOnly": "Credit cards only accept expenses.",
+      "invalidCard": "Choose a valid card.",
+      "invalidAccount": "Choose a valid account.",
+      "overLimit": "This amount exceeds the limit in reais.",
+      "noRepeat": "Dollar and euro accounts don't support repeating bills yet. Add it month by month or use an account in reais.",
+      "notFound": "Transaction not found.",
+      "recurringMonth": "A recurring bill's transaction must stay in the same month.",
+      "goalEntry": "This transaction saves money for a goal. To change it, delete it and confirm it again.",
+      "planNotFound": "Forecast not found.",
+      "statementPaid": "The {month} statement has already been paid. Use a date after its closing date.",
+      "noQuote": "We don't have the {currency, select, USD {US dollar} EUR {euro} other {real}} exchange rate for this date yet. Try again later or use another date."
+    },
+    "confirmNotice": {
+      "title": "No exchange rate yet",
+      "text": "Nothing was confirmed. This account is in {currency, select, USD {US dollars} EUR {euros} other {reais}} and we don't have the exchange rate for {date} yet. Try again later.",
+      "close": "Got it",
+      "failed": "We couldn't confirm this right now. Try again."
+    }
   }
 }

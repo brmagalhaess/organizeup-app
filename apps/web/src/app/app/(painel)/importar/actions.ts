@@ -308,7 +308,7 @@ export async function commitImport(
       const mark = { importFingerprint: row.fingerprint, importBatchId: batchId };
       const done =
         row.matchKey !== null &&
-        (await confirmCommitment(tx, ctx, row.matchKey, row.matchMonth ?? "", mark));
+        (await confirmCommitment(tx, ctx, row.matchKey, row.matchMonth ?? "", mark)).done;
       if (done) settled += 1;
       else plain.push(row);
     }

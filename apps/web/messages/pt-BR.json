@@ -385,5 +385,141 @@
       "wrongPassword": "Senha incorreta."
     },
     "noPermission": "Seu papel nesta família não permite alterações."
+  },
+  "lancamentos": {
+    "metaTitle": "Lançamentos",
+    "eyebrow": "Lançamentos",
+    "description": "Tudo o que entrou, saiu e ainda vai vencer neste mês.",
+    "importStatement": "Importar extrato",
+    "previousMonth": "Mês anterior",
+    "nextMonth": "Próximo mês",
+    "stats": {
+      "received": "Entrou",
+      "spent": "Saiu",
+      "balance": "Sobrou até agora",
+      "forecast": "Previsão para o fim do mês",
+      "forecastHint": "Conta o que ainda vai entrar e sair."
+    },
+    "status": {
+      "overdue": "Atrasado",
+      "planned": "Previsto",
+      "done": {
+        "expense": "Pago",
+        "goal": "Guardado",
+        "income": "Recebido"
+      }
+    },
+    "row": {
+      "open": "Abrir {name}",
+      "openShort": "Abrir",
+      "edit": "Editar {name}",
+      "delete": "Excluir {name}",
+      "stop": "Parar de repetir {name}",
+      "repeats": "Repete todo mês"
+    },
+    "plan": {
+      "badge": "Plano",
+      "open": "Abrir meta {name}",
+      "title": "Valor calculado pelo assistente; abra Metas para ajustar"
+    },
+    "empty": {
+      "title": "Nada por aqui neste mês",
+      "text": "Lance sua renda e suas contas para ver o mês tomar forma.",
+      "action": "Novo lançamento",
+      "noResultsTitle": "Nenhum lançamento encontrado",
+      "noResultsText": "Tente mudar a busca ou os filtros."
+    },
+    "filters": {
+      "search": "Buscar",
+      "searchPlaceholder": "Descrição",
+      "type": "Tipo",
+      "allTypes": "Todos",
+      "income": "Receitas",
+      "expenses": "Despesas",
+      "status": "Situação",
+      "allStatuses": "Todas",
+      "settled": "Pagos e recebidos",
+      "open": "Em aberto",
+      "category": "Categoria",
+      "allCategories": "Todas"
+    },
+    "table": {
+      "caption": "Lançamentos do mês",
+      "date": "Data",
+      "description": "Descrição",
+      "category": "Categoria",
+      "account": "Conta",
+      "status": "Situação",
+      "amount": "Valor",
+      "actions": "Ações"
+    },
+    "remove": {
+      "title": "Excluir lançamento",
+      "text": "\"{name}\" será apagado. Isso não pode ser desfeito.",
+      "confirm": "Excluir"
+    },
+    "stop": {
+      "title": "Parar de repetir",
+      "text": "\"{name}\" deixa de aparecer a partir deste mês. O que já foi pago continua no histórico.",
+      "confirm": "Parar de repetir"
+    },
+    "sheet": {
+      "new": "Novo lançamento",
+      "edit": "Editar lançamento"
+    },
+    "form": {
+      "type": "Tipo",
+      "expense": "Despesa",
+      "income": "Receita",
+      "description": "Descrição",
+      "expenseExample": "Ex.: Conta de luz",
+      "incomeExample": "Ex.: Salário",
+      "amount": "Valor ({symbol})",
+      "date": "Data",
+      "category": "Categoria",
+      "account": "Conta",
+      "accountOrCard": "Conta ou cartão",
+      "cards": "Cartões",
+      "installments": "Parcelas",
+      "installmentsHint": "Cada parcela entra numa fatura.",
+      "paid": "Já foi pago",
+      "received": "Já foi recebido",
+      "repeat": "Repete todo mês",
+      "planNotice": "Esta conta se repete todo mês. A alteração vale para todos os meses em aberto, e da data usamos só o dia.",
+      "saveChanges": "Salvar alterações",
+      "save": "Salvar lançamento",
+      "noQuote": "Ainda não temos a cotação para esta data.",
+      "fxPreview": "≈ {value}, cotação de {date}",
+      "fxRate": "Cotação de {date}"
+    },
+    "saved": "Lançamento salvo.",
+    "errors": {
+      "kind": "Escolha receita ou despesa.",
+      "description": "Informe a descrição.",
+      "amount": "Informe um valor maior que zero, como 150,90.",
+      "date": "Informe a data.",
+      "invalidDate": "Data inválida.",
+      "category": "Escolha a categoria.",
+      "account": "Escolha a conta.",
+      "installments": "Informe de 1 a 72 parcelas.",
+      "invalidCategory": "Escolha uma categoria válida.",
+      "cardExpensesOnly": "Cartão recebe apenas despesas.",
+      "invalidCard": "Escolha um cartão válido.",
+      "invalidAccount": "Escolha uma conta válida.",
+      "overLimit": "Este valor passa do limite em reais.",
+      "noRepeat": "Conta em dólar ou euro ainda não aceita conta que se repete. Lance mês a mês ou use uma conta em reais.",
+      "notFound": "Lançamento não encontrado.",
+      "recurringMonth": "Lançamento de conta recorrente precisa continuar no mesmo mês.",
+      "goalEntry": "Este lançamento guarda dinheiro para uma meta. Para mudar, exclua e confirme de novo.",
+      "planNotFound": "Previsão não encontrada.",
+      "statementPaid": "A fatura de {month} já foi paga. Use uma data depois do fechamento dela.",
+      "noQuote": "Ainda não temos a cotação do {currency, select, USD {dólar} EUR {euro} other {real}} para esta data. Tente de novo mais tarde ou use outra data."
+    },
+    "confirmNotice": {
+      "title": "Ainda sem cotação",
+      "text": "Nada foi confirmado. Esta conta é em {currency, select, USD {dólar} EUR {euro} other {real}} e ainda não temos a cotação de {date}. Tente de novo mais tarde.",
+      "close": "Entendi",
+      "failed": "Não foi possível confirmar agora. Tente de novo."
+    }
   }
 }

@@ -1,4 +1,6 @@
 "use server";
+import type { Messages } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -18,19 +20,19 @@ import {
 } from "@organizeup/db";
 import {
   addMonths,
-  currencyName,
   entryFromTyped,
   FX_CURRENCIES,
   fitsAmount,
-  formatYearMonth,
   isForeign,
   isYearMonth,
-  parseBRL,
+  parseMoney,
   purchaseLines,
   toDbAmount,
   yearMonthOf,
   type FxQuote,
 } from "@organizeup/domain";
+import { formatDate, formatMonthYear } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { confirmCommitment, goalEntryLink, reverseGoalSaved } from "@/lib/confirm-entry";
 import { requireTenant } from "@/lib/session";
@@ -41,8 +43,6 @@ export interface EntryFormState {
   fieldErrors?: Record<string, string>;
 }
 
-const READ_ONLY = "Seu papel nesta família não permite alterações.";
-
 /** Cotação que um lançamento nesta data usaria, para a prévia do formulário. Só lê. */
 export async function quoteForEntry(currency: string, date: string): Promise<FxQuote | null> {
   const { ctx } = await requireTenant();
@@ -51,41 +51,45 @@ export async function quoteForEntry(currency: string, date: string): Promise<FxQ
   return withHousehold(ctx, (tx) => fxRateOn(tx, known, date));
 }
 
-const entrySchema = z.object({
-  key: z.string(),
-  kind: z.enum(ENTRY_KINDS, { message: "Escolha receita ou despesa." }),
-  description: z.string().trim().min(1, "Informe a descrição.").max(120),
-  amount: z.string().transform((value, ctx) => {
-    try {
-      const parsed = parseBRL(value);
-      if (parsed.lte(0) || parsed.gte("1000000000000")) throw new RangeError("fora do limite");
-      return toDbAmount(parsed);
-    } catch {
-      ctx.addIssue({ code: "custom", message: "Informe um valor maior que zero, como 150,90." });
-      return z.NEVER;
-    }
-  }),
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data.")
-    .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), "Data inválida."),
-  categoryId: z.string().min(1, "Escolha a categoria."),
-  accountId: z.string().min(1, "Escolha a conta."),
-  done: z.boolean(),
-  repeat: z.boolean(),
-  installments: z.coerce
-    .number({ message: "Informe de 1 a 72 parcelas." })
-    .int("Informe de 1 a 72 parcelas.")
-    .min(1, "Informe de 1 a 72 parcelas.")
-    .max(72, "Informe de 1 a 72 parcelas."),
-});
+const entrySchema = (errors: Messages["lancamentos"]["errors"], locale: Locale) =>
+  z.object({
+    key: z.string(),
+    kind: z.enum(ENTRY_KINDS, { message: errors.kind }),
+    description: z.string().trim().min(1, errors.description).max(120),
+    amount: z.string().transform((value, ctx) => {
+      try {
+        const parsed = parseMoney(value, locale);
+        if (parsed.lte(0) || parsed.gte("1000000000000")) throw new RangeError("fora do limite");
+        return toDbAmount(parsed);
+      } catch {
+        ctx.addIssue({ code: "custom", message: errors.amount });
+        return z.NEVER;
+      }
+    }),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, errors.date)
+      .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), errors.invalidDate),
+    categoryId: z.string().min(1, errors.category),
+    accountId: z.string().min(1, errors.account),
+    done: z.boolean(),
+    repeat: z.boolean(),
+    installments: z.coerce
+      .number({ message: errors.installments })
+      .int(errors.installments)
+      .min(1, errors.installments)
+      .max(72, errors.installments),
+  });
 
 /** Cria um lançamento ou edita o da `key` (`t:<lançamento>` ou `p:<previsão>`). */
 export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<EntryFormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
+  if (!canWrite(ctx))
+    return { ok: false, message: (await getTranslations("settings"))("noPermission") };
+  const [t, locale] = await Promise.all([getTranslations("lancamentos"), getLocale()]);
 
-  const parsed = entrySchema.safeParse({
+  const { errors } = (await getMessages()).lancamentos;
+  const parsed = entrySchema(errors, locale).safeParse({
     key: form.get("key") ?? "",
     kind: form.get("kind"),
     description: form.get("description") ?? "",
@@ -110,13 +114,13 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
       .select({ kind: categories.kind })
       .from(categories)
       .where(eq(categories.id, data.categoryId));
-    if (!category || category.kind !== data.kind) return "Escolha uma categoria válida.";
+    if (!category || category.kind !== data.kind) return t("errors.invalidCategory");
 
     if (data.accountId.startsWith("card:")) {
-      if (data.kind !== "despesa") return "Cartão recebe apenas despesas.";
+      if (data.kind !== "despesa") return t("errors.cardExpensesOnly");
       const cardId = data.accountId.slice(5);
       const [card] = await tx.select().from(creditCards).where(eq(creditCards.id, cardId));
-      if (!card) return "Escolha um cartão válido.";
+      if (!card) return t("errors.invalidCard");
       const paid = await tx
         .select({ month: cardStatementPayments.statementMonth })
         .from(cardStatementPayments)
@@ -135,7 +139,9 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
         card,
       ).find((line) => months.has(line.statementMonth));
       if (blocked)
-        return `A fatura de ${formatYearMonth(blocked.statementMonth)} já foi paga. Use uma data depois do fechamento dela.`;
+        return t("errors.statementPaid", {
+          month: formatMonthYear(blocked.statementMonth, locale),
+        });
       const [created] = await tx
         .insert(cardPurchases)
         .values({
@@ -154,15 +160,14 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
     }
 
     const currency = await accountCurrency(tx, data.accountId);
-    if (!currency) return "Escolha uma conta válida.";
+    if (!currency) return t("errors.invalidAccount");
     const foreign = isForeign(currency);
     // O valor digitado está na moeda da conta; `amount` guarda sempre reais.
     const inAccount = async () => {
       const quote = foreign ? await fxRateOn(tx, currency, data.date) : null;
       const entry = entryFromTyped(data.amount, currency, quote);
-      if (!entry)
-        return `Ainda não temos a cotação do ${currencyName(currency)} para esta data. Tente de novo mais tarde ou use outra data.`;
-      return fitsAmount(entry.amount) ? entry : "Este valor passa do limite em reais.";
+      if (!entry) return t("errors.noQuote", { currency });
+      return fitsAmount(entry.amount) ? entry : t("errors.overLimit");
     };
 
     const common = {
@@ -173,23 +178,20 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
       description: data.description,
     };
     const month = yearMonthOf(data.date);
-    const NO_REPEAT =
-      "Conta em dólar ou euro ainda não aceita conta que se repete. Lance mês a mês ou use uma conta em reais.";
+    const noRepeat = t("errors.noRepeat");
 
     if (data.key.startsWith("t:")) {
       const [current] = await tx.select().from(transactions).where(eq(transactions.id, id));
-      if (!current) return "Lançamento não encontrado.";
+      if (!current) return t("errors.notFound");
       // A previsão só some do mês do lançamento ligado a ela; trocar de mês a faria voltar.
-      if (current.planId && current.planMonth !== month)
-        return "Lançamento de conta recorrente precisa continuar no mesmo mês.";
+      if (current.planId && current.planMonth !== month) return t("errors.recurringMonth");
       // A cotação fica congelada: só valor, data ou moeda novos pedem outra conversão.
       const sameMoney =
         (current.originalAmount ?? current.amount) === data.amount &&
         current.occurredOn === data.date &&
         (current.originalCurrency ?? "BRL") === currency;
       const changed = !sameMoney || current.description !== data.description;
-      if (changed && (await goalEntryLink(tx, id)))
-        return "Este lançamento guarda dinheiro para uma meta. Para mudar, exclua e confirme de novo.";
+      if (changed && (await goalEntryLink(tx, id))) return t("errors.goalEntry");
       const entry = sameMoney ? {} : await inAccount();
       if (typeof entry === "string") return entry;
       await tx
@@ -208,18 +210,18 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
     }
 
     if (data.key.startsWith("p:")) {
-      if (foreign) return NO_REPEAT;
+      if (foreign) return noRepeat;
       const updated = await tx
         .update(cashflowPlans)
         .set({ ...common, amount: data.amount, dayOfMonth: Number(data.date.slice(8, 10)) })
         .where(eq(cashflowPlans.id, id))
         .returning({ id: cashflowPlans.id });
-      if (updated.length === 0) return "Previsão não encontrada.";
+      if (updated.length === 0) return t("errors.planNotFound");
       await audit(tx, ctx, "update", "cashflow_plans", id);
       return null;
     }
 
-    if (data.repeat && foreign) return NO_REPEAT;
+    if (data.repeat && foreign) return noRepeat;
     const entry = await inAccount();
     if (typeof entry === "string") return entry;
 
@@ -259,17 +261,28 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
   if (failure) return { ok: false, message: failure };
 
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Lançamento salvo." };
+  return { ok: true, message: t("saved") };
 }
 
-/** Marca como pago ou recebido a partir das telas. */
-export async function confirmEntry(form: FormData): Promise<void> {
+/** Marca como pago ou recebido. Null deu certo; o texto é o aviso que a tela precisa mostrar. */
+export async function confirmEntryNotice(form: FormData): Promise<string | null> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return;
+  if (!canWrite(ctx)) return null;
   const key = String(form.get("key") ?? "");
   const month = String(form.get("month") ?? "");
-  await withHousehold(ctx, (tx) => confirmCommitment(tx, ctx, key, month));
+  const { missingQuote } = await withHousehold(ctx, (tx) => confirmCommitment(tx, ctx, key, month));
   revalidatePath("/app", "layout");
+  if (!missingQuote) return null;
+  const [t, locale] = await Promise.all([getTranslations("lancamentos"), getLocale()]);
+  return t("confirmNotice.text", {
+    currency: missingQuote.currency,
+    date: formatDate(missingQuote.date, locale),
+  });
+}
+
+/** Para quem ainda usa um formulário simples, sem lugar para o aviso. */
+export async function confirmEntry(form: FormData): Promise<void> {
+  await confirmEntryNotice(form);
 }
 
 export async function deleteEntry(form: FormData): Promise<void> {

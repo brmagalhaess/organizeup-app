@@ -1,15 +1,20 @@
 import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { addMonths, formatBRL, formatYearMonth } from "@organizeup/domain";
+import { addMonths } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import { PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
+import { formatAmount, formatMonthYear } from "@/i18n/format";
 import { loadMonth } from "@/lib/finance-data";
 import { requireTenant } from "@/lib/session";
 import { EntriesTable } from "./entries-table";
 
-export const metadata: Metadata = { title: "Lançamentos" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("lancamentos");
+  return { title: t("metaTitle") };
+}
 
 export default async function EntriesPage({
   searchParams,
@@ -19,29 +24,30 @@ export default async function EntriesPage({
   const { ctx } = await requireTenant();
   const { m } = await searchParams;
   const data = await loadMonth(ctx, m);
+  const [t, locale] = await Promise.all([getTranslations("lancamentos"), getLocale()]);
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Lançamentos"
-        title={formatYearMonth(data.month)}
-        description="Tudo o que entrou, saiu e ainda vai vencer neste mês."
+        eyebrow={t("eyebrow")}
+        title={formatMonthYear(data.month, locale)}
+        description={t("description")}
         actions={
           <>
             <Link href="/app/importar" className={buttonClass("secondary")}>
               <Upload className="size-4" aria-hidden="true" />
-              Importar extrato
+              {t("importStatement")}
             </Link>
             <Link
               href={`/app/lancamentos?m=${addMonths(data.month, -1)}`}
-              aria-label="Mês anterior"
+              aria-label={t("previousMonth")}
               className={buttonClass("secondary")}
             >
               <ChevronLeft className="size-4" aria-hidden="true" />
             </Link>
             <Link
               href={`/app/lancamentos?m=${addMonths(data.month, 1)}`}
-              aria-label="Próximo mês"
+              aria-label={t("nextMonth")}
               className={buttonClass("secondary")}
             >
               <ChevronRight className="size-4" aria-hidden="true" />
@@ -51,13 +57,21 @@ export default async function EntriesPage({
       />
       <Insights screen="lancamentos" />
       <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatTile label="Entrou" tone="receita" value={formatBRL(data.summary.received)} />
-        <StatTile label="Saiu" tone="despesa" value={formatBRL(data.summary.spent)} />
-        <StatTile label="Sobrou até agora" value={formatBRL(data.summary.balance)} />
         <StatTile
-          label="Previsão para o fim do mês"
-          value={formatBRL(data.summary.projectedBalance)}
-          hint="Conta o que ainda vai entrar e sair."
+          label={t("stats.received")}
+          tone="receita"
+          value={formatAmount(data.summary.received, locale)}
+        />
+        <StatTile
+          label={t("stats.spent")}
+          tone="despesa"
+          value={formatAmount(data.summary.spent, locale)}
+        />
+        <StatTile label={t("stats.balance")} value={formatAmount(data.summary.balance, locale)} />
+        <StatTile
+          label={t("stats.forecast")}
+          value={formatAmount(data.summary.projectedBalance, locale)}
+          hint={t("stats.forecastHint")}
         />
       </dl>
       <EntriesTable
