@@ -1,7 +1,7 @@
 # ADR-0015 — Agentes diários do produto e automação da equipe
 
 Status: aceito (2026-10-31). Cotação externa e aviso de preço velho: ver ADR-0017. A parte "sem modelo de IA" foi
-substituída pelo ADR-0018; os cinco agentes diários continuam por regras, com a etapa `categorias_ia` entre eles.
+substituída pelo ADR-0018; os agentes diários continuam por regras, com a etapa `categorias_ia` entre eles. O ADR-0019 acrescenta `dividas`.
 
 Substitui em parte o ADR-0010 (rotina e merge da equipe do Paperclip), o ADR-0013 (o agente de categorias
 passa a aplicar sozinho um caso bem delimitado) e o ADR-0014 (aposentadoria por acumulação deixa de ser o

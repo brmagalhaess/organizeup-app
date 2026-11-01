@@ -5,6 +5,8 @@ export * from "./dates";
 export * from "./cashflow";
 export * from "./card";
 export * from "./debt";
+export * from "./debt-file";
+export * from "./debt-plan";
 export * from "./statement";
 export * from "./categorize";
 export * from "./wealth";

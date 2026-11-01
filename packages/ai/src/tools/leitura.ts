@@ -4,6 +4,7 @@ import {
   ASSET_CLASS_LABELS,
   calendarMonth,
   cardBook,
+  currentDebtPlan,
   currentDividendPlan,
   loadCommitments,
   loadFiscalTables,
@@ -16,6 +17,7 @@ import {
   cashflowPlans,
   categories,
   debtInstallments,
+  debtPlanReports,
   debts,
   desc,
   dividendGoals,
@@ -41,6 +43,7 @@ import {
 } from "@organizeup/db";
 import {
   buildMonthEntries,
+  debtPlanHeadline,
   formatYearMonth,
   isExpensiveDebt,
   money,
@@ -51,6 +54,7 @@ import {
   pendingEntries,
   planTrip,
   receivedDividends,
+  recommendedStrategy,
   spendingByCategory,
   summarizeDividends,
   summarizeMonth,
@@ -58,6 +62,7 @@ import {
   toDbAmount,
   upcomingDividends,
   yearMonthOf,
+  type DebtPlanStrategy,
   type PlanActionKind,
 } from "@organizeup/domain";
 import { z } from "zod";
@@ -334,6 +339,57 @@ const verDividas = defineTool({
     }),
 });
 
+const strategyView = (item: DebtPlanStrategy) => ({
+  termina_em: item.payoffMonth,
+  nao_termina: item.stalled,
+  juros_ate_o_fim: item.totalInterest,
+  economia_frente_ao_minimo: item.saved,
+  comece_por: item.focus ? untrusted(item.focus.name) : null,
+  ordem_de_ataque: item.attack.map((debt) => ({
+    divida: untrusted(debt.name),
+    termina_em_meses: debt.month,
+  })),
+});
+
+const verPlanoDividas = defineTool({
+  name: "ver_plano_dividas",
+  description:
+    "Plano de saída das dívidas: quando tudo termina, quanto economiza, qual estratégia sai mais barata, qual dívida atacar, quanto pagar a mais neste mês e os pontos de atenção (juro acima do rendimento, parcela antes da renda, portabilidade ou renegociação, dado faltando). Chame quando perguntarem como sair das dívidas, qual pagar primeiro ou se vale quitar antes.",
+  kind: "leitura",
+  input: noInput,
+  label: () => "olhei seu plano para sair das dívidas",
+  run: (ctx) =>
+    read(ctx, async (tx, today) => {
+      const { plan } = await currentDebtPlan(tx, today);
+      if (!plan) return { situacao: "sem_dividas" };
+      const best = recommendedStrategy(plan);
+      return {
+        situacao: "ok",
+        resumo: debtPlanHeadline(plan),
+        saldo_total: plan.totalBalance,
+        valor_extra_mensal: plan.extra,
+        estrategia_recomendada: plan.recommended,
+        so_pagando_as_parcelas: {
+          termina_em: plan.baseline.payoffMonth,
+          nao_termina: plan.baseline.stalled,
+          juros_ate_o_fim: plan.baseline.totalInterest,
+        },
+        maior_juro_primeiro: strategyView(plan.avalanche),
+        menor_saldo_primeiro: strategyView(plan.snowball),
+        pagar_a_mais_neste_mes: best.thisMonth.map((item) => ({
+          divida: untrusted(item.name),
+          valor: item.amount,
+        })),
+        pontos_de_atencao: plan.signals.map((signal) => ({
+          tipo: signal.kind,
+          divida: untrusted(signal.debtName),
+          texto: signal.text,
+        })),
+        aviso: "Estimativa com as parcelas de hoje. Não muda nenhuma parcela.",
+      };
+    }),
+});
+
 const verCarteira = defineTool({
   name: "ver_carteira",
   description:
@@ -577,7 +633,7 @@ const verCalendario = defineTool({
 const relatoriosDoDia = defineTool({
   name: "relatorios_do_dia",
   description:
-    "Relatórios mais recentes das revisões automáticas do sistema (categorias, investimentos, aposentadoria, viagens e metas). Chame quando perguntarem o que mudou ou o que há de novo.",
+    "Relatórios mais recentes das revisões automáticas do sistema (categorias, investimentos, dívidas, aposentadoria, viagens e metas). Chame quando perguntarem o que mudou ou o que há de novo.",
   kind: "leitura",
   input: noInput,
   label: () => "olhei os relatórios de hoje",
@@ -593,13 +649,24 @@ const relatoriosDoDia = defineTool({
         .from(householdReports)
         .orderBy(desc(householdReports.createdAt))
         .limit(5);
+      const [debtPlan] = await tx
+        .select({
+          period: debtPlanReports.day,
+          title: debtPlanReports.title,
+          summary: debtPlanReports.summary,
+        })
+        .from(debtPlanReports)
+        .orderBy(desc(debtPlanReports.day))
+        .limit(1);
       return {
-        relatorios: rows.map((row) => ({
-          tipo: row.kind,
-          periodo: row.period,
-          titulo: untrusted(row.title),
-          resumo: untrusted(row.summary, 1000),
-        })),
+        relatorios: [...(debtPlan ? [{ kind: "dividas", ...debtPlan }] : []), ...rows].map(
+          (row) => ({
+            tipo: row.kind,
+            periodo: row.period,
+            titulo: untrusted(row.title),
+            resumo: untrusted(row.summary, 1000),
+          }),
+        ),
       };
     }),
 });
@@ -678,6 +745,7 @@ export const READ_TOOLS = [
   verCarteira,
   verDividas,
   verPlanoAposentadoria,
+  verPlanoDividas,
   verPlanoDoMes,
   verProventos,
   verRenda,

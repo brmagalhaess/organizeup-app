@@ -54,6 +54,11 @@ const SPECIALISTS = {
     focus: "gastos do mês, contas em aberto, calendário, reserva de emergência e dívidas",
     screens: ["painel", "lancamentos", "calendario", "reserva", "dividas"],
   },
+  dividas: {
+    focus:
+      "plano de saída das dívidas (ver_plano_dividas): qual atacar, quanto pagar a mais neste mês, juro acima do rendimento, parcela antes da renda, portabilidade ou renegociação, sem citar banco, e dado faltando",
+    screens: ["dividas", "painel"],
+  },
   aposentadoria: {
     focus: "plano de aposentadoria, quanto guardar por mês e o efeito de guardar mais",
     screens: ["aposentadoria", "painel"],

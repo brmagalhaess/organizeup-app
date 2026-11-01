@@ -14,7 +14,10 @@ import {
   categories,
   categoryMemory,
   creditCards,
+  debtDocumentMeta,
+  debtDocuments,
   debtInstallments,
+  debtPlanReports,
   debts,
   dividendGoals,
   dividends,
@@ -25,6 +28,7 @@ import {
   householdReports,
   householdSettings,
   accountTransfers,
+  householdFileConsents,
   householdInsights,
   householdMemories,
   householdSuggestions,
@@ -59,6 +63,8 @@ const HOUSEHOLD_TABLES = {
   card_statement_payments: cardStatementPayments,
   debts,
   debt_installments: debtInstallments,
+  debt_plan_reports: debtPlanReports,
+  household_file_consents: householdFileConsents,
   emergency_fund: emergencyFund,
   earmarks,
   assets,
@@ -91,6 +97,10 @@ const HOUSEHOLD_TABLES = {
   audit_log: auditLog,
 };
 
+/** Arquivo inteiro deixaria a exportação gigante: vão os metadados, e a tela baixa cada um. */
+export const DEBT_DOCUMENT_EXPORT_NOTE =
+  "O conteúdo do arquivo não entra na exportação. Baixe cada arquivo na tela de Dívidas.";
+
 /**
  * Tudo o que a RLS deixa o contexto ler. A auditoria só aparece para o responsável, e as conversas
  * com o assistente, só para quem conversou.
@@ -100,5 +110,7 @@ export async function exportHousehold(tx: TenantTx): Promise<Record<string, unkn
   for (const [name, table] of Object.entries(HOUSEHOLD_TABLES)) {
     out[name] = await tx.select().from(table as typeof people);
   }
+  const documents = await tx.select(debtDocumentMeta).from(debtDocuments);
+  out.debt_documents = documents.map((row) => ({ ...row, content: DEBT_DOCUMENT_EXPORT_NOTE }));
   return out;
 }

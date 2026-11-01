@@ -1,5 +1,10 @@
 import "server-only";
-import { cardBook } from "@organizeup/agents";
+import {
+  cardBook,
+  currentDebtPlan,
+  listDebtDocuments,
+  type DebtPlanView,
+} from "@organizeup/agents";
 import {
   accounts,
   and,
@@ -12,6 +17,7 @@ import {
   goals,
   householdSettings,
   isNull,
+  tolerateSchemaLag,
   withHousehold,
   type TenantContext,
   type TenantTx,
@@ -26,6 +32,8 @@ import {
   type StatementLine,
   type YearMonth,
 } from "@organizeup/domain";
+
+import { reportActionFailure } from "./diagnostics";
 
 export { goalEntryDescription, loadCommitments, systemCategories } from "@organizeup/agents";
 
@@ -147,6 +155,23 @@ export async function loadDebts(ctx: TenantContext) {
       },
     };
   });
+}
+
+/** Plano do topo da tela de dívidas. Null se o cálculo falhou: a tela diz isso e segue. */
+export async function loadDebtPlan(ctx: TenantContext): Promise<DebtPlanView | null> {
+  try {
+    return await withHousehold(ctx, async (tx) =>
+      currentDebtPlan(tx, await todayOf(tx, ctx.householdId)),
+    );
+  } catch (error) {
+    reportActionFailure("debt_plan_failed", error);
+    return null;
+  }
+}
+
+/** Arquivos das dívidas, sem o conteúdo. Vazio até a migração chegar. */
+export function loadDebtFiles(ctx: TenantContext) {
+  return tolerateSchemaLag(() => withHousehold(ctx, listDebtDocuments), []);
 }
 
 /** Parcela de meta em aberto e a meta, travadas para não serem confirmadas duas vezes. */

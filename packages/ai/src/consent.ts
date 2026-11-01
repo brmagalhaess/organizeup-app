@@ -3,7 +3,9 @@
 import { recordAudit } from "@organizeup/agents";
 import {
   eq,
+  householdFileConsents,
   householdSettings,
+  tolerateSchemaLag,
   withHousehold,
   type AiAutonomy,
   type TenantContext,
@@ -47,12 +49,38 @@ export const activateAssistant = (
     },
   );
 
-export const deactivateAssistant = (ctx: TenantContext) =>
-  saveSettings(
+/** Aceite de mandar arquivos inteiros ao serviço de IA, além do aceite do assistente (ADR-0019). */
+export async function acceptDebtFiles(ctx: TenantContext, version: string): Promise<boolean> {
+  if (!canUseAssistant(ctx)) return false;
+  await withHousehold(ctx, async (tx) => {
+    await tx
+      .insert(householdFileConsents)
+      .values({ householdId: ctx.householdId, version, acceptedBy: ctx.userId })
+      .onConflictDoUpdate({
+        target: householdFileConsents.householdId,
+        set: { version, acceptedBy: ctx.userId, acceptedAt: new Date() },
+      });
+    await recordAudit(tx, ctx, "arquivos_aceitar", "household_file_consents", null, { version });
+  });
+  return true;
+}
+
+const revokeDebtFiles = (ctx: TenantContext) =>
+  tolerateSchemaLag(
+    () => withHousehold(ctx, (tx) => tx.delete(householdFileConsents).returning()),
+    [],
+  );
+
+/** Desligar o assistente retira também o aceite de arquivos: nada mais vai ao modelo. */
+export async function deactivateAssistant(ctx: TenantContext) {
+  const done = await saveSettings(
     ctx,
     { aiConsentAt: null, aiConsentVersion: null, aiConsentBy: null },
     { action: "assistente_desligar", metadata: {} },
   );
+  if (done) await revokeDebtFiles(ctx);
+  return done;
+}
 
 export const setAssistantAutonomy = (ctx: TenantContext, autonomy: AiAutonomy) =>
   saveSettings(

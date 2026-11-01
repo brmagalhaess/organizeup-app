@@ -19,6 +19,7 @@ vi.mock("@organizeup/agents", () => ({
   APOSENTADORIA_AGENT: "aposentadoria",
   CATEGORIAS_AGENT: "categorias",
   CATEGORIAS_IA_AGENT: "categorias_ia",
+  DIVIDAS_AGENT: "dividas",
   INVESTIMENTOS_AGENT: "investimentos",
   METAS_AGENT: "metas",
   VIAGENS_AGENT: "viagens",
@@ -37,6 +38,12 @@ const { agentsToRun, DAILY_AGENTS, runDailyAgents } = await import("./daily-agen
 
 const day = "2026-11-01";
 const never = async () => false;
+
+describe("ordem da rodada", () => {
+  it("dívidas roda antes da aposentadoria, que usa a dívida cara", () => {
+    expect(DAILY_AGENTS.indexOf("dividas")).toBeLessThan(DAILY_AGENTS.indexOf("aposentadoria"));
+  });
+});
 
 describe("quem roda", () => {
   it("sem pedido, todos os ligados", async () => {

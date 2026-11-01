@@ -1,7 +1,8 @@
 // Servidor falso do modelo, só para o e2e: fala o formato de streaming da API em /v1/messages. A
 // web só aponta para cá com AI_TEST_BASE_URL fora de produção e nesta máquina (ver
 // packages/ai/src/client.ts). Na primeira volta pede uma ferramenta; depois responde em duas partes.
-// Pergunta que começa com "Anote:" pede salvar_memoria com o resto do texto.
+// Pergunta que começa com "Anote:" pede salvar_memoria com o resto do texto. Pedido com o esquema de
+// leitura de dívida devolve o JSON de um contrato fictício, com a taxa marcada como duvidosa.
 //   node apps/web/e2e/fake-model.mjs [porta]
 import { createServer } from "node:http";
 
@@ -99,13 +100,31 @@ const noteIn = (messages) => {
   return question?.content.match(NOTE)?.[1];
 };
 
+const DEBT_READING = {
+  credor: { valor: "Financeira Exemplo", confianca: "alta" },
+  saldo_devedor: { valor: "9000.00", confianca: "alta" },
+  taxa_mensal_percentual: { valor: "3.50", confianca: "baixa" },
+  parcelas_restantes: { valor: 24, confianca: "alta" },
+  valor_parcela: { valor: "560.00", confianca: "alta" },
+  proximo_vencimento: { valor: "2030-01-10", confianca: "alta" },
+  sistema: { valor: "price", confianca: "alta" },
+  cet_anual_percentual: { valor: "55.00", confianca: "media" },
+  mais_de_uma_divida: false,
+};
+
+const isDebtReading = (body) =>
+  Boolean(body.output_config?.format?.schema?.properties?.saldo_devedor);
+
 createServer(async (request, response) => {
   if (request.method !== "POST" || !request.url?.startsWith("/v1/messages")) {
     response.writeHead(404).end();
     return;
   }
-  const { messages } = await readBody(request);
-  if (hasToolResult(messages)) {
+  const body = await readBody(request);
+  const { messages } = body;
+  if (isDebtReading(body)) {
+    sse(response, textTurn([JSON.stringify(DEBT_READING)]));
+  } else if (hasToolResult(messages)) {
     sse(response, textTurn(["Olhei seu mês. **Tudo em ordem** ", "por aqui, sem surpresas."]));
   } else {
     const note = noteIn(messages);

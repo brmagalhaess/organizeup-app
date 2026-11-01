@@ -1,7 +1,19 @@
 "use client";
-import { AlertCircle, ArchiveRestore, Check, List, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  ArchiveRestore,
+  Check,
+  FileText,
+  FileUp,
+  List,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { formatBRL, formatShortDate, percentOf, toDbAmount, money } from "@organizeup/domain";
+import { buttonClass } from "@/components/styles";
 import {
   Badge,
   Button,
@@ -17,7 +29,9 @@ import {
 } from "@/components/ui";
 import type { loadDebts } from "@/lib/commitments";
 import { confirmEntry } from "../lancamentos/actions";
-import { closeDebt, reopenDebt, saveDebt, type DebtFormState } from "./actions";
+import { closeDebt, deleteDocument, reopenDebt, saveDebt, type DebtFormState } from "./actions";
+import { DebtFields } from "./debt-fields";
+import { DebtFiles, type DebtFileView } from "./debt-files";
 
 type Data = Awaited<ReturnType<typeof loadDebts>>;
 type DebtView = Data["debts"][number];
@@ -48,7 +62,6 @@ function DebtForm({
   onDone: () => void;
 }) {
   const [state, action, pending] = useActionState(saveDebt, initial);
-  const [system, setSystem] = useState<DebtView["system"]>("price");
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
@@ -64,57 +77,7 @@ function DebtForm({
           defaultValue={debt?.name}
         />
       </Field>
-      {debt ? null : (
-        <>
-          <Field
-            label="Como são as parcelas"
-            hint="Veja no contrato ou no boleto."
-            error={state.fieldErrors?.system}
-          >
-            <Select
-              name="system"
-              value={system}
-              onChange={(event) => setSystem(event.target.value as DebtView["system"])}
-            >
-              <option value="price">Fixas, com juros calculados aqui</option>
-              <option value="sac">Diminuem a cada mês</option>
-              <option value="manual">Eu informo o valor da parcela</option>
-            </Select>
-          </Field>
-          {system === "manual" ? (
-            <Field label="Valor da parcela (R$)" error={state.fieldErrors?.installmentAmount}>
-              <Input name="installmentAmount" inputMode="decimal" required placeholder="0,00" />
-            </Field>
-          ) : (
-            <Field
-              label="Saldo devedor hoje (R$)"
-              hint="Quanto falta pagar, sem contar juros futuros."
-              error={state.fieldErrors?.balance}
-            >
-              <Input name="balance" inputMode="decimal" required placeholder="0,00" />
-            </Field>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label="Juros ao mês (%)"
-              hint={
-                system === "manual"
-                  ? "Opcional. Só ajuda a sugerir a ordem."
-                  : "Use 0 se não tiver."
-              }
-              error={state.fieldErrors?.monthlyRate}
-            >
-              <Input name="monthlyRate" inputMode="decimal" placeholder="0,00" />
-            </Field>
-            <Field label="Parcelas que faltam" error={state.fieldErrors?.installments}>
-              <Input name="installments" type="number" min={1} max={480} required />
-            </Field>
-          </div>
-          <Field label="Próximo vencimento" error={state.fieldErrors?.firstDueDate}>
-            <Input name="firstDueDate" type="date" required defaultValue={today} />
-          </Field>
-        </>
-      )}
+      {debt ? null : <DebtFields values={{ firstDueDate: today }} errors={state.fieldErrors} />}
       <Field label="Conta que paga as parcelas" error={state.fieldErrors?.accountId}>
         <Select name="accountId" required defaultValue={debt?.accountId}>
           {accounts
@@ -195,15 +158,19 @@ function DebtCard({
   debt,
   today,
   writable,
+  files,
   onEdit,
   onSchedule,
+  onFiles,
   onClose,
 }: {
   debt: DebtView;
   today: string;
   writable: boolean;
+  files: number;
   onEdit: () => void;
   onSchedule: () => void;
+  onFiles: () => void;
   onClose: () => void;
 }) {
   const total = debt.installments.length;
@@ -220,6 +187,12 @@ function DebtCard({
         <div className="flex shrink-0">
           <IconButton label={`Ver parcelas de ${debt.name}`} onClick={onSchedule}>
             <List className="size-4" aria-hidden="true" />
+          </IconButton>
+          <IconButton
+            label={`Arquivos de ${debt.name}${files > 0 ? ` (${files})` : ""}`}
+            onClick={onFiles}
+          >
+            <FileText className="size-4" aria-hidden="true" />
           </IconButton>
           {writable ? (
             <>
@@ -283,10 +256,24 @@ function DebtCard({
   );
 }
 
-export function DebtsBoard({ data, writable }: { data: Data; writable: boolean }) {
+const importLink = "/app/dividas/importar";
+
+export function DebtsBoard({
+  data,
+  files,
+  writable,
+}: {
+  data: Data;
+  files: DebtFileView[];
+  writable: boolean;
+}) {
   const [editing, setEditing] = useState<{ nonce: number; debt: DebtView | null } | null>(null);
   const [viewing, setViewing] = useState<DebtView | null>(null);
   const [closing, setClosing] = useState<DebtView | null>(null);
+  const [filesOf, setFilesOf] = useState<DebtView | null>(null);
+  const [deleting, setDeleting] = useState<DebtFileView | null>(null);
+  const filesFor = (id: string) => files.filter((file) => file.debtId === id);
+  const loose = files.filter((file) => file.debtId === null);
   const active = data.debts.filter((debt) => !debt.archived);
   const closed = data.debts.filter((debt) => debt.archived);
   const close = () => setEditing(null);
@@ -300,7 +287,16 @@ export function DebtsBoard({ data, writable }: { data: Data; writable: boolean }
           <EmptyState
             title="Nenhuma dívida cadastrada"
             text="Cadastre empréstimos e financiamentos. As parcelas entram sozinhas nos vencimentos do mês, e você vê qual pagar primeiro."
-            action={writable ? <Button onClick={() => open(null)}>Cadastrar dívida</Button> : null}
+            action={
+              writable ? (
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button onClick={() => open(null)}>Cadastrar dívida</Button>
+                  <Link href={importLink} className={buttonClass("secondary")}>
+                    Importar de um arquivo
+                  </Link>
+                </div>
+              ) : null
+            }
           />
         </Card>
       ) : (
@@ -314,8 +310,10 @@ export function DebtsBoard({ data, writable }: { data: Data; writable: boolean }
               debt={debt}
               today={data.today}
               writable={writable}
+              files={filesFor(debt.id).length}
               onEdit={() => open(debt)}
               onSchedule={() => setViewing(debt)}
+              onFiles={() => setFilesOf(debt)}
               onClose={() => setClosing(debt)}
             />
           ))}
@@ -331,8 +329,39 @@ export function DebtsBoard({ data, writable }: { data: Data; writable: boolean }
               </button>
             </li>
           ) : null}
+          {writable ? (
+            <li>
+              <Link
+                href={importLink}
+                className="flex h-full min-h-32 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-line text-sm font-semibold text-muted transition hover:bg-brand-50 hover:text-ink"
+              >
+                <FileUp className="size-4" aria-hidden="true" />
+                Importar de um arquivo
+              </Link>
+            </li>
+          ) : null}
         </ul>
       )}
+
+      {writable && loose.length > 0 ? (
+        <Card
+          title="Arquivos esperando conferência"
+          description="Ainda não viraram dívida. Confira os valores ou apague o arquivo."
+          actions={
+            <Link href={importLink} className={buttonClass("secondary", true)}>
+              Conferir
+            </Link>
+          }
+        >
+          <ul className="m-0 list-none divide-y divide-line p-0">
+            {loose.map((file) => (
+              <li key={file.id} className="truncate py-2 text-sm">
+                {file.fileName}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       {closed.length > 0 ? (
         <Card
@@ -393,6 +422,30 @@ export function DebtsBoard({ data, writable }: { data: Data; writable: boolean }
           </>
         ) : null}
       </Sheet>
+      <Sheet
+        open={filesOf !== null}
+        onClose={() => setFilesOf(null)}
+        title={filesOf ? `Arquivos de ${filesOf.name}` : "Arquivos"}
+      >
+        {filesOf ? (
+          <DebtFiles
+            debtId={filesOf.id}
+            debtName={filesOf.name}
+            files={filesFor(filesOf.id)}
+            writable={writable}
+            onDelete={setDeleting}
+          />
+        ) : null}
+      </Sheet>
+      <ConfirmSheet
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        title="Apagar arquivo"
+        text={`"${deleting?.fileName ?? ""}" será apagado de vez. A dívida continua como está.`}
+        confirmLabel="Apagar"
+        action={deleteDocument}
+        hidden={{ id: deleting?.id ?? "" }}
+      />
       <ConfirmSheet
         open={closing !== null}
         onClose={() => setClosing(null)}
@@ -400,7 +453,7 @@ export function DebtsBoard({ data, writable }: { data: Data; writable: boolean }
         text={
           hasHistory
             ? `"${closing?.name ?? ""}" sai do mês e as parcelas em aberto deixam de aparecer. O que já foi pago continua nos lançamentos.`
-            : `"${closing?.name ?? ""}" e o calendário de parcelas serão apagados.`
+            : `"${closing?.name ?? ""}", o calendário de parcelas e os arquivos anexados serão apagados.`
         }
         confirmLabel={hasHistory ? "Encerrar" : "Excluir"}
         action={closeDebt}

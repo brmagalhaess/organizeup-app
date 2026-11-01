@@ -107,6 +107,8 @@ export interface PayoffResult {
   /** Dívida que recebe o valor a mais primeiro. Pode não ser a primeira a terminar. */
   focus: { id: string; name: string } | null;
   order: Array<{ id: string; name: string; month: number }>;
+  /** Quanto vai além das parcelas no primeiro mês, por dívida, na ordem de ataque. */
+  firstMonthExtra: Array<{ id: string; name: string; amount: string }>;
   /** A parcela não cobre os juros: a dívida nunca termina. */
   stalled: boolean;
 }
@@ -131,6 +133,7 @@ export function simulatePayoff(
   }));
   const committed = open.reduce((acc, debt) => acc.plus(debt.due), money(0));
   const order: PayoffResult["order"] = [];
+  const firstMonthExtra: PayoffResult["firstMonthExtra"] = [];
   let focus: PayoffResult["focus"] = null;
   let totalInterest = money(0);
   let month = 0;
@@ -141,7 +144,8 @@ export function simulatePayoff(
     const active = open.filter((debt) => debt.left.gt(0));
 
     for (const debt of active) {
-      const interest = toCents(debt.left.times(debt.rate));
+      // Sem arredondar a cada mês: centavos acumulados em anos mudariam qual estratégia sai mais barata.
+      const interest = debt.left.times(debt.rate);
       totalInterest = totalInterest.plus(interest);
       debt.left = debt.left.plus(interest);
       const paid = debt.left.lt(debt.due) ? debt.left : debt.due;
@@ -163,6 +167,9 @@ export function simulatePayoff(
       const paid = debt.left.lt(budget) ? debt.left : budget;
       debt.left = debt.left.minus(paid);
       budget = budget.minus(paid);
+      if (month === 1 && paid.gt(0)) {
+        firstMonthExtra.push({ id: debt.id, name: debt.name, amount: toDbAmount(paid) });
+      }
     }
 
     for (const debt of active) {
@@ -176,6 +183,7 @@ export function simulatePayoff(
     totalInterest: toDbAmount(totalInterest),
     focus,
     order,
+    firstMonthExtra,
     stalled: open.some((debt) => debt.left.gt(0)),
   };
 }

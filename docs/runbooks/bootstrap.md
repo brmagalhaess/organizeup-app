@@ -41,7 +41,7 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      chave não pertence a um workspace; o botão **Testar a IA** em `/admin/sistema` avisa), `AI_MONTHLY_BUDGET_USD` (opcional; padrão 50, teto do
      serviço no mês) e `AI_FAMILY_DAILY_TOKENS` (opcional; padrão 200000, teto por família e dia). Ao bater o teto
      mensal o assistente para sozinho e o painel avisa. Para desligar na hora, use `/admin/controles` (ADR-0018).
-   - E2E (fora do Dokploy): `assistente.spec.ts` precisa de `E2E_ASSISTANT=1` no Playwright e do servidor em
+   - E2E (fora do Dokploy): `assistente.spec.ts` e `dividas-arquivo.spec.ts` precisam de `E2E_ASSISTANT=1` no Playwright e do servidor em
      `next dev` (com `NODE_ENV=production` o modelo falso é ignorado), com `ANTHROPIC_API_KEY` qualquer e
      `AI_TEST_BASE_URL=http://127.0.0.1:3199`, depois de `node apps/web/e2e/fake-model.mjs 3199`. Rode com
      `--workers=1`; para vários specs juntos, suba o servidor com `AUTH_RATE_LIMIT=disabled`.

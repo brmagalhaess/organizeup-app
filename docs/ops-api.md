@@ -43,9 +43,9 @@ aparece em `agentRuns`. Resposta: `{queued, agent, day, reason}`, com `reason` n
 ## Agentes diários do produto (`agentRuns`)
 
 `GET /api/ops/context` devolve `agentRuns`: os últimos 14 dias de `ops.agent_runs`, uma linha por dia e
-agente (`categorias`, `categorias_ia`, `investimentos`, `aposentadoria`, `viagens`, `metas`, `mercado`, `dicas`). O worker grava
-ao terminar cada agente; rodar de novo no mesmo dia substitui as contagens e soma 1 em `runs`. Só números, nunca
-uma família. Nas dicas, repetir no dia sem atender nenhuma família mantém a rodada da madrugada.
+agente (`categorias`, `categorias_ia`, `investimentos`, `dividas`, `aposentadoria`, `viagens`, `metas`, `mercado`, `dicas`). O
+worker grava ao terminar cada agente; rodar de novo no mesmo dia substitui as contagens e soma 1 em `runs`. Só
+números, nunca uma família. Nas dicas, repetir no dia sem atender nenhuma família mantém a rodada da madrugada.
 
 | Campo         | Significado                                                        |
 | ------------- | ------------------------------------------------------------------ |

@@ -30,8 +30,15 @@ export default function PrivacyPage() {
           aposentadoria, viagens e eventos do calendário.
         </li>
         <li>
+          <strong>Arquivos de dívidas:</strong> os contratos, faturas, extratos e planilhas que você
+          anexar, com o nome do arquivo e o que foi lido nele. Podem trazer nome, CPF, endereço e
+          número de contrato. Ficam no nosso banco de dados, separados por família, até 50 MB por
+          família.
+        </li>
+        <li>
           <strong>Gerado pelo sistema:</strong> plano de cada meta, projeção de aposentadoria,
-          destinos de viagem sugeridos e os relatórios e sugestões do assistente.
+          destinos de viagem sugeridos, plano para sair das dívidas e os relatórios e sugestões do
+          assistente.
         </li>
         <li>
           <strong>Assistente:</strong> se a família ativar, as conversas de cada pessoa, que só ela
@@ -59,6 +66,10 @@ export default function PrivacyPage() {
           autorizar. A base é o seu consentimento (art. 7º, I), que pode ser retirado a qualquer
           momento em Configurações.
         </li>
+        <li>
+          Ler os arquivos de dívidas com inteligência artificial, se a família autorizar na própria
+          tela de importação. A base também é o seu consentimento (art. 7º, I).
+        </li>
         <li>Manter o sistema seguro e prevenir fraude e acesso indevido (art. 7º, IX).</li>
         <li>Cumprir obrigações legais (art. 7º, II).</li>
       </ul>
@@ -69,11 +80,11 @@ export default function PrivacyPage() {
 
       <h2>Assistentes automáticos</h2>
       <p>
-        Todos os dias, assistentes automáticos revisam categorias, investimentos, aposentadoria,
-        viagens e metas da sua família e deixam sugestões para você decidir. Eles seguem regras
-        fixas, rodam dentro do banco de dados da sua família e nada sai para terceiros. A única
-        exceção é a revisão de categorias com inteligência artificial, descrita abaixo, que só
-        acontece se a família autorizou o assistente.
+        Todos os dias, assistentes automáticos revisam categorias, investimentos, dívidas,
+        aposentadoria, viagens e metas da sua família e deixam sugestões para você decidir. Eles
+        seguem regras fixas, rodam dentro do banco de dados da sua família e nada sai para
+        terceiros. A única exceção é a revisão de categorias com inteligência artificial, descrita
+        abaixo, que só acontece se a família autorizou o assistente.
       </p>
       <p>
         O que você informou só muda com o seu aceite. O que o sistema calcula, como o plano de uma
@@ -140,6 +151,38 @@ export default function PrivacyPage() {
         retirar a autorização, use Configurações: nada mais é enviado a partir daí.
       </p>
 
+      <h2>Leitura de arquivos de dívidas</h2>
+      <p>
+        Ler um arquivo é opcional e pede duas autorizações: o assistente ativo e o aceite na tela de
+        importação. Sem elas, o arquivo fica guardado e nada é enviado.
+      </p>
+      <ul>
+        <li>
+          <strong>O que vai:</strong> o arquivo inteiro. Diferente da conversa, um PDF ou uma foto
+          vai como está, com o nome, o CPF, o endereço e os números que estiverem nele. Em CSV e
+          Excel, trocamos antes os nomes conhecidos da família, o e-mail e o CPF. O nome do arquivo
+          não vai.
+        </li>
+        <li>
+          <strong>Para quem:</strong> a Anthropic, PBC, nas mesmas condições descritas acima, com
+          transferência internacional para os Estados Unidos (LGPD, art. 33) feita com o seu
+          consentimento específico.
+        </li>
+        <li>
+          <strong>Para quê:</strong> só para preencher a conferência: credor, saldo, juros,
+          parcelas, vencimento, sistema de amortização e custo efetivo total. Nada vira dívida até
+          você confirmar, e um número lido nunca entra em cálculo antes disso.
+        </li>
+        <li>
+          <strong>Apagar:</strong> você apaga cada arquivo na tela de Dívidas, e apagar a dívida ou
+          a família leva os arquivos. Desligar o assistente retira também este aceite.
+        </li>
+        <li>
+          <strong>Exportação:</strong> o arquivo de dados da família traz nome, tipo, tamanho e data
+          de cada anexo, sem o conteúdo. Para ter o documento, baixe na tela de Dívidas.
+        </li>
+      </ul>
+
       <h2>Quem vê seus dados</h2>
       <p>
         Dentro do sistema, cada família tem seus dados separados, e só quem foi convidado para ela
@@ -200,6 +243,7 @@ export default function PrivacyPage() {
         <li>Corrigir: nas telas do próprio sistema.</li>
         <li>Baixar os dados da família: Configurações, opção disponível para o responsável.</li>
         <li>Apagar as anotações do assistente: Configurações.</li>
+        <li>Baixar ou apagar os arquivos de dívidas: tela de Dívidas.</li>
         <li>Apagar a conta: Configurações.</li>
       </ul>
       <p>Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).</p>

@@ -1,6 +1,6 @@
 # Especificação — vários idiomas e várias moedas
 
-Pedido do fundador em 2026-11-01. Decisões duráveis vão para o ADR-0019.
+Pedido do fundador em 2026-11-01. Decisões duráveis vão para o ADR-0020.
 
 Tamanho medido em 2026-11-01: 43 telas, 129 arquivos `.tsx`, `formatBRL` em 46 arquivos (265 usos), `pt-BR` escrito
 no código em 35 lugares, e regras que só existem no Brasil: CLT, INSS, IR, FGC, B3 e proventos.

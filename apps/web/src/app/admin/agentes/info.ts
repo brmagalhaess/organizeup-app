@@ -16,6 +16,11 @@ export const DAILY_AGENTS_INFO = [
     text: "Avisa de preço antigo e de carteira fora da divisão que a família escolheu.",
   },
   {
+    id: "dividas",
+    name: "Dívidas",
+    text: "Compara as estratégias de quitação, diz qual dívida atacar e aponta juro alto e dado faltando.",
+  },
+  {
     id: "aposentadoria",
     name: "Aposentadoria",
     text: "Refaz a projeção e divide o que sobra no mês entre reserva, dívidas e investimentos.",
