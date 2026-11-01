@@ -22,6 +22,7 @@ export interface AiTotals {
 const ROUTE_LABELS: Record<string, string> = {
   chat: "Conversa",
   noite: "Dicas da madrugada",
+  categorias: "Categorias com IA",
   teste: "Testar a IA",
 };
 

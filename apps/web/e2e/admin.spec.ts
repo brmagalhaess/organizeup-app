@@ -125,6 +125,7 @@ test("administrador navega por todas as telas, sem violação de acessibilidade"
   await expect(page.getByText("Os cinco agentes")).toHaveCount(0);
   for (const name of [
     "Categorias",
+    "Categorias com IA",
     "Investimentos",
     "Aposentadoria",
     "Viagens",
@@ -132,9 +133,11 @@ test("administrador navega por todas as telas, sem violação de acessibilidade"
     "Mercado",
     "Dicas",
   ]) {
-    await expect(page.getByRole("heading", { level: 3, name })).toBeVisible();
-    await expect(page.getByRole("switch", { name: `Agente ${name}` })).toBeVisible();
-    await expect(page.getByRole("button", { name: `Rodar agora: ${name}` })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 3, name, exact: true })).toBeVisible();
+    await expect(page.getByRole("switch", { name: `Agente ${name}`, exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `Rodar agora: ${name}`, exact: true }),
+    ).toBeVisible();
   }
   await expect(page.getByRole("link", { name: "Abrir o Paperclip" })).toHaveAttribute(
     "href",

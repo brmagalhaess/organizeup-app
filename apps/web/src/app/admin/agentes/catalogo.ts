@@ -17,6 +17,8 @@ export interface ProductAgent {
 
 const PAPERCLIP_TIMES: Record<string, string> = {
   categorias: "04:00",
+  // A etapa de IA anda junto: o Paperclip acorda só `categorias`.
+  categorias_ia: "04:00",
   investimentos: "04:10",
   aposentadoria: "04:20",
   viagens: "04:30",
