@@ -1,4 +1,5 @@
-import { adminHouseholdDetail, type PlatformModule } from "@organizeup/db";
+import { adminHouseholdAssistant, adminHouseholdDetail, type PlatformModule } from "@organizeup/db";
+import { todayIn } from "@organizeup/domain";
 import { Check, Minus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -7,7 +8,7 @@ import { Badge, Card, FormMessage } from "@/components/ui";
 import { ONBOARDING_VERSION } from "@/lib/onboarding";
 import { requireAdmin } from "@/lib/session";
 import { ConfirmAction } from "../../admin-actions";
-import { formatDate, formatDateTime, roleLabel, shortId } from "../../format";
+import { formatCount, formatDate, formatDateTime, roleLabel, shortId } from "../../format";
 import { AdminPage, AdminTable, Fact, Facts, type Column } from "../../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../../painel";
 import { deleteFamily, reactivateFamily, suspendFamily } from "../actions";
@@ -22,6 +23,12 @@ const MODULES: Array<{ id: PlatformModule; label: string }> = [
   { id: "trips", label: "Viagens" },
   { id: "retirement", label: "Aposentadoria" },
 ];
+
+const AUTONOMY: Record<string, string> = {
+  sugerir: "Sugerir",
+  organizar: "Organizar",
+  completo: "Completo",
+};
 
 const memberColumns: Column[] = [
   { key: "account", label: "Conta", primary: true },
@@ -46,6 +53,7 @@ export default async function AdminFamilyPage({ params }: { params: Promise<{ id
   const family = await adminHouseholdDetail(id);
   if (!family) notFound();
   await noteAdminAccess(session.user.id, "familia:detalhe", { householdId: id });
+  const assistant = await adminHouseholdAssistant(id, todayIn());
 
   const suspended = family.suspendedAt !== null;
   const hidden = { id: family.id };
@@ -139,6 +147,31 @@ export default async function AdminFamilyPage({ params }: { params: Promise<{ id
                 );
               })}
             </ul>
+          </Card>
+
+          <Card title="Assistente com IA" description="Só datas e contagens, sem nenhum texto.">
+            {assistant ? (
+              <dl className="m-0 flex flex-col gap-3 text-sm">
+                <Fact label="Assistente">
+                  <Badge tone={assistant.consentAt ? "success" : "neutral"}>
+                    {assistant.consentAt ? "Ligado" : "Desligado"}
+                  </Badge>
+                </Fact>
+                {assistant.consentAt ? (
+                  <>
+                    <Fact label="Aceitou em">{formatDate(assistant.consentAt)}</Fact>
+                    <Fact label="Nível de autonomia">
+                      {AUTONOMY[assistant.autonomy] ?? assistant.autonomy}
+                    </Fact>
+                  </>
+                ) : null}
+                <Fact label="Dicas ativas">{formatCount(assistant.activeInsights)}</Fact>
+                <Fact label="Memórias">{formatCount(assistant.memories)}</Fact>
+                <Fact label="Uso de IA no mês">{formatCount(assistant.monthTokens)} tokens</Fact>
+              </dl>
+            ) : (
+              <p className="m-0 text-sm text-muted">Disponível depois da próxima atualização.</p>
+            )}
           </Card>
 
           <Card title="Ações" description="Tudo fica na auditoria.">

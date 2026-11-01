@@ -43,8 +43,9 @@ aparece em `agentRuns`. Resposta: `{queued, agent, day, reason}`, com `reason` n
 ## Agentes diários do produto (`agentRuns`)
 
 `GET /api/ops/context` devolve `agentRuns`: os últimos 14 dias de `ops.agent_runs`, uma linha por dia e
-agente (`categorias`, `investimentos`, `aposentadoria`, `viagens`, `metas`). O worker grava ao terminar cada
-agente; rodar de novo no mesmo dia substitui as contagens e soma 1 em `runs`. Só números, nunca uma família.
+agente (`categorias`, `investimentos`, `aposentadoria`, `viagens`, `metas`, `mercado`, `dicas`). O worker grava
+ao terminar cada agente; rodar de novo no mesmo dia substitui as contagens e soma 1 em `runs`. Só números, nunca
+uma família. Nas dicas, repetir no dia sem atender nenhuma família mantém a rodada da madrugada.
 
 | Campo         | Significado                                                        |
 | ------------- | ------------------------------------------------------------------ |
@@ -59,7 +60,17 @@ agente; rodar de novo no mesmo dia substitui as contagens e soma 1 em `runs`. S�
 | `durationMs`  | Duração da última execução, em milissegundos                       |
 
 Quem lê: Tech Lead na rotina das 06:00 (abre reparo se `failed > 0`) e SRE às 07:30. `failed > 0` ou dia sem
-linha depois das 06:00 é tarefa. O painel `/admin` mostra os mesmos 7 últimos dias para o responsável.
+linha depois das 06:00 é tarefa. O painel `/admin/agentes` mostra os mesmos 14 dias para o responsável.
+
+Em `mercado`, `ok` conta cotações gravadas, `failed` conta consultas que falharam e `applied` soma proventos,
+eventos em ações e índices. Em `dicas`, `ok` conta famílias atendidas e `suggestions` conta dicas criadas. O que o
+verificador reprovou vai para `ops.agent_discards`, por dia e agente, e aparece só no painel: é uma contagem que
+soma a cada rodada, sem texto.
+
+A chave `agente_desligado:<agente>` vale para todos eles, `mercado` e `dicas` inclusive, e o modo manutenção também
+para o `mercado`: o job confere as duas antes de gastar cota da brapi. Nada fica registrado em `agentRuns` nesses
+dias, então agente desligado não gera alerta de rodada. O heartbeat do worker (`workers[].info`) traz `ai` e `brapi`
+(se a chave existe, nunca o valor) e `brapiMaxCalls`, o teto diário que o painel compara com as chamadas do dia.
 
 ## Erros (`ops.diagnostics`)
 

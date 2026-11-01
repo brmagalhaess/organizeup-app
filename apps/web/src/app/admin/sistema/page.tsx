@@ -1,38 +1,42 @@
-import { assistantConfigured, monthSpend } from "@organizeup/ai";
+import { DEFAULT_MAX_CALLS_PER_DAY } from "@organizeup/agents";
+import { assistantConfigured, MODEL, monthSpend } from "@organizeup/ai";
 import {
+  adminAccessList,
   adminMigrations,
   databaseStatus,
   findAgentMemories,
+  knowledgeStatus,
+  listAgentDiscards,
+  listAgentRuns,
+  listAiStats,
   listDeployments,
   listDiagnostics,
   listQueueCounts,
   listReports,
   listWorkerHeartbeats,
+  marketStatus,
 } from "@organizeup/db";
+import { todayIn } from "@organizeup/domain";
 import { Boxes, Database, Globe, Server } from "lucide-react";
 import type { Metadata } from "next";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { emailConfigured } from "@/lib/email";
-import { requireAdmin } from "@/lib/session";
+import { platformFlags, requireAdmin } from "@/lib/session";
+import { DICAS_AGENT } from "../agentes/catalogo";
 import { WORKER_STALE_MINUTES } from "../alertas";
-import { formatAge, formatCount, formatDateTime, formatUsd, minutesSince } from "../format";
+import { AI_TEST_FAILED, AI_TEST_OK } from "../auditoria/labels";
+import { formatAge, formatCount, formatDateTime, lastDays, minutesSince } from "../format";
 import { AdminPage, AdminTable, Tile, type Column } from "../kit";
 import { hasAdminDatabase, noteAdminAccess } from "../painel";
-import { TestAssistant } from "./test-assistant";
+import { AiCard, InsightsCard, KnowledgeCard, MarketCard } from "./blocos";
+import { insightsByDay } from "./resumo";
 
 export const metadata: Metadata = { title: "Sistema" };
 
 const shortCommit = (commit: string) => commit.slice(0, 7);
 
-/** Quanto da entrada veio do cache. Perto de zero com uso alto, o cache de prompt quebrou. */
-function cacheShare(usage: {
-  inputTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-}) {
-  const total = usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
-  return total === 0 ? "sem uso" : `${Math.round((usage.cacheReadTokens / total) * 100)}%`;
-}
+/** Janela dos blocos de IA e de dicas. */
+const USAGE_DAYS = 14;
 
 const queueColumns: Column[] = [
   { key: "name", label: "Fila", primary: true },
@@ -71,26 +75,54 @@ export default async function AdminSystemPage() {
   const session = await requireAdmin();
   await noteAdminAccess(session.user.id, "sistema:ver");
 
-  const [database, workers, queues, deployments, reports, memories, migrations, spend, errors] =
-    await Promise.all([
-      databaseStatus(),
-      listWorkerHeartbeats(),
-      listQueueCounts(),
-      listDeployments(12),
-      listReports({ limit: 10 }),
-      findAgentMemories({ limit: 12 }),
-      hasAdminDatabase() ? adminMigrations() : [],
-      monthSpend(),
-      listDiagnostics({ limit: 20 }),
-    ]);
+  const today = todayIn();
+  const days = lastDays(today, USAGE_DAYS);
+  const since = days[0]!;
+  const [
+    database,
+    workers,
+    queues,
+    deployments,
+    reports,
+    memories,
+    migrations,
+    spend,
+    errors,
+    flags,
+    aiRows,
+    runs,
+    discards,
+    market,
+    knowledge,
+    aiTests,
+  ] = await Promise.all([
+    databaseStatus(),
+    listWorkerHeartbeats(),
+    listQueueCounts(),
+    listDeployments(12),
+    listReports({ limit: 10 }),
+    findAgentMemories({ limit: 12 }),
+    hasAdminDatabase() ? adminMigrations() : [],
+    monthSpend(),
+    listDiagnostics({ limit: 20 }),
+    platformFlags(),
+    listAiStats(since),
+    listAgentRuns(USAGE_DAYS),
+    listAgentDiscards(since),
+    marketStatus(today),
+    knowledgeStatus(),
+    hasAdminDatabase() ? adminAccessList({ actions: [AI_TEST_OK, AI_TEST_FAILED], limit: 1 }) : [],
+  ]);
   const webCommit = process.env.APP_COMMIT ?? "dev";
   const freshest = workers[0] ? minutesSince(workers[0].lastSeenAt) : null;
   const workerOk = freshest !== null && freshest <= WORKER_STALE_MINUTES;
   const workerInfo = (workers[0]?.info ?? {}) as {
     ai?: boolean;
     brapi?: boolean;
+    brapiMaxCalls?: number;
     dailyAgents?: boolean;
   };
+  const lastTest = aiTests[0];
   const integrations = [
     { name: "E-mail (Brevo)", where: "ou3-web", on: emailConfigured(), hint: "BREVO_API_KEY" },
     {
@@ -140,17 +172,6 @@ export default async function AdminSystemPage() {
             </li>
           ))}
         </ul>
-        <div className="mt-2 border-t border-line pt-3 text-sm">
-          <p className="m-0 flex flex-wrap items-center justify-between gap-2 font-medium">
-            Gasto de IA no mês
-            {spend.reached ? <Badge tone="danger">Teto atingido</Badge> : null}
-          </p>
-          <p className="m-0 text-muted">
-            {formatUsd(spend.spentUsd)} de {formatUsd(spend.budgetUsd)}, em{" "}
-            {formatCount(spend.calls)} chamadas. Cache lido: {cacheShare(spend)}.
-          </p>
-          <TestAssistant />
-        </div>
       </Card>
       <section aria-labelledby="saude">
         <h2 id="saude" className="sr-only">
@@ -220,6 +241,31 @@ export default async function AdminSystemPage() {
           />
         )}
       </Card>
+
+      <AiCard
+        model={MODEL}
+        spend={spend}
+        rows={aiRows}
+        days={days}
+        aiEnabled={flags.aiEnabled}
+        workerHasKey={workerInfo.ai ?? null}
+        lastTest={lastTest ? { ok: lastTest.action === AI_TEST_OK, at: lastTest.at } : null}
+      />
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <InsightsCard
+          days={insightsByDay(runs, discards, DICAS_AGENT, since)}
+          windowDays={USAGE_DAYS}
+        />
+        <div className="flex min-w-0 flex-col gap-6">
+          <MarketCard
+            status={market}
+            maxCalls={workerInfo.brapiMaxCalls ?? DEFAULT_MAX_CALLS_PER_DAY}
+            now={new Date()}
+          />
+          <KnowledgeCard status={knowledge} today={today} />
+        </div>
+      </div>
 
       <Card title="Filas" description="Tarefas do worker, por fila.">
         {queues.length === 0 ? (

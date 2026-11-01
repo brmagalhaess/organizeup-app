@@ -1,4 +1,5 @@
 // O que merece atenção no topo da visão geral. Funções puras: recebem o que as telas já leram.
+import { DICAS_AGENT, MERCADO_AGENT } from "./agentes/catalogo";
 
 export interface AdminAlert {
   key: string;
@@ -16,6 +17,11 @@ const DEPLOY_GRACE_MINUTES = 15;
 const NEW_ERROR_MINUTES = 24 * 60;
 /** O Paperclip começa às 04:00 de Brasília, e o worker cobre às 05:30; às 06:00 já devia ter terminado. */
 const DAILY_RUN_HOUR = 6;
+/** As dicas começam às 05:45 e só registram a rodada no fim, depois de falar com o modelo. */
+const INSIGHTS_RUN_HOUR = 7;
+/** Sem sair do ar, o catálogo é atualizado todo dia útil: mais que isto já é problema. */
+const CATALOG_STALE_DAYS = 2;
+const DAY_MS = 86_400_000;
 
 interface Input {
   now: Date;
@@ -34,6 +40,26 @@ interface Input {
   allAgentsOff: boolean;
   /** Gasto de IA do mês contra o teto. */
   aiSpend?: { spentUsd: number; budgetUsd: number; reached: boolean };
+  /** Agentes ligados que o worker cobre às 05:30. Mercado e Dicas têm alerta próprio. */
+  expectedAgents?: Array<{ id: string; name: string }>;
+  /** Dicas ligadas, com chave no worker e fora da manutenção: hoje deviam rodar. */
+  insightsExpected?: boolean;
+  /** Último `Testar a IA`. */
+  aiTest?: { ok: boolean; at: Date } | null;
+  /** Null: catálogo vazio. Sem o campo, o Mercado está desligado e não há o que cobrar. */
+  catalogUpdatedAt?: Date | null;
+  /** `YYYY-MM-DD` da revisão mais antiga da base de conhecimento. */
+  knowledgeOldest?: string | null;
+  /** Falso quando o worker avisou que não tem a chave. Sem sinal dele, fica de fora. */
+  workerHasAiKey?: boolean | null;
+}
+
+export const catalogStale = (updatedAt: Date, now: Date) =>
+  now.getTime() - updatedAt.getTime() > CATALOG_STALE_DAYS * DAY_MS;
+
+/** Revisão anual: mais de 12 meses. `YYYY-MM-DD` ordena certo como texto e não muda com o fuso. */
+export function knowledgeExpired(oldest: string, today: string) {
+  return oldest < `${Number(today.slice(0, 4)) - 1}${today.slice(4)}`;
 }
 
 /** A partir daqui o painel já avisa, antes de o assistente parar sozinho. */
@@ -66,20 +92,37 @@ const minutesAgo = (from: Date, now: Date) => Math.floor((now.getTime() - from.g
 
 const formatDay = (day: string) => day.split("-").reverse().join("/");
 
-function agentAlerts({ runs, today, hour, maintenance, allAgentsOff }: Input): AdminAlert[] {
+function failureText(run: Input["runs"][number]) {
+  const day = formatDay(run.day);
+  if (run.agent === MERCADO_AGENT) {
+    return run.failed === 1
+      ? `1 consulta falhou em ${day}.`
+      : `${run.failed} consultas falharam em ${day}.`;
+  }
+  return run.failed === 1
+    ? `Falhou em 1 família em ${day}.`
+    : `Falhou em ${run.failed} famílias em ${day}.`;
+}
+
+function agentAlerts({
+  runs,
+  today,
+  hour,
+  maintenance,
+  allAgentsOff,
+  expectedAgents = [],
+}: Input): AdminAlert[] {
   const lastDay = runs[0]?.day ?? null;
   const failed = runs.filter((run) => run.day === lastDay && run.failed > 0);
   const alerts: AdminAlert[] = failed.map((run) => ({
     key: `agente:${run.agent}`,
     tone: "danger",
     title: `Agente ${run.agent} com falha`,
-    text:
-      run.failed === 1
-        ? `Falhou em 1 família em ${formatDay(run.day)}.`
-        : `Falhou em ${run.failed} famílias em ${formatDay(run.day)}.`,
+    text: failureText(run),
     href: "/admin/agentes",
   }));
-  if (lastDay !== today && hour >= DAILY_RUN_HOUR && !maintenance && !allAgentsOff) {
+  if (hour < DAILY_RUN_HOUR || maintenance || allAgentsOff) return alerts;
+  if (lastDay !== today) {
     alerts.push({
       key: "agentes:sem_rodada",
       tone: "warning",
@@ -89,8 +132,91 @@ function agentAlerts({ runs, today, hour, maintenance, allAgentsOff }: Input): A
         : "Nenhuma rodada registrada ainda. Confira o worker ou use Rodar agora.",
       href: "/admin/agentes",
     });
+    return alerts;
+  }
+  const ran = new Set(runs.filter((run) => run.day === today).map((run) => run.agent));
+  const missing = expectedAgents.filter((agent) => !ran.has(agent.id));
+  if (missing.length > 0) {
+    const names = missing.map((agent) => agent.name).join(", ");
+    alerts.push({
+      key: "agentes:faltando",
+      tone: "warning",
+      title: missing.length === 1 ? `${names} sem rodar hoje` : "Agentes sem rodar hoje",
+      text:
+        missing.length === 1
+          ? "O worker devia ter rodado às 05:30. Use Rodar agora."
+          : `Faltaram: ${names}. O worker devia ter rodado às 05:30.`,
+      href: "/admin/agentes",
+    });
   }
   return alerts;
+}
+
+function insightsAlert({ runs, today, hour, insightsExpected }: Input): AdminAlert | null {
+  if (!insightsExpected || hour < INSIGHTS_RUN_HOUR) return null;
+  if (runs.some((run) => run.day === today && run.agent === DICAS_AGENT)) return null;
+  return {
+    key: "dicas:sem_rodada",
+    tone: "warning",
+    title: "As dicas de hoje não rodaram",
+    text: "Deviam ter rodado às 05:45. Confira o worker ou use Rodar agora no cartão das Dicas.",
+    href: "/admin/agentes",
+  };
+}
+
+function aiTestAlert({ aiTest }: Input): AdminAlert | null {
+  if (!aiTest || aiTest.ok) return null;
+  return {
+    key: "ia:teste",
+    tone: "warning",
+    title: "O último Testar a IA falhou",
+    text: "Veja o motivo na tela Sistema e teste de novo. O aviso sai quando o teste passar.",
+    href: "/admin/sistema",
+  };
+}
+
+function workerKeyAlert({ workerHasAiKey }: Input): AdminAlert | null {
+  if (workerHasAiKey !== false) return null;
+  return {
+    key: "ia:worker",
+    tone: "warning",
+    title: "Worker sem a chave da IA",
+    text: "As dicas da madrugada não rodam até colocar ANTHROPIC_API_KEY em ou3-worker.",
+    href: "/admin/sistema",
+  };
+}
+
+function catalogAlert({ catalogUpdatedAt, now }: Input): AdminAlert | null {
+  if (catalogUpdatedAt === undefined) return null;
+  if (catalogUpdatedAt === null) {
+    return {
+      key: "mercado:catalogo",
+      tone: "warning",
+      title: "Catálogo de ativos vazio",
+      text: "O agente Mercado ainda não gravou a lista da bolsa.",
+      href: "/admin/sistema",
+    };
+  }
+  if (!catalogStale(catalogUpdatedAt, now)) return null;
+  const days = Math.floor((now.getTime() - catalogUpdatedAt.getTime()) / DAY_MS);
+  return {
+    key: "mercado:catalogo",
+    tone: "warning",
+    title: "Catálogo de ativos velho",
+    text: `A última atualização foi há ${days} dias. Confira o agente Mercado.`,
+    href: "/admin/sistema",
+  };
+}
+
+function knowledgeAlert({ knowledgeOldest, today }: Input): AdminAlert | null {
+  if (!knowledgeOldest || !knowledgeExpired(knowledgeOldest, today)) return null;
+  return {
+    key: "base:vencida",
+    tone: "warning",
+    title: "Base do assistente com revisão vencida",
+    text: `O trecho mais antigo foi revisado em ${formatDay(knowledgeOldest)}, há mais de 12 meses.`,
+    href: "/admin/sistema",
+  };
 }
 
 function workerAlert({ workers, now }: Input): AdminAlert | null {
@@ -156,8 +282,16 @@ export function buildAlerts(input: Input): AdminAlert[] {
   if (error) alerts.push(error);
   const deploy = deployAlert(input);
   if (deploy) alerts.push(deploy);
-  const ai = aiAlert(input);
-  if (ai) alerts.push(ai);
+  for (const alert of [
+    aiAlert(input),
+    workerKeyAlert(input),
+    aiTestAlert(input),
+    insightsAlert(input),
+    catalogAlert(input),
+    knowledgeAlert(input),
+  ]) {
+    if (alert) alerts.push(alert);
+  }
   const failedJobs = input.queues.reduce((total, queue) => total + queue.failed, 0);
   if (failedJobs > 0) {
     alerts.push({

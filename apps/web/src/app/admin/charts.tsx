@@ -48,10 +48,15 @@ function XAxis({ labels }: { labels: string[] }) {
   );
 }
 
-function YAxis({ top }: { top: number }) {
+function YAxis({ top, label }: { top: number; label?: string }) {
   return (
-    <div className="flex h-48 w-8 shrink-0 flex-col justify-between text-right text-xs tabular-nums text-muted">
-      <span>{formatCount(top)}</span>
+    <div
+      className={cx(
+        "flex h-48 shrink-0 flex-col justify-between text-right text-xs tabular-nums text-muted",
+        label ? "w-14" : "w-8",
+      )}
+    >
+      <span>{label ?? formatCount(top)}</span>
       <span>0</span>
     </div>
   );
@@ -247,16 +252,94 @@ export function ActivityChart({ points }: { points: ActivityPoint[] }) {
   );
 }
 
+export interface DayBar {
+  label: string;
+  value: number;
+  /** Texto da barra para o leitor de tela. */
+  text: string;
+  details: Array<{ label: string; value: string }>;
+}
+
+/** Uma barra por dia, mais o detalhe ao passar o mouse ou focar. `caption` diz o que é a série. */
+export function DayBars({
+  points,
+  caption,
+  empty,
+  format,
+}: {
+  points: DayBar[];
+  caption: string;
+  empty: { title: string; text: string };
+  format: (value: number) => string;
+}) {
+  if (points.every((point) => point.value === 0)) return <EmptyState {...empty} />;
+  const top = Math.max(...points.map((point) => point.value));
+  return (
+    <div>
+      <div className="flex gap-2">
+        <YAxis top={top} label={format(top)} />
+        <div className="min-w-0 flex-1">
+          <div className="flex h-48 items-end border-b border-line">
+            {points.map((point, index) => (
+              <button
+                key={point.label}
+                type="button"
+                aria-label={point.text}
+                className="group relative flex h-full min-w-0 flex-1 items-end justify-center rounded-t-lg hover:bg-brand-50/60"
+              >
+                <span
+                  aria-hidden="true"
+                  className="mx-px block w-full max-w-6 rounded-t bg-series-a"
+                  style={{ height: `${Math.max((point.value / top) * 100, point.value ? 2 : 0)}%` }}
+                />
+                <Tip flip={index >= points.length / 2}>
+                  <span className="mb-1 block font-semibold text-ink">{point.label}</span>
+                  {point.details.map((detail) => (
+                    <TipRow key={detail.label} label={detail.label} value={detail.value} />
+                  ))}
+                </Tip>
+              </button>
+            ))}
+          </div>
+          <XAxis labels={points.map((point) => point.label)} />
+        </div>
+      </div>
+      {/* A caixa recorta: tabela não encolhe abaixo do texto e abriria rolagem lateral no celular. */}
+      <div className="sr-only">
+        <table>
+          <caption>{caption}</caption>
+          <tbody>
+            {points.map((point) => (
+              <tr key={point.label}>
+                <th scope="row">{point.label}</th>
+                <td>{point.text}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export interface AdoptionItem {
   label: string;
   families: number;
 }
 
 /** Quantas famílias usam cada módulo, do mais usado para o menos usado. */
-export function AdoptionBars({ items, total }: { items: AdoptionItem[]; total: number }) {
+export function AdoptionBars({
+  items,
+  total,
+  label = "Adoção por módulo",
+}: {
+  items: AdoptionItem[];
+  total: number;
+  label?: string;
+}) {
   const sorted = [...items].sort((a, b) => b.families - a.families);
   return (
-    <ul aria-label="Adoção por módulo" className="m-0 flex list-none flex-col gap-3.5 p-0">
+    <ul aria-label={label} className="m-0 flex list-none flex-col gap-3.5 p-0">
       {sorted.map((item) => {
         const share = total > 0 ? Math.round((item.families / total) * 100) : 0;
         return (

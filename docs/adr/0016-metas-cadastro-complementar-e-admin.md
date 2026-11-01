@@ -110,6 +110,14 @@ cálculos estão no ADR-0015. A especificação completa está em `docs/specs/ag
     ela falha.
 - **"Rodar agora" enfileira na mesma fila `daily-agents`**, com `singletonKey` do dia e janela de 5 minutos. Em
   fila `standard` do pg-boss a chave sozinha não evita duplicata; quem evita é o par chave e janela.
+- **Central dos agentes (2026-11-01).** `/admin/agentes` lista os agentes do produto a partir de `info.ts`, mais
+  Mercado e Dicas e quem só aparecer em `ops.agent_runs`, com interruptor e "Rodar agora" por agente. A equipe do
+  Paperclip é um catálogo em código: a web não tem acesso à API de lá, então o estado ao vivo fica no Paperclip e
+  o painel mostra só o que foi registrado em `ops.reports`, `ops.agent_memory` e `ops.agent_runs`. Sem registro, diz
+  "Sem registro ainda", nunca um status inventado.
+- **Assistente na família (2026-11-01).** O detalhe mostra ligado ou não, data do aceite, nível de autonomia e
+  contagens de dicas, memórias e tokens do mês, sem ler nenhuma coluna de texto. O resultado de `Testar a IA` fica em
+  `ops.admin_access`, de onde sai o alerta. Rota nova em `ops.ai_stats` aparece sozinha em `/admin/sistema`.
 
 ## Fora do escopo por enquanto
 

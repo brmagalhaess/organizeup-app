@@ -10,6 +10,12 @@ Ordem quando houver migração nova: o worker aplica as migrações ao iniciar, 
 antes dele. Migrações são aditivas, então o código antigo continua funcionando nesse intervalo. Se a
 mudança da web depender da migração, faça o deploy do worker primeiro e o da web depois, pelo painel.
 
+Depois do deploy, a visão geral de `/admin` mostra o que pede atenção: rodada ou agente que faltou até as 06:00,
+dicas que não rodaram até as 07:00, teto de IA em 80%, `Testar a IA` que falhou, worker sem a chave da IA, catálogo
+de ativos com mais de 2 dias e base do assistente com mais de 12 meses. Em `/admin/agentes` dá para desligar e rodar
+cada agente, Mercado e Dicas inclusive. O catálogo da equipe em `apps/web/src/app/admin/agentes/paperclip.ts` é
+escrito à mão: mudou horário ou agente em `paperclip/agentes/`, atualize lá também.
+
 Caso especial: quando a versão adiciona uma coluna ou tabela que o **layout** da web lê em toda página (por
 exemplo, o aviso de cadastro complementar e a contagem de sugestões), ou o worker sobe antes, ou a web precisa
 tolerar os erros `42703` (coluna não existe) e `42P01` (tabela não existe) até ele subir, tratando-os como

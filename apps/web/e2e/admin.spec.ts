@@ -122,14 +122,44 @@ test("administrador navega por todas as telas, sem violação de acessibilidade"
   }
 
   await page.goto("/admin/agentes");
-  for (const name of ["Categorias", "Investimentos", "Aposentadoria", "Viagens", "Metas"]) {
+  await expect(page.getByText("Os cinco agentes")).toHaveCount(0);
+  for (const name of [
+    "Categorias",
+    "Investimentos",
+    "Aposentadoria",
+    "Viagens",
+    "Metas",
+    "Mercado",
+    "Dicas",
+  ]) {
     await expect(page.getByRole("heading", { level: 3, name })).toBeVisible();
     await expect(page.getByRole("switch", { name: `Agente ${name}` })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Rodar agora: ${name}` })).toBeVisible();
   }
   await expect(page.getByRole("link", { name: "Abrir o Paperclip" })).toHaveAttribute(
     "href",
     "https://paperclip.home.crowntech.com.br/ORG",
   );
+  const team = page.getByRole("table", { name: "Equipe de agentes no Paperclip" });
+  for (const name of ["Tech Lead", "Revisor QA", "Segurança", "Documentação"]) {
+    await expect(team.getByRole("cell", { name: new RegExp(`^${name}`) })).toBeVisible();
+    await expect(page.getByRole("link", { name: `Ver ${name} no Paperclip` })).toBeVisible();
+  }
+
+  await page.goto("/admin/sistema");
+  for (const name of [
+    "Inteligência artificial",
+    "Dicas da madrugada",
+    "Dados de mercado",
+    "Base de conhecimento",
+  ]) {
+    await expect(page.getByRole("heading", { level: 2, name })).toBeVisible();
+  }
+  await expect(page.getByText("claude-haiku-5-5")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Testar a IA" })).toBeVisible();
+
+  await page.goto("/admin");
+  await expect(page.getByRole("list", { name: "Adoção do assistente" })).toBeVisible();
 });
 
 test("a busca não vai para a URL e nada aparece além do permitido", async ({ page, browser }) => {
@@ -357,15 +387,28 @@ test.describe.serial("controles do sistema", () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-checked", "true");
 
-    await page.getByRole("button", { name: "Rodar agora" }).click();
+    await page.getByRole("button", { name: "Rodar os diários" }).click();
     await expect(page.getByText(/Rodada pedida|Já existe uma rodada/)).toBeVisible({
       timeout: 20_000,
     });
+    await page.getByRole("button", { name: "Rodar agora: Metas" }).click();
+    await expect(page.getByText(/Pedido feito|Já existe um pedido igual/)).toBeVisible({
+      timeout: 20_000,
+    });
+
+    // Desligado, o agente some do botão: o worker só pularia em silêncio.
+    const market = page.getByRole("switch", { name: "Agente Mercado" });
+    await market.click();
+    await expect(market).toHaveAttribute("aria-checked", "false");
+    await expect(page.getByRole("button", { name: "Rodar agora: Mercado" })).toHaveCount(0);
+    await market.click();
+    await expect(market).toHaveAttribute("aria-checked", "true");
 
     await page.goto("/admin/auditoria");
     await expect(page.getByText("Desligou o agente viagens").first()).toBeVisible();
     await expect(page.getByText("Ligou o agente viagens").first()).toBeVisible();
     await expect(page.getByText("Pediu para rodar os agentes").first()).toBeVisible();
+    await expect(page.getByText("Pediu para rodar o agente metas").first()).toBeVisible();
   });
 });
 

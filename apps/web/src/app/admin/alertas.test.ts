@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAlerts } from "./alertas";
+import { buildAlerts, knowledgeExpired } from "./alertas";
 
 const now = new Date("2026-10-31T15:00:00Z");
 const quiet = {
@@ -42,6 +42,80 @@ describe("alertas do painel", () => {
     expect(at(10)).toEqual([]);
     expect(at(40)).toEqual(["ia:perto"]);
     expect(at(50)).toEqual(["ia:teto"]);
+  });
+
+  it("agente sem rodar até as 06:00 é cobrado pelo nome", () => {
+    const expectedAgents = [
+      { id: "metas", name: "Metas" },
+      { id: "viagens", name: "Viagens" },
+    ];
+    const [one] = buildAlerts({ ...quiet, expectedAgents });
+    expect(one).toMatchObject({ key: "agentes:faltando", title: "Viagens sem rodar hoje" });
+    expect(keys({ hour: 5, expectedAgents } as object)).toEqual([]);
+    expect(keys({ maintenance: true, expectedAgents } as object)).toEqual(["manutencao"]);
+
+    const runs = [{ day: "2026-10-31", agent: "mercado", failed: 0 }];
+    const [many] = buildAlerts({ ...quiet, runs, expectedAgents });
+    expect(many).toMatchObject({ key: "agentes:faltando", title: "Agentes sem rodar hoje" });
+    expect(many!.text).toContain("Metas, Viagens");
+  });
+
+  it("dicas sem rodar só avisam depois das 07:00 e quando deviam rodar", () => {
+    const at = (input: object) =>
+      buildAlerts({ ...quiet, insightsExpected: true, ...input }).map((alert) => alert.key);
+    expect(at({})).toEqual(["dicas:sem_rodada"]);
+    expect(at({ hour: 6 })).toEqual([]);
+    expect(at({ insightsExpected: false })).toEqual([]);
+    expect(
+      at({
+        runs: [
+          { day: "2026-10-31", agent: "metas", failed: 0 },
+          { day: "2026-10-31", agent: "dicas", failed: 0 },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("Testar a IA que falhou avisa até passar", () => {
+    const at = (ok: boolean) =>
+      buildAlerts({ ...quiet, aiTest: { ok, at: now } }).map((alert) => alert.key);
+    expect(at(false)).toEqual(["ia:teste"]);
+    expect(at(true)).toEqual([]);
+    expect(keys({ aiTest: null } as object)).toEqual([]);
+  });
+
+  it("worker sem a chave da IA avisa; sem sinal dele, não", () => {
+    expect(keys({ workerHasAiKey: false } as object)).toEqual(["ia:worker"]);
+    expect(keys({ workerHasAiKey: true } as object)).toEqual([]);
+    expect(keys({ workerHasAiKey: null } as object)).toEqual([]);
+  });
+
+  it("catálogo velho há mais de 2 dias avisa", () => {
+    const at = (catalogUpdatedAt: Date | null | undefined) =>
+      buildAlerts({ ...quiet, catalogUpdatedAt });
+    expect(at(undefined)).toEqual([]);
+    expect(at(new Date("2026-10-30T15:00:00Z"))).toEqual([]);
+    expect(at(new Date("2026-10-28T15:00:00Z"))[0]).toMatchObject({
+      key: "mercado:catalogo",
+      title: "Catálogo de ativos velho",
+    });
+    expect(at(null)[0]).toMatchObject({ title: "Catálogo de ativos vazio" });
+  });
+
+  it("base do assistente vence depois de 12 meses", () => {
+    expect(knowledgeExpired("2025-10-31", "2026-10-31")).toBe(false);
+    expect(knowledgeExpired("2025-10-30", "2026-10-31")).toBe(true);
+    expect(keys({ knowledgeOldest: "2026-01-10" } as object)).toEqual([]);
+    expect(keys({ knowledgeOldest: "2025-01-10" } as object)).toEqual(["base:vencida"]);
+    expect(keys({ knowledgeOldest: null } as object)).toEqual([]);
+  });
+
+  it("falha do Mercado fala de consultas, não de famílias", () => {
+    const [alert] = buildAlerts({
+      ...quiet,
+      runs: [{ day: "2026-10-31", agent: "mercado", failed: 2 }],
+    });
+    expect(alert!.text).toBe("2 consultas falharam em 31/10/2026.");
   });
 
   it("sem worker nenhum também avisa", () => {

@@ -1,14 +1,17 @@
-import { monthSpend } from "@organizeup/ai";
+import { INSIGHTS_CONSENT_VERSION, monthSpend } from "@organizeup/ai";
 import {
   adminAccessList,
+  adminAssistantCounts,
   adminGrowth,
   adminOverviewCounts,
+  knowledgeStatus,
   listAgentRuns,
   listDeployments,
   listDiagnostics,
   listPlatformStats,
   listQueueCounts,
   listWorkerHeartbeats,
+  marketStatus,
 } from "@organizeup/db";
 import { todayIn } from "@organizeup/domain";
 import { Activity, CircleCheck, Clock, Sparkles, UserPlus, UserRound, Users } from "lucide-react";
@@ -18,10 +21,10 @@ import { Card, EmptyState, FormMessage } from "@/components/ui";
 import { ONBOARDING_VERSION } from "@/lib/onboarding";
 import { platformFlags, requireAdmin } from "@/lib/session";
 import { buildAlerts } from "./alertas";
-import { actionLabel, AUDIT_VISITS } from "./auditoria/labels";
+import { actionLabel, AI_TEST_FAILED, AI_TEST_OK, AUDIT_VISITS } from "./auditoria/labels";
 import { ActivityChart, AdoptionBars, GrowthChart } from "./charts";
 import { formatCount, formatDateTime, formatDay, formatDayShort } from "./format";
-import { DAILY_AGENTS_INFO } from "./agentes/info";
+import { agentName, DAILY_AGENT_IDS, DICAS_AGENT, MERCADO_AGENT } from "./agentes/catalogo";
 import { AdminPage, AlertList, Tile } from "./kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "./painel";
 
@@ -40,6 +43,11 @@ const suspendedHint = (total: number) =>
   total === 0 ? undefined : total === 1 ? "1 suspensa" : `${formatCount(total)} suspensas`;
 const blockedHint = (total: number) =>
   total === 0 ? undefined : total === 1 ? "1 bloqueado" : `${formatCount(total)} bloqueados`;
+
+/** O que o worker avisou da chave da IA. Null sem sinal dele, ou de versão que ainda não avisava. */
+function workerAiKey(info: Record<string, unknown> | undefined) {
+  return typeof info?.ai === "boolean" ? info.ai : null;
+}
 
 /** Última contagem de cada semana (a semana corrente fecha hoje), das 12 mais recentes. */
 function weeklyActivity(stats: Array<{ day: string; active7d: number }>) {
@@ -71,6 +79,7 @@ export default async function AdminOverviewPage() {
     );
   }
 
+  const today = todayIn();
   const [
     counts,
     growth,
@@ -83,6 +92,10 @@ export default async function AdminOverviewPage() {
     recent,
     aiSpend,
     diagnostics,
+    assistant,
+    market,
+    knowledge,
+    aiTests,
   ] = await Promise.all([
     adminOverviewCounts({ onboardingVersion: ONBOARDING_VERSION }),
     adminGrowth(12),
@@ -95,10 +108,16 @@ export default async function AdminOverviewPage() {
     adminAccessList({ limit: 6, excludeActions: AUDIT_VISITS }),
     monthSpend(),
     listDiagnostics({ limit: 100 }),
+    adminAssistantCounts({ insightsConsentVersion: INSIGHTS_CONSENT_VERSION }),
+    marketStatus(today),
+    knowledgeStatus(),
+    adminAccessList({ actions: [AI_TEST_OK, AI_TEST_FAILED], limit: 1 }),
   ]);
 
   const latest = stats[0] ?? null;
-  const today = todayIn();
+  const disabled = flags.disabledAgents;
+  const workerHasAiKey = workerAiKey(workers[0]?.info);
+  const lastTest = aiTests[0];
   const alerts = buildAlerts({
     now: new Date(),
     today,
@@ -111,8 +130,21 @@ export default async function AdminOverviewPage() {
     statsDay: latest?.day ?? null,
     maintenance: flags.maintenance,
     signupClosed: flags.signupClosed,
-    allAgentsOff: flags.disabledAgents.length >= DAILY_AGENTS_INFO.length,
+    allAgentsOff: DAILY_AGENT_IDS.every((id) => disabled.includes(id)),
     aiSpend,
+    expectedAgents: DAILY_AGENT_IDS.filter((id) => !disabled.includes(id)).map((id) => ({
+      id,
+      name: agentName(id),
+    })),
+    insightsExpected:
+      !flags.maintenance &&
+      flags.aiEnabled &&
+      !disabled.includes(DICAS_AGENT) &&
+      workerHasAiKey !== false,
+    aiTest: lastTest ? { ok: lastTest.action === AI_TEST_OK, at: lastTest.at } : null,
+    ...(disabled.includes(MERCADO_AGENT) ? {} : { catalogUpdatedAt: market.assetsUpdatedAt }),
+    knowledgeOldest: knowledge.oldestReview,
+    workerHasAiKey: flags.aiEnabled ? workerHasAiKey : null,
   });
   const growthPoints = growth.map((week) => ({
     label: formatDayShort(week.week),
@@ -214,6 +246,23 @@ export default async function AdminOverviewPage() {
             />
           )}
         </Card>
+        <Card
+          title="Assistente com IA"
+          description="Quantas famílias ligaram cada parte. Só contagens."
+        >
+          <AdoptionBars
+            label="Adoção do assistente"
+            total={counts.households}
+            items={[
+              { label: "Assistente ligado", families: assistant.assistantOn },
+              { label: "Dicas ligadas", families: assistant.insightsOn },
+              { label: "Com memórias", families: assistant.withMemories },
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div>
         <Card
           title="Últimas ações"
           description="O que foi feito no painel."
