@@ -14,6 +14,7 @@ import {
   isProtectedCategory,
   memoryKey,
   merchantKey,
+  merchantOfDedupeKey,
   nearDuplicateCategory,
   planCategoryMoves,
   reviewCategories,
@@ -372,8 +373,15 @@ describe("categorização com IA", () => {
     expect(result.rejected).toHaveLength(0);
   });
 
+  it("acha o estabelecimento na chave da sugestão", () => {
+    expect(merchantOfDedupeKey("categoria:despesa:loja x:destino")).toBe("despesa:loja x");
+    expect(merchantOfDedupeKey("categoria:despesa:loja x:sem_pista")).toBe("despesa:loja x");
+    expect(merchantOfDedupeKey("fusao:a:b")).toBeNull();
+    expect(merchantOfDedupeKey("fechada:categoria:despesa:loja x:destino")).toBeNull();
+  });
+
   it("o resumo do dia troca o trecho da IA em vez de repetir", () => {
-    const ia = { groups: 1, moved: 2, created: ["Pets"], pending: 0, skipped: 0 };
+    const ia = { groups: 1, moved: 2, created: ["Pets"], skipped: 0 };
     const once = withAiSummary("1 lançamento revisado.", ia);
     expect(once).toContain("2 lançamentos movidos");
     expect(once).toContain("Categorias criadas: Pets.");
@@ -447,13 +455,12 @@ describe("revisão diária de categorias", () => {
     });
     expect(review.automatic).toHaveLength(1);
     expect(review.automatic[0]).toMatchObject({ ids: ["nova"], toCategoryId: "r" });
-    expect(review.automatic.flatMap((group) => group.ids)).not.toContain("escolha");
-    expect([...review.automatic, ...review.suggested].flatMap((group) => group.ids)).not.toContain(
-      "conflito",
-    );
+    const moved = review.automatic.flatMap((group) => group.ids);
+    expect(moved).not.toContain("escolha");
+    expect(moved).not.toContain("conflito");
   });
 
-  it("move sozinho o que ficou para revisar e a regra resolve", () => {
+  it("move o que está em categoria genérica e a regra resolve, seja qual for a origem", () => {
     const review = reviewCategories({
       transactions,
       categories: own,
@@ -468,58 +475,119 @@ describe("revisão diária de categorias", () => {
         fromCategoryId: "o",
         toCategoryId: "m",
         newCategory: null,
-        reason: "Ficou em Outras na importação e a regra conhece o estabelecimento",
+        reason: "A regra conhece o estabelecimento",
         dedupeKey: "categoria:despesa:supermercado bom:m",
+      },
+      {
+        ids: ["t3"],
+        kind: "despesa",
+        merchant: "padaria sao jose",
+        fromCategoryId: "o",
+        toCategoryId: "r",
+        newCategory: null,
+        reason: "A regra conhece o estabelecimento",
+        dedupeKey: "categoria:despesa:padaria sao jose:r",
       },
     ]);
   });
 
-  it("o que a família deixou em Outras e o estabelecimento inconsistente só viram sugestão", () => {
+  it("escolha da família em categoria específica não muda, mesmo com outro lançamento movido", () => {
     const review = reviewCategories({
-      transactions,
+      transactions: [
+        row("generica", "PADARIA SAO JOSE", "o", "familia"),
+        row("especifica", "PADARIA SAO JOSE", "l", "familia"),
+        row("importada", "PADARIA SAO JOSE", "l", "importacao"),
+        row("sem-origem", "PADARIA SAO JOSE", "l", null),
+      ],
       categories: own,
       memory: empty,
       blocked: new Set(),
     });
-    const padaria = review.suggested.find((g) => g.merchant === "padaria sao jose");
-    expect(padaria).toMatchObject({ ids: ["t3"], fromCategoryId: "o", toCategoryId: "r" });
-    const posto = review.suggested.find((g) => g.merchant === "posto shell");
-    expect(posto).toMatchObject({
-      ids: ["t5"],
-      fromCategoryId: "l",
-      toCategoryId: "m",
-      reason: "Mesmo estabelecimento em 2 categorias nos últimos 90 dias",
-      dedupeKey: "categoria:despesa:posto shell:m",
-    });
-    expect(review.suggested.some((g) => g.ids.includes("t2"))).toBe(false);
+    expect(review.automatic.flatMap((group) => group.ids)).toEqual(["generica"]);
   });
 
-  it("a memória da família decide o destino da inconsistência", () => {
+  it("mesmo estabelecimento em duas categorias específicas fica como está", () => {
     const memory = {
       history: new Map([[memoryKey("despesa", "posto shell"), "l"]]),
       learned: new Map(),
     };
     const review = reviewCategories({ transactions, categories: own, memory, blocked: new Set() });
-    const posto = review.suggested.find((g) => g.merchant === "posto shell");
-    expect(posto).toMatchObject({ ids: ["t4", "t6"], toCategoryId: "l" });
+    expect(review.automatic.some((g) => g.merchant === "posto shell")).toBe(false);
   });
 
-  it("memória do agente só sugere, e o que a família desfez não volta", () => {
+  it("categoria genérica que não é a de sobra também muda", () => {
+    const named = [...own, { id: "d", name: "Diversos", kind: "despesa" as const }];
+    const review = reviewCategories({
+      transactions: [
+        {
+          ...row("t1", "SUPERMERCADO BOM", "o", "familia"),
+          categoryId: "d",
+          categoryName: "Diversos",
+        },
+      ],
+      categories: named,
+      memory: empty,
+      blocked: new Set(),
+    });
+    expect(review.automatic[0]).toMatchObject({ ids: ["t1"], fromCategoryId: "d" });
+  });
+
+  it("memória do agente decide quando a regra não sabe", () => {
     const agentLearned = new Map([[memoryKey("despesa", "xpto ltda"), "l"]]);
-    const blocked = new Set(["categoria:despesa:supermercado bom:m"]);
     const review = reviewCategories({
       transactions,
       categories: own,
       memory: empty,
       agentLearned,
-      blocked,
+      blocked: new Set(),
     });
-    expect(review.automatic).toEqual([]);
-    expect(review.suggested.some((g) => g.merchant === "supermercado bom")).toBe(false);
-    expect(review.suggested.find((g) => g.ids.includes("t2"))).toMatchObject({
+    expect(review.automatic.find((g) => g.ids.includes("t2"))).toMatchObject({
       toCategoryId: "l",
       reason: "O assistente já viu este estabelecimento em Lazer",
     });
+  });
+
+  it("desfazer bloqueia o estabelecimento em qualquer destino", () => {
+    const blocked = new Set(["categoria:despesa:supermercado bom:outro-destino"]);
+    const review = reviewCategories({ transactions, categories: own, memory: empty, blocked });
+    expect(review.automatic.some((g) => g.merchant === "supermercado bom")).toBe(false);
+  });
+
+  it('"Agora não" segura só aquela mudança', () => {
+    const review = reviewCategories({
+      transactions,
+      categories: own,
+      memory: empty,
+      blocked: new Set(),
+      ignored: new Set(["categoria:despesa:supermercado bom:m"]),
+    });
+    expect(review.automatic.some((g) => g.merchant === "supermercado bom")).toBe(false);
+    expect(review.automatic.some((g) => g.merchant === "padaria sao jose")).toBe(true);
+  });
+
+  it("categoria de sistema não é origem nem destino", () => {
+    const named = [
+      ...own,
+      { id: "a", name: "Aportes e investimentos", kind: "despesa" as const },
+      { id: "t", name: "Transferências", kind: "despesa" as const },
+    ];
+    const inSystem = {
+      ...row("origem", "SUPERMERCADO BOM", "o", "revisar"),
+      categoryId: "a",
+      categoryName: "Aportes e investimentos",
+    };
+    const history = new Map([[memoryKey("despesa", "loja nova"), "t"]]);
+    const review = reviewCategories({
+      transactions: [
+        inSystem,
+        row("palavra", "CORRETORA ALFA", "o", "revisar"),
+        row("memoria", "LOJA NOVA", "o", "familia"),
+      ],
+      categories: named,
+      memory: { history, learned: new Map() },
+      blocked: new Set(),
+    });
+    expect(review.automatic).toEqual([]);
   });
 
   it("propõe criar a categoria quando a família não a tem", () => {
@@ -565,6 +633,16 @@ describe("fusão de categorias", () => {
     { categoryId: "g", count: 10 },
   ];
 
+  it("categoria genérica e de sistema nunca entram numa fusão", () => {
+    const system = [
+      cat("a", "Outras despesas", true),
+      cat("b", "Outras despesas fixas", false),
+      cat("c", "Transferências", true),
+      cat("d", "Transferências entre contas", false),
+    ];
+    expect(suggestCategoryMerges(system, [])).toEqual([]);
+  });
+
   it("junta nomes iguais ou contidos e pouco usadas que casam com palavras de outra", () => {
     expect(suggestCategoryMerges(list, usage)).toEqual([
       { fromCategoryId: "b", toCategoryId: "a", reason: "Nomes iguais ou um contém o outro" },
@@ -590,33 +668,19 @@ describe("fusão de categorias", () => {
 });
 
 describe("relatório diário de categorias", () => {
-  it("conta movidos, sugestões e fusões", () => {
-    const group = {
-      ids: ["a", "b"],
-      kind: "despesa" as const,
-      merchant: "x",
-      fromCategoryId: "o",
-      toCategoryId: "m",
-      newCategory: null,
-      reason: "",
-      dedupeKey: "k",
-    };
-    const report = dailyCategoryReport(
-      { automatic: [group], suggested: [group, group] },
-      [{ fromCategoryId: "b", toCategoryId: "a", reason: "" }],
-      { reviewed: 40, created: ["Pets"], day: "2026-10-31" },
-    );
-    expect(report.title).toBe("Categorias revisadas em 2026-10-31");
-    expect(report.summary).toBe(
-      "40 lançamentos revisados, 2 movidos sozinhos, 2 sugestões para decidir, 1 fusão sugerida. Categorias criadas: Pets.",
-    );
-    expect(report.data).toEqual({
+  it("conta movidos e fusões", () => {
+    const report = dailyCategoryReport({
       reviewed: 40,
       moved: 2,
-      created: ["Pets"],
-      pending: 2,
       merges: 1,
+      created: ["Pets"],
+      day: "2026-10-31",
     });
+    expect(report.title).toBe("Categorias revisadas em 2026-10-31");
+    expect(report.summary).toBe(
+      "40 lançamentos revisados, 2 movidos sozinhos, 1 fusão feita. Categorias criadas: Pets.",
+    );
+    expect(report.data).toEqual({ reviewed: 40, moved: 2, created: ["Pets"], merges: 1 });
   });
 });
 

@@ -95,7 +95,7 @@ describe("etapa de IA na rodada", () => {
   it("roda entre as regras e a aposentadoria e conta o que fez", async () => {
     vi.mocked(categoryReviewer).mockReturnValue(async () => {
       order.push("categorias_ia");
-      return { suggestions: 2, moved: 7 } as never;
+      return { moved: 7 } as never;
     });
     await runDailyAgents(log);
     expect(order.slice(0, 4)).toEqual([
@@ -104,7 +104,7 @@ describe("etapa de IA na rodada", () => {
       "investimentos",
       "aposentadoria",
     ]);
-    expect(runOf("categorias_ia")).toMatchObject({ ok: 1, suggestions: 2, applied: 7 });
+    expect(runOf("categorias_ia")).toMatchObject({ ok: 1, suggestions: 0, applied: 7 });
   });
 
   it("falha do modelo conta como falha e o resto da rodada segue, sem texto no log", async () => {

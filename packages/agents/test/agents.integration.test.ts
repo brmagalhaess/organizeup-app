@@ -170,30 +170,33 @@ describe("agente de categorias", () => {
     });
   });
 
-  it("move sozinho o que ficou para revisar e só sugere o que a família deixou em Outras", async () => {
+  it("move sozinho o que está em Outras, inclusive o que a família deixou lá", async () => {
     const result = await inA((tx) =>
       agents.runCategoriasAgent(tx, { today, householdId: A.household }),
     );
-    expect(result.applied).toBe(1);
+    expect(result.applied).toBe(2);
+    expect(result.suggestions).toBe(0);
     await inA(async (tx) => {
       const mercado = await categoryId(tx, "Mercado");
       const fallback = await categoryId(tx, "Outras despesas");
       const [moved] = await tx.select().from(transactions).where(eq(transactions.id, reviewId));
       expect(moved!.categoryId).toBe(mercado);
       expect(moved!.categorySource).toBe("agente");
-      const [kept] = await tx.select().from(transactions).where(eq(transactions.id, familyId));
-      expect(kept!.categoryId).toBe(fallback);
-      expect(kept!.categorySource).toBe("familia");
+      const [chosen] = await tx.select().from(transactions).where(eq(transactions.id, familyId));
+      expect(chosen!.categoryId).not.toBe(fallback);
+      expect(chosen!.categorySource).toBe("agente");
 
       const rows = await tx.select().from(householdSuggestions);
       const applied = rows.filter((row) => row.status === "aplicada");
-      expect(applied).toHaveLength(1);
-      expect(applied[0]!.appliedBy).toBe("agente");
-      expect(applied[0]!.payload).toMatchObject({
-        previous: [{ transactionId: reviewId, categoryId: fallback, categorySource: "revisar" }],
-      });
-      const pending = rows.filter((row) => row.status === "pendente");
-      expect(pending.some((row) => row.kind === "categoria")).toBe(true);
+      expect(applied).toHaveLength(2);
+      expect(applied.every((row) => row.appliedBy === "agente")).toBe(true);
+      expect(applied.flatMap((row) => row.payload.previous)).toEqual(
+        expect.arrayContaining([
+          { transactionId: reviewId, categoryId: fallback, categorySource: "revisar" },
+          { transactionId: familyId, categoryId: fallback, categorySource: "familia" },
+        ]),
+      );
+      expect(rows.filter((row) => row.status === "pendente")).toEqual([]);
       const [report] = await tx
         .select()
         .from(householdReports)
@@ -228,9 +231,10 @@ describe("agente de categorias", () => {
 
   it("desfazer devolve os lançamentos e a mudança não volta sozinha", async () => {
     const ctx = await ownerCtx();
-    const [applied] = await inA((tx) =>
+    const rows = await inA((tx) =>
       tx.select().from(householdSuggestions).where(eq(householdSuggestions.status, "aplicada")),
     );
+    const applied = rows.find((row) => row.dedupeKey.includes("supermercado bom"));
     const undo = await db.withHousehold(ctx, (tx) => agents.undoSuggestion(tx, ctx, applied!.id));
     expect(undo.ok).toBe(true);
     await inA(async (tx) => {
