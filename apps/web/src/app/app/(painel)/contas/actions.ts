@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   ACCOUNT_TYPES,
   accounts,
+  accountsWithMovement,
   accountTransfers,
   and,
   canWrite,
@@ -11,7 +12,14 @@ import {
   inArray,
   withHousehold,
 } from "@organizeup/db";
-import { parseBRL, toDbAmount } from "@organizeup/domain";
+import {
+  CURRENCIES,
+  currencySymbol,
+  fitsAmount,
+  parseBRL,
+  toDbAmount,
+  transferRate,
+} from "@organizeup/domain";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
 
@@ -26,6 +34,7 @@ const accountSchema = z.object({
   id: z.string(),
   name: z.string().trim().min(1, "Informe o nome da conta.").max(80),
   type: z.enum(ACCOUNT_TYPES),
+  currency: z.enum(CURRENCIES, { message: "Escolha a moeda." }),
   openingBalance: z.string().trim(),
 });
 
@@ -34,6 +43,7 @@ const transferSchema = z
     fromAccountId: z.string().min(1, "Escolha a conta de origem."),
     toAccountId: z.string().min(1, "Escolha a conta de destino."),
     amount: z.string().trim().min(1, "Informe o valor."),
+    toAmount: z.string().trim(),
     occurredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data."),
     note: z.string().trim().max(120),
   })
@@ -52,24 +62,26 @@ export async function createTransfer(
     fromAccountId: form.get("fromAccountId") ?? "",
     toAccountId: form.get("toAccountId") ?? "",
     amount: form.get("amount") ?? "",
+    toAmount: form.get("toAmount") ?? "",
     occurredOn: form.get("occurredOn") ?? "",
     note: form.get("note") ?? "",
   });
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique os dados." };
   }
-  const { amount: raw, note, ...values } = parsed.data;
+  const { amount: raw, toAmount: rawTo, note, ...values } = parsed.data;
   let amount: string;
   try {
     const value = parseBRL(raw);
     if (value.lte(0)) throw new RangeError("valor");
+    if (!fitsAmount(value)) throw new RangeError("valor");
     amount = toDbAmount(value);
   } catch {
     return { ok: false, message: "Informe o valor como 500,00." };
   }
   const failure = await withHousehold(ctx, async (tx) => {
     const found = await tx
-      .select({ id: accounts.id })
+      .select({ id: accounts.id, currency: accounts.currency })
       .from(accounts)
       .where(
         and(
@@ -78,12 +90,31 @@ export async function createTransfer(
         ),
       );
     if (found.length !== 2) return "Uma das contas não existe mais.";
+    const from = found.find((account) => account.id === values.fromAccountId)!.currency;
+    const to = found.find((account) => account.id === values.toAccountId)!.currency;
+    // Entre moedas, as duas pontas são o que aconteceu de fato: a taxa sai delas, não da PTAX.
+    let exchange: { toAmount: string; fxRate: string } | null = null;
+    if (from !== to) {
+      const invalid = `Informe quanto entrou em ${currencySymbol(to)}, como 500,00.`;
+      let toAmount: string;
+      try {
+        const value = parseBRL(rawTo);
+        if (value.lte(0) || !fitsAmount(value)) return invalid;
+        toAmount = toDbAmount(value);
+      } catch {
+        return invalid;
+      }
+      const fxRate = transferRate(amount, from, toAmount);
+      if (!fxRate) return "Confira os dois valores: a taxa ficou fora do comum.";
+      exchange = { toAmount, fxRate };
+    }
     const [created] = await tx
       .insert(accountTransfers)
       .values({
         householdId: ctx.householdId,
         ...values,
         amount,
+        ...exchange,
         note: note || null,
         createdBy: ctx.userId,
       })
@@ -121,12 +152,13 @@ export async function saveAccount(
     id: form.get("id") ?? "",
     name: form.get("name") ?? "",
     type: form.get("type"),
+    currency: form.get("currency") ?? "BRL",
     openingBalance: form.get("openingBalance") ?? "",
   });
   if (!parsed.success)
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
 
-  const { id, name, type } = parsed.data;
+  const { id, name, type, currency } = parsed.data;
   let openingBalance = "0.00";
   if (parsed.data.openingBalance) {
     try {
@@ -135,18 +167,29 @@ export async function saveAccount(
       return { ok: false, message: "Informe o saldo como 1.250,00." };
     }
   }
-  await withHousehold(ctx, async (tx) => {
+  const failure = await withHousehold(ctx, async (tx) => {
     if (id) {
-      await tx.update(accounts).set({ name, type, openingBalance }).where(eq(accounts.id, id));
+      const [current] = await tx
+        .select({ currency: accounts.currency })
+        .from(accounts)
+        .where(eq(accounts.id, id));
+      if (current && current.currency !== currency && (await accountsWithMovement(tx)).has(id))
+        return "Esta conta já tem movimento e não pode mudar de moeda. Crie outra conta.";
+      await tx
+        .update(accounts)
+        .set({ name, type, currency, openingBalance })
+        .where(eq(accounts.id, id));
       await audit(tx, ctx, "update", "accounts", id);
     } else {
       const [created] = await tx
         .insert(accounts)
-        .values({ householdId: ctx.householdId, name, type, openingBalance })
+        .values({ householdId: ctx.householdId, name, type, currency, openingBalance })
         .returning({ id: accounts.id });
       await audit(tx, ctx, "create", "accounts", created!.id);
     }
+    return null;
   });
+  if (failure) return { ok: false, message: failure };
   revalidatePath("/app", "layout");
   return { ok: true, message: id ? "Conta salva." : "Conta criada." };
 }

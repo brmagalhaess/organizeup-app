@@ -188,6 +188,7 @@
     },
     "stats": {
       "balance": "Account balance",
+      "balanceConverted": "Converted at the exchange rate of {date}.",
       "balanceHint": "Opening balance plus what has already cleared.",
       "forecast": "End-of-month forecast",
       "forecastHint": "This month's money in minus money out.",

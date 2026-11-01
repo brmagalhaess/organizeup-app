@@ -3,6 +3,7 @@ import { Building2, Car, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { formatBRL, money } from "@organizeup/domain";
+import { FxNote } from "@/components/fx-note";
 import {
   Button,
   Card,
@@ -143,6 +144,7 @@ export function NetWorthBoard({ data, writable }: { data: Data; writable: boolea
         }
       />
 
+      <FxNote fx={data.fx} />
       <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatTile label="O que você tem" value={formatBRL(summary.owned)} />
         <StatTile label="O que você deve" value={formatBRL(summary.owed)} />

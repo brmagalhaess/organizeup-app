@@ -22,7 +22,12 @@ export default async function ImportPage() {
   const { ctx } = await requireTenant();
   const data = await withHousehold(ctx, async (tx) => {
     const accountRows = await tx
-      .select({ id: accounts.id, name: accounts.name, archived: accounts.archived })
+      .select({
+        id: accounts.id,
+        name: accounts.name,
+        archived: accounts.archived,
+        currency: accounts.currency,
+      })
       .from(accounts)
       .orderBy(asc(accounts.createdAt));
     const categoryRows = await tx
@@ -61,7 +66,7 @@ export default async function ImportPage() {
         <ImportWizard
           accounts={data.accountRows
             .filter((account) => !account.archived)
-            .map(({ id, name }) => ({ id, name }))}
+            .map(({ id, name, currency }) => ({ id, name, currency }))}
           categories={data.categoryRows.filter((category) => category.name !== CARD_CATEGORY)}
           batches={data.batchRows.map((batch) => ({
             id: batch.id,

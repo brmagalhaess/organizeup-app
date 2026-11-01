@@ -188,6 +188,7 @@
     },
     "stats": {
       "balance": "Saldo en cuentas",
+      "balanceConverted": "Convertido con la cotización del {date}.",
       "balanceHint": "Saldo inicial más lo que ya se realizó.",
       "forecast": "Previsión para fin de mes",
       "forecastHint": "Resultado de ingresos y gastos del mes.",

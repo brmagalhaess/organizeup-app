@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
-  accounts,
+  accountCurrency,
   and,
   canWrite,
   cashflowPlans,
@@ -11,6 +11,7 @@ import {
   desc,
   ensureCategory,
   eq,
+  fxSeries,
   gte,
   householdReports,
   IMPORT_SOURCES,
@@ -27,19 +28,27 @@ import {
   buildMonthEntries,
   CARD_CATEGORY,
   categorizeRow,
+  currencyName,
+  entryFromTyped,
+  fitsAmount,
   importReport,
+  isForeign,
   memoryKey,
   merchantKey,
   monthBounds,
   normalizeDescription,
+  quoteOn,
   reconcileRows,
   todayIn,
   withFingerprints,
   yearMonthOf,
   type CategoryProposal,
+  type Currency,
+  type EntryMoney,
   type KnownEntry,
   type ReconciledRow,
 } from "@organizeup/domain";
+import type { TenantTx } from "@organizeup/db";
 import { audit } from "@/lib/audit";
 import { loadCommitments } from "@/lib/commitments";
 import { confirmCommitment, goalEntryLink, reverseGoalSaved } from "@/lib/confirm-entry";
@@ -86,6 +95,30 @@ const commitSchema = z.object({
     .max(MAX_ROWS),
 });
 
+const fullDate = (date: string) => date.split("-").reverse().join("/");
+
+/**
+ * Converte as linhas do arquivo, que estão na moeda da conta, pela cotação da data de cada uma. Devolve
+ * a mensagem quando alguma não dá: sem cotação nessa data, ou valor que não cabe em reais.
+ */
+async function rowConverter(
+  tx: TenantTx,
+  currency: Currency,
+  rows: Array<{ date: string; amount: string }>,
+): Promise<((row: { date: string; amount: string }) => EntryMoney) | string> {
+  const dates = rows.map((row) => row.date).sort();
+  const series = isForeign(currency) ? await fxSeries(tx, currency, dates[0]!, dates.at(-1)!) : [];
+  const convert = (row: { date: string; amount: string }) =>
+    entryFromTyped(row.amount, currency, isForeign(currency) ? quoteOn(series, row.date) : null);
+  for (const row of rows) {
+    const entry = convert(row);
+    if (!entry)
+      return `Ainda não temos a cotação do ${currencyName(currency)} para ${fullDate(row.date)}. Importe um período mais recente.`;
+    if (!fitsAmount(entry.amount)) return "Um dos valores do arquivo passa do limite em reais.";
+  }
+  return (row) => convert(row)!;
+}
+
 /** Compara o extrato com o que já existe. Não grava nada. */
 export async function prepareImport(
   input: z.input<typeof prepareSchema>,
@@ -105,11 +138,10 @@ export async function prepareImport(
   const to = monthBounds(lastMonth).last;
 
   const prepared = await withHousehold(ctx, async (tx) => {
-    const [account] = await tx
-      .select({ id: accounts.id })
-      .from(accounts)
-      .where(eq(accounts.id, accountId));
-    if (!account) return null;
+    const currency = await accountCurrency(tx, accountId);
+    if (!currency) return null;
+    const converted = await rowConverter(tx, currency, rows);
+    if (typeof converted === "string") return converted;
 
     const inRange = await tx
       .select()
@@ -127,7 +159,8 @@ export async function prepareImport(
         scheduled,
       );
       for (const entry of entries) {
-        if (entry.status === "previsto" && entry.accountId === accountId) forecasts.push(entry);
+        if (entry.status === "previsto" && entry.accountId === accountId)
+          forecasts.push({ ...entry, amount: entry.originalAmount ?? entry.amount });
       }
     }
     const realized: KnownEntry[] = inRange
@@ -135,7 +168,8 @@ export async function prepareImport(
       .map((t) => ({
         key: `t:${t.id}`,
         description: t.description,
-        amount: t.amount,
+        // O arquivo está na moeda da conta: é assim que a linha se compara com o que já existe.
+        amount: t.originalAmount ?? t.amount,
         date: t.occurredOn,
         kind: t.kind,
         fingerprint: t.importFingerprint,
@@ -190,6 +224,7 @@ export async function prepareImport(
       message: "O servidor falhou ao conferir este extrato. Tente de novo; se repetir, nos avise.",
     };
   if (!prepared) return { ok: false, message: "Escolha uma conta válida." };
+  if (typeof prepared === "string") return { ok: false, message: prepared };
   return { ok: true, rows: prepared };
 }
 
@@ -207,11 +242,10 @@ export async function commitImport(
   const dates = parsed.data.rows.map((row) => row.date).sort();
 
   const result = await withHousehold(ctx, async (tx) => {
-    const [account] = await tx
-      .select({ id: accounts.id })
-      .from(accounts)
-      .where(eq(accounts.id, accountId));
-    if (!account) return "Escolha uma conta válida.";
+    const currency = await accountCurrency(tx, accountId);
+    if (!currency) return "Escolha uma conta válida.";
+    const converted = await rowConverter(tx, currency, parsed.data.rows);
+    if (typeof converted === "string") return converted;
     const categoryRows = await tx
       .select({
         id: categories.id,
@@ -290,7 +324,7 @@ export async function commitImport(
                 categoryId: row.categoryId,
                 kind: row.kind,
                 description: row.description,
-                amount: row.amount,
+                ...converted(row),
                 occurredOn: row.date,
                 status: "realizado" as const,
                 importFingerprint: row.fingerprint,
@@ -349,7 +383,7 @@ export async function commitImport(
     const report = importReport(
       rows.map((row) => ({
         kind: row.kind,
-        amount: row.amount,
+        amount: converted(row).amount,
         category: nameOf.get(row.categoryId) ?? "",
         source: row.source,
         corrected: row.corrected,
