@@ -3,11 +3,13 @@
 // em memória do agente de aposentadoria para viagens e metas; se ele falhar, os dois leem o
 // relatório de hoje ou pulam. Logs só com householdId, agente, código do erro e contagens.
 import {
+  hasAgentRunToday,
   householdTimezone,
   listActiveHouseholdIds,
   readPlatformFlags,
   recordAgentRun,
   withWorkerHousehold,
+  type DailyAgentsJob,
   type TenantTx,
 } from "@organizeup/db";
 import { todayIn, type Allocation } from "@organizeup/domain";
@@ -58,7 +60,22 @@ interface Counts {
 
 const emptyCounts = (): Counts => ({ households: 0, ok: 0, failed: 0, suggestions: 0, applied: 0 });
 
-export async function runDailyAgents(log: Log): Promise<void> {
+/** Quem roda nesta chamada. O que o Paperclip não acordou, a rede de segurança das 05:30 pega. */
+export async function agentsToRun(
+  job: DailyAgentsJob,
+  disabled: string[],
+  day: string,
+  ranToday: (day: string, agent: string) => Promise<boolean> = hasAgentRunToday,
+): Promise<string[]> {
+  const asked = DAILY_AGENTS.filter(
+    (agent) => !disabled.includes(agent) && (!job.agents || job.agents.includes(agent)),
+  );
+  if (!job.missingOnly) return asked;
+  const ran = await Promise.all(asked.map((agent) => ranToday(day, agent)));
+  return asked.filter((_, index) => !ran[index]);
+}
+
+export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promise<void> {
   // Modo manutenção: as famílias estão só leitura, então o agente também não grava. Agente
   // desligado no painel não roda; viagens e metas seguem como quando a aposentadoria falha.
   const flags = await readPlatformFlags();
@@ -66,9 +83,10 @@ export async function runDailyAgents(log: Log): Promise<void> {
     log.info({}, "agentes diários pulados: modo manutenção");
     return;
   }
-  const enabled = DAILY_AGENTS.filter((agent) => !flags.disabledAgents.includes(agent));
   const startedAt = Date.now();
   const day = todayIn();
+  const enabled = await agentsToRun(job, flags.disabledAgents, day);
+  if (enabled.length === 0) return;
   const ids = await listActiveHouseholdIds(ACTIVE_DAYS);
   const counts = new Map<string, Counts>(enabled.map((agent) => [agent, emptyCounts()]));
 

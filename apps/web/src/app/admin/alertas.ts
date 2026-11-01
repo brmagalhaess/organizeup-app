@@ -14,7 +14,7 @@ export const WORKER_STALE_MINUTES = 15;
 const DEPLOY_GRACE_MINUTES = 15;
 /** Erro aberto que apareceu há menos que isto é novidade; depois, fica só na tela Sistema. */
 const NEW_ERROR_MINUTES = 24 * 60;
-/** A rodada começa às 04:00 de Brasília; às 06:00 ela já devia ter terminado. */
+/** O Paperclip começa às 04:00 de Brasília, e o worker cobre às 05:30; às 06:00 já devia ter terminado. */
 const DAILY_RUN_HOUR = 6;
 
 interface Input {

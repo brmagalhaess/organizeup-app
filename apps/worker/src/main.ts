@@ -8,6 +8,7 @@ import {
   closeAllPools,
   collectPlatformStats,
   dailyAgentsKey,
+  type DailyAgentsJob,
   hasAgentRunToday,
   JOB_QUEUES,
   PGBOSS_SCHEMA,
@@ -101,7 +102,8 @@ async function main() {
   await boss.schedule(JOB_QUEUES.platformStats, "15 3 * * *", null, { tz: "America/Sao_Paulo" });
   await boss.send(JOB_QUEUES.platformStats, null);
 
-  // Agentes diários do produto (ADR-0015): todo dia às 04:00 e no boot, se ainda não rodaram hoje.
+  // Agentes diários do produto (ADR-0015): acordados pelo Paperclip, às 05:30 se faltou algum e no
+  // boot, se ainda não rodaram hoje.
   // DAILY_AGENTS_ENABLED=false desliga (e remove o agendamento que tenha ficado).
   // O mesmo interruptor para a coleta de mercado (ADR-0017), que roda antes deles.
   if (!dailyAgentsOn) {
@@ -116,11 +118,17 @@ async function main() {
     for (const { key, cron } of MARKET_SCHEDULES) {
       await boss.schedule(JOB_QUEUES.marketData, cron, null, { tz: "America/Sao_Paulo", key });
     }
-    await boss.work(
+    await boss.work<DailyAgentsJob>(
       JOB_QUEUES.dailyAgents,
-      reportingFailures(JOB_QUEUES.dailyAgents, () => runDailyAgents(log)),
+      reportingFailures(JOB_QUEUES.dailyAgents, ([job]) => runDailyAgents(log, job?.data ?? {})),
     );
-    await boss.schedule(JOB_QUEUES.dailyAgents, "0 4 * * *", null, { tz: "America/Sao_Paulo" });
+    // O Paperclip acorda cada agente de madrugada. Este horário só pega quem ficou de fora.
+    await boss.schedule(
+      JOB_QUEUES.dailyAgents,
+      "30 5 * * *",
+      { missingOnly: true },
+      { tz: "America/Sao_Paulo" },
+    );
     const today = todayIn();
     // Com chave, o boot atualiza já: quem acabou de colar o token não espera o próximo pregão.
     if (integrations.brapi || !(await hasAgentRunToday(today, MERCADO_AGENT))) {

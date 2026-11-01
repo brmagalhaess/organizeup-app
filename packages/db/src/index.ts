@@ -106,7 +106,14 @@ export {
   type MarketDividendRow,
   type MarketQuoteRow,
 } from "./market";
-export { JOB_QUEUES, PGBOSS_SCHEMA, dailyAgentsKey, type JobQueue } from "./jobs";
+export {
+  agentWakeKey,
+  dailyAgentsKey,
+  JOB_QUEUES,
+  PGBOSS_SCHEMA,
+  type DailyAgentsJob,
+  type JobQueue,
+} from "./jobs";
 export { closeAllPools } from "./client";
 // Operadores de consulta reexportados para que apps usem a MESMA instância do drizzle-orm.
 export { and, asc, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";

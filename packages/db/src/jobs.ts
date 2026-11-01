@@ -15,4 +15,13 @@ export type JobQueue = (typeof JOB_QUEUES)[keyof typeof JOB_QUEUES];
 /** A rodada diária dos agentes tem uma chave só por dia, venha do boot ou do painel. */
 export const dailyAgentsKey = (day: string) => `daily:${day}`;
 
+/** Pedido de um agente só, feito pelo Paperclip. */
+export const agentWakeKey = (day: string, agent: string) => `daily:${day}:${agent}`;
+
+/** Sem campos, roda todos. `missingOnly` é a rede de segurança: só quem não rodou hoje. */
+export interface DailyAgentsJob {
+  agents?: string[];
+  missingOnly?: boolean;
+}
+
 export const PGBOSS_SCHEMA = "pgboss";

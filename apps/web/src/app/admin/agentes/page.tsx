@@ -75,7 +75,7 @@ export default async function AdminAgentsPage() {
   return (
     <AdminPage
       title="Agentes"
-      description="Os cinco assistentes rodam toda madrugada, às 04:00, para cada família ativa."
+      description="O Paperclip acorda cada agente de madrugada, e cada um percorre as famílias ativas. Quem não for acordado roda às 05:30."
       actions={
         <>
           <RunAction
@@ -144,8 +144,8 @@ export default async function AdminAgentsPage() {
             <div>
               <h3 className="font-semibold">Equipe de manutenção</h3>
               <p className="mt-0.5 text-sm text-muted">
-                Os agentes que cuidam do código do sistema ficam no Paperclip, separados destes
-                cinco.
+                Lá ficam os agentes que cuidam do código e os seis agentes diários, incluindo o
+                Mercado. O Paperclip só acorda: os dados das famílias não saem daqui.
               </p>
             </div>
             <a

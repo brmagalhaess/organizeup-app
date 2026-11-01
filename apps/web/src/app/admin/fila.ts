@@ -1,7 +1,7 @@
 // Enfileira trabalho para o worker pelo pg-boss. A conexão abre só no clique, e fecha em seguida: o
 // painel é de uso raro e não processa fila nenhuma.
 import "server-only";
-import { dailyAgentsKey, JOB_QUEUES, PGBOSS_SCHEMA } from "@organizeup/db";
+import { agentWakeKey, dailyAgentsKey, JOB_QUEUES, PGBOSS_SCHEMA } from "@organizeup/db";
 import { todayIn } from "@organizeup/domain";
 import type { PgBoss } from "pg-boss";
 import { logAdminFailure } from "./painel";
@@ -11,6 +11,8 @@ import { logAdminFailure } from "./painel";
  * não impede duplicata: quem impede é o par chave + janela.
  */
 const SINGLETON_SECONDS = 300;
+
+export const MERCADO_AGENT = "mercado";
 
 async function withBoss<T>(fn: (boss: PgBoss) => Promise<T>): Promise<T> {
   const connectionString = process.env.DATABASE_URL;
@@ -41,6 +43,23 @@ export function queueDailyAgents() {
       singletonKey: dailyAgentsKey(todayIn()),
       singletonSeconds: SINGLETON_SECONDS,
     }),
+  );
+}
+
+/** Um agente só, a pedido do Paperclip. O worker confere manutenção e interruptor do painel. */
+export function queueAgent(agent: string) {
+  const singletonKey = agentWakeKey(todayIn(), agent);
+  return withBoss((boss) =>
+    agent === MERCADO_AGENT
+      ? boss.send(JOB_QUEUES.marketData, null, {
+          singletonKey,
+          singletonSeconds: SINGLETON_SECONDS,
+        })
+      : boss.send(
+          JOB_QUEUES.dailyAgents,
+          { agents: [agent] },
+          { singletonKey, singletonSeconds: SINGLETON_SECONDS },
+        ),
   );
 }
 

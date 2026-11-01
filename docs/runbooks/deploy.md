@@ -24,7 +24,7 @@ curl -s -H "Authorization: Bearer <token-ops>" https://organizeup.crowntech.com.
 
 `schemaVersion` deve mostrar a última migração. `commit` mostra o SHA real publicado (desde `c9f23d0`); deve
 ser igual ao commit do merge. Se aparecer `dev`, a imagem foi construída sem o arquivo `COMMIT`: veja a aba
-Deployments do serviço. Os agentes diários do produto rodam às 04:00; `/api/ops/context` mostra em
+Deployments do serviço. Os agentes diários do produto são acordados pelo Paperclip entre 03:45 e 04:40, e o worker roda às 05:30 quem faltou; `/api/ops/context` mostra em
 `agentRuns` se rodaram depois do deploy.
 
 Falhou? Veja a aba Logs do serviço e siga `rollback.md`. A fila de builds é compartilhada com os outros
