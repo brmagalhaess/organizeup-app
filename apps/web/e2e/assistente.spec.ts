@@ -48,10 +48,10 @@ test("ativa, conversa, vê o que foi olhado, reabre e desliga", async ({ page })
   await expect(panel.getByRole("heading", { name: "Antes de começar" })).toBeVisible();
   await expect(panel.getByRole("heading", { name: "O que fica de fora" })).toBeVisible();
   await expect(panel.getByText("Nomes, e-mails, CPF e senhas.")).toBeVisible();
-  await expect(panel.getByRole("radio", { name: /Organizar/ })).toBeChecked();
+  await expect(panel.getByRole("radio", { name: /^Organizar/ })).toBeChecked();
   expect(await violations(page)).toEqual([]);
 
-  await panel.getByRole("radio", { name: /Sugerir/ }).check();
+  await panel.getByRole("radio", { name: /^Sugerir/ }).check();
   await panel.getByRole("checkbox", { name: /Autorizo o uso/ }).check();
   await panel.getByRole("button", { name: "Ativar o assistente" }).click();
 
@@ -135,7 +135,7 @@ const PANEL_TEXTS = [
     name: "Assistant",
     title: "Before you start",
     outside: "including outside Brazil",
-    level: /Organize/,
+    level: /^Organize/,
     consent: /I authorize the use/,
     submit: "Turn on the assistant",
     question: "Your question",
@@ -151,7 +151,7 @@ const PANEL_TEXTS = [
     name: "Asistente",
     title: "Antes de empezar",
     outside: "incluso fuera de Brasil",
-    level: /Organizar/,
+    level: /^Organizar/,
     consent: /Autorizo el uso/,
     submit: "Activar el asistente",
     question: "Tu pregunta",
