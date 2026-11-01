@@ -1,6 +1,7 @@
 # ADR-0013 — Agente de categorização do extrato
 
-Status: aceito (2026-10-30)
+Status: aceito (2026-10-30). A parte "sem modelo de IA" foi substituída pelo ADR-0018; a categorização continua por
+regras até a rota própria existir.
 
 ## Decisão
 

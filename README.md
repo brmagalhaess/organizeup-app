@@ -25,6 +25,8 @@ Conforme os módulos marcados como disponíveis na página inicial:
 - **Sugestões do assistente:** o que o assistente notou de madrugada para você aceitar, ignorar ou desfazer.
 - **Cadastro complementar:** quatro passos opcionais (família, aposentadoria, viagens, primeira meta) que
   alimentam o plano.
+- **Assistente:** conversa sobre o dinheiro da família, com os números do próprio sistema, depois que um
+  adulto autoriza o envio à Anthropic (ADR-0018).
 - **Painel do serviço** (`/admin`): para o responsável acompanhar famílias, agentes diários e saúde, só
   leitura e com cada acesso registrado.
 - **Agentes diários:** cinco rotinas no worker, toda madrugada, por regras e sem IA, que recalculam planos e
