@@ -1127,5 +1127,122 @@
       "reviewRows": "Revise os lançamentos e tente de novo.",
       "invalidCategory": "Escolha uma categoria válida em cada lançamento."
     }
+  },
+  "renda": {
+    "metaTitle": "Renda",
+    "eyebrow": "Renda",
+    "title": "Quanto entra por mês",
+    "description": "Cadastre sua renda uma vez. Ela aparece sozinha no mês, no calendário e nos vencimentos.",
+    "new": "Nova renda",
+    "kinds": {
+      "clt": "Salário CLT",
+      "pj_autonomo": "PJ ou autônomo",
+      "aposentadoria_pensao": "Aposentadoria ou pensão",
+      "aluguel": "Aluguel recebido",
+      "outro": "Outra renda"
+    },
+    "estimate": "É uma estimativa com as tabelas oficiais de {month}. O holerite real pode ser diferente: horas extras, faltas, benefícios e regras da empresa mudam o valor.",
+    "doubleCount": "Você também tem receita que repete todo mês em Lançamentos. Se for a mesma renda, pare de repetir por lá para não contar em dobro.",
+    "stats": {
+      "net": "Líquido por mês",
+      "gross": "Bruto por mês",
+      "discounts": "Descontos por mês",
+      "thirteenth": "13º líquido"
+    },
+    "empty": {
+      "title": "Nenhuma renda cadastrada",
+      "text": "Cadastre salário, aposentadoria, aluguel ou outra entrada. Na CLT, calculamos INSS, imposto, 13º e férias.",
+      "action": "Cadastrar renda"
+    },
+    "slip": {
+      "gross": "Salário bruto",
+      "inss": "INSS",
+      "tax": "Imposto de renda",
+      "pension": "Pensão",
+      "otherDiscounts": "Outros descontos",
+      "net": "Líquido estimado",
+      "simplified": "Usamos o desconto simplificado, que foi melhor neste caso.",
+      "legal": "Usamos as deduções legais, que foram melhores neste caso.",
+      "reduction": "A redução da lei tirou {value} do imposto."
+    },
+    "extra": {
+      "thirteenth": "13º salário",
+      "first": "1ª parcela, novembro",
+      "second": "2ª parcela, dezembro",
+      "total": "Total líquido",
+      "vacationLabel": "Férias",
+      "vacation": "Férias de 30 dias",
+      "vacationGross": "Salário + 1/3",
+      "uncertain": "Pode vir até {value}. A Receita ainda não explicou se a redução vale para férias, então prevemos o valor menor.",
+      "vacationIn": "Férias em {month}",
+      "noVacation": "Sem mês de férias definido: a previsão fica como salário normal o ano todo."
+    },
+    "simulator": {
+      "title": "Simulador de salário",
+      "text": "Veja quanto de um salário CLT sobra depois dos descontos.",
+      "gross": "Salário bruto (R$)",
+      "invalid": "Confira os valores, como 4.500,00.",
+      "dependents": "Dependentes",
+      "pension": "Pensão (R$)",
+      "pensionHint": "Alimentícia, por decisão judicial ou acordo.",
+      "otherDiscounts": "Outros descontos (R$)",
+      "otherDiscountsHint": "Plano de saúde, vale e outros.",
+      "prompt": "Digite o salário bruto para ver o resultado.",
+      "register": "Cadastrar esta renda"
+    },
+    "form": {
+      "kind": "Tipo de renda",
+      "company": "Empresa",
+      "source": "De onde vem",
+      "companyExample": "Ex.: Empresa Exemplo",
+      "sourceExample": "Ex.: Aluguel da sala",
+      "gross": "Salário bruto (R$)",
+      "net": "Valor que cai na conta (R$)",
+      "payDay": "Dia do pagamento",
+      "dependents": "Dependentes",
+      "vacationMonth": "Mês das férias",
+      "notSure": "Ainda não sei",
+      "pension": "Pensão (R$)",
+      "otherDiscounts": "Outros descontos (R$)",
+      "account": "Conta que recebe",
+      "category": "Categoria",
+      "person": "De quem é",
+      "family": "Da família",
+      "received": "O que você já recebeu não muda. A alteração vale para as próximas previsões.",
+      "save": "Salvar renda"
+    },
+    "card": {
+      "payDay": "todo dia {day}",
+      "edit": "Editar {name}",
+      "close": "Encerrar {name}",
+      "delete": "Excluir {name}"
+    },
+    "sheet": {
+      "edit": "Editar renda",
+      "new": "Nova renda"
+    },
+    "stop": {
+      "closeTitle": "Encerrar renda",
+      "deleteTitle": "Excluir renda",
+      "closeText": "\"{name}\" para de aparecer a partir deste mês. O que você já recebeu continua nos lançamentos.",
+      "deleteText": "\"{name}\" e as previsões dela serão apagadas.",
+      "closeConfirm": "Encerrar",
+      "deleteConfirm": "Excluir"
+    },
+    "saved": "Renda salva.",
+    "errors": {
+      "name": "Informe de onde vem a renda.",
+      "kind": "Escolha o tipo de renda.",
+      "amount": "Informe o valor, como 4.500,00.",
+      "dependents": "Informe de 0 a 20 dependentes.",
+      "pension": "Informe a pensão como 300,00.",
+      "otherDiscounts": "Informe os descontos como 150,00.",
+      "payDay": "Informe o dia do pagamento, de 1 a 31.",
+      "account": "Escolha a conta.",
+      "category": "Escolha a categoria.",
+      "invalidAccount": "Escolha uma conta válida.",
+      "incomeCategory": "Escolha uma categoria de receita.",
+      "invalidPerson": "Escolha uma pessoa válida."
+    }
   }
 }

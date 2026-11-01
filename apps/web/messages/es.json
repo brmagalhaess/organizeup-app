@@ -1127,5 +1127,122 @@
       "reviewRows": "Revisa los movimientos e inténtalo de nuevo.",
       "invalidCategory": "Elige una categoría válida en cada movimiento."
     }
+  },
+  "renda": {
+    "metaTitle": "Ingresos",
+    "eyebrow": "Ingresos",
+    "title": "Cuánto entra al mes",
+    "description": "Registra tus ingresos una vez. Aparecen solos en el mes, el calendario y los vencimientos.",
+    "new": "Nuevo ingreso",
+    "kinds": {
+      "clt": "Salario CLT (Brasil)",
+      "pj_autonomo": "Autónomo o contratista",
+      "aposentadoria_pensao": "Jubilación o pensión",
+      "aluguel": "Alquiler cobrado",
+      "outro": "Otro ingreso"
+    },
+    "estimate": "Es una estimación con las tablas oficiales de {month}. El recibo de sueldo real puede ser diferente: horas extra, faltas, beneficios y reglas de la empresa cambian el importe.",
+    "doubleCount": "También tienes un ingreso que se repite cada mes en Movimientos. Si es el mismo, deja de repetirlo allí para no contarlo dos veces.",
+    "stats": {
+      "net": "Neto al mes",
+      "gross": "Bruto al mes",
+      "discounts": "Descuentos al mes",
+      "thirteenth": "Aguinaldo neto"
+    },
+    "empty": {
+      "title": "Ningún ingreso registrado",
+      "text": "Registra salario, jubilación, alquiler u otro ingreso. En la CLT, calculamos INSS, impuesto, aguinaldo y vacaciones.",
+      "action": "Registrar ingreso"
+    },
+    "slip": {
+      "gross": "Salario bruto",
+      "inss": "INSS",
+      "tax": "Impuesto sobre la renta",
+      "pension": "Pensión alimenticia",
+      "otherDiscounts": "Otros descuentos",
+      "net": "Neto estimado",
+      "simplified": "Usamos el descuento simplificado, que fue mejor en este caso.",
+      "legal": "Usamos las deducciones legales, que fueron mejores en este caso.",
+      "reduction": "La reducción legal quitó {value} del impuesto."
+    },
+    "extra": {
+      "thirteenth": "Aguinaldo (13.º salario)",
+      "first": "1.ª cuota, noviembre",
+      "second": "2.ª cuota, diciembre",
+      "total": "Total neto",
+      "vacationLabel": "Vacaciones",
+      "vacation": "Vacaciones de 30 días",
+      "vacationGross": "Salario + 1/3",
+      "uncertain": "Puede llegar a {value}. La autoridad fiscal todavía no aclaró si la reducción vale para las vacaciones, así que prevemos el importe menor.",
+      "vacationIn": "Vacaciones en {month}",
+      "noVacation": "Sin mes de vacaciones definido: la previsión queda como salario normal todo el año."
+    },
+    "simulator": {
+      "title": "Simulador de salario",
+      "text": "Mira cuánto queda de un salario CLT después de los descuentos.",
+      "gross": "Salario bruto (R$)",
+      "invalid": "Revisa los importes, como 4.500,00.",
+      "dependents": "Dependientes",
+      "pension": "Pensión alimenticia (R$)",
+      "pensionHint": "Por decisión judicial o acuerdo.",
+      "otherDiscounts": "Otros descuentos (R$)",
+      "otherDiscountsHint": "Plan de salud, vales y otros.",
+      "prompt": "Escribe el salario bruto para ver el resultado.",
+      "register": "Registrar este ingreso"
+    },
+    "form": {
+      "kind": "Tipo de ingreso",
+      "company": "Empresa",
+      "source": "De dónde viene",
+      "companyExample": "Ej.: Empresa Ejemplo",
+      "sourceExample": "Ej.: Alquiler del local",
+      "gross": "Salario bruto (R$)",
+      "net": "Importe que llega a la cuenta (R$)",
+      "payDay": "Día de pago",
+      "dependents": "Dependientes",
+      "vacationMonth": "Mes de vacaciones",
+      "notSure": "Todavía no lo sé",
+      "pension": "Pensión alimenticia (R$)",
+      "otherDiscounts": "Otros descuentos (R$)",
+      "account": "Cuenta que recibe",
+      "category": "Categoría",
+      "person": "De quién es",
+      "family": "De la familia",
+      "received": "Lo que ya cobraste no cambia. El cambio vale para las próximas previsiones.",
+      "save": "Guardar ingreso"
+    },
+    "card": {
+      "payDay": "cada día {day}",
+      "edit": "Editar {name}",
+      "close": "Cerrar {name}",
+      "delete": "Eliminar {name}"
+    },
+    "sheet": {
+      "edit": "Editar ingreso",
+      "new": "Nuevo ingreso"
+    },
+    "stop": {
+      "closeTitle": "Cerrar ingreso",
+      "deleteTitle": "Eliminar ingreso",
+      "closeText": "\"{name}\" deja de aparecer a partir de este mes. Lo que ya cobraste sigue en los movimientos.",
+      "deleteText": "\"{name}\" y sus previsiones se eliminarán.",
+      "closeConfirm": "Cerrar",
+      "deleteConfirm": "Eliminar"
+    },
+    "saved": "Ingreso guardado.",
+    "errors": {
+      "name": "Indica de dónde viene el ingreso.",
+      "kind": "Elige el tipo de ingreso.",
+      "amount": "Escribe el importe, como 4.500,00.",
+      "dependents": "Indica de 0 a 20 dependientes.",
+      "pension": "Escribe la pensión como 300,00.",
+      "otherDiscounts": "Escribe los descuentos como 150,00.",
+      "payDay": "Indica el día de pago, del 1 al 31.",
+      "account": "Elige una cuenta.",
+      "category": "Elige una categoría.",
+      "invalidAccount": "Elige una cuenta válida.",
+      "incomeCategory": "Elige una categoría de ingreso.",
+      "invalidPerson": "Elige una persona válida."
+    }
   }
 }

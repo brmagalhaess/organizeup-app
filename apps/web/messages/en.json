@@ -1127,5 +1127,122 @@
       "reviewRows": "Review the transactions and try again.",
       "invalidCategory": "Choose a valid category for each transaction."
     }
+  },
+  "renda": {
+    "metaTitle": "Income",
+    "eyebrow": "Income",
+    "title": "How much comes in each month",
+    "description": "Add your income once. It shows up on its own in the month, the calendar and due dates.",
+    "new": "New income",
+    "kinds": {
+      "clt": "CLT salary (Brazil)",
+      "pj_autonomo": "Contractor or self-employed",
+      "aposentadoria_pensao": "Retirement or pension",
+      "aluguel": "Rent received",
+      "outro": "Other income"
+    },
+    "estimate": "This is an estimate using the official tables of {month}. Your actual payslip may differ: overtime, absences, benefits and company rules change the amount.",
+    "doubleCount": "You also have income that repeats every month in Transactions. If it's the same income, stop repeating it there so it isn't counted twice.",
+    "stats": {
+      "net": "Net per month",
+      "gross": "Gross per month",
+      "discounts": "Deductions per month",
+      "thirteenth": "Net 13th salary"
+    },
+    "empty": {
+      "title": "No income yet",
+      "text": "Add your salary, retirement, rent or other income. For CLT jobs, we calculate INSS, tax, 13th salary and vacation.",
+      "action": "Add income"
+    },
+    "slip": {
+      "gross": "Gross salary",
+      "inss": "INSS",
+      "tax": "Income tax",
+      "pension": "Alimony",
+      "otherDiscounts": "Other deductions",
+      "net": "Estimated net",
+      "simplified": "We used the simplified deduction, which was better in this case.",
+      "legal": "We used the legal deductions, which were better in this case.",
+      "reduction": "The legal reduction took {value} off the tax."
+    },
+    "extra": {
+      "thirteenth": "13th salary",
+      "first": "1st installment, November",
+      "second": "2nd installment, December",
+      "total": "Net total",
+      "vacationLabel": "Vacation",
+      "vacation": "30-day vacation",
+      "vacationGross": "Salary + 1/3",
+      "uncertain": "It may be up to {value}. The tax authority hasn't yet explained whether the reduction applies to vacation pay, so we forecast the lower amount.",
+      "vacationIn": "Vacation in {month}",
+      "noVacation": "No vacation month set: the forecast stays as a regular salary all year."
+    },
+    "simulator": {
+      "title": "Salary simulator",
+      "text": "See how much of a CLT salary is left after deductions.",
+      "gross": "Gross salary (R$)",
+      "invalid": "Check the amounts, like 4,500.00.",
+      "dependents": "Dependents",
+      "pension": "Alimony (R$)",
+      "pensionHint": "By court order or agreement.",
+      "otherDiscounts": "Other deductions (R$)",
+      "otherDiscountsHint": "Health plan, vouchers and others.",
+      "prompt": "Enter the gross salary to see the result.",
+      "register": "Add this income"
+    },
+    "form": {
+      "kind": "Income type",
+      "company": "Company",
+      "source": "Where it comes from",
+      "companyExample": "E.g.: Example Inc.",
+      "sourceExample": "E.g.: Office rent",
+      "gross": "Gross salary (R$)",
+      "net": "Amount that reaches the account (R$)",
+      "payDay": "Pay day",
+      "dependents": "Dependents",
+      "vacationMonth": "Vacation month",
+      "notSure": "Not sure yet",
+      "pension": "Alimony (R$)",
+      "otherDiscounts": "Other deductions (R$)",
+      "account": "Receiving account",
+      "category": "Category",
+      "person": "Whose income",
+      "family": "The family's",
+      "received": "What you've already received doesn't change. The change applies to upcoming forecasts.",
+      "save": "Save income"
+    },
+    "card": {
+      "payDay": "every month on day {day}",
+      "edit": "Edit {name}",
+      "close": "End {name}",
+      "delete": "Delete {name}"
+    },
+    "sheet": {
+      "edit": "Edit income",
+      "new": "New income"
+    },
+    "stop": {
+      "closeTitle": "End income",
+      "deleteTitle": "Delete income",
+      "closeText": "\"{name}\" stops appearing from this month on. What you've already received stays in your transactions.",
+      "deleteText": "\"{name}\" and its forecasts will be deleted.",
+      "closeConfirm": "End",
+      "deleteConfirm": "Delete"
+    },
+    "saved": "Income saved.",
+    "errors": {
+      "name": "Enter where the income comes from.",
+      "kind": "Choose the income type.",
+      "amount": "Enter the amount, like 4,500.00.",
+      "dependents": "Enter 0 to 20 dependents.",
+      "pension": "Enter the alimony like 300.00.",
+      "otherDiscounts": "Enter the deductions like 150.00.",
+      "payDay": "Enter the pay day, from 1 to 31.",
+      "account": "Choose an account.",
+      "category": "Choose a category.",
+      "invalidAccount": "Choose a valid account.",
+      "incomeCategory": "Choose an income category.",
+      "invalidPerson": "Choose a valid person."
+    }
   }
 }
