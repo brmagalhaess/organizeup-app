@@ -36,7 +36,7 @@ export interface KeywordGroup {
   essential?: boolean;
 }
 
-/** Palavras frequentes em extratos. Da mais específica para a mais geral. Somente leitura. */
+/** Palavras frequentes em extratos. Correspondência por palavras inteiras. Somente leitura. */
 export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> = {
   despesa: [
     {
@@ -44,8 +44,11 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
       essential: true,
       words: [
         "mercado",
-        "supermerc",
-        "atacad",
+        "supermercado",
+        "supermercados",
+        "atacado",
+        "atacadao",
+        "atacadista",
         "assai",
         "carrefour",
         "hortifruti",
@@ -63,8 +66,8 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
         "cpfl",
         "energia",
         "saneamento",
-        "vivo",
-        "claro",
+        "vivo fibra",
+        "claro net",
         "internet",
         "telefonica",
       ],
@@ -82,6 +85,9 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
         "pedagio",
         "sem parar",
         "metro",
+        "onibus",
+        "taxi",
+        "combustiveis",
       ],
     },
     {
@@ -90,7 +96,9 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
       words: [
         "farmacia",
         "drogaria",
-        "droga",
+        "drogasil",
+        "drogaraia",
+        "droga raia",
         "unimed",
         "amil",
         "hospital",
@@ -103,7 +111,15 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
     {
       category: "Educação",
       essential: true,
-      words: ["escola", "colegio", "faculdade", "universidade", "curso", "mensalidade"],
+      words: [
+        "escola",
+        "colegio",
+        "faculdade",
+        "universidade",
+        "curso",
+        "cursos",
+        "mensalidade escolar",
+      ],
     },
     {
       category: "Assinaturas",
@@ -128,6 +144,8 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
         "padaria",
         "churrascaria",
         "burger",
+        "uber eats",
+        "cafeteria",
       ],
     },
     { category: "Lazer", words: ["cinema", "ingresso", "bar ", "teatro", "show "] },
@@ -135,7 +153,10 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
       category: "Compras",
       words: ["magazine", "mercado livre", "shopee", "amazon", "americanas", "renner"],
     },
-    { category: "Pets", words: ["petz", "cobasi", "petshop", "pet shop", "veterinari"] },
+    {
+      category: "Pets",
+      words: ["petz", "cobasi", "petshop", "pet shop", "veterinario", "veterinaria"],
+    },
     {
       category: "Tarifas bancárias",
       words: ["tarifa", "anuidade", "iof", "cesta de servicos", "pacote de servicos"],
@@ -153,6 +174,7 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
         "corretora",
         "aplicacao",
         "aplic",
+        "aplicacoes",
         "tesouro",
         " cdb ",
         " lci ",
@@ -168,12 +190,43 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
     { category: "Viagens", words: ["hotel", "airbnb", "booking", "latam", "decolar", "passagem"] },
   ],
   receita: [
-    { category: "Salário", words: ["salario", "folha", "vencimentos"] },
-    { category: "Rendimentos", words: ["rendimento", "dividendo", "juros"] },
+    { category: "Salário", words: ["salario", "folha de pagamento", "vencimentos", "remuneracao"] },
+    {
+      category: "Rendimentos",
+      words: ["rendimento", "rendimentos", "dividendo", "dividendos", "juros"],
+    },
     { category: "Aluguel recebido", words: ["aluguel"] },
     { category: "Reembolsos", words: ["estorno", "reembolso", "cashback", "devolucao"] },
   ],
 };
+
+/** Uma expressão específica prevalece sobre palavras contidas nela; conflitos pedem revisão. */
+function keywordGroup(description: string, kind: StatementKind): KeywordGroup | undefined {
+  const name = ` ${normalizeDescription(description)} `;
+  const matches = KEYWORDS[kind].flatMap((group) =>
+    group.words.flatMap((word) => {
+      const phrase = ` ${normalizeDescription(word)} `;
+      const found: { group: KeywordGroup; start: number; end: number }[] = [];
+      let start = name.indexOf(phrase);
+      while (start !== -1) {
+        found.push({ group, start, end: start + phrase.length });
+        start = name.indexOf(phrase, start + 1);
+      }
+      return found;
+    }),
+  );
+  const specific = matches.filter(
+    (match) =>
+      !matches.some(
+        (other) =>
+          other.start <= match.start &&
+          other.end >= match.end &&
+          other.end - other.start > match.end - match.start,
+      ),
+  );
+  const groups = new Set(specific.map((match) => match.group));
+  return groups.size === 1 ? [...groups][0] : undefined;
+}
 
 const FALLBACK: Record<StatementKind, string> = {
   despesa: "Outras despesas",
@@ -234,8 +287,7 @@ export function categorizeRow(
     if (remembered) return { categoryId: remembered, newCategory: null, source: "memoria" };
   }
 
-  const name = ` ${normalizeDescription(row.description)} `;
-  const group = KEYWORDS[row.kind].find(({ words }) => words.some((word) => name.includes(word)));
+  const group = keywordGroup(row.description, row.kind);
   if (group) {
     const existing = usable.find((category) => sameName(category.name, group.category));
     if (existing) return { categoryId: existing.id, newCategory: null, source: "palavra" };

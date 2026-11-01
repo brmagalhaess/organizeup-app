@@ -121,6 +121,88 @@ describe("agente de categorização", () => {
     expect(categorizeRow(despesa("ALCANCE PAPELARIA"), categories, empty).source).toBe("revisar");
   });
 
+  // Casos sintéticos: não representam descrições observadas na API agregada.
+  it.each([
+    ["PIX MERCADO LIVRE", "Compras"],
+    ["COMPRA UBER EATS", "Restaurantes"],
+    ["ÔNIBUS EXEMPLO", "Transporte"],
+    ["TÁXI EXEMPLO", "Transporte"],
+    ["DROGASIL EXEMPLO", "Saúde"],
+    ["ATACADÃO EXEMPLO", "Mercado"],
+    ["SUPERMERCADOS EXEMPLO", "Mercado"],
+    ["VETERINÁRIA EXEMPLO", "Pets"],
+    ["MENSALIDADE ESCOLAR", "Educação"],
+    ["BAR", "Lazer"],
+  ])("reconhece pista específica em %s", (description, category) => {
+    const own = [{ id: "destino", name: category, kind: "despesa" as const }, ...categories];
+    expect(categorizeRow(despesa(description), own, empty)).toMatchObject({
+      categoryId: "destino",
+      source: "palavra",
+      newCategory: null,
+    });
+    expect(categorizeRow(despesa(description), [], empty)).toMatchObject({
+      source: "nova",
+      newCategory: { name: category },
+    });
+  });
+
+  it.each(["REMUNERAÇÃO", "FOLHA DE PAGAMENTO", "DIVIDENDOS", "RENDIMENTOS"])(
+    "reconhece receita específica em %s",
+    (description) => {
+      const name =
+        description === "REMUNERAÇÃO" || description === "FOLHA DE PAGAMENTO"
+          ? "Salário"
+          : "Rendimentos";
+      expect(categorizeRow({ description, kind: "receita" }, [], empty)).toMatchObject({
+        source: "nova",
+        newCategory: { name },
+      });
+    },
+  );
+
+  it.each([
+    "MENSALIDADE",
+    "PIX RECEBIDO",
+    "PAGAMENTO BOLETO",
+    "COMPRA CARTAO",
+    "CLARO",
+    "VIVO",
+    "FOLHA",
+    "DROGA",
+    "AMILTON EXEMPLO",
+    "POSTOLOGIA",
+    "CURSOR EXEMPLO",
+    "MERCADO LIVRE FARMACIA",
+    "PADARIA POSTO",
+    "SEGURO ALUGUEL",
+    "AMAZON PRIME VIDEO",
+    "UBER EATS UBER",
+  ])("mantém descrição genérica ou conflitante para revisar: %s", (description) => {
+    expect(categorizeRow(despesa(description), categories, empty)).toEqual({
+      categoryId: "o",
+      newCategory: null,
+      source: "revisar",
+    });
+  });
+
+  it("mantém colisões de receita para revisar", () => {
+    expect(
+      categorizeRow({ description: "ESTORNO SALARIO", kind: "receita" }, categories, empty),
+    ).toMatchObject({ categoryId: "x", source: "revisar", newCategory: null });
+  });
+
+  it("preserva a escolha da família mesmo com conflito nas palavras", () => {
+    const description = "MERCADO LIVRE FARMACIA";
+    const memory = {
+      history: new Map([[memoryKey("despesa", merchantKey(description)), "l"]]),
+      learned: new Map(),
+    };
+    expect(categorizeRow(despesa(description), categories, memory)).toMatchObject({
+      categoryId: "l",
+      source: "memoria",
+    });
+  });
+
   it("reconhece as categorias de fallback", () => {
     expect(isFallbackCategory("Outras despesas")).toBe(true);
     expect(isFallbackCategory("outras receitas")).toBe(true);
@@ -350,6 +432,25 @@ describe("revisão diária de categorias", () => {
         importBatchId: null,
       }),
     ).toBe("agente");
+  });
+
+  it("não move conflito nem categoria escolhida pela família com as novas pistas", () => {
+    const review = reviewCategories({
+      transactions: [
+        row("conflito", "MERCADO LIVRE FARMACIA", "o", "revisar"),
+        row("escolha", "UBER EATS", "l", "familia"),
+        row("nova", "UBER EATS", "o", "revisar"),
+      ],
+      categories: own,
+      memory: empty,
+      blocked: new Set(),
+    });
+    expect(review.automatic).toHaveLength(1);
+    expect(review.automatic[0]).toMatchObject({ ids: ["nova"], toCategoryId: "r" });
+    expect(review.automatic.flatMap((group) => group.ids)).not.toContain("escolha");
+    expect([...review.automatic, ...review.suggested].flatMap((group) => group.ids)).not.toContain(
+      "conflito",
+    );
   });
 
   it("move sozinho o que ficou para revisar e a regra resolve", () => {
