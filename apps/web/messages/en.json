@@ -259,6 +259,267 @@
       "netWorth": "Net worth"
     }
   },
+  "investimentos": {
+    "metaTitle": "Investments",
+    "metaTrades": "Investment transactions",
+    "metaRebalance": "Rebalancing",
+    "eyebrow": "Investments",
+    "classes": {
+      "acao": "Stocks",
+      "fii": "Real estate funds (FIIs)",
+      "etf_bdr": "ETFs and BDRs",
+      "renda_fixa": "Fixed income",
+      "fundo": "Funds",
+      "previdencia": "Private pension",
+      "exterior": "International",
+      "outro": "Other"
+    },
+    "tabs": {
+      "label": "Investment screens",
+      "portfolio": "Portfolio",
+      "trades": "Transactions",
+      "rebalance": "Rebalancing"
+    },
+    "form": {
+      "name": "Name",
+      "code": "Ticker",
+      "type": "Type",
+      "date": "Date",
+      "quantity": "Quantity",
+      "fees": "Fees (R$)",
+      "pricePlaceholder": "32.50",
+      "amountPlaceholder": "1,000.00",
+      "zeroPlaceholder": "0.00"
+    },
+    "account": {
+      "label": "Account the money comes from",
+      "tradeLabel": "Money account",
+      "hint": "It becomes a transaction in the account and does not count as spending for the month.",
+      "none": "Don’t touch any account"
+    },
+    "add": {
+      "kindLegend": "Where is this investment?",
+      "kinds": {
+        "bolsa": {
+          "label": "On the exchange",
+          "hint": "Stocks, FIIs, ETFs and BDRs"
+        },
+        "renda_fixa": {
+          "label": "Fixed income",
+          "hint": "CDB (bank deposit), Tesouro (Brazilian government bonds), LCI, LCA"
+        },
+        "outro": {
+          "label": "Other",
+          "hint": "Funds, private pensions and international"
+        }
+      },
+      "stockClasses": {
+        "acao": "Stock",
+        "fii": "Real estate fund (FII)",
+        "etf_bdr": "ETF or BDR"
+      },
+      "otherClasses": {
+        "fundo": "Investment fund",
+        "previdencia": "Private pension",
+        "exterior": "International",
+        "outro": "Other"
+      },
+      "pricePaid": "Price paid (R$)",
+      "purchaseDate": "Purchase date",
+      "feesHint": "Optional.",
+      "total": "Purchase total: {total}",
+      "totalEmpty": "The total appears here.",
+      "today": "today {price}",
+      "change": "Change",
+      "codeHint": "E.g. PETR4, HGLG11.",
+      "asset": "Asset",
+      "assetHint": "Type the ticker or the name. Name, type and price fill in on their own.",
+      "searchPlaceholder": "PETR4, Itaú, HGLG11",
+      "found": "Assets found",
+      "notFound": "We couldn’t find this asset in the catalog.",
+      "manual": "Fill in by hand",
+      "namePlaceholderFixed": "E.g. Tesouro Selic 2031",
+      "namePlaceholderOther": "E.g. Company pension",
+      "amount": "Amount invested (R$)",
+      "currentValue": "Value today (R$)",
+      "currentValueHint": "Optional. Without it, we use the amount invested.",
+      "currentValuePlaceholder": "1,050.00",
+      "submit": "Add to portfolio"
+    },
+    "trade": {
+      "operation": "Operation",
+      "buy": "Buy",
+      "sell": "Sell",
+      "deposit": "Deposit",
+      "redeem": "Withdrawal",
+      "price": "Price (R$)",
+      "amount": "Amount (R$)",
+      "feesHint": "Optional. They count toward the average price.",
+      "submit": "Save trade"
+    },
+    "quote": {
+      "auto": "Updated automatically on {date}",
+      "source": "source: {source}",
+      "age": "quote from {count, plural, =1 {1 day} other {{count} days}} ago",
+      "delayed": "delayed",
+      "noTicker": "Fill in the ticker under Edit so the price and dividends come in on their own.",
+      "invalidTicker": "We couldn’t find the ticker {ticker}. Fix it under Edit; without it, nothing comes in on its own.",
+      "waiting": "The automatic price arrives at the next update.",
+      "noPlan": "This asset doesn’t have an automatic quote yet. Update its value here."
+    },
+    "portfolio": {
+      "description": "What everything you recorded is worth today.",
+      "newInvestment": "New investment",
+      "empty": {
+        "title": "Your portfolio starts here",
+        "text": "Add stocks, funds, fixed income or private pensions. The value goes into your net worth. If you already keep this money in an investment account in the system, use only one of the two.",
+        "action": "Add investment"
+      },
+      "stats": {
+        "cost": "Cost",
+        "costHint": "What is still invested.",
+        "gain": "Gain or loss",
+        "gainHint": "{percent} on cost.",
+        "realized": "Realized",
+        "realizedHint": "Result of sales and withdrawals.",
+        "dividends": "Dividends",
+        "dividendsHint": "Received over 12 months."
+      },
+      "list": "Portfolio",
+      "staleBadge": "price from {count} days ago",
+      "position": "{quantity} at {price} on average",
+      "adjusted": "Quantity adjusted for {kind} on {date}",
+      "eventKinds": {
+        "split": "stock split",
+        "reverseSplit": "reverse split",
+        "bonus": "bonus shares"
+      },
+      "oversold": "There is a sale larger than the position. Check the trades.",
+      "estimated": "No current value: showing the cost.",
+      "valuedOn": "Value from {date}",
+      "actions": {
+        "trade": "Trade",
+        "tradeLabel": "Record trade for {name}",
+        "value": "Value",
+        "valueLabel": "Update value of {name}",
+        "historyLabel": "Trades for {name}",
+        "editLabel": "Edit {name}",
+        "deleteLabel": "Delete {name}"
+      },
+      "disclaimer": "Stocks, FIIs (Brazilian real estate funds), ETFs (exchange-traded funds) and BDRs (Brazilian receipts for foreign stocks) with a valid ticker get automatic prices, updated after the B3 (Brazilian stock exchange) closes and always delayed. Everything else is entered by you. OrganizeUp organizes and compares, and does not recommend buying or selling investments. See also <link>dividends</link>.",
+      "sheets": {
+        "new": "New investment",
+        "edit": "Edit investment",
+        "trade": "Record trade",
+        "value": "Update value"
+      },
+      "remove": {
+        "title": "Delete investment",
+        "text": "\"{name}\" leaves the portfolio, along with its trades and dividends.",
+        "confirm": "Delete"
+      },
+      "suggestions": "Assistant suggestions",
+      "investmentForm": {
+        "namePlaceholder": "E.g. Tesouro Selic 2031",
+        "class": "Class",
+        "codeHint": "E.g. PETR4, HGLG11. For stocks, real estate funds, ETFs and BDRs, this is what brings in the price and dividends on their own.",
+        "submit": "Save investment"
+      },
+      "valueForm": {
+        "price": "Today’s price (R$)",
+        "total": "Total value today (R$)",
+        "hintAuto": "Valid until the next automatic quote.",
+        "hintUnit": "Price of one unit.",
+        "hintStatement": "As shown on the statement.",
+        "submit": "Save value"
+      }
+    },
+    "trades": {
+      "title": "Transactions",
+      "description": "Everything that went in and out of the portfolio.",
+      "new": "New trade",
+      "empty": {
+        "title": "No trades yet",
+        "text": "Add an investment in Portfolio and the purchases show up here."
+      },
+      "balance": "Net invested in the period: {amount}",
+      "balanceHint": "Buys minus sells in the trades below.",
+      "asset": "Asset",
+      "all": "All",
+      "emptyAsset": "No trades for this asset.",
+      "list": "Trades",
+      "detail": "{quantity} at {price}",
+      "fees": "fees of {amount}",
+      "deleteLabel": "Delete trade",
+      "investment": "Investment",
+      "remove": {
+        "title": "Delete trade",
+        "text": "The position and average price will be recalculated. If the trade took money from an account, the account transaction goes with it.",
+        "confirm": "Delete"
+      }
+    },
+    "rebalance": {
+      "title": "Rebalancing",
+      "description": "Compare your portfolio with the split you chose.",
+      "targets": "Targets",
+      "empty": {
+        "title": "No portfolio to compare yet",
+        "text": "Add an investment and set how much you want in each class."
+      },
+      "byClass": {
+        "title": "By class",
+        "description": "The mark shows your target.",
+        "list": "Portfolio by class",
+        "onTarget": "Target of {percent}: on target",
+        "below": "Target of {percent}: {amount} below",
+        "above": "Target of {percent}: {amount} above"
+      },
+      "next": {
+        "title": "If you contribute now",
+        "description": "Shows how to bring your portfolio closer to your targets without selling anything.",
+        "amount": "Contribution amount (R$)",
+        "noneBelow": "No class with a target is below it.",
+        "split": "Contribution split",
+        "leftover": "{amount} left over: the classes are already on target."
+      },
+      "noTargets": {
+        "title": "Set your targets",
+        "text": "Say how much you want in each class to see the difference and split your next contribution."
+      },
+      "disclaimer": "Comparison with the targets you set. Educational content, not an investment recommendation.",
+      "form": {
+        "title": "Targets by class",
+        "intro": "Say how much of your portfolio you want in each class. The decision is yours: the system only compares and does not point to any asset.",
+        "submit": "Save targets"
+      }
+    },
+    "errors": {
+      "check": "Please check.",
+      "dateRequired": "Enter the date.",
+      "dateInvalid": "Invalid date.",
+      "nameRequired": "Enter the name.",
+      "tickerFormat": "Use only letters and numbers in the ticker.",
+      "classRequired": "Choose the class.",
+      "typeRequired": "Choose the type.",
+      "noQuote": "We don’t have the quote for this account on that date yet. Try again later or use another account.",
+      "duplicateTicker": "An investment with this ticker already exists.",
+      "feesFormat": "Enter the fees like 4.90.",
+      "quantityRequired": "Enter the quantity.",
+      "pricePaidRequired": "Enter the price paid.",
+      "amountRequired": "Enter the amount invested.",
+      "currentValueFormat": "Enter today’s value like 1,050.00.",
+      "sideRequired": "Choose buy or sell.",
+      "notFound": "Investment not found.",
+      "priceFormat": "Enter the price like 32.50.",
+      "amountFormat": "Enter the amount like 1,000.00.",
+      "nothingToRedeem": "There is no invested amount to withdraw.",
+      "oversold": "You did not hold that quantity on that date.",
+      "valueFormat": "Enter the value like 32.50.",
+      "percentFormat": "Use percentages like 30 or 12.5.",
+      "percentMax": "Each class goes up to 100%.",
+      "percentSum": "The targets add up to more than 100%."
+    }
+  },
   "meta": {
     "description": "Your family's money, dreams and retirement in one plan."
   },

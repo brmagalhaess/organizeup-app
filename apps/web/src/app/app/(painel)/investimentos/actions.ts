@@ -1,4 +1,5 @@
 "use server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -26,13 +27,14 @@ import {
   CONTRIBUTION_CATEGORY,
   isUnitPriced,
   money,
-  parseBRL,
+  parseMoney,
   positionOf,
   redemptionOf,
   toDbAmount,
   todayIn,
   type TradeInput,
 } from "@organizeup/domain";
+import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
 
@@ -41,15 +43,20 @@ export interface FormState {
   message: string | null;
 }
 
-const blocked: FormState = {
-  ok: false,
-  message: "Seu papel nesta família não permite alterações.",
-};
+type Errors = Awaited<ReturnType<typeof getTranslations<"investimentos.errors">>>;
 
-const positive = (message: string, zeroAllowed = false) =>
+const blocked = async (): Promise<FormState> => ({
+  ok: false,
+  message: (await getTranslations("settings"))("noPermission"),
+});
+
+/** Textos de erro e idioma da pessoa: números digitados seguem o idioma. */
+const texts = () => Promise.all([getTranslations("investimentos.errors"), getLocale()]);
+
+const positive = (message: string, locale: Locale, zeroAllowed = false) =>
   z.string().transform((value, ctx) => {
     try {
-      const parsed = parseBRL(value);
+      const parsed = parseMoney(value, locale);
       if (parsed.lt(0) || (!zeroAllowed && parsed.isZero()) || parsed.gte("100000000000"))
         throw new RangeError("fora do limite");
       return parsed.toFixed(8);
@@ -59,22 +66,24 @@ const positive = (message: string, zeroAllowed = false) =>
     }
   });
 
-const dateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data.")
-  .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), "Data inválida.");
-
-const investmentSchema = z.object({
-  id: z.string(),
-  name: z.string().trim().min(1, "Informe o nome.").max(80),
-  ticker: z
+const dateSchema = (t: Errors) =>
+  z
     .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z0-9.]{0,12}$/, "Use só letras e números no código.")
-    .transform((value) => value || null),
-  assetClass: z.enum(INVESTMENT_CLASSES, { message: "Escolha a classe." }),
-});
+    .regex(/^\d{4}-\d{2}-\d{2}$/, t("dateRequired"))
+    .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), t("dateInvalid"));
+
+const investmentSchema = (t: Errors) =>
+  z.object({
+    id: z.string(),
+    name: z.string().trim().min(1, t("nameRequired")).max(80),
+    ticker: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z0-9.]{0,12}$/, t("tickerFormat"))
+      .transform((value) => value || null),
+    assetClass: z.enum(INVESTMENT_CLASSES, { message: t("classRequired") }),
+  });
 
 function refresh() {
   revalidatePath("/app", "layout");
@@ -82,23 +91,19 @@ function refresh() {
 
 /** Conta estrangeira sem cotação na data da operação: nada é gravado. */
 class MissingQuote extends Error {}
-const NO_QUOTE: FormState = {
-  ok: false,
-  message: "Ainda não temos a cotação desta conta para essa data. Tente mais tarde ou use outra conta.",
-};
 
 /** Cria um investimento ou edita o do `id`. */
 export async function saveInvestment(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
-  const parsed = investmentSchema.safeParse({
+  if (!canWrite(ctx)) return blocked();
+  const t = await getTranslations("investimentos.errors");
+  const parsed = investmentSchema(t).safeParse({
     id: form.get("id") ?? "",
     name: form.get("name") ?? "",
     ticker: form.get("ticker") ?? "",
     assetClass: form.get("assetClass"),
   });
-  if (!parsed.success)
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? t("check") };
   const { id, ...values } = parsed.data;
   try {
     await withHousehold(ctx, async (tx) => {
@@ -115,7 +120,7 @@ export async function saveInvestment(_prev: FormState, form: FormData): Promise<
     });
   } catch (error) {
     if ((error as { cause?: { code?: string } }).cause?.code === "23505")
-      return { ok: false, message: "Já existe um investimento com este código." };
+      return { ok: false, message: t("duplicateTicker") };
     throw error;
   }
   refresh();
@@ -164,16 +169,17 @@ async function recordTradeCash(
   return row!.id;
 }
 
-const assetSchema = z.object({
-  ticker: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z0-9.]{0,12}$/, "Use só letras e números no código."),
-  name: z.string().trim().max(80),
-  assetClass: z.enum(INVESTMENT_CLASSES).nullable(),
-  occurredOn: dateSchema,
-});
+const assetSchema = (t: Errors) =>
+  z.object({
+    ticker: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z0-9.]{0,12}$/, t("tickerFormat")),
+    name: z.string().trim().max(80),
+    assetClass: z.enum(INVESTMENT_CLASSES).nullable(),
+    occurredOn: dateSchema(t),
+  });
 
 /**
  * Cadastro único: cria o investimento e a primeira compra na mesma transação. Com código do catálogo,
@@ -181,24 +187,24 @@ const assetSchema = z.object({
  */
 export async function addAsset(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
-  const parsed = assetSchema.safeParse({
+  if (!canWrite(ctx)) return blocked();
+  const [t, locale] = await texts();
+  const parsed = assetSchema(t).safeParse({
     ticker: form.get("ticker") ?? "",
     name: form.get("name") ?? "",
     assetClass: form.get("assetClass"),
     occurredOn: form.get("occurredOn") ?? "",
   });
-  if (!parsed.success)
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? t("check") };
   const { ticker, occurredOn } = parsed.data;
   const accountId = String(form.get("accountId") ?? "");
   const catalog = ticker ? await findMarketAsset(ticker) : null;
   const name = catalog?.name.slice(0, 80) ?? parsed.data.name;
   const assetClass = catalog?.assetClass ?? parsed.data.assetClass;
-  const fees = positive("Informe as taxas como 4,90.", true).safeParse(form.get("fees") || "0");
-  if (!fees.success) return { ok: false, message: fees.error.issues[0]?.message ?? "Verifique." };
-  if (!name) return { ok: false, message: "Informe o nome." };
-  if (!assetClass) return { ok: false, message: "Escolha o tipo." };
+  const fees = positive(t("feesFormat"), locale, true).safeParse(form.get("fees") || "0");
+  if (!fees.success) return { ok: false, message: fees.error.issues[0]?.message ?? t("check") };
+  if (!name) return { ok: false, message: t("nameRequired") };
+  if (!assetClass) return { ok: false, message: t("typeRequired") };
 
   let quantity: string;
   let unitPrice: string;
@@ -206,24 +212,24 @@ export async function addAsset(_prev: FormState, form: FormData): Promise<FormSt
   if (isUnitPriced(assetClass)) {
     const fields = z
       .object({
-        quantity: positive("Informe a quantidade."),
-        unitPrice: positive("Informe o preço pago."),
+        quantity: positive(t("quantityRequired"), locale),
+        unitPrice: positive(t("pricePaidRequired"), locale),
       })
       .safeParse({ quantity: form.get("quantity") ?? "", unitPrice: form.get("unitPrice") ?? "" });
     if (!fields.success)
-      return { ok: false, message: fields.error.issues[0]?.message ?? "Verifique." };
+      return { ok: false, message: fields.error.issues[0]?.message ?? t("check") };
     ({ quantity, unitPrice } = fields.data);
   } else {
-    const amount = positive("Informe o valor aplicado.").safeParse(form.get("amount") ?? "");
+    const amount = positive(t("amountRequired"), locale).safeParse(form.get("amount") ?? "");
     if (!amount.success)
-      return { ok: false, message: amount.error.issues[0]?.message ?? "Verifique." };
+      return { ok: false, message: amount.error.issues[0]?.message ?? t("check") };
     quantity = amount.data;
     unitPrice = "1";
     const raw = form.get("currentValue");
     if (raw) {
-      const value = positive("Informe o valor de hoje como 1.050,00.").safeParse(raw);
+      const value = positive(t("currentValueFormat"), locale).safeParse(raw);
       if (!value.success)
-        return { ok: false, message: value.error.issues[0]?.message ?? "Verifique." };
+        return { ok: false, message: value.error.issues[0]?.message ?? t("check") };
       currentValue = toDbAmount(value.data);
     } else {
       currentValue = toDbAmount(amount.data);
@@ -271,7 +277,7 @@ export async function addAsset(_prev: FormState, form: FormData): Promise<FormSt
     if (error instanceof MissingQuote) return false;
     throw error;
   });
-  if (!saved) return NO_QUOTE;
+  if (!saved) return { ok: false, message: t("noQuote") };
   refresh();
   return { ok: true, message: null };
 }
@@ -297,25 +303,26 @@ export async function deleteInvestment(form: FormData): Promise<void> {
   refresh();
 }
 
-const tradeSchema = z.object({
-  investmentId: z.string().min(1),
-  side: z.enum(TRADE_SIDES, { message: "Escolha compra ou venda." }),
-  occurredOn: dateSchema,
-  fees: positive("Informe as taxas como 4,90.", true),
-});
+const tradeSchema = (t: Errors, locale: Locale) =>
+  z.object({
+    investmentId: z.string().min(1),
+    side: z.enum(TRADE_SIDES, { message: t("sideRequired") }),
+    occurredOn: dateSchema(t),
+    fees: positive(t("feesFormat"), locale, true),
+  });
 
 /** Com preço unitário vem quantidade e preço; nas demais classes, só o valor. */
 export async function addTrade(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
-  const parsed = tradeSchema.safeParse({
+  if (!canWrite(ctx)) return blocked();
+  const [t, locale] = await texts();
+  const parsed = tradeSchema(t, locale).safeParse({
     investmentId: form.get("investmentId") ?? "",
     side: form.get("side"),
     occurredOn: form.get("occurredOn") ?? "",
     fees: form.get("fees") || "0",
   });
-  if (!parsed.success)
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? t("check") };
   const { investmentId, side, occurredOn } = parsed.data;
   const fees = toDbAmount(parsed.data.fees);
 
@@ -324,7 +331,7 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
       .select()
       .from(investments)
       .where(eq(investments.id, investmentId));
-    if (!investment) return "Investimento não encontrado.";
+    if (!investment) return t("notFound");
     const trades = await tx
       .select()
       .from(investmentTrades)
@@ -339,25 +346,25 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
     if (isUnitPriced(investment.assetClass)) {
       const fields = z
         .object({
-          quantity: positive("Informe a quantidade."),
-          unitPrice: positive("Informe o preço como 32,50."),
+          quantity: positive(t("quantityRequired"), locale),
+          unitPrice: positive(t("priceFormat"), locale),
         })
         .safeParse({
           quantity: form.get("quantity") ?? "",
           unitPrice: form.get("unitPrice") ?? "",
         });
-      if (!fields.success) return fields.error.issues[0]?.message ?? "Verifique.";
+      if (!fields.success) return fields.error.issues[0]?.message ?? t("check");
       ({ quantity, unitPrice } = fields.data);
     } else {
-      const field = positive("Informe o valor como 1.000,00.").safeParse(form.get("amount") ?? "");
-      if (!field.success) return field.error.issues[0]?.message ?? "Verifique.";
+      const field = positive(t("amountFormat"), locale).safeParse(form.get("amount") ?? "");
+      if (!field.success) return field.error.issues[0]?.message ?? t("check");
       if (side === "compra") {
         quantity = field.data;
         unitPrice = "1";
         if (currentValue !== null) currentValue = toDbAmount(money(currentValue).plus(field.data));
       } else {
         const held = positionOf(trades, events);
-        if (money(held.quantity).isZero()) return "Não há valor aplicado para resgatar.";
+        if (money(held.quantity).isZero()) return t("nothingToRedeem");
         const value = currentValue ?? held.cost;
         const redemption = redemptionOf(held.quantity, value, field.data);
         ({ quantity, unitPrice } = redemption);
@@ -366,8 +373,7 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
     }
 
     const next: TradeInput = { side, occurredOn, quantity, unitPrice, fees };
-    if (positionOf([...trades, next], events).oversold)
-      return "Você não tinha essa quantidade nessa data.";
+    if (positionOf([...trades, next], events).oversold) return t("oversold");
 
     const accountId = String(form.get("accountId") ?? "");
     const transactionId = accountId
@@ -387,7 +393,7 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
     await audit(tx, ctx, "create", "investment_trades", created!.id);
     return null;
   }).catch((error: unknown) => {
-    if (error instanceof MissingQuote) return NO_QUOTE.message;
+    if (error instanceof MissingQuote) return t("noQuote");
     throw error;
   });
   if (failure) return { ok: false, message: failure };
@@ -417,20 +423,21 @@ export async function deleteTrade(form: FormData): Promise<void> {
 /** Atualiza o preço ou, sem preço unitário, o valor total de hoje. */
 export async function updateValue(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
+  if (!canWrite(ctx)) return blocked();
+  const [t, locale] = await texts();
   const id = String(form.get("id") ?? "");
-  const value = positive("Informe o valor como 32,50.", true).safeParse(form.get("value") ?? "");
-  const valuedOn = dateSchema.safeParse(form.get("valuedOn") ?? "");
-  if (!value.success) return { ok: false, message: value.error.issues[0]?.message ?? "Verifique." };
+  const value = positive(t("valueFormat"), locale, true).safeParse(form.get("value") ?? "");
+  const valuedOn = dateSchema(t).safeParse(form.get("valuedOn") ?? "");
+  if (!value.success) return { ok: false, message: value.error.issues[0]?.message ?? t("check") };
   if (!valuedOn.success)
-    return { ok: false, message: valuedOn.error.issues[0]?.message ?? "Verifique." };
+    return { ok: false, message: valuedOn.error.issues[0]?.message ?? t("check") };
 
   const failure = await withHousehold(ctx, async (tx) => {
     const [investment] = await tx
       .select({ assetClass: investments.assetClass })
       .from(investments)
       .where(eq(investments.id, id));
-    if (!investment) return "Investimento não encontrado.";
+    if (!investment) return t("notFound");
     await tx
       .update(investments)
       .set(
@@ -450,19 +457,20 @@ export async function updateValue(_prev: FormState, form: FormData): Promise<For
 /** Grava a meta de cada classe. Campo vazio tira a classe das metas. */
 export async function saveTargets(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return blocked;
+  if (!canWrite(ctx)) return blocked();
+  const [t, locale] = await texts();
   const targets: Array<{ assetClass: (typeof INVESTMENT_CLASSES)[number]; percent: string }> = [];
   for (const assetClass of INVESTMENT_CLASSES) {
     const raw = String(form.get(assetClass) ?? "").trim();
     if (!raw) continue;
-    const percent = positive("Use percentuais como 30 ou 12,5.", true).safeParse(raw);
+    const percent = positive(t("percentFormat"), locale, true).safeParse(raw);
     if (!percent.success)
-      return { ok: false, message: percent.error.issues[0]?.message ?? "Verifique." };
-    if (money(percent.data).gt(100)) return { ok: false, message: "Cada classe vai até 100%." };
+      return { ok: false, message: percent.error.issues[0]?.message ?? t("check") };
+    if (money(percent.data).gt(100)) return { ok: false, message: t("percentMax") };
     if (money(percent.data).gt(0)) targets.push({ assetClass, percent: toDbAmount(percent.data) });
   }
   const sum = targets.reduce((acc, target) => acc.plus(target.percent), money(0));
-  if (sum.gt(100)) return { ok: false, message: "A soma das metas passa de 100%." };
+  if (sum.gt(100)) return { ok: false, message: t("percentSum") };
 
   await withHousehold(ctx, async (tx) => {
     await tx

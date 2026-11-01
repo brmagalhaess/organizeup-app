@@ -1,9 +1,12 @@
 "use client";
 import { Search } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useActionState, useEffect, useState } from "react";
-import { formatBRL, money, parseBRL } from "@organizeup/domain";
+import { money, parseMoney } from "@organizeup/domain";
 import { cx } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select, submitKeeping } from "@/components/ui";
+import { formatAmount, toFieldValue } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
 
 import { AccountField } from "./account-field";
 import { addAsset, type FormState } from "./actions";
@@ -15,35 +18,22 @@ interface Asset {
   close: string | null;
 }
 
-const KINDS = [
-  { value: "bolsa", label: "Na bolsa", hint: "Ações, fundos imobiliários, ETFs e BDRs" },
-  { value: "renda_fixa", label: "Renda fixa", hint: "CDB, Tesouro, LCI, LCA" },
-  { value: "outro", label: "Outro", hint: "Fundos, previdência e exterior" },
-] as const;
-type Kind = (typeof KINDS)[number]["value"];
+const KINDS = ["bolsa", "renda_fixa", "outro"] as const;
+type Kind = (typeof KINDS)[number];
 
-const STOCK_LABEL: Record<string, string> = {
-  acao: "Ação",
-  fii: "Fundo imobiliário",
-  etf_bdr: "ETF ou BDR",
-};
-
-const OTHER_CLASSES = [
-  ["fundo", "Fundo de investimento"],
-  ["previdencia", "Previdência"],
-  ["exterior", "Exterior"],
-  ["outro", "Outro"],
-] as const;
+const STOCK_CLASSES = ["acao", "fii", "etf_bdr"] as const;
+const OTHER_CLASSES = ["fundo", "previdencia", "exterior", "outro"] as const;
 
 const initial: FormState = { ok: false, message: null };
 const SEARCH_DELAY_MS = 200;
 
-const toInput = (value: string) => money(value).toFixed(2).replace(".", ",");
+/** Preço do catálogo no campo, sempre com duas casas: "32,50" em português, "32.50" em inglês. */
+const toInput = (value: string, locale: Locale) => toFieldValue(money(value).toFixed(2), locale);
 
-function totalOf(quantity: string, price: string): string | null {
+function totalOf(quantity: string, price: string, locale: Locale): string | null {
   try {
-    const total = parseBRL(quantity).times(parseBRL(price));
-    return total.gt(0) ? formatBRL(total.toFixed(2)) : null;
+    const total = parseMoney(quantity, locale).times(parseMoney(price, locale));
+    return total.gt(0) ? formatAmount(total.toFixed(2), locale) : null;
   } catch {
     return null;
   }
@@ -75,13 +65,15 @@ function useAssetSearch(query: string) {
 }
 
 function TradeFields({ today, price }: { today: string; price: string }) {
+  const t = useTranslations("investimentos");
+  const locale = useLocale();
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState(price);
-  const total = totalOf(quantity, unit);
+  const total = totalOf(quantity, unit, locale);
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Quantidade">
+        <Field label={t("form.quantity")}>
           <Input
             name="quantity"
             inputMode="decimal"
@@ -91,33 +83,35 @@ function TradeFields({ today, price }: { today: string; price: string }) {
             onChange={(event) => setQuantity(event.target.value)}
           />
         </Field>
-        <Field label="Preço pago (R$)">
+        <Field label={t("add.pricePaid")}>
           <Input
             name="unitPrice"
             inputMode="decimal"
             required
-            placeholder="32,50"
+            placeholder={t("form.pricePlaceholder")}
             value={unit}
             onChange={(event) => setUnit(event.target.value)}
           />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Data da compra">
+        <Field label={t("add.purchaseDate")}>
           <Input name="occurredOn" type="date" required defaultValue={today} max={today} />
         </Field>
-        <Field label="Taxas (R$)" hint="Opcional.">
-          <Input name="fees" inputMode="decimal" placeholder="0,00" />
+        <Field label={t("form.fees")} hint={t("add.feesHint")}>
+          <Input name="fees" inputMode="decimal" placeholder={t("form.zeroPlaceholder")} />
         </Field>
       </div>
       <p className="m-0 text-sm text-muted">
-        {total ? `Total da compra: ${total}` : "O total aparece aqui."}
+        {total ? t("add.total", { total }) : t("add.totalEmpty")}
       </p>
     </>
   );
 }
 
 function ExchangeFields({ today }: { today: string }) {
+  const t = useTranslations("investimentos");
+  const locale = useLocale();
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Asset | null>(null);
   const [manual, setManual] = useState(false);
@@ -132,15 +126,17 @@ function ExchangeFields({ today }: { today: string }) {
             <p className="m-0 font-semibold">{picked.ticker}</p>
             <p className="m-0 break-words text-muted">{picked.name}</p>
             <p className="m-0 text-muted">
-              {STOCK_LABEL[picked.assetClass]}
-              {picked.close ? ` · hoje ${formatBRL(money(picked.close).toFixed(2))}` : ""}
+              {t(`add.stockClasses.${picked.assetClass}`)}
+              {picked.close
+                ? ` · ${t("add.today", { price: formatAmount(money(picked.close).toFixed(2), locale) })}`
+                : ""}
             </p>
           </div>
           <Button type="button" variant="ghost" small onClick={() => setPicked(null)}>
-            Trocar
+            {t("add.change")}
           </Button>
         </div>
-        <TradeFields today={today} price={picked.close ? toInput(picked.close) : ""} />
+        <TradeFields today={today} price={picked.close ? toInput(picked.close, locale) : ""} />
       </>
     );
   }
@@ -148,17 +144,17 @@ function ExchangeFields({ today }: { today: string }) {
   if (manual) {
     return (
       <>
-        <Field label="Código" hint="Ex.: PETR4, HGLG11.">
+        <Field label={t("form.code")} hint={t("add.codeHint")}>
           <Input name="ticker" maxLength={12} required defaultValue={query.toUpperCase()} />
         </Field>
-        <Field label="Nome">
+        <Field label={t("form.name")}>
           <Input name="name" required maxLength={80} />
         </Field>
-        <Field label="Tipo">
+        <Field label={t("form.type")}>
           <Select name="assetClass" defaultValue="acao">
-            {Object.entries(STOCK_LABEL).map(([value, label]) => (
+            {STOCK_CLASSES.map((value) => (
               <option key={value} value={value}>
-                {label}
+                {t(`add.stockClasses.${value}`)}
               </option>
             ))}
           </Select>
@@ -170,7 +166,7 @@ function ExchangeFields({ today }: { today: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <Field label="Ativo" hint="Digite o código ou o nome. Nome, tipo e preço vêm sozinhos.">
+      <Field label={t("add.asset")} hint={t("add.assetHint")}>
         <div className="relative">
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
@@ -179,14 +175,14 @@ function ExchangeFields({ today }: { today: string }) {
           <Input
             className="pl-9"
             autoComplete="off"
-            placeholder="PETR4, Itaú, HGLG11"
+            placeholder={t("add.searchPlaceholder")}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
       </Field>
       {assets.length > 0 ? (
-        <ul aria-label="Ativos encontrados" className="m-0 flex list-none flex-col gap-1 p-0">
+        <ul aria-label={t("add.found")} className="m-0 flex list-none flex-col gap-1 p-0">
           {assets.map((asset) => (
             <li key={asset.ticker}>
               <button
@@ -200,7 +196,7 @@ function ExchangeFields({ today }: { today: string }) {
                 </span>
                 {asset.close ? (
                   <span className="shrink-0 tabular-nums text-muted">
-                    {formatBRL(money(asset.close).toFixed(2))}
+                    {formatAmount(money(asset.close).toFixed(2), locale)}
                   </span>
                 ) : null}
               </button>
@@ -209,7 +205,7 @@ function ExchangeFields({ today }: { today: string }) {
         </ul>
       ) : null}
       {searched && assets.length === 0 && query.trim().length >= 2 ? (
-        <p className="m-0 text-sm text-muted">Não achei esse ativo no catálogo.</p>
+        <p className="m-0 text-sm text-muted">{t("add.notFound")}</p>
       ) : null}
       <Button
         type="button"
@@ -218,31 +214,32 @@ function ExchangeFields({ today }: { today: string }) {
         className="self-start"
         onClick={() => setManual(true)}
       >
-        Preencher à mão
+        {t("add.manual")}
       </Button>
     </div>
   );
 }
 
 function ManualFields({ kind, today }: { kind: Exclude<Kind, "bolsa">; today: string }) {
+  const t = useTranslations("investimentos");
   return (
     <>
-      <Field label="Nome">
+      <Field label={t("form.name")}>
         <Input
           name="name"
           required
           maxLength={80}
-          placeholder={
-            kind === "renda_fixa" ? "Ex.: Tesouro Selic 2031" : "Ex.: Previdência da empresa"
-          }
+          placeholder={t(
+            kind === "renda_fixa" ? "add.namePlaceholderFixed" : "add.namePlaceholderOther",
+          )}
         />
       </Field>
       {kind === "outro" ? (
-        <Field label="Tipo">
+        <Field label={t("form.type")}>
           <Select name="assetClass" defaultValue="fundo">
-            {OTHER_CLASSES.map(([value, label]) => (
+            {OTHER_CLASSES.map((value) => (
               <option key={value} value={value}>
-                {label}
+                {t(`add.otherClasses.${value}`)}
               </option>
             ))}
           </Select>
@@ -251,15 +248,24 @@ function ManualFields({ kind, today }: { kind: Exclude<Kind, "bolsa">; today: st
         <input type="hidden" name="assetClass" value="renda_fixa" />
       )}
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Valor aplicado (R$)">
-          <Input name="amount" inputMode="decimal" required placeholder="1.000,00" />
+        <Field label={t("add.amount")}>
+          <Input
+            name="amount"
+            inputMode="decimal"
+            required
+            placeholder={t("form.amountPlaceholder")}
+          />
         </Field>
-        <Field label="Data">
+        <Field label={t("form.date")}>
           <Input name="occurredOn" type="date" required defaultValue={today} max={today} />
         </Field>
       </div>
-      <Field label="Valor hoje (R$)" hint="Opcional. Sem ele, usamos o valor aplicado.">
-        <Input name="currentValue" inputMode="decimal" placeholder="1.050,00" />
+      <Field label={t("add.currentValue")} hint={t("add.currentValueHint")}>
+        <Input
+          name="currentValue"
+          inputMode="decimal"
+          placeholder={t("add.currentValuePlaceholder")}
+        />
       </Field>
     </>
   );
@@ -275,6 +281,8 @@ export function AddAssetForm({
   accounts: Array<{ id: string; name: string }>;
   onDone: () => void;
 }) {
+  const t = useTranslations("investimentos");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(addAsset, initial);
   const [kind, setKind] = useState<Kind>("bolsa");
   useEffect(() => {
@@ -283,26 +291,26 @@ export function AddAssetForm({
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-        <legend className="mb-1 text-sm font-semibold">Onde está esse investimento?</legend>
+        <legend className="mb-1 text-sm font-semibold">{t("add.kindLegend")}</legend>
         <div className="grid gap-2 sm:grid-cols-3">
           {KINDS.map((option) => (
             <label
-              key={option.value}
+              key={option}
               className={cx(
                 "flex cursor-pointer flex-col rounded-xl border p-3 text-sm has-[:focus-visible]:ring-2",
-                kind === option.value ? "border-brand-700 bg-card-soft" : "border-line",
+                kind === option ? "border-brand-700 bg-card-soft" : "border-line",
               )}
             >
               <input
                 type="radio"
                 name="kind"
-                value={option.value}
-                checked={kind === option.value}
-                onChange={() => setKind(option.value)}
+                value={option}
+                checked={kind === option}
+                onChange={() => setKind(option)}
                 className="sr-only"
               />
-              <span className="font-medium">{option.label}</span>
-              <span className="text-xs text-muted">{option.hint}</span>
+              <span className="font-medium">{t(`add.kinds.${option}.label`)}</span>
+              <span className="text-xs text-muted">{t(`add.kinds.${option}.hint`)}</span>
             </label>
           ))}
         </div>
@@ -315,7 +323,7 @@ export function AddAssetForm({
       <AccountField accounts={accounts} />
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Adicionar à carteira"}
+        {pending ? tCommon("saving") : t("add.submit")}
       </Button>
     </form>
   );

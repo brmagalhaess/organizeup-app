@@ -1,8 +1,9 @@
 "use client";
 import { Plus, Trash2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { formatBRL, isUnitPriced, money, toDbAmount } from "@organizeup/domain";
+import { isUnitPriced, money, toDbAmount } from "@organizeup/domain";
 import {
   Button,
   Card,
@@ -14,12 +15,13 @@ import {
   Select,
   Sheet,
 } from "@/components/ui";
+import { formatAmount, formatDate } from "@/i18n/format";
 import { deleteTrade } from "../actions";
-import { fullDate, quantityText, type Data, type Trade } from "../shared";
+import { quantityText, type Data, type Trade } from "../shared";
 import { TradeForm } from "../trade-form";
 
-const sideLabel = (unit: boolean, buying: boolean) =>
-  unit ? (buying ? "Compra" : "Venda") : buying ? "Aplicação" : "Resgate";
+const sideKey = (unit: boolean, buying: boolean) =>
+  unit ? (buying ? "buy" : "sell") : buying ? "deposit" : "redeem";
 
 /** Todas as operações da carteira, da mais nova à mais antiga, com o valor e a conta usada. */
 export function TradesBoard({
@@ -31,6 +33,8 @@ export function TradesBoard({
   assetId: string | null;
   writable: boolean;
 }) {
+  const t = useTranslations("investimentos");
+  const locale = useLocale();
   const router = useRouter();
   const [removing, setRemoving] = useState<Trade | null>(null);
   const [adding, setAdding] = useState<{ nonce: number } | null>(null);
@@ -54,14 +58,14 @@ export function TradesBoard({
   return (
     <>
       <PageHeader
-        eyebrow="Investimentos"
-        title="Lançamentos"
-        description="Tudo o que entrou e saiu da carteira."
+        eyebrow={t("eyebrow")}
+        title={t("trades.title")}
+        description={t("trades.description")}
         actions={
           writable && data.rows.length > 0 ? (
             <Button variant="secondary" onClick={() => setAdding({ nonce: Date.now() })}>
               <Plus className="size-4" aria-hidden="true" />
-              Nova operação
+              {t("trades.new")}
             </Button>
           ) : null
         }
@@ -69,18 +73,15 @@ export function TradesBoard({
 
       {data.rows.length === 0 ? (
         <Card>
-          <EmptyState
-            title="Nenhuma operação ainda"
-            text="Adicione um investimento na Carteira e as compras aparecem aqui."
-          />
+          <EmptyState title={t("trades.empty.title")} text={t("trades.empty.text")} />
         </Card>
       ) : (
         <Card
-          title={`Saldo aplicado no período: ${formatBRL(toDbAmount(net))}`}
-          description="Compras menos vendas das operações abaixo."
+          title={t("trades.balance", { amount: formatAmount(toDbAmount(net), locale) })}
+          description={t("trades.balanceHint")}
         >
           <div className="flex flex-col gap-4">
-            <Field label="Ativo">
+            <Field label={t("trades.asset")}>
               <Select
                 value={assetId ?? ""}
                 onChange={(event) =>
@@ -91,7 +92,7 @@ export function TradesBoard({
                   )
                 }
               >
-                <option value="">Todos</option>
+                <option value="">{t("trades.all")}</option>
                 {data.rows.map((row) => (
                   <option key={row.id} value={row.id}>
                     {row.ticker ?? row.name}
@@ -100,34 +101,45 @@ export function TradesBoard({
               </Select>
             </Field>
             {lines.length === 0 ? (
-              <p className="m-0 text-sm text-muted">Nenhuma operação neste ativo.</p>
+              <p className="m-0 text-sm text-muted">{t("trades.emptyAsset")}</p>
             ) : (
-              <ul aria-label="Operações" className="m-0 list-none divide-y divide-line p-0">
+              <ul aria-label={t("trades.list")} className="m-0 list-none divide-y divide-line p-0">
                 {lines.map(({ row, trade }) => {
                   const unit = isUnitPriced(row.assetClass);
                   const buying = trade.side === "compra";
                   const total = money(trade.quantity).times(trade.unitPrice);
+                  const details = [
+                    formatDate(trade.occurredOn, locale),
+                    unit
+                      ? t("trades.detail", {
+                          quantity: quantityText(trade.quantity, locale),
+                          price: formatAmount(trade.unitPrice, locale),
+                        })
+                      : null,
+                    money(trade.fees).gt(0)
+                      ? t("trades.fees", { amount: formatAmount(trade.fees, locale) })
+                      : null,
+                    trade.accountName,
+                  ];
                   return (
                     <li key={trade.id} className="flex items-center gap-3 py-3 text-sm">
                       <div className="min-w-0 flex-1">
                         <p className="m-0 break-words font-medium">
-                          {sideLabel(unit, buying)} · {row.ticker ?? row.name}
+                          {t(`trade.${sideKey(unit, buying)}`)} · {row.ticker ?? row.name}
                         </p>
                         <p className="m-0 text-xs text-muted">
-                          {fullDate(trade.occurredOn)}
-                          {unit
-                            ? ` · ${quantityText(trade.quantity)} a ${formatBRL(trade.unitPrice)}`
-                            : ""}
-                          {money(trade.fees).gt(0) ? ` · taxas de ${formatBRL(trade.fees)}` : ""}
-                          {trade.accountName ? ` · ${trade.accountName}` : ""}
+                          {details.filter(Boolean).join(" · ")}
                         </p>
                       </div>
                       <p className="m-0 whitespace-nowrap font-medium tabular-nums">
                         {buying ? "" : "-"}
-                        {formatBRL(toDbAmount(total))}
+                        {formatAmount(toDbAmount(total), locale)}
                       </p>
                       {writable ? (
-                        <IconButton label="Excluir operação" onClick={() => setRemoving(trade)}>
+                        <IconButton
+                          label={t("trades.deleteLabel")}
+                          onClick={() => setRemoving(trade)}
+                        >
                           <Trash2 className="size-4" aria-hidden="true" />
                         </IconButton>
                       ) : null}
@@ -140,9 +152,9 @@ export function TradesBoard({
         </Card>
       )}
 
-      <Sheet open={adding !== null} onClose={close} title="Nova operação">
+      <Sheet open={adding !== null} onClose={close} title={t("trades.new")}>
         <div className="flex flex-col gap-4">
-          <Field label="Investimento">
+          <Field label={t("trades.investment")}>
             <Select value={target} onChange={(event) => setTarget(event.target.value)}>
               {data.rows.map((row) => (
                 <option key={row.id} value={row.id}>
@@ -165,9 +177,9 @@ export function TradesBoard({
       <ConfirmSheet
         open={removing !== null}
         onClose={() => setRemoving(null)}
-        title="Excluir operação"
-        text="A posição e o preço médio serão recalculados. Se a operação tirou dinheiro de uma conta, o lançamento da conta sai junto."
-        confirmLabel="Excluir"
+        title={t("trades.remove.title")}
+        text={t("trades.remove.text")}
+        confirmLabel={t("trades.remove.confirm")}
         action={deleteTrade}
         hidden={{ id: removing?.id ?? "" }}
       />

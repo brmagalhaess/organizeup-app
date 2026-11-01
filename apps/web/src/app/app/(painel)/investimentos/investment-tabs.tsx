@@ -1,21 +1,20 @@
 "use client";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cx } from "@/components/styles";
 
 const TABS = [
-  { href: "/app/investimentos", label: "Carteira" },
-  { href: "/app/investimentos/lancamentos", label: "Lançamentos" },
-  { href: "/app/investimentos/balanceamento", label: "Balanceamento" },
-];
+  { href: "/app/investimentos", label: "portfolio" },
+  { href: "/app/investimentos/lancamentos", label: "trades" },
+  { href: "/app/investimentos/balanceamento", label: "rebalance" },
+] as const;
 
 export function InvestmentTabs() {
+  const t = useTranslations("investimentos.tabs");
   const pathname = usePathname();
   return (
-    <nav
-      aria-label="Telas de investimentos"
-      className="flex gap-1 overflow-x-auto border-b border-line"
-    >
+    <nav aria-label={t("label")} className="flex gap-1 overflow-x-auto border-b border-line">
       {TABS.map(({ href, label }) => {
         const active = pathname === href;
         return (
@@ -28,7 +27,7 @@ export function InvestmentTabs() {
               active ? "border-brand-700 text-brand-700" : "border-transparent text-muted",
             )}
           >
-            {label}
+            {t(label)}
           </Link>
         );
       })}

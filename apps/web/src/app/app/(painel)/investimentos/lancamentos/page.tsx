@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
 import { loadPortfolio } from "@/lib/investments";
 import { requireTenant } from "@/lib/session";
 import { TradesBoard } from "./trades-board";
 
-export const metadata: Metadata = { title: "Lançamentos de investimentos" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("investimentos");
+  return { title: t("metaTrades") };
+}
 
 export default async function InvestmentTradesPage({
   searchParams,

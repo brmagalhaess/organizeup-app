@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { isUnitPriced } from "@organizeup/domain";
 import { Button, Field, FormMessage, Input, Select, submitKeeping } from "@/components/ui";
@@ -17,6 +18,8 @@ export function TradeForm({
   today: string;
   onDone: () => void;
 }) {
+  const t = useTranslations("investimentos");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(addTrade, initial);
   useCloseOnSuccess(state, onDone);
   const unit = isUnitPriced(row.assetClass);
@@ -24,37 +27,47 @@ export function TradeForm({
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <input type="hidden" name="investmentId" value={row.id} />
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Operação">
+        <Field label={t("trade.operation")}>
           <Select name="side" defaultValue="compra">
-            <option value="compra">{unit ? "Compra" : "Aplicação"}</option>
-            <option value="venda">{unit ? "Venda" : "Resgate"}</option>
+            <option value="compra">{unit ? t("trade.buy") : t("trade.deposit")}</option>
+            <option value="venda">{unit ? t("trade.sell") : t("trade.redeem")}</option>
           </Select>
         </Field>
-        <Field label="Data">
+        <Field label={t("form.date")}>
           <Input name="occurredOn" type="date" required defaultValue={today} />
         </Field>
       </div>
       {unit ? (
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Quantidade">
+          <Field label={t("form.quantity")}>
             <Input name="quantity" inputMode="decimal" required placeholder="100" />
           </Field>
-          <Field label="Preço (R$)">
-            <Input name="unitPrice" inputMode="decimal" required placeholder="32,50" />
+          <Field label={t("trade.price")}>
+            <Input
+              name="unitPrice"
+              inputMode="decimal"
+              required
+              placeholder={t("form.pricePlaceholder")}
+            />
           </Field>
         </div>
       ) : (
-        <Field label="Valor (R$)">
-          <Input name="amount" inputMode="decimal" required placeholder="1.000,00" />
+        <Field label={t("trade.amount")}>
+          <Input
+            name="amount"
+            inputMode="decimal"
+            required
+            placeholder={t("form.amountPlaceholder")}
+          />
         </Field>
       )}
-      <Field label="Taxas (R$)" hint="Opcional. Entram no preço médio.">
-        <Input name="fees" inputMode="decimal" placeholder="0,00" />
+      <Field label={t("form.fees")} hint={t("trade.feesHint")}>
+        <Input name="fees" inputMode="decimal" placeholder={t("form.zeroPlaceholder")} />
       </Field>
-      <AccountField accounts={accounts} label="Conta do dinheiro" />
+      <AccountField accounts={accounts} label={t("account.tradeLabel")} />
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar operação"}
+        {pending ? tCommon("saving") : t("trade.submit")}
       </Button>
     </form>
   );

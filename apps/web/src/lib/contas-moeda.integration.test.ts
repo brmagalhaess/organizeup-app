@@ -14,6 +14,15 @@ process.env.DATABASE_URL = urls.worker;
 process.env.ADMIN_DATABASE_URL = urls.admin;
 
 let ctx: TenantContext;
+vi.mock("next-intl/server", async () => {
+  const { createTranslator } = await import("next-intl");
+  const { default: messages } = await import("../../messages/pt-BR.json");
+  return {
+    getLocale: async () => "pt-BR",
+    getTranslations: async (namespace: never) =>
+      createTranslator({ locale: "pt-BR", messages, namespace }),
+  };
+});
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 vi.mock("@/lib/session", () => ({ requireTenant: async () => ({ ctx }) }));
 

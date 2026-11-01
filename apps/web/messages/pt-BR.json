@@ -259,6 +259,267 @@
       "netWorth": "Patrimônio líquido"
     }
   },
+  "investimentos": {
+    "metaTitle": "Investimentos",
+    "metaTrades": "Lançamentos de investimentos",
+    "metaRebalance": "Balanceamento",
+    "eyebrow": "Investimentos",
+    "classes": {
+      "acao": "Ações",
+      "fii": "Fundos imobiliários",
+      "etf_bdr": "ETFs e BDRs",
+      "renda_fixa": "Renda fixa",
+      "fundo": "Fundos",
+      "previdencia": "Previdência",
+      "exterior": "Exterior",
+      "outro": "Outros"
+    },
+    "tabs": {
+      "label": "Telas de investimentos",
+      "portfolio": "Carteira",
+      "trades": "Lançamentos",
+      "rebalance": "Balanceamento"
+    },
+    "form": {
+      "name": "Nome",
+      "code": "Código",
+      "type": "Tipo",
+      "date": "Data",
+      "quantity": "Quantidade",
+      "fees": "Taxas (R$)",
+      "pricePlaceholder": "32,50",
+      "amountPlaceholder": "1.000,00",
+      "zeroPlaceholder": "0,00"
+    },
+    "account": {
+      "label": "Conta de onde sai o dinheiro",
+      "tradeLabel": "Conta do dinheiro",
+      "hint": "Vira um lançamento na conta, sem contar como gasto do mês.",
+      "none": "Não mexer em nenhuma conta"
+    },
+    "add": {
+      "kindLegend": "Onde está esse investimento?",
+      "kinds": {
+        "bolsa": {
+          "label": "Na bolsa",
+          "hint": "Ações, fundos imobiliários, ETFs e BDRs"
+        },
+        "renda_fixa": {
+          "label": "Renda fixa",
+          "hint": "CDB, Tesouro, LCI, LCA"
+        },
+        "outro": {
+          "label": "Outro",
+          "hint": "Fundos, previdência e exterior"
+        }
+      },
+      "stockClasses": {
+        "acao": "Ação",
+        "fii": "Fundo imobiliário",
+        "etf_bdr": "ETF ou BDR"
+      },
+      "otherClasses": {
+        "fundo": "Fundo de investimento",
+        "previdencia": "Previdência",
+        "exterior": "Exterior",
+        "outro": "Outro"
+      },
+      "pricePaid": "Preço pago (R$)",
+      "purchaseDate": "Data da compra",
+      "feesHint": "Opcional.",
+      "total": "Total da compra: {total}",
+      "totalEmpty": "O total aparece aqui.",
+      "today": "hoje {price}",
+      "change": "Trocar",
+      "codeHint": "Ex.: PETR4, HGLG11.",
+      "asset": "Ativo",
+      "assetHint": "Digite o código ou o nome. Nome, tipo e preço vêm sozinhos.",
+      "searchPlaceholder": "PETR4, Itaú, HGLG11",
+      "found": "Ativos encontrados",
+      "notFound": "Não achei esse ativo no catálogo.",
+      "manual": "Preencher à mão",
+      "namePlaceholderFixed": "Ex.: Tesouro Selic 2031",
+      "namePlaceholderOther": "Ex.: Previdência da empresa",
+      "amount": "Valor aplicado (R$)",
+      "currentValue": "Valor hoje (R$)",
+      "currentValueHint": "Opcional. Sem ele, usamos o valor aplicado.",
+      "currentValuePlaceholder": "1.050,00",
+      "submit": "Adicionar à carteira"
+    },
+    "trade": {
+      "operation": "Operação",
+      "buy": "Compra",
+      "sell": "Venda",
+      "deposit": "Aplicação",
+      "redeem": "Resgate",
+      "price": "Preço (R$)",
+      "amount": "Valor (R$)",
+      "feesHint": "Opcional. Entram no preço médio.",
+      "submit": "Salvar operação"
+    },
+    "quote": {
+      "auto": "Atualizado automaticamente em {date}",
+      "source": "fonte: {source}",
+      "age": "cotação de há {count, plural, =1 {1 dia} other {{count} dias}}",
+      "delayed": "com atraso",
+      "noTicker": "Preencha o código em Editar para o preço e os proventos virem sozinhos.",
+      "invalidTicker": "Não encontramos o código {ticker}. Corrija em Editar; sem ele, nada vem sozinho.",
+      "waiting": "O preço automático chega na próxima atualização.",
+      "noPlan": "Este ativo ainda não tem cotação automática. Atualize o valor por aqui."
+    },
+    "portfolio": {
+      "description": "Quanto vale hoje o que você registrou.",
+      "newInvestment": "Novo investimento",
+      "empty": {
+        "title": "Sua carteira começa aqui",
+        "text": "Cadastre ações, fundos, renda fixa ou previdência. O valor entra no seu patrimônio. Se já tiver esse dinheiro em uma conta de investimento no sistema, use só um dos dois.",
+        "action": "Adicionar investimento"
+      },
+      "stats": {
+        "cost": "Custo",
+        "costHint": "O que ainda está aplicado.",
+        "gain": "Resultado",
+        "gainHint": "{percent} sobre o custo.",
+        "realized": "Já realizado",
+        "realizedHint": "Resultado das vendas e resgates.",
+        "dividends": "Proventos",
+        "dividendsHint": "Recebidos em 12 meses."
+      },
+      "list": "Carteira",
+      "staleBadge": "preço de há {count} dias",
+      "position": "{quantity} a {price} em média",
+      "adjusted": "Quantidade ajustada por {kind} em {date}",
+      "eventKinds": {
+        "split": "desdobramento",
+        "reverseSplit": "grupamento",
+        "bonus": "bonificação"
+      },
+      "oversold": "Há venda maior que a posição. Confira as operações.",
+      "estimated": "Sem valor atual: mostrando o custo.",
+      "valuedOn": "Valor de {date}",
+      "actions": {
+        "trade": "Operação",
+        "tradeLabel": "Registrar operação de {name}",
+        "value": "Valor",
+        "valueLabel": "Atualizar valor de {name}",
+        "historyLabel": "Operações de {name}",
+        "editLabel": "Editar {name}",
+        "deleteLabel": "Excluir {name}"
+      },
+      "disclaimer": "Ações, fundos imobiliários, ETFs e BDRs com código válido têm preço automático, atualizado depois do fechamento da bolsa e sempre com atraso. O resto é informado por você. O OrganizeUp organiza e compara, e não recomenda compra ou venda de investimentos. Veja também os <link>proventos</link>.",
+      "sheets": {
+        "new": "Novo investimento",
+        "edit": "Editar investimento",
+        "trade": "Registrar operação",
+        "value": "Atualizar valor"
+      },
+      "remove": {
+        "title": "Excluir investimento",
+        "text": "\"{name}\" sai da carteira, com as operações e os proventos dele.",
+        "confirm": "Excluir"
+      },
+      "suggestions": "Sugestões do assistente",
+      "investmentForm": {
+        "namePlaceholder": "Ex.: Tesouro Selic 2031",
+        "class": "Classe",
+        "codeHint": "Ex.: PETR4, HGLG11. Em ações, fundos imobiliários, ETFs e BDRs, é o que traz o preço e os proventos sozinhos.",
+        "submit": "Salvar investimento"
+      },
+      "valueForm": {
+        "price": "Preço de hoje (R$)",
+        "total": "Valor total hoje (R$)",
+        "hintAuto": "Vale até a próxima cotação automática.",
+        "hintUnit": "Preço de uma unidade.",
+        "hintStatement": "Como aparece no extrato.",
+        "submit": "Salvar valor"
+      }
+    },
+    "trades": {
+      "title": "Lançamentos",
+      "description": "Tudo o que entrou e saiu da carteira.",
+      "new": "Nova operação",
+      "empty": {
+        "title": "Nenhuma operação ainda",
+        "text": "Adicione um investimento na Carteira e as compras aparecem aqui."
+      },
+      "balance": "Saldo aplicado no período: {amount}",
+      "balanceHint": "Compras menos vendas das operações abaixo.",
+      "asset": "Ativo",
+      "all": "Todos",
+      "emptyAsset": "Nenhuma operação neste ativo.",
+      "list": "Operações",
+      "detail": "{quantity} a {price}",
+      "fees": "taxas de {amount}",
+      "deleteLabel": "Excluir operação",
+      "investment": "Investimento",
+      "remove": {
+        "title": "Excluir operação",
+        "text": "A posição e o preço médio serão recalculados. Se a operação tirou dinheiro de uma conta, o lançamento da conta sai junto.",
+        "confirm": "Excluir"
+      }
+    },
+    "rebalance": {
+      "title": "Balanceamento",
+      "description": "Compare a carteira com a divisão que você escolheu.",
+      "targets": "Metas",
+      "empty": {
+        "title": "Ainda não há carteira para comparar",
+        "text": "Adicione um investimento e defina quanto quer em cada classe."
+      },
+      "byClass": {
+        "title": "Por classe",
+        "description": "A marca mostra a sua meta.",
+        "list": "Carteira por classe",
+        "onTarget": "Meta de {percent}: na meta",
+        "below": "Meta de {percent}: {amount} abaixo",
+        "above": "Meta de {percent}: {amount} acima"
+      },
+      "next": {
+        "title": "Se você aportar agora",
+        "description": "Mostra como aproximar a carteira das suas metas, sem vender nada.",
+        "amount": "Valor do aporte (R$)",
+        "noneBelow": "Nenhuma classe com meta está abaixo do alvo.",
+        "split": "Divisão do aporte",
+        "leftover": "Sobram {amount}: as classes já ficam na meta."
+      },
+      "noTargets": {
+        "title": "Defina suas metas",
+        "text": "Diga quanto quer em cada classe para ver a diferença e dividir o próximo aporte."
+      },
+      "disclaimer": "Comparação com as metas que você definiu. Conteúdo educativo, não é recomendação de investimento.",
+      "form": {
+        "title": "Metas por classe",
+        "intro": "Diga quanto da carteira você quer em cada classe. A decisão é sua: o sistema só compara e não indica ativo nenhum.",
+        "submit": "Salvar metas"
+      }
+    },
+    "errors": {
+      "check": "Verifique.",
+      "dateRequired": "Informe a data.",
+      "dateInvalid": "Data inválida.",
+      "nameRequired": "Informe o nome.",
+      "tickerFormat": "Use só letras e números no código.",
+      "classRequired": "Escolha a classe.",
+      "typeRequired": "Escolha o tipo.",
+      "noQuote": "Ainda não temos a cotação desta conta para essa data. Tente mais tarde ou use outra conta.",
+      "duplicateTicker": "Já existe um investimento com este código.",
+      "feesFormat": "Informe as taxas como 4,90.",
+      "quantityRequired": "Informe a quantidade.",
+      "pricePaidRequired": "Informe o preço pago.",
+      "amountRequired": "Informe o valor aplicado.",
+      "currentValueFormat": "Informe o valor de hoje como 1.050,00.",
+      "sideRequired": "Escolha compra ou venda.",
+      "notFound": "Investimento não encontrado.",
+      "priceFormat": "Informe o preço como 32,50.",
+      "amountFormat": "Informe o valor como 1.000,00.",
+      "nothingToRedeem": "Não há valor aplicado para resgatar.",
+      "oversold": "Você não tinha essa quantidade nessa data.",
+      "valueFormat": "Informe o valor como 32,50.",
+      "percentFormat": "Use percentuais como 30 ou 12,5.",
+      "percentMax": "Cada classe vai até 100%.",
+      "percentSum": "A soma das metas passa de 100%."
+    }
+  },
   "meta": {
     "description": "Finanças da família, sonhos e aposentadoria em um só plano."
   },

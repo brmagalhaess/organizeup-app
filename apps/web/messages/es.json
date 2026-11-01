@@ -259,6 +259,267 @@
       "netWorth": "Patrimonio neto"
     }
   },
+  "investimentos": {
+    "metaTitle": "Inversiones",
+    "metaTrades": "Movimientos de inversiones",
+    "metaRebalance": "Rebalanceo",
+    "eyebrow": "Inversiones",
+    "classes": {
+      "acao": "Acciones",
+      "fii": "Fondos inmobiliarios (FII)",
+      "etf_bdr": "ETF y BDR",
+      "renda_fixa": "Renta fija",
+      "fundo": "Fondos",
+      "previdencia": "Plan de pensiones",
+      "exterior": "Exterior",
+      "outro": "Otros"
+    },
+    "tabs": {
+      "label": "Pantallas de inversiones",
+      "portfolio": "Cartera",
+      "trades": "Movimientos",
+      "rebalance": "Rebalanceo"
+    },
+    "form": {
+      "name": "Nombre",
+      "code": "Código",
+      "type": "Tipo",
+      "date": "Fecha",
+      "quantity": "Cantidad",
+      "fees": "Comisiones (R$)",
+      "pricePlaceholder": "32,50",
+      "amountPlaceholder": "1.000,00",
+      "zeroPlaceholder": "0,00"
+    },
+    "account": {
+      "label": "Cuenta de la que sale el dinero",
+      "tradeLabel": "Cuenta del dinero",
+      "hint": "Se convierte en un movimiento en la cuenta, sin contar como gasto del mes.",
+      "none": "No tocar ninguna cuenta"
+    },
+    "add": {
+      "kindLegend": "¿Dónde está esta inversión?",
+      "kinds": {
+        "bolsa": {
+          "label": "En la bolsa",
+          "hint": "Acciones, FII, ETF y BDR"
+        },
+        "renda_fixa": {
+          "label": "Renta fija",
+          "hint": "CDB (depósito bancario), Tesouro (bonos del gobierno de Brasil), LCI, LCA"
+        },
+        "outro": {
+          "label": "Otro",
+          "hint": "Fondos, planes de pensiones y exterior"
+        }
+      },
+      "stockClasses": {
+        "acao": "Acción",
+        "fii": "Fondo inmobiliario (FII)",
+        "etf_bdr": "ETF o BDR"
+      },
+      "otherClasses": {
+        "fundo": "Fondo de inversión",
+        "previdencia": "Plan de pensiones",
+        "exterior": "Exterior",
+        "outro": "Otro"
+      },
+      "pricePaid": "Precio pagado (R$)",
+      "purchaseDate": "Fecha de compra",
+      "feesHint": "Opcional.",
+      "total": "Total de la compra: {total}",
+      "totalEmpty": "El total aparece aquí.",
+      "today": "hoy {price}",
+      "change": "Cambiar",
+      "codeHint": "Ej.: PETR4, HGLG11.",
+      "asset": "Activo",
+      "assetHint": "Escribe el código o el nombre. Nombre, tipo y precio se completan solos.",
+      "searchPlaceholder": "PETR4, Itaú, HGLG11",
+      "found": "Activos encontrados",
+      "notFound": "No encontramos este activo en el catálogo.",
+      "manual": "Completar a mano",
+      "namePlaceholderFixed": "Ej.: Tesouro Selic 2031",
+      "namePlaceholderOther": "Ej.: Plan de pensiones de la empresa",
+      "amount": "Monto invertido (R$)",
+      "currentValue": "Valor hoy (R$)",
+      "currentValueHint": "Opcional. Sin él, usamos el monto invertido.",
+      "currentValuePlaceholder": "1.050,00",
+      "submit": "Agregar a la cartera"
+    },
+    "trade": {
+      "operation": "Operación",
+      "buy": "Compra",
+      "sell": "Venta",
+      "deposit": "Inversión",
+      "redeem": "Rescate",
+      "price": "Precio (R$)",
+      "amount": "Monto (R$)",
+      "feesHint": "Opcional. Entran en el precio medio.",
+      "submit": "Guardar operación"
+    },
+    "quote": {
+      "auto": "Actualizado automáticamente el {date}",
+      "source": "fuente: {source}",
+      "age": "cotización de hace {count, plural, =1 {1 día} other {{count} días}}",
+      "delayed": "con retraso",
+      "noTicker": "Completa el código en Editar para que el precio y los dividendos lleguen solos.",
+      "invalidTicker": "No encontramos el código {ticker}. Corrígelo en Editar; sin él, nada llega solo.",
+      "waiting": "El precio automático llega en la próxima actualización.",
+      "noPlan": "Este activo todavía no tiene cotización automática. Actualiza el valor aquí."
+    },
+    "portfolio": {
+      "description": "Cuánto vale hoy lo que registraste.",
+      "newInvestment": "Nueva inversión",
+      "empty": {
+        "title": "Tu cartera empieza aquí",
+        "text": "Registra acciones, fondos, renta fija o planes de pensiones. El valor entra en tu patrimonio. Si ya tienes ese dinero en una cuenta de inversión en el sistema, usa solo una de las dos opciones.",
+        "action": "Agregar inversión"
+      },
+      "stats": {
+        "cost": "Costo",
+        "costHint": "Lo que sigue invertido.",
+        "gain": "Resultado",
+        "gainHint": "{percent} sobre el costo.",
+        "realized": "Ya realizado",
+        "realizedHint": "Resultado de ventas y rescates.",
+        "dividends": "Dividendos",
+        "dividendsHint": "Recibidos en 12 meses."
+      },
+      "list": "Cartera",
+      "staleBadge": "precio de hace {count} días",
+      "position": "{quantity} a {price} en promedio",
+      "adjusted": "Cantidad ajustada por {kind} el {date}",
+      "eventKinds": {
+        "split": "desdoblamiento de acciones",
+        "reverseSplit": "agrupación de acciones",
+        "bonus": "bonificación en acciones"
+      },
+      "oversold": "Hay una venta mayor que la posición. Revisa las operaciones.",
+      "estimated": "Sin valor actual: se muestra el costo.",
+      "valuedOn": "Valor del {date}",
+      "actions": {
+        "trade": "Operación",
+        "tradeLabel": "Registrar operación de {name}",
+        "value": "Valor",
+        "valueLabel": "Actualizar valor de {name}",
+        "historyLabel": "Operaciones de {name}",
+        "editLabel": "Editar {name}",
+        "deleteLabel": "Eliminar {name}"
+      },
+      "disclaimer": "Las acciones, los FII (fondos inmobiliarios de Brasil), los ETF (fondos cotizados) y los BDR (certificados brasileños de acciones extranjeras) con código válido tienen precio automático, actualizado después del cierre de la B3 (bolsa de Brasil) y siempre con retraso. El resto lo informas tú. OrganizeUp organiza y compara, y no recomienda comprar ni vender inversiones. Consulta también los <link>dividendos</link>.",
+      "sheets": {
+        "new": "Nueva inversión",
+        "edit": "Editar inversión",
+        "trade": "Registrar operación",
+        "value": "Actualizar valor"
+      },
+      "remove": {
+        "title": "Eliminar inversión",
+        "text": "\"{name}\" sale de la cartera, con sus operaciones y dividendos.",
+        "confirm": "Eliminar"
+      },
+      "suggestions": "Sugerencias del asistente",
+      "investmentForm": {
+        "namePlaceholder": "Ej.: Tesouro Selic 2031",
+        "class": "Clase",
+        "codeHint": "Ej.: PETR4, HGLG11. En acciones, fondos inmobiliarios, ETF y BDR, es lo que trae el precio y los dividendos solos.",
+        "submit": "Guardar inversión"
+      },
+      "valueForm": {
+        "price": "Precio de hoy (R$)",
+        "total": "Valor total hoy (R$)",
+        "hintAuto": "Vale hasta la próxima cotización automática.",
+        "hintUnit": "Precio de una unidad.",
+        "hintStatement": "Como aparece en el extracto.",
+        "submit": "Guardar valor"
+      }
+    },
+    "trades": {
+      "title": "Movimientos",
+      "description": "Todo lo que entró y salió de la cartera.",
+      "new": "Nueva operación",
+      "empty": {
+        "title": "Todavía no hay operaciones",
+        "text": "Agrega una inversión en Cartera y las compras aparecen aquí."
+      },
+      "balance": "Saldo invertido en el período: {amount}",
+      "balanceHint": "Compras menos ventas de las operaciones de abajo.",
+      "asset": "Activo",
+      "all": "Todos",
+      "emptyAsset": "No hay operaciones en este activo.",
+      "list": "Operaciones",
+      "detail": "{quantity} a {price}",
+      "fees": "comisiones de {amount}",
+      "deleteLabel": "Eliminar operación",
+      "investment": "Inversión",
+      "remove": {
+        "title": "Eliminar operación",
+        "text": "La posición y el precio medio se recalcularán. Si la operación sacó dinero de una cuenta, el movimiento de la cuenta se elimina con ella.",
+        "confirm": "Eliminar"
+      }
+    },
+    "rebalance": {
+      "title": "Rebalanceo",
+      "description": "Compara la cartera con la distribución que elegiste.",
+      "targets": "Metas",
+      "empty": {
+        "title": "Todavía no hay cartera para comparar",
+        "text": "Agrega una inversión y define cuánto quieres en cada clase."
+      },
+      "byClass": {
+        "title": "Por clase",
+        "description": "La marca muestra tu meta.",
+        "list": "Cartera por clase",
+        "onTarget": "Meta de {percent}: en la meta",
+        "below": "Meta de {percent}: {amount} por debajo",
+        "above": "Meta de {percent}: {amount} por encima"
+      },
+      "next": {
+        "title": "Si aportas ahora",
+        "description": "Muestra cómo acercar la cartera a tus metas sin vender nada.",
+        "amount": "Monto del aporte (R$)",
+        "noneBelow": "Ninguna clase con meta está por debajo del objetivo.",
+        "split": "División del aporte",
+        "leftover": "Sobran {amount}: las clases ya quedan en la meta."
+      },
+      "noTargets": {
+        "title": "Define tus metas",
+        "text": "Indica cuánto quieres en cada clase para ver la diferencia y dividir el próximo aporte."
+      },
+      "disclaimer": "Comparación con las metas que definiste. Contenido educativo, no es una recomendación de inversión.",
+      "form": {
+        "title": "Metas por clase",
+        "intro": "Indica cuánto de la cartera quieres en cada clase. La decisión es tuya: el sistema solo compara y no indica ningún activo.",
+        "submit": "Guardar metas"
+      }
+    },
+    "errors": {
+      "check": "Revisa los datos.",
+      "dateRequired": "Indica la fecha.",
+      "dateInvalid": "Fecha no válida.",
+      "nameRequired": "Indica el nombre.",
+      "tickerFormat": "Usa solo letras y números en el código.",
+      "classRequired": "Elige la clase.",
+      "typeRequired": "Elige el tipo.",
+      "noQuote": "Todavía no tenemos la cotización de esta cuenta para esa fecha. Inténtalo más tarde o usa otra cuenta.",
+      "duplicateTicker": "Ya existe una inversión con este código.",
+      "feesFormat": "Indica las comisiones así: 4,90.",
+      "quantityRequired": "Indica la cantidad.",
+      "pricePaidRequired": "Indica el precio pagado.",
+      "amountRequired": "Indica el monto invertido.",
+      "currentValueFormat": "Indica el valor de hoy así: 1.050,00.",
+      "sideRequired": "Elige compra o venta.",
+      "notFound": "Inversión no encontrada.",
+      "priceFormat": "Indica el precio así: 32,50.",
+      "amountFormat": "Indica el monto así: 1.000,00.",
+      "nothingToRedeem": "No hay monto invertido para rescatar.",
+      "oversold": "No tenías esa cantidad en esa fecha.",
+      "valueFormat": "Indica el valor así: 32,50.",
+      "percentFormat": "Usa porcentajes como 30 o 12,5.",
+      "percentMax": "Cada clase llega hasta el 100 %.",
+      "percentSum": "La suma de las metas supera el 100 %."
+    }
+  },
   "meta": {
     "description": "Las finanzas de tu familia, sus sueños y la jubilación en un solo plan."
   },

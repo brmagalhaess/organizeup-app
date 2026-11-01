@@ -1,8 +1,9 @@
 "use client";
 import { History, Pencil, Plus, Tag, Trash2, TrendingUp } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useState, type ReactNode } from "react";
-import { formatBRL, isUnitPriced, money, stockEventKind } from "@organizeup/domain";
+import { isUnitPriced, money, stockEventKind } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import {
   Badge,
@@ -20,6 +21,7 @@ import {
   StatTile,
   submitKeeping,
 } from "@/components/ui";
+import { formatAmount, formatDate } from "@/i18n/format";
 import type { PendingItem } from "@/lib/suggestions";
 import {
   DecisionButtons,
@@ -29,8 +31,7 @@ import {
 import { AddAssetForm } from "./add-asset-form";
 import { deleteInvestment, saveInvestment, updateValue } from "./actions";
 import {
-  CLASS_LABEL,
-  fullDate,
+  ASSET_CLASSES,
   initial,
   percentText,
   quantityText,
@@ -44,83 +45,88 @@ import { TradeForm } from "./trade-form";
 const daysSince = (date: string, today: string) =>
   Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86_400_000);
 
+/** Tipo do evento em ações, como a fonte de cotações escreve na nota, para a chave do texto. */
+const EVENT_KINDS: Record<string, "split" | "reverseSplit" | "bonus"> = {
+  desdobramento: "split",
+  grupamento: "reverseSplit",
+  bonificação: "bonus",
+};
+
 /** Linha sob o investimento dizendo de onde vem o preço, ou o que falta para ele vir sozinho. */
 function QuoteNote({ row, today }: { row: Row; today: string }) {
+  const t = useTranslations("investimentos.quote");
+  const locale = useLocale();
   switch (row.quoteState) {
     case "automatico": {
       const age = row.quoteDate ? daysSince(row.quoteDate, today) : 0;
       return (
         <p className="text-xs text-muted">
-          Atualizado automaticamente em {fullDate(row.valuedOn ?? today)}
-          {row.quoteSource ? ` · fonte: ${row.quoteSource}` : ""}
-          {age > 0 ? ` · cotação de há ${age === 1 ? "1 dia" : `${age} dias`}` : " · com atraso"}
+          {[
+            t("auto", { date: formatDate(row.valuedOn ?? today, locale) }),
+            row.quoteSource ? t("source", { source: row.quoteSource }) : null,
+            age > 0 ? t("age", { count: age }) : t("delayed"),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       );
     }
     case "sem_ticker":
-      return (
-        <p className="text-xs text-muted">
-          Preencha o código em Editar para o preço e os proventos virem sozinhos.
-        </p>
-      );
+      return <p className="text-xs text-muted">{t("noTicker")}</p>;
     case "ticker_invalido":
       return (
-        <p className="text-xs text-danger">
-          Não encontramos o código {row.ticker}. Corrija em Editar; sem ele, nada vem sozinho.
-        </p>
+        <p className="text-xs text-danger">{t("invalidTicker", { ticker: row.ticker ?? "" })}</p>
       );
     case "aguardando":
-      return <p className="text-xs text-muted">O preço automático chega na próxima atualização.</p>;
+      return <p className="text-xs text-muted">{t("waiting")}</p>;
     case "sem_plano":
-      return (
-        <p className="text-xs text-muted">
-          Este ativo ainda não tem cotação automática. Atualize o valor por aqui.
-        </p>
-      );
+      return <p className="text-xs text-muted">{t("noPlan")}</p>;
     default:
       return null;
   }
 }
 
 function InvestmentForm({ row, onDone }: { row: Row | null; onDone: () => void }) {
+  const t = useTranslations("investimentos");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(saveInvestment, initial);
   useCloseOnSuccess(state, onDone);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <input type="hidden" name="id" value={row?.id ?? ""} />
-      <Field label="Nome">
+      <Field label={t("form.name")}>
         <Input
           name="name"
           required
           maxLength={80}
-          placeholder="Ex.: Tesouro Selic 2031"
+          placeholder={t("portfolio.investmentForm.namePlaceholder")}
           defaultValue={row?.name}
         />
       </Field>
-      <Field label="Classe">
+      <Field label={t("portfolio.investmentForm.class")}>
         <Select name="assetClass" defaultValue={row?.assetClass ?? "acao"}>
-          {Object.entries(CLASS_LABEL).map(([value, label]) => (
+          {ASSET_CLASSES.map((value) => (
             <option key={value} value={value}>
-              {label}
+              {t(`classes.${value}`)}
             </option>
           ))}
         </Select>
       </Field>
-      <Field
-        label="Código"
-        hint="Ex.: PETR4, HGLG11. Em ações, fundos imobiliários, ETFs e BDRs, é o que traz o preço e os proventos sozinhos."
-      >
+      <Field label={t("form.code")} hint={t("portfolio.investmentForm.codeHint")}>
         <Input name="ticker" maxLength={12} defaultValue={row?.ticker ?? ""} />
       </Field>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar investimento"}
+        {pending ? tCommon("saving") : t("portfolio.investmentForm.submit")}
       </Button>
     </form>
   );
 }
 
 function ValueForm({ row, today, onDone }: { row: Row; today: string; onDone: () => void }) {
+  const t = useTranslations("investimentos");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(updateValue, initial);
   useCloseOnSuccess(state, onDone);
   const unit = isUnitPriced(row.assetClass);
@@ -129,30 +135,30 @@ function ValueForm({ row, today, onDone }: { row: Row; today: string; onDone: ()
       <input type="hidden" name="id" value={row.id} />
       <div className="grid grid-cols-[3fr_2fr] gap-3">
         <Field
-          label={unit ? "Preço de hoje (R$)" : "Valor total hoje (R$)"}
-          hint={
+          label={t(unit ? "portfolio.valueForm.price" : "portfolio.valueForm.total")}
+          hint={t(
             row.quoteState === "automatico" || row.quoteState === "informado"
-              ? "Vale até a próxima cotação automática."
+              ? "portfolio.valueForm.hintAuto"
               : unit
-                ? "Preço de uma unidade."
-                : "Como aparece no extrato."
-          }
+                ? "portfolio.valueForm.hintUnit"
+                : "portfolio.valueForm.hintStatement",
+          )}
         >
           <Input
             name="value"
             inputMode="decimal"
             required
-            placeholder="0,00"
-            defaultValue={toInput(unit ? row.currentPrice : row.currentValue)}
+            placeholder={t("form.zeroPlaceholder")}
+            defaultValue={toInput(unit ? row.currentPrice : row.currentValue, locale)}
           />
         </Field>
-        <Field label="Data">
+        <Field label={t("form.date")}>
           <Input name="valuedOn" type="date" required defaultValue={today} />
         </Field>
       </div>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar valor"}
+        {pending ? tCommon("saving") : t("portfolio.valueForm.submit")}
       </Button>
     </form>
   );
@@ -160,12 +166,13 @@ function ValueForm({ row, today, onDone }: { row: Row; today: string; onDone: ()
 
 /** Avisos do assistente. Fica montado depois da última decisão para mostrar a mensagem. */
 function PortfolioSuggestions({ items, writable }: { items: PendingItem[]; writable: boolean }) {
+  const t = useTranslations("investimentos.portfolio");
   const actions = useSuggestionActions();
   if (items.length === 0) return <SuggestionFeedback result={actions.result} />;
   return (
-    <Card title="Sugestões do assistente">
+    <Card title={t("suggestions")}>
       <SuggestionFeedback result={actions.result} />
-      <ul aria-label="Sugestões do assistente" className="m-0 list-none divide-y divide-line p-0">
+      <ul aria-label={t("suggestions")} className="m-0 list-none divide-y divide-line p-0">
         {items.map((item) => (
           <li key={item.id} className="py-3 first:pt-0 last:pb-0">
             <p className="text-sm font-medium">{item.title}</p>
@@ -183,13 +190,6 @@ function PortfolioSuggestions({ items, writable }: { items: PendingItem[]; writa
 type Sheet_ =
   { type: "new"; nonce: number } | { type: "edit" | "trade" | "value"; nonce: number; id: string };
 
-const TITLES: Record<Sheet_["type"], string> = {
-  new: "Novo investimento",
-  edit: "Editar investimento",
-  trade: "Registrar operação",
-  value: "Atualizar valor",
-};
-
 export function PortfolioBoard({
   data,
   suggestions,
@@ -204,6 +204,8 @@ export function PortfolioBoard({
   writable: boolean;
   insights: ReactNode;
 }) {
+  const t = useTranslations("investimentos");
+  const locale = useLocale();
   const [sheet, setSheet] = useState<Sheet_ | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
   const close = () => setSheet(null);
@@ -218,14 +220,14 @@ export function PortfolioBoard({
   return (
     <>
       <PageHeader
-        eyebrow="Investimentos"
-        title={formatBRL(summary.total)}
-        description="Quanto vale hoje o que você registrou."
+        eyebrow={t("eyebrow")}
+        title={formatAmount(summary.total, locale)}
+        description={t("portfolio.description")}
         actions={
           writable ? (
             <Button variant="secondary" onClick={() => open("new")}>
               <Plus className="size-4" aria-hidden="true" />
-              Novo investimento
+              {t("portfolio.newInvestment")}
             </Button>
           ) : null
         }
@@ -237,12 +239,12 @@ export function PortfolioBoard({
       {data.rows.length === 0 ? (
         <Card>
           <EmptyState
-            title="Sua carteira começa aqui"
-            text="Cadastre ações, fundos, renda fixa ou previdência. O valor entra no seu patrimônio. Se já tiver esse dinheiro em uma conta de investimento no sistema, use só um dos dois."
+            title={t("portfolio.empty.title")}
+            text={t("portfolio.empty.text")}
             action={
               writable ? (
                 <Button variant="secondary" small onClick={() => open("new")}>
-                  Adicionar investimento
+                  {t("portfolio.empty.action")}
                 </Button>
               ) : undefined
             }
@@ -252,34 +254,39 @@ export function PortfolioBoard({
         <>
           <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatTile
-              label="Custo"
-              value={formatBRL(summary.cost)}
-              hint="O que ainda está aplicado."
+              label={t("portfolio.stats.cost")}
+              value={formatAmount(summary.cost, locale)}
+              hint={t("portfolio.stats.costHint")}
             />
             <StatTile
-              label="Resultado"
-              value={formatBRL(summary.gain)}
+              label={t("portfolio.stats.gain")}
+              value={formatAmount(summary.gain, locale)}
               hint={
                 summary.gainPercent === null
                   ? undefined
-                  : `${gain.gt(0) ? "+" : ""}${percentText(summary.gainPercent)} sobre o custo.`
+                  : t("portfolio.stats.gainHint", {
+                      percent: `${gain.gt(0) ? "+" : ""}${percentText(summary.gainPercent, locale)}`,
+                    })
               }
             />
             <StatTile
-              label="Já realizado"
-              value={formatBRL(summary.realized)}
-              hint="Resultado das vendas e resgates."
+              label={t("portfolio.stats.realized")}
+              value={formatAmount(summary.realized, locale)}
+              hint={t("portfolio.stats.realizedHint")}
             />
             <StatTile
-              label="Proventos"
-              value={formatBRL(data.dividends12)}
-              hint="Recebidos em 12 meses."
+              label={t("portfolio.stats.dividends")}
+              value={formatAmount(data.dividends12, locale)}
+              hint={t("portfolio.stats.dividendsHint")}
             />
           </dl>
 
           <div>
-            <Card title="Carteira">
-              <ul aria-label="Carteira" className="m-0 list-none divide-y divide-line p-0">
+            <Card title={t("portfolio.list")}>
+              <ul
+                aria-label={t("portfolio.list")}
+                className="m-0 list-none divide-y divide-line p-0"
+              >
                 {data.rows.map((row) => {
                   const unit = isUnitPriced(row.assetClass);
                   const rowGain = money(row.gain);
@@ -300,43 +307,52 @@ export function PortfolioBoard({
                             {row.name}
                             {row.ticker ? <Badge>{row.ticker}</Badge> : null}
                             {priceAge > stalePriceDays ? (
-                              <Badge tone="warning">preço de há {priceAge} dias</Badge>
+                              <Badge tone="warning">
+                                {t("portfolio.staleBadge", { count: priceAge })}
+                              </Badge>
                             ) : null}
                           </p>
                           <p className="text-xs text-muted">
-                            {CLASS_LABEL[row.assetClass]}
+                            {t(`classes.${row.assetClass}`)}
                             {unit && money(row.position.quantity).gt(0)
-                              ? ` · ${quantityText(row.position.quantity)} a ${formatBRL(row.position.averagePrice)} em média`
+                              ? ` · ${t("portfolio.position", {
+                                  quantity: quantityText(row.position.quantity, locale),
+                                  price: formatAmount(row.position.averagePrice, locale),
+                                })}`
                               : ""}
                           </p>
-                          {row.events.map((event) => (
-                            <p key={event.id} className="text-xs text-muted">
-                              Quantidade ajustada por {stockEventKind(event.note)} em{" "}
-                              {fullDate(event.comDate)}
-                            </p>
-                          ))}
+                          {row.events.map((event) => {
+                            const kind = stockEventKind(event.note);
+                            const code = EVENT_KINDS[kind];
+                            return (
+                              <p key={event.id} className="text-xs text-muted">
+                                {t("portfolio.adjusted", {
+                                  kind: code ? t(`portfolio.eventKinds.${code}`) : kind,
+                                  date: formatDate(event.comDate, locale),
+                                })}
+                              </p>
+                            );
+                          })}
                           {row.position.oversold ? (
-                            <p className="text-xs text-danger">
-                              Há venda maior que a posição. Confira as operações.
-                            </p>
+                            <p className="text-xs text-danger">{t("portfolio.oversold")}</p>
                           ) : null}
                           {row.estimated ? (
-                            <p className="text-xs text-muted">
-                              Sem valor atual: mostrando o custo.
-                            </p>
+                            <p className="text-xs text-muted">{t("portfolio.estimated")}</p>
                           ) : row.valuedOn && !hasQuote ? (
-                            <p className="text-xs text-muted">Valor de {fullDate(row.valuedOn)}</p>
+                            <p className="text-xs text-muted">
+                              {t("portfolio.valuedOn", { date: formatDate(row.valuedOn, locale) })}
+                            </p>
                           ) : null}
                           <QuoteNote row={row} today={data.today} />
                         </div>
                         <div className="text-right text-sm">
                           <p className="whitespace-nowrap font-medium tabular-nums">
-                            {formatBRL(row.value)}
+                            {formatAmount(row.value, locale)}
                           </p>
                           {!row.estimated && row.gainPercent !== null ? (
                             <p className="whitespace-nowrap text-xs tabular-nums text-muted">
                               {rowGain.gt(0) ? "+" : ""}
-                              {percentText(row.gainPercent)}
+                              {percentText(row.gainPercent, locale)}
                             </p>
                           ) : null}
                         </div>
@@ -347,25 +363,25 @@ export function PortfolioBoard({
                             <Button
                               variant="secondary"
                               small
-                              aria-label={`Registrar operação de ${row.name}`}
+                              aria-label={t("portfolio.actions.tradeLabel", { name: row.name })}
                               onClick={() => openRow("trade", row.id)}
                             >
-                              Operação
+                              {t("portfolio.actions.trade")}
                             </Button>
                             <Button
                               variant="secondary"
                               small
-                              aria-label={`Atualizar valor de ${row.name}`}
+                              aria-label={t("portfolio.actions.valueLabel", { name: row.name })}
                               onClick={() => openRow("value", row.id)}
                             >
                               <Tag className="size-4" aria-hidden="true" />
-                              Valor
+                              {t("portfolio.actions.value")}
                             </Button>
                           </>
                         ) : null}
                         <Link
                           href={`/app/investimentos/lancamentos?ativo=${row.id}`}
-                          aria-label={`Operações de ${row.name}`}
+                          aria-label={t("portfolio.actions.historyLabel", { name: row.name })}
                           className={buttonClass("ghost", true)}
                         >
                           <History className="size-4" aria-hidden="true" />
@@ -373,13 +389,13 @@ export function PortfolioBoard({
                         {writable ? (
                           <>
                             <IconButton
-                              label={`Editar ${row.name}`}
+                              label={t("portfolio.actions.editLabel", { name: row.name })}
                               onClick={() => openRow("edit", row.id)}
                             >
                               <Pencil className="size-4" aria-hidden="true" />
                             </IconButton>
                             <IconButton
-                              label={`Excluir ${row.name}`}
+                              label={t("portfolio.actions.deleteLabel", { name: row.name })}
                               onClick={() => setRemoving(row)}
                             >
                               <Trash2 className="size-4" aria-hidden="true" />
@@ -397,17 +413,20 @@ export function PortfolioBoard({
       )}
 
       <p className="text-xs text-muted">
-        Ações, fundos imobiliários, ETFs e BDRs com código válido têm preço automático, atualizado
-        depois do fechamento da bolsa e sempre com atraso. O resto é informado por você. O
-        OrganizeUp organiza e compara, e não recomenda compra ou venda de investimentos. Veja também
-        os{" "}
-        <Link href="/app/proventos" className="font-semibold text-brand-700 underline">
-          proventos
-        </Link>
-        .
+        {t.rich("portfolio.disclaimer", {
+          link: (chunks) => (
+            <Link href="/app/proventos" className="font-semibold text-brand-700 underline">
+              {chunks}
+            </Link>
+          ),
+        })}
       </p>
 
-      <Sheet open={sheet !== null} onClose={close} title={sheet ? TITLES[sheet.type] : ""}>
+      <Sheet
+        open={sheet !== null}
+        onClose={close}
+        title={sheet ? t(`portfolio.sheets.${sheet.type}`) : ""}
+      >
         {sheet?.type === "new" ? (
           <AddAssetForm
             key={sheet.nonce}
@@ -435,9 +454,9 @@ export function PortfolioBoard({
       <ConfirmSheet
         open={removing !== null}
         onClose={() => setRemoving(null)}
-        title="Excluir investimento"
-        text={`"${removing?.name ?? ""}" sai da carteira, com as operações e os proventos dele.`}
-        confirmLabel="Excluir"
+        title={t("portfolio.remove.title")}
+        text={t("portfolio.remove.text", { name: removing?.name ?? "" })}
+        confirmLabel={t("portfolio.remove.confirm")}
         action={deleteInvestment}
         hidden={{ id: removing?.id ?? "" }}
       />
