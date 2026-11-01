@@ -4,6 +4,7 @@
 import {
   boolean,
   char,
+  customType,
   date,
   foreignKey,
   index,
@@ -19,11 +20,15 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { household } from "./auth";
+import { household, user } from "./auth";
 import { people } from "./tenant";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const amount = (name: string) => numeric(name, { precision: 14, scale: 2 });
+const bytes = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => "bytea",
+  toDriver: (value) => Buffer.from(value),
+});
 
 export const ENTRY_KINDS = ["receita", "despesa"] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
@@ -339,6 +344,98 @@ export const debtInstallments = pgTable(
       foreignColumns: [transactions.householdId, transactions.id],
     }),
   ],
+);
+
+export const DEBT_DOCUMENT_STATUSES = [
+  "guardado",
+  "lendo",
+  "lido",
+  "falhou",
+  "confirmado",
+] as const;
+export type DebtDocumentStatus = (typeof DEBT_DOCUMENT_STATUSES)[number];
+
+/**
+ * Arquivos das dívidas (ADR-0019). `select()` sem colunas traz `content`, que pesa até 10 MB por
+ * linha: listagem usa `debtDocumentMeta`, e só baixar e ler selecionam o conteúdo.
+ */
+export const debtDocuments = pgTable(
+  "debt_documents",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    debtId: text("debt_id"),
+    fileName: text("file_name").notNull(),
+    mediaType: text("media_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    content: bytes("content").notNull(),
+    sha256: text("sha256").notNull(),
+    status: text("status", { enum: DEBT_DOCUMENT_STATUSES }).notNull().default("guardado"),
+    extracted: jsonb("extracted").$type<Record<string, unknown>>(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    unique().on(t.householdId, t.sha256),
+    index("debt_documents_debt_idx").on(t.householdId, t.debtId),
+    index("debt_documents_recent_idx").on(t.householdId, t.createdAt),
+    foreignKey({
+      columns: [t.householdId, t.debtId],
+      foreignColumns: [debts.householdId, debts.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+/** Tudo de `debt_documents`, menos o conteúdo do arquivo. */
+export const debtDocumentMeta = {
+  id: debtDocuments.id,
+  householdId: debtDocuments.householdId,
+  debtId: debtDocuments.debtId,
+  fileName: debtDocuments.fileName,
+  mediaType: debtDocuments.mediaType,
+  sizeBytes: debtDocuments.sizeBytes,
+  sha256: debtDocuments.sha256,
+  status: debtDocuments.status,
+  extracted: debtDocuments.extracted,
+  createdBy: debtDocuments.createdBy,
+  createdAt: debtDocuments.createdAt,
+  updatedAt: debtDocuments.updatedAt,
+};
+
+/** Aceite da família para o arquivo inteiro ir ao serviço de IA. Sem a linha, nada vai (ADR-0019). */
+export const householdFileConsents = pgTable("household_file_consents", {
+  householdId: text("household_id")
+    .primaryKey()
+    .references(() => household.id, { onDelete: "cascade" }),
+  version: text("version").notNull(),
+  acceptedBy: text("accepted_by").references(() => user.id, { onDelete: "set null" }),
+  acceptedAt: ts("accepted_at").notNull().defaultNow(),
+});
+
+/** Plano de saída das dívidas, um por dia. Dado derivado, reescrito pelo agente `dividas`. */
+export const debtPlanReports = pgTable(
+  "debt_plan_reports",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull(),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.householdId, t.id), unique().on(t.householdId, t.day)],
 );
 
 export const emergencyFund = pgTable("emergency_fund", {

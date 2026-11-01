@@ -2933,6 +2933,201 @@ describe("transferência entre contas", () => {
   });
 });
 
+describe("arquivos de dívida (ADR-0019)", () => {
+  const { accounts, debtDocumentMeta, debtDocuments, debtPlanReports, debts } = db;
+  const { householdFileConsents } = db;
+  const content = Buffer.from("%PDF-1.7 conteúdo fictício do contrato");
+  const document = (household: string, sha: string, debtId: string | null = null) => ({
+    householdId: household,
+    debtId,
+    fileName: "contrato.pdf",
+    mediaType: "application/pdf",
+    sizeBytes: content.length,
+    content,
+    sha256: sha.repeat(64),
+  });
+  const debtOf = async (user: string, household: string) => {
+    const ctx = await ctxFor(user, household);
+    return db.withHousehold(ctx, async (tx) => {
+      await db.ensureFinanceDefaults(tx, household);
+      const [account] = await tx.select({ id: accounts.id }).from(accounts).limit(1);
+      const [debt] = await tx
+        .insert(debts)
+        .values({
+          householdId: household,
+          accountId: account!.id,
+          name: "Empréstimo do anexo",
+          system: "price",
+          monthlyRate: "2.0000",
+          originalBalance: "1000.00",
+        })
+        .returning({ id: debts.id });
+      return { ctx, debtId: debt!.id };
+    });
+  };
+
+  it("outra família não lê, não baixa e não apaga", async () => {
+    const mine = await debtOf(A.owner, A.household);
+    const theirs = await debtOf(B.owner, B.household);
+    const [row] = await db.withHousehold(mine.ctx, (tx) =>
+      tx
+        .insert(debtDocuments)
+        .values(document(A.household, "a", mine.debtId))
+        .returning({ id: debtDocuments.id }),
+    );
+    await db.withHousehold(theirs.ctx, async (tx) => {
+      expect(await tx.select().from(debtDocuments)).toHaveLength(0);
+      const byId = await tx.select().from(debtDocuments).where(eq(debtDocuments.id, row!.id));
+      expect(byId).toHaveLength(0);
+      const changed = await tx
+        .update(debtDocuments)
+        .set({ status: "lido" })
+        .where(eq(debtDocuments.id, row!.id))
+        .returning();
+      expect(changed).toHaveLength(0);
+      const removed = await tx
+        .delete(debtDocuments)
+        .where(eq(debtDocuments.id, row!.id))
+        .returning();
+      expect(removed).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(theirs.ctx, (tx) =>
+        tx.insert(debtDocuments).values(document(A.household, "b")),
+      ),
+    ).rejects.toThrow();
+    const kept = await db.withHousehold(mine.ctx, (tx) => tx.select().from(debtDocuments));
+    expect(kept).toHaveLength(1);
+    expect(Buffer.from(kept[0]!.content).equals(content)).toBe(true);
+  });
+
+  it("arquivo não aponta para dívida de outra família", async () => {
+    const mine = await debtOf(A.owner, A.household);
+    const theirs = await debtOf(B.owner, B.household);
+    await expect(
+      db.withHousehold(mine.ctx, (tx) =>
+        tx.insert(debtDocuments).values(document(A.household, "c", theirs.debtId)),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("quem só vê lê e baixa, mas não anexa nem apaga", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    await db.withHousehold(viewer, async (tx) => {
+      const rows = await tx.select(debtDocumentMeta).from(debtDocuments);
+      expect(rows.length).toBeGreaterThan(0);
+      expect(Object.keys(rows[0]!)).not.toContain("content");
+      expect(await tx.delete(debtDocuments).returning()).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(viewer, (tx) => tx.insert(debtDocuments).values(document(A.household, "d"))),
+    ).rejects.toThrow();
+  });
+
+  it("o mesmo conteúdo não entra duas vezes na família, mas pode existir em outra", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    await db.withHousehold(owner, (tx) =>
+      tx.insert(debtDocuments).values(document(A.household, "e")),
+    );
+    await expect(
+      db.withHousehold(owner, (tx) => tx.insert(debtDocuments).values(document(A.household, "e"))),
+    ).rejects.toThrow();
+    const other = await ctxFor(B.owner, B.household);
+    await db.withHousehold(other, (tx) =>
+      tx.insert(debtDocuments).values(document(B.household, "e")),
+    );
+  });
+
+  it("recusa tamanho que não bate e acima de 10 MB", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.insert(debtDocuments).values({ ...document(A.household, "f"), sizeBytes: 1 }),
+      ),
+    ).rejects.toThrow();
+    const big = Buffer.alloc(10 * 1024 * 1024 + 1);
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx
+          .insert(debtDocuments)
+          .values({ ...document(A.household, "f"), content: big, sizeBytes: big.length }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("apagar a dívida apaga os arquivos dela", async () => {
+    const mine = await debtOf(A.owner, A.household);
+    await db.withHousehold(mine.ctx, async (tx) => {
+      await tx.insert(debtDocuments).values(document(A.household, "1", mine.debtId));
+      await tx.delete(debts).where(eq(debts.id, mine.debtId));
+      const left = await tx
+        .select(debtDocumentMeta)
+        .from(debtDocuments)
+        .where(eq(debtDocuments.sha256, "1".repeat(64)));
+      expect(left).toHaveLength(0);
+    });
+  });
+
+  it("apagar a família apaga os arquivos", async () => {
+    const id = "hh-arquivos";
+    await db.withAdmin("seed dos arquivos", async (admin) => {
+      await admin.insert(household).values({ id, name: "Família D", slug: "familia-arquivos" });
+      await admin.insert(debtDocuments).values(document(id, "2"));
+      await admin.delete(household).where(eq(household.id, id));
+      const left = await admin
+        .select(debtDocumentMeta)
+        .from(debtDocuments)
+        .where(eq(debtDocuments.householdId, id));
+      expect(left).toHaveLength(0);
+    });
+  });
+
+  it("a exportação lista os metadados, sem o conteúdo, e diz isso", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const exported = await db.withHousehold(owner, (tx) => db.exportHousehold(tx));
+    const rows = exported.debt_documents as Array<Record<string, unknown>>;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0]).toMatchObject({ fileName: "contrato.pdf", mediaType: "application/pdf" });
+    expect(rows.every((row) => row.content === db.DEBT_DOCUMENT_EXPORT_NOTE)).toBe(true);
+    expect(JSON.stringify(exported)).not.toContain("conteúdo fictício do contrato");
+  });
+
+  it("aceite de arquivos e plano do dia ficam na família", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const other = await ctxFor(B.owner, B.household);
+    await db.withHousehold(owner, async (tx) => {
+      await tx.insert(householdFileConsents).values({
+        householdId: A.household,
+        version: "2026-11-01.3",
+        acceptedBy: A.owner,
+      });
+      await tx.insert(debtPlanReports).values({
+        householdId: A.household,
+        day: "2026-11-01",
+        title: "Plano",
+        summary: "Resumo",
+      });
+    });
+    await db.withHousehold(other, async (tx) => {
+      expect(await tx.select().from(householdFileConsents)).toHaveLength(0);
+      expect(await tx.select().from(debtPlanReports)).toHaveLength(0);
+      expect(await tx.delete(householdFileConsents).returning()).toHaveLength(0);
+    });
+    const viewer = await ctxFor(A.viewer, A.household);
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        tx.insert(debtPlanReports).values({
+          householdId: A.household,
+          day: "2026-11-02",
+          title: "Plano",
+          summary: "Resumo",
+        }),
+      ),
+    ).rejects.toThrow();
+    await db.withHousehold(owner, (tx) => tx.delete(householdFileConsents));
+  });
+});
+
 describe("dicas por tela", () => {
   const { householdInsights } = db;
   const row = (household: string, title: string) => ({

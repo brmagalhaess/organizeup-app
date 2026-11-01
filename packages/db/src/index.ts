@@ -38,7 +38,7 @@ export {
   type ModuleUsage,
   type PlatformModule,
 } from "./platform";
-export { exportHousehold } from "./export";
+export { DEBT_DOCUMENT_EXPORT_NOTE, exportHousehold } from "./export";
 export { SYSTEM_TEMPLATES, ensureCategory, ensureFinanceDefaults } from "./finance";
 export {
   householdTimezone,
@@ -125,4 +125,19 @@ export {
 } from "./jobs";
 export { closeAllPools } from "./client";
 // Operadores de consulta reexportados para que apps usem a MESMA instância do drizzle-orm.
-export { and, asc, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
+export {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  like,
+  lt,
+  lte,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
