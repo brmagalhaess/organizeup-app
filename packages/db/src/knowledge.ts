@@ -1,6 +1,6 @@
 // Base de conhecimento do assistente (ADR-0018). Global, sem dado de família e sem RLS de tenant: roda
 // fora de withHousehold, como os helpers de mercado.
-import { desc, sql } from "drizzle-orm";
+import { count, desc, sql } from "drizzle-orm";
 import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
 import { knowledgeChunks } from "./schema";
@@ -14,6 +14,28 @@ const MAX_FOUND = 3;
  */
 const queryOf = (text: string) =>
   sql`replace(websearch_to_tsquery('portuguese', sem_acento(${text}))::text, ' & ', ' | ')::tsquery`;
+
+export interface KnowledgeStatus {
+  chunks: number;
+  /** `YYYY-MM-DD`. Null sem nenhum trecho. */
+  oldestReview: string | null;
+}
+
+/** Quantos trechos há e a revisão mais antiga, para o painel. Sem a tabela, zerado. */
+export function knowledgeStatus(): Promise<KnowledgeStatus> {
+  return tolerateSchemaLag(
+    async () => {
+      const [row] = await appPool()
+        .db.select({
+          chunks: count(),
+          oldestReview: sql<string | null>`min(${knowledgeChunks.reviewedOn})::text`,
+        })
+        .from(knowledgeChunks);
+      return { chunks: row?.chunks ?? 0, oldestReview: row?.oldestReview ?? null };
+    },
+    { chunks: 0, oldestReview: null },
+  );
+}
 
 /** Até 3 trechos, do mais próximo ao mais distante. Sem a tabela, lista vazia. */
 export function searchKnowledge(text: string) {

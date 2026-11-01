@@ -1,6 +1,6 @@
 // Helpers das tabelas globais de mercado (ADR-0017). Sem dado de família e sem RLS de tenant: rodam
 // fora de withHousehold, como os do schema `ops`. Gravar exige a conexão ou_worker.
-import { asc, eq, ilike, like, or, sql } from "drizzle-orm";
+import { asc, count, eq, ilike, like, or, sql } from "drizzle-orm";
 import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
 import {
@@ -228,4 +228,44 @@ export async function marketCallsOn(day: string): Promise<number> {
     { calls: number }[]
   >`select calls from public.market_usage where day = ${day}`;
   return rows[0]?.calls ?? 0;
+}
+
+export interface MarketStatus {
+  assets: number;
+  assetsUpdatedAt: Date | null;
+  tickers: number;
+  stockEvents: number;
+  callsToday: number;
+}
+
+/** Contagens das tabelas globais para o painel do serviço. Sem as tabelas ainda, tudo zerado. */
+export function marketStatus(day: string): Promise<MarketStatus> {
+  const empty: MarketStatus = {
+    assets: 0,
+    assetsUpdatedAt: null,
+    tickers: 0,
+    stockEvents: 0,
+    callsToday: 0,
+  };
+  return tolerateSchemaLag(async () => {
+    const { db } = appPool();
+    const [[assets], [tickers], [events], callsToday] = await Promise.all([
+      db
+        .select({
+          n: count(),
+          updatedAt: sql<Date | string | null>`max(${marketAssets.updatedAt})`,
+        })
+        .from(marketAssets),
+      db.select({ n: count() }).from(marketTickers),
+      db.select({ n: count() }).from(marketStockEvents),
+      marketCallsOn(day),
+    ]);
+    return {
+      assets: assets?.n ?? 0,
+      assetsUpdatedAt: assets?.updatedAt ? new Date(assets.updatedAt) : null,
+      tickers: tickers?.n ?? 0,
+      stockEvents: events?.n ?? 0,
+      callsToday,
+    };
+  }, empty);
 }

@@ -136,7 +136,7 @@ async function applyGrants(sql: postgres.Sql) {
     GRANT INSERT, UPDATE ON ops.agent_memory, ops.reports, ops.categorization_stats TO ${app};
     GRANT INSERT, UPDATE ON ops.worker_heartbeats TO ${worker};
     -- Agentes diários: só o worker registra rodadas; só a web registra acessos do painel.
-    GRANT INSERT, UPDATE ON ops.agent_runs, ops.platform_stats TO ${worker};
+    GRANT INSERT, UPDATE ON ops.agent_runs, ops.agent_discards, ops.platform_stats TO ${worker};
     GRANT INSERT ON ops.admin_access TO ${app};
     -- Uso de IA: a web conversa e o worker roda a madrugada (ADR-0018).
     GRANT INSERT, UPDATE ON ops.ai_stats TO ${app}, ${worker};

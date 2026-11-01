@@ -79,6 +79,18 @@ export const agentRuns = opsSchema.table(
   (t) => [primaryKey({ columns: [t.day, t.agent] })],
 );
 
+/** Propostas que o verificador reprovou, por dia e agente. Só contagem: ver 0028. */
+export const agentDiscards = opsSchema.table(
+  "agent_discards",
+  {
+    day: date("day", { mode: "string" }).notNull(),
+    agent: text("agent").notNull(),
+    discarded: integer("discarded").notNull().default(0),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.day, t.agent] })],
+);
+
 /** Cada acesso do painel do serviço. Nunca guarda o texto da busca; só a web grava. */
 export const adminAccess = opsSchema.table("admin_access", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),

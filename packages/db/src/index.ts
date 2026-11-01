@@ -54,14 +54,18 @@ export {
   databaseStatus,
   findAgentMemories,
   hasAgentRunToday,
+  listAgentDiscards,
   listAgentRuns,
+  listAiStats,
   listCategorizationStats,
   listDeployments,
   listPlatformStats,
   listQueueCounts,
   listReports,
+  listTeamActivity,
   listWorkerHeartbeats,
   recordAdminAccess,
+  recordAgentDiscards,
   recordAgentRun,
   recordAiStats,
   recordCategorizationStats,
@@ -76,6 +80,7 @@ export {
   type PlatformCounts,
   type QueueCount,
   type ReportKind,
+  type TeamActivity,
 } from "./ops";
 export {
   DIAGNOSTIC_LIMITS,
@@ -100,6 +105,7 @@ export {
   addMarketCalls,
   listMarketTickers,
   marketCallsOn,
+  marketStatus,
   saveMarketDividends,
   saveMarketIndices,
   findMarketAsset,
@@ -111,9 +117,10 @@ export {
   saveMarketTicker,
   type MarketDividendRow,
   type MarketQuoteRow,
+  type MarketStatus,
   type MarketStockEventRow,
 } from "./market";
-export { searchKnowledge } from "./knowledge";
+export { knowledgeStatus, searchKnowledge, type KnowledgeStatus } from "./knowledge";
 export { KNOWLEDGE_SEED, type KnowledgeSeed } from "./knowledge-seed";
 export {
   agentWakeKey,

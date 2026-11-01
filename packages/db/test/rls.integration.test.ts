@@ -2410,6 +2410,16 @@ describe("ops dos agentes diários e do painel do serviço", () => {
     expect(await db.hasAgentRunToday("2026-10-31", "viagens")).toBe(false);
   });
 
+  it("descartes somam por dia e agente, e só o worker grava", async () => {
+    await asWorker(() => db.recordAgentDiscards("2026-10-31", "dicas", 2));
+    await asWorker(() => db.recordAgentDiscards("2026-10-31", "dicas", 3));
+    await asWorker(() => db.recordAgentDiscards("2026-10-01", "dicas", 1));
+    expect(await db.listAgentDiscards("2026-10-15")).toEqual([
+      { day: "2026-10-31", agent: "dicas", discarded: 5 },
+    ]);
+    await expect(db.recordAgentDiscards("2026-10-29", "dicas", 1)).rejects.toThrow();
+  });
+
   it("a web não grava rodadas de agente", async () => {
     await expect(
       db.recordAgentRun("2026-10-29", "metas", {
@@ -2499,6 +2509,71 @@ describe("ops dos agentes diários e do painel do serviço", () => {
       "suspended",
       "users",
     ]);
+  });
+
+  it("o painel lê do assistente só contagens e datas, nunca o texto", async () => {
+    const today = "2026-10-31";
+    const secret = "Texto da família que o painel nunca vê";
+    await db.withAdmin("seed do assistente no painel", async (conn) => {
+      await conn.insert(db.householdSettings).values({
+        householdId: B.household,
+        aiConsentAt: new Date("2026-10-20T12:00:00Z"),
+        aiConsentVersion: "2026-11-01.1",
+        aiAutonomy: "completo",
+      });
+      await conn.insert(db.householdMemories).values([
+        { householdId: A.household, kind: "fato", content: "Outra família" },
+        { householdId: B.household, kind: "fato", content: secret },
+      ]);
+      const insight = {
+        householdId: B.household,
+        screen: "painel" as const,
+        destination: "painel" as const,
+        title: secret,
+        body: secret,
+        why: secret,
+        day: today,
+      };
+      await conn.insert(db.householdInsights).values([
+        { ...insight, expiresOn: "2026-11-05", dedupeKey: "valendo" },
+        { ...insight, expiresOn: "2026-10-30", dedupeKey: "vencida" },
+        { ...insight, expiresOn: "2026-11-05", dedupeKey: "feita", status: "feita" as const },
+      ]);
+      const usage = { day: today, route: "chat", model: "m", calls: 1, inputTokens: 100 };
+      await conn.insert(db.aiUsage).values([
+        { ...usage, householdId: B.household, outputTokens: 20, cacheReadTokens: 999 },
+        { ...usage, householdId: B.household, day: "2026-09-30", route: "noite" },
+        { ...usage, householdId: A.household, inputTokens: 5000 },
+      ]);
+    });
+
+    const family = await db.adminHouseholdAssistant(B.household, today);
+    expect(family).toMatchObject({
+      autonomy: "completo",
+      activeInsights: 1,
+      memories: 1,
+      monthTokens: 120,
+    });
+    expect(family?.consentAt).toBeInstanceOf(Date);
+    expect(JSON.stringify(family)).not.toContain(secret);
+
+    const counts = await db.adminAssistantCounts({ insightsConsentVersion: "2026-11-01.1" });
+    expect(counts.assistantOn).toBeGreaterThanOrEqual(1);
+    expect(counts.insightsOn).toBeGreaterThanOrEqual(1);
+    expect(counts.withMemories).toBeGreaterThanOrEqual(2);
+    expect(Object.keys(counts).sort()).toEqual(["assistantOn", "insightsOn", "withMemories"]);
+    const later = await db.adminAssistantCounts({ insightsConsentVersion: "2099-01-01" });
+    expect(later.insightsOn).toBe(0);
+
+    // Os blocos seguintes contam linhas destas tabelas, e B segue sem household_settings.
+    await db.withAdmin("limpa o assistente do painel", async (conn) => {
+      await conn.delete(db.aiUsage);
+      await conn.delete(db.householdInsights);
+      await conn.delete(db.householdMemories);
+      await conn
+        .delete(db.householdSettings)
+        .where(db.eq(db.householdSettings.householdId, B.household));
+    });
   });
 
   it("o acesso de leitura do admin recusa qualquer escrita", async () => {

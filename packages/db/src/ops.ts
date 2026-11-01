@@ -1,9 +1,10 @@
 // Helpers do schema `ops` (sem PII; sem RLS de tenant).
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
 import {
   adminAccess,
+  agentDiscards,
   agentMemory,
   agentRuns,
   aiStats,
@@ -233,6 +234,63 @@ export async function listAgentRuns(limit = 14) {
   return db.select().from(t).where(inArray(t.day, recentDays)).orderBy(desc(t.day), asc(t.agent));
 }
 
+/** Soma ao dia o que o verificador reprovou. Só o worker grava; repetir a rodada acumula. */
+export async function recordAgentDiscards(
+  day: string,
+  agent: string,
+  discarded: number,
+): Promise<void> {
+  const t = agentDiscards;
+  await appPool()
+    .db.insert(t)
+    .values({ day, agent, discarded })
+    .onConflictDoUpdate({
+      target: [t.day, t.agent],
+      set: { discarded: sql`${t.discarded} + excluded.discarded`, updatedAt: sql`now()` },
+    });
+}
+
+/** Descartes a partir de `since`. Sem a tabela ainda, lista vazia. */
+export async function listAgentDiscards(since: string) {
+  return tolerateSchemaLag(
+    () =>
+      appPool()
+        .db.select({
+          day: agentDiscards.day,
+          agent: agentDiscards.agent,
+          discarded: agentDiscards.discarded,
+        })
+        .from(agentDiscards)
+        .where(gte(agentDiscards.day, since)),
+    [],
+  );
+}
+
+export interface TeamActivity {
+  agent: string;
+  at: Date;
+  source: "relatorio" | "memoria";
+}
+
+/** Último relatório e última memória de cada agente da equipe. Só nome e data, nunca o texto. */
+export async function listTeamActivity(): Promise<TeamActivity[]> {
+  const { db } = appPool();
+  const [fromReports, fromMemories] = await Promise.all([
+    db
+      .select({ agent: reports.agent, at: sql<Date | string>`max(${reports.updatedAt})` })
+      .from(reports)
+      .groupBy(reports.agent),
+    db
+      .select({ agent: agentMemory.agent, at: sql<Date | string>`max(${agentMemory.createdAt})` })
+      .from(agentMemory)
+      .groupBy(agentMemory.agent),
+  ]);
+  return [
+    ...fromReports.map((row) => ({ ...row, source: "relatorio" as const })),
+    ...fromMemories.map((row) => ({ ...row, source: "memoria" as const })),
+  ].map((row) => ({ ...row, at: new Date(row.at) }));
+}
+
 /** Diz se o agente já rodou no dia (usado no boot do worker para não repetir a rodada). */
 export async function hasAgentRunToday(day: string, agent: string): Promise<boolean> {
   const rows = await appPool()
@@ -361,6 +419,19 @@ export async function aiMonthTotals(month: string): Promise<AiUsageCounts> {
       costUsd: row.costUsd,
     };
   }, empty);
+}
+
+/** Uso de IA por dia e rota a partir de `since`, do dia mais novo ao mais antigo. Sem família. */
+export async function listAiStats(since: string) {
+  return tolerateSchemaLag(
+    () =>
+      appPool()
+        .db.select()
+        .from(aiStats)
+        .where(gte(aiStats.day, since))
+        .orderBy(desc(aiStats.day), asc(aiStats.route)),
+    [],
+  );
 }
 
 export interface QueueCount {

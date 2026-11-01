@@ -25,21 +25,25 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { adminPool, adminReadPool, type Db } from "./client";
-import { FLAG_KEYS } from "./access";
+import { FLAG_KEYS, tolerateSchemaLag } from "./access";
 import { recordAdminAccess } from "./ops";
 import { householdModuleUsage, type ModuleUsage } from "./platform";
 import {
   adminAccess,
+  aiUsage,
   auditLog,
   featureFlags,
   household,
   householdAccess,
+  householdInsights,
   householdInvitation,
   householdMember,
+  householdMemories,
   householdSettings,
   session,
   user,
   userAccess,
+  type AiAutonomy,
 } from "./schema";
 
 function logAccess(reason: string) {
@@ -285,6 +289,71 @@ export async function adminHouseholdDetail(id: string): Promise<AdminHouseholdDe
       modules,
     };
   });
+}
+
+export interface AdminHouseholdAssistant {
+  /** Null: o assistente está desligado nesta família. */
+  consentAt: Date | null;
+  autonomy: AiAutonomy;
+  activeInsights: number;
+  memories: number;
+  /** Mesma conta do limite diário por família: leitura de cache fica fora. */
+  monthTokens: number;
+}
+
+/**
+ * Situação do assistente em UMA família, só com data, nível e contagens: nenhuma coluna de texto da
+ * família é lida. Null enquanto a migração não chegou.
+ */
+export function adminHouseholdAssistant(
+  id: string,
+  today: string,
+): Promise<AdminHouseholdAssistant | null> {
+  const monthStart = `${today.slice(0, 7)}-01`;
+  return tolerateSchemaLag(
+    () =>
+      withAdminRead("painel admin: assistente da família", async (db) => {
+        const [[settings], [insights], [memories], [usage]] = await Promise.all([
+          db
+            .select({
+              consentAt: householdSettings.aiConsentAt,
+              autonomy: householdSettings.aiAutonomy,
+            })
+            .from(householdSettings)
+            .where(eq(householdSettings.householdId, id)),
+          db
+            .select({ n: count() })
+            .from(householdInsights)
+            .where(
+              and(
+                eq(householdInsights.householdId, id),
+                eq(householdInsights.status, "ativa"),
+                gte(householdInsights.expiresOn, today),
+              ),
+            ),
+          db
+            .select({ n: count() })
+            .from(householdMemories)
+            .where(
+              and(eq(householdMemories.householdId, id), isNull(householdMemories.supersededBy)),
+            ),
+          db
+            .select({
+              tokens: sql<string>`coalesce(sum(${aiUsage.inputTokens} + ${aiUsage.outputTokens} + ${aiUsage.cacheWriteTokens}), 0)::text`,
+            })
+            .from(aiUsage)
+            .where(and(eq(aiUsage.householdId, id), gte(aiUsage.day, monthStart))),
+        ]);
+        return {
+          consentAt: toDate(settings?.consentAt),
+          autonomy: settings?.autonomy ?? "organizar",
+          activeInsights: insights?.n ?? 0,
+          memories: memories?.n ?? 0,
+          monthTokens: Number(usage?.tokens ?? 0),
+        };
+      }),
+    null,
+  );
 }
 
 /**
@@ -765,6 +834,46 @@ export async function adminOverviewCounts(input: {
       blocked: blocked?.n ?? 0,
     };
   });
+}
+
+export interface AdminAssistantCounts {
+  assistantOn: number;
+  /** Famílias cujo aceite já cita a rotina da madrugada. */
+  insightsOn: number;
+  withMemories: number;
+}
+
+/** Quantas famílias usam o assistente. Só contagens, nada identifica uma família. */
+export function adminAssistantCounts(input: {
+  insightsConsentVersion: string;
+}): Promise<AdminAssistantCounts> {
+  const { insightsConsentVersion } = input;
+  return tolerateSchemaLag(
+    () =>
+      withAdminRead("painel admin: adoção do assistente", async (db) => {
+        const consented = sql`${householdSettings.aiConsentAt} is not null`;
+        // Mesma ordem da comparação de strings do portão das dicas, sem depender do idioma do banco.
+        const current = sql`${householdSettings.aiConsentVersion} collate "C" >= ${insightsConsentVersion}`;
+        const [[settings], [memories]] = await Promise.all([
+          db
+            .select({
+              assistantOn: sql<number>`count(*) filter (where ${consented})::int`,
+              insightsOn: sql<number>`count(*) filter (where ${consented} and ${current})::int`,
+            })
+            .from(householdSettings),
+          db
+            .select({ n: countDistinct(householdMemories.householdId) })
+            .from(householdMemories)
+            .where(isNull(householdMemories.supersededBy)),
+        ]);
+        return {
+          assistantOn: settings?.assistantOn ?? 0,
+          insightsOn: settings?.insightsOn ?? 0,
+          withMemories: memories?.n ?? 0,
+        };
+      }),
+    { assistantOn: 0, insightsOn: 0, withMemories: 0 },
+  );
 }
 
 export interface AdminGrowthWeek {
