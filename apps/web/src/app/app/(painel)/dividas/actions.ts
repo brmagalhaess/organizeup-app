@@ -2,16 +2,15 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
-  accounts,
-  canWrite,
-  debtInstallments,
-  debts,
-  DEBT_SYSTEMS,
-  eq,
-  withHousehold,
-} from "@organizeup/db";
-import { buildSchedule, money, parseBRL, toDbAmount } from "@organizeup/domain";
+  confirmDebtDocument,
+  createDebtWithSchedule,
+  deleteDebtDocument,
+} from "@organizeup/agents";
+import { acceptDebtFiles, canUseAssistant } from "@organizeup/ai";
+import { accounts, canWrite, debtInstallments, debts, eq, withHousehold } from "@organizeup/db";
 import { audit } from "@/lib/audit";
+import { fieldErrors, parseDebtTerms } from "@/lib/debt-form";
+import { LEGAL_VERSION } from "@/lib/legal";
 import { requireTenant } from "@/lib/session";
 
 export interface DebtFormState {
@@ -22,64 +21,11 @@ export interface DebtFormState {
 
 const READ_ONLY = "Seu papel nesta família não permite alterações.";
 
-const positiveAmount = (message: string) =>
-  z.string().transform((value, ctx) => {
-    try {
-      const parsed = parseBRL(value);
-      if (parsed.lte(0) || parsed.gte("1000000000000")) throw new RangeError("fora do limite");
-      return toDbAmount(parsed);
-    } catch {
-      ctx.addIssue({ code: "custom", message });
-      return z.NEVER;
-    }
-  });
-
-const debtSchema = z
-  .object({
-    system: z.enum(DEBT_SYSTEMS, { message: "Escolha como são as parcelas." }),
-    balance: z.string(),
-    installmentAmount: z.string(),
-    monthlyRate: z.string().transform((value, ctx) => {
-      try {
-        const parsed = parseBRL(value.trim() || "0");
-        if (parsed.lt(0) || parsed.gt(100)) throw new RangeError("fora do limite");
-        return parsed.toFixed(4);
-      } catch {
-        ctx.addIssue({ code: "custom", message: "Informe os juros como 2,15." });
-        return z.NEVER;
-      }
-    }),
-    installments: z.coerce
-      .number({ message: "Informe quantas parcelas faltam." })
-      .int("Informe quantas parcelas faltam.")
-      .min(1, "Informe quantas parcelas faltam.")
-      .max(480, "O limite é de 480 parcelas."),
-    firstDueDate: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe o próximo vencimento.")
-      .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), "Data inválida."),
-  })
-  .superRefine((data, ctx) => {
-    const field = data.system === "manual" ? "installmentAmount" : "balance";
-    const message =
-      data.system === "manual"
-        ? "Informe o valor da parcela, como 450,00."
-        : "Informe o saldo devedor, como 12.500,00.";
-    const parsed = positiveAmount(message).safeParse(data[field]);
-    if (!parsed.success) ctx.addIssue({ code: "custom", path: [field], message });
-  });
-
 const commonSchema = z.object({
   id: z.string(),
   name: z.string().trim().min(1, "Informe o nome da dívida.").max(80),
   accountId: z.string().min(1, "Escolha a conta."),
 });
-
-function fieldErrors(error: z.ZodError) {
-  const out: Record<string, string> = {};
-  for (const issue of error.issues) out[String(issue.path[0])] ??= issue.message;
-  return out;
-}
 
 /** Cria a dívida com seu calendário. Na edição, só nome e conta mudam. */
 export async function saveDebt(_prev: DebtFormState, form: FormData): Promise<DebtFormState> {
@@ -110,26 +56,8 @@ export async function saveDebt(_prev: DebtFormState, form: FormData): Promise<De
     return { ok: true, message: "Dívida salva." };
   }
 
-  const parsed = debtSchema.safeParse({
-    system: form.get("system"),
-    balance: form.get("balance") ?? "",
-    installmentAmount: form.get("installmentAmount") ?? "",
-    monthlyRate: form.get("monthlyRate") ?? "",
-    installments: form.get("installments"),
-    firstDueDate: form.get("firstDueDate") ?? "",
-  });
-  if (!parsed.success) return { ok: false, message: null, fieldErrors: fieldErrors(parsed.error) };
-  const data = parsed.data;
-  const schedule = buildSchedule({
-    system: data.system,
-    balance: data.balance ? toDbAmount(parseBRL(data.balance)) : "0",
-    monthlyRate: data.monthlyRate,
-    installments: data.installments,
-    firstDueDate: data.firstDueDate,
-    ...(data.installmentAmount
-      ? { installmentAmount: toDbAmount(parseBRL(data.installmentAmount)) }
-      : {}),
-  });
+  const parsed = parseDebtTerms(form);
+  if (!parsed.ok) return { ok: false, message: null, fieldErrors: parsed.fieldErrors };
 
   const failure = await withHousehold(ctx, async (tx) => {
     const [account] = await tx
@@ -137,24 +65,7 @@ export async function saveDebt(_prev: DebtFormState, form: FormData): Promise<De
       .from(accounts)
       .where(eq(accounts.id, accountId));
     if (!account) return "Escolha uma conta válida.";
-    const [debt] = await tx
-      .insert(debts)
-      .values({
-        householdId: ctx.householdId,
-        accountId,
-        name,
-        system: data.system,
-        monthlyRate: data.monthlyRate,
-        originalBalance: toDbAmount(
-          schedule.reduce((acc, row) => acc.plus(row.principal), money(0)),
-        ),
-        createdBy: ctx.userId,
-      })
-      .returning({ id: debts.id });
-    await tx
-      .insert(debtInstallments)
-      .values(schedule.map((row) => ({ ...row, householdId: ctx.householdId, debtId: debt!.id })));
-    await audit(tx, ctx, "create", "debts", debt!.id);
+    await createDebtWithSchedule(tx, ctx, { name, accountId, terms: parsed.terms });
     return null;
   });
   if (failure) return { ok: false, message: failure };
@@ -192,4 +103,70 @@ export async function reopenDebt(form: FormData): Promise<void> {
     await audit(tx, ctx, "restore", "debts", id);
   });
   revalidatePath("/app", "layout");
+}
+
+/** Apaga de verdade o arquivo. A dívida ligada a ele continua. */
+export async function deleteDocument(form: FormData): Promise<void> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx)) return;
+  const id = String(form.get("id") ?? "");
+  await withHousehold(ctx, (tx) => deleteDebtDocument(tx, ctx, id));
+  revalidatePath("/app/dividas", "layout");
+}
+
+/** Aceite de mandar arquivos ao serviço de IA, dado na própria tela de importação. */
+export async function acceptFiles(): Promise<{ ok: boolean; message: string | null }> {
+  const { ctx } = await requireTenant();
+  if (!canUseAssistant(ctx)) {
+    return { ok: false, message: "Só quem é responsável ou adulto na família pode autorizar." };
+  }
+  await acceptDebtFiles(ctx, LEGAL_VERSION);
+  revalidatePath("/app/dividas", "layout");
+  return { ok: true, message: null };
+}
+
+const confirmSchema = z.object({
+  documentId: z.string().min(1),
+  name: z.string().trim().min(1, "Informe o nome da dívida.").max(80),
+  accountId: z.string().min(1, "Escolha a conta."),
+  target: z.string(),
+});
+
+/** Conferência: só aqui o que veio do arquivo vira dívida, com os valores que a pessoa deixou. */
+export async function confirmDebtImport(
+  _prev: DebtFormState,
+  form: FormData,
+): Promise<DebtFormState> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
+  const common = confirmSchema.safeParse({
+    documentId: form.get("documentId") ?? "",
+    name: form.get("name") ?? "",
+    accountId: form.get("accountId") ?? "",
+    target: form.get("target") ?? "",
+  });
+  const terms = parseDebtTerms(form);
+  if (!common.success || !terms.ok) {
+    return {
+      ok: false,
+      message: "Confira os campos marcados.",
+      fieldErrors: {
+        ...(common.success ? {} : fieldErrors(common.error)),
+        ...(terms.ok ? {} : terms.fieldErrors),
+      },
+    };
+  }
+  const { documentId, name, accountId, target } = common.data;
+  const result = await withHousehold(ctx, (tx) =>
+    confirmDebtDocument(tx, ctx, {
+      documentId,
+      name,
+      accountId,
+      terms: terms.terms,
+      updateDebtId: target === "nova" ? null : target,
+    }),
+  );
+  if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath("/app", "layout");
+  return { ok: true, message: target === "nova" ? "Dívida criada." : "Dívida atualizada." };
 }

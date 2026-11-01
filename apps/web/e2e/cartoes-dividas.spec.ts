@@ -117,8 +117,49 @@ test("dívidas entram nos vencimentos e mostram o que pagar primeiro", async ({ 
   await expect(avalanche).toContainText("Comece por Empréstimo do banco");
   await expect(snowball).toContainText("Comece por Loja");
 
+  // O plano no topo: o que atacar primeiro, com as duas estratégias a um clique.
+  const plan = page.getByRole("heading", { name: /^Quite tudo em/ });
+  await expect(plan).toBeVisible();
+  const attack = page.getByRole("region", { name: "Ordem de ataque" });
+  await expect(attack.getByRole("listitem").first()).toContainText("Empréstimo do banco");
+  await page.getByText("Ver as duas estratégias").click();
+  await expect(page.getByRole("table", { name: /estratégias/ })).toContainText(
+    "Só pagar as parcelas",
+  );
+
   const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(a11y.violations.map((v) => v.id)).toEqual([]);
+
+  // Arquivo: anexa, recusa tipo falso e não duplica. Sem aceite, fica só guardado.
+  await page.getByRole("button", { name: "Arquivos de Loja" }).click();
+  const files = page.getByRole("dialog", { name: "Arquivos de Loja" });
+  await expect(files.getByText("Nenhum arquivo nesta dívida")).toBeVisible();
+  const picker = files.getByLabel("Anexar arquivo");
+  const contract = {
+    name: "contrato.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from(`%PDF-1.7 arquivo fictício ${Date.now()}`),
+  };
+  await picker.setInputFiles({
+    name: "falso.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("isto não é um pdf"),
+  });
+  await expect(files.getByRole("alert")).toContainText("de verdade");
+  await picker.setInputFiles(contract);
+  await expect(files.getByRole("list", { name: "Arquivos de Loja" })).toContainText("contrato.pdf");
+  await files.getByLabel("Anexar arquivo").setInputFiles(contract);
+  await expect(files.getByText("Este arquivo já estava guardado.")).toBeVisible();
+  const download = page.waitForEvent("download");
+  await files.getByRole("link", { name: "Baixar contrato.pdf" }).click();
+  expect((await download).suggestedFilename()).toBe("contrato.pdf");
+  await files.getByRole("button", { name: "Apagar contrato.pdf" }).click();
+  await page
+    .getByRole("dialog", { name: "Apagar arquivo" })
+    .getByRole("button", { name: "Apagar" })
+    .click();
+  await expect(files.getByText("Nenhum arquivo nesta dívida")).toBeVisible();
+  await files.getByRole("button", { name: "Fechar" }).click();
 
   // Pagar a parcela aparece como lançamento; apagar o lançamento reabre a parcela.
   const card = list.getByRole("listitem").filter({ hasText: "Empréstimo do banco" });
