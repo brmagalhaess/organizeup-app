@@ -2,8 +2,13 @@
 // ferramenta ou da pergunta. A resposta sai em tempo real, então o que não confere não some: a tela
 // avisa para conferir. O verificador completo, que reprova antes de gravar, é o da rotina noturna.
 
-const BRL =
-  /R\$\s?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)(\s?(?:mil|milh(?:ão|ões)))?/gi;
+// Número em qualquer dos dois formatos: "1.234,56" em português e espanhol, "1,234.56" em inglês.
+const AMOUNT = String.raw`\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?`;
+// "mil" vem por último: é prefixo de "million" e "millones".
+const UNIT = String.raw`\s?(?:milh(?:ão|ões)|mill(?:ion|ions|ón|ones)|thousand|mil|k\b)`;
+const BRL = new RegExp(String.raw`R\$\s?(${AMOUNT})(${UNIT})?`, "gi");
+/** Espanhol costuma pôr o símbolo depois: a instrução pede antes, mas a conferência não confia nisso. */
+const BRL_AFTER = new RegExp(String.raw`(?<![\d.,])(${AMOUNT})(${UNIT})?\s?R\$`, "gi");
 
 /** Número em qualquer texto: "1234.56", "1.234,56". Só para formar o conjunto do que é conhecido. */
 const ANY_NUMBER = /\d[\d.,]*\d|\d/g;
@@ -33,11 +38,11 @@ export function knownNumbers(texts: string[]): number[] {
 }
 
 function moneyValues(text: string): number[] {
-  return [...text.matchAll(BRL)].flatMap((match) => {
+  return [...text.matchAll(BRL), ...text.matchAll(BRL_AFTER)].flatMap((match) => {
     const value = parseNumber(match[1]!);
     if (value === null) return [];
     const unit = match[2]?.trim().toLowerCase();
-    if (unit === "mil") return [value * 1_000];
+    if (unit === "mil" || unit === "thousand" || unit === "k") return [value * 1_000];
     return [unit ? value * 1_000_000 : value];
   });
 }
@@ -52,8 +57,9 @@ export function uncheckedAmounts(answer: string, known: number[]): number[] {
 }
 
 const TICKER = /\b[A-Z]{4}\d{1,2}\b/;
+// A resposta sai no idioma da pessoa: o aviso da CVM não pode depender de ela estar em português.
 const INVESTMENT_TALK =
-  /\b(investimentos?|ações|fundos? imobiliários?|fiis?|renda fixa|tesouro|cdb|etfs?|carteira|proventos?|dividendos?)\b/i;
+  /\b(investimentos?|ações|fundos? imobiliários?|fiis?|renda fixa|tesouro|cdb|etfs?|carteira|proventos?|dividendos?|investments?|stocks?|shares|reits?|real estate funds?|fixed income|treasury|bonds?|portfolio|dividends?|inversi(?:ón|ones)|acciones|fondos? inmobiliarios?|renta fija|cartera)(?![\p{L}\p{N}])/iu;
 
 /** A resposta fala de investimento, com ou sem ferramenta: leva o aviso da CVM. */
 export const mentionsInvestment = (text: string) => TICKER.test(text) || INVESTMENT_TALK.test(text);

@@ -9,7 +9,7 @@ import { todayIn } from "@organizeup/domain";
 import { aiLimits, assistantState, serviceDay, type AiLimits, type AssistantState } from "./access";
 import { errorCode, reportFailure, type AssistantErrorCode } from "./api-errors";
 import type { ModelClient, ModelMessage, ModelStream, StreamParams } from "./client";
-import { SYSTEM_PROMPT, turnContext } from "./instructions";
+import { SYSTEM_PROMPT, turnContext, type AssistantLocale } from "./instructions";
 import { memoriesForTurn, type TurnMemory } from "./memories";
 import { CHAT_ROUTE, MODEL, usageOf, type AiRoute, type ModelUsage } from "./models";
 import { loadPrivacyFilter, type PrivacyFilter } from "./privacy";
@@ -66,6 +66,8 @@ export interface ChatTurnInput {
   signal?: AbortSignal | undefined;
   route?: AiRoute;
   limits?: AiLimits;
+  /** Idioma da pessoa. Vai no contexto do turno, nunca nas instruções. */
+  locale?: AssistantLocale | undefined;
   /** Só nos testes: o dia de contagem. */
   day?: string;
 }
@@ -205,7 +207,7 @@ async function converse(input: ChatTurnInput, prepared: Prepared): Promise<Answe
   const messages: MessageParam[] = [
     ...prepared.history,
     { role: "user", content: question },
-    { role: "system", content: turnContext(prepared) },
+    { role: "system", content: turnContext({ ...prepared, locale: input.locale }) },
   ];
   const answer: Answer = {
     text: "",

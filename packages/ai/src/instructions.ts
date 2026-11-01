@@ -36,19 +36,30 @@ Você organiza por meio de sugestões. As ferramentas sugerir_categoria, sugerir
 # Formato
 Use Markdown simples: parágrafos curtos, listas e negrito. Sem tabelas largas, sem títulos grandes, sem links e sem HTML.`;
 
+export type AssistantLocale = "pt-BR" | "en" | "es";
+
+/** Sobrepõe o idioma e o formato de valores das instruções, que ficam fixas por causa do cache. */
+const LOCALE_NOTE: Record<Exclude<AssistantLocale, "pt-BR">, string> = {
+  en: 'Idioma da pessoa: inglês. Responda sempre em inglês, a não ser que ela peça outro idioma, mesmo com estas instruções e as ferramentas em português. Escreva os valores em reais sempre com "R$" na frente, como R$ 1,234.56.',
+  es: 'Idioma da pessoa: espanhol. Responda sempre em espanhol, a não ser que ela peça outro idioma, mesmo com estas instruções e as ferramentas em português. Escreva os valores em reais sempre com "R$" na frente, como R$ 1.234,56.',
+};
+
 export interface TurnContext {
   /** AAAA-MM-DD no fuso da família. */
   today: string;
   /** Anotações da família, já sem nomes. */
   memories?: TurnMemory[];
+  /** Idioma de quem conversa. Sem ele, o das instruções: português do Brasil. */
+  locale?: AssistantLocale | undefined;
 }
 
 /**
  * Dado do dia, depois do histórico: mudar aqui não invalida o cache das instruções. Memória é texto
  * que veio de uma conversa, então vai marcada como dado e com `<` escapado, como a saída de ferramenta.
  */
-export function turnContext({ today, memories = [] }: TurnContext): string {
-  const date = `Hoje é ${today}. "Este mês" é ${today.slice(0, 7)}.`;
+export function turnContext({ today, memories = [], locale = "pt-BR" }: TurnContext): string {
+  const day = `Hoje é ${today}. "Este mês" é ${today.slice(0, 7)}.`;
+  const date = locale === "pt-BR" ? day : `${day}\n\n${LOCALE_NOTE[locale]}`;
   if (memories.length === 0) return date;
   const notes = memories.map(({ tipo, texto }) => ({ tipo, texto: untrusted(texto, MAX_NOTE) }));
   const data = JSON.stringify(notes).replaceAll("<", "\\u003c");

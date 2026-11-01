@@ -199,10 +199,33 @@ describe("verificação da resposta", () => {
     expect(uncheckedAmounts("Texto sem valores.", known)).toEqual([]);
   });
 
+  it("confere valor escrito em inglês e em espanhol", () => {
+    expect(uncheckedAmounts("You spent R$ 1,234.56 and have R$ 800.00 left.", known)).toEqual([]);
+    expect(uncheckedAmounts("Gastaste R$ 1.234,56.", known)).toEqual([]);
+    expect(uncheckedAmounts("Gastaste 1234,56 R$.", known)).toEqual([]);
+    expect(uncheckedAmounts("About R$ 1.2 thousand, or R$1.2K.", known)).toEqual([]);
+    expect(uncheckedAmounts("Unos R$ 1,2 mil.", known)).toEqual([]);
+  });
+
+  it("aponta valor inventado em inglês e em espanhol", () => {
+    expect(uncheckedAmounts("You have R$ 7,777.00.", known)).toEqual([7777]);
+    expect(uncheckedAmounts("Tienes 7.777,00 R$.", known)).toEqual([7777]);
+    expect(uncheckedAmounts("You owe R$ 3 million.", known)).toEqual([3_000_000]);
+    expect(uncheckedAmounts("Debes R$ 3 millones.", known)).toEqual([3_000_000]);
+  });
+
   it("reconhece fala de investimento", () => {
     expect(mentionsInvestment("A PETR4 subiu")).toBe(true);
     expect(mentionsInvestment("Sua carteira tem renda fixa")).toBe(true);
     expect(mentionsInvestment("Você gastou no mercado")).toBe(false);
+  });
+
+  it("reconhece fala de investimento em inglês e em espanhol", () => {
+    expect(mentionsInvestment("Your portfolio holds stocks and dividends")).toBe(true);
+    expect(mentionsInvestment("Tu cartera tiene acciones")).toBe(true);
+    expect(mentionsInvestment("Una inversión en renta fija")).toBe(true);
+    expect(mentionsInvestment("You spent more on groceries")).toBe(false);
+    expect(mentionsInvestment("Gastaste más en el mercado")).toBe(false);
   });
 });
 
@@ -281,6 +304,32 @@ describe("pedido ao modelo", () => {
     expect(context).toContain("\\u003cb>dois");
     expect(SYSTEM_PROMPT).not.toContain("dois filhos");
     expect(turnContext({ today: "2026-10-31", memories: [] })).not.toContain("memorias");
+  });
+
+  it("o idioma vai no contexto do turno, e as instruções, prefixo do cache, não mudam", () => {
+    const before = SYSTEM_PROMPT;
+    expect(turnContext({ today: "2026-10-31", locale: "en" })).toContain("inglês");
+    expect(turnContext({ today: "2026-10-31", locale: "es" })).toContain("espanhol");
+    expect(turnContext({ today: "2026-10-31", locale: "en", memories: [] })).toContain(
+      "R$ 1,234.56",
+    );
+    expect(SYSTEM_PROMPT).toBe(before);
+    expect(SYSTEM_PROMPT).not.toContain("inglês");
+  });
+
+  it("em português o contexto do turno fica como sempre foi", () => {
+    expect(turnContext({ today: "2026-10-31", locale: "pt-BR" })).toBe(
+      turnContext({ today: "2026-10-31" }),
+    );
+  });
+
+  it("o idioma não se mistura com as memórias", () => {
+    const context = turnContext({
+      today: "2026-10-31",
+      locale: "es",
+      memories: [{ tipo: "fato", texto: "tem dois filhos" }],
+    });
+    expect(context.indexOf("espanhol")).toBeLessThan(context.indexOf("<memorias_da_familia>"));
   });
 
   it("as instruções dizem quando buscar a regra e quando anotar", () => {

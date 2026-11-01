@@ -702,6 +702,33 @@ describe("loop da conversa", () => {
     expect(JSON.stringify(calls[0]!.system)).not.toContain(today);
   });
 
+  it("o idioma da pessoa vai no contexto do turno e não muda o prefixo de cache", async () => {
+    const pt = fakeClient([textReply("Certo.")]);
+    await turn({ client: pt.client }).run();
+    const en = fakeClient([textReply("Okay.")]);
+    await turn({ client: en.client, locale: "en" }).run();
+    const prefix = (params: (typeof pt.calls)[number]) =>
+      JSON.stringify([params.model, params.tools, params.system, params.output_config]);
+    expect(prefix(en.calls[0]!)).toBe(prefix(pt.calls[0]!));
+    expect(JSON.stringify(en.calls[0]!.messages)).toContain("Idioma da pessoa: inglês");
+    expect(JSON.stringify(pt.calls[0]!.messages)).not.toContain("Idioma da pessoa");
+  });
+
+  it("resposta em inglês passa pela conferência de números", async () => {
+    const { client } = fakeClient([
+      modelMessage([toolCall("ver_reserva", {})], "tool_use"),
+      textReply("You have no emergency fund yet, and R$ 7,777.77 is not from your data."),
+    ]);
+    const { events, run } = turn({ client, locale: "en" });
+    await run();
+    expect(eventOf(events, "done").uncheckedNumbers).toBe(true);
+
+    const known = fakeClient([textReply("You asked about R$ 1,500.00.")]);
+    const asked = turn({ client: known.client, locale: "en", message: "E se eu gastar 1500?" });
+    await asked.run();
+    expect(eventOf(asked.events, "done").uncheckedNumbers).toBe(false);
+  });
+
   it("continua a conversa só com o texto das mensagens anteriores", async () => {
     const first = fakeClient([
       modelMessage(
