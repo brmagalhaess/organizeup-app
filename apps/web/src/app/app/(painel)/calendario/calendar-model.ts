@@ -21,16 +21,6 @@ export const ITEM_TYPES: CalendarItemType[] = [
   "evento",
 ];
 
-export const TYPE_LABEL: Record<CalendarItemType, string> = {
-  conta: "Conta",
-  receita: "Receita",
-  cartao: "Cartão",
-  divida: "Dívida",
-  meta: "Meta",
-  viagem: "Viagem",
-  evento: "Evento",
-};
-
 type DayItems = Record<string, CalendarItem[]>;
 type ItemTypes = Record<string, CalendarItemType>;
 

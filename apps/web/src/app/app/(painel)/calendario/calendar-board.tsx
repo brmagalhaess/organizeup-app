@@ -1,20 +1,19 @@
 "use client";
 import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import {
-  addMonths,
-  formatBRL,
-  formatBRLShort,
-  formatShortDate,
-  formatYearMonth,
-  fxNoteText,
-  money,
-  yearMonthOf,
-  type CalendarItem,
-} from "@organizeup/domain";
+import { addMonths, money, yearMonthOf, type CalendarItem } from "@organizeup/domain";
+import { useFxNoteText } from "@/components/fx-note";
 import { buttonClass, cx } from "@/components/styles";
 import { Button, PageHeader, StatTile } from "@/components/ui";
+import {
+  formatAmount,
+  formatDayMonth,
+  formatDayName,
+  formatMonthYear,
+  weekdayNames,
+} from "@/i18n/format";
 import type { loadCalendar } from "@/lib/calendar-data";
 import {
   countByType,
@@ -25,7 +24,6 @@ import {
   isOverdue,
   ITEM_TYPES,
   neighborDays,
-  TYPE_LABEL,
   type CalendarFilter,
 } from "./calendar-model";
 import { DayPanel } from "./day-panel";
@@ -33,15 +31,7 @@ import { TYPE_DOT, TYPE_ICON, TYPE_TEXT } from "./item-types";
 
 type Data = Awaited<ReturnType<typeof loadCalendar>>;
 
-const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MAX_MARKS = 4;
-
-const dayName = new Intl.DateTimeFormat("pt-BR", {
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-});
-const spokenDay = (date: string) => dayName.format(new Date(`${date}T12:00:00Z`));
 
 function FilterChip({
   active,
@@ -90,21 +80,27 @@ function DayCell({
   selected: boolean;
   onSelect: (date: string) => void;
 }) {
+  const t = useTranslations("calendario.grid");
+  const locale = useLocale();
   const balance = data.balances[date];
   const negative = balance !== undefined && money(balance).lt(0);
   const isToday = date === data.today;
   const overdue = items.filter((item) => isOverdue(item, data.today)).length;
   const marks = dayMarks(items, data.types);
-  const count = items.length === 1 ? "1 item" : `${items.length} itens`;
+  const spoken = [
+    formatDayName(date, locale),
+    isToday ? t("today") : null,
+    t("items", { count: items.length }),
+    overdue > 0 ? t("overdue", { count: overdue }) : null,
+    balance ? t("balance", { value: formatAmount(balance, locale) }) : null,
+  ];
 
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={() => onSelect(date)}
-      aria-label={`${spokenDay(date)}${isToday ? ", hoje" : ""}, ${count}${
-        overdue > 0 ? `, ${overdue} em atraso` : ""
-      }${balance ? `, saldo previsto ${formatBRL(balance)}` : ""}`}
+      aria-label={spoken.filter(Boolean).join(", ")}
       className={cx(
         "relative flex h-full min-h-12 w-full min-w-0 flex-col items-center gap-1 p-1 text-left transition hover:bg-brand-50 focus-visible:-outline-offset-2 md:min-h-24 md:items-stretch md:p-2",
         weekend ? "bg-card-soft" : "bg-card",
@@ -161,7 +157,7 @@ function DayCell({
           )}
         >
           {negative ? <AlertTriangle className="size-3 shrink-0" /> : null}
-          {formatBRLShort(balance)}
+          {formatAmount(balance, locale, "short")}
         </span>
       ) : null}
     </button>
@@ -187,6 +183,9 @@ export function CalendarBoard({
   writable: boolean;
   insights: ReactNode;
 }) {
+  const t = useTranslations("calendario");
+  const locale = useLocale();
+  const fxNote = useFxNoteText(data.fx);
   const { month, cells, summary, lowest, closing, balances, today } = data;
   const [picked, setPicked] = useState<string | null>(null);
   const [filter, setFilter] = useState<CalendarFilter>("todos");
@@ -210,30 +209,30 @@ export function CalendarBoard({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Calendário"
-        title={formatYearMonth(month)}
-        description="Vencimentos, eventos e quanto deve sobrar a cada dia."
+        eyebrow={t("eyebrow")}
+        title={formatMonthYear(month, locale)}
+        description={t("description")}
         actions={
           <>
             <Link
               href={monthLink(addMonths(month, -1))}
-              aria-label="Mês anterior"
+              aria-label={t("previousMonth")}
               className={buttonClass("secondary")}
             >
               <ChevronLeft className="size-4" aria-hidden="true" />
             </Link>
             {month === data.current ? (
               <Button variant="secondary" onClick={() => setPicked(today)}>
-                Hoje
+                {t("today")}
               </Button>
             ) : (
               <Link href="/app/calendario" className={buttonClass("secondary")}>
-                Hoje
+                {t("today")}
               </Link>
             )}
             <Link
               href={monthLink(addMonths(month, 1))}
-              aria-label="Próximo mês"
+              aria-label={t("nextMonth")}
               className={buttonClass("secondary")}
             >
               <ChevronRight className="size-4" aria-hidden="true" />
@@ -250,68 +249,71 @@ export function CalendarBoard({
         >
           <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
           <p className="min-w-0 flex-1 basis-60">
-            Pelo que está previsto, seu saldo fica negativo em {spokenDay(firstNegative)}. O menor
-            valor é <span className="font-semibold">{formatBRL(lowest.balance)}</span>, em{" "}
-            {spokenDay(lowest.date)}.
+            {t.rich("negative", {
+              first: formatDayName(firstNegative, locale),
+              value: formatAmount(lowest.balance, locale),
+              lowest: formatDayName(lowest.date, locale),
+              strong: (chunks) => <span className="font-semibold">{chunks}</span>,
+            })}
           </p>
           <Button variant="secondary" small onClick={() => setPicked(lowest.date)}>
-            Ver o dia
+            {t("seeDay")}
           </Button>
         </div>
       ) : null}
 
       <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatTile
-          label="Entra"
+          label={t("stats.in")}
           tone="receita"
-          value={formatBRL(income)}
-          hint={`Recebido ${formatBRL(summary.received)}. A receber ${formatBRL(summary.plannedIncome)}.`}
+          value={formatAmount(income, locale)}
+          hint={t("stats.inHint", {
+            received: formatAmount(summary.received, locale),
+            planned: formatAmount(summary.plannedIncome, locale),
+          })}
         />
         <StatTile
-          label="Sai"
+          label={t("stats.out")}
           tone="despesa"
-          value={formatBRL(expense)}
-          hint={`Pago ${formatBRL(summary.spent)}. A pagar ${formatBRL(summary.plannedExpense)}.`}
+          value={formatAmount(expense, locale)}
+          hint={t("stats.outHint", {
+            spent: formatAmount(summary.spent, locale),
+            planned: formatAmount(summary.plannedExpense, locale),
+          })}
         />
         {closing !== null ? (
           <StatTile
-            label="Saldo final previsto"
-            value={formatBRL(closing)}
-            hint={
-              fxNoteText(data.fx)
-                ? `Saldo das contas mais o que está em aberto. ${fxNoteText(data.fx)}`
-                : "Saldo das contas mais o que está em aberto."
-            }
+            label={t("stats.closing")}
+            value={formatAmount(closing, locale)}
+            hint={fxNote ? `${t("stats.closingHint")} ${fxNote}` : t("stats.closingHint")}
           />
         ) : (
           <StatTile
-            label="Resultado do mês"
-            value={formatBRL(summary.balance)}
-            hint="O que entrou menos o que saiu."
+            label={t("stats.result")}
+            value={formatAmount(summary.balance, locale)}
+            hint={t("stats.resultHint")}
           />
         )}
         <StatTile
-          label="Menor saldo"
+          label={t("stats.lowest")}
           tone={lowestNegative ? "despesa" : undefined}
-          value={lowest ? formatBRL(lowest.balance) : "Sem previsão"}
+          value={lowest ? formatAmount(lowest.balance, locale) : t("stats.noForecast")}
           hint={
             lowest
-              ? `Em ${formatShortDate(lowest.date)}.`
-              : month < data.current
-                ? "Só há previsão de hoje em diante."
-                : "A previsão vai até 24 meses à frente."
+              ? t("stats.lowestOn", { date: formatDayMonth(lowest.date, locale) })
+              : t(month < data.current ? "stats.fromToday" : "stats.upTo")
           }
         />
       </dl>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
         <section
-          aria-label="Mês em grade"
+          aria-label={t("grid.label")}
           className="min-w-0 rounded-2xl border border-line bg-card p-3 shadow-card sm:p-5"
         >
-          <div role="group" aria-label="Filtrar por tipo" className="flex flex-wrap gap-1.5">
+          <div role="group" aria-label={t("grid.filter")} className="flex flex-wrap gap-1.5">
             <FilterChip
-              label="Todos"
+              label={t("grid.all")}
               count={total}
               active={filter === "todos"}
               onClick={() => setFilter("todos")}
@@ -323,7 +325,7 @@ export function CalendarBoard({
               return (
                 <FilterChip
                   key={type}
-                  label={TYPE_LABEL[type]}
+                  label={t(`types.${type}`)}
                   count={counts[type]}
                   active={active}
                   onClick={() => setFilter(active ? "todos" : type)}
@@ -340,14 +342,14 @@ export function CalendarBoard({
               aria-hidden="true"
               className="grid grid-cols-7 gap-px bg-line text-center text-xs font-medium text-muted"
             >
-              {WEEKDAYS.map((day) => (
+              {weekdayNames(locale).map((day) => (
                 <span key={day} className="bg-card-soft py-1.5">
                   {day}
                 </span>
               ))}
             </div>
             <ol
-              aria-label="Dias do mês"
+              aria-label={t("grid.days")}
               className="m-0 grid list-none grid-cols-7 gap-px border-t border-line bg-line p-0"
             >
               {neighbors.before.map((day) => (

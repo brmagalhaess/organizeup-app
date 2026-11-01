@@ -1244,5 +1244,79 @@
       "incomeCategory": "Choose an income category.",
       "invalidPerson": "Choose a valid person."
     }
+  },
+  "calendario": {
+    "metaTitle": "Calendar",
+    "eyebrow": "Calendar",
+    "description": "Due dates, events and how much should be left each day.",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "today": "Today",
+    "types": {
+      "conta": "Bill",
+      "receita": "Income",
+      "cartao": "Card",
+      "divida": "Debt",
+      "meta": "Goal",
+      "viagem": "Trip",
+      "evento": "Event"
+    },
+    "negative": "Based on what's forecast, your balance goes negative on {first}. The lowest amount is <strong>{value}</strong>, on {lowest}.",
+    "seeDay": "See the day",
+    "stats": {
+      "in": "Money in",
+      "inHint": "Received {received}. To receive {planned}.",
+      "out": "Money out",
+      "outHint": "Paid {spent}. To pay {planned}.",
+      "closing": "Forecast closing balance",
+      "closingHint": "Account balance plus what's still open.",
+      "result": "Month's result",
+      "resultHint": "Money in minus money out.",
+      "lowest": "Lowest balance",
+      "noForecast": "No forecast",
+      "lowestOn": "On {date}.",
+      "fromToday": "Forecasts only run from today on.",
+      "upTo": "The forecast goes up to 24 months ahead."
+    },
+    "grid": {
+      "label": "Month grid",
+      "filter": "Filter by type",
+      "all": "All",
+      "days": "Days of the month",
+      "today": "today",
+      "items": "{count, plural, =1 {1 item} other {# items}}",
+      "overdue": "{count} overdue",
+      "balance": "forecast balance {value}"
+    },
+    "day": {
+      "label": "Selected day",
+      "balance": "Forecast balance at end of day:",
+      "hidden": "Nothing of this type on this day. {count, plural, =1 {1 item is hidden} other {# items are hidden}} by the filter.",
+      "monthEmpty": "Nothing scheduled this month. Choose a day to add a bill or an event.",
+      "empty": "Nothing scheduled on this day.",
+      "items": "Items of the day",
+      "more": "{count, plural, =1 {1 more item} other {# more items}} outside this filter.",
+      "addEntry": "Add on this day",
+      "addEvent": "Add event",
+      "yearly": "Every year",
+      "closingBadge": "Closing",
+      "closes": "{name} closes",
+      "open": "Open",
+      "openItem": "Open {name}",
+      "deleteItem": "Delete {name}"
+    },
+    "event": {
+      "new": "New event",
+      "name": "Event name",
+      "nameExample": "E.g.: Dentist appointment",
+      "yearly": "Repeats every year, like a birthday",
+      "save": "Save event",
+      "saved": "Event saved."
+    },
+    "errors": {
+      "title": "Enter the event name.",
+      "date": "Invalid date.",
+      "check": "Please check."
+    }
   }
 }

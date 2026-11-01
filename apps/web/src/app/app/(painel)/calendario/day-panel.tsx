@@ -1,17 +1,12 @@
 "use client";
 import { AlertCircle, CalendarPlus, Check, Clock, Plus, Trash2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { formatBRL, money, yearMonthOf, type CalendarItem } from "@organizeup/domain";
+import { money, yearMonthOf, type CalendarItem } from "@organizeup/domain";
+import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { useEntryDialog } from "@/components/shell/entry-context";
-import {
-  amountClass,
-  buttonClass,
-  confirmLabel,
-  cx,
-  doneLabel,
-  isGoalEntry,
-} from "@/components/styles";
+import { amountClass, buttonClass, confirmAction, cx, isGoalEntry } from "@/components/styles";
 import {
   Badge,
   Button,
@@ -22,49 +17,58 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
+import { formatAmount, formatWeekdayName } from "@/i18n/format";
 import type { loadCalendar } from "@/lib/calendar-data";
-import { confirmEntry } from "../lancamentos/actions";
 import { PlanLink } from "../lancamentos/plan-link";
 import { deleteEvent, saveEvent, type EventFormState } from "./actions";
-import { isOverdue, itemHref, TYPE_LABEL, typeOf, type CalendarFilter } from "./calendar-model";
+import { isOverdue, itemHref, typeOf, type CalendarFilter } from "./calendar-model";
 import { TYPE_ICON, TYPE_TEXT } from "./item-types";
 
 type Data = Awaited<ReturnType<typeof loadCalendar>>;
 
 const initial: EventFormState = { ok: false, message: null };
-const fullDayName = new Intl.DateTimeFormat("pt-BR", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-});
 
 function ItemStatus({ item, today }: { item: CalendarItem; today: string }) {
-  if (item.type === "compromisso") return item.yearly ? <Badge>Todo ano</Badge> : null;
-  if (item.type === "fechamento") return <Badge>Fechamento</Badge>;
+  const t = useTranslations("calendario.day");
+  const tStatus = useTranslations("lancamentos.status");
+  if (item.type === "compromisso") return item.yearly ? <Badge>{t("yearly")}</Badge> : null;
+  if (item.type === "fechamento") return <Badge>{t("closingBadge")}</Badge>;
   if (item.status === "realizado")
     return (
       <Badge tone="success">
         <Check className="size-3" aria-hidden="true" />
-        {doneLabel({ kind: item.kind, source: isGoalEntry(item.title) ? "meta" : item.source })}
+        {tStatus(
+          `done.${confirmAction({
+            kind: item.kind,
+            source: isGoalEntry(item.title) ? "meta" : item.source,
+          })}`,
+        )}
       </Badge>
     );
   if (isOverdue(item, today))
     return (
       <Badge tone="danger">
         <AlertCircle className="size-3" aria-hidden="true" />
-        Atrasado
+        {tStatus("overdue")}
       </Badge>
     );
   return (
     <Badge>
       <Clock className="size-3" aria-hidden="true" />
-      Previsto
+      {tStatus("planned")}
     </Badge>
   );
 }
 
 function DayItem({ item, data, writable }: { item: CalendarItem; data: Data; writable: boolean }) {
+  const t = useTranslations("calendario");
+  const tConfirm = useTranslations("dashboard.confirm");
+  const locale = useLocale();
+  // O fechamento do cartão chega pronto do agente, como "Fecha <nome>".
+  const title =
+    item.type === "fechamento"
+      ? t("day.closes", { name: item.title.replace(/^Fecha /, "") })
+      : item.title;
   const type = typeOf(item, data.types);
   const Icon = TYPE_ICON[type];
   const href = itemHref(item, type);
@@ -82,15 +86,15 @@ function DayItem({ item, data, writable }: { item: CalendarItem; data: Data; wri
         <Icon className="size-4" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="break-words text-sm font-medium">{item.title}</p>
+        <p className="break-words text-sm font-medium">{title}</p>
         {item.type === "lancamento" ? (
           <p className={cx("text-sm font-semibold tabular-nums", amountClass(item.kind))}>
             {item.kind === "receita" ? "+ " : "− "}
-            {formatBRL(item.amount)}
+            {formatAmount(item.amount, locale)}
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge>{TYPE_LABEL[type]}</Badge>
+          <Badge>{t(`types.${type}`)}</Badge>
           <ItemStatus item={item} today={data.today} />
           {item.type === "lancamento" && item.source === "meta" ? (
             <PlanLink description={item.title} />
@@ -99,27 +103,26 @@ function DayItem({ item, data, writable }: { item: CalendarItem; data: Data; wri
         {(writable && (open || removable)) || href ? (
           <div className="mt-1 flex flex-wrap items-center gap-2">
             {writable && open ? (
-              <form action={confirmEntry}>
-                <input type="hidden" name="key" value={item.key} />
-                <input type="hidden" name="month" value={yearMonthOf(item.date)} />
-                <Button type="submit" small>
-                  {confirmLabel(item)}
-                </Button>
-              </form>
+              <ConfirmEntryButton
+                entryKey={item.key}
+                month={yearMonthOf(item.date)}
+                label={tConfirm(confirmAction(item))}
+                variant="primary"
+              />
             ) : null}
             {href ? (
               <Link
                 href={href}
-                aria-label={`Abrir ${item.title}`}
+                aria-label={t("day.openItem", { name: title })}
                 className={buttonClass("secondary", true)}
               >
-                Abrir
+                {t("day.open")}
               </Link>
             ) : null}
             {writable && item.type === "compromisso" ? (
               <form action={deleteEvent}>
                 <input type="hidden" name="id" value={item.id} />
-                <IconButton type="submit" label={`Excluir ${item.title}`}>
+                <IconButton type="submit" label={t("day.deleteItem", { name: item.title })}>
                   <Trash2 className="size-4" aria-hidden="true" />
                 </IconButton>
               </form>
@@ -132,6 +135,8 @@ function DayItem({ item, data, writable }: { item: CalendarItem; data: Data; wri
 }
 
 function EventForm({ date, onDone }: { date: string; onDone: () => void }) {
+  const t = useTranslations("calendario.event");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(saveEvent, initial);
   useEffect(() => {
     if (state.ok) onDone();
@@ -139,16 +144,16 @@ function EventForm({ date, onDone }: { date: string; onDone: () => void }) {
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <input type="hidden" name="date" value={date} />
-      <Field label="Nome do evento">
-        <Input name="title" required maxLength={120} placeholder="Ex.: Consulta no dentista" />
+      <Field label={t("name")}>
+        <Input name="title" required maxLength={120} placeholder={t("nameExample")} />
       </Field>
       <label className="flex min-h-10 items-center gap-2 text-sm">
         <input type="checkbox" name="yearly" className="size-5 accent-brand-500" />
-        Repete todo ano, como um aniversário
+        {t("yearly")}
       </label>
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando…" : "Salvar evento"}
+        {pending ? tCommon("saving") : t("save")}
       </Button>
     </form>
   );
@@ -171,28 +176,30 @@ export function DayPanel({
   data: Data;
   writable: boolean;
 }) {
+  const t = useTranslations("calendario");
+  const locale = useLocale();
   const { openNew } = useEntryDialog();
   const [creating, setCreating] = useState<number | null>(null);
   const close = () => setCreating(null);
   const balance = data.balances[date];
   const negative = balance !== undefined && money(balance).lt(0);
-  const label = fullDayName.format(new Date(`${date}T12:00:00Z`));
+  const label = formatWeekdayName(date, locale);
   const monthEmpty = Object.keys(data.items).length === 0;
 
   return (
     <section
-      aria-label="Dia escolhido"
+      aria-label={t("day.label")}
       className="min-w-0 rounded-2xl border border-line bg-card p-5 shadow-card sm:p-6 xl:sticky xl:top-6"
     >
       <div aria-live="polite">
         <h2 className="font-display text-xl font-medium first-letter:uppercase">{label}</h2>
-        {date === data.today ? <p className="text-sm text-muted">Hoje</p> : null}
+        {date === data.today ? <p className="text-sm text-muted">{t("today")}</p> : null}
       </div>
       {balance ? (
         <p className="mt-3 rounded-xl bg-card-soft p-3 text-sm">
-          <span className="text-muted">Saldo previsto no fim do dia: </span>
+          <span className="text-muted">{t("day.balance")} </span>
           <span className={cx("font-semibold tabular-nums", negative && "text-danger")}>
-            {formatBRL(balance)}
+            {formatAmount(balance, locale)}
           </span>
         </p>
       ) : null}
@@ -200,22 +207,18 @@ export function DayPanel({
       {items.length === 0 ? (
         <p className="mt-4 text-sm text-muted">
           {hidden > 0
-            ? `Nada deste tipo neste dia. ${hidden === 1 ? "1 item está escondido" : `${hidden} itens estão escondidos`} pelo filtro.`
-            : monthEmpty
-              ? "Nada marcado neste mês. Escolha um dia para lançar uma conta ou marcar um evento."
-              : "Nada marcado neste dia."}
+            ? t("day.hidden", { count: hidden })
+            : t(monthEmpty ? "day.monthEmpty" : "day.empty")}
         </p>
       ) : (
         <>
-          <ul aria-label="Itens do dia" className="m-0 mt-2 list-none divide-y divide-line p-0">
+          <ul aria-label={t("day.items")} className="m-0 mt-2 list-none divide-y divide-line p-0">
             {items.map((item) => (
               <DayItem key={item.key} item={item} data={data} writable={writable} />
             ))}
           </ul>
           {hidden > 0 && filter !== "todos" ? (
-            <p className="mt-1 text-xs text-muted">
-              {hidden === 1 ? "Mais 1 item" : `Mais ${hidden} itens`} fora deste filtro.
-            </p>
+            <p className="mt-1 text-xs text-muted">{t("day.more", { count: hidden })}</p>
           ) : null}
         </>
       )}
@@ -224,16 +227,16 @@ export function DayPanel({
         <div className="mt-4 grid grid-cols-1 gap-2 border-t border-line pt-4 sm:grid-cols-2 xl:grid-cols-1">
           <Button variant="secondary" onClick={() => openNew("despesa", undefined, date)}>
             <Plus className="size-4" aria-hidden="true" />
-            Lançar neste dia
+            {t("day.addEntry")}
           </Button>
           <Button variant="secondary" onClick={() => setCreating((nonce) => (nonce ?? 0) + 1)}>
             <CalendarPlus className="size-4" aria-hidden="true" />
-            Marcar evento
+            {t("day.addEvent")}
           </Button>
         </div>
       ) : null}
 
-      <Sheet open={creating !== null} onClose={close} title="Novo evento">
+      <Sheet open={creating !== null} onClose={close} title={t("event.new")}>
         <p className="mb-4 text-sm text-muted first-letter:uppercase">{label}</p>
         <EventForm key={creating} date={date} onDone={close} />
       </Sheet>

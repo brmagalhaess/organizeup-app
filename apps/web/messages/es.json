@@ -1244,5 +1244,79 @@
       "incomeCategory": "Elige una categoría de ingreso.",
       "invalidPerson": "Elige una persona válida."
     }
+  },
+  "calendario": {
+    "metaTitle": "Calendario",
+    "eyebrow": "Calendario",
+    "description": "Vencimientos, eventos y cuánto debería sobrar cada día.",
+    "previousMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente",
+    "today": "Hoy",
+    "types": {
+      "conta": "Cuenta",
+      "receita": "Ingreso",
+      "cartao": "Tarjeta",
+      "divida": "Deuda",
+      "meta": "Meta",
+      "viagem": "Viaje",
+      "evento": "Evento"
+    },
+    "negative": "Según lo previsto, tu saldo queda negativo el {first}. El menor valor es <strong>{value}</strong>, el {lowest}.",
+    "seeDay": "Ver el día",
+    "stats": {
+      "in": "Entra",
+      "inHint": "Cobrado {received}. Por cobrar {planned}.",
+      "out": "Sale",
+      "outHint": "Pagado {spent}. Por pagar {planned}.",
+      "closing": "Saldo final previsto",
+      "closingHint": "Saldo de las cuentas más lo pendiente.",
+      "result": "Resultado del mes",
+      "resultHint": "Lo que entró menos lo que salió.",
+      "lowest": "Saldo más bajo",
+      "noForecast": "Sin previsión",
+      "lowestOn": "El {date}.",
+      "fromToday": "Solo hay previsión de hoy en adelante.",
+      "upTo": "La previsión llega hasta 24 meses."
+    },
+    "grid": {
+      "label": "Mes en cuadrícula",
+      "filter": "Filtrar por tipo",
+      "all": "Todos",
+      "days": "Días del mes",
+      "today": "hoy",
+      "items": "{count, plural, =1 {1 elemento} other {# elementos}}",
+      "overdue": "{count} atrasados",
+      "balance": "saldo previsto {value}"
+    },
+    "day": {
+      "label": "Día elegido",
+      "balance": "Saldo previsto al final del día:",
+      "hidden": "Nada de este tipo en este día. {count, plural, =1 {1 elemento está oculto} other {# elementos están ocultos}} por el filtro.",
+      "monthEmpty": "Nada marcado este mes. Elige un día para registrar una cuenta o marcar un evento.",
+      "empty": "Nada marcado en este día.",
+      "items": "Elementos del día",
+      "more": "{count, plural, =1 {1 elemento más} other {# elementos más}} fuera de este filtro.",
+      "addEntry": "Registrar en este día",
+      "addEvent": "Marcar evento",
+      "yearly": "Cada año",
+      "closingBadge": "Cierre",
+      "closes": "Cierra {name}",
+      "open": "Abrir",
+      "openItem": "Abrir {name}",
+      "deleteItem": "Eliminar {name}"
+    },
+    "event": {
+      "new": "Nuevo evento",
+      "name": "Nombre del evento",
+      "nameExample": "Ej.: Cita con el dentista",
+      "yearly": "Se repite cada año, como un cumpleaños",
+      "save": "Guardar evento",
+      "saved": "Evento guardado."
+    },
+    "errors": {
+      "title": "Escribe el nombre del evento.",
+      "date": "Fecha no válida.",
+      "check": "Revisa los datos."
+    }
   }
 }

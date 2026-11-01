@@ -15,18 +15,6 @@ export function confirmAction(entry: Pick<MonthEntry, "kind" | "source">) {
   return entry.kind === "receita" ? "income" : "expense";
 }
 
-const CONFIRM_LABEL = { goal: "Guardar", income: "Receber", expense: "Pagar" };
-
-/** Verbo do botão nas telas ainda em português. */
-export const confirmLabel = (entry: Pick<MonthEntry, "kind" | "source">): string =>
-  CONFIRM_LABEL[confirmAction(entry)];
-
-/** Rótulo do que já foi confirmado. */
-export function doneLabel(entry: Pick<MonthEntry, "kind" | "source">): string {
-  if (entry.source === "meta") return "Guardado";
-  return entry.kind === "receita" ? "Recebido" : "Pago";
-}
-
 /** Parcela de meta confirmada vira lançamento comum; só a descrição ainda diz de onde veio. */
 export const isGoalEntry = (description: string) => description.startsWith("Meta: ");
 
