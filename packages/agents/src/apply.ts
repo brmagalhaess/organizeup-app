@@ -18,6 +18,7 @@ import {
   inArray,
   incomeSources,
   investments,
+  investmentStockEvents,
   retirementPlan,
   trips,
   type TenantContext,
@@ -25,7 +26,13 @@ import {
 } from "@organizeup/db";
 import { transactions } from "@organizeup/db";
 import { daysInMonth } from "@organizeup/domain";
-import { DEDUPE, parsePayload, type MarketChanges, type SuggestionPayload } from "./suggestions";
+import {
+  DEDUPE,
+  parsePayload,
+  type MarketChanges,
+  type StockEventChange,
+  type SuggestionPayload,
+} from "./suggestions";
 import { INVESTIMENTOS_AGENT, recordAudit } from "./shared";
 import { createTrip } from "./trips";
 
@@ -185,8 +192,9 @@ export async function undoSuggestion(
       outcome = await undoMeta(tx, payload as SuggestionPayload["meta"]);
       break;
     case "investimento": {
-      const market = (payload as SuggestionPayload["investimento"]).market;
-      outcome = market ? await undoMercado(tx, ctx, market) : { message: "Desfeito." };
+      const { market, stockEvent } = payload as SuggestionPayload["investimento"];
+      if (stockEvent) outcome = await undoStockEvent(tx, stockEvent);
+      else outcome = market ? await undoMercado(tx, ctx, market) : { message: "Desfeito." };
       break;
     }
     default:
@@ -259,6 +267,22 @@ async function undoMercado(
   return {
     message:
       "Desfeito. Esses proventos não voltam sozinhos; o preço volta com a próxima cotação nova.",
+  };
+}
+
+/** Tira o ajuste da posição. As operações não foram tocadas, e a linha `desfeita` bloqueia a volta. */
+async function undoStockEvent(tx: TenantTx, event: StockEventChange): Promise<{ message: string }> {
+  await tx
+    .delete(investmentStockEvents)
+    .where(
+      and(
+        eq(investmentStockEvents.investmentId, event.investmentId),
+        eq(investmentStockEvents.comDate, event.comDate),
+        eq(investmentStockEvents.note, event.note),
+      ),
+    );
+  return {
+    message: "Desfeito. A quantidade voltou ao que estava, e esse ajuste não volta sozinho.",
   };
 }
 

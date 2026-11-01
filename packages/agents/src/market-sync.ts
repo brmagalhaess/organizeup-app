@@ -1,25 +1,33 @@
-// Leva cotações e proventos das tabelas globais para a carteira de uma família (ADR-0017). Roda dentro
-// do tx do agente de investimentos e só lê tabelas globais, sem chamada externa. As contas ficam em
-// @organizeup/domain. Toda mudança entra numa única sugestão `aplicada` por dia, com Desfazer.
+// Leva cotações, eventos em ações e proventos das tabelas globais para a carteira de uma família
+// (ADR-0017). Roda dentro do tx do agente de investimentos e só lê tabelas globais, sem chamada externa.
+// As contas ficam em @organizeup/domain. Cotações e proventos entram numa única sugestão `aplicada` por
+// dia; cada evento em ações, na sua. Tudo com Desfazer.
 import {
   and,
+  asc,
   dividends,
   eq,
   householdSuggestions,
   inArray,
   investments,
+  investmentStockEvents,
   investmentTrades,
+  loadStockEvents,
   marketDividends,
   marketQuotes,
+  marketStockEvents,
   sql,
   type TenantTx,
 } from "@organizeup/db";
 import {
+  entitledQuantity,
   formatBRL,
+  isUnitPriced,
   marketDateOf,
   money,
   netDividend,
   normalizeTicker,
+  positionOf,
   quoteApplies,
   reconcileProventos,
   toDbAmount,
@@ -27,10 +35,141 @@ import {
 import { clamp, INVESTIMENTOS_AGENT, MAX_BODY, MAX_TITLE, plural, recordApplied } from "./shared";
 import {
   DEDUPE,
+  investimentoPayloadSchema,
   MARKET_DEDUPE_PREFIX,
   marketChangesSchema,
+  STOCK_EVENT_DEDUPE_PREFIX,
   type MarketChanges,
+  type StockEventChange,
 } from "./suggestions";
+
+/** Só ativo cotado com código válido participa do que vem do mercado. */
+const withMarketTicker = <T extends { assetClass: string; ticker: string | null }>(holdings: T[]) =>
+  holdings.flatMap((holding) => {
+    const marketTicker = isUnitPriced(holding.assetClass) ? normalizeTicker(holding.ticker) : null;
+    return marketTicker ? [{ ...holding, marketTicker }] : [];
+  });
+
+const quantityText = (value: string) =>
+  money(value).toDecimalPlaces(8).toString().replace(".", ",");
+
+const fullDate = (date: string) => date.split("-").reverse().join("/");
+
+type EventIdentity = Pick<StockEventChange, "comDate" | "factor" | "note">;
+
+/**
+ * A nota vem da fonte e pode mudar de redação depois (o fator completo aparecer, por exemplo), e o fator
+ * pode ser corrigido. Nos dois casos, é o mesmo evento: aplicá-lo de novo dobraria a quantidade.
+ */
+const sameEvent = (a: EventIdentity, b: EventIdentity) =>
+  a.comDate === b.comDate && (a.note === b.note || money(a.factor).eq(b.factor));
+
+export interface StockEventsResult {
+  /** Eventos aplicados nesta rodada. */
+  applied: number;
+  /** Evento mais recente que ficou só no aviso, por investimento. */
+  unapplied: Map<string, { comDate: string; note: string }>;
+}
+
+/**
+ * Aplica desdobramentos, grupamentos e bonificações ainda não aplicados. Só o faz sozinho quando todas
+ * as operações até a data-com foram registradas antes dela: operação cadastrada depois pode já estar na
+ * quantidade nova, e aí fica o aviso. Rodar de novo não muda nada, e o que a família desfez não volta.
+ */
+export async function applyStockEvents(
+  tx: TenantTx,
+  input: { householdId: string },
+): Promise<StockEventsResult> {
+  const { householdId } = input;
+  const result: StockEventsResult = { applied: 0, unapplied: new Map() };
+  const eligible = withMarketTicker(await tx.select().from(investments));
+  if (eligible.length === 0) return result;
+
+  const tickers = [...new Set(eligible.map((holding) => holding.marketTicker))];
+  const recorded = await loadStockEvents(tx);
+  const [market, trades, undoneRows] = await Promise.all([
+    tx
+      .select()
+      .from(marketStockEvents)
+      .where(inArray(marketStockEvents.ticker, tickers))
+      .orderBy(asc(marketStockEvents.comDate), asc(marketStockEvents.note)),
+    tx.select().from(investmentTrades),
+    tx
+      .select({ payload: householdSuggestions.payload })
+      .from(householdSuggestions)
+      .where(
+        and(
+          eq(householdSuggestions.status, "desfeita"),
+          sql`${householdSuggestions.dedupeKey} like ${`${STOCK_EVENT_DEDUPE_PREFIX}%`}`,
+        ),
+      ),
+  ]);
+  const undone = undoneRows.flatMap((row) => {
+    const parsed = investimentoPayloadSchema.safeParse(row.payload);
+    return parsed.success && parsed.data.stockEvent ? [parsed.data.stockEvent] : [];
+  });
+
+  for (const holding of eligible) {
+    const own = trades.filter((trade) => trade.investmentId === holding.id);
+    const done = recorded.filter((event) => event.investmentId === holding.id);
+    const blocked = undone.filter((event) => event.investmentId === holding.id);
+
+    for (const event of market.filter((row) => row.ticker === holding.marketTicker)) {
+      const { comDate, factor, note } = event;
+      if (done.some((row) => sameEvent(row, event))) continue;
+      if (blocked.some((row) => sameEvent(row, event))) continue;
+      if (money(entitledQuantity(own, comDate, done)).lte(0)) continue;
+
+      const registeredBefore = own
+        .filter((trade) => trade.occurredOn <= comDate)
+        .every((trade) => marketDateOf(trade.createdAt) < comDate);
+      if (!registeredBefore) {
+        result.unapplied.set(holding.id, { comDate, note });
+        continue;
+      }
+
+      const quantityBefore = positionOf(own, done).quantity;
+      const [row] = await tx
+        .insert(investmentStockEvents)
+        .values({ householdId, investmentId: holding.id, comDate, factor, note })
+        .onConflictDoNothing()
+        .returning();
+      if (!row) continue;
+      done.push(row);
+      const quantityAfter = positionOf(own, done).quantity;
+      const stockEvent: StockEventChange = {
+        investmentId: holding.id,
+        comDate,
+        factor,
+        note,
+        quantityBefore,
+        quantityAfter,
+      };
+      await recordApplied(tx, householdId, INVESTIMENTOS_AGENT, {
+        kind: "investimento",
+        title: `Quantidade de ${holding.marketTicker} ajustada`,
+        body:
+          `${holding.marketTicker}: ${note.charAt(0).toLowerCase()}${note.slice(1)} em ` +
+          `${fullDate(comDate)}. A quantidade foi de ${quantityText(quantityBefore)} para ` +
+          `${quantityText(quantityAfter)}. O valor total não muda, e suas operações ficam como você ` +
+          `registrou.`,
+        payload: { href: "/app/investimentos", stockEvent },
+        dedupeKey: DEDUPE.investimentoAcoes(holding.id, comDate, note),
+      });
+      // Aviso que estava na fila perdeu o sentido: o ajuste já foi feito.
+      await tx
+        .delete(householdSuggestions)
+        .where(
+          and(
+            eq(householdSuggestions.status, "pendente"),
+            eq(householdSuggestions.dedupeKey, DEDUPE.investimentoEvento(holding.id, comDate)),
+          ),
+        );
+      result.applied += 1;
+    }
+  }
+  return result;
+}
 
 const emptyChanges = (): MarketChanges => ({ prices: [], created: [], adjusted: [], removed: [] });
 
@@ -153,19 +292,11 @@ export async function syncMarketData(
     skippedFamily: 0,
     skippedTax: [],
   };
-  const holdings = await tx.select().from(investments);
-  const eligible = holdings.flatMap((holding) => {
-    const ticker =
-      holding.assetClass === "acao" ||
-      holding.assetClass === "fii" ||
-      holding.assetClass === "etf_bdr"
-        ? normalizeTicker(holding.ticker)
-        : null;
-    return ticker ? [{ ...holding, marketTicker: ticker }] : [];
-  });
+  const eligible = withMarketTicker(await tx.select().from(investments));
   if (eligible.length === 0) return result;
 
   const tickers = [...new Set(eligible.map((holding) => holding.marketTicker))];
+  const stockEvents = await loadStockEvents(tx);
   const [quotes, events, trades, recorded, blocks] = await Promise.all([
     tx.select().from(marketQuotes).where(inArray(marketQuotes.ticker, tickers)),
     tx.select().from(marketDividends).where(inArray(marketDividends.ticker, tickers)),
@@ -214,6 +345,7 @@ export async function syncMarketData(
     const plan = reconcileProventos({
       assetClass: holding.assetClass,
       trades: trades.filter((trade) => trade.investmentId === holding.id),
+      stockEvents: stockEvents.filter((event) => event.investmentId === holding.id),
       events: events.filter((event) => event.ticker === holding.marketTicker),
       existing,
       blocked: blocks.proventos.get(holding.id) ?? new Set(),

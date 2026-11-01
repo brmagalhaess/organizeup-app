@@ -156,9 +156,20 @@ export const marketChangesSchema = z.object({
   ),
 });
 
-/** Aviso com link. A atualização automática do dia acrescenta `market`. */
+/** Evento em ações aplicado a um investimento, com a quantidade de antes e a de depois. */
+export const stockEventChangeSchema = z.object({
+  investmentId: z.string().min(1),
+  comDate: z.string().min(1),
+  factor: z.string().min(1),
+  note: z.string().min(1).max(120),
+  quantityBefore: z.string().min(1),
+  quantityAfter: z.string().min(1),
+});
+
+/** Aviso com link. A atualização do dia acrescenta `market`; o ajuste de quantidade, `stockEvent`. */
 export const investimentoPayloadSchema = linkPayloadSchema.extend({
   market: marketChangesSchema.optional(),
+  stockEvent: stockEventChangeSchema.optional(),
 });
 
 export const SUGGESTION_PAYLOADS = {
@@ -182,6 +193,7 @@ export type ViagemPayload = z.infer<typeof viagemPayloadSchema>;
 export type MetaPayload = z.infer<typeof metaPayloadSchema>;
 export type LinkPayload = z.infer<typeof linkPayloadSchema>;
 export type MarketChanges = z.infer<typeof marketChangesSchema>;
+export type StockEventChange = z.infer<typeof stockEventChangeSchema>;
 export type InvestimentoPayload = z.infer<typeof investimentoPayloadSchema>;
 
 export type SuggestionPayload = {
@@ -205,6 +217,7 @@ export function parsePayload<K extends SuggestionKind>(
 }
 
 export const MARKET_DEDUPE_PREFIX = "mercado:";
+export const STOCK_EVENT_DEDUPE_PREFIX = "investimento:acoes:";
 
 /** Chaves de dedupe: uma pendente por chave (índice parcial `household_suggestions_pending_dedupe`). */
 export const DEDUPE = {
@@ -225,6 +238,9 @@ export const DEDUPE = {
   /** Desdobramento, grupamento ou bonificação: o aviso sai uma vez por evento. */
   investimentoEvento: (investmentId: string, eventOn: string) =>
     `investimento:evento:${investmentId}:${eventOn}`,
+  /** Quantidade ajustada por evento em ações. A nota vai cortada: a chave tem até 160 caracteres. */
+  investimentoAcoes: (investmentId: string, comDate: string, note: string) =>
+    `${STOCK_EVENT_DEDUPE_PREFIX}${investmentId}:${comDate}:${note.slice(0, 80)}`,
   investimentoConferir: (month: string) => `investimento:conferir:${month}`,
   /** Uma alteração automática de cotações e proventos por dia. */
   mercadoDia: (day: string) => `${MARKET_DEDUPE_PREFIX}dia:${day}`,
