@@ -70,17 +70,28 @@ describe("privacidade", () => {
 });
 
 describe("custo", () => {
-  it("usa os preços de claude-opus-5-5, com cache lido a 5%", () => {
-    expect(PRICES[MODEL]).toEqual({ input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 });
+  it("usa os preços de claude-haiku-5-5, com cache lido a 10%", () => {
+    expect(PRICES[MODEL]).toMatchObject({
+      input: 0.1,
+      output: 0.5,
+      cacheRead: 0.01,
+      cacheWrite: 0.125,
+    });
     expect(
       costUsd({
         model: MODEL,
-        inputTokens: 1_000_000,
+        inputTokens: 50_000,
         outputTokens: 1_000_000,
-        cacheReadTokens: 1_000_000,
-        cacheWriteTokens: 1_000_000,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
       }),
-    ).toBeCloseTo(29.2);
+    ).toBeCloseTo(0.505);
+  });
+
+  it("prompt acima de 100 mil tokens custa cinco vezes mais", () => {
+    const usage = { model: MODEL, outputTokens: 0, cacheWriteTokens: 0 };
+    expect(costUsd({ ...usage, inputTokens: 100_000, cacheReadTokens: 0 })).toBeCloseTo(0.01);
+    expect(costUsd({ ...usage, inputTokens: 100_000, cacheReadTokens: 1 })).toBeCloseTo(0.05);
   });
 
   it("modelo desconhecido custa mais que qualquer um da tabela", () => {
@@ -224,16 +235,14 @@ describe("ferramentas", () => {
 describe("pedido ao modelo", () => {
   const params = requestParams(CHAT_ROUTE, [{ role: "user", content: "oi" }], true);
 
-  it("segue o que claude-opus-5-5 exige", () => {
+  it("segue o que claude-haiku-5-5 exige", () => {
     expect(params).toMatchObject({
-      model: "claude-opus-5-5",
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      model: "claude-haiku-5-5",
       output_config: { effort: "medium" },
       tool_choice: { type: "auto" },
       cache_control: { type: "ephemeral" },
     });
-    for (const key of ["thinking", "temperature", "top_p", "top_k"]) {
+    for (const key of ["thinking", "temperature", "top_p", "top_k", "fallbacks"]) {
       expect(params).not.toHaveProperty(key);
     }
   });

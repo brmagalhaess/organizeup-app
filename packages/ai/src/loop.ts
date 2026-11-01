@@ -10,7 +10,7 @@ import { aiLimits, assistantState, serviceDay, type AiLimits, type AssistantStat
 import { errorCode, reportFailure, type AssistantErrorCode } from "./api-errors";
 import type { ModelClient, ModelMessage, ModelStream, StreamParams } from "./client";
 import { SYSTEM_PROMPT, turnContext } from "./instructions";
-import { CHAT_ROUTE, FALLBACK_BETA, MODEL, usageOf, type AiRoute, type ModelUsage } from "./models";
+import { CHAT_ROUTE, MODEL, usageOf, type AiRoute, type ModelUsage } from "./models";
 import { loadPrivacyFilter, type PrivacyFilter } from "./privacy";
 import {
   appendMessage,
@@ -101,8 +101,6 @@ export function requestParams(
   return {
     model: MODEL,
     max_tokens: route.maxTokens,
-    betas: [FALLBACK_BETA],
-    fallbacks: "default",
     output_config: { effort: route.effort },
     // Marca fixa nas instruções e cache automático para a parte que cresce.
     cache_control: { type: "ephemeral" },

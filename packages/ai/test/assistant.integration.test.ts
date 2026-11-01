@@ -649,15 +649,15 @@ describe("loop da conversa", () => {
     );
     expect(row).toMatchObject({
       route: "chat",
-      model: "claude-opus-5-5",
+      model: "claude-haiku-5-5",
       calls: 2,
       inputTokens: 1050,
       outputTokens: 110,
       cacheReadTokens: 2000,
       cacheWriteTokens: 2000,
     });
-    // (1050×4 + 110×20 + 2000×0,20 + 2000×5) ÷ 1.000.000
-    expect(Number(row!.costUsd)).toBeCloseTo(0.0168, 6);
+    // (1050×0,10 + 110×0,50 + 2000×0,01 + 2000×0,125) ÷ 1.000.000
+    expect(Number(row!.costUsd)).toBeCloseTo(0.00043, 5);
     expect(JSON.stringify(row)).not.toContain("secreta");
     const month = await db.aiMonthTotals("2026-06");
     expect(month).toMatchObject({ calls: 2, cacheReadTokens: 2000 });

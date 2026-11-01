@@ -1,14 +1,12 @@
-// Modelo, preços e rotas. Preços da tabela da Anthropic para claude-opus-5-5 em 2026-10-31, em
-// dólares por milhão de tokens. Conferir quando o modelo mudar.
+// Modelo, preços e rotas. Preços da tabela da Anthropic em 2026-11-01, em dólares por milhão de
+// tokens. Conferir quando o modelo mudar.
 import type Anthropic from "@anthropic-ai/sdk";
 
 type Message = Anthropic.Beta.Messages.BetaMessage;
 type Effort = "low" | "medium" | "high";
 
-export const MODEL = "claude-opus-5-5";
-
-/** Beta do `fallbacks: "default"`: a recusa do modelo roda de novo no modelo que a Anthropic indica. */
-export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
+/** Escolha do fundador em 2026-11-01, por custo. Este modelo não tem `fallbacks` no servidor. */
+export const MODEL = "claude-haiku-5-5";
 
 export interface Price {
   input: number;
@@ -16,13 +14,18 @@ export interface Price {
   cacheRead: number;
   /** Escrita de 5 minutos, a única usada aqui. */
   cacheWrite: number;
+  /** Prompt acima de `above` tokens custa `factor` vezes mais, em tudo. */
+  longPrompt?: { above: number; factor: number };
 }
 
 export const PRICES: Record<string, Price> = {
-  [MODEL]: { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
-  // Modelos para onde uma recusa pode cair.
-  "claude-opus-5": { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
-  "claude-opus-4-8": { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+  [MODEL]: {
+    input: 0.1,
+    output: 0.5,
+    cacheRead: 0.01,
+    cacheWrite: 0.125,
+    longPrompt: { above: 100_000, factor: 5 },
+  },
 };
 
 /** Modelo desconhecido custa o mais caro da casa: o teto erra para o lado seguro. */
@@ -40,11 +43,14 @@ export interface ModelUsage {
 
 export function costUsd(usage: ModelUsage): number {
   const price = PRICES[usage.model] ?? UNKNOWN_PRICE;
+  const prompt = usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
+  const long = price.longPrompt && prompt > price.longPrompt.above ? price.longPrompt.factor : 1;
   return (
-    (usage.inputTokens * price.input +
-      usage.outputTokens * price.output +
-      usage.cacheReadTokens * price.cacheRead +
-      usage.cacheWriteTokens * price.cacheWrite) /
+    (long *
+      (usage.inputTokens * price.input +
+        usage.outputTokens * price.output +
+        usage.cacheReadTokens * price.cacheRead +
+        usage.cacheWriteTokens * price.cacheWrite)) /
     PER_MILLION
   );
 }

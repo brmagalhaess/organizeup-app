@@ -21,7 +21,7 @@ export function modelMessage(
   content: unknown[],
   stop_reason: string = "end_turn",
   usage: UsageOver = {},
-  model = "claude-opus-5-5",
+  model = "claude-haiku-5-5",
 ): ModelMessage {
   return {
     id: "msg_teste",

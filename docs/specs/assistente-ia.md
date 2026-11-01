@@ -26,9 +26,9 @@ vão para o ADR-0018.
 
 ## 1. Pacote `packages/ai`
 
-- SDK oficial `@anthropic-ai/sdk`. Modelo `claude-opus-5-5`, `output_config.effort` por rota
-  (chat `medium`, rotina noturna `high`, classificação `low`), `fallbacks: "default"` com o beta da
-  skill `claude-api`. Sem `thinking` desligado e sem `tool_choice` forçado: usar `auto` com
+- SDK oficial `@anthropic-ai/sdk`. Modelo `claude-haiku-5-5`, `output_config.effort` por rota
+  (chat `medium`, rotina noturna `high`, classificação `low`), sem `fallbacks`, que esse modelo não tem.
+  Sem `thinking` desligado e sem `tool_choice` forçado: usar `auto` com
   `strict: true` ou `output_config.format`. Ler a skill antes de escrever.
 - Cache de prompt: instruções e ferramentas estáveis primeiro, dado volátil depois. Conferir
   `cache_read_input_tokens`.

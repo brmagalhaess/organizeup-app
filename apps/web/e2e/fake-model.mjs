@@ -21,7 +21,7 @@ const envelope = (stop_reason, blocks, output_tokens) => [
       id: "msg_e2e",
       type: "message",
       role: "assistant",
-      model: "claude-opus-5-5",
+      model: "claude-haiku-5-5",
       content: [],
       stop_reason: null,
       stop_sequence: null,

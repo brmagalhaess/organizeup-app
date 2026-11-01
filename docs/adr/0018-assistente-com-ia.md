@@ -10,8 +10,9 @@ agentes). Os cinco agentes diários continuam por regras; a IA entra ao lado del
 ### Fronteira
 
 - **Pacote `packages/ai`** (`@organizeup/ai`), com `@anthropic-ai/sdk` em versão exata. Modelo
-  `claude-opus-5-5`, esforço por rota (`medium` na conversa), pensamento sempre ligado, `tool_choice` `auto`
-  com `strict: true`, `fallbacks: "default"` com o beta `server-side-fallback-2026-07-01`.
+  `claude-haiku-5-5`, por decisão de custo do fundador em 2026-11-01 (começou em `claude-opus-5-5`). Esforço por
+  rota (`medium` na conversa), pensamento sempre ligado, `tool_choice` `auto` com `strict: true`. Esse modelo não
+  tem `fallbacks` no servidor: uma recusa vira o texto de recusa na tela.
 - **As contas continuam em `packages/domain`.** A IA escolhe o que olhar e explica; nunca calcula dinheiro.
 - **O modelo nunca é chamado dentro de `withHousehold`.** Cada passo abre e fecha a própria transação. O loop é
   manual, e não o tool runner, porque precisa conferir consentimento e teto antes de cada chamada, gravar o uso
