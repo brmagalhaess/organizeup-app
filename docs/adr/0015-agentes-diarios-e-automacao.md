@@ -1,6 +1,7 @@
 # ADR-0015 — Agentes diários do produto e automação da equipe
 
-Status: aceito (2026-10-31). Cotação externa e aviso de preço velho: ver ADR-0017. A parte "sem modelo de IA" foi
+Status: aceito (2026-10-31), com a regra de categoria mudada em 2026-11-01 (ver "Categorias sem aceite e
+notificações"). Cotação externa e aviso de preço velho: ver ADR-0017. A parte "sem modelo de IA" foi
 substituída pelo ADR-0018; os agentes diários continuam por regras, com a etapa `categorias_ia` entre eles. O ADR-0019 acrescenta `dividas`.
 
 Substitui em parte o ADR-0010 (rotina e merge da equipe do Paperclip), o ADR-0013 (o agente de categorias
@@ -39,11 +40,41 @@ plano principal; estimar custo de destino deixa de estar fora do escopo). A espe
 - **Toda alteração automática fica registrada** em `household_suggestions` com `status = 'aplicada'`,
   `applied_by = 'agente'` e o estado anterior no `payload`, com botão **Desfazer** na tela Sugestões.
   Desfazer marca `desfeita` e bloqueia aquela alteração automática para sempre.
-- **Categoria: o agente só mexe sozinho no que ainda está "para revisar"** (`category_source = 'revisar'`, ou
-  lançamento antigo importado que caiu na categoria genérica). Categoria escolhida pela família nunca muda
-  sem aceite. Memória aprendida pelo agente só gera sugestão; só a memória confirmada pela família decide
-  sozinha.
+- **Categoria:** ver "Categorias sem aceite", abaixo, que substitui a regra original (o agente só mexia no que
+  estava "para revisar").
 - **Sugestão ignorada volta depois de 30 dias**; sugestão desfeita não volta.
+
+### Categorias sem aceite e notificações (decisão do fundador em 2026-11-01)
+
+Pedido: "O agente de categoria não precisa perguntar se é para mudar a categoria, ele deve mudar sem precisar de
+aprovação. Não precisa ir como sugestão, somente mude. Crie as notificações e coloque lá uma notificação do que foi
+alterado, como era antes e como ficou depois."
+
+- **O que muda sozinho:** lançamento em categoria genérica (`isGenericCategory`), seja qual for o `category_source`,
+  inclusive `familia` e os antigos sem origem, e o que ficou `revisar`. Fusão de categorias quase iguais proposta
+  pelo agente também. Nada disso vira sugestão pendente: fica `aplicada` por `agente`, com o anterior no `payload`.
+- **O que não muda:** lançamento `familia` em categoria específica, que é escolha consciente e mudar causaria briga
+  toda noite. Também não pergunta. Aportes, metas, cartão, dívida e transferência continuam protegidos, como origem e
+  destino, e categoria genérica não é destino. Fusão não toca categoria genérica nem de sistema.
+- **Lançamento fora de categoria genérica, de outra origem:** o caso "mesmo estabelecimento em duas categorias", que
+  antes virava sugestão, saiu. Está em categoria específica, fora do que a decisão manda mudar.
+- **Memória do agente** agora decide quando regra e memória da família não sabem.
+- **Desfazer** continua e bloqueia aquele estabelecimento para sempre, em qualquer destino. A fusão desfeita fica
+  bloqueada nos dois sentidos, porque com o uso a categoria mais usada pode virar a outra.
+- **"Agora não"** dado antes da decisão continua valendo pelos 30 dias.
+- **Pendentes antigas:** a próxima rodada aplica `categoria` e `fusao_categoria` pela mesma regra e fecha o resto sem
+  efeito (`ignorada`, com a chave prefixada por `fechada:`, para não segurar o estabelecimento por 30 dias). A etapa
+  de IA não guardou a confiança: as dela fecham, e o modelo reavalia pela regra nova. A tela não mostra pendente
+  desses tipos. Sem migração destrutiva.
+- **Autonomia:** a decisão vale em todo nível, inclusive `sugerir`. `sugerir` e `organizar` ficam iguais até surgir
+  outra coisa que os separe.
+- **Central de notificações.** `household_notifications`: uma linha por estabelecimento e destino a cada noite, com
+  estabelecimento, quantidade, soma em reais, categoria de antes, de depois e se é nova, em `data`, de onde a tela
+  monta o texto em cada idioma. Até 50 linhas por noite e uma de resumo com a contagem do resto, que segue em
+  Sugestões com Desfazer. A mesma mudança no mesmo dia soma na linha que já existe, então a rodada repetida não repete
+  o aviso. `read_at` é da família, e nada marca sozinho. Sem e-mail nem push nesta etapa.
+
+Fica fora da exceção o resto da regra 7. A importação continua propondo, e a família revisa antes de gravar (ADR-0013).
 
 ### Premissas numéricas (também no cabeçalho dos módulos)
 
@@ -111,9 +142,10 @@ previstos no calendário. Retentativa automática e fila morta no pg-boss.
 
 ## Riscos aceitos
 
-- **Alteração automática de categoria.** Mesmo restrita ao que estava "para revisar", pode errar. Mitigação:
-  tudo fica listado em "O que o assistente fez sozinho" por 7 dias, com Desfazer, e o que foi desfeito não
-  volta.
+- **Alteração automática de categoria.** Desde 2026-11-01 alcança o que a própria família deixou em categoria
+  genérica, e fusão junta categorias que a família criou de propósito, como "Transporte" e "Transporte escolar",
+  levando lançamentos escolhidos por ela. Pode errar. Mitigação: cada mudança aparece em Notificações, com o antes e o
+  depois, e em "O que o assistente fez sozinho" por 7 dias, com Desfazer, e o que foi desfeito não volta.
 - **Merge sem humano em qualquer risco.** Sem CI e sem proteção de branch, um erro em banco, regra financeira,
   login ou nas instruções dos próprios agentes vai para produção sozinho, e pode expor ou corromper dados de
   famílias. O fundador conhece e aceitou esse risco. Mitigação: `pnpm check` no checkout do Revisor, revisão
