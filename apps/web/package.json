@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@organizeup/agents": "workspace:*",
+    "@organizeup/ai": "workspace:*",
     "@organizeup/db": "workspace:*",
     "@organizeup/domain": "workspace:*",
     "better-auth": "1.7.14",

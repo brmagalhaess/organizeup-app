@@ -34,6 +34,10 @@ export default function PrivacyPage() {
           destinos de viagem sugeridos e os relatórios e sugestões do assistente.
         </li>
         <li>
+          <strong>Assistente:</strong> se a família ativar, as conversas de cada pessoa, que só ela
+          vê, e a quantidade de uso por dia, sem nenhum texto.
+        </li>
+        <li>
           <strong>Uso:</strong> endereço IP e navegador da sessão, e um registro das ações feitas na
           família.
         </li>
@@ -48,6 +52,11 @@ export default function PrivacyPage() {
         <li>
           Enviar os e-mails do serviço: confirmar seu e-mail, trocar a senha, avisar que a senha
           mudou e entregar convites para a família (art. 7º, V).
+        </li>
+        <li>
+          Responder às suas perguntas no assistente com inteligência artificial, se a família
+          autorizar. A base é o seu consentimento (art. 7º, I), que pode ser retirado a qualquer
+          momento em Configurações.
         </li>
         <li>Manter o sistema seguro e prevenir fraude e acesso indevido (art. 7º, IX).</li>
         <li>Cumprir obrigações legais (art. 7º, II).</li>
@@ -68,6 +77,48 @@ export default function PrivacyPage() {
         O que você informou só muda com o seu aceite. O que o sistema calcula, como o plano de uma
         meta, é refeito todo dia. Quando um assistente move um lançamento que ficou para revisar, a
         mudança aparece em Sugestões, e você pode desfazer.
+      </p>
+
+      <h2>Assistente com inteligência artificial</h2>
+      <p>
+        O assistente de conversa é opcional e só funciona depois que um adulto da família autoriza.
+        Sem essa autorização, nada é enviado.
+      </p>
+      <ul>
+        <li>
+          <strong>O que vai:</strong> o que você escreve e, só quando a pergunta precisa, dados das
+          suas finanças, como lançamentos e suas descrições, categorias, renda, reserva, dívidas,
+          investimentos, proventos, metas, viagens e calendário.
+        </li>
+        <li>
+          <strong>O que não vai:</strong> nomes, e-mails, CPF e senhas. As pessoas aparecem como
+          titular, cônjuge, filho 1, e os nomes conhecidos da família são trocados também nas
+          descrições. Uma descrição de extrato ainda pode conter outros dados de terceiros, como o
+          nome de um estabelecimento ou de quem recebeu um pagamento.
+        </li>
+        <li>
+          <strong>Para quem:</strong> a Anthropic, PBC, empresa dos Estados Unidos que opera o
+          modelo de inteligência artificial e atua como nossa operadora. Ela usa esses dados para
+          gerar a resposta, pode mantê-los por um período curto para segurança e não os usa para
+          treinar modelos, conforme os termos comerciais dela.
+        </li>
+        <li>
+          <strong>Transferência internacional:</strong> como a Anthropic trata os dados nos Estados
+          Unidos, há transferência internacional de dados (LGPD, art. 33), feita com o seu
+          consentimento específico.
+        </li>
+        <li>
+          <strong>Conversas:</strong> ficam guardadas na sua conta e só você as vê. Você pode apagar
+          cada uma quando quiser, e elas somem ao apagar a conta.
+        </li>
+        <li>
+          <strong>Limites:</strong> o assistente não acessa bancos, não move dinheiro e não faz
+          recomendação individual de investimento.
+        </li>
+      </ul>
+      <p>
+        Respostas de inteligência artificial podem conter erros. Confira antes de decidir. Para
+        retirar a autorização, use Configurações: nada mais é enviado a partir daí.
       </p>
 
       <h2>Quem vê seus dados</h2>
@@ -96,11 +147,11 @@ export default function PrivacyPage() {
           texto da mensagem, que nos convites traz o nome de quem convidou e o da família. Dados
           financeiros não vão nesses e-mails. Esses dados podem ser tratados fora do Brasil.
         </li>
+        <li>
+          Anthropic, que opera o assistente com inteligência artificial, só para as famílias que o
+          ativarem. Os dados são tratados nos Estados Unidos.
+        </li>
       </ul>
-      <p>
-        Hoje o sistema não envia seus dados para serviços de inteligência artificial. Se isso mudar,
-        esta política será atualizada e você será avisado antes.
-      </p>
 
       <h2>Cookies</h2>
       <p>

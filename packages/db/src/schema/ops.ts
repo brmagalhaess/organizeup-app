@@ -5,6 +5,7 @@ import {
   date,
   integer,
   jsonb,
+  numeric,
   pgSchema,
   primaryKey,
   text,
@@ -110,6 +111,23 @@ export const platformStats = opsSchema.table("platform_stats", {
   useRetirement: integer("use_retirement").notNull().default(0),
   computedAt: ts("computed_at").notNull().defaultNow(),
 });
+
+/** Somas do uso de IA por dia e rota, sem família. Daqui sai o gasto do mês contra o teto. */
+export const aiStats = opsSchema.table(
+  "ai_stats",
+  {
+    day: date("day", { mode: "string" }).notNull(),
+    route: text("route").notNull(),
+    calls: integer("calls").notNull().default(0),
+    inputTokens: bigint("input_tokens", { mode: "number" }).notNull().default(0),
+    outputTokens: bigint("output_tokens", { mode: "number" }).notNull().default(0),
+    cacheReadTokens: bigint("cache_read_tokens", { mode: "number" }).notNull().default(0),
+    cacheWriteTokens: bigint("cache_write_tokens", { mode: "number" }).notNull().default(0),
+    costUsd: numeric("cost_usd", { precision: 14, scale: 6 }).notNull().default("0"),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.day, t.route] })],
+);
 
 /** Contagens diárias do agente de categorização, sem família nem descrição. */
 export const categorizationStats = opsSchema.table("categorization_stats", {

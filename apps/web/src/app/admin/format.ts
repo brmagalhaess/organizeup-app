@@ -9,7 +9,10 @@ const dateTimeFormat = new Intl.DateTimeFormat("pt-BR", {
 });
 const numberFormat = new Intl.NumberFormat("pt-BR");
 
+const usdFormat = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD" });
+
 export const formatCount = (value: number) => numberFormat.format(value);
+export const formatUsd = (value: number) => usdFormat.format(value);
 export const formatDate = (value: Date) => dateFormat.format(value);
 export const formatDateTime = (value: Date) => dateTimeFormat.format(value);
 

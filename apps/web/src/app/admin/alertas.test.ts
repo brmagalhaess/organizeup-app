@@ -33,6 +33,16 @@ describe("alertas do painel", () => {
     ).toEqual(["agente:metas", "worker", "manutencao"]);
   });
 
+  it("teto de IA: avisa perto e alerta ao bater", () => {
+    const at = (spentUsd: number) =>
+      buildAlerts({ ...quiet, aiSpend: { spentUsd, budgetUsd: 50, reached: spentUsd >= 50 } }).map(
+        (alert) => alert.key,
+      );
+    expect(at(10)).toEqual([]);
+    expect(at(40)).toEqual(["ia:perto"]);
+    expect(at(50)).toEqual(["ia:teto"]);
+  });
+
   it("sem worker nenhum também avisa", () => {
     expect(keys({ workers: [] })).toEqual(["worker"]);
   });

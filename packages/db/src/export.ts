@@ -2,7 +2,10 @@
 // Tabela nova com household_id entra aqui; o teste de integração falha se faltar alguma.
 import {
   accounts,
+  aiUsage,
   assets,
+  assistantMessages,
+  assistantThreads,
   auditLog,
   calendarEvents,
   cardPurchases,
@@ -74,10 +77,16 @@ const HOUSEHOLD_TABLES = {
   goals,
   goal_contributions: goalContributions,
   household_suggestions: householdSuggestions,
+  assistant_threads: assistantThreads,
+  assistant_messages: assistantMessages,
+  ai_usage: aiUsage,
   audit_log: auditLog,
 };
 
-/** Tudo o que a RLS deixa o contexto ler. A auditoria só aparece para o responsável. */
+/**
+ * Tudo o que a RLS deixa o contexto ler. A auditoria só aparece para o responsável, e as conversas
+ * com o assistente, só para quem conversou.
+ */
 export async function exportHousehold(tx: TenantTx): Promise<Record<string, unknown[]>> {
   const out: Record<string, unknown[]> = {};
   for (const [name, table] of Object.entries(HOUSEHOLD_TABLES)) {

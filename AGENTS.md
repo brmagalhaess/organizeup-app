@@ -17,6 +17,7 @@ Plano completo e fases: `docs/plano-mestre.md`. Decisões: `docs/adr/`.
 | `packages/db`     | Schema Drizzle, migrações SQL, RLS, `withHousehold`, Ops helpers, migrador                       |
 | `packages/domain` | Regras financeiras puras (decimal.js). Sem I/O                                                   |
 | `packages/agents` | Agentes diários do produto: leem e gravam dentro do tx da família; usados pelo worker e pela web |
+| `packages/ai`     | Assistente com IA: cliente, teto, instruções, ferramentas e loop. Só no servidor (ADR-0018)      |
 | `docs/`           | ADRs, runbooks, custos, plano-mestre, specs                                                      |
 | `paperclip/`      | Instruções da equipe de agentes do Paperclip. **Risco alto**                                     |
 | `.github/`        | Lista de risco por caminho (CI desligado). **Risco alto**                                        |
@@ -61,7 +62,7 @@ produção sozinho. Nunca crie nada no Dokploy `2.24.94.160` sem pedido do funda
    sobrescreve todos os dias, e o relatório diário diz o que mudou. Toda alteração automática fica em
    `household_suggestions` com `status = 'aplicada'`, `applied_by = 'agente'` e o estado anterior no
    `payload`, com **Desfazer**. Desfazer bloqueia aquela alteração automática para sempre
-   (`status = 'desfeita'`). Detalhes: ADR-0015.
+   (`status = 'desfeita'`). Tool que altera dados só cria suggestion. Detalhes: ADR-0015 e ADR-0018.
 8. **Risco alto** (`.github/**`, `AGENTS.md`, `Dockerfile`, `packages/db/**`, `packages/domain/**`,
    `paperclip/**` e auth; lista completa em `.github/workflows/risk-label.yml`) só muda quando a issue pede
    explicitamente, e exige a revisão reforçada do Revisor/QA. Não espera o fundador (ADR-0015).
@@ -69,7 +70,9 @@ produção sozinho. Nunca crie nada no Dokploy `2.24.94.160` sem pedido do funda
    transação, um agente por transação; são idempotentes (rodar duas vezes no dia dá o mesmo resultado); só
    gravam dado derivado ou sugestão (regra 7); logam só id da família, agente e código do erro; para o schema
    `ops` enviam apenas contagens (`ops.agent_runs`). `DAILY_AGENTS_ENABLED=false` desliga todos. Chamada
-   externa nunca dentro de `withHousehold`: cotações rodam no job de mercado (ADR-0017).
+   externa nunca dentro de `withHousehold`: cotações rodam no job de mercado (ADR-0017), e o modelo de IA só é
+   chamado por `packages/ai`, depois de conferir consentimento e teto, com cada ferramenta na sua transação
+   curta (ADR-0018).
 
 ## Fluxo de trabalho (agentes)
 

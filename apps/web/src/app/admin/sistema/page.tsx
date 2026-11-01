@@ -1,3 +1,4 @@
+import { assistantConfigured, monthSpend } from "@organizeup/ai";
 import {
   adminMigrations,
   databaseStatus,
@@ -13,13 +14,23 @@ import { Badge, Card, EmptyState } from "@/components/ui";
 import { emailConfigured } from "@/lib/email";
 import { requireAdmin } from "@/lib/session";
 import { WORKER_STALE_MINUTES } from "../alertas";
-import { formatAge, formatCount, formatDateTime, minutesSince } from "../format";
+import { formatAge, formatCount, formatDateTime, formatUsd, minutesSince } from "../format";
 import { AdminPage, AdminTable, Tile, type Column } from "../kit";
 import { hasAdminDatabase, noteAdminAccess } from "../painel";
 
 export const metadata: Metadata = { title: "Sistema" };
 
 const shortCommit = (commit: string) => commit.slice(0, 7);
+
+/** Quanto da entrada veio do cache. Perto de zero com uso alto, o cache de prompt quebrou. */
+function cacheShare(usage: {
+  inputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}) {
+  const total = usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
+  return total === 0 ? "sem uso" : `${Math.round((usage.cacheReadTokens / total) * 100)}%`;
+}
 
 const queueColumns: Column[] = [
   { key: "name", label: "Fila", primary: true },
@@ -49,8 +60,8 @@ export default async function AdminSystemPage() {
   const session = await requireAdmin();
   await noteAdminAccess(session.user.id, "sistema:ver");
 
-  const [database, workers, queues, deployments, reports, memories, migrations] = await Promise.all(
-    [
+  const [database, workers, queues, deployments, reports, memories, migrations, spend] =
+    await Promise.all([
       databaseStatus(),
       listWorkerHeartbeats(),
       listQueueCounts(),
@@ -58,8 +69,8 @@ export default async function AdminSystemPage() {
       listReports({ limit: 10 }),
       findAgentMemories({ limit: 12 }),
       hasAdminDatabase() ? adminMigrations() : [],
-    ],
-  );
+      monthSpend(),
+    ]);
   const webCommit = process.env.APP_COMMIT ?? "dev";
   const freshest = workers[0] ? minutesSince(workers[0].lastSeenAt) : null;
   const workerOk = freshest !== null && freshest <= WORKER_STALE_MINUTES;
@@ -80,8 +91,8 @@ export default async function AdminSystemPage() {
     },
     {
       name: "Inteligência artificial",
-      where: "ou3-web e ou3-worker",
-      on: Boolean(process.env.ANTHROPIC_API_KEY),
+      where: "ou3-web",
+      on: assistantConfigured(),
       hint: "ANTHROPIC_API_KEY",
     },
   ];
@@ -107,6 +118,16 @@ export default async function AdminSystemPage() {
             </li>
           ))}
         </ul>
+        <div className="mt-2 border-t border-line pt-3 text-sm">
+          <p className="m-0 flex flex-wrap items-center justify-between gap-2 font-medium">
+            Gasto de IA no mês
+            {spend.reached ? <Badge tone="danger">Teto atingido</Badge> : null}
+          </p>
+          <p className="m-0 text-muted">
+            {formatUsd(spend.spentUsd)} de {formatUsd(spend.budgetUsd)}, em{" "}
+            {formatCount(spend.calls)} chamadas. Cache lido: {cacheShare(spend)}.
+          </p>
+        </div>
       </Card>
       <section aria-labelledby="saude">
         <h2 id="saude" className="sr-only">

@@ -1,3 +1,4 @@
+import { monthSpend } from "@organizeup/ai";
 import {
   adminAccessList,
   adminGrowth,
@@ -69,7 +70,7 @@ export default async function AdminOverviewPage() {
     );
   }
 
-  const [counts, growth, stats, runs, workers, deployments, queues, flags, recent] =
+  const [counts, growth, stats, runs, workers, deployments, queues, flags, recent, aiSpend] =
     await Promise.all([
       adminOverviewCounts({ onboardingVersion: ONBOARDING_VERSION }),
       adminGrowth(12),
@@ -80,6 +81,7 @@ export default async function AdminOverviewPage() {
       listQueueCounts(),
       platformFlags(),
       adminAccessList({ limit: 6, excludeActions: AUDIT_VISITS }),
+      monthSpend(),
     ]);
 
   const latest = stats[0] ?? null;
@@ -96,6 +98,7 @@ export default async function AdminOverviewPage() {
     maintenance: flags.maintenance,
     signupClosed: flags.signupClosed,
     allAgentsOff: flags.disabledAgents.length >= DAILY_AGENTS_INFO.length,
+    aiSpend,
   });
   const growthPoints = growth.map((week) => ({
     label: formatDayShort(week.week),

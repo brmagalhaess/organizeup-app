@@ -209,7 +209,7 @@ export interface SurplusData {
   plannedExpenses: string;
 }
 
-async function loadFiscalTables(tx: TenantTx): Promise<FiscalTable[]> {
+export async function loadFiscalTables(tx: TenantTx): Promise<FiscalTable[]> {
   const rows = await tx.select().from(fiscalParameters);
   return rows.map((row) => ({
     ...(row.params as Omit<FiscalTable, "validFrom">),

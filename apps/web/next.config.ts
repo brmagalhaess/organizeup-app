@@ -21,7 +21,12 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Monorepo: o tracing precisa enxergar a raiz para copiar os pacotes do workspace.
   outputFileTracingRoot: path.resolve(process.cwd(), "../.."),
-  transpilePackages: ["@organizeup/agents", "@organizeup/db", "@organizeup/domain"],
+  transpilePackages: [
+    "@organizeup/agents",
+    "@organizeup/ai",
+    "@organizeup/db",
+    "@organizeup/domain",
+  ],
   // pg-boss só serve ao painel do serviço, para enfileirar; fica fora do bundle.
   serverExternalPackages: ["pg-boss"],
   poweredByHeader: false,

@@ -29,8 +29,10 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import type { AssistantState } from "@organizeup/ai";
 import { skipOnboarding } from "@/app/app/(inicio)/completar/actions";
 import { dismissNotice } from "@/app/app/(painel)/sugestoes/actions";
+import { AssistantPanel } from "@/components/assistant/assistant-panel";
 import { cx } from "@/components/styles";
 import { Button, IconButton, Sheet } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
@@ -298,6 +300,7 @@ export function AppShell({
   notice = null,
   banners = [],
   pendingSuggestions,
+  assistant,
 }: {
   children: ReactNode;
   userName: string;
@@ -310,6 +313,7 @@ export function AppShell({
   notice?: ShellNotice | null;
   banners?: ShellBanner[];
   pendingSuggestions: number;
+  assistant: AssistantState;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -348,6 +352,7 @@ export function AppShell({
         </div>
       </div>
 
+      <AssistantPanel state={assistant} />
       <MobileBar onMore={() => setMenuOpen(true)} />
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu">
         <div className="-m-5 flex min-h-full flex-col gap-6 bg-pine p-5">
