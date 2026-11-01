@@ -21,6 +21,7 @@ const domain = await import("@organizeup/domain");
 const ai = await import("../src/index");
 const { fakeClient, modelMessage, textReply, toolCall } = await import("./fake-client");
 const { loadPrivacyFilter } = await import("../src/privacy");
+const { undoSuggestion } = await import("@organizeup/agents");
 
 const A = { household: "hh-ia-a", owner: "user-ia-a", viewer: "user-ia-a-viewer" };
 const B = { household: "hh-ia-b", owner: "user-ia-b" };
@@ -278,6 +279,11 @@ const INPUTS: Record<string, unknown> = {
   simular_antecipar_aposentadoria: { anos_antes: 5 },
   simular_meta: { meta: "Carro", aporte_mensal: "100.00" },
   listar_lancamentos: { mes: month },
+  criar_lembrete: { titulo: "Rever", texto: "Rever a reserva", tela: "reserva" },
+  criar_meta_rascunho: { nome: "Sofá", valor: "2000.00" },
+  sugerir_aporte: { destino: "reserva", valor_mensal: "100.00" },
+  sugerir_categoria: { busca: "MERCADO", categoria: "Outros", mes: month },
+  sugerir_data_meta: { meta: "Carro", mes: "2031-01" },
 };
 
 describe("ferramentas contra o Postgres", () => {
@@ -499,15 +505,10 @@ describe("loop da conversa", () => {
   });
 
   it("ferramenta que falha vira erro para o modelo, sem a mensagem original", async () => {
-    const boom = vi.spyOn(ai.ALL_TOOLS[0]!, "run").mockRejectedValue(new Error("detalhe interno"));
+    const tool = ai.ALL_TOOLS.find((item) => item.name === "listar_categorias")!;
+    const boom = vi.spyOn(tool, "run").mockRejectedValue(new Error("detalhe interno"));
     const privacy = await privacyOf(ownerCtx);
-    const outcome = await ai.executeTool(
-      ai.ALL_TOOLS,
-      ownerCtx,
-      privacy,
-      ai.ALL_TOOLS[0]!.name,
-      {},
-    );
+    const outcome = await ai.executeTool(ai.ALL_TOOLS, ownerCtx, privacy, tool.name, {});
     expect(outcome).toMatchObject({ ok: false, code: "tool_failed" });
     expect(outcome.content).not.toContain("detalhe interno");
     boom.mockRestore();
@@ -945,5 +946,124 @@ describe("rotina da madrugada", () => {
     const run = await ai.runNightlyInsights({ ctx: ownerCtx, client, day: "2026-09-20", limits });
     expect(run.created).toBe(0);
     await ai.deactivateAssistant(ownerCtx);
+  });
+});
+
+describe("ferramentas que organizam", () => {
+  const pending = (kind: "categoria" | "meta" | "aporte_reserva") =>
+    db.withHousehold(ownerCtx, (tx) =>
+      tx
+        .select()
+        .from(db.householdSuggestions)
+        .where(
+          db.and(
+            db.eq(db.householdSuggestions.status, "pendente"),
+            db.eq(db.householdSuggestions.kind, kind),
+          ),
+        ),
+    );
+  const wipe = () =>
+    db.withHousehold(ownerCtx, async (tx) => {
+      await tx
+        .delete(db.householdSuggestions)
+        .where(db.eq(db.householdSuggestions.agent, "assistente"));
+      await tx.delete(db.goals).where(db.eq(db.goals.name, "Carro novo"));
+    });
+  const setSource = (source: "revisar" | "familia") =>
+    db.withHousehold(ownerCtx, (tx) => tx.update(db.transactions).set({ categorySource: source }));
+  const targetName = async () => {
+    const rows = await db.withHousehold(ownerCtx, (tx) =>
+      tx
+        .select({ name: db.categories.name })
+        .from(db.categories)
+        .where(db.and(db.eq(db.categories.kind, "despesa"), db.eq(db.categories.archived, false))),
+    );
+    return rows.at(-1)!.name;
+  };
+  const assistantRows = () =>
+    db.withHousehold(ownerCtx, (tx) =>
+      tx
+        .select()
+        .from(db.householdSuggestions)
+        .where(db.eq(db.householdSuggestions.agent, "assistente")),
+    );
+
+  beforeEach(wipe);
+
+  it("a conversa recebe as ferramentas de escrita, a madrugada não", () => {
+    const names = (route: Parameters<typeof ai.apiToolsFor>[0]) =>
+      ai.apiToolsFor(route).map((tool) => tool.name);
+    expect(names(ai.CHAT_ROUTE)).toContain("sugerir_categoria");
+    expect(names(ai.NIGHT_ROUTE)).not.toContain("sugerir_categoria");
+  });
+
+  it("aporte é sempre sugestão e o valor informado não muda", async () => {
+    const before = await db.withHousehold(ownerCtx, (tx) => tx.select().from(db.emergencyFund));
+    await runTool(ownerCtx, "sugerir_aporte", { destino: "reserva", valor_mensal: "300.00" });
+    await runTool(ownerCtx, "sugerir_aporte", { destino: "reserva", valor_mensal: "300.00" });
+    expect(await pending("aporte_reserva")).toHaveLength(1);
+    expect(await db.withHousehold(ownerCtx, (tx) => tx.select().from(db.emergencyFund))).toEqual(
+      before,
+    );
+  });
+
+  it("lançamento para revisar muda na hora em Organizar, com Desfazer", async () => {
+    await setSource("revisar");
+    const outcome = await runTool(ownerCtx, "sugerir_categoria", {
+      busca: "MERCADO",
+      categoria: await targetName(),
+      mes: month,
+    });
+    expect(outcome.content).toContain('"feito":true');
+    const [row] = await assistantRows();
+    expect(row).toMatchObject({ status: "aplicada", appliedBy: "agente" });
+    const undo = await db.withHousehold(ownerCtx, (tx) => undoSuggestion(tx, ownerCtx, row!.id));
+    expect(undo.ok).toBe(true);
+  });
+
+  it("o que a família escolheu, e o nível Sugerir, só viram sugestão", async () => {
+    await setSource("familia");
+    const input = { busca: "MERCADO", categoria: await targetName(), mes: month };
+    const chosen = await runTool(ownerCtx, "sugerir_categoria", input);
+    expect(chosen.content).toContain('"feito":false');
+    await wipe();
+    await setSource("revisar");
+    await ai.setAssistantAutonomy(ownerCtx, "sugerir");
+    const level = await runTool(ownerCtx, "sugerir_categoria", input);
+    expect(level.content).toContain('"feito":false');
+    expect(await pending("categoria")).toHaveLength(1);
+  });
+
+  it("meta em rascunho só nasce sozinha no nível Completo, e Desfazer remove", async () => {
+    const input = { nome: "Carro novo", valor: "50000.00", mes: "2030-01" };
+    await runTool(ownerCtx, "criar_meta_rascunho", input);
+    expect(await pending("meta")).toHaveLength(1);
+    await wipe();
+
+    await ai.setAssistantAutonomy(ownerCtx, "completo");
+    await runTool(ownerCtx, "criar_meta_rascunho", input);
+    const goalsOf = () =>
+      db.withHousehold(ownerCtx, (tx) =>
+        tx.select().from(db.goals).where(db.eq(db.goals.name, "Carro novo")),
+      );
+    expect(await goalsOf()).toHaveLength(1);
+    const [row] = await assistantRows();
+    await db.withHousehold(ownerCtx, (tx) => undoSuggestion(tx, ownerCtx, row!.id));
+    expect(await goalsOf()).toHaveLength(0);
+  });
+
+  it("o limite por dia devolve o trabalho para sugestão", async () => {
+    await ai.setAssistantAutonomy(ownerCtx, "completo");
+    for (let index = 0; index < 5; index += 1) {
+      await runTool(ownerCtx, "criar_meta_rascunho", { nome: `Teste ${index}`, valor: "10.00" });
+    }
+    const outcome = await runTool(ownerCtx, "criar_meta_rascunho", {
+      nome: "Teste 5",
+      valor: "10.00",
+    });
+    expect(outcome.content).toContain('"feito":false');
+    await db.withHousehold(ownerCtx, (tx) =>
+      tx.delete(db.goals).where(db.sql`${db.goals.name} like 'Teste %'`),
+    );
   });
 });

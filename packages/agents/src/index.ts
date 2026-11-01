@@ -32,6 +32,7 @@ export {
   systemCategories,
 } from "./commitments";
 export { calendarMonth } from "./calendar-view";
+export { monthlyPlanView } from "./plan-view";
 export { currentDividendPlan } from "./retirement-view";
 export {
   DEFAULT_RETIREMENT_AGE,

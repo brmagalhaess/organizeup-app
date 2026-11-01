@@ -7,6 +7,7 @@ import {
   currentDividendPlan,
   loadCommitments,
   loadFiscalTables,
+  monthlyPlanView,
   reserveInputs,
 } from "@organizeup/agents";
 import {
@@ -628,6 +629,30 @@ const sugestoesPendentes = defineTool({
     }),
 });
 
+const verPlanoDoMes = defineTool({
+  name: "ver_plano_do_mes",
+  description:
+    "As três ações que mais aproximam a família da aposentadoria neste mês, com quanto cada uma antecipa em anos. Chame quando perguntarem por onde começar ou o que fazer primeiro.",
+  kind: "leitura",
+  input: noInput,
+  label: () => "olhei o seu plano do mês",
+  run: (ctx) =>
+    read(ctx, async (tx, today) => {
+      const { actions, contribution, targetYear, plan } = await monthlyPlanView(tx, today);
+      return {
+        ano_alvo: targetYear,
+        aporte_mensal: contribution,
+        ano_em_que_fecha: plan.yearWithContribution,
+        acoes: actions.map((action) => ({
+          tipo: action.kind,
+          valor_mensal: action.amount,
+          anos_a_menos: action.yearsEarlier,
+          categoria: action.category ? untrusted(action.category) : undefined,
+        })),
+      };
+    }),
+});
+
 export const READ_TOOLS = [
   listarCategorias,
   listarLancamentos,
@@ -640,6 +665,7 @@ export const READ_TOOLS = [
   verCarteira,
   verDividas,
   verPlanoAposentadoria,
+  verPlanoDoMes,
   verProventos,
   verRenda,
   verReserva,

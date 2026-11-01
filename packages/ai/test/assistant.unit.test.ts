@@ -4,6 +4,7 @@ import { aiLimits } from "../src/access";
 import { assistantConfigured, modelBaseUrl, workspaceHeaders } from "../src/client";
 import { SYSTEM_PROMPT, turnContext } from "../src/instructions";
 import { echoContent, requestParams } from "../src/loop";
+import { NIGHT_ROUTE } from "../src/insights/nightly";
 import { CHAT_ROUTE, costUsd, MODEL, PRICES, usageOf } from "../src/models";
 import { createPrivacyFilter, personLabels, untrusted } from "../src/privacy";
 import { ALL_TOOLS, apiToolsFor, toolsFor } from "../src/tools";
@@ -203,11 +204,11 @@ describe("verificação da resposta", () => {
 });
 
 describe("ferramentas", () => {
-  it("ficam em ordem de nome, sem repetir, e a conversa só lê e simula", () => {
+  it("ficam em ordem de nome, sem repetir, e a madrugada só lê e simula", () => {
     const names = ALL_TOOLS.map((tool) => tool.name);
     expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
     expect(new Set(names).size).toBe(names.length);
-    expect(toolsFor(CHAT_ROUTE).every((tool) => tool.kind !== "escrita")).toBe(true);
+    expect(toolsFor(NIGHT_ROUTE).every((tool) => tool.kind !== "escrita")).toBe(true);
   });
 
   it("todo esquema é estrito e só usa o que a API aceita", () => {
@@ -226,7 +227,7 @@ describe("ferramentas", () => {
   it("descrição de ferramenta e rótulo não falam em agente", () => {
     for (const tool of ALL_TOOLS) {
       const label = (tool.label as (input: unknown) => string)({});
-      expect(label).toMatch(/^(olhei|simulei) /);
+      expect(label).toMatch(/^(olhei|simulei|organizei|deixei|preparei|criei) /);
       expect(`${label} ${tool.description}`.toLowerCase()).not.toContain("agente");
     }
   });

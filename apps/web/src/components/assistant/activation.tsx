@@ -59,10 +59,7 @@ export function Activation({ headingId }: { headingId: string }) {
             </span>
           </label>
         ))}
-        <p className="m-0 text-xs text-muted">
-          Por enquanto ele só lê e simula. Sua escolha passa a valer quando as próximas funções
-          chegarem, e dá para mudar em Configurações.
-        </p>
+        <p className="m-0 text-xs text-muted">Dá para mudar quando quiser em Configurações.</p>
       </fieldset>
 
       <label className="flex cursor-pointer items-start gap-3 text-sm">

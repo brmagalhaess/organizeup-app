@@ -109,6 +109,14 @@ export const metaPayloadSchema = z.object({
   extraMonthly: amountSchema.nullable(),
   /** Data desejada anterior, preenchida ao aplicar, para desfazer. */
   previousDesiredMonth: yearMonthSchema.nullable().optional(),
+  /** Meta nova em rascunho, proposta pelo assistente. `goalId` só vale depois de aplicar. */
+  draft: z
+    .object({
+      name: z.string().min(1).max(80),
+      targetAmount: amountSchema,
+      desiredMonth: yearMonthSchema.nullable(),
+    })
+    .optional(),
 });
 
 export const linkPayloadSchema = z.object({
@@ -217,6 +225,7 @@ export const DEDUPE = {
   aporteInvestimento: (month: string) => `aporte_investimento:${month}`,
   viagem: (destinationId: string, year: number | string) => `viagem:${destinationId}:${year}`,
   meta: (goalId: string, month: string) => `meta:${goalId}:${month}`,
+  metaNova: (name: string) => `meta:nova:${name}`,
   investimentoPreco: (investmentId: string, month: string) =>
     `investimento:preco:${investmentId}:${month}`,
   investimentoClasse: (assetClass: string, month: string) =>

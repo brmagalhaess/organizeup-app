@@ -107,7 +107,7 @@ export async function applySuggestion(
       outcome = await applyViagem(tx, ctx, payload as SuggestionPayload["viagem"]);
       break;
     case "meta":
-      outcome = await applyMeta(tx, payload as SuggestionPayload["meta"]);
+      outcome = await applyMeta(tx, ctx, payload as SuggestionPayload["meta"]);
       break;
     case "aporte_divida":
       outcome = { message: "Combinado: o pagamento extra você registra na tela de dívidas." };
@@ -605,8 +605,27 @@ async function undoViagem(
 
 async function applyMeta(
   tx: TenantTx,
+  ctx: TenantContext,
   payload: SuggestionPayload["meta"],
 ): Promise<{ message: string; payload: Record<string, unknown> } | { error: string }> {
+  if (payload.draft) {
+    const [created] = await tx
+      .insert(goals)
+      .values({
+        householdId: ctx.householdId,
+        name: payload.draft.name,
+        kind: "outro",
+        targetAmount: payload.draft.targetAmount,
+        desiredMonth: payload.draft.desiredMonth,
+        createdBy: ctx.userId,
+      })
+      .returning({ id: goals.id });
+    await recordAudit(tx, ctx, "create", "goals", created!.id);
+    return {
+      message: `Meta ${payload.draft.name} criada. Ajuste os detalhes em Metas.`,
+      payload: { ...payload, goalId: created!.id },
+    };
+  }
   const [goal] = await tx
     .select({ id: goals.id, desiredMonth: goals.desiredMonth })
     .from(goals)
@@ -631,6 +650,14 @@ async function undoMeta(
   tx: TenantTx,
   payload: SuggestionPayload["meta"],
 ): Promise<{ message: string } | { error: string }> {
+  if (payload.draft) {
+    const removed = await tx
+      .delete(goals)
+      .where(and(eq(goals.id, payload.goalId), eq(goals.saved, "0")))
+      .returning({ id: goals.id });
+    if (removed.length === 0) return { error: "A meta já recebeu valores; nada foi desfeito." };
+    return { message: "Meta removida." };
+  }
   if (payload.previousDesiredMonth === undefined || payload.proposedMonth === null)
     return { message: "Desfeito." };
   const updated = await tx

@@ -41,7 +41,15 @@ export {
   type AssistantEvent,
   type ChatTurnInput,
 } from "./loop";
-export { CHAT_ROUTE, costUsd, MODEL, PRICES, usageOf, type ModelUsage } from "./models";
+export {
+  CHAT_ROUTE,
+  costUsd,
+  MODEL,
+  PRICES,
+  usageOf,
+  type AiRoute,
+  type ModelUsage,
+} from "./models";
 export { createPrivacyFilter, personLabels, type PrivacyFilter } from "./privacy";
 export {
   deleteThread,

@@ -105,5 +105,5 @@ export const CHAT_ROUTE: AiRoute = {
   effort: "medium",
   maxTokens: 16_000,
   maxIterations: 8,
-  toolKinds: ["leitura", "simulacao"],
+  toolKinds: ["leitura", "simulacao", "escrita"],
 };

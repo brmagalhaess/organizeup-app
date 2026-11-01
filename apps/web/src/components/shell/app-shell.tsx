@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   BadgeDollarSign,
   CalendarDays,
+  Compass,
   CreditCard,
   Gem,
   HandCoins,
@@ -66,6 +67,7 @@ const groups: Array<{ title: string; items: NavItem[] }> = [
     title: "Dia a dia",
     items: [
       { href: "/app", label: "Painel", icon: LayoutDashboard },
+      { href: "/app/plano", label: "Seu plano", icon: Compass },
       { href: SUGGESTIONS_HREF, label: "Sugestões", icon: Sparkles },
       { href: "/app/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
       { href: "/app/calendario", label: "Calendário", icon: CalendarDays },

@@ -76,8 +76,9 @@ Exposição real por **MCP**:
 | Organizar | Padrão. Categoriza, junta categorias, ajusta plano de metas, cria lembretes, tudo com Desfazer.                                         |
 | Completo  | Também cria meta e viagem em rascunho e ajusta a divisão do que sobra dentro de limites. Mudar valor informado continua sendo sugestão. |
 
-Cada ação guarda motivo, estado anterior e origem. Limite de ações por dia. Falha de verificação
-rebaixa para sugestão.
+Cada ação guarda motivo, estado anterior e origem. Limite de 5 ações sozinhas por dia. Falha de
+verificação rebaixa para sugestão. Viagem em rascunho continua pelo agente de viagens: por enquanto, o
+assistente cria só meta.
 
 ## 5. Orquestração noturna
 

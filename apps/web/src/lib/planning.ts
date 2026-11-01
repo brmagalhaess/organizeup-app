@@ -1,5 +1,5 @@
 import "server-only";
-import { currentDividendPlan } from "@organizeup/agents";
+import { currentDividendPlan, monthlyPlanView } from "@organizeup/agents";
 import {
   asc,
   householdTimezone,
@@ -23,6 +23,15 @@ import {
 } from "@organizeup/domain";
 
 /** Plano de viver dos rendimentos, recalculado a cada leitura. */
+/** Tela Seu plano: as ações do mês e o ano em que a carteira fecha. */
+export async function loadMonthlyPlan(ctx: TenantContext) {
+  return withHousehold(ctx, async (tx) => {
+    const today = todayIn(await householdTimezone(tx, ctx.householdId));
+    const { actions, plan, targetYear } = await monthlyPlanView(tx, today);
+    return { actions, targetYear, year: plan.yearWithContribution };
+  });
+}
+
 export async function loadDividendPlan(ctx: TenantContext) {
   return withHousehold(ctx, async (tx) => {
     const today = todayIn(await householdTimezone(tx, ctx.householdId));

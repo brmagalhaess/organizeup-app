@@ -49,12 +49,12 @@ export const AUTONOMY_OPTIONS = [
   {
     value: "organizar",
     label: "Organizar",
-    text: "Também categoriza, ajusta o plano das metas e cria lembretes, sempre com Desfazer.",
+    text: "Também arruma sozinho o que ficou para revisar, sempre com Desfazer.",
   },
   {
     value: "completo",
     label: "Completo",
-    text: "Também cria metas e viagens em rascunho. Valor que você informou continua sendo sugestão.",
+    text: "Também cria metas em rascunho. Valor que você informou continua sendo sugestão.",
   },
 ] as const;
 

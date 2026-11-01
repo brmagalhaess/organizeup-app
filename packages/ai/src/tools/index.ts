@@ -3,14 +3,15 @@ import type { TenantContext } from "@organizeup/db";
 import { z } from "zod";
 import type { AiRoute } from "../models";
 import type { PrivacyFilter } from "../privacy";
+import { WRITE_TOOLS } from "./escrita";
 import { READ_TOOLS } from "./leitura";
 import { toApiTool, type AssistantTool } from "./registry";
 import { SIMULATION_TOOLS } from "./simulacao";
 
 export { defineTool, toApiTool, type AssistantTool } from "./registry";
 
-export const ALL_TOOLS: AssistantTool[] = [...READ_TOOLS, ...SIMULATION_TOOLS].sort((a, b) =>
-  a.name.localeCompare(b.name),
+export const ALL_TOOLS: AssistantTool[] = [...READ_TOOLS, ...SIMULATION_TOOLS, ...WRITE_TOOLS].sort(
+  (a, b) => a.name.localeCompare(b.name),
 );
 
 export const toolsFor = (route: Pick<AiRoute, "toolKinds">) =>
