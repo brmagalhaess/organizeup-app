@@ -1,6 +1,11 @@
 // Impressão digital e limpeza dos diagnósticos: a mensagem do erro nunca sai daqui.
 import { describe, expect, it, vi } from "vitest";
-import { captureError, describeError, normalizeRoute } from "../src/diagnostics";
+import {
+  captureError,
+  describeClientError,
+  describeError,
+  normalizeRoute,
+} from "../src/diagnostics";
 
 const origin = {
   service: "web",
@@ -141,10 +146,20 @@ describe("rota normalizada", () => {
     ["/app/metas/3f2c8a10-1111-2222-3333-444455556666", "/app/metas/[id]"],
     ["/convite/abc123/aceitar", "/convite/[id]/aceitar"],
     ["/admin/usuarios/ana@example.com", "/admin/usuarios/[id]"],
-    ["/app/Ana Silva/1234", "/app/[id]/[id]"],
+    ["/app/pessoa-ficticia/1234", "/desconhecida"],
+    ["/caminho-ficticio", "/desconhecida"],
+    ["/app/pessoa-ficticia", "/desconhecida"],
+    ["/app/metas/pessoa-ficticia", "/app/metas/[id]"],
+    ["/app/metas/[pessoa-ficticia]", "/app/metas/[id]"],
+    ["/api/auth/qualquer/texto-ficticio", "/api/auth/[...all]"],
+    ["job:pessoa-ficticia", "/desconhecida"],
+    ["agente:pessoa-ficticia", "/desconhecida"],
+    ["acao:pessoa_ficticia", "/desconhecida"],
     ["/", "/"],
     ["job:market-data", "job:market-data"],
     ["agente:metas", "agente:metas"],
+    ["agente:dicas", "agente:dicas"],
+    ["acao:goal_replan_failed", "acao:goal_replan_failed"],
     ["ana@example.com", "/desconhecida"],
     ["job:Ana Silva", "/desconhecida"],
   ])("%s vira %s", (route, expected) => {
@@ -164,5 +179,19 @@ describe("registro", () => {
     }
     expect(JSON.stringify(log.mock.calls)).not.toContain("ana@example.com");
     log.mockRestore();
+  });
+});
+
+describe("rota do navegador", () => {
+  it.each([
+    ["/app/pessoa-ficticia?busca=texto#fragmento", "/desconhecida"],
+    ["/app/metas/[pessoa-ficticia]", "/app/metas/[id]"],
+    ["/app/metas/pessoa-ficticia", "/app/metas/[id]"],
+    ["/app/metas?busca=texto#fragmento", "/app/metas"],
+    ["job:market-data", "/desconhecida"],
+    ["agente:metas", "/desconhecida"],
+    ["acao:goal_replan_failed", "/desconhecida"],
+  ])("%s só entrega %s", (route, expected) => {
+    expect(describeClientError("a".repeat(32), route).route).toBe(expected);
   });
 });
