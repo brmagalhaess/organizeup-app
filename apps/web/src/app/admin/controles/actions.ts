@@ -52,6 +52,23 @@ export async function setSignup(form: FormData): Promise<AdminResult> {
   });
 }
 
+export async function setAssistant(form: FormData): Promise<AdminResult> {
+  const session = await requireAdmin();
+  const on = form.get("enabled") === "true";
+  return runAdminAction("admin_ai_failed", async () => {
+    await adminSetFlag(
+      { adminUserId: session.user.id },
+      {
+        key: FLAG_KEYS.ai,
+        enabled: on,
+        action: on ? "controle:ia_ligar" : "controle:ia_desligar",
+      },
+    );
+    refresh();
+    return done(on ? "Assistente ligado." : "Assistente desligado.");
+  });
+}
+
 /** Sem fuso no campo: o horário digitado é o de Brasília. */
 const brasilia = (value: string) => new Date(`${value}:00-03:00`);
 

@@ -28,6 +28,34 @@ interface Input {
   maintenance: boolean;
   signupClosed: boolean;
   allAgentsOff: boolean;
+  /** Gasto de IA do mês contra o teto. */
+  aiSpend?: { spentUsd: number; budgetUsd: number; reached: boolean };
+}
+
+/** A partir daqui o painel já avisa, antes de o assistente parar sozinho. */
+const AI_WARNING_SHARE = 0.8;
+
+function aiAlert({ aiSpend }: Input): AdminAlert | null {
+  if (!aiSpend) return null;
+  const { spentUsd, budgetUsd, reached } = aiSpend;
+  const dollars = (value: number) => `US$ ${value.toFixed(2)}`;
+  if (reached) {
+    return {
+      key: "ia:teto",
+      tone: "danger",
+      title: "Assistente parado: teto do mês atingido",
+      text: `Gastou ${dollars(spentUsd)} de ${dollars(budgetUsd)}. Volta sozinho no próximo mês, ou suba AI_MONTHLY_BUDGET_USD.`,
+      href: "/admin/sistema",
+    };
+  }
+  if (spentUsd < budgetUsd * AI_WARNING_SHARE) return null;
+  return {
+    key: "ia:perto",
+    tone: "warning",
+    title: "Assistente perto do teto do mês",
+    text: `Gastou ${dollars(spentUsd)} de ${dollars(budgetUsd)}.`,
+    href: "/admin/sistema",
+  };
 }
 
 const minutesAgo = (from: Date, now: Date) => Math.floor((now.getTime() - from.getTime()) / 60_000);
@@ -105,6 +133,8 @@ export function buildAlerts(input: Input): AdminAlert[] {
   if (worker) alerts.push(worker);
   const deploy = deployAlert(input);
   if (deploy) alerts.push(deploy);
+  const ai = aiAlert(input);
+  if (ai) alerts.push(ai);
   const failedJobs = input.queues.reduce((total, queue) => total + queue.failed, 0);
   if (failedJobs > 0) {
     alerts.push({

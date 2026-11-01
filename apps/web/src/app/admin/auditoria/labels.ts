@@ -29,6 +29,8 @@ const LABELS: Record<string, string> = {
   "controle:cadastro_abrir": "Abriu o cadastro",
   "controle:aviso_criar": "Publicou um aviso",
   "controle:aviso_remover": "Removeu um aviso",
+  "controle:ia_ligar": "Ligou o assistente com IA",
+  "controle:ia_desligar": "Desligou o assistente com IA",
   "auditoria:ver": "Abriu a auditoria",
   "auditoria:busca": "Filtrou a auditoria",
 };

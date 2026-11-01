@@ -1,12 +1,13 @@
+import { monthSpend } from "@organizeup/ai";
 import type { PlatformNotice } from "@organizeup/db";
 import type { Metadata } from "next";
 import { Badge, Card, EmptyState, Field, FormMessage, Input } from "@/components/ui";
 import { platformFlags, requireAdmin } from "@/lib/session";
 import { ConfirmAction } from "../admin-actions";
-import { formatDateTime } from "../format";
+import { formatDateTime, formatUsd } from "../format";
 import { AdminPage } from "../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../painel";
-import { removeNotice, setMaintenance, setSignup } from "./actions";
+import { removeNotice, setAssistant, setMaintenance, setSignup } from "./actions";
 import { NoticeForm } from "./notice-form";
 
 export const metadata: Metadata = { title: "Controles" };
@@ -27,7 +28,7 @@ const moment = (iso: string | null, empty: string) => (iso ? formatDateTime(new 
 export default async function AdminControlsPage() {
   const session = await requireAdmin();
   await noteAdminAccess(session.user.id, "controles:ver");
-  const flags = await platformFlags();
+  const [flags, spend] = await Promise.all([platformFlags(), monthSpend()]);
 
   return (
     <AdminPage
@@ -104,6 +105,45 @@ export default async function AdminControlsPage() {
                 title="Fechar o cadastro"
                 text="A tela de cadastro passa a dizer que está fechado. Convidados ainda conseguem entrar."
                 confirmLabel="Fechar"
+              />
+            )}
+          </div>
+        </Card>
+
+        <Card
+          title="Assistente com IA"
+          description="Desligado, nenhuma família fala com o modelo. Ao bater o teto do mês, ele para sozinho."
+          actions={
+            !flags.aiEnabled ? (
+              <Badge tone="warning">Desligado</Badge>
+            ) : spend.reached ? (
+              <Badge tone="danger">Teto atingido</Badge>
+            ) : (
+              <Badge tone="success">Ligado</Badge>
+            )
+          }
+        >
+          <p className="mb-3 text-sm text-muted">
+            Gasto do mês: {formatUsd(spend.spentUsd)} de {formatUsd(spend.budgetUsd)}.
+          </p>
+          <div className="flex">
+            {flags.aiEnabled ? (
+              <ConfirmAction
+                label="Desligar assistente"
+                action={setAssistant}
+                hidden={{ enabled: "false" }}
+                title="Desligar o assistente"
+                text="As famílias veem que ele está desligado por enquanto. O resto do sistema segue igual."
+                confirmLabel="Desligar"
+              />
+            ) : (
+              <ConfirmAction
+                label="Ligar assistente"
+                action={setAssistant}
+                hidden={{ enabled: "true" }}
+                title="Ligar o assistente"
+                text="Volta para as famílias que autorizaram, enquanto o teto do mês não for atingido."
+                confirmLabel="Ligar"
               />
             )}
           </div>
