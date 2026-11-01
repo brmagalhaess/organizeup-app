@@ -22,7 +22,17 @@ function withCredentials(ownerUrl: string, user: string, password: string): stri
   return url.toString();
 }
 
+/**
+ * O embedded-postgres registra um gancho que encerra com `process.exit(0)` e apagaria o código de falha
+ * do Vitest: teste vermelho sairia como sucesso, e o `pnpm check` passaria. Vale o `exitCode` já marcado.
+ */
+function keepFailureExitCode() {
+  const exit = process.exit.bind(process);
+  process.exit = ((code?: number) => exit(code || process.exitCode)) as typeof process.exit;
+}
+
 export async function setup(project: TestProject) {
+  keepFailureExitCode();
   let ownerUrl = process.env.TEST_DATABASE_OWNER_URL;
   if (!ownerUrl) {
     local = await startLocalPostgres({

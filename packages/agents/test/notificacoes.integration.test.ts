@@ -238,10 +238,27 @@ describe("o que muda sozinho", () => {
     expect(await suggestions(family)).toEqual([]);
   });
 
-  it("junta categorias quase iguais com registro, aviso e Desfazer", async () => {
+  it("categoria com lançamento escolhido pela família não é fundida", async () => {
     await addCategory(family, "Mercado da semana");
     const [id] = await seed(family, [
       { description: "COMPRA X", category: "Mercado da semana", amount: "12.50" },
+      { description: "COMPRA Y", category: "Mercado", amount: "1.00" },
+      { description: "COMPRA Z", category: "Mercado", amount: "1.00" },
+    ]);
+    const kept = await inFamily(family, (tx) => categoryId(tx, "Mercado da semana"));
+    expect((await runRules(family)).applied).toBe(0);
+    expect((await rowOf(family, id!)).categoryId).toBe(kept);
+  });
+
+  it("junta categorias quase iguais com registro, aviso e Desfazer", async () => {
+    await addCategory(family, "Mercado da semana");
+    const [id] = await seed(family, [
+      {
+        description: "COMPRA X",
+        category: "Mercado da semana",
+        amount: "12.50",
+        source: "importacao",
+      },
       { description: "COMPRA Y", category: "Mercado", amount: "1.00" },
       { description: "COMPRA Z", category: "Mercado", amount: "1.00" },
     ]);
@@ -512,7 +529,7 @@ describe("pendentes de antes da decisão", () => {
   it("fusão pendente é aplicada, e a que perdeu o par fecha", async () => {
     const small = await addCategory(family, "Mercado da semana");
     const [id] = await seed(family, [
-      { description: "COMPRA X", category: "Mercado da semana" },
+      { description: "COMPRA X", category: "Mercado da semana", source: "importacao" },
       { description: "COMPRA Y", category: "Mercado" },
       { description: "COMPRA Z", category: "Mercado" },
     ]);

@@ -143,8 +143,7 @@ previstos no calendário. Retentativa automática e fila morta no pg-boss.
 ## Riscos aceitos
 
 - **Alteração automática de categoria.** Desde 2026-11-01 alcança o que a própria família deixou em categoria
-  genérica, e fusão junta categorias que a família criou de propósito, como "Transporte" e "Transporte escolar",
-  levando lançamentos escolhidos por ela. Pode errar. Mitigação: cada mudança aparece em Notificações, com o antes e o
+  genérica. Fusão só acontece quando a categoria de origem não tem lançamento escolhido pela família. Pode errar. Mitigação: cada mudança aparece em Notificações, com o antes e o
   depois, e em "O que o assistente fez sozinho" por 7 dias, com Desfazer, e o que foi desfeito não volta.
 - **Merge sem humano em qualquer risco.** Sem CI e sem proteção de branch, um erro em banco, regra financeira,
   login ou nas instruções dos próprios agentes vai para produção sozinho, e pode expor ou corromper dados de

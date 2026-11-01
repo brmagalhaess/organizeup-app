@@ -362,6 +362,16 @@ async function rememberAsAgent(
 
 // ---------- fusão de categorias ----------
 
+/** Categoria com lançamento que a família escolheu não é fundida: a escolha dela não muda sozinha. */
+async function chosenByFamily(tx: TenantTx, categoryId: string): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(and(eq(transactions.categoryId, categoryId), eq(transactions.categorySource, "familia")))
+    .limit(1);
+  return row !== undefined;
+}
+
 /** Par que o agente pode juntar: dois lados ativos, do mesmo tipo, fora do sistema e não desfeito. */
 function mergeAllowed(
   from: CategoryRow | undefined,
@@ -473,6 +483,7 @@ async function applyMerges(
     const from = byId.get(merge.fromCategoryId);
     const to = byId.get(merge.toCategoryId);
     if (!mergeAllowed(from, to, decisions)) continue;
+    if (await chosenByFamily(tx, from!.id)) continue;
     if (await applyMerge(tx, scope, from!, to!, merge.reason)) done += 1;
   }
   return done;
@@ -596,7 +607,11 @@ async function resolvePendingMerge(
   const parsed = fusaoCategoriaPayloadSchema.safeParse(row.payload);
   const from = categoryRows.find((c) => c.id === parsed.data?.fromCategoryId);
   const to = categoryRows.find((c) => c.id === parsed.data?.toCategoryId);
-  if (parsed.success && mergeAllowed(from, to, decisions)) {
+  if (
+    parsed.success &&
+    mergeAllowed(from, to, decisions) &&
+    !(await chosenByFamily(tx, from!.id))
+  ) {
     const merged = await applyMerge(
       tx,
       { ...scope, pendingId: row.id },
