@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Badge, Button, ConfirmSheet, FormMessage } from "@/components/ui";
 import { removeAllMemories, removeMemory } from "./actions";
@@ -18,6 +19,8 @@ export function MemoryList({
   memories: MemoryView[];
   canDelete: boolean;
 }) {
+  const t = useTranslations("settings.memories");
+  const tCommon = useTranslations("common");
   const [target, setTarget] = useState<MemoryView | null>(null);
   const [clearing, setClearing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -37,7 +40,7 @@ export function MemoryList({
           >
             <div className="flex flex-wrap items-center gap-2">
               <Badge>{memory.kind}</Badge>
-              {memory.expired ? <Badge>Vencida</Badge> : null}
+              {memory.expired ? <Badge>{t("expired")}</Badge> : null}
               <span className="text-xs text-muted">{memory.createdOn}</span>
             </div>
             <p className="m-0 break-words">{memory.content}</p>
@@ -46,10 +49,10 @@ export function MemoryList({
                 variant="secondary"
                 small
                 className="self-start"
-                aria-label={`Apagar a anotação: ${memory.content}`}
+                aria-label={t("deleteLabel", { content: memory.content })}
                 onClick={() => setTarget(memory)}
               >
-                Apagar
+                {tCommon("delete")}
               </Button>
             ) : null}
           </li>
@@ -58,26 +61,26 @@ export function MemoryList({
       <FormMessage message={message} />
       {canDelete ? (
         <Button variant="secondary" small className="self-start" onClick={() => setClearing(true)}>
-          Apagar tudo
+          {t("clearConfirm")}
         </Button>
       ) : (
-        <p className="m-0 text-sm text-muted">Só adultos da família podem apagar as anotações.</p>
+        <p className="m-0 text-sm text-muted">{t("readOnly")}</p>
       )}
       <ConfirmSheet
         open={target !== null}
         onClose={() => setTarget(null)}
-        title="Apagar esta anotação?"
-        text="O assistente deixa de usar essa anotação, e ela não pode ser recuperada."
-        confirmLabel="Apagar"
+        title={t("deleteTitle")}
+        text={t("deleteText")}
+        confirmLabel={tCommon("delete")}
         hidden={{ id: target?.id ?? "" }}
         action={(form) => run(() => removeMemory(String(form.get("id") ?? "")))}
       />
       <ConfirmSheet
         open={clearing}
         onClose={() => setClearing(false)}
-        title="Apagar todas as anotações?"
-        text="O assistente esquece tudo o que foi anotado sobre a família. Isso não pode ser desfeito."
-        confirmLabel="Apagar tudo"
+        title={t("clearTitle")}
+        text={t("clearText")}
+        confirmLabel={t("clearConfirm")}
         hidden={{}}
         action={() => run(removeAllMemories)}
       />

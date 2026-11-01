@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { updatePlan, updateSettings, type ActionState } from "@/app/app/actions";
 import { Button, Field, FormMessage, Input, Select, submitKeeping } from "@/components/ui";
@@ -7,15 +8,15 @@ const initial: ActionState = { ok: false, message: null };
 
 // Fusos do Brasil (IANA). O banco aceita qualquer fuso válido.
 const BR_TIMEZONES = [
-  ["America/Sao_Paulo", "Brasília (BRT)"],
-  ["America/Manaus", "Amazonas (AMT)"],
-  ["America/Cuiaba", "Mato Grosso (AMT)"],
-  ["America/Porto_Velho", "Rondônia (AMT)"],
-  ["America/Boa_Vista", "Roraima (AMT)"],
-  ["America/Rio_Branco", "Acre (ACT)"],
-  ["America/Noronha", "Fernando de Noronha"],
-  ["America/Fortaleza", "Nordeste (BRT)"],
-  ["America/Belem", "Pará/Amapá (BRT)"],
+  ["America/Sao_Paulo", "brasilia"],
+  ["America/Manaus", "amazonas"],
+  ["America/Cuiaba", "matoGrosso"],
+  ["America/Porto_Velho", "rondonia"],
+  ["America/Boa_Vista", "roraima"],
+  ["America/Rio_Branco", "acre"],
+  ["America/Noronha", "noronha"],
+  ["America/Fortaleza", "nordeste"],
+  ["America/Belem", "para"],
 ] as const;
 
 export function SettingsForm({
@@ -25,33 +26,35 @@ export function SettingsForm({
   initial: { city: string; state: string; timezone: string };
   disabled: boolean;
 }) {
+  const t = useTranslations("settings");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(updateSettings, initial);
   return (
     <form action={action} className="flex flex-col gap-4">
       <fieldset disabled={disabled} className="contents">
         <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-3">
-          <Field label="Cidade" error={state.fieldErrors?.city}>
+          <Field label={t("home.city")} error={state.fieldErrors?.city}>
             <Input name="city" defaultValue={values.city} maxLength={80} />
           </Field>
-          <Field label="UF" error={state.fieldErrors?.state}>
+          <Field label={t("home.state")} error={state.fieldErrors?.state}>
             <Input name="state" defaultValue={values.state} maxLength={2} className="uppercase" />
           </Field>
         </div>
         <Field
-          label="Fuso horário"
-          hint="Define o que é “hoje” nos vencimentos."
+          label={t("home.timezone")}
+          hint={t("home.timezoneHint")}
           error={state.fieldErrors?.timezone}
         >
           <Select name="timezone" defaultValue={values.timezone}>
             {BR_TIMEZONES.map(([id, label]) => (
               <option key={id} value={id}>
-                {label}
+                {t(`timezones.${label}`)}
               </option>
             ))}
           </Select>
         </Field>
         <Button type="submit" disabled={pending || disabled}>
-          {pending ? "Salvando…" : "Salvar configurações"}
+          {pending ? tCommon("saving") : t("home.save")}
         </Button>
       </fieldset>
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
@@ -66,11 +69,13 @@ export function PlanForm({
   values: { retirementYear: number | null; tripsPerYear: number; tripDays: number | null };
   disabled: boolean;
 }) {
+  const t = useTranslations("settings.plan");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(updatePlan, initial);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <fieldset disabled={disabled} className="contents">
-        <Field label="Ano em que querem parar" error={state.fieldErrors?.retirementYear}>
+        <Field label={t("retirementYear")} error={state.fieldErrors?.retirementYear}>
           <Input
             name="retirementYear"
             type="number"
@@ -81,7 +86,7 @@ export function PlanForm({
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Viagens por ano" error={state.fieldErrors?.tripsPerYear}>
+          <Field label={t("tripsPerYear")} error={state.fieldErrors?.tripsPerYear}>
             <Input
               name="tripsPerYear"
               type="number"
@@ -91,7 +96,7 @@ export function PlanForm({
               defaultValue={values.tripsPerYear}
             />
           </Field>
-          <Field label="Dias de cada viagem" error={state.fieldErrors?.tripDays}>
+          <Field label={t("tripDays")} error={state.fieldErrors?.tripDays}>
             <Input
               name="tripDays"
               type="number"
@@ -103,7 +108,7 @@ export function PlanForm({
           </Field>
         </div>
         <Button type="submit" disabled={pending || disabled}>
-          {pending ? "Salvando…" : "Salvar plano"}
+          {pending ? tCommon("saving") : t("save")}
         </Button>
       </fieldset>
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />

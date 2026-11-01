@@ -1,6 +1,7 @@
 "use client";
 // Kit de componentes (ADR-0003). Toda tela usa estes blocos para manter o sistema consistente.
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useFormStatus } from "react-dom";
 import {
   cloneElement,
@@ -285,6 +286,7 @@ export function Sheet({
   title: string;
   children: ReactNode;
 }) {
+  const t = useTranslations("common");
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -308,7 +310,7 @@ export function Sheet({
         <div className="flex min-h-full flex-col">
           <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-card px-5 py-4">
             <h2 className="font-display text-xl font-medium">{title}</h2>
-            <IconButton label="Fechar" onClick={onClose}>
+            <IconButton label={t("close")} onClick={onClose}>
               <X className="size-5" aria-hidden="true" />
             </IconButton>
           </header>
@@ -354,6 +356,7 @@ export function ConfirmSheet({
   typeToConfirm?: { label: string; value: string } | undefined;
   children?: ReactNode;
 }) {
+  const t = useTranslations("common");
   const [typed, setTyped] = useState("");
   const close = () => {
     setTyped("");
@@ -389,7 +392,7 @@ export function ConfirmSheet({
             blocked={Boolean(typeToConfirm) && typed.trim() !== typeToConfirm?.value}
           />
           <Button type="button" variant="secondary" onClick={close}>
-            Cancelar
+            {t("cancel")}
           </Button>
         </div>
       </form>

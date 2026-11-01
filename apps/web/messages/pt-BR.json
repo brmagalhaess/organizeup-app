@@ -1,0 +1,388 @@
+{
+  "meta": {
+    "description": "Finanças da família, sonhos e aposentadoria em um só plano."
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "close": "Fechar",
+    "delete": "Apagar",
+    "loading": "Carregando",
+    "loadingEllipsis": "Carregando…",
+    "saving": "Salvando…"
+  },
+  "locale": {
+    "failed": "Não foi possível salvar o idioma na sua conta. Tente de novo.",
+    "hint": "A tela muda assim que você escolher.",
+    "label": "Idioma"
+  },
+  "errors": {
+    "retry": "Tentar de novo",
+    "screenText": "Não conseguimos carregar esta tela. Seus dados continuam guardados. Tente de novo em instantes.",
+    "screenTitle": "Algo não saiu como esperado"
+  },
+  "legal": {
+    "notice": "Estes documentos existem só em português, e é essa versão que vale."
+  },
+  "shell": {
+    "add": "Lançar",
+    "closeNotice": "Fechar aviso",
+    "dontShowAgain": "Não mostrar mais",
+    "fallbackFamily": "Família",
+    "maintenance": "Estamos em manutenção. Você pode consultar tudo, mas as alterações estão desligadas por enquanto.",
+    "menu": "Menu",
+    "modules": "Módulos",
+    "more": "Mais",
+    "newEntry": "Novo lançamento",
+    "notice": "Aviso",
+    "onboardingLink": "Completar agora",
+    "onboardingNotice": "Faltam alguns dados para montar o plano de aposentadoria, as viagens e as metas.",
+    "pendingSuggestions": "{count, plural, =1 {1 sugestão pendente} other {# sugestões pendentes}}",
+    "serviceNotice": "Aviso do serviço",
+    "shortcuts": "Atalhos",
+    "signOut": "Sair",
+    "groups": {
+      "daily": "Dia a dia",
+      "family": "Família",
+      "wealth": "Patrimônio"
+    },
+    "nav": {
+      "accounts": "Contas",
+      "calendar": "Calendário",
+      "cards": "Cartões",
+      "categories": "Categorias",
+      "debts": "Dívidas",
+      "dividends": "Proventos",
+      "entries": "Lançamentos",
+      "goals": "Metas",
+      "import": "Importar extrato",
+      "income": "Renda",
+      "investments": "Investimentos",
+      "panel": "Painel",
+      "people": "Pessoas",
+      "plan": "Seu plano",
+      "reserve": "Reserva",
+      "retirement": "Aposentadoria",
+      "settings": "Configurações",
+      "suggestions": "Sugestões",
+      "trips": "Viagens",
+      "wealth": "Patrimônio"
+    }
+  },
+  "auth": {
+    "fields": {
+      "confirmNewPassword": "Confirmar nova senha",
+      "confirmPassword": "Confirmar senha",
+      "email": "E-mail",
+      "name": "Seu nome",
+      "newPassword": "Nova senha",
+      "password": "Senha",
+      "passwordHint": "Use letras, números e um caractere especial, como ! ou @."
+    },
+    "errors": {
+      "accountBlocked": "Esta conta está bloqueada. Fale com o suporte do OrganizeUp.",
+      "emailTaken": "Já existe uma conta com este e-mail.",
+      "maintenance": "O sistema está em manutenção. Tente de novo mais tarde.",
+      "passwordRule": "A senha precisa ter letras, números e um caractere especial.",
+      "passwordsDiffer": "As senhas não conferem.",
+      "resetFailed": "Não foi possível trocar a senha. Tente novamente.",
+      "sendFailed": "Não foi possível enviar agora. Tente novamente.",
+      "signInFailed": "E-mail ou senha incorretos.",
+      "signupClosed": "Os cadastros estão fechados no momento.",
+      "signupFailed": "Não foi possível criar a conta. Tente novamente.",
+      "tooManyAttempts": "Muitas tentativas. Aguarde um minuto e tente de novo."
+    },
+    "signIn": {
+      "noAccount": "Ainda não tem conta?",
+      "createAccount": "Criar conta",
+      "forgot": "Esqueci minha senha",
+      "pending": "Entrando…",
+      "submit": "Entrar",
+      "subtitle": "Entre para acessar o plano da sua família.",
+      "title": "Bem-vindo de volta",
+      "metaTitle": "Entrar"
+    },
+    "signUp": {
+      "closedLink": "Já tenho conta",
+      "closedText": "Se você recebeu um convite de uma família, use o link do convite para entrar.",
+      "closedTitle": "Os cadastros estão fechados no momento",
+      "hasAccount": "Já tem conta?",
+      "metaTitle": "Criar conta",
+      "pending": "Criando…",
+      "signIn": "Entrar",
+      "submit": "Criar conta",
+      "subtitle": "Em seguida você cria o espaço da sua família. Cada família tem seus dados isolados.",
+      "subtitleInvite": "Use o e-mail que recebeu o convite. Depois você entra na família.",
+      "terms": "Li e aceito os <terms>Termos de Uso</terms> e a <privacy>Política de Privacidade</privacy>.",
+      "title": "Crie sua conta"
+    },
+    "forgot": {
+      "back": "Voltar para entrar",
+      "metaTitle": "Esqueci minha senha",
+      "pending": "Enviando…",
+      "remembered": "Lembrou?",
+      "sent": "Se este e-mail tiver conta, enviamos um link para criar uma nova senha. Ele vale 1 hora. Veja também a caixa de spam.",
+      "submit": "Enviar link",
+      "subtitle": "Informe seu e-mail e enviaremos um link para criar uma nova senha.",
+      "title": "Esqueceu sua senha?"
+    },
+    "reset": {
+      "doneLink": "Entrar",
+      "doneText": "Sua nova senha já vale. Use-a para entrar.",
+      "doneTitle": "Senha alterada",
+      "expiredLink": "Pedir novo link",
+      "expiredText": "O link está incompleto, venceu ou já foi usado. Peça um novo para criar sua senha.",
+      "expiredTitle": "Este link não vale mais",
+      "metaTitle": "Criar nova senha",
+      "pending": "Salvando…",
+      "submit": "Salvar nova senha",
+      "subtitle": "Depois disso, a senha antiga deixa de valer.",
+      "title": "Crie uma nova senha"
+    },
+    "blocked": {
+      "metaTitle": "Conta bloqueada",
+      "text": "O acesso foi bloqueado pela administração do OrganizeUp. Seus dados continuam guardados. Para saber mais, fale com o suporte.",
+      "title": "Esta conta está bloqueada"
+    },
+    "invite": {
+      "accept": "Aceitar convite",
+      "acceptFailed": "Não foi possível aceitar. Tente novamente.",
+      "createAccount": "Criar minha conta",
+      "goToApp": "Ir para o sistema",
+      "hasAccount": "Já tenho conta",
+      "joinText": "{role}. Os dados que você lançar ficam visíveis para quem acessa esta família.",
+      "joinTitle": "Entrar em {family}",
+      "metaTitle": "Convite",
+      "otherEmailText": "Você entrou como {email}. Entre com o e-mail que recebeu o convite.",
+      "otherEmailTitle": "Este convite é para outro e-mail",
+      "receivedText": "Use o mesmo e-mail que recebeu o convite. Depois de entrar, mostramos qual é a família.",
+      "receivedTitle": "Você recebeu um convite",
+      "roleAdult": "Você pode ver e alterar os dados da família",
+      "roleOther": "Você terá acesso a esta família",
+      "roleViewer": "Você pode ver, mas não altera nada",
+      "unavailableText": "Este convite expirou ou foi cancelado. Peça um novo link a quem convidou você.",
+      "unavailableTitle": "Convite indisponível"
+    }
+  },
+  "insights": {
+    "done": "Feito",
+    "doNow": "Fazer agora",
+    "gotIt": "Entendi",
+    "region": "Dicas do assistente",
+    "why": "Por quê?"
+  },
+  "dashboard": {
+    "metaTitle": "Painel",
+    "greeting": "Olá, {name}",
+    "today": "Hoje é {date}",
+    "todayAt": "Hoje é {date} · {place}",
+    "viewEntries": "Ver lançamentos",
+    "comparison": {
+      "less": "{percent} a menos que no mês anterior",
+      "more": "{percent} a mais que no mês anterior",
+      "noBase": "Sem base no mês anterior",
+      "same": "Igual ao mês anterior"
+    },
+    "due": {
+      "overdue": "Atrasado",
+      "planned": "Previsto"
+    },
+    "stats": {
+      "balance": "Saldo nas contas",
+      "balanceHint": "Saldo inicial mais o que já foi realizado.",
+      "forecast": "Previsão para o fim do mês",
+      "forecastHint": "Resultado de entradas e saídas do mês.",
+      "received": "Entrou",
+      "spent": "Saiu"
+    },
+    "suggestions": {
+      "empty": "Nada para revisar por enquanto.",
+      "open": "Abrir sugestões",
+      "title": "Sugestões do assistente",
+      "viewAll": "Ver todas ({count})"
+    },
+    "reserve": {
+      "define": "Defina sua reserva",
+      "progress": "{saved} de {target}",
+      "title": "Reserva de emergência"
+    },
+    "wealth": {
+      "summary": "Tem {owned} · deve {owed}",
+      "title": "Patrimônio líquido"
+    },
+    "cashflow": {
+      "barLabel": "{month}: entrou {received}, saiu {spent}",
+      "description": "Últimos 6 meses, só o que já aconteceu.",
+      "emptyText": "Marque uma receita ou despesa como paga para ver a evolução dos meses.",
+      "emptyTitle": "O gráfico aparece com o primeiro lançamento",
+      "expenses": "Saídas",
+      "income": "Entradas",
+      "left": "Sobrou",
+      "month": "Mês",
+      "tableCaption": "Entradas e saídas dos últimos meses",
+      "title": "Entradas e saídas"
+    },
+    "upcoming": {
+      "calendar": "Ver calendário",
+      "description": "O que ainda está em aberto.",
+      "emptyText": "Contas e receitas previstas aparecem aqui até serem confirmadas.",
+      "emptyTitle": "Nada em aberto",
+      "title": "Próximos vencimentos"
+    },
+    "confirm": {
+      "expense": "Pagar",
+      "goal": "Guardar",
+      "income": "Receber"
+    },
+    "spending": {
+      "description": "Despesas de {month}, pagas e previstas.",
+      "emptyText": "Lance suas despesas para ver em que categorias o dinheiro está indo.",
+      "emptyTitle": "Nenhuma despesa neste mês",
+      "other": "Outras",
+      "title": "Para onde vai o dinheiro",
+      "uncategorized": "Sem categoria"
+    },
+    "firstSteps": {
+      "done": "Feito",
+      "progress": "{done} de {total} concluídos",
+      "title": "Primeiros passos",
+      "todo": "A fazer",
+      "balance": "Informe o saldo das contas",
+      "balanceHint": "Assim o painel mostra quanto você tem hoje.",
+      "family": "Inclua sua família",
+      "familyHint": "Cônjuge, filhos e outras pessoas da casa.",
+      "income": "Cadastre sua renda",
+      "incomeHint": "Salário, aluguel recebido ou outra entrada.",
+      "onboarding": "Complete o cadastro da família",
+      "onboardingHint": "Aposentadoria, viagens e metas dependem disso. Leva 3 minutos.",
+      "recurring": "Cadastre uma conta fixa",
+      "recurringHint": "Marque “Repete todo mês” e ela aparece sozinha."
+    }
+  },
+  "settings": {
+    "metaTitle": "Configurações",
+    "title": "Configurações",
+    "description": "Dados usados em todo o sistema.",
+    "language": {
+      "description": "Vale só para você. Cada pessoa da família escolhe o seu.",
+      "title": "Idioma"
+    },
+    "home": {
+      "city": "Cidade",
+      "description": "Base para viagens e custo de vida.",
+      "save": "Salvar configurações",
+      "saved": "Configurações salvas.",
+      "state": "UF",
+      "stateError": "Use a sigla do estado (ex.: SP).",
+      "timezone": "Fuso horário",
+      "timezoneError": "Fuso horário inválido.",
+      "timezoneHint": "Define o que é “hoje” nos vencimentos.",
+      "title": "Onde vocês moram"
+    },
+    "timezones": {
+      "acre": "Acre (ACT)",
+      "amazonas": "Amazonas (AMT)",
+      "brasilia": "Brasília (BRT)",
+      "matoGrosso": "Mato Grosso (AMT)",
+      "noronha": "Fernando de Noronha",
+      "nordeste": "Nordeste (BRT)",
+      "para": "Pará/Amapá (BRT)",
+      "rondonia": "Rondônia (AMT)",
+      "roraima": "Roraima (AMT)"
+    },
+    "plan": {
+      "description": "Base da aposentadoria e das sugestões de viagem.",
+      "retirementYear": "Ano em que querem parar",
+      "retirementYearError": "Informe um ano entre 1950 e 2150.",
+      "save": "Salvar plano",
+      "saved": "Plano salvo.",
+      "title": "Plano",
+      "tripDays": "Dias de cada viagem",
+      "tripDaysError": "Informe de 1 a 60 dias.",
+      "tripsPerYear": "Viagens por ano",
+      "tripsPerYearError": "Informe de 0 a 12 viagens por ano."
+    },
+    "assistant": {
+      "acceptedOn": "Autorizado em {date}.",
+      "consentLabel": "Autorizo o uso dos dados da família para preparar essas dicas, inclusive fora do Brasil.",
+      "consentRequired": "Para ligar as dicas, marque que você autoriza.",
+      "description": "Conversa com seus dados e deixa dicas nas telas, só com a sua autorização.",
+      "failed": "Não foi possível salvar. Tente novamente.",
+      "insightsOn": "Dicas ligadas. A primeira rodada sai na próxima madrugada.",
+      "insightsPending": "Ligando…",
+      "insightsSubmit": "Ligar as dicas",
+      "insightsText": "Todas as madrugadas o assistente olha os números da família e deixa dicas nas telas.",
+      "insightsTitle": "Dicas em cada tela",
+      "levelLabel": "O que ele pode fazer sozinho",
+      "levelSave": "Salvar nível",
+      "levelSaved": "Salvo.",
+      "notAllowed": "Só quem é responsável ou adulto na família pode mudar isso.",
+      "off": "Desligado",
+      "offHint": "Para ligar, abra o botão Assistente e leia o que é enviado. Nada sai do sistema antes do seu aceite.",
+      "offHintReadOnly": "Quem é responsável ou adulto na família pode ligar pelo botão Assistente.",
+      "on": "Ligado",
+      "pickOption": "Escolha uma opção.",
+      "title": "Assistente",
+      "turnOff": "Desligar o assistente",
+      "turnOffConfirm": "Desligar",
+      "turnOffText": "Nada mais é enviado para a Anthropic. Suas conversas continuam guardadas, e quem quiser pode apagá-las. Para voltar, será preciso autorizar de novo.",
+      "levels": {
+        "completo": "Completo",
+        "completoText": "Também cria metas em rascunho. Valor que você informou continua sendo sugestão.",
+        "organizar": "Organizar",
+        "organizarText": "Também arruma sozinho o que ficou para revisar, sempre com Desfazer.",
+        "sugerir": "Sugerir",
+        "sugerirText": "Só dá dicas e sugestões. Você decide tudo."
+      }
+    },
+    "memories": {
+      "clearConfirm": "Apagar tudo",
+      "clearText": "O assistente esquece tudo o que foi anotado sobre a família. Isso não pode ser desfeito.",
+      "clearTitle": "Apagar todas as anotações?",
+      "deleteLabel": "Apagar a anotação: {content}",
+      "deleteText": "O assistente deixa de usar essa anotação, e ela não pode ser recuperada.",
+      "deleteTitle": "Apagar esta anotação?",
+      "description": "Anotações que você pediu na conversa. O assistente usa nas próximas respostas.",
+      "emptyText": "Quando você pedir na conversa para o assistente lembrar de algo, a anotação aparece aqui.",
+      "emptyTitle": "Nada anotado ainda",
+      "expired": "Vencida",
+      "failed": "Não foi possível apagar agora. Tente de novo.",
+      "kindFato": "Fato",
+      "kindObjetivo": "Objetivo",
+      "kindPreferencia": "Preferência",
+      "loadFailed": "Não foi possível carregar as anotações. Tente de novo.",
+      "readOnly": "Só adultos da família podem apagar as anotações.",
+      "title": "O que o assistente sabe"
+    },
+    "account": {
+      "email": "E-mail",
+      "id": "ID da conta",
+      "name": "Nome",
+      "role": "Seu papel na família",
+      "title": "Sua conta"
+    },
+    "roles": {
+      "adult": "Adulto",
+      "child": "Criança",
+      "owner": "Responsável",
+      "viewer": "Só leitura"
+    },
+    "data": {
+      "description": "Eles são seus: leve ou apague quando quiser.",
+      "download": "Baixar dados da família",
+      "legal": "Veja os <terms>Termos de Uso</terms> e a <privacy>Política de Privacidade</privacy>.",
+      "title": "Seus dados"
+    },
+    "deleteAccount": {
+      "failed": "Não foi possível apagar a conta. Tente novamente.",
+      "familyHasMembers": "Sua família tem outras pessoas. Remova o acesso delas em Família antes de apagar a conta.",
+      "open": "Apagar conta",
+      "password": "Sua senha",
+      "passwordRequired": "Informe sua senha.",
+      "pending": "Apagando…",
+      "submit": "Apagar minha conta",
+      "text": "Isso não pode ser desfeito. Sua conta é apagada e, se a família for só sua, todos os dados dela também. As cópias de segurança são substituídas em até 30 dias.",
+      "wrongPassword": "Senha incorreta."
+    },
+    "noPermission": "Seu papel nesta família não permite alterações."
+  }
+}

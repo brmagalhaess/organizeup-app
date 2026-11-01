@@ -1,4 +1,5 @@
 "use server";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -59,6 +60,13 @@ function fieldErrors(error: z.ZodError): Record<string, string> {
     out[key] ??= issue.message;
   }
   return out;
+}
+
+/** Mesmas validações de quem usa o texto em português, com a mensagem no idioma da pessoa. */
+function translated(error: z.ZodError, texts: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(fieldErrors(error)).map(([field, text]) => [field, texts[field] ?? text]),
+  );
 }
 
 const optionalText = (max: number) =>
@@ -237,14 +245,20 @@ export async function removePerson(formData: FormData): Promise<void> {
 
 export async function updateSettings(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx))
-    return { ok: false, message: "Seu papel nesta família não permite alterações." };
+  const t = await getTranslations("settings");
+  if (!canWrite(ctx)) return { ok: false, message: t("noPermission") };
   const parsed = settingsSchema.safeParse({
     city: formData.get("city") ?? "",
     state: formData.get("state") ?? "",
     timezone: formData.get("timezone") ?? "",
   });
-  if (!parsed.success) return { ok: false, message: null, fieldErrors: fieldErrors(parsed.error) };
+  if (!parsed.success) {
+    const fieldErrors = translated(parsed.error, {
+      state: t("home.stateError"),
+      timezone: t("home.timezoneError"),
+    });
+    return { ok: false, message: null, fieldErrors };
+  }
 
   await withHousehold(ctx, async (tx) => {
     await tx
@@ -257,7 +271,7 @@ export async function updateSettings(_prev: ActionState, formData: FormData): Pr
     await audit(tx, ctx, "update", "household_settings", ctx.householdId);
   });
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Configurações salvas." };
+  return { ok: true, message: t("home.saved") };
 }
 
 export async function updateWedding(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -283,14 +297,21 @@ const planSchema = z.object(planShape);
 
 export async function updatePlan(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { ctx } = await requireTenant();
-  if (!canWrite(ctx))
-    return { ok: false, message: "Seu papel nesta família não permite alterações." };
+  const t = await getTranslations("settings");
+  if (!canWrite(ctx)) return { ok: false, message: t("noPermission") };
   const parsed = planSchema.safeParse({
     retirementYear: String(formData.get("retirementYear") ?? ""),
     tripsPerYear: String(formData.get("tripsPerYear") ?? ""),
     tripDays: String(formData.get("tripDays") ?? ""),
   });
-  if (!parsed.success) return { ok: false, message: null, fieldErrors: fieldErrors(parsed.error) };
+  if (!parsed.success) {
+    const fieldErrors = translated(parsed.error, {
+      retirementYear: t("plan.retirementYearError"),
+      tripsPerYear: t("plan.tripsPerYearError"),
+      tripDays: t("plan.tripDaysError"),
+    });
+    return { ok: false, message: null, fieldErrors };
+  }
 
   await withHousehold(ctx, async (tx) => {
     await patchSettings(tx, ctx, {
@@ -301,5 +322,5 @@ export async function updatePlan(_prev: ActionState, formData: FormData): Promis
     await audit(tx, ctx, "update", "household_settings", ctx.householdId);
   });
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Plano salvo." };
+  return { ok: true, message: t("plan.saved") };
 }

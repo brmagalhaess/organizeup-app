@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
-export const metadata: Metadata = { title: "Conta bloqueada" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("auth.blocked");
+  return { title: t("metaTitle") };
+}
 
-export default function BlockedAccountPage() {
+export default async function BlockedAccountPage() {
+  const t = await getTranslations("auth.blocked");
   return (
     <div>
-      <h1 className="text-2xl font-bold">Esta conta está bloqueada</h1>
-      <p className="mt-2 text-sm text-muted">
-        O acesso foi bloqueado pela administração do OrganizeUp. Seus dados continuam guardados.
-        Para saber mais, fale com o suporte.
-      </p>
+      <h1 className="text-2xl font-bold">{t("title")}</h1>
+      <p className="mt-2 text-sm text-muted">{t("text")}</p>
     </div>
   );
 }

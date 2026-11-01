@@ -15,10 +15,12 @@ import {
   legalAcceptance,
   ne,
   readPlatformFlags,
+  saveUserLocale,
   sql,
   userIsBlocked,
 } from "@organizeup/db";
 import { authDb, betterAuthSchema } from "@organizeup/db/auth-db";
+import { isLocale, LOCALE_COOKIE } from "@/i18n/locales";
 import { sendEmailInBackground } from "./email";
 import {
   INVITE_LINK_DAYS,
@@ -123,10 +125,13 @@ function createAuth() {
               throw new APIError("FORBIDDEN", { message: "SIGNUP_CLOSED" });
             }
           },
-          after: async (user) => {
+          after: async (user, ctx) => {
             await authDb()
               .insert(legalAcceptance)
               .values({ userId: user.id, version: LEGAL_VERSION });
+            // O idioma escolhido antes de ter conta passa para a conta. Falhar aqui não barra ninguém.
+            const chosen = ctx?.getCookie(LOCALE_COOKIE);
+            if (isLocale(chosen)) await saveUserLocale(user.id, chosen).catch(() => false);
           },
         },
       },

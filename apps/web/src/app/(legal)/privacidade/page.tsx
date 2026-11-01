@@ -14,7 +14,8 @@ export default function PrivacyPage() {
       <h2>Quais dados guardamos</h2>
       <ul>
         <li>
-          <strong>Conta:</strong> nome, e-mail e senha, guardada de forma que não pode ser lida.
+          <strong>Conta:</strong> nome, e-mail, idioma escolhido e senha, guardada de forma que não
+          pode ser lida.
         </li>
         <li>
           <strong>Família:</strong> nomes, relação entre as pessoas, mês e ano de nascimento, cidade
@@ -217,8 +218,9 @@ export default function PrivacyPage() {
 
       <h2>Cookies</h2>
       <p>
-        Usamos apenas o cookie necessário para manter você conectado e um cookie que lembra, até o
-        fim do dia, que você fechou um aviso. Não usamos cookies de publicidade.
+        Usamos apenas o cookie necessário para manter você conectado, um cookie que lembra, até o
+        fim do dia, que você fechou um aviso, e um cookie que guarda por um ano o idioma que você
+        escolheu. Não usamos cookies de publicidade.
       </p>
 
       <h2>Por quanto tempo</h2>

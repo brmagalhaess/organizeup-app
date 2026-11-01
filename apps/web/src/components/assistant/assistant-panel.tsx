@@ -10,6 +10,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Button, EmptyState, FormMessage, IconButton } from "@/components/ui";
 import { Activation } from "./activation";
@@ -251,6 +252,7 @@ function Threads({ onOpen, onBack }: { onOpen: (id: string) => void; onBack: () 
 
 /** Botão em todas as telas do painel: painel lateral no computador, tela cheia no celular. */
 export function AssistantPanel({ state: initialState }: { state: AssistantState }) {
+  const t = useTranslations("settings.assistant");
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"chat" | "threads">("chat");
   const dialog = useRef<HTMLDialogElement>(null);
@@ -278,7 +280,7 @@ export function AssistantPanel({ state: initialState }: { state: AssistantState 
         className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-20 inline-flex min-h-11 items-center gap-2 rounded-full bg-brand-900 px-4 text-sm font-semibold text-white shadow-card transition hover:bg-brand-700 lg:bottom-6 lg:right-6"
       >
         <MessageCircle className="size-4.5" aria-hidden="true" />
-        Assistente
+        {t("title")}
       </button>
 
       <dialog
@@ -294,7 +296,7 @@ export function AssistantPanel({ state: initialState }: { state: AssistantState 
           <div className="flex h-full flex-col">
             <header className="flex items-center justify-between gap-2 border-b border-line px-5 py-3">
               <h2 id={titleId} className="m-0 font-display text-xl font-medium">
-                Assistente
+                {t("title")}
               </h2>
               <div className="flex items-center gap-1">
                 {canChat ? (

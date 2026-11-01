@@ -12,9 +12,8 @@ import {
 } from "@organizeup/db";
 import { getAuth } from "./auth";
 
-export async function getSession() {
-  return getAuth().api.getSession({ headers: await headers() });
-}
+/** Uma vez por requisição: o layout raiz também precisa dela, para achar o idioma da conta. */
+export const getSession = cache(async () => getAuth().api.getSession({ headers: await headers() }));
 
 /** Chaves do sistema, lidas uma vez por requisição. */
 export const platformFlags = cache(readPlatformFlags);

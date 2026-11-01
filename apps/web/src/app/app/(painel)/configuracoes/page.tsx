@@ -1,29 +1,53 @@
 import type { Metadata } from "next";
+import { useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Suspense } from "react";
 import { canUseAssistant, INSIGHTS_CONSENT_VERSION } from "@organizeup/ai";
 import { canWrite, eq, householdSettings, withHousehold } from "@organizeup/db";
 import { AssistantSettings } from "@/components/assistant/assistant-settings";
 import { buttonClass } from "@/components/styles";
+import { LocaleSelect } from "@/components/locale-select";
 import { Card, PageHeader } from "@/components/ui";
-import { ROLE_LABEL } from "@/lib/invites";
+import { formatInstant } from "@/i18n/format";
 import { requireTenant } from "@/lib/session";
 import { DeleteAccount } from "./delete-account";
 import { MemoriesBlock } from "./memories";
 import { PlanForm, SettingsForm } from "./settings-form";
 
-export const metadata: Metadata = { title: "Configurações" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("settings");
+  return { title: t("metaTitle") };
+}
+
+const LEGAL_LINK = "font-semibold text-brand-700 underline";
+
+function LoadingMemories() {
+  const t = useTranslations("common");
+  return <p className="m-0 text-sm text-muted">{t("loadingEllipsis")}</p>;
+}
 
 export default async function SettingsPage() {
   const { session, ctx } = await requireTenant();
   const [settings] = await withHousehold(ctx, (tx) =>
     tx.select().from(householdSettings).where(eq(householdSettings.householdId, ctx.householdId)),
   );
+  const [t, tLocale, locale] = await Promise.all([
+    getTranslations("settings"),
+    getTranslations("locale"),
+    getLocale(),
+  ]);
+  const role = ["owner", "adult", "child", "viewer"].includes(ctx.role)
+    ? t(`roles.${ctx.role as "owner"}`)
+    : ctx.role;
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Configurações" description="Dados usados em todo o sistema." />
+      <PageHeader title={t("title")} description={t("description")} />
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-        <Card title="Onde vocês moram" description="Base para viagens e custo de vida.">
+        <Card title={t("language.title")} description={t("language.description")}>
+          <LocaleSelect hint={tLocale("hint")} />
+        </Card>
+        <Card title={t("home.title")} description={t("home.description")}>
           <SettingsForm
             disabled={!canWrite(ctx)}
             initial={{
@@ -33,7 +57,7 @@ export default async function SettingsPage() {
             }}
           />
         </Card>
-        <Card title="Plano" description="Base da aposentadoria e das sugestões de viagem.">
+        <Card title={t("plan.title")} description={t("plan.description")}>
           <PlanForm
             disabled={!canWrite(ctx)}
             values={{
@@ -43,67 +67,62 @@ export default async function SettingsPage() {
             }}
           />
         </Card>
-        <Card
-          title="Assistente"
-          description="Conversa com seus dados e deixa dicas nas telas, só com a sua autorização."
-        >
+        <Card title={t("assistant.title")} description={t("assistant.description")}>
           <AssistantSettings
             active={Boolean(settings?.aiConsentAt)}
-            acceptedOn={
-              settings?.aiConsentAt ? settings.aiConsentAt.toLocaleDateString("pt-BR") : null
-            }
+            acceptedOn={settings?.aiConsentAt ? formatInstant(settings.aiConsentAt, locale) : null}
             autonomy={settings?.aiAutonomy ?? "organizar"}
             canManage={canUseAssistant(ctx)}
             needsInsightsConsent={(settings?.aiConsentVersion ?? "") < INSIGHTS_CONSENT_VERSION}
           />
         </Card>
-        <Card
-          title="O que o assistente sabe"
-          description="Anotações que você pediu na conversa. O assistente usa nas próximas respostas."
-        >
-          <Suspense fallback={<p className="m-0 text-sm text-muted">Carregando…</p>}>
+        <Card title={t("memories.title")} description={t("memories.description")}>
+          <Suspense fallback={<LoadingMemories />}>
             <MemoriesBlock ctx={ctx} />
           </Suspense>
         </Card>
-        <Card title="Sua conta">
+        <Card title={t("account.title")}>
           <dl className="m-0 grid gap-3 text-sm">
             <div>
-              <dt className="text-muted">Nome</dt>
+              <dt className="text-muted">{t("account.name")}</dt>
               <dd className="m-0 font-medium">{session.user.name}</dd>
             </div>
             <div>
-              <dt className="text-muted">E-mail</dt>
+              <dt className="text-muted">{t("account.email")}</dt>
               <dd className="m-0 font-medium">{session.user.email}</dd>
             </div>
             <div>
-              <dt className="text-muted">Seu papel na família</dt>
-              <dd className="m-0 font-medium">{ROLE_LABEL[ctx.role] ?? ctx.role}</dd>
+              <dt className="text-muted">{t("account.role")}</dt>
+              <dd className="m-0 font-medium">{role}</dd>
             </div>
             <div>
-              <dt className="text-muted">ID da conta</dt>
+              <dt className="text-muted">{t("account.id")}</dt>
               <dd className="m-0 select-all break-all font-mono text-xs">{session.user.id}</dd>
             </div>
           </dl>
         </Card>
-        <Card title="Seus dados" description="Eles são seus: leve ou apague quando quiser.">
+        <Card title={t("data.title")} description={t("data.description")}>
           <div className="flex flex-wrap gap-2">
             {ctx.role === "owner" ? (
               <a href="/app/exportar" download className={buttonClass("secondary", true)}>
-                Baixar dados da família
+                {t("data.download")}
               </a>
             ) : null}
             <DeleteAccount />
           </div>
           <p className="mt-4 text-sm text-muted">
-            Veja os{" "}
-            <Link href="/termos" className="font-semibold text-brand-700 underline">
-              Termos de Uso
-            </Link>{" "}
-            e a{" "}
-            <Link href="/privacidade" className="font-semibold text-brand-700 underline">
-              Política de Privacidade
-            </Link>
-            .
+            {t.rich("data.legal", {
+              terms: (text) => (
+                <Link href="/termos" className={LEGAL_LINK}>
+                  {text}
+                </Link>
+              ),
+              privacy: (text) => (
+                <Link href="/privacidade" className={LEGAL_LINK}>
+                  {text}
+                </Link>
+              ),
+            })}
           </p>
         </Card>
       </div>

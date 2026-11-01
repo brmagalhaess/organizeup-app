@@ -27,6 +27,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { useTranslations, type Messages } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -36,15 +37,18 @@ import { dismissNotice } from "@/app/app/(painel)/sugestoes/actions";
 import { AssistantPanel } from "@/components/assistant/assistant-panel";
 import { cx } from "@/components/styles";
 import { Button, IconButton, Sheet } from "@/components/ui";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
 import { authClient } from "@/lib/auth-client";
 import { EntryDialogProvider, useEntryDialog } from "./entry-context";
 import type { EntryOptions } from "./entry-form";
 
 interface NavItem {
   href: string;
-  label: string;
+  label: NavKey;
   icon: LucideIcon;
 }
+
+type NavKey = keyof Messages["shell"]["nav"];
 
 export interface ShellNotice {
   key: string;
@@ -62,40 +66,43 @@ export interface ShellBanner {
 
 const SUGGESTIONS_HREF = "/app/sugestoes";
 
-const groups: Array<{ title: string; items: NavItem[] }> = [
+/** Telas já traduzidas. As outras seguem em português e avisam isso ao leitor de tela. */
+const TRANSLATED_SCREENS = new Set(["/app", "/app/configuracoes"]);
+
+const groups: Array<{ title: keyof Messages["shell"]["groups"]; items: NavItem[] }> = [
   {
-    title: "Dia a dia",
+    title: "daily",
     items: [
-      { href: "/app", label: "Painel", icon: LayoutDashboard },
-      { href: "/app/plano", label: "Seu plano", icon: Compass },
-      { href: SUGGESTIONS_HREF, label: "Sugestões", icon: Sparkles },
-      { href: "/app/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
-      { href: "/app/calendario", label: "Calendário", icon: CalendarDays },
-      { href: "/app/renda", label: "Renda", icon: BadgeDollarSign },
-      { href: "/app/importar", label: "Importar extrato", icon: Upload },
-      { href: "/app/contas", label: "Contas", icon: Landmark },
-      { href: "/app/cartoes", label: "Cartões", icon: CreditCard },
-      { href: "/app/dividas", label: "Dívidas", icon: WalletCards },
-      { href: "/app/categorias", label: "Categorias", icon: Tags },
+      { href: "/app", label: "panel", icon: LayoutDashboard },
+      { href: "/app/plano", label: "plan", icon: Compass },
+      { href: SUGGESTIONS_HREF, label: "suggestions", icon: Sparkles },
+      { href: "/app/lancamentos", label: "entries", icon: ArrowLeftRight },
+      { href: "/app/calendario", label: "calendar", icon: CalendarDays },
+      { href: "/app/renda", label: "income", icon: BadgeDollarSign },
+      { href: "/app/importar", label: "import", icon: Upload },
+      { href: "/app/contas", label: "accounts", icon: Landmark },
+      { href: "/app/cartoes", label: "cards", icon: CreditCard },
+      { href: "/app/dividas", label: "debts", icon: WalletCards },
+      { href: "/app/categorias", label: "categories", icon: Tags },
     ],
   },
   {
-    title: "Patrimônio",
+    title: "wealth",
     items: [
-      { href: "/app/reserva", label: "Reserva", icon: PiggyBank },
-      { href: "/app/patrimonio", label: "Patrimônio", icon: Gem },
-      { href: "/app/investimentos", label: "Investimentos", icon: TrendingUp },
-      { href: "/app/proventos", label: "Proventos", icon: HandCoins },
-      { href: "/app/metas", label: "Metas", icon: Target },
-      { href: "/app/aposentadoria", label: "Aposentadoria", icon: Sunset },
-      { href: "/app/viagens", label: "Viagens", icon: Palmtree },
+      { href: "/app/reserva", label: "reserve", icon: PiggyBank },
+      { href: "/app/patrimonio", label: "wealth", icon: Gem },
+      { href: "/app/investimentos", label: "investments", icon: TrendingUp },
+      { href: "/app/proventos", label: "dividends", icon: HandCoins },
+      { href: "/app/metas", label: "goals", icon: Target },
+      { href: "/app/aposentadoria", label: "retirement", icon: Sunset },
+      { href: "/app/viagens", label: "trips", icon: Palmtree },
     ],
   },
   {
-    title: "Família",
+    title: "family",
     items: [
-      { href: "/app/familia", label: "Pessoas", icon: Users },
-      { href: "/app/configuracoes", label: "Configurações", icon: Settings },
+      { href: "/app/familia", label: "people", icon: Users },
+      { href: "/app/configuracoes", label: "settings", icon: Settings },
     ],
   },
 ];
@@ -116,13 +123,14 @@ function Navigation({
   pendingSuggestions: number;
   onNavigate?: () => void;
 }) {
+  const t = useTranslations("shell");
   const pathname = usePathname();
   return (
-    <nav aria-label="Módulos" className="flex flex-col gap-6">
+    <nav aria-label={t("modules")} className="flex flex-col gap-6">
       {groups.map((group) => (
         <div key={group.title}>
           <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/70">
-            {group.title}
+            {t(`groups.${group.title}`)}
           </p>
           <ul className="m-0 list-none space-y-0.5 p-0">
             {group.items.map(({ href, label, icon: Icon }) => {
@@ -139,15 +147,11 @@ function Navigation({
                     )}
                   >
                     <Icon className="size-4.5 shrink-0" aria-hidden="true" />
-                    {label}
+                    {t(`nav.${label}`)}
                     {href === SUGGESTIONS_HREF && pendingSuggestions > 0 ? (
                       <span
                         role="img"
-                        aria-label={
-                          pendingSuggestions === 1
-                            ? "1 sugestão pendente"
-                            : `${pendingSuggestions} sugestões pendentes`
-                        }
+                        aria-label={t("pendingSuggestions", { count: pendingSuggestions })}
                         className="ml-auto min-w-5 rounded-full bg-peach px-1.5 text-center text-xs font-semibold text-night"
                       >
                         {pendingSuggestions}
@@ -165,6 +169,7 @@ function Navigation({
 }
 
 function UserFooter({ userName, familyName }: { userName: string; familyName: string }) {
+  const t = useTranslations("shell");
   const router = useRouter();
   return (
     <div className="flex items-center gap-3 border-t border-white/15 pt-4">
@@ -180,8 +185,8 @@ function UserFooter({ userName, familyName }: { userName: string; familyName: st
       </div>
       <button
         type="button"
-        aria-label="Sair"
-        title="Sair"
+        aria-label={t("signOut")}
+        title={t("signOut")}
         onClick={async () => {
           await authClient.signOut();
           router.replace("/entrar");
@@ -196,27 +201,29 @@ function UserFooter({ userName, familyName }: { userName: string; familyName: st
 }
 
 function QuickAdd({ className }: { className?: string }) {
+  const t = useTranslations("shell");
   const { openNew, writable } = useEntryDialog();
   if (!writable) return null;
   return (
     <Button variant="accent" onClick={() => openNew()} className={className}>
       <Plus className="size-4.5" aria-hidden="true" />
-      Novo lançamento
+      {t("newEntry")}
     </Button>
   );
 }
 
 function MobileBar({ onMore }: { onMore: () => void }) {
+  const t = useTranslations("shell");
   const pathname = usePathname();
   const { openNew, writable } = useEntryDialog();
   const tabs = [
-    { href: "/app", label: "Painel", icon: LayoutDashboard },
-    { href: "/app/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
+    { href: "/app", label: t("nav.panel"), icon: LayoutDashboard },
+    { href: "/app/lancamentos", label: t("nav.entries"), icon: ArrowLeftRight },
   ];
   const tab = "flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium";
   return (
     <nav
-      aria-label="Atalhos"
+      aria-label={t("shortcuts")}
       className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-line bg-card pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       {tabs.map(({ href, label, icon: Icon }) => (
@@ -237,19 +244,20 @@ function MobileBar({ onMore }: { onMore: () => void }) {
         className={cx(tab, "text-brand-700 disabled:opacity-50")}
       >
         <Plus className="size-5" aria-hidden="true" />
-        Lançar
+        {t("add")}
       </button>
       <button type="button" onClick={onMore} className={cx(tab, "text-muted")}>
         <Menu className="size-5" aria-hidden="true" />
-        Mais
+        {t("more")}
       </button>
     </nav>
   );
 }
 
 function NoticeBanner({ notice }: { notice: ShellNotice }) {
+  const t = useTranslations("shell");
   return (
-    <section role="region" aria-label="Aviso" className="bg-warning-soft text-ink">
+    <section role="region" aria-label={t("notice")} className="bg-warning-soft text-ink">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-sm sm:px-6 lg:px-10 2xl:px-14">
         <p className="min-w-0 flex-1 basis-60">{notice.text}</p>
         <Link href={notice.href} className="font-semibold underline underline-offset-2">
@@ -257,12 +265,12 @@ function NoticeBanner({ notice }: { notice: ShellNotice }) {
         </Link>
         <form action={skipOnboarding}>
           <Button type="submit" variant="ghost" small>
-            Não mostrar mais
+            {t("dontShowAgain")}
           </Button>
         </form>
         <form action={dismissNotice}>
           <input type="hidden" name="key" value={notice.key} />
-          <IconButton type="submit" label="Fechar aviso" className="text-ink">
+          <IconButton type="submit" label={t("closeNotice")} className="text-ink">
             <X className="size-4" aria-hidden="true" />
           </IconButton>
         </form>
@@ -272,15 +280,16 @@ function NoticeBanner({ notice }: { notice: ShellNotice }) {
 }
 
 function ServiceBanner({ banner }: { banner: ShellBanner }) {
+  const t = useTranslations("shell");
   return (
-    <section role="region" aria-label="Aviso do serviço" className="bg-brand-100 text-ink">
+    <section role="region" aria-label={t("serviceNotice")} className="bg-brand-100 text-ink">
       <div className="flex items-center gap-3 px-4 py-2 text-sm sm:px-6 lg:px-10 2xl:px-14">
         <Megaphone className="size-4 shrink-0" aria-hidden="true" />
         <p className="min-w-0 flex-1">{banner.text}</p>
         {banner.dismissible ? (
           <form action={dismissNotice}>
             <input type="hidden" name="key" value={banner.key} />
-            <IconButton type="submit" label="Fechar aviso" className="text-ink">
+            <IconButton type="submit" label={t("closeNotice")} className="text-ink">
               <X className="size-4" aria-hidden="true" />
             </IconButton>
           </form>
@@ -317,6 +326,8 @@ export function AppShell({
   pendingSuggestions: number;
   assistant: AssistantState;
 }) {
+  const t = useTranslations("shell");
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -348,7 +359,10 @@ export function AppShell({
             <ServiceBanner key={banner.key} banner={banner} />
           ))}
           {notice ? <NoticeBanner notice={notice} /> : null}
-          <main className="flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8 2xl:px-14">
+          <main
+            lang={TRANSLATED_SCREENS.has(pathname) ? undefined : DEFAULT_LOCALE}
+            className="flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8 2xl:px-14"
+          >
             {children}
           </main>
         </div>
@@ -356,7 +370,7 @@ export function AppShell({
 
       <AssistantPanel state={assistant} />
       <MobileBar onMore={() => setMenuOpen(true)} />
-      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu">
+      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title={t("menu")}>
         <div className="-m-5 flex min-h-full flex-col gap-6 bg-pine p-5">
           <Navigation
             pendingSuggestions={pendingSuggestions}

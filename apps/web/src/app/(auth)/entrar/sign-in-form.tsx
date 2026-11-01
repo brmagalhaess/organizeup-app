@@ -1,10 +1,12 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Field, FormMessage, Input } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
 
 export function SignInForm({ invite }: { invite: string | null }) {
+  const t = useTranslations("auth");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -22,8 +24,8 @@ export function SignInForm({ invite }: { invite: string | null }) {
       setPending(false);
       setError(
         signInError.message === "ACCOUNT_BLOCKED"
-          ? "Esta conta está bloqueada. Fale com o suporte do OrganizeUp."
-          : "E-mail ou senha incorretos.",
+          ? t("errors.accountBlocked")
+          : t("errors.signInFailed"),
       );
       return;
     }
@@ -33,15 +35,15 @@ export function SignInForm({ invite }: { invite: string | null }) {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <Field label="E-mail">
+      <Field label={t("fields.email")}>
         <Input name="email" type="email" autoComplete="email" required />
       </Field>
-      <Field label="Senha">
+      <Field label={t("fields.password")}>
         <Input name="password" type="password" autoComplete="current-password" required />
       </Field>
       <FormMessage message={error} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Entrando…" : "Entrar"}
+        {pending ? t("signIn.pending") : t("signIn.submit")}
       </Button>
     </form>
   );

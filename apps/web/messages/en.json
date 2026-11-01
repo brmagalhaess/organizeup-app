@@ -1,0 +1,388 @@
+{
+  "meta": {
+    "description": "Your family's money, dreams and retirement in one plan."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "loading": "Loading",
+    "loadingEllipsis": "Loading…",
+    "saving": "Saving…"
+  },
+  "locale": {
+    "failed": "We couldn't save the language to your account. Please try again.",
+    "hint": "The screen changes as soon as you choose.",
+    "label": "Language"
+  },
+  "errors": {
+    "retry": "Try again",
+    "screenText": "We couldn't load this screen. Your data is safe. Please try again in a moment.",
+    "screenTitle": "Something went wrong"
+  },
+  "legal": {
+    "notice": "These documents are available in Portuguese only, and the Portuguese version is the one that applies."
+  },
+  "shell": {
+    "add": "Add",
+    "closeNotice": "Close notice",
+    "dontShowAgain": "Don't show again",
+    "fallbackFamily": "Family",
+    "maintenance": "We're down for maintenance. You can still view everything, but changes are turned off for now.",
+    "menu": "Menu",
+    "modules": "Main menu",
+    "more": "More",
+    "newEntry": "New transaction",
+    "notice": "Notice",
+    "onboardingLink": "Finish now",
+    "onboardingNotice": "We still need a few details to build your retirement plan, trips and goals.",
+    "pendingSuggestions": "{count, plural, =1 {1 pending suggestion} other {# pending suggestions}}",
+    "serviceNotice": "Service notice",
+    "shortcuts": "Shortcuts",
+    "signOut": "Sign out",
+    "groups": {
+      "daily": "Day to day",
+      "family": "Family",
+      "wealth": "Wealth"
+    },
+    "nav": {
+      "accounts": "Accounts",
+      "calendar": "Calendar",
+      "cards": "Credit cards",
+      "categories": "Categories",
+      "debts": "Debts",
+      "dividends": "Dividends",
+      "entries": "Transactions",
+      "goals": "Goals",
+      "import": "Import statement",
+      "income": "Income",
+      "investments": "Investments",
+      "panel": "Dashboard",
+      "people": "People",
+      "plan": "Your plan",
+      "reserve": "Emergency fund",
+      "retirement": "Retirement",
+      "settings": "Settings",
+      "suggestions": "Suggestions",
+      "trips": "Trips",
+      "wealth": "Net worth"
+    }
+  },
+  "auth": {
+    "fields": {
+      "confirmNewPassword": "Confirm new password",
+      "confirmPassword": "Confirm password",
+      "email": "Email",
+      "name": "Your name",
+      "newPassword": "New password",
+      "password": "Password",
+      "passwordHint": "Use letters, numbers and a special character, such as ! or @."
+    },
+    "errors": {
+      "accountBlocked": "This account is blocked. Please contact OrganizeUp support.",
+      "emailTaken": "There's already an account with this email.",
+      "maintenance": "The system is down for maintenance. Please try again later.",
+      "passwordRule": "Your password needs letters, numbers and a special character.",
+      "passwordsDiffer": "The passwords don't match.",
+      "resetFailed": "We couldn't change your password. Please try again.",
+      "sendFailed": "We couldn't send it right now. Please try again.",
+      "signInFailed": "Incorrect email or password.",
+      "signupClosed": "Sign-ups are closed right now.",
+      "signupFailed": "We couldn't create your account. Please try again.",
+      "tooManyAttempts": "Too many attempts. Wait a minute and try again."
+    },
+    "signIn": {
+      "noAccount": "Don't have an account yet?",
+      "createAccount": "Create account",
+      "forgot": "I forgot my password",
+      "pending": "Signing in…",
+      "submit": "Sign in",
+      "subtitle": "Sign in to open your family's plan.",
+      "title": "Welcome back",
+      "metaTitle": "Sign in"
+    },
+    "signUp": {
+      "closedLink": "I already have an account",
+      "closedText": "If a family invited you, use the link in your invitation to get in.",
+      "closedTitle": "Sign-ups are closed right now",
+      "hasAccount": "Already have an account?",
+      "metaTitle": "Create account",
+      "pending": "Creating…",
+      "signIn": "Sign in",
+      "submit": "Create account",
+      "subtitle": "Next you'll set up your family's space. Each family's data is kept separate.",
+      "subtitleInvite": "Use the email address that got the invitation. You'll join the family right after.",
+      "terms": "I have read and accept the <terms>Terms of Use</terms> and the <privacy>Privacy Policy</privacy>.",
+      "title": "Create your account"
+    },
+    "forgot": {
+      "back": "Back to sign in",
+      "metaTitle": "I forgot my password",
+      "pending": "Sending…",
+      "remembered": "Remembered it?",
+      "sent": "If this email has an account, we've sent a link to create a new password. It's valid for 1 hour. Check your spam folder too.",
+      "submit": "Send link",
+      "subtitle": "Enter your email and we'll send you a link to create a new password.",
+      "title": "Forgot your password?"
+    },
+    "reset": {
+      "doneLink": "Sign in",
+      "doneText": "Your new password is ready. Use it to sign in.",
+      "doneTitle": "Password changed",
+      "expiredLink": "Request a new link",
+      "expiredText": "This link is incomplete, has expired or was already used. Request a new one to create your password.",
+      "expiredTitle": "This link is no longer valid",
+      "metaTitle": "Create a new password",
+      "pending": "Saving…",
+      "submit": "Save new password",
+      "subtitle": "Once you do, your old password stops working.",
+      "title": "Create a new password"
+    },
+    "blocked": {
+      "metaTitle": "Account blocked",
+      "text": "OrganizeUp's administrators blocked access to this account. Your data is still stored. To find out more, please contact support.",
+      "title": "This account is blocked"
+    },
+    "invite": {
+      "accept": "Accept invitation",
+      "acceptFailed": "We couldn't accept it. Please try again.",
+      "createAccount": "Create my account",
+      "goToApp": "Go to the app",
+      "hasAccount": "I already have an account",
+      "joinText": "{role}. Anything you add is visible to everyone with access to this family.",
+      "joinTitle": "Join {family}",
+      "metaTitle": "Invitation",
+      "otherEmailText": "You're signed in as {email}. Sign in with the email address that got the invitation.",
+      "otherEmailTitle": "This invitation is for a different email",
+      "receivedText": "Use the same email address that got the invitation. Once you're in, we'll show you which family it is.",
+      "receivedTitle": "You've been invited",
+      "roleAdult": "You can view and change the family's data",
+      "roleOther": "You'll have access to this family",
+      "roleViewer": "You can view but not change anything",
+      "unavailableText": "This invitation has expired or was canceled. Ask the person who invited you for a new link.",
+      "unavailableTitle": "Invitation unavailable"
+    }
+  },
+  "insights": {
+    "done": "Done",
+    "doNow": "Do it now",
+    "gotIt": "Got it",
+    "region": "Assistant tips",
+    "why": "Why?"
+  },
+  "dashboard": {
+    "metaTitle": "Dashboard",
+    "greeting": "Hi, {name}",
+    "today": "Today is {date}",
+    "todayAt": "Today is {date} · {place}",
+    "viewEntries": "View transactions",
+    "comparison": {
+      "less": "{percent} less than last month",
+      "more": "{percent} more than last month",
+      "noBase": "Nothing to compare with last month",
+      "same": "Same as last month"
+    },
+    "due": {
+      "overdue": "Overdue",
+      "planned": "Upcoming"
+    },
+    "stats": {
+      "balance": "Account balance",
+      "balanceHint": "Opening balance plus what has already cleared.",
+      "forecast": "End-of-month forecast",
+      "forecastHint": "This month's money in minus money out.",
+      "received": "Money in",
+      "spent": "Money out"
+    },
+    "suggestions": {
+      "empty": "Nothing to review for now.",
+      "open": "Open suggestions",
+      "title": "Assistant suggestions",
+      "viewAll": "View all ({count})"
+    },
+    "reserve": {
+      "define": "Set up your emergency fund",
+      "progress": "{saved} of {target}",
+      "title": "Emergency fund"
+    },
+    "wealth": {
+      "summary": "Own {owned} · owe {owed}",
+      "title": "Net worth"
+    },
+    "cashflow": {
+      "barLabel": "{month}: {received} in, {spent} out",
+      "description": "Last 6 months, only what has already happened.",
+      "emptyText": "Mark an income or expense as paid to see how the months evolve.",
+      "emptyTitle": "The chart appears with your first transaction",
+      "expenses": "Money out",
+      "income": "Money in",
+      "left": "Left over",
+      "month": "Month",
+      "tableCaption": "Money in and out over the last few months",
+      "title": "Money in and out"
+    },
+    "upcoming": {
+      "calendar": "View calendar",
+      "description": "What's still open.",
+      "emptyText": "Upcoming bills and income show up here until they're confirmed.",
+      "emptyTitle": "Nothing open",
+      "title": "Coming up"
+    },
+    "confirm": {
+      "expense": "Pay",
+      "goal": "Save",
+      "income": "Receive"
+    },
+    "spending": {
+      "description": "{month} expenses, paid and upcoming.",
+      "emptyText": "Add your expenses to see which categories your money goes to.",
+      "emptyTitle": "No expenses this month",
+      "other": "Other",
+      "title": "Where your money goes",
+      "uncategorized": "Uncategorized"
+    },
+    "firstSteps": {
+      "done": "Done",
+      "progress": "{done} of {total} done",
+      "title": "First steps",
+      "todo": "To do",
+      "balance": "Enter your account balances",
+      "balanceHint": "That way the dashboard shows what you have today.",
+      "family": "Add your family",
+      "familyHint": "Spouse, children and anyone else in the household.",
+      "income": "Add your income",
+      "incomeHint": "Salary, rent received or any other income.",
+      "onboarding": "Finish your family's profile",
+      "onboardingHint": "Retirement, trips and goals depend on it. It takes 3 minutes.",
+      "recurring": "Add a fixed bill",
+      "recurringHint": "Tick “Repeats every month” and it shows up on its own."
+    }
+  },
+  "settings": {
+    "metaTitle": "Settings",
+    "title": "Settings",
+    "description": "Details used across the whole system.",
+    "language": {
+      "description": "This only applies to you. Each person in the family picks their own.",
+      "title": "Language"
+    },
+    "home": {
+      "city": "City",
+      "description": "Used for trips and cost of living.",
+      "save": "Save settings",
+      "saved": "Settings saved.",
+      "state": "State",
+      "stateError": "Use the state abbreviation (e.g. SP).",
+      "timezone": "Time zone",
+      "timezoneError": "Invalid time zone.",
+      "timezoneHint": "Sets what counts as “today” for due dates.",
+      "title": "Where you live"
+    },
+    "timezones": {
+      "acre": "Acre (ACT)",
+      "amazonas": "Amazonas (AMT)",
+      "brasilia": "Brasília (BRT)",
+      "matoGrosso": "Mato Grosso (AMT)",
+      "noronha": "Fernando de Noronha",
+      "nordeste": "Northeast Brazil (BRT)",
+      "para": "Pará/Amapá (BRT)",
+      "rondonia": "Rondônia (AMT)",
+      "roraima": "Roraima (AMT)"
+    },
+    "plan": {
+      "description": "Used for retirement and trip suggestions.",
+      "retirementYear": "Year you want to stop working",
+      "retirementYearError": "Enter a year between 1950 and 2150.",
+      "save": "Save plan",
+      "saved": "Plan saved.",
+      "title": "Plan",
+      "tripDays": "Days per trip",
+      "tripDaysError": "Enter 1 to 60 days.",
+      "tripsPerYear": "Trips per year",
+      "tripsPerYearError": "Enter 0 to 12 trips per year."
+    },
+    "assistant": {
+      "acceptedOn": "Authorized on {date}.",
+      "consentLabel": "I authorize the use of my family's data to prepare these tips, including outside Brazil.",
+      "consentRequired": "To turn on tips, tick the box to authorize them.",
+      "description": "Talks through your data and leaves tips on your screens, only with your permission.",
+      "failed": "We couldn't save that. Please try again.",
+      "insightsOn": "Tips are on. The first batch arrives overnight.",
+      "insightsPending": "Turning on…",
+      "insightsSubmit": "Turn on tips",
+      "insightsText": "Every night the assistant looks at your family's numbers and leaves tips on your screens.",
+      "insightsTitle": "Tips on every screen",
+      "levelLabel": "What it can do on its own",
+      "levelSave": "Save level",
+      "levelSaved": "Saved.",
+      "notAllowed": "Only the person in charge or an adult in the family can change this.",
+      "off": "Off",
+      "offHint": "To turn it on, open the Assistant button and read what gets sent. Nothing leaves the system without your consent.",
+      "offHintReadOnly": "The person in charge or an adult in the family can turn it on from the Assistant button.",
+      "on": "On",
+      "pickOption": "Pick an option.",
+      "title": "Assistant",
+      "turnOff": "Turn off the assistant",
+      "turnOffConfirm": "Turn off",
+      "turnOffText": "Nothing else is sent to Anthropic. Your conversations stay stored, and anyone who wants to can delete them. To come back, you'll need to authorize it again.",
+      "levels": {
+        "completo": "Full",
+        "completoText": "Also creates draft goals. Any amount you entered stays a suggestion.",
+        "organizar": "Organize",
+        "organizarText": "Also tidies up items left for review on its own, always with Undo.",
+        "sugerir": "Suggest",
+        "sugerirText": "Only gives tips and suggestions. You decide everything."
+      }
+    },
+    "memories": {
+      "clearConfirm": "Delete all",
+      "clearText": "The assistant forgets everything noted about your family. This can't be undone.",
+      "clearTitle": "Delete all notes?",
+      "deleteLabel": "Delete the note: {content}",
+      "deleteText": "The assistant stops using this note, and it can't be recovered.",
+      "deleteTitle": "Delete this note?",
+      "description": "Notes you asked for in the conversation. The assistant uses them in its next answers.",
+      "emptyText": "When you ask the assistant to remember something in the conversation, the note shows up here.",
+      "emptyTitle": "No notes yet",
+      "expired": "Expired",
+      "failed": "We couldn't delete it right now. Please try again.",
+      "kindFato": "Fact",
+      "kindObjetivo": "Goal",
+      "kindPreferencia": "Preference",
+      "loadFailed": "We couldn't load the notes. Please try again.",
+      "readOnly": "Only adults in the family can delete notes.",
+      "title": "What the assistant knows"
+    },
+    "account": {
+      "email": "Email",
+      "id": "Account ID",
+      "name": "Name",
+      "role": "Your role in the family",
+      "title": "Your account"
+    },
+    "roles": {
+      "adult": "Adult",
+      "child": "Child",
+      "owner": "Person in charge",
+      "viewer": "View only"
+    },
+    "data": {
+      "description": "It's yours: take it or delete it whenever you want.",
+      "download": "Download family data",
+      "legal": "See the <terms>Terms of Use</terms> and the <privacy>Privacy Policy</privacy>.",
+      "title": "Your data"
+    },
+    "deleteAccount": {
+      "failed": "We couldn't delete your account. Please try again.",
+      "familyHasMembers": "Your family has other people. Remove their access under Family before deleting your account.",
+      "open": "Delete account",
+      "password": "Your password",
+      "passwordRequired": "Enter your password.",
+      "pending": "Deleting…",
+      "submit": "Delete my account",
+      "text": "This can't be undone. Your account is deleted and, if the family is yours alone, all of its data too. Backups are replaced within 30 days.",
+      "wrongPassword": "Incorrect password."
+    },
+    "noPermission": "Your role in this family doesn't allow changes."
+  }
+}

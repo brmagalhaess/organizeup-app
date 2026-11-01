@@ -1,5 +1,6 @@
 "use client";
 import { Lightbulb } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
@@ -10,6 +11,7 @@ import { decideInsight } from "./actions";
 
 /** Uma dica. Quem só pode ver lê e abre o "Por quê?", sem os botões. */
 export function InsightCard({ insight, canAct }: { insight: InsightItem; canAct: boolean }) {
+  const t = useTranslations("insights");
   const pathname = usePathname();
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -23,7 +25,7 @@ export function InsightCard({ insight, canAct }: { insight: InsightItem; canAct:
           <p className="m-0 mt-1 break-words text-sm text-muted">{insight.body}</p>
         </div>
         <details className="text-sm">
-          <summary className="w-fit cursor-pointer font-medium text-brand-700">Por quê?</summary>
+          <summary className="w-fit cursor-pointer font-medium text-brand-700">{t("why")}</summary>
           <p className="m-0 mt-1 break-words text-muted">{insight.why}</p>
         </details>
         {canAct ? (
@@ -34,7 +36,7 @@ export function InsightCard({ insight, canAct }: { insight: InsightItem; canAct:
                 className={buttonClass("secondary", true)}
                 onClick={() => void decideInsight(insight.id, "feita")}
               >
-                Fazer agora
+                {t("doNow")}
               </Link>
             )}
             <Button
@@ -49,7 +51,7 @@ export function InsightCard({ insight, canAct }: { insight: InsightItem; canAct:
                 })
               }
             >
-              {here ? "Feito" : "Entendi"}
+              {here ? t("done") : t("gotIt")}
             </Button>
           </div>
         ) : null}

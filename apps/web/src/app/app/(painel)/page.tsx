@@ -1,20 +1,20 @@
 import { AlertCircle, ArrowRight, Clock } from "lucide-react";
 import type { Metadata } from "next";
+import { useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { canWrite } from "@organizeup/db";
-import {
-  formatBRL,
-  formatShortDate,
-  formatYearMonth,
-  money,
-  percentChange,
-  percentOf,
-  toDbAmount,
-  yearMonthOf,
-} from "@organizeup/domain";
-import { amountClass, buttonClass, confirmLabel, cx } from "@/components/styles";
+import { money, percentChange, percentOf, toDbAmount, yearMonthOf } from "@organizeup/domain";
+import { amountClass, buttonClass, confirmAction, cx } from "@/components/styles";
 import { Badge, Button, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
+import {
+  formatAmount,
+  formatDayMonth,
+  formatLongDate,
+  formatMonthYear,
+  formatPercent,
+} from "@/i18n/format";
 import { loadOverview } from "@/lib/finance-data";
 import { requireTenant } from "@/lib/session";
 import { loadTopSuggestions } from "@/lib/suggestions";
@@ -23,26 +23,22 @@ import { CashflowChart } from "./cashflow-chart";
 import { FirstSteps } from "./first-steps";
 import { confirmEntry } from "./lancamentos/actions";
 
-export const metadata: Metadata = { title: "Painel" };
-
-/** Compara com o mês anterior em texto, sem depender de cor. */
-function comparison(current: string, previous: string) {
-  const change = percentChange(current, previous);
-  if (change === null) return "Sem base no mês anterior";
-  if (change === 0) return "Igual ao mês anterior";
-  return `${Math.abs(change)}% ${change > 0 ? "a mais" : "a menos"} que no mês anterior`;
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("dashboard");
+  return { title: t("metaTitle") };
 }
 
 function DueBadge({ overdue }: { overdue: boolean }) {
+  const t = useTranslations("dashboard.due");
   return overdue ? (
     <Badge tone="danger">
       <AlertCircle className="size-3" aria-hidden="true" />
-      Atrasado
+      {t("overdue")}
     </Badge>
   ) : (
     <Badge>
       <Clock className="size-3" aria-hidden="true" />
-      Previsto
+      {t("planned")}
     </Badge>
   );
 }
@@ -55,33 +51,43 @@ export default async function OverviewPage() {
     loadNetWorth(ctx, { record: false }),
     loadTopSuggestions(ctx),
   ]);
+  const [t, locale] = await Promise.all([getTranslations("dashboard"), getLocale()]);
   const writable = canWrite(ctx);
-  const firstName = session.user.name.split(" ")[0];
-  const dateLabel = new Date(`${data.today}T12:00:00Z`).toLocaleDateString("pt-BR", {
-    dateStyle: "long",
-    timeZone: "UTC",
-  });
+  const firstName = session.user.name.split(" ")[0] ?? "";
+  const date = formatLongDate(data.today, locale);
+  const amount = (value: string) => formatAmount(value, locale);
+
+  /** Compara com o mês anterior em texto, sem depender de cor. */
+  const comparison = (current: string, previous: string) => {
+    const change = percentChange(current, previous);
+    if (change === null) return t("comparison.noBase");
+    if (change === 0) return t("comparison.same");
+    const percent = formatPercent(Math.abs(change), locale);
+    return change > 0 ? t("comparison.more", { percent }) : t("comparison.less", { percent });
+  };
 
   const top = data.byCategory.slice(0, 6);
   const rest = data.byCategory.slice(6).reduce((acc, c) => acc.plus(c.amount), money(0));
   const bars = [
     ...top.map((c) => ({
       id: c.categoryId,
-      name: data.categoryNames.get(c.categoryId) ?? "Sem categoria",
+      name: data.categoryNames.get(c.categoryId) ?? t("spending.uncategorized"),
       amount: c.amount,
     })),
-    ...(rest.isZero() ? [] : [{ id: "outras", name: "Outras", amount: toDbAmount(rest) }]),
+    ...(rest.isZero()
+      ? []
+      : [{ id: "outras", name: t("spending.other"), amount: toDbAmount(rest) }]),
   ];
   const spentTotal = toDbAmount(data.byCategory.reduce((acc, c) => acc.plus(c.amount), money(0)));
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={`Olá, ${firstName}`}
-        description={`Hoje é ${dateLabel}${data.place ? ` · ${data.place}` : ""}`}
+        title={t("greeting", { name: firstName })}
+        description={data.place ? t("todayAt", { date, place: data.place }) : t("today", { date })}
         actions={
           <Link href="/app/lancamentos" className={buttonClass("secondary")}>
-            Ver lançamentos
+            {t("viewEntries")}
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         }
@@ -93,45 +99,47 @@ export default async function OverviewPage() {
 
       <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatTile
-          label="Saldo nas contas"
-          value={formatBRL(data.total)}
-          hint="Saldo inicial mais o que já foi realizado."
+          label={t("stats.balance")}
+          value={amount(data.total)}
+          hint={t("stats.balanceHint")}
         />
         <StatTile
-          label="Entrou"
+          label={t("stats.received")}
           tone="receita"
-          value={formatBRL(data.summary.received)}
+          value={amount(data.summary.received)}
           hint={comparison(data.summary.received, data.previousSummary.received)}
         />
         <StatTile
-          label="Saiu"
+          label={t("stats.spent")}
           tone="despesa"
-          value={formatBRL(data.summary.spent)}
+          value={amount(data.summary.spent)}
           hint={comparison(data.summary.spent, data.previousSummary.spent)}
         />
         <StatTile
-          label="Previsão para o fim do mês"
-          value={formatBRL(data.summary.projectedBalance)}
-          hint="Resultado de entradas e saídas do mês."
+          label={t("stats.forecast")}
+          value={amount(data.summary.projectedBalance)}
+          hint={t("stats.forecastHint")}
         />
       </dl>
 
       <Card
-        title="Sugestões do assistente"
+        title={t("suggestions.title")}
         actions={
           <Link
             href="/app/sugestoes"
             className="text-sm font-medium underline-offset-2 hover:underline"
           >
-            {suggestions.total > 0 ? `Ver todas (${suggestions.total})` : "Abrir sugestões"}
+            {suggestions.total > 0
+              ? t("suggestions.viewAll", { count: suggestions.total })
+              : t("suggestions.open")}
           </Link>
         }
       >
         {suggestions.items.length === 0 ? (
-          <p className="text-sm text-muted">Nada para revisar por enquanto.</p>
+          <p className="text-sm text-muted">{t("suggestions.empty")}</p>
         ) : (
           <ul
-            aria-label="Sugestões do assistente"
+            aria-label={t("suggestions.title")}
             className="m-0 list-none divide-y divide-line p-0"
           >
             {suggestions.items.map((item) => (
@@ -148,16 +156,19 @@ export default async function OverviewPage() {
           href="/app/reserva"
           className="rounded-2xl border border-line bg-card p-5 shadow-card transition hover:border-brand-500"
         >
-          <p className="text-sm text-muted">Reserva de emergência</p>
+          <p className="text-sm text-muted">{t("reserve.title")}</p>
           {reserve.baseline.basis === "sem_dados" ? (
-            <p className="mt-2 text-sm font-medium">Defina sua reserva</p>
+            <p className="mt-2 text-sm font-medium">{t("reserve.define")}</p>
           ) : (
             <>
               <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">
-                {reserve.status.percent}%
+                {formatPercent(reserve.status.percent, locale)}
               </p>
               <p className="mt-1 text-xs text-muted">
-                {formatBRL(reserve.status.saved)} de {formatBRL(reserve.status.target)}
+                {t("reserve.progress", {
+                  saved: amount(reserve.status.saved),
+                  target: amount(reserve.status.target),
+                })}
               </p>
             </>
           )}
@@ -166,53 +177,50 @@ export default async function OverviewPage() {
           href="/app/patrimonio"
           className="rounded-2xl border border-line bg-card p-5 shadow-card transition hover:border-brand-500"
         >
-          <p className="text-sm text-muted">Patrimônio líquido</p>
+          <p className="text-sm text-muted">{t("wealth.title")}</p>
           <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">
-            {formatBRL(wealth.summary.net)}
+            {amount(wealth.summary.net)}
           </p>
           <p className="mt-1 text-xs text-muted">
-            Tem {formatBRL(wealth.summary.owned)} · deve {formatBRL(wealth.summary.owed)}
+            {t("wealth.summary", {
+              owned: amount(wealth.summary.owned),
+              owed: amount(wealth.summary.owed),
+            })}
           </p>
         </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Card title="Entradas e saídas" description="Últimos 6 meses, só o que já aconteceu.">
+        <Card title={t("cashflow.title")} description={t("cashflow.description")}>
           <CashflowChart series={data.series} />
         </Card>
 
         <Card
-          title="Próximos vencimentos"
-          description="O que ainda está em aberto."
+          title={t("upcoming.title")}
+          description={t("upcoming.description")}
           actions={
             <Link
               href="/app/calendario"
               className="text-sm font-medium underline-offset-2 hover:underline"
             >
-              Ver calendário
+              {t("upcoming.calendar")}
             </Link>
           }
         >
           {data.pending.length === 0 ? (
-            <EmptyState
-              title="Nada em aberto"
-              text="Contas e receitas previstas aparecem aqui até serem confirmadas."
-            />
+            <EmptyState title={t("upcoming.emptyTitle")} text={t("upcoming.emptyText")} />
           ) : (
-            <ul
-              className="m-0 list-none divide-y divide-line p-0"
-              aria-label="Próximos vencimentos"
-            >
+            <ul className="m-0 list-none divide-y divide-line p-0" aria-label={t("upcoming.title")}>
               {data.pending.map((entry) => (
                 <li key={`${entry.key}:${entry.date}`} className="flex items-center gap-3 py-2.5">
                   <span className="w-12 shrink-0 text-sm tabular-nums text-muted">
-                    {formatShortDate(entry.date)}
+                    {formatDayMonth(entry.date, locale)}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{entry.description}</p>
                     <p className={cx("text-xs font-medium tabular-nums", amountClass(entry.kind))}>
                       {entry.kind === "receita" ? "+ " : "− "}
-                      {formatBRL(entry.amount)}
+                      {amount(entry.amount)}
                     </p>
                     <div className="mt-1 sm:hidden">
                       <DueBadge overdue={entry.overdue} />
@@ -226,7 +234,7 @@ export default async function OverviewPage() {
                       <input type="hidden" name="key" value={entry.key} />
                       <input type="hidden" name="month" value={yearMonthOf(entry.date)} />
                       <Button type="submit" variant="secondary" small>
-                        {confirmLabel(entry)}
+                        {t(`confirm.${confirmAction(entry)}`)}
                       </Button>
                     </form>
                   ) : null}
@@ -238,14 +246,11 @@ export default async function OverviewPage() {
       </div>
 
       <Card
-        title="Para onde vai o dinheiro"
-        description={`Despesas de ${formatYearMonth(data.month)}, pagas e previstas.`}
+        title={t("spending.title")}
+        description={t("spending.description", { month: formatMonthYear(data.month, locale) })}
       >
         {bars.length === 0 ? (
-          <EmptyState
-            title="Nenhuma despesa neste mês"
-            text="Lance suas despesas para ver em que categorias o dinheiro está indo."
-          />
+          <EmptyState title={t("spending.emptyTitle")} text={t("spending.emptyText")} />
         ) : (
           <ul className="m-0 grid list-none gap-x-10 gap-y-3 p-0 lg:grid-cols-2">
             {bars.map((bar) => (
@@ -253,7 +258,8 @@ export default async function OverviewPage() {
                 <div className="flex justify-between gap-3 text-sm">
                   <span className="truncate">{bar.name}</span>
                   <span className="whitespace-nowrap tabular-nums text-muted">
-                    {formatBRL(bar.amount)} · {Math.round(percentOf(bar.amount, spentTotal))}%
+                    {amount(bar.amount)} ·{" "}
+                    {formatPercent(Math.round(percentOf(bar.amount, spentTotal)), locale)}
                   </span>
                 </div>
                 <div aria-hidden="true" className="mt-1 h-2 rounded-full bg-brand-50">

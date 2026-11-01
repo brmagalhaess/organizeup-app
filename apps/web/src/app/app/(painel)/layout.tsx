@@ -14,38 +14,39 @@ import {
   type TenantContext,
 } from "@organizeup/db";
 import { todayIn } from "@organizeup/domain";
+import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { AppShell, type ShellBanner, type ShellNotice } from "@/components/shell/app-shell";
 import { onboardingStatus } from "@/lib/onboarding";
 import { platformFlags, requireTenant } from "@/lib/session";
 import { countPending, noticeCookie, tolerateSchemaLag } from "@/lib/suggestions";
 
-const ONBOARDING_NOTICE: ShellNotice = {
-  key: "onboarding",
-  text: "Faltam alguns dados para montar o plano de aposentadoria, as viagens e as metas.",
-  href: "/app/completar",
-  linkLabel: "Completar agora",
-};
+const ONBOARDING_KEY = "onboarding";
 
 /** Aviso e contagem do menu. Sem a migração ainda aplicada, o painel abre sem os dois. */
 async function shellStatus(ctx: TenantContext, writable: boolean) {
-  const dismissed = (await cookies()).has(noticeCookie(ONBOARDING_NOTICE.key));
+  const t = await getTranslations("shell");
+  const dismissed = (await cookies()).has(noticeCookie(ONBOARDING_KEY));
+  const onboarding: ShellNotice = {
+    key: ONBOARDING_KEY,
+    text: t("onboardingNotice"),
+    href: "/app/completar",
+    linkLabel: t("onboardingLink"),
+  };
   return tolerateSchemaLag(
     () =>
       withHousehold(ctx, async (tx) => {
         const pendingSuggestions = await countPending(tx);
         const invite = writable && !dismissed && (await onboardingStatus(tx)).pending;
-        return { notice: invite ? ONBOARDING_NOTICE : null, pendingSuggestions };
+        return { notice: invite ? onboarding : null, pendingSuggestions };
       }),
     { notice: null, pendingSuggestions: 0 },
   );
 }
 
-const MAINTENANCE_TEXT =
-  "Estamos em manutenção. Você pode consultar tudo, mas as alterações estão desligadas por enquanto.";
-
 /** Faixas do serviço: manutenção (sempre visível) e avisos valendo agora, que dá para dispensar. */
 async function platformBanners(): Promise<ShellBanner[]> {
+  const t = await getTranslations("shell");
   const flags = await platformFlags();
   const store = await cookies();
   const banners: ShellBanner[] = activeNotices(flags)
@@ -54,7 +55,7 @@ async function platformBanners(): Promise<ShellBanner[]> {
   if (flags.maintenance) {
     banners.unshift({
       key: "manutencao",
-      text: flags.maintenanceMessage ?? MAINTENANCE_TEXT,
+      text: flags.maintenanceMessage ?? t("maintenance"),
       dismissible: false,
     });
   }
@@ -78,6 +79,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     platformBanners(),
     assistantStatus(ctx),
   ]);
+  const t = await getTranslations("shell");
   const data = await withHousehold(ctx, async (tx) => {
     if (writable) await ensureFinanceDefaults(tx, ctx.householdId);
     const [family] = await tx
@@ -107,7 +109,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       .where(eq(creditCards.archived, false))
       .orderBy(asc(creditCards.createdAt));
     return {
-      family: family?.name ?? "Família",
+      family: family?.name ?? t("fallbackFamily"),
       timezone: settings?.timezone,
       accounts: accountRows,
       categories: categoryRows,

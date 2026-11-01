@@ -1,11 +1,15 @@
 import Link from "next/link";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
 import { platformFlags } from "@/lib/session";
 
 /** Telas antes de existir uma família ativa: criar ou escolher. */
 export default async function SetupLayout({ children }: { children: React.ReactNode }) {
   const { maintenance } = await platformFlags();
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-6 px-4 py-10">
+    <main
+      lang={DEFAULT_LOCALE}
+      className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-6 px-4 py-10"
+    >
       <Link href="/" className="font-display text-xl font-semibold">
         OrganizeUp
       </Link>

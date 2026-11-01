@@ -7,6 +7,7 @@ import {
   setAssistantAutonomy,
 } from "@organizeup/ai";
 import { AI_AUTONOMY_LEVELS } from "@organizeup/db";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { LEGAL_VERSION } from "@/lib/legal";
@@ -52,19 +53,18 @@ export async function acceptInsights(
   form: FormData,
 ): Promise<AssistantActionState> {
   const { ctx } = await requireTenant();
-  if (!canUseAssistant(ctx)) return { ok: false, message: NOT_ALLOWED };
-  if (form.get("consent") !== "on") {
-    return { ok: false, message: "Para ligar as dicas, marque que você autoriza." };
-  }
+  const t = await getTranslations("settings.assistant");
+  if (!canUseAssistant(ctx)) return { ok: false, message: t("notAllowed") };
+  if (form.get("consent") !== "on") return { ok: false, message: t("consentRequired") };
   const level = autonomy.safeParse(form.get("autonomy"));
-  if (!level.success) return { ok: false, message: FAILED };
+  if (!level.success) return { ok: false, message: t("failed") };
   try {
     await activateAssistant(ctx, { autonomy: level.data, version: LEGAL_VERSION });
   } catch {
-    return { ok: false, message: FAILED };
+    return { ok: false, message: t("failed") };
   }
   refresh();
-  return { ok: true, message: "Dicas ligadas. A primeira rodada sai na próxima madrugada." };
+  return { ok: true, message: t("insightsOn") };
 }
 
 export async function deactivate(): Promise<void> {
@@ -79,14 +79,15 @@ export async function changeAutonomy(
   form: FormData,
 ): Promise<AssistantActionState> {
   const { ctx } = await requireTenant();
-  if (!canUseAssistant(ctx)) return { ok: false, message: NOT_ALLOWED };
+  const t = await getTranslations("settings.assistant");
+  if (!canUseAssistant(ctx)) return { ok: false, message: t("notAllowed") };
   const level = autonomy.safeParse(form.get("autonomy"));
-  if (!level.success) return { ok: false, message: "Escolha uma opção." };
+  if (!level.success) return { ok: false, message: t("pickOption") };
   try {
     await setAssistantAutonomy(ctx, level.data);
   } catch {
-    return { ok: false, message: FAILED };
+    return { ok: false, message: t("failed") };
   }
   refresh();
-  return { ok: true, message: "Salvo." };
+  return { ok: true, message: t("levelSaved") };
 }

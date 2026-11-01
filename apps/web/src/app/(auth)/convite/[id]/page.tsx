@@ -1,17 +1,23 @@
 import type { Metadata } from "next";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { APIError } from "better-auth/api";
 import { Button, FormMessage } from "@/components/ui";
 import { buttonClass } from "@/components/styles";
 import { getAuth } from "@/lib/auth";
-import { inviteId, ROLE_HINT } from "@/lib/invites";
+import { inviteId } from "@/lib/invites";
 import { getSession } from "@/lib/session";
 import { acceptInvite } from "./actions";
 
-export const metadata: Metadata = { title: "Convite", robots: { index: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("auth.invite");
+  return { title: t("metaTitle"), robots: { index: false } };
+}
 
 function Blocked({ title, text }: { title: string; text: string }) {
+  const t = useTranslations("auth.invite");
   return (
     <>
       <div>
@@ -19,20 +25,21 @@ function Blocked({ title, text }: { title: string; text: string }) {
         <p className="text-sm text-muted">{text}</p>
       </div>
       <Link href="/app/escolher" className={buttonClass("secondary")}>
-        Ir para o sistema
+        {t("goToApp")}
       </Link>
     </>
   );
 }
 
 function SignInLinks({ id }: { id: string }) {
+  const t = useTranslations("auth.invite");
   return (
     <div className="flex flex-col gap-2">
       <Link href={`/cadastro?convite=${id}`} className={buttonClass("primary")}>
-        Criar minha conta
+        {t("createAccount")}
       </Link>
       <Link href={`/entrar?convite=${id}`} className={buttonClass("secondary")}>
-        Já tenho conta
+        {t("hasAccount")}
       </Link>
     </div>
   );
@@ -47,10 +54,8 @@ export default async function InvitePage({
 }) {
   const id = inviteId((await params).id);
   const { erro } = await searchParams;
-  const unavailable = {
-    title: "Convite indisponível",
-    text: "Este convite expirou ou foi cancelado. Peça um novo link a quem convidou você.",
-  };
+  const t = await getTranslations("auth.invite");
+  const unavailable = { title: t("unavailableTitle"), text: t("unavailableText") };
   if (!id) return <Blocked {...unavailable} />;
 
   const session = await getSession();
@@ -58,10 +63,8 @@ export default async function InvitePage({
     return (
       <>
         <div>
-          <h1 className="text-2xl font-bold">Você recebeu um convite</h1>
-          <p className="text-sm text-muted">
-            Use o mesmo e-mail que recebeu o convite. Depois de entrar, mostramos qual é a família.
-          </p>
+          <h1 className="text-2xl font-bold">{t("receivedTitle")}</h1>
+          <p className="text-sm text-muted">{t("receivedText")}</p>
         </div>
         <SignInLinks id={id} />
       </>
@@ -79,30 +82,34 @@ export default async function InvitePage({
     return (
       <>
         <div>
-          <h1 className="text-2xl font-bold">Este convite é para outro e-mail</h1>
-          <p className="text-sm text-muted">
-            Você entrou como {session.user.email}. Entre com o e-mail que recebeu o convite.
-          </p>
+          <h1 className="text-2xl font-bold">{t("otherEmailTitle")}</h1>
+          <p className="text-sm text-muted">{t("otherEmailText", { email: session.user.email })}</p>
         </div>
         <SignInLinks id={id} />
       </>
     );
   }
 
+  const role =
+    invitation.role === "adult"
+      ? t("roleAdult")
+      : invitation.role === "viewer"
+        ? t("roleViewer")
+        : t("roleOther");
+
   return (
     <>
       <div>
-        <h1 className="text-2xl font-bold">Entrar em {invitation.organizationName}</h1>
-        <p className="text-sm text-muted">
-          Você {ROLE_HINT[invitation.role] ?? "terá acesso a esta família"}. Os dados que você
-          lançar ficam visíveis para quem acessa esta família.
-        </p>
+        <h1 className="text-2xl font-bold">
+          {t("joinTitle", { family: invitation.organizationName })}
+        </h1>
+        <p className="text-sm text-muted">{t("joinText", { role })}</p>
       </div>
-      <FormMessage message={erro ? "Não foi possível aceitar. Tente novamente." : null} />
+      <FormMessage message={erro ? t("acceptFailed") : null} />
       <form action={acceptInvite}>
         <input type="hidden" name="id" value={id} />
         <Button type="submit" className="w-full">
-          Aceitar convite
+          {t("accept")}
         </Button>
       </form>
     </>

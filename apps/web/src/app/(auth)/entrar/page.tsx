@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { inviteId } from "@/lib/invites";
 import { SignInForm } from "./sign-in-form";
 
-export const metadata: Metadata = { title: "Entrar" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("auth.signIn");
+  return { title: t("metaTitle") };
+}
 
 export default async function SignInPage({
   searchParams,
@@ -11,25 +15,26 @@ export default async function SignInPage({
   searchParams: Promise<{ convite?: string }>;
 }) {
   const invite = inviteId((await searchParams).convite);
+  const t = await getTranslations("auth.signIn");
   return (
     <>
       <div>
-        <h1 className="text-2xl font-bold">Bem-vindo de volta</h1>
-        <p className="text-sm text-muted">Entre para acessar o plano da sua família.</p>
+        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <p className="text-sm text-muted">{t("subtitle")}</p>
       </div>
       <SignInForm invite={invite} />
       <p className="text-sm">
         <Link href="/esqueci-senha" className="font-semibold text-brand-700 underline">
-          Esqueci minha senha
+          {t("forgot")}
         </Link>
       </p>
       <p className="text-sm text-muted">
-        Ainda não tem conta?{" "}
+        {t("noAccount")}{" "}
         <Link
           href={invite ? `/cadastro?convite=${invite}` : "/cadastro"}
           className="font-semibold text-brand-700 underline"
         >
-          Criar conta
+          {t("createAccount")}
         </Link>
       </p>
     </>

@@ -1,5 +1,6 @@
 "use client";
 import { CheckCircle2, Circle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEntryDialog } from "@/components/shell/entry-context";
@@ -20,50 +21,51 @@ export function FirstSteps({
     family: boolean;
   };
 }) {
+  const t = useTranslations("dashboard.firstSteps");
   const { openNew, writable } = useEntryDialog();
   const steps: Array<{ done: boolean; hint: string; action: ReactNode }> = [
     {
       done: checklist.onboarding,
-      hint: "Aposentadoria, viagens e metas dependem disso. Leva 3 minutos.",
+      hint: t("onboardingHint"),
       action: (
         <Link href="/app/completar" className={actionClass}>
-          Complete o cadastro da família
+          {t("onboarding")}
         </Link>
       ),
     },
     {
       done: checklist.income,
-      hint: "Salário, aluguel recebido ou outra entrada.",
+      hint: t("incomeHint"),
       action: (
         <Link href="/app/renda" className={actionClass}>
-          Cadastre sua renda
+          {t("income")}
         </Link>
       ),
     },
     {
       done: checklist.recurring,
-      hint: "Marque “Repete todo mês” e ela aparece sozinha.",
+      hint: t("recurringHint"),
       action: (
         <button type="button" className={actionClass} onClick={() => openNew("despesa")}>
-          Cadastre uma conta fixa
+          {t("recurring")}
         </button>
       ),
     },
     {
       done: checklist.balance,
-      hint: "Assim o painel mostra quanto você tem hoje.",
+      hint: t("balanceHint"),
       action: (
         <Link href="/app/contas" className={actionClass}>
-          Informe o saldo das contas
+          {t("balance")}
         </Link>
       ),
     },
     {
       done: checklist.family,
-      hint: "Cônjuge, filhos e outras pessoas da casa.",
+      hint: t("familyHint"),
       action: (
         <Link href="/app/familia" className={actionClass}>
-          Inclua sua família
+          {t("family")}
         </Link>
       ),
     },
@@ -72,7 +74,7 @@ export function FirstSteps({
   if (!writable || done === steps.length) return null;
 
   return (
-    <Card title="Primeiros passos" description={`${done} de ${steps.length} concluídos`}>
+    <Card title={t("title")} description={t("progress", { done, total: steps.length })}>
       <ol className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 2xl:grid-cols-5">
         {steps.map((step, index) => (
           <li
@@ -83,9 +85,12 @@ export function FirstSteps({
             )}
           >
             {step.done ? (
-              <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" aria-label="Feito" />
+              <CheckCircle2
+                className="mt-0.5 size-5 shrink-0 text-success"
+                aria-label={t("done")}
+              />
             ) : (
-              <Circle className="mt-0.5 size-5 shrink-0 text-muted" aria-label="A fazer" />
+              <Circle className="mt-0.5 size-5 shrink-0 text-muted" aria-label={t("todo")} />
             )}
             <div className="min-w-0">
               {step.action}

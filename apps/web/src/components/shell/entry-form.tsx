@@ -4,6 +4,7 @@ import { CARD_CATEGORY, type MonthEntry } from "@organizeup/domain";
 import { saveEntry, type EntryFormState } from "@/app/app/(painel)/lancamentos/actions";
 import { cx } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select } from "@/components/ui";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
 
 const initial: EntryFormState = { ok: false, message: null };
 
@@ -55,7 +56,7 @@ export function EntryForm({
   }, [state, onDone]);
 
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form action={action} lang={DEFAULT_LOCALE} className="flex flex-col gap-4">
       {entry ? <input type="hidden" name="key" value={entry.key} /> : null}
       <fieldset>
         <legend className="mb-1.5 text-sm font-medium">Tipo</legend>

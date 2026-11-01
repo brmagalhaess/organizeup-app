@@ -2,6 +2,7 @@
 // conferidos em runChatTurn, antes de cada chamada ao modelo. A chave nunca sai do servidor.
 import { createModelClient, runChatTurn, type AssistantEvent } from "@organizeup/ai";
 import { z } from "zod";
+import { resolveLocale } from "@/i18n/resolve";
 import { sameSite } from "@/lib/same-site";
 import { requireTenant } from "@/lib/session";
 
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid" }, { status: 400 });
 
+  const locale = await resolveLocale();
   const stop = new AbortController();
   request.signal.addEventListener("abort", () => stop.abort(), { once: true });
   const encoder = new TextEncoder();
@@ -34,6 +36,7 @@ export async function POST(request: Request) {
         client: createModelClient(),
         message: parsed.data.message,
         threadId: parsed.data.threadId,
+        locale,
         signal: stop.signal,
         emit,
       });

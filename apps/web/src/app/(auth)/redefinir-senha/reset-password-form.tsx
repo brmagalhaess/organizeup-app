@@ -1,9 +1,10 @@
 "use client";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { Button, Field, FormMessage, Input } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
-import { isValidPassword, PASSWORD_ERROR, PASSWORD_HINT } from "@/lib/password";
+import { isValidPassword } from "@/lib/password";
 
 function Notice({
   title,
@@ -32,6 +33,7 @@ function Notice({
 }
 
 export function ResetPasswordForm({ token }: { token: string | null }) {
+  const t = useTranslations("auth");
   const [error, setError] = useState<string | null>(null);
   const [expired, setExpired] = useState(token === null);
   const [done, setDone] = useState(false);
@@ -43,11 +45,11 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
     const form = new FormData(event.currentTarget);
     const newPassword = String(form.get("password") ?? "");
     if (newPassword !== String(form.get("confirm") ?? "")) {
-      setError("As senhas não conferem.");
+      setError(t("errors.passwordsDiffer"));
       return;
     }
     if (!isValidPassword(newPassword)) {
-      setError(PASSWORD_ERROR);
+      setError(t("errors.passwordRule"));
       return;
     }
     setPending(true);
@@ -62,9 +64,7 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
       setExpired(true);
     } else {
       setError(
-        resetError.message === "WEAK_PASSWORD"
-          ? PASSWORD_ERROR
-          : "Não foi possível trocar a senha. Tente novamente.",
+        resetError.message === "WEAK_PASSWORD" ? t("errors.passwordRule") : t("errors.resetFailed"),
       );
     }
   }
@@ -72,10 +72,10 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
   if (expired) {
     return (
       <Notice
-        title="Este link não vale mais"
-        text="O link está incompleto, venceu ou já foi usado. Peça um novo para criar sua senha."
+        title={t("reset.expiredTitle")}
+        text={t("reset.expiredText")}
         href="/esqueci-senha"
-        linkLabel="Pedir novo link"
+        linkLabel={t("reset.expiredLink")}
       />
     );
   }
@@ -83,10 +83,10 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
   if (done) {
     return (
       <Notice
-        title="Senha alterada"
-        text="Sua nova senha já vale. Use-a para entrar."
+        title={t("reset.doneTitle")}
+        text={t("reset.doneText")}
         href="/entrar"
-        linkLabel="Entrar"
+        linkLabel={t("reset.doneLink")}
       />
     );
   }
@@ -94,11 +94,11 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
   return (
     <>
       <div>
-        <h1 className="text-2xl font-bold">Crie uma nova senha</h1>
-        <p className="text-sm text-muted">Depois disso, a senha antiga deixa de valer.</p>
+        <h1 className="text-2xl font-bold">{t("reset.title")}</h1>
+        <p className="text-sm text-muted">{t("reset.subtitle")}</p>
       </div>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <Field label="Nova senha" hint={PASSWORD_HINT}>
+        <Field label={t("fields.newPassword")} hint={t("fields.passwordHint")}>
           <Input
             name="password"
             type="password"
@@ -107,7 +107,7 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
             required
           />
         </Field>
-        <Field label="Confirmar nova senha">
+        <Field label={t("fields.confirmNewPassword")}>
           <Input
             name="confirm"
             type="password"
@@ -118,7 +118,7 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
         </Field>
         <FormMessage message={error} />
         <Button type="submit" disabled={pending}>
-          {pending ? "Salvando…" : "Salvar nova senha"}
+          {pending ? t("reset.pending") : t("reset.submit")}
         </Button>
       </form>
     </>

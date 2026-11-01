@@ -1,15 +1,20 @@
 import type { Metadata, Viewport } from "next";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Fraunces, Inter } from "next/font/google";
+import { IntlProvider } from "@/i18n/provider";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000"),
-  title: { default: "OrganizeUp", template: "%s · OrganizeUp" },
-  description: "Finanças da família, sonhos e aposentadoria em um só plano.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meta");
+  return {
+    metadataBase: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000"),
+    title: { default: "OrganizeUp", template: "%s · OrganizeUp" },
+    description: t("description"),
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -17,10 +22,15 @@ export const viewport: Viewport = {
   themeColor: "#183c32",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${fraunces.variable}`}>
-      <body className="min-h-dvh font-sans antialiased">{children}</body>
+    <html lang={locale} className={`${inter.variable} ${fraunces.variable}`}>
+      <body className="min-h-dvh font-sans antialiased">
+        <IntlProvider locale={locale} messages={messages}>
+          {children}
+        </IntlProvider>
+      </body>
     </html>
   );
 }

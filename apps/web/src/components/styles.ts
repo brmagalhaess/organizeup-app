@@ -9,11 +9,17 @@ export function cx(...classes: Array<string | false | null | undefined>) {
 export const amountClass = (kind: "receita" | "despesa") =>
   kind === "receita" ? "text-income" : "text-expense";
 
-/** Verbo do botão que confirma: meta guarda, receita entra, despesa sai. */
-export function confirmLabel(entry: Pick<MonthEntry, "kind" | "source">): string {
-  if (entry.source === "meta") return "Guardar";
-  return entry.kind === "receita" ? "Receber" : "Pagar";
+/** O que o botão de confirmar faz: meta guarda, receita entra, despesa sai. */
+export function confirmAction(entry: Pick<MonthEntry, "kind" | "source">) {
+  if (entry.source === "meta") return "goal";
+  return entry.kind === "receita" ? "income" : "expense";
 }
+
+const CONFIRM_LABEL = { goal: "Guardar", income: "Receber", expense: "Pagar" };
+
+/** Verbo do botão nas telas ainda em português. */
+export const confirmLabel = (entry: Pick<MonthEntry, "kind" | "source">): string =>
+  CONFIRM_LABEL[confirmAction(entry)];
 
 /** Rótulo do que já foi confirmado. */
 export function doneLabel(entry: Pick<MonthEntry, "kind" | "source">): string {

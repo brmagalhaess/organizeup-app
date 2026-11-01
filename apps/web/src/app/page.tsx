@@ -5,6 +5,7 @@ import casalCaminhando from "@/assets/landing/casal-caminhando.webp";
 import casalPlanejando from "@/assets/landing/casal-planejando.webp";
 import familiaPraia from "@/assets/landing/familia-praia.webp";
 import { ProductPreview } from "@/components/landing/product-preview";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
 
 const description =
   "Receitas, despesas, dívidas, viagens e aposentadoria conectados no plano da sua família. Dados separados por família, e nada muda sem a sua confirmação.";
@@ -120,7 +121,7 @@ const primaryButton =
 
 export default function Home() {
   return (
-    <div className="bg-sand-50 text-night">
+    <div lang={DEFAULT_LOCALE} className="bg-sand-50 text-night">
       <a
         href="#conteudo"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-3"

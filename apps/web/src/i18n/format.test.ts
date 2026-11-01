@@ -1,0 +1,57 @@
+import { formatBRL, formatBRLCompact, formatMonthShort, formatYearMonth } from "@organizeup/domain";
+import { describe, expect, it } from "vitest";
+import {
+  formatAmount,
+  formatDayMonth,
+  formatInstant,
+  formatLongDate,
+  formatMonthAbbr,
+  formatMonthYear,
+  formatPercent,
+} from "./format";
+
+const plain = (text: string) => text.replace(/\s/g, " ");
+
+describe("em português nada muda", () => {
+  it("datas e meses dão o texto de sempre", () => {
+    expect(formatMonthYear("2026-10", "pt-BR")).toBe(formatYearMonth("2026-10"));
+    expect(formatMonthAbbr("2026-10", "pt-BR")).toBe(formatMonthShort("2026-10"));
+    expect(formatDayMonth("2026-10-05", "pt-BR")).toBe("05/10");
+    expect(formatLongDate("2026-11-01", "pt-BR")).toBe("1 de novembro de 2026");
+    expect(formatInstant(new Date(2026, 10, 1, 12), "pt-BR")).toBe(
+      new Date(2026, 10, 1, 12).toLocaleDateString("pt-BR"),
+    );
+  });
+
+  it("dinheiro dá o texto de formatBRL", () => {
+    expect(formatAmount("1234.5", "pt-BR")).toBe(formatBRL("1234.5"));
+    expect(formatAmount("8000", "pt-BR", "compact")).toBe(formatBRLCompact("8000"));
+  });
+
+  it("percentual dá o texto de sempre", () => {
+    expect(formatPercent(12, "pt-BR")).toBe("12%");
+    expect(formatPercent(100, "pt-BR")).toBe("100%");
+  });
+});
+
+describe("em inglês e espanhol", () => {
+  it("datas seguem o idioma, sem mudar de dia", () => {
+    expect(formatLongDate("2026-11-01", "en")).toBe("November 1, 2026");
+    expect(formatLongDate("2026-11-01", "es")).toBe("1 de noviembre de 2026");
+    expect(formatDayMonth("2026-10-05", "en")).toBe("10/05");
+    expect(formatMonthYear("2026-10", "en")).toBe("October 2026");
+    expect(formatMonthYear("2026-10", "es")).toBe("octubre de 2026");
+    expect(formatMonthAbbr("2026-10", "en")).toBe("Oct");
+    expect(formatMonthAbbr("2026-10", "es")).toBe("oct");
+  });
+
+  it("dinheiro segue o idioma e continua em reais", () => {
+    expect(plain(formatAmount("1234.5", "en"))).toBe("R$1,234.50");
+    expect(plain(formatAmount("12345.5", "es"))).toBe("12.345,50 R$");
+  });
+
+  it("percentual segue o idioma", () => {
+    expect(formatPercent(12, "en")).toBe("12%");
+    expect(plain(formatPercent(12, "es"))).toBe("12 %");
+  });
+});

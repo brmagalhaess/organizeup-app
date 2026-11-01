@@ -1,27 +1,18 @@
 "use client";
-import {
-  axisCeiling,
-  formatBRL,
-  formatBRLCompact,
-  formatMonthShort,
-  formatYearMonth,
-  money,
-  percentOf,
-  type MonthPoint,
-} from "@organizeup/domain";
+import { axisCeiling, money, percentOf, type MonthPoint } from "@organizeup/domain";
+import { useLocale, useTranslations } from "next-intl";
 import { cx } from "@/components/styles";
 import { EmptyState } from "@/components/ui";
+import { formatAmount, formatMonthAbbr, formatMonthYear } from "@/i18n/format";
 
 /** Barras de entradas e saídas por mês. Um eixo só; a tabela atende leitores de tela. */
 export function CashflowChart({ series }: { series: MonthPoint[] }) {
+  const t = useTranslations("dashboard.cashflow");
+  const locale = useLocale();
+  const amount = (value: string) => formatAmount(value, locale);
+  const monthName = (month: string) => formatMonthYear(month, locale);
   const ceiling = axisCeiling(series.flatMap((p) => [p.received, p.spent]));
-  if (money(ceiling).isZero())
-    return (
-      <EmptyState
-        title="O gráfico aparece com o primeiro lançamento"
-        text="Marque uma receita ou despesa como paga para ver a evolução dos meses."
-      />
-    );
+  if (money(ceiling).isZero()) return <EmptyState title={t("emptyTitle")} text={t("emptyText")} />;
   const ticks = [ceiling, money(ceiling).dividedBy(2).toFixed(2), "0"];
 
   return (
@@ -29,11 +20,11 @@ export function CashflowChart({ series }: { series: MonthPoint[] }) {
       <ul className="m-0 mb-4 flex list-none gap-4 p-0 text-xs text-muted">
         <li className="flex items-center gap-1.5">
           <span aria-hidden="true" className="size-2.5 rounded-sm bg-income" />
-          Entradas
+          {t("income")}
         </li>
         <li className="flex items-center gap-1.5">
           <span aria-hidden="true" className="size-2.5 rounded-sm bg-expense" />
-          Saídas
+          {t("expenses")}
         </li>
       </ul>
 
@@ -41,7 +32,7 @@ export function CashflowChart({ series }: { series: MonthPoint[] }) {
         <div className="flex h-52 flex-col justify-between text-right text-xs tabular-nums text-muted">
           {ticks.map((tick) => (
             <span key={tick} className="-translate-y-1/2 first:translate-y-0 last:translate-y-0">
-              {formatBRLCompact(tick)}
+              {formatAmount(tick, locale, "compact")}
             </span>
           ))}
         </div>
@@ -59,7 +50,11 @@ export function CashflowChart({ series }: { series: MonthPoint[] }) {
               <button
                 key={point.month}
                 type="button"
-                aria-label={`${formatYearMonth(point.month)}: entrou ${formatBRL(point.received)}, saiu ${formatBRL(point.spent)}`}
+                aria-label={t("barLabel", {
+                  month: monthName(point.month),
+                  received: amount(point.received),
+                  spent: amount(point.spent),
+                })}
                 className="group relative flex min-w-0 flex-1 items-end justify-center gap-0.5 rounded-t-lg hover:bg-brand-50"
               >
                 <span
@@ -84,24 +79,22 @@ export function CashflowChart({ series }: { series: MonthPoint[] }) {
                   )}
                 >
                   <span className="mb-1 block font-semibold first-letter:uppercase">
-                    {formatYearMonth(point.month)}
+                    {monthName(point.month)}
                   </span>
                   <span className="flex justify-between gap-2 text-muted">
-                    Entradas
+                    {t("income")}
                     <span className="font-medium tabular-nums text-ink">
-                      {formatBRL(point.received)}
+                      {amount(point.received)}
                     </span>
                   </span>
                   <span className="flex justify-between gap-2 text-muted">
-                    Saídas
-                    <span className="font-medium tabular-nums text-ink">
-                      {formatBRL(point.spent)}
-                    </span>
+                    {t("expenses")}
+                    <span className="font-medium tabular-nums text-ink">{amount(point.spent)}</span>
                   </span>
                   <span className="mt-1 flex justify-between gap-2 border-t border-line pt-1 text-muted">
-                    Sobrou
+                    {t("left")}
                     <span className="font-medium tabular-nums text-ink">
-                      {formatBRL(point.balance)}
+                      {amount(point.balance)}
                     </span>
                   </span>
                 </span>
@@ -111,7 +104,7 @@ export function CashflowChart({ series }: { series: MonthPoint[] }) {
           <div className="mt-1.5 flex text-center text-xs text-muted">
             {series.map((point) => (
               <span key={point.month} className="flex-1">
-                {formatMonthShort(point.month)}
+                {formatMonthAbbr(point.month, locale)}
               </span>
             ))}
           </div>
@@ -119,20 +112,20 @@ export function CashflowChart({ series }: { series: MonthPoint[] }) {
       </div>
 
       <table className="sr-only">
-        <caption>Entradas e saídas dos últimos meses</caption>
+        <caption>{t("tableCaption")}</caption>
         <thead>
           <tr>
-            <th scope="col">Mês</th>
-            <th scope="col">Entradas</th>
-            <th scope="col">Saídas</th>
+            <th scope="col">{t("month")}</th>
+            <th scope="col">{t("income")}</th>
+            <th scope="col">{t("expenses")}</th>
           </tr>
         </thead>
         <tbody>
           {series.map((point) => (
             <tr key={point.month}>
-              <th scope="row">{formatYearMonth(point.month)}</th>
-              <td>{formatBRL(point.received)}</td>
-              <td>{formatBRL(point.spent)}</td>
+              <th scope="row">{monthName(point.month)}</th>
+              <td>{amount(point.received)}</td>
+              <td>{amount(point.spent)}</td>
             </tr>
           ))}
         </tbody>

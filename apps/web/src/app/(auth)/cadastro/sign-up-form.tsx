@@ -1,11 +1,13 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Field, FormMessage, Input } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
-import { isValidPassword, PASSWORD_ERROR, PASSWORD_HINT } from "@/lib/password";
+import { isValidPassword } from "@/lib/password";
 
 export function SignUpForm({ invite }: { invite: string | null }) {
+  const t = useTranslations("auth");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -16,11 +18,11 @@ export function SignUpForm({ invite }: { invite: string | null }) {
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
     if (password !== String(form.get("confirm") ?? "")) {
-      setError("As senhas não conferem.");
+      setError(t("errors.passwordsDiffer"));
       return;
     }
     if (!isValidPassword(password)) {
-      setError(PASSWORD_ERROR);
+      setError(t("errors.passwordRule"));
       return;
     }
     setPending(true);
@@ -36,14 +38,14 @@ export function SignUpForm({ invite }: { invite: string | null }) {
       setPending(false);
       setError(
         signUpError.code?.startsWith("USER_ALREADY_EXISTS") || signUpError.status === 422
-          ? "Já existe uma conta com este e-mail."
+          ? t("errors.emailTaken")
           : signUpError.message === "WEAK_PASSWORD"
-            ? PASSWORD_ERROR
+            ? t("errors.passwordRule")
             : signUpError.message === "SIGNUP_CLOSED"
-              ? "Os cadastros estão fechados no momento."
+              ? t("errors.signupClosed")
               : signUpError.message === "MAINTENANCE"
-                ? "O sistema está em manutenção. Tente de novo mais tarde."
-                : "Não foi possível criar a conta. Tente novamente.",
+                ? t("errors.maintenance")
+                : t("errors.signupFailed"),
       );
       return;
     }
@@ -53,35 +55,42 @@ export function SignUpForm({ invite }: { invite: string | null }) {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <Field label="Seu nome">
+      <Field label={t("fields.name")}>
         <Input name="name" autoComplete="name" required maxLength={120} />
       </Field>
-      <Field label="E-mail">
+      <Field label={t("fields.email")}>
         <Input name="email" type="email" autoComplete="email" required />
       </Field>
-      <Field label="Senha" hint={PASSWORD_HINT}>
+      <Field label={t("fields.password")} hint={t("fields.passwordHint")}>
         <Input name="password" type="password" autoComplete="new-password" required />
       </Field>
-      <Field label="Confirmar senha">
+      <Field label={t("fields.confirmPassword")}>
         <Input name="confirm" type="password" autoComplete="new-password" required />
       </Field>
       <label className="flex items-start gap-2 text-sm">
         <input name="terms" type="checkbox" required className="mt-0.5 size-5 shrink-0" />
         <span>
-          Li e aceito os{" "}
-          <a href="/termos" target="_blank" className="font-semibold text-brand-700 underline">
-            Termos de Uso
-          </a>{" "}
-          e a{" "}
-          <a href="/privacidade" target="_blank" className="font-semibold text-brand-700 underline">
-            Política de Privacidade
-          </a>
-          .
+          {t.rich("signUp.terms", {
+            terms: (text) => (
+              <a href="/termos" target="_blank" className="font-semibold text-brand-700 underline">
+                {text}
+              </a>
+            ),
+            privacy: (text) => (
+              <a
+                href="/privacidade"
+                target="_blank"
+                className="font-semibold text-brand-700 underline"
+              >
+                {text}
+              </a>
+            ),
+          })}
         </span>
       </label>
       <FormMessage message={error} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Criando…" : "Criar conta"}
+        {pending ? t("signUp.pending") : t("signUp.submit")}
       </Button>
     </form>
   );

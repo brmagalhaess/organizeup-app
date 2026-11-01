@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import type { ActionState } from "@/app/app/actions";
 import { Button, Field, FormMessage, Input, Sheet } from "@/components/ui";
@@ -7,23 +8,22 @@ import { deleteAccount } from "./actions";
 const initial: ActionState = { ok: false, message: null };
 
 function DeleteForm({ onCancel }: { onCancel: () => void }) {
+  const t = useTranslations("settings.deleteAccount");
+  const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(deleteAccount, initial);
   return (
     <form action={action} className="flex flex-col gap-4">
-      <p className="text-sm text-muted">
-        Isso não pode ser desfeito. Sua conta é apagada e, se a família for só sua, todos os dados
-        dela também. As cópias de segurança são substituídas em até 30 dias.
-      </p>
-      <Field label="Sua senha" error={state.fieldErrors?.password}>
+      <p className="text-sm text-muted">{t("text")}</p>
+      <Field label={t("password")} error={state.fieldErrors?.password}>
         <Input name="password" type="password" autoComplete="current-password" required />
       </Field>
       <FormMessage message={state.message} />
       <div className="flex gap-2">
         <Button type="submit" variant="danger" className="flex-1" disabled={pending}>
-          {pending ? "Apagando…" : "Apagar minha conta"}
+          {pending ? t("pending") : t("submit")}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>
-          Cancelar
+          {tCommon("cancel")}
         </Button>
       </div>
     </form>
@@ -31,13 +31,14 @@ function DeleteForm({ onCancel }: { onCancel: () => void }) {
 }
 
 export function DeleteAccount() {
+  const t = useTranslations("settings.deleteAccount");
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button variant="secondary" small onClick={() => setOpen(true)}>
-        Apagar conta
+        {t("open")}
       </Button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Apagar conta">
+      <Sheet open={open} onClose={() => setOpen(false)} title={t("open")}>
         <DeleteForm onCancel={() => setOpen(false)} />
       </Sheet>
     </>

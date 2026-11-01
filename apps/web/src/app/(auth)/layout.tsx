@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LocaleSelect } from "@/components/locale-select";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,6 +8,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         OrganizeUp
       </Link>
       {children}
+      <div className="max-w-56">
+        <LocaleSelect />
+      </div>
     </main>
   );
 }
