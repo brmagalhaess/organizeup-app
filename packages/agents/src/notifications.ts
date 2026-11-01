@@ -3,10 +3,11 @@
 // coisa em português. Uma linha por estabelecimento e destino a cada noite, até o limite, e o resto
 // numa linha de resumo. Tudo roda dentro do `tx` recebido.
 import { eq, householdNotifications, sql, type TenantTx } from "@organizeup/db";
-import { formatBRL, money, toDbAmount } from "@organizeup/domain";
+import { money, toDbAmount } from "@organizeup/domain";
 import { z } from "zod";
-import { clamp, plural } from "./shared";
+import { clamp, messageColumns } from "./shared";
 import { kindSchema, nonNegativeAmountSchema } from "./suggestions";
+import { notificationText } from "./texts";
 
 /** Linhas por noite. O resto vai para o resumo, e continua em Sugestões com Desfazer. */
 export const MAX_NIGHT_NOTIFICATIONS = 50;
@@ -57,20 +58,15 @@ export type CategoryMergeLine = z.infer<typeof categoryMergeSchema>;
 export type CategorySummaryLine = z.infer<typeof categorySummarySchema>;
 export type CategoryNotification = z.infer<typeof categoryNotificationSchema>;
 
-const entries = (count: number) => plural(count, "lançamento", "lançamentos");
-
-function textOf(data: CategoryNotification): { title: string; body: string } {
-  const sum = formatBRL(data.total);
-  if (data.type === "resumo")
-    return {
-      title: `E mais ${plural(data.changes, "mudança", "mudanças")} nesta noite`,
-      body: `${entries(data.count)}, ${sum}. Tudo está em Sugestões, com Desfazer.`,
-    };
-  const title = `De ${data.fromNames.join(", ")} para ${data.toName}`;
-  if (data.type === "fusao")
-    return { title, body: `Categorias juntadas: ${entries(data.count)}, ${sum}.` };
-  const fresh = data.isNew ? " Categoria nova." : "";
-  return { title, body: `${data.merchant}: ${entries(data.count)}, ${sum}.${fresh}` };
+/** O que vai para as colunas de texto. "Categoria nova" fica no texto de reserva e, na tela, é etiqueta. */
+function textOf(data: CategoryNotification) {
+  const { message, ...text } = notificationText(data);
+  const fresh = data.type === "alteracao" && data.isNew ? " Categoria nova." : "";
+  return {
+    title: clamp(text.title, MAX_TITLE),
+    body: clamp(`${text.body}${fresh}`, MAX_BODY),
+    ...messageColumns(message),
+  };
 }
 
 const added = (a: string, b: string) => toDbAmount(money(a).plus(b));
@@ -109,12 +105,7 @@ async function addToSummary(
         total: added(parsed.data.total, line.total),
       }
     : { type: "resumo", changes: 1, count: line.count, total: line.total };
-  const text = textOf(data);
-  const values = {
-    title: clamp(text.title, MAX_TITLE),
-    body: clamp(text.body, MAX_BODY),
-    data,
-  };
+  const values = { ...textOf(data), data };
   if (saved) {
     await tx
       .update(householdNotifications)
@@ -163,15 +154,9 @@ export async function notifyCategoryChange(
     .where(eq(householdNotifications.dedupeKey, dedupeKey));
   if (saved) {
     const data = mergedLine(saved.data, notice.line);
-    const text = textOf(data);
     await tx
       .update(householdNotifications)
-      .set({
-        title: clamp(text.title, MAX_TITLE),
-        body: clamp(text.body, MAX_BODY),
-        data,
-        readAt: null,
-      })
+      .set({ ...textOf(data), data, readAt: null })
       .where(eq(householdNotifications.id, saved.id));
     return;
   }
@@ -184,12 +169,10 @@ export async function notifyCategoryChange(
     await addToSummary(tx, scope, notice.line, notice.merged);
     return;
   }
-  const text = textOf(notice.line);
   await tx.insert(householdNotifications).values({
     householdId: scope.householdId,
     kind: "categoria",
-    title: clamp(text.title, MAX_TITLE),
-    body: clamp(text.body, MAX_BODY),
+    ...textOf(notice.line),
     data: notice.line,
     suggestionId: notice.suggestionId,
     dedupeKey,

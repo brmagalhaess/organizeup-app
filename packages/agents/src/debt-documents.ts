@@ -211,7 +211,11 @@ export interface ConfirmDebtDocument {
   updateDebtId: string | null;
 }
 
-export type ConfirmResult = { ok: true; debtId: string } | { ok: false; message: string };
+export type ConfirmFailure =
+  "readOnly" | "noDocument" | "alreadyReviewed" | "stillReading" | "invalidAccount" | "noDebt";
+
+export type ConfirmResult =
+  { ok: true; debtId: string } | { ok: false; code: ConfirmFailure; message: string };
 
 /** A pessoa conferiu: cria ou atualiza a dívida com os valores dela e liga o arquivo. */
 export async function confirmDebtDocument(
@@ -219,30 +223,34 @@ export async function confirmDebtDocument(
   ctx: TenantContext,
   input: ConfirmDebtDocument,
 ): Promise<ConfirmResult> {
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
+  if (!canWrite(ctx)) return { ok: false, code: "readOnly", message: READ_ONLY };
   const [document] = await tx
     .select({ status: debtDocuments.status })
     .from(debtDocuments)
     .where(eq(debtDocuments.id, input.documentId))
     .for("update");
-  if (!document) return { ok: false, message: "Não achei esse arquivo." };
+  if (!document) return { ok: false, code: "noDocument", message: "Não achei esse arquivo." };
   if (document.status === "confirmado") {
-    return { ok: false, message: "Este arquivo já foi conferido." };
+    return { ok: false, code: "alreadyReviewed", message: "Este arquivo já foi conferido." };
   }
   if (document.status === "lendo") {
-    return { ok: false, message: "Este arquivo ainda está sendo lido. Aguarde um instante." };
+    return {
+      ok: false,
+      code: "stillReading",
+      message: "Este arquivo ainda está sendo lido. Aguarde um instante.",
+    };
   }
   const [account] = await tx
     .select({ id: accounts.id })
     .from(accounts)
     .where(eq(accounts.id, input.accountId));
-  if (!account) return { ok: false, message: "Escolha uma conta válida." };
+  if (!account) return { ok: false, code: "invalidAccount", message: "Escolha uma conta válida." };
 
   let debtId: string;
   if (input.updateDebtId) {
     debtId = input.updateDebtId;
     const [debt] = await tx.select({ id: debts.id }).from(debts).where(eq(debts.id, debtId));
-    if (!debt) return { ok: false, message: "Não achei essa dívida." };
+    if (!debt) return { ok: false, code: "noDebt", message: "Não achei essa dívida." };
     await updateDebtTerms(tx, ctx, debtId, input.terms);
     await tx
       .update(debts)

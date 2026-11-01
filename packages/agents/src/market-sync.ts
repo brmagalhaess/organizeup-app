@@ -21,7 +21,6 @@ import {
 } from "@organizeup/db";
 import {
   entitledQuantity,
-  formatBRL,
   isUnitPriced,
   marketDateOf,
   money,
@@ -32,7 +31,14 @@ import {
   reconcileProventos,
   toDbAmount,
 } from "@organizeup/domain";
-import { clamp, INVESTIMENTOS_AGENT, MAX_BODY, MAX_TITLE, plural, recordApplied } from "./shared";
+import {
+  clamp,
+  INVESTIMENTOS_AGENT,
+  MAX_BODY,
+  MAX_TITLE,
+  messageColumns,
+  recordApplied,
+} from "./shared";
 import {
   DEDUPE,
   investimentoPayloadSchema,
@@ -42,6 +48,7 @@ import {
   type MarketChanges,
   type StockEventChange,
 } from "./suggestions";
+import { mercadoDiaText, quantidadeAjustadaText, type AgentText } from "./texts";
 
 /** Só ativo cotado com código válido participa do que vem do mercado. */
 const withMarketTicker = <T extends { assetClass: string; ticker: string | null }>(holdings: T[]) =>
@@ -49,11 +56,6 @@ const withMarketTicker = <T extends { assetClass: string; ticker: string | null 
     const marketTicker = isUnitPriced(holding.assetClass) ? normalizeTicker(holding.ticker) : null;
     return marketTicker ? [{ ...holding, marketTicker }] : [];
   });
-
-const quantityText = (value: string) =>
-  money(value).toDecimalPlaces(8).toString().replace(".", ",");
-
-const fullDate = (date: string) => date.split("-").reverse().join("/");
 
 type EventIdentity = Pick<StockEventChange, "comDate" | "factor" | "note">;
 
@@ -147,12 +149,13 @@ export async function applyStockEvents(
       };
       await recordApplied(tx, householdId, INVESTIMENTOS_AGENT, {
         kind: "investimento",
-        title: `Quantidade de ${holding.marketTicker} ajustada`,
-        body:
-          `${holding.marketTicker}: ${note.charAt(0).toLowerCase()}${note.slice(1)} em ` +
-          `${fullDate(comDate)}. A quantidade foi de ${quantityText(quantityBefore)} para ` +
-          `${quantityText(quantityAfter)}. O valor total não muda, e suas operações ficam como você ` +
-          `registrou.`,
+        ...quantidadeAjustadaText({
+          ticker: holding.marketTicker,
+          note,
+          comDate,
+          before: quantityBefore,
+          after: quantityAfter,
+        }),
         payload: { href: "/app/investimentos", stockEvent },
         dedupeKey: DEDUPE.investimentoAcoes(holding.id, comDate, note),
       });
@@ -245,7 +248,7 @@ async function saveDailyChange(
   householdId: string,
   today: string,
   next: MarketChanges,
-  text: { title: string; body: string },
+  text: AgentText,
 ): Promise<void> {
   const dedupeKey = DEDUPE.mercadoDia(today);
   const [existing] = await tx
@@ -273,6 +276,7 @@ async function saveDailyChange(
     .set({
       title: clamp(text.title, MAX_TITLE),
       body: clamp(text.body, MAX_BODY),
+      ...messageColumns(text.message),
       payload: { href: "/app/investimentos", market },
     })
     .where(eq(householdSuggestions.id, existing.id));
@@ -404,26 +408,20 @@ export async function syncMarketData(
     changes.removed.length;
   if (result.applied === 0) return result;
 
-  const parts = [
-    changes.prices.length > 0
-      ? `${plural(changes.prices.length, "preço atualizado", "preços atualizados")} (${labels.slice(0, 8).join(", ")}${labels.length > 8 ? " e outros" : ""})`
-      : null,
-    changes.created.length > 0
-      ? plural(changes.created.length, "provento lançado", "proventos lançados")
-      : null,
-    result.upcoming > 0
-      ? `${formatBRL(upcomingNet)} a receber em ${plural(result.upcoming, "pagamento", "pagamentos")}`
-      : null,
-    changes.adjusted.length > 0
-      ? plural(changes.adjusted.length, "provento corrigido", "proventos corrigidos")
-      : null,
-    changes.removed.length > 0
-      ? plural(changes.removed.length, "provento retirado", "proventos retirados")
-      : null,
-  ].filter((part): part is string => part !== null);
-  await saveDailyChange(tx, householdId, today, changes, {
-    title: "Cotações e proventos atualizados",
-    body: `${parts.join("; ")}. Se desfizer, os proventos não voltam sozinhos; o preço volta com a próxima cotação nova.`,
-  });
+  await saveDailyChange(
+    tx,
+    householdId,
+    today,
+    changes,
+    mercadoDiaText({
+      prices: changes.prices.length,
+      labels,
+      created: changes.created.length,
+      upcoming: result.upcoming,
+      upcomingNet: toDbAmount(upcomingNet),
+      adjusted: changes.adjusted.length,
+      removed: changes.removed.length,
+    }),
+  );
   return result;
 }

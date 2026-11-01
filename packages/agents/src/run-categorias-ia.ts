@@ -14,6 +14,7 @@ import {
 import {
   categoryCandidates,
   categoryDedupeKey,
+  categoryReportMessage,
   dailyCategoryReport,
   isCategoryCandidate,
   isGenericCategory,
@@ -24,6 +25,7 @@ import {
   type CategoryMove,
   type CategoryOption,
   type CategoryPlan,
+  type ReportCategorias,
   type ReportCategoriasIa,
   type ReviewGroup,
 } from "@organizeup/domain";
@@ -33,10 +35,12 @@ import {
   clamp,
   loadDecisions,
   MAX_REPORT_SUMMARY,
+  messageColumns,
   recordSkipped,
   saveDailyReport,
   type PendingSuggestion,
 } from "./shared";
+import { categoriaSemPistaText } from "./texts";
 
 export const CATEGORIAS_IA_AGENT = "categorias_ia";
 
@@ -132,8 +136,7 @@ function skippedItem(group: CategoryCandidate): PendingSuggestion {
   };
   return {
     kind: "categoria",
-    title: "Sem categoria clara",
-    body: "O assistente não soube classificar este estabelecimento e tenta de novo em 30 dias.",
+    ...categoriaSemPistaText(),
     payload,
     dedupeKey: DEDUPE.categoriaSemPista(group.kind, group.merchant.slice(0, 120)),
   };
@@ -233,11 +236,13 @@ async function addToDailyReport(
     await saveDailyReport(tx, householdId, CATEGORIAS_AGENT, "categorias", today, report);
     return;
   }
+  const data = { ...(row.data as unknown as ReportCategorias), ia };
   await tx
     .update(householdReports)
     .set({
       summary: clamp(withAiSummary(row.summary, ia), MAX_REPORT_SUMMARY),
-      data: { ...(row.data as Record<string, unknown>), ia },
+      ...messageColumns(categoryReportMessage(data, today)),
+      data,
     })
     .where(eq(householdReports.id, row.id));
 }

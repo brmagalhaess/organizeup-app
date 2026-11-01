@@ -1,6 +1,6 @@
 // Aplicar, ignorar e desfazer sugestões (regra 7 reescrita, ADR-0015). Usado pela web dentro de
 // withHousehold(ctx, ...). Recarrega a sugestão, exige o status certo, revalida o payload com zod,
-// executa por tipo e grava decided_*. Devolve uma mensagem em português para a tela.
+// executa por tipo e grava decided_*. Devolve o código do texto, que a tela mostra no idioma da pessoa.
 import {
   and,
   calendarEvents,
@@ -32,16 +32,88 @@ import {
   type StockEventChange,
   type SuggestionPayload,
 } from "./suggestions";
-import { INVESTIMENTOS_AGENT, recordAudit } from "./shared";
+import { INVESTIMENTOS_AGENT, messageColumns, recordAudit } from "./shared";
+import { proventoExcluidoText } from "./texts";
 import { createTrip } from "./trips";
+
+/** O que a família lê depois de decidir. A tela usa `code`; `message` é o mesmo em português. */
+export const APPLY_REPLIES = {
+  readOnly: "Seu papel nesta família não permite alterações.",
+  notFound: "Sugestão não encontrada.",
+  decided: "Esta sugestão já foi decidida.",
+  outdated: "Esta sugestão está desatualizada. Peça uma nova ao assistente.",
+  debtExtra: "Combinado: o pagamento extra você registra na tela de dívidas.",
+  noted: "Anotado.",
+  dismissed: "Tudo bem. Voltamos a sugerir daqui a 30 dias, se ainda fizer sentido.",
+  onlyApplied: "Só dá para desfazer o que foi aplicado.",
+  incomplete: "Não foi possível desfazer: os dados desta sugestão estão incompletos.",
+  undone: "Desfeito.",
+  undoneDividends:
+    "Desfeito. Esses proventos não voltam sozinhos; o preço volta com a próxima cotação nova.",
+  undoneStock: "Desfeito. A quantidade voltou ao que estava, e esse ajuste não volta sozinho.",
+  noPrevious: "Não há como desfazer: o estado anterior não foi guardado.",
+  changedByOther: "Alguém já mudou esses lançamentos; nada foi desfeito.",
+  returned: "Lançamentos devolvidos. O assistente não mexe mais neles.",
+  oneCategoryGone: "Uma das categorias não existe mais.",
+  merged: "Categorias juntadas. A antiga foi arquivada.",
+  oldCategoryGone: "A categoria antiga foi apagada; nada foi desfeito.",
+  split: "Categorias separadas de novo.",
+  reserveSaved: "Valor da reserva gravado.",
+  reserveRestored: "Valor da reserva devolvido ao anterior.",
+  planSaved: "Quanto guardar por mês gravado no plano de aposentadoria.",
+  planRestored: "Valor do plano devolvido ao anterior.",
+  notAssistantTrip: "Esta viagem não foi criada pelo assistente.",
+  tripRemoved: "Viagem removida.",
+  tripGone: "A viagem já não existia.",
+  goalGone: "Esta meta não existe mais.",
+  goalNoted: "Anotado. Ajuste o valor ou a data da meta quando puder.",
+  goalDate: "Data da meta ajustada. O plano é recalculado na próxima rodada.",
+  goalHasValues: "A meta já recebeu valores; nada foi desfeito.",
+  goalRemoved: "Meta removida.",
+  goalDateChanged: "A data da meta já foi alterada; nada foi desfeito.",
+  goalDateRestored: "Data da meta devolvida à anterior.",
+  assistantHandles: "O assistente cuida disso sozinho: esta sugestão não precisa de aceite.",
+  tripPeople: "Escolha quem vai.",
+  tripPeopleInvalid: "Escolha pessoas da família.",
+  tripFailed: "Não foi possível criar a viagem.",
+  tripCreated: "Viagem para {name} criada. Ajuste datas e custos em Viagens.",
+  goalCreated: "Meta {name} criada. Ajuste os detalhes em Metas.",
+} as const;
+
+export type ApplyCode = keyof typeof APPLY_REPLIES;
+
+interface Said {
+  code: ApplyCode;
+  /** Valores do texto: só o nome criado. */
+  values?: { name: string };
+  message: string;
+}
+
+interface Refused {
+  error: Said;
+}
 
 export interface ApplyResult {
   ok: boolean;
   message: string;
+  code?: ApplyCode;
+  values?: { name: string };
 }
 
-const READ_ONLY = "Seu papel nesta família não permite alterações.";
-const NOT_FOUND = "Sugestão não encontrada.";
+const reply = (code: ApplyCode, values?: { name: string }): Said => ({
+  code,
+  ...(values ? { values } : {}),
+  message: values ? APPLY_REPLIES[code].replace("{name}", values.name) : APPLY_REPLIES[code],
+});
+const refused = (code: ApplyCode): Refused => ({ error: reply(code) });
+const failed = (code: ApplyCode): ApplyResult => ({ ok: false, ...reply(code) });
+/** Só o que a tela lê: `payload` fica fora do resultado. */
+const said = ({ code, values, message }: Said): ApplyResult => ({
+  ok: true,
+  code,
+  ...(values ? { values } : {}),
+  message,
+});
 
 type SuggestionRow = typeof householdSuggestions.$inferSelect;
 
@@ -79,23 +151,23 @@ export async function applySuggestion(
   ctx: TenantContext,
   id: string,
 ): Promise<ApplyResult> {
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
+  if (!canWrite(ctx)) return failed("readOnly");
   const row = await lockSuggestion(tx, id);
-  if (!row) return { ok: false, message: NOT_FOUND };
-  if (row.status !== "pendente") return { ok: false, message: "Esta sugestão já foi decidida." };
+  if (!row) return failed("notFound");
+  if (row.status !== "pendente") return failed("decided");
 
   let payload: unknown;
   try {
     payload = parsePayload(row.kind, row.payload);
   } catch {
-    return { ok: false, message: "Esta sugestão está desatualizada. Peça uma nova ao assistente." };
+    return failed("outdated");
   }
 
-  let outcome: { message: string; payload?: Record<string, unknown> } | { error: string };
+  let outcome: (Said & { payload?: Record<string, unknown> }) | Refused;
   switch (row.kind) {
     case "categoria":
     case "fusao_categoria":
-      outcome = { error: "O assistente cuida disso sozinho: esta sugestão não precisa de aceite." };
+      outcome = refused("assistantHandles");
       break;
     case "aporte_reserva":
       outcome = await applyAporteReserva(tx, ctx, payload as SuggestionPayload["aporte_reserva"]);
@@ -114,15 +186,15 @@ export async function applySuggestion(
       outcome = await applyMeta(tx, ctx, payload as SuggestionPayload["meta"]);
       break;
     case "aporte_divida":
-      outcome = { message: "Combinado: o pagamento extra você registra na tela de dívidas." };
+      outcome = reply("debtExtra");
       break;
     default:
-      outcome = { message: "Anotado." };
+      outcome = reply("noted");
   }
-  if ("error" in outcome) return { ok: false, message: outcome.error };
+  if ("error" in outcome) return { ok: false, ...outcome.error };
   await decide(tx, ctx, id, "aplicada", outcome.payload);
   await recordAudit(tx, ctx, "apply", "household_suggestions", id, { kind: row.kind });
-  return { ok: true, message: outcome.message };
+  return said(outcome);
 }
 
 /** "Agora não": a sugestão sai da fila e só volta depois de 30 dias. */
@@ -131,15 +203,15 @@ export async function dismissSuggestion(
   ctx: TenantContext,
   id: string,
 ): Promise<ApplyResult> {
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
+  if (!canWrite(ctx)) return failed("readOnly");
   const row = await lockSuggestion(tx, id);
-  if (!row) return { ok: false, message: NOT_FOUND };
-  if (row.status !== "pendente") return { ok: false, message: "Esta sugestão já foi decidida." };
+  if (!row) return failed("notFound");
+  if (row.status !== "pendente") return failed("decided");
   await decide(tx, ctx, id, "ignorada");
   await recordAudit(tx, ctx, "dismiss", "household_suggestions", id, { kind: row.kind });
   return {
     ok: true,
-    message: "Tudo bem. Voltamos a sugerir daqui a 30 dias, se ainda fizer sentido.",
+    ...reply("dismissed"),
   };
 }
 
@@ -149,23 +221,19 @@ export async function undoSuggestion(
   ctx: TenantContext,
   id: string,
 ): Promise<ApplyResult> {
-  if (!canWrite(ctx)) return { ok: false, message: READ_ONLY };
+  if (!canWrite(ctx)) return failed("readOnly");
   const row = await lockSuggestion(tx, id);
-  if (!row) return { ok: false, message: NOT_FOUND };
-  if (row.status !== "aplicada")
-    return { ok: false, message: "Só dá para desfazer o que foi aplicado." };
+  if (!row) return failed("notFound");
+  if (row.status !== "aplicada") return failed("onlyApplied");
 
   let payload: unknown;
   try {
     payload = parsePayload(row.kind, row.payload);
   } catch {
-    return {
-      ok: false,
-      message: "Não foi possível desfazer: os dados desta sugestão estão incompletos.",
-    };
+    return failed("incomplete");
   }
 
-  let outcome: { message: string } | { error: string };
+  let outcome: Said | Refused;
   switch (row.kind) {
     case "categoria":
       outcome = await undoCategoria(tx, payload as SuggestionPayload["categoria"]);
@@ -191,16 +259,16 @@ export async function undoSuggestion(
     case "investimento": {
       const { market, stockEvent } = payload as SuggestionPayload["investimento"];
       if (stockEvent) outcome = await undoStockEvent(tx, stockEvent);
-      else outcome = market ? await undoMercado(tx, ctx, market) : { message: "Desfeito." };
+      else outcome = market ? await undoMercado(tx, ctx, market) : reply("undone");
       break;
     }
     default:
-      outcome = { message: "Desfeito." };
+      outcome = reply("undone");
   }
-  if ("error" in outcome) return { ok: false, message: outcome.error };
+  if ("error" in outcome) return { ok: false, ...outcome.error };
   await decide(tx, ctx, id, "desfeita");
   await recordAudit(tx, ctx, "undo", "household_suggestions", id, { kind: row.kind });
-  return { ok: true, message: outcome.message };
+  return said(outcome);
 }
 
 // ---------- cotações e proventos (ADR-0017) ----------
@@ -210,11 +278,7 @@ export async function undoSuggestion(
  * a família mudou depois, ou que uma cotação mais nova substituiu, fica. A linha `desfeita` guarda a
  * lista, e é ela que bloqueia cada alteração para sempre.
  */
-async function undoMercado(
-  tx: TenantTx,
-  ctx: TenantContext,
-  market: MarketChanges,
-): Promise<{ message: string }> {
+async function undoMercado(tx: TenantTx, ctx: TenantContext, market: MarketChanges): Promise<Said> {
   for (const change of market.prices) {
     await tx
       .update(investments)
@@ -261,14 +325,11 @@ async function undoMercado(
       })
       .onConflictDoNothing();
   }
-  return {
-    message:
-      "Desfeito. Esses proventos não voltam sozinhos; o preço volta com a próxima cotação nova.",
-  };
+  return reply("undoneDividends");
 }
 
 /** Tira o ajuste da posição. As operações não foram tocadas, e a linha `desfeita` bloqueia a volta. */
-async function undoStockEvent(tx: TenantTx, event: StockEventChange): Promise<{ message: string }> {
+async function undoStockEvent(tx: TenantTx, event: StockEventChange): Promise<Said> {
   await tx
     .delete(investmentStockEvents)
     .where(
@@ -278,9 +339,7 @@ async function undoStockEvent(tx: TenantTx, event: StockEventChange): Promise<{ 
         eq(investmentStockEvents.note, event.note),
       ),
     );
-  return {
-    message: "Desfeito. A quantidade voltou ao que estava, e esse ajuste não volta sozinho.",
-  };
+  return reply("undoneStock");
 }
 
 /**
@@ -293,12 +352,14 @@ export async function recordDividendRemoval(
   removed: { dividendId: string; investmentId: string; marketDividendId: string },
 ): Promise<void> {
   const market: MarketChanges = { prices: [], created: [removed], adjusted: [], removed: [] };
+  const text = proventoExcluidoText();
   await tx.insert(householdSuggestions).values({
     householdId: ctx.householdId,
     agent: INVESTIMENTOS_AGENT,
     kind: "investimento",
-    title: "Provento automático excluído",
-    body: "Você excluiu este provento, e ele não volta sozinho.",
+    title: text.title,
+    body: text.body,
+    ...messageColumns(text.message),
     payload: { href: "/app/proventos", market },
     status: "desfeita",
     appliedBy: "familia",
@@ -313,17 +374,15 @@ export async function recordDividendRemoval(
 async function undoCategoria(
   tx: TenantTx,
   payload: SuggestionPayload["categoria"],
-): Promise<{ message: string } | { error: string }> {
+): Promise<Said | Refused> {
   const applied = payload.appliedCategoryId ?? payload.toCategoryId;
-  if (!applied || !payload.previous || payload.previous.length === 0)
-    return { error: "Não há como desfazer: o estado anterior não foi guardado." };
+  if (!applied || !payload.previous || payload.previous.length === 0) return refused("noPrevious");
   const ids = payload.previous.map((item) => item.transactionId);
   const rows = await tx
     .select({ id: transactions.id, categoryId: transactions.categoryId })
     .from(transactions)
     .where(inArray(transactions.id, ids));
-  if (rows.some((row) => row.categoryId !== applied))
-    return { error: "Alguém já mudou esses lançamentos; nada foi desfeito." };
+  if (rows.some((row) => row.categoryId !== applied)) return refused("changedByOther");
   for (const item of payload.previous) {
     await tx
       .update(transactions)
@@ -346,7 +405,7 @@ async function undoCategoria(
       );
   }
   if (payload.createdCategoryId) await archiveIfUnused(tx, payload.createdCategoryId);
-  return { message: "Lançamentos devolvidos. O assistente não mexe mais neles." };
+  return reply("returned");
 }
 
 /**
@@ -372,15 +431,14 @@ async function archiveIfUnused(tx: TenantTx, categoryId: string): Promise<void> 
 export async function applyFusao(
   tx: TenantTx,
   payload: SuggestionPayload["fusao_categoria"],
-): Promise<{ message: string; payload: SuggestionPayload["fusao_categoria"] } | { error: string }> {
+): Promise<(Said & { payload: SuggestionPayload["fusao_categoria"] }) | Refused> {
   const pair = await tx
     .select({ id: categories.id, kind: categories.kind, archived: categories.archived })
     .from(categories)
     .where(inArray(categories.id, [payload.fromCategoryId, payload.toCategoryId]));
   const from = pair.find((c) => c.id === payload.fromCategoryId);
   const to = pair.find((c) => c.id === payload.toCategoryId);
-  if (!from || !to || from.kind !== to.kind)
-    return { error: "Uma das categorias não existe mais." };
+  if (!from || !to || from.kind !== to.kind) return refused("oneCategoryGone");
 
   const movedTx = await tx
     .update(transactions)
@@ -416,7 +474,7 @@ export async function applyFusao(
     memoryMerchants: movedMemory,
   };
   return {
-    message: "Categorias juntadas. A antiga foi arquivada.",
+    ...reply("merged"),
     payload: { ...payload, moved },
   };
 }
@@ -424,14 +482,14 @@ export async function applyFusao(
 async function undoFusao(
   tx: TenantTx,
   payload: SuggestionPayload["fusao_categoria"],
-): Promise<{ message: string } | { error: string }> {
+): Promise<Said | Refused> {
   const moved = payload.moved;
-  if (!moved) return { error: "Não há como desfazer: o estado anterior não foi guardado." };
+  if (!moved) return refused("noPrevious");
   const [from] = await tx
     .select({ id: categories.id })
     .from(categories)
     .where(eq(categories.id, payload.fromCategoryId));
-  if (!from) return { error: "A categoria antiga foi apagada; nada foi desfeito." };
+  if (!from) return refused("oldCategoryGone");
   await tx.update(categories).set({ archived: false }).where(eq(categories.id, from.id));
   if (moved.transactionIds.length > 0)
     await tx
@@ -464,7 +522,7 @@ async function undoFusao(
       .set({ categoryId: from.id, updatedAt: new Date() })
       .where(and(eq(categoryMemory.kind, item.kind), eq(categoryMemory.merchant, item.merchant)));
   }
-  return { message: "Categorias separadas de novo." };
+  return reply("split");
 }
 
 // ---------- aportes ----------
@@ -473,7 +531,7 @@ async function applyAporteReserva(
   tx: TenantTx,
   ctx: TenantContext,
   payload: SuggestionPayload["aporte_reserva"],
-): Promise<{ message: string; payload: Record<string, unknown> }> {
+): Promise<Said & { payload: Record<string, unknown> }> {
   const [fund] = await tx.select({ contribution: emergencyFund.contribution }).from(emergencyFund);
   await tx
     .insert(emergencyFund)
@@ -483,7 +541,7 @@ async function applyAporteReserva(
       set: { contribution: payload.monthlyAmount, updatedAt: new Date() },
     });
   return {
-    message: "Valor da reserva gravado.",
+    ...reply("reserveSaved"),
     payload: { ...payload, previous: fund?.contribution ?? null },
   };
 }
@@ -491,19 +549,19 @@ async function applyAporteReserva(
 async function undoAporteReserva(
   tx: TenantTx,
   payload: SuggestionPayload["aporte_reserva"],
-): Promise<{ message: string }> {
+): Promise<Said> {
   await tx
     .update(emergencyFund)
     .set({ contribution: payload.previous, updatedAt: new Date() })
     .where(eq(emergencyFund.contribution, payload.monthlyAmount));
-  return { message: "Valor da reserva devolvido ao anterior." };
+  return reply("reserveRestored");
 }
 
 async function applyAporteInvestimento(
   tx: TenantTx,
   ctx: TenantContext,
   payload: SuggestionPayload["aporte_investimento"],
-): Promise<{ message: string; payload: Record<string, unknown> }> {
+): Promise<Said & { payload: Record<string, unknown> }> {
   const [plan] = await tx
     .select({ monthlyContribution: retirementPlan.monthlyContribution })
     .from(retirementPlan);
@@ -515,7 +573,7 @@ async function applyAporteInvestimento(
       set: { monthlyContribution: payload.monthlyAmount, updatedAt: new Date() },
     });
   return {
-    message: "Quanto guardar por mês gravado no plano de aposentadoria.",
+    ...reply("planSaved"),
     payload: { ...payload, previous: plan?.monthlyContribution ?? null },
   };
 }
@@ -523,12 +581,12 @@ async function applyAporteInvestimento(
 async function undoAporteInvestimento(
   tx: TenantTx,
   payload: SuggestionPayload["aporte_investimento"],
-): Promise<{ message: string }> {
+): Promise<Said> {
   await tx
     .update(retirementPlan)
     .set({ monthlyContribution: payload.previous, updatedAt: new Date() })
     .where(eq(retirementPlan.monthlyContribution, payload.monthlyAmount));
-  return { message: "Valor do plano devolvido ao anterior." };
+  return reply("planRestored");
 }
 
 // ---------- viagem ----------
@@ -537,7 +595,7 @@ async function applyViagem(
   tx: TenantTx,
   ctx: TenantContext,
   payload: SuggestionPayload["viagem"],
-): Promise<{ message: string; payload: Record<string, unknown> } | { error: string }> {
+): Promise<(Said & { payload: Record<string, unknown> }) | Refused> {
   const startOn = `${payload.month}-01`;
   const lastDay = Math.min(payload.days, daysInMonth(payload.month));
   const endOn = `${payload.month}-${String(lastDay).padStart(2, "0")}`;
@@ -554,19 +612,23 @@ async function applyViagem(
       })),
     });
     return {
-      message: `Viagem para ${payload.name} criada. Ajuste datas e custos em Viagens.`,
+      ...reply("tripCreated", { name: payload.name }),
       payload: { ...payload, tripId: created.tripId, eventId: created.eventId },
     };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Não foi possível criar a viagem." };
+    const message = error instanceof Error ? error.message : "";
+    if (message === APPLY_REPLIES.tripPeople) return refused("tripPeople");
+    return refused(
+      message === APPLY_REPLIES.tripPeopleInvalid ? "tripPeopleInvalid" : "tripFailed",
+    );
   }
 }
 
 async function undoViagem(
   tx: TenantTx,
   payload: SuggestionPayload["viagem"],
-): Promise<{ message: string } | { error: string }> {
-  if (!payload.tripId) return { error: "Esta viagem não foi criada pelo assistente." };
+): Promise<Said | Refused> {
+  if (!payload.tripId) return refused("notAssistantTrip");
   const [removed] = await tx
     .delete(trips)
     .where(eq(trips.id, payload.tripId))
@@ -574,7 +636,7 @@ async function undoViagem(
   if (removed?.calendarEventId) {
     await tx.delete(calendarEvents).where(eq(calendarEvents.id, removed.calendarEventId));
   }
-  return { message: removed ? "Viagem removida." : "A viagem já não existia." };
+  return reply(removed ? "tripRemoved" : "tripGone");
 }
 
 // ---------- meta ----------
@@ -583,7 +645,7 @@ async function applyMeta(
   tx: TenantTx,
   ctx: TenantContext,
   payload: SuggestionPayload["meta"],
-): Promise<{ message: string; payload: Record<string, unknown> } | { error: string }> {
+): Promise<(Said & { payload: Record<string, unknown> }) | Refused> {
   if (payload.draft) {
     const [created] = await tx
       .insert(goals)
@@ -598,7 +660,7 @@ async function applyMeta(
       .returning({ id: goals.id });
     await recordAudit(tx, ctx, "create", "goals", created!.id);
     return {
-      message: `Meta ${payload.draft.name} criada. Ajuste os detalhes em Metas.`,
+      ...reply("goalCreated", { name: payload.draft.name }),
       payload: { ...payload, goalId: created!.id },
     };
   }
@@ -606,10 +668,10 @@ async function applyMeta(
     .select({ id: goals.id, desiredMonth: goals.desiredMonth })
     .from(goals)
     .where(eq(goals.id, payload.goalId));
-  if (!goal) return { error: "Esta meta não existe mais." };
+  if (!goal) return refused("goalGone");
   if (payload.proposedMonth === null)
     return {
-      message: "Anotado. Ajuste o valor ou a data da meta quando puder.",
+      ...reply("goalNoted"),
       payload: { ...payload },
     };
   await tx
@@ -617,30 +679,27 @@ async function applyMeta(
     .set({ desiredMonth: payload.proposedMonth, updatedAt: new Date() })
     .where(eq(goals.id, goal.id));
   return {
-    message: "Data da meta ajustada. O plano é recalculado na próxima rodada.",
+    ...reply("goalDate"),
     payload: { ...payload, previousDesiredMonth: goal.desiredMonth },
   };
 }
 
-async function undoMeta(
-  tx: TenantTx,
-  payload: SuggestionPayload["meta"],
-): Promise<{ message: string } | { error: string }> {
+async function undoMeta(tx: TenantTx, payload: SuggestionPayload["meta"]): Promise<Said | Refused> {
   if (payload.draft) {
     const removed = await tx
       .delete(goals)
       .where(and(eq(goals.id, payload.goalId), eq(goals.saved, "0")))
       .returning({ id: goals.id });
-    if (removed.length === 0) return { error: "A meta já recebeu valores; nada foi desfeito." };
-    return { message: "Meta removida." };
+    if (removed.length === 0) return refused("goalHasValues");
+    return reply("goalRemoved");
   }
   if (payload.previousDesiredMonth === undefined || payload.proposedMonth === null)
-    return { message: "Desfeito." };
+    return reply("undone");
   const updated = await tx
     .update(goals)
     .set({ desiredMonth: payload.previousDesiredMonth, updatedAt: new Date() })
     .where(and(eq(goals.id, payload.goalId), eq(goals.desiredMonth, payload.proposedMonth)))
     .returning({ id: goals.id });
-  if (updated.length === 0) return { error: "A data da meta já foi alterada; nada foi desfeito." };
-  return { message: "Data da meta devolvida à anterior." };
+  if (updated.length === 0) return refused("goalDateChanged");
+  return reply("goalDateRestored");
 }

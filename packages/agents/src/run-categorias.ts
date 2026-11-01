@@ -53,7 +53,6 @@ import {
   closePending,
   loadDecisions,
   markApplied,
-  plural,
   recordApplied,
   recordAudit,
   REVIEW_DAYS,
@@ -64,10 +63,9 @@ import {
   type AgentResult,
   type Decisions,
 } from "./shared";
+import { categoriaFusaoText, categoriaMovidaText } from "./texts";
 
 export const CATEGORIAS_AGENT = "categorias";
-
-const quote = (name: string) => `‘${name}’`;
 
 type CategoryRow = typeof categories.$inferSelect;
 
@@ -288,12 +286,12 @@ export async function applyGroup(
   };
   const item = {
     kind: "categoria" as const,
-    title: `Movemos ${plural(allIds.length, "lançamento", "lançamentos")} de ${quote(
-      fromName,
-    )} para ${quote(toName)}`,
-    body:
-      `${group.reason}. Se não fizer sentido, use Desfazer: o assistente devolve os lançamentos ` +
-      `e não mexe mais neles.`,
+    ...categoriaMovidaText({
+      count: allIds.length,
+      from: fromName,
+      to: toName,
+      reason: group.reason,
+    }),
     payload,
     dedupeKey: group.dedupeKey,
   };
@@ -411,10 +409,7 @@ async function applyMerge(
   const dedupeKey = DEDUPE.fusao(from.id, to.id);
   const item = {
     kind: "fusao_categoria" as const,
-    title: `Juntamos ${quote(from.name)} com ${quote(to.name)}`,
-    body:
-      `${reason ? `${reason}. ` : ""}Lançamentos, previsões e compras foram para ${quote(to.name)}, ` +
-      `e ${quote(from.name)} foi arquivada. Se não fizer sentido, use Desfazer.`,
+    ...categoriaFusaoText({ from: from.name, to: to.name, reason }),
     payload,
     dedupeKey,
   };

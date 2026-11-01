@@ -16,8 +16,6 @@ import {
 import {
   addMonths,
   ageFromBirth,
-  formatBRL,
-  formatYearMonth,
   money,
   suggestTrips,
   yearMonthOf,
@@ -29,7 +27,6 @@ import type { ReportViagens } from "./reports";
 import { DEDUPE, type ViagemPayload } from "./suggestions";
 import {
   loadDecisions,
-  plural,
   resolveAllocation,
   saveDailyReport,
   upsertPending,
@@ -37,6 +34,7 @@ import {
   type AgentResult,
   type PendingSuggestion,
 } from "./shared";
+import { viagemText, viagensReportText, type ViagensReportInput } from "./texts";
 
 export const VIAGENS_AGENT = "viagens";
 
@@ -65,28 +63,6 @@ export async function loadDestinations(tx: TenantTx): Promise<DestinationTemplat
     }));
 }
 
-function suggestionText(item: TripSuggestion, travelers: number): { title: string; body: string } {
-  const saveUntil = addMonths(item.month, -1);
-  const parts = [
-    `Em ${formatYearMonth(item.month)} · ${plural(item.days, "dia", "dias")} para ` +
-      `${plural(travelers, "pessoa", "pessoas")}.`,
-    `Cerca de ${formatBRL(item.total)} (${formatBRL(item.perPerson)} por pessoa): passagem ` +
-      `${formatBRL(item.estimated.passagem)}, hospedagem ${formatBRL(item.estimated.hospedagem)}, ` +
-      `alimentação ${formatBRL(item.estimated.alimentacao)} e transporte ` +
-      `${formatBRL(item.estimated.transporte)}; passeios ficam por sua conta.`,
-    item.fits
-      ? `Guarde ${formatBRL(item.monthlyToSave)} por mês até ${formatYearMonth(saveUntil)}.`
-      : `Pede ${formatBRL(item.monthlyToSave)} por mês, mais do que sobra para viagens hoje.`,
-    item.note,
-    `Valores aproximados pela nossa tabela de custos (confiança ${item.confidence}). Confira ` +
-      `passagens e hospedagem antes de fechar. Fonte: ${item.source}`,
-  ].filter(Boolean);
-  return {
-    title: `Que tal ${item.name} em ${formatYearMonth(item.month)}?`,
-    body: parts.join(" "),
-  };
-}
-
 export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<AgentResult> {
   const { today, householdId } = input;
   const month = yearMonthOf(today);
@@ -103,31 +79,21 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
   const finish = async (
     budgetMonthly: string,
     items: TripSuggestion[],
-    summary: string,
+    text: ViagensReportInput,
     suggestions: number,
   ) => {
     const data: ReportViagens = { budgetMonthly, suggestions: items, confirmedNext12 };
-    const report = { title: `Viagens em ${today}`, summary, data };
+    const report = { ...viagensReportText(text), data };
     await saveDailyReport(tx, householdId, VIAGENS_AGENT, "viagens", today, report);
     return { suggestions, applied: 0, report };
   };
 
   if (tripsPerYear <= 0) {
-    return finish(
-      "0.00",
-      [],
-      "A família não pediu sugestões de viagem. Diga quantas viagens por ano em Configurações › Plano.",
-      0,
-    );
+    return finish("0.00", [], { day: today, kind: "sem_pedido" }, 0);
   }
   const allocation = await resolveAllocation(tx, input);
   if (!allocation) {
-    return finish(
-      "0.00",
-      [],
-      "Sem a divisão do que sobra hoje; as sugestões ficam para a próxima rodada.",
-      0,
-    );
+    return finish("0.00", [], { day: today, kind: "sem_divisao" }, 0);
   }
 
   const [year, monthNumber] = today.split("-").map(Number) as [number, number];
@@ -142,12 +108,7 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
           : null,
     }));
   if (travelers.length === 0) {
-    return finish(
-      allocation.tripsBudget,
-      [],
-      "Cadastre as pessoas da família para receber sugestões de viagem.",
-      0,
-    );
+    return finish(allocation.tripsBudget, [], { day: today, kind: "sem_pessoas" }, 0);
   }
 
   const items = suggestTrips({
@@ -191,7 +152,7 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
     };
     return {
       kind: "viagem",
-      ...suggestionText(item, travelers.length),
+      ...viagemText(item, travelers.length),
       payload,
       dedupeKey: keys[index]!,
     };
@@ -199,15 +160,17 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
   const decisions = await loadDecisions(tx, today, VIAGENS_AGENT);
   const suggestions = await upsertPending(tx, householdId, VIAGENS_AGENT, decisions, pending);
 
-  const fits = items.filter((item) => item.fits).length;
-  const summary =
-    items.length === 0
-      ? `Nenhum destino da tabela cabe em ${formatBRL(allocation.tripsBudget)} por mês para viagens.`
-      : `${plural(items.length, "viagem sugerida", "viagens sugeridas")} com ` +
-        `${formatBRL(allocation.tripsBudget)} por mês para viagens` +
-        (fits < items.length ? "; nem todas cabem no orçamento de hoje." : ".") +
-        (money(allocation.shortfall).gt(0)
-          ? ` As viagens já marcadas pedem ${formatBRL(allocation.shortfall)} a mais por mês.`
-          : "");
-  return finish(allocation.tripsBudget, items, summary, suggestions);
+  return finish(
+    allocation.tripsBudget,
+    items,
+    {
+      day: today,
+      kind: "sugestoes",
+      count: items.length,
+      fits: items.filter((item) => item.fits).length,
+      budget: allocation.tripsBudget,
+      shortfall: money(allocation.shortfall).gt(0) ? allocation.shortfall : null,
+    },
+    suggestions,
+  );
 }

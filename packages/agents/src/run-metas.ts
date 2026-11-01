@@ -11,8 +11,6 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import {
-  formatBRL,
-  formatYearMonth,
   Money,
   money,
   monthsBetween,
@@ -21,13 +19,13 @@ import {
   yearMonthOf,
   type GoalInput,
   type GoalPlan,
+  type Message,
 } from "@organizeup/domain";
 import type { ReportMetas } from "./reports";
 import { DEDUPE, type MetaPayload } from "./suggestions";
 import {
   clamp,
   loadDecisions,
-  plural,
   recordAudit,
   resolveAllocation,
   saveDailyReport,
@@ -37,6 +35,14 @@ import {
   type AgentResult,
   type PendingSuggestion,
 } from "./shared";
+import {
+  metaNotaContaText,
+  metaNotaMessage,
+  metaNotaParcelaText,
+  metasReportText,
+  metaText,
+  type MetasReportInput,
+} from "./texts";
 
 export const METAS_AGENT = "metas";
 const MAX_NOTE = 400;
@@ -51,20 +57,20 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
   const finish = async (
     budget: string,
     plans: GoalPlan[],
-    summary: string,
+    text: MetasReportInput,
     suggestions: number,
   ) => {
     const data: ReportMetas = { budget, goals: plans };
-    const report = { title: `Metas em ${today}`, summary, data };
+    const report = { ...metasReportText(text), data };
     await saveDailyReport(tx, householdId, METAS_AGENT, "metas", today, report);
     return { suggestions, applied: 0, report };
   };
   if (goalRows.length === 0) {
-    return finish("0.00", [], "Nenhuma meta cadastrada ainda.", 0);
+    return finish("0.00", [], { day: today, kind: "nenhuma" }, 0);
   }
   const allocation = await resolveAllocation(tx, input);
   if (!allocation) {
-    return finish("0.00", [], "Sem a divisão do que sobra hoje; o plano das metas foi mantido.", 0);
+    return finish("0.00", [], { day: today, kind: "sem_divisao" }, 0);
   }
 
   const contributions = await tx.select().from(goalContributions);
@@ -120,6 +126,7 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
   for (const plan of plans) {
     const goal = byId.get(plan.id)!;
     const notes = [plan.note];
+    const noteMessages: Message[] = [...plan.noteMessages];
     const held = heldOf.get(goal.id);
     const missing = money(goal.targetAmount)
       .minus(goal.saved)
@@ -129,7 +136,9 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
       planned += 1;
       if (plan.onTime) onTime += 1;
       if (goal.accountId === null) {
-        notes.push("Escolha a conta de onde sai a parcela para ela entrar no calendário.");
+        const missingAccount = metaNotaContaText();
+        notes.push(missingAccount.text);
+        noteMessages.push(missingAccount.message);
       } else if (plan.contributions.length > 0) {
         await tx
           .insert(goalContributions)
@@ -144,15 +153,16 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
           .onConflictDoNothing();
       }
       if (goal.planMonthly !== null && goal.planMonthly !== plan.monthly) {
-        notes.push(
-          `Parcela ajustada de ${formatBRL(goal.planMonthly)} para ${formatBRL(plan.monthly)}.`,
-        );
+        const adjusted = metaNotaParcelaText(goal.planMonthly, plan.monthly);
+        notes.push(adjusted.text);
+        noteMessages.push(adjusted.message);
       }
     } else if (plan.status !== "concluida" && plan.status !== "pausada") {
       noRoom += 1;
     }
 
     const note = notes.filter(Boolean).join(" ");
+    const noteMessage = noteMessages.length > 0 ? metaNotaMessage(noteMessages) : null;
     await tx
       .update(goals)
       .set({
@@ -162,6 +172,8 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
         planEnd: plan.end,
         planMonthly: plan.monthly,
         planNote: note ? clamp(note, MAX_NOTE) : null,
+        planNoteKey: noteMessage?.key ?? null,
+        planNoteParams: noteMessage?.params ?? null,
         planUpdatedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -177,10 +189,12 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
       };
       pending.push({
         kind: "meta",
-        title: plan.monthly
-          ? `A meta ‘${goal.name}’ não cabe no prazo`
-          : `Hoje não sobra para a meta ‘${goal.name}’`,
-        body: bodyFor(goal.name, goal.desiredMonth, plan, payload.extraMonthly),
+        ...metaText({
+          name: goal.name,
+          desiredMonth: goal.desiredMonth,
+          plan,
+          extraMonthly: payload.extraMonthly,
+        }),
         payload,
         dedupeKey: DEDUPE.meta(goal.id, month),
       });
@@ -193,11 +207,20 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
 
   const decisions = await loadDecisions(tx, today, METAS_AGENT);
   const suggestions = await upsertPending(tx, householdId, METAS_AGENT, decisions, pending);
-  const summary =
-    `${plural(goalRows.length, "meta", "metas")}; ${formatBRL(allocation.goalsBudget)} por mês para ` +
-    `metas. ${plural(planned, "meta com plano", "metas com plano")}, ${onTime} dentro do prazo, ` +
-    `${plural(noRoom, "sem espaço no orçamento", "sem espaço no orçamento")}.`;
-  return finish(allocation.goalsBudget, plans, summary, suggestions);
+  return finish(
+    allocation.goalsBudget,
+    plans,
+    {
+      day: today,
+      kind: "plano",
+      goals: goalRows.length,
+      budget: allocation.goalsBudget,
+      planned,
+      onTime,
+      noRoom,
+    },
+    suggestions,
+  );
 }
 
 /** Quanto a mais por mês fecharia a meta na data desejada. Null sem data ou quando já passou. */
@@ -211,34 +234,4 @@ function extraMonthlyFor(
   const needed = missing.dividedBy(months).toDecimalPlaces(2, Money.ROUND_UP);
   const extra = needed.minus(plan.monthly ?? 0);
   return extra.gt(0) ? toDbAmount(extra) : null;
-}
-
-function bodyFor(
-  name: string,
-  desiredMonth: string | null,
-  plan: GoalPlan,
-  extraMonthly: string | null,
-): string {
-  const parts: string[] = [];
-  if (plan.monthly && plan.end) {
-    parts.push(
-      `Hoje dá para guardar ${formatBRL(plan.monthly)} por mês para ‘${name}’, o que termina em ` +
-        `${formatYearMonth(plan.end)}.`,
-    );
-  } else {
-    parts.push(`Hoje não sobra orçamento para ‘${name}’.`);
-  }
-  if (desiredMonth && extraMonthly) {
-    parts.push(
-      `Para conquistar em ${formatYearMonth(desiredMonth)} seria preciso ${formatBRL(extraMonthly)} a mais por mês.`,
-    );
-  } else if (desiredMonth && plan.note) {
-    parts.push(plan.note);
-  }
-  parts.push(
-    plan.end
-      ? `Aceitar muda a data desejada para ${formatYearMonth(plan.end)}; ou reduza o valor, pause outra meta ou aumente o que guarda.`
-      : "Reduza o valor, adie a data ou pause outra meta para abrir espaço.",
-  );
-  return parts.join(" ");
 }

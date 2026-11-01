@@ -5,9 +5,14 @@
 import {
   applyGroup,
   applySuggestion,
+  assistenteAporteText,
+  assistenteDataMetaText,
+  assistenteLembreteText,
+  assistenteMetaText,
   DEDUPE,
   loadDecisions,
   parsePayload,
+  type AgentText,
   type MetaPayload,
 } from "@organizeup/agents";
 import {
@@ -27,7 +32,6 @@ import {
 } from "@organizeup/db";
 import {
   categoryDedupeKey,
-  formatBRL,
   isCategoryCandidate,
   isCategoryTarget,
   memoryKey,
@@ -68,10 +72,8 @@ const NOT_MOVED =
   "Não mexi no que a família colocou numa categoria específica nem no que ela já desfez. Quem quiser, troca direto no lançamento.";
 const DAILY_LIMIT = "Cheguei ao limite de alterações de hoje. Amanhã posso fazer essa.";
 
-interface Proposal {
+interface Proposal extends AgentText {
   kind: SuggestionKind;
-  title: string;
-  body: string;
   payload: Record<string, unknown>;
   dedupeKey: string;
 }
@@ -97,6 +99,8 @@ async function propose(tx: TenantTx, ctx: TenantContext, item: Proposal): Promis
       kind: item.kind,
       title: item.title.slice(0, MAX_TITLE),
       body: item.body.slice(0, MAX_BODY),
+      messageKey: item.message.key,
+      messageParams: item.message.params ?? null,
       payload: item.payload,
       dedupeKey,
     })
@@ -248,8 +252,7 @@ const sugerirAporte = defineTool({
       const reserve = destino === "reserva";
       await propose(tx, ctx, {
         kind: reserve ? "aporte_reserva" : "aporte_investimento",
-        title: reserve ? "Guardar na reserva todo mês" : "Guardar para a aposentadoria todo mês",
-        body: `Combinado na conversa com o assistente: ${formatBRL(monthlyAmount)} por mês.`,
+        ...assistenteAporteText({ reserve, amount: monthlyAmount }),
         payload: { monthlyAmount, previous: null },
         dedupeKey: reserve ? DEDUPE.aporteReserva(month) : DEDUPE.aporteInvestimento(month),
       });
@@ -279,8 +282,7 @@ const sugerirDataMeta = defineTool({
       const payload: MetaPayload = { goalId: goal.id, proposedMonth: mes, extraMonthly: null };
       await propose(tx, ctx, {
         kind: "meta",
-        title: `Nova data para ${goal.name}`,
-        body: `Mudar o mês desejado de ${goal.name} para ${mes}.`,
+        ...assistenteDataMetaText({ name: goal.name, month: mes }),
         payload,
         dedupeKey: DEDUPE.meta(goal.id, yearMonthOf(today)),
       });
@@ -313,8 +315,7 @@ const criarMetaRascunho = defineTool({
       });
       const id = await propose(tx, ctx, {
         kind: "meta",
-        title: `Criar a meta ${nome}`,
-        body: `Meta de ${formatBRL(toDbAmount(valor))}, proposta na conversa com o assistente.`,
+        ...assistenteMetaText({ name: nome, amount: toDbAmount(valor) }),
         payload,
         dedupeKey: DEDUPE.metaNova(normalizeDescription(nome)),
       });
@@ -341,8 +342,7 @@ const criarLembrete = defineTool({
     read(ctx, async (tx) => {
       await propose(tx, ctx, {
         kind: "lembrete",
-        title: titulo,
-        body: texto,
+        ...assistenteLembreteText(titulo, texto),
         payload: { href: SCREEN_LINKS[tela] },
         dedupeKey: `lembrete:assistente:${normalizeDescription(titulo)}`,
       });

@@ -313,9 +313,16 @@ describe("notificações", () => {
       kind: "categoria",
       suggestionId: applied!.id,
       title: "De Outras despesas para Mercado",
+      messageKey: "notificacaoMudanca",
       readAt: null,
       href: null,
     });
+    expect(rows[0]!.messageParams).toMatchObject({
+      from: { categories: ["Outras despesas"] },
+      to: { category: "Mercado" },
+      merchant: "supermercado bom",
+    });
+    expect(applied!.messageKey).toBe("categoriaMovida");
     expect(rows[0]!.body).toContain("2 lançamentos");
     expect(rows[0]!.data).toEqual({
       type: "alteracao",
