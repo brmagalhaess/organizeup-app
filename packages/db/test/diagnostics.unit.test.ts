@@ -73,6 +73,16 @@ describe("limpeza do erro", () => {
     ]);
   });
 
+  it("deixa de fora os pacotes do Next dentro do build", () => {
+    const frames = [
+      "    at act (/app/.next/server/chunks/ssr/_0m18_mpaycp6g._.js:1:214)",
+      "    at x (/app/.next/server/chunks/ssr/0h9u_next_dist_0qi02wn2pnbex._.js:1:11796)",
+    ];
+    expect(describeError(failure("x", frames), origin).stack).toEqual([
+      ".next/server/chunks/ssr/_0m18_mpaycp6g._.js:1:214",
+    ]);
+  });
+
   it("entende caminho com espaço e file:// do Windows", () => {
     const windows = "    at run (file:///C:/Users/User/Nova pasta/packages/db/src/ops.ts:12:3)";
     expect(describeError(failure("x", [windows]), origin).stack).toEqual([

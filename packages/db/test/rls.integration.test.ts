@@ -2994,6 +2994,15 @@ describe("diagnósticos", () => {
     } finally {
       await worker.end();
     }
+    const previous = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = urls.worker;
+    try {
+      const failure = event({ service: "worker", source: "job", route: "job:market-data" });
+      expect(await db.recordDiagnostic(failure)).toBe(true);
+      expect(await db.resolveDiagnostic(failure.fingerprint)).toBe(1);
+    } finally {
+      process.env.DATABASE_URL = previous;
+    }
   });
 
   it("o banco recusa texto livre em qualquer coluna", async () => {

@@ -89,7 +89,8 @@ function ownFrames(error: unknown): Frame[] {
     if (!match) continue;
     const [, rawFile, row, column] = match;
     const file = rawFile!.replace(/^file:\/+/, "").replaceAll("\\", "/");
-    if (file.includes("node_modules") || file.startsWith("node:")) continue;
+    // `next_dist` é como o build chama os pacotes do próprio Next.
+    if (/node_modules|next_dist|^node:/.test(file)) continue;
     const built = BUILT_FILE.exec(file)?.[0];
     const path = built ?? SOURCE_FILE.exec(file)?.[0]?.replace(/^\//, "");
     if (!path || !SAFE_FILE.test(path)) continue;
