@@ -70,12 +70,14 @@ export function ConfirmAction({
 /** Ação direta, sem efeito destrutivo. */
 export function RunAction({
   label,
+  ariaLabel,
   pendingLabel,
   variant = "secondary",
   action,
   hidden = {},
 }: {
   label: ReactNode;
+  ariaLabel?: string;
   pendingLabel: string;
   variant?: ButtonVariant;
   action: ServerAction;
@@ -95,7 +97,7 @@ export function RunAction({
       {Object.entries(hidden).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
-      <Button type="submit" variant={variant} small disabled={pending}>
+      <Button type="submit" variant={variant} small disabled={pending} aria-label={ariaLabel}>
         {pending ? pendingLabel : label}
       </Button>
       <FormMessage message={result?.message} tone={result?.ok ? "ok" : "error"} />

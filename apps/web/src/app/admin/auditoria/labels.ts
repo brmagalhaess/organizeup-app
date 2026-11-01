@@ -1,5 +1,8 @@
 // Nome em português de cada registro de ops.admin_access, e os grupos do filtro da auditoria.
 
+export const AI_TEST_OK = "sistema:testar_ia_ok";
+export const AI_TEST_FAILED = "sistema:testar_ia_falhou";
+
 const LABELS: Record<string, string> = {
   "painel:visao_geral": "Abriu a visão geral",
   "familias:lista": "Abriu a lista de famílias",
@@ -20,8 +23,12 @@ const LABELS: Record<string, string> = {
   "usuario:excluir": "Excluiu um usuário",
   "agentes:ver": "Abriu os agentes",
   "agentes:rodar": "Pediu para rodar os agentes",
+  "agentes:dicas": "Pediu para gerar as dicas",
   "agentes:contagens": "Pediu para recalcular as contagens",
   "sistema:ver": "Abriu o sistema",
+  "sistema:testar_ia": "Testou a IA",
+  [AI_TEST_OK]: "Testou a IA: funcionou",
+  [AI_TEST_FAILED]: "Testou a IA: falhou",
   "controles:ver": "Abriu os controles",
   "controle:manutencao_ligar": "Ligou o modo manutenção",
   "controle:manutencao_desligar": "Desligou o modo manutenção",
@@ -35,11 +42,16 @@ const LABELS: Record<string, string> = {
   "auditoria:busca": "Filtrou a auditoria",
 };
 
-const AGENT_PREFIX = /^agente:(ligar|desligar):(.+)$/;
+const AGENT_PREFIX = /^agente:(ligar|desligar|rodar):(.+)$/;
+const AGENT_VERBS: Record<string, string> = {
+  ligar: "Ligou o agente",
+  desligar: "Desligou o agente",
+  rodar: "Pediu para rodar o agente",
+};
 
 export function actionLabel(action: string) {
   const agent = AGENT_PREFIX.exec(action);
-  if (agent) return `${agent[1] === "ligar" ? "Ligou" : "Desligou"} o agente ${agent[2]}`;
+  if (agent) return `${AGENT_VERBS[agent[1]!]} ${agent[2]}`;
   return LABELS[action] ?? action;
 }
 

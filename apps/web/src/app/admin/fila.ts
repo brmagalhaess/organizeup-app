@@ -4,16 +4,16 @@ import "server-only";
 import { agentWakeKey, dailyAgentsKey, JOB_QUEUES, PGBOSS_SCHEMA } from "@organizeup/db";
 import { todayIn } from "@organizeup/domain";
 import type { PgBoss } from "pg-boss";
+import { DICAS_AGENT, MERCADO_AGENT } from "./agentes/catalogo";
 import { logAdminFailure } from "./painel";
+
+export { DICAS_AGENT, MERCADO_AGENT };
 
 /**
  * Janela em que um segundo pedido com a mesma chave é ignorado. Numa fila `standard` a chave sozinha
  * não impede duplicata: quem impede é o par chave + janela.
  */
 const SINGLETON_SECONDS = 300;
-
-export const MERCADO_AGENT = "mercado";
-export const DICAS_AGENT = "dicas";
 
 async function withBoss<T>(fn: (boss: PgBoss) => Promise<T>): Promise<T> {
   const connectionString = process.env.DATABASE_URL;

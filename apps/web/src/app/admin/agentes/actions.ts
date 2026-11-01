@@ -3,12 +3,12 @@ import { adminRecordAction, adminSetFlag, FLAG_KEYS } from "@organizeup/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { platformFlags, requireAdmin } from "@/lib/session";
-import { DICAS_AGENT, queueAgent, queueDailyAgents, queuePlatformStats } from "../fila";
+import { queueAgent, queueDailyAgents, queuePlatformStats } from "../fila";
 import { runAdminAction } from "../painel";
 import { done, failed, type AdminResult } from "../painel-result";
-import { DAILY_AGENTS_INFO } from "./info";
+import { DICAS_AGENT, PRODUCT_AGENTS } from "./catalogo";
 
-const agentId = z.enum(DAILY_AGENTS_INFO.map((agent) => agent.id));
+const agentId = z.enum(PRODUCT_AGENTS.map((agent) => agent.id));
 
 /** Ligar e desligar: o worker confere a chave no começo de cada rodada. */
 export async function toggleAgent(form: FormData): Promise<AdminResult> {
@@ -48,18 +48,27 @@ export async function runAgentsNow(): Promise<AdminResult> {
   });
 }
 
-/** Mesma rotina da madrugada. Família que já recebeu dicas hoje fica de fora. */
-export async function runInsightsNow(): Promise<AdminResult> {
+/**
+ * Um agente só, na mesma fila e rotina da madrugada. Rodar de novo no dia dá o mesmo resultado; nas
+ * Dicas, família que já recebeu hoje fica de fora. O worker só pularia em silêncio: a recusa sai aqui.
+ */
+export async function runAgentNow(form: FormData): Promise<AdminResult> {
   const session = await requireAdmin();
-  if ((await platformFlags()).maintenance) {
-    return failed("Com o modo manutenção ligado, as dicas não rodam.");
+  const parsed = agentId.safeParse(form.get("agent"));
+  if (!parsed.success) return failed("Agente inválido.");
+  const agent = parsed.data;
+  const flags = await platformFlags();
+  if (flags.maintenance) return failed("Com o modo manutenção ligado, os agentes não rodam.");
+  if (flags.disabledAgents.includes(agent)) return failed("Este agente está desligado.");
+  if (agent === DICAS_AGENT && !flags.aiEnabled) {
+    return failed("Com o assistente desligado, as dicas não rodam.");
   }
-  return runAdminAction("admin_insights_run_failed", async () => {
-    await adminRecordAction({ adminUserId: session.user.id }, "agentes:dicas");
-    const job = await queueAgent(DICAS_AGENT);
+  return runAdminAction("admin_agent_run_failed", async () => {
+    await adminRecordAction({ adminUserId: session.user.id }, `agente:rodar:${agent}`);
+    const job = await queueAgent(agent);
     return job
-      ? done("Dicas pedidas. O worker começa em instantes.")
-      : done("Já existe um pedido de dicas há pouco.");
+      ? done("Pedido feito. O worker começa em instantes.")
+      : done("Já existe um pedido igual há pouco.");
   });
 }
 

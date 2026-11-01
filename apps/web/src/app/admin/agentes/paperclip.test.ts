@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+import { agentName, agentsInView, DICAS_AGENT, MERCADO_AGENT, runMetrics } from "./catalogo";
+import { lastActivity, PAPERCLIP_TEAM, paperclipAgentUrl } from "./paperclip";
+
+const tech = PAPERCLIP_TEAM.find((agent) => agent.id === "tech-lead")!;
+const qa = PAPERCLIP_TEAM.find((agent) => agent.id === "revisor-qa")!;
+const old = new Date("2026-10-01T10:00:00Z");
+const recent = new Date("2026-10-30T10:00:00Z");
+
+describe("equipe do Paperclip", () => {
+  it("traz os 14 agentes, sem repetir", () => {
+    expect(PAPERCLIP_TEAM).toHaveLength(14);
+    expect(new Set(PAPERCLIP_TEAM.map((agent) => agent.id)).size).toBe(14);
+  });
+
+  it("sem registro, a atividade é nula: nada de status inventado", () => {
+    expect(lastActivity(tech, [])).toBeNull();
+    expect(lastActivity(tech, [{ agent: "sre", at: recent, source: "relatorio" }])).toBeNull();
+  });
+
+  it("fica com o registro mais novo, venha de onde vier", () => {
+    const found = lastActivity(tech, [
+      { agent: "tech-lead", at: old, source: "relatorio" },
+      { agent: "tech-lead", at: recent, source: "memoria" },
+    ]);
+    expect(found).toMatchObject({ at: recent, source: "memoria" });
+  });
+
+  it("aceita o nome curto com que o agente assina", () => {
+    const records = [{ agent: "revisor", at: recent, source: "memoria" as const }];
+    expect(lastActivity(qa, records)?.at).toEqual(recent);
+  });
+
+  it("sem id, o link vai para a tela geral de agentes", () => {
+    expect(paperclipAgentUrl(tech)).toBe("https://paperclip.home.crowntech.com.br/ORG/agents");
+    expect(paperclipAgentUrl({ ...tech, paperclipId: "abc" })).toMatch(/\/agents\/abc$/);
+  });
+});
+
+describe("agentes do produto", () => {
+  it("Mercado e Dicas entram como cartões, com controles", () => {
+    const ids = agentsInView([]).map((agent) => agent.id);
+    expect(ids).toEqual(expect.arrayContaining(["metas", MERCADO_AGENT, DICAS_AGENT]));
+    expect(agentsInView([]).every((agent) => agent.controls)).toBe(true);
+  });
+
+  it("agente que só existe nas rodadas aparece sem controles", () => {
+    const view = agentsInView(["metas", "novo", "novo"]);
+    expect(view.filter((agent) => agent.id === "metas")).toHaveLength(1);
+    expect(view.filter((agent) => agent.id === "novo")).toEqual([
+      expect.objectContaining({ name: "Novo", controls: false }),
+    ]);
+  });
+
+  it("mostra o nome conhecido, ou o id com inicial maiúscula", () => {
+    expect(agentName(DICAS_AGENT)).toBe("Dicas");
+    expect(agentName("outro")).toBe("Outro");
+  });
+
+  it("cada agente lê os números da rodada com o nome certo", () => {
+    const run = { households: 3, ok: 2, failed: 1, suggestions: 4, applied: 5 };
+    const labels = (agent: string) => runMetrics(agent, run, 7).map((item) => item.label);
+    expect(labels("metas")).toEqual(["Famílias", "Falhas", "Sugestões", "Aplicadas"]);
+    expect(labels(MERCADO_AGENT)).toContain("Cotações");
+    expect(runMetrics(DICAS_AGENT, run, 7)).toContainEqual({ label: "Descartadas", value: 7 });
+  });
+});

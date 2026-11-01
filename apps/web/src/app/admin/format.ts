@@ -11,8 +11,16 @@ const numberFormat = new Intl.NumberFormat("pt-BR");
 
 const usdFormat = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD" });
 
+/** Para gastos por dia e por rota, que costumam ficar abaixo de um centavo. */
+const usdFineFormat = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 4,
+});
+
 export const formatCount = (value: number) => numberFormat.format(value);
 export const formatUsd = (value: number) => usdFormat.format(value);
+export const formatUsdFine = (value: number) => usdFineFormat.format(value);
 export const formatDate = (value: Date) => dateFormat.format(value);
 export const formatDateTime = (value: Date) => dateTimeFormat.format(value);
 
@@ -32,6 +40,14 @@ export const roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
 
 /** Dia e mês curtos, para eixos de gráfico: "2026-10-26" → "26/10". */
 export const formatDayShort = (day: string) => day.slice(5).split("-").reverse().join("/");
+
+/** Os últimos dias do calendário (`YYYY-MM-DD`), do mais antigo ao de hoje. */
+export function lastDays(today: string, total: number) {
+  const base = new Date(`${today}T12:00:00Z`).getTime();
+  return Array.from({ length: total }, (_, index) =>
+    new Date(base - (total - 1 - index) * 86_400_000).toISOString().slice(0, 10),
+  );
+}
 
 /** Minutos desde `value`, para a idade do último sinal de um worker. */
 export const minutesSince = (value: Date) =>
