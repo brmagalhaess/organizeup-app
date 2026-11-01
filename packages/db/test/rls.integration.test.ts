@@ -2918,7 +2918,7 @@ describe("dicas por tela", () => {
       ),
     ).rejects.toThrow();
     await expect(
-      db.withHousehold({ ...owner, role: "viewer" }, (tx) =>
+      db.withHousehold(await ctxFor(A.viewer, A.household), (tx) =>
         tx.insert(householdInsights).values(row(A.household, "Sem permissão")),
       ),
     ).rejects.toThrow();

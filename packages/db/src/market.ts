@@ -54,11 +54,14 @@ const assetFields = {
   close: marketAssets.close,
 };
 
+/** O que a pessoa digita é texto: `%` e `_` não podem virar curinga. */
+const escapeLike = (text: string) => text.replace(/[%_\\]/g, (match) => `\\${match}`);
+
 /** Código que começa com o texto vem primeiro, depois nome que o contém. Sem a tabela, lista vazia. */
 export function searchMarketAssets(query: string) {
   const term = query.trim();
-  const prefix = `${term.replace(/[%_\\]/g, "\\export interface MarketQuoteRow {").toUpperCase()}%`;
-  const anywhere = `%${term.replace(/[%_\\]/g, "\\export interface MarketQuoteRow {")}%`;
+  const prefix = `${escapeLike(term).toUpperCase()}%`;
+  const anywhere = `%${escapeLike(term)}%`;
   return tolerateSchemaLag(
     () =>
       appPool()

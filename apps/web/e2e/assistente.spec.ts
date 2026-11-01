@@ -46,7 +46,7 @@ test("ativa, conversa, vê o que foi olhado, reabre e desliga", async ({ page })
   await open.click();
   const panel = page.getByRole("dialog", { name: "Assistente" });
   await expect(panel.getByRole("heading", { name: "Antes de começar" })).toBeVisible();
-  await expect(panel.getByText("Para a Anthropic, empresa dos Estados Unidos")).toBeVisible();
+  await expect(panel.getByRole("heading", { name: "O que fica de fora" })).toBeVisible();
   await expect(panel.getByText("Nomes, e-mails, CPF e senhas.")).toBeVisible();
   await expect(panel.getByRole("radio", { name: /Organizar/ })).toBeChecked();
   expect(await violations(page)).toEqual([]);

@@ -566,6 +566,8 @@ describe("job de mercado", () => {
     expect(byCode.find((row) => row.ticker === "FICT11")).toMatchObject({ assetClass: "fii" });
     const byName = await db.searchMarketAssets("ishares");
     expect(byName).toEqual([expect.objectContaining({ ticker: "FETF11", assetClass: "etf_bdr" })]);
+    expect(await db.searchMarketAssets("%")).toEqual([]);
+    expect(await db.searchMarketAssets("F_CT")).toEqual([]);
     expect((await db.findMarketAsset("FBDR34"))?.assetClass).toBe("etf_bdr");
     expect(await db.findMarketAsset("FFIP11")).toBeNull();
   });
