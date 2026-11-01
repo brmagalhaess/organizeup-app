@@ -1197,6 +1197,120 @@
       "ownerOnly": "Solo el responsable puede invitar."
     }
   },
+  "assistente": {
+    "activation": {
+      "title": "Antes de empezar",
+      "text": "Pregunta sobre el dinero de la familia, simula una decisión y recibe los próximos pasos para tus metas, viajes y jubilación.",
+      "usesTitle": "Qué usa",
+      "uses": "Tu pregunta y, cuando la necesite, movimientos, ingresos, fondo de emergencia, deudas, inversiones, metas, viajes y calendario. Las descripciones se envían tal como aparecen en el extracto. De madrugada, usa los mismos datos para preparar consejos en cada pantalla y ordenar las categorías de los movimientos.",
+      "leavesOutTitle": "Qué queda fuera",
+      "leavesOut": "Nombres, correos electrónicos, CPF (identificación fiscal de Brasil) y contraseñas. No accede a ningún banco y no mueve dinero.",
+      "levelLegend": "Qué puede hacer por su cuenta",
+      "levelHint": "Puedes cambiarlo cuando quieras en Configuración.",
+      "consent": "Autorizo el uso de estos datos para generar las respuestas, incluso fuera de Brasil, como explica la <privacy>Política de Privacidad</privacy>. Puedo desactivarlo después en Configuración.",
+      "submit": "Activar el asistente",
+      "pending": "Activando…",
+      "unavailable": "El asistente no está disponible en este momento.",
+      "consentRequired": "Para activarlo, marca que leíste esto y autorizas el envío.",
+      "pickLevel": "Elige qué puede hacer el asistente."
+    },
+    "states": {
+      "sem_chave": {
+        "title": "El asistente no está disponible",
+        "text": "Todavía no está activado en este entorno. Todo lo demás de OrganizeUp sigue funcionando con normalidad."
+      },
+      "desligado": {
+        "title": "El asistente está desactivado por ahora",
+        "text": "Todo lo demás de OrganizeUp sigue funcionando con normalidad. Cuando vuelva, este botón abrirá la conversación."
+      },
+      "manutencao": {
+        "title": "Estamos en mantenimiento",
+        "text": "El asistente vuelve junto con los cambios. Puedes consultar todo con normalidad."
+      },
+      "teto_mensal": {
+        "title": "El asistente hizo una pausa hasta el próximo mes",
+        "text": "Se alcanzó el límite de uso del servicio este mes, así que se detuvo solo. Tus datos están seguros y el resto de OrganizeUp sigue funcionando con normalidad."
+      },
+      "teto_diario": {
+        "title": "Tu familia usó el límite de hoy",
+        "text": "El asistente vuelve mañana, sin que tengas que hacer nada. El resto de OrganizeUp sigue funcionando con normalidad."
+      },
+      "sem_permissao": {
+        "title": "El asistente es para los adultos de la familia",
+        "text": "Solo el responsable o un adulto de la familia puede conversar con él. Pídele a uno de ellos que lo active o que pregunte por ti."
+      }
+    },
+    "errors": {
+      "sem_conversa": "No encontré esa conversación. Empieza una nueva.",
+      "limite_de_uso": "Hay mucha gente usándolo al mismo tiempo. Inténtalo de nuevo en unos instantes.",
+      "indisponivel": "El asistente no respondió ahora. Inténtalo de nuevo en unos instantes.",
+      "muito_longa": "No pude procesar esa solicitud. Prueba con una pregunta más corta o una conversación nueva.",
+      "chave_invalida": "El asistente no está disponible en este momento. Inténtalo de nuevo más tarde.",
+      "falha": "Algo salió mal. Tu pregunta quedó guardada; inténtalo de nuevo.",
+      "sessao": "Tu sesión expiró. Recarga la página y vuelve a entrar."
+    },
+    "notices": {
+      "investment": "Contenido educativo, no es una recomendación de inversión. La decisión es tuya, y un profesional autorizado puede ayudarte.",
+      "unchecked": "Algunos valores de esta respuesta no vienen directamente de tus datos. Revísalos antes de decidir."
+    },
+    "chat": {
+      "intro": "Pregunta sobre tus gastos, metas, deudas o jubilación. Miro tus números antes de responder.",
+      "question": "Tu pregunta",
+      "send": "Enviar",
+      "stop": "Detener",
+      "thinking": "Pensando…",
+      "youSaid": "Dijiste: ",
+      "stopped": "Te detuviste aquí.",
+      "toolsLabel": "Qué revisó el asistente",
+      "conversation": "Conversación",
+      "suggestions": {
+        "month": "¿Cómo fue este mes?",
+        "upcoming": "¿Qué vence en los próximos días?",
+        "saveMore": "¿Y si guardo 500 R$ más al mes?"
+      }
+    },
+    "threads": {
+      "new": "Nueva conversación",
+      "previous": "Conversaciones anteriores",
+      "back": "Volver",
+      "failed": "No se pudieron abrir tus conversaciones.",
+      "emptyTitle": "Aún no hay conversaciones",
+      "emptyText": "Lo que preguntes queda guardado aquí.",
+      "listLabel": "Tus conversaciones",
+      "delete": "Eliminar la conversación: {title}"
+    },
+    "tools": {
+      "organizedCategory": "organicé una categoría",
+      "savingSuggestion": "dejé una sugerencia de cuánto guardar",
+      "goalSuggestion": "dejé una sugerencia para tu meta",
+      "draftGoal": "preparé una meta en borrador",
+      "reminder": "creé un recordatorio",
+      "categories": "revisé tus categorías",
+      "income": "revisé tus ingresos",
+      "reserve": "revisé tu fondo de emergencia",
+      "debts": "revisé tus deudas",
+      "debtPlan": "revisé tu plan para salir de las deudas",
+      "portfolio": "revisé tu cartera",
+      "dividends": "revisé tus dividendos",
+      "retirementPlan": "revisé tu plan de jubilación",
+      "goals": "revisé tus metas",
+      "trips": "revisé tus viajes",
+      "reports": "revisé los informes de hoy",
+      "suggestions": "revisé las sugerencias pendientes",
+      "monthPlan": "revisé tu plan del mes",
+      "rules": "revisé las reglas oficiales",
+      "note": "lo anoté para recordarlo después",
+      "simulatedSaving": "simulé guardar más al mes",
+      "simulatedRetirement": "simulé adelantar la jubilación",
+      "simulatedGoal": "simulé el plazo de tu meta",
+      "summaryCurrent": "revisé el resumen del mes",
+      "summaryMonth": "revisé el resumen de {month}",
+      "entriesCurrent": "revisé tus movimientos del mes",
+      "entriesMonth": "revisé tus movimientos de {month}",
+      "calendarCurrent": "revisé tu calendario del mes",
+      "calendarMonth": "revisé tu calendario de {month}"
+    }
+  },
   "meta": {
     "description": "Las finanzas de tu familia, sus sueños y la jubilación en un solo plan."
   },

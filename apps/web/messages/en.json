@@ -1197,6 +1197,120 @@
       "ownerOnly": "Only the person in charge can invite."
     }
   },
+  "assistente": {
+    "activation": {
+      "title": "Before you start",
+      "text": "Ask about your family’s money, simulate a decision and get the next steps for your goals, trips and retirement.",
+      "usesTitle": "What it uses",
+      "uses": "Your question and, when it needs them, your transactions, income, emergency fund, debts, investments, goals, trips and calendar. Descriptions are sent exactly as they appear on your statement. Overnight, it uses the same data to prepare tips on each screen and tidy up your transaction categories.",
+      "leavesOutTitle": "What stays out",
+      "leavesOut": "Names, email addresses, CPF (Brazilian taxpayer ID) and passwords. It doesn’t access any bank and doesn’t move money.",
+      "levelLegend": "What it can do on its own",
+      "levelHint": "You can change this anytime in Settings.",
+      "consent": "I authorize the use of this data to generate the answers, including outside Brazil, as explained in the <privacy>Privacy Policy</privacy>. I can turn this off later in Settings.",
+      "submit": "Turn on the assistant",
+      "pending": "Turning on…",
+      "unavailable": "The assistant is unavailable right now.",
+      "consentRequired": "To turn it on, tick the box to confirm you read this and authorize sending the data.",
+      "pickLevel": "Choose what the assistant can do."
+    },
+    "states": {
+      "sem_chave": {
+        "title": "The assistant is unavailable",
+        "text": "It isn’t turned on in this environment yet. Everything else in OrganizeUp works as usual."
+      },
+      "desligado": {
+        "title": "The assistant is off for now",
+        "text": "Everything else in OrganizeUp works as usual. As soon as it’s back, this button opens the chat again."
+      },
+      "manutencao": {
+        "title": "We’re under maintenance",
+        "text": "The assistant comes back when changes are turned on again. You can still view everything as usual."
+      },
+      "teto_mensal": {
+        "title": "The assistant is taking a break until next month",
+        "text": "The service reached its usage limit for this month, so it stopped on its own. Your data is safe and the rest of OrganizeUp works as usual."
+      },
+      "teto_diario": {
+        "title": "Your family reached today’s limit",
+        "text": "The assistant comes back tomorrow, with nothing for you to do. The rest of OrganizeUp works as usual."
+      },
+      "sem_permissao": {
+        "title": "The assistant is for the adults in the family",
+        "text": "Only the person in charge or an adult in the family can chat with it. Ask one of them to turn it on or to ask for you."
+      }
+    },
+    "errors": {
+      "sem_conversa": "I couldn’t find that conversation. Start a new one.",
+      "limite_de_uso": "A lot of people are using it right now. Try again in a moment.",
+      "indisponivel": "The assistant didn’t respond just now. Try again in a moment.",
+      "muito_longa": "I couldn’t process that request. Try a shorter question or a new conversation.",
+      "chave_invalida": "The assistant is unavailable right now. Try again later.",
+      "falha": "Something went wrong here. Your question was saved; try again.",
+      "sessao": "Your session expired. Reload the page and sign in again."
+    },
+    "notices": {
+      "investment": "Educational content, not an investment recommendation. The decision is yours, and an authorized professional can help.",
+      "unchecked": "Some amounts in this answer didn’t come directly from your data. Check them before deciding."
+    },
+    "chat": {
+      "intro": "Ask about your spending, goals, debts or retirement. I look at your numbers before answering.",
+      "question": "Your question",
+      "send": "Send",
+      "stop": "Stop",
+      "thinking": "Thinking…",
+      "youSaid": "You said: ",
+      "stopped": "You stopped here.",
+      "toolsLabel": "What the assistant looked at",
+      "conversation": "Conversation",
+      "suggestions": {
+        "month": "How did this month go?",
+        "upcoming": "What’s due in the next few days?",
+        "saveMore": "What if I save R$500 more a month?"
+      }
+    },
+    "threads": {
+      "new": "New conversation",
+      "previous": "Previous conversations",
+      "back": "Back",
+      "failed": "We couldn’t open your conversations.",
+      "emptyTitle": "No conversations yet",
+      "emptyText": "What you ask stays saved here.",
+      "listLabel": "Your conversations",
+      "delete": "Delete the conversation: {title}"
+    },
+    "tools": {
+      "organizedCategory": "organized a category",
+      "savingSuggestion": "left a suggestion on how much to save",
+      "goalSuggestion": "left a suggestion for your goal",
+      "draftGoal": "prepared a draft goal",
+      "reminder": "created a reminder",
+      "categories": "looked at your categories",
+      "income": "looked at your income",
+      "reserve": "looked at your emergency fund",
+      "debts": "looked at your debts",
+      "debtPlan": "looked at your debt payoff plan",
+      "portfolio": "looked at your portfolio",
+      "dividends": "looked at your dividends",
+      "retirementPlan": "looked at your retirement plan",
+      "goals": "looked at your goals",
+      "trips": "looked at your trips",
+      "reports": "looked at today’s reports",
+      "suggestions": "looked at pending suggestions",
+      "monthPlan": "looked at your plan for the month",
+      "rules": "looked at the official rules",
+      "note": "made a note to remember later",
+      "simulatedSaving": "simulated saving more each month",
+      "simulatedRetirement": "simulated retiring earlier",
+      "simulatedGoal": "simulated your goal’s timeline",
+      "summaryCurrent": "looked at the month’s summary",
+      "summaryMonth": "looked at the summary for {month}",
+      "entriesCurrent": "looked at this month’s transactions",
+      "entriesMonth": "looked at your transactions for {month}",
+      "calendarCurrent": "looked at this month’s calendar",
+      "calendarMonth": "looked at your calendar for {month}"
+    }
+  },
   "meta": {
     "description": "Your family's money, dreams and retirement in one plan."
   },

@@ -1,7 +1,12 @@
 "use client";
-import type { AssistantEvent, AssistantState, MessageStatus, ThreadMessage } from "@organizeup/ai";
+import type {
+  AssistantErrorCode,
+  AssistantEvent,
+  AssistantState,
+  MessageStatus,
+  ThreadMessage,
+} from "@organizeup/ai";
 import { useCallback, useRef, useState } from "react";
-import { ERROR_TEXT } from "./copy";
 
 export interface ChatMessage {
   id: string;
@@ -50,7 +55,7 @@ export function useChat(initialState: AssistantState) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AssistantErrorCode | "sessao" | null>(null);
   const [blocked, setBlocked] = useState<AssistantState | null>(null);
   const controller = useRef<AbortController | null>(null);
 
@@ -92,7 +97,7 @@ export function useChat(initialState: AssistantState) {
           break;
         case "error":
           setMessages((current) => (current.at(-1)?.text === "" ? current.slice(0, -1) : current));
-          setError(ERROR_TEXT[event.code]);
+          setError(event.code);
           break;
       }
     },
@@ -119,7 +124,7 @@ export function useChat(initialState: AssistantState) {
         });
         if (!isStream(response)) {
           setMessages((current) => current.slice(0, -1));
-          setError(ERROR_TEXT.sessao);
+          setError("sessao");
           return;
         }
         await readEvents(response, apply);
@@ -128,7 +133,7 @@ export function useChat(initialState: AssistantState) {
           patchLast((message) => ({ ...message, status: "parada", live: false }));
         } else {
           setMessages((current) => (current.at(-1)?.text === "" ? current.slice(0, -1) : current));
-          setError(ERROR_TEXT.indisponivel);
+          setError("indisponivel");
         }
       } finally {
         patchLast((message) => ({ ...message, live: false }));
@@ -152,7 +157,7 @@ export function useChat(initialState: AssistantState) {
     setError(null);
     const response = await fetch(`/api/assistente/conversas/${id}`).catch(() => null);
     if (!response?.ok) {
-      setError(ERROR_TEXT.sem_conversa);
+      setError("sem_conversa");
       return false;
     }
     const data = (await response.json()) as { messages: ThreadMessage[] };

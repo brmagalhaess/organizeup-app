@@ -1,7 +1,24 @@
-// Textos do assistente. Sem "use client": a tela de Configurações usa os mesmos.
-import type { AssistantErrorCode, AssistantState } from "@organizeup/ai";
+// Códigos do assistente; os textos estão no catálogo, em `assistente`.
+import type { AssistantState } from "@organizeup/ai";
 
 /** Estados em que não dá para conversar agora. Sempre com calma: o resto do sistema segue igual. */
+export const UNAVAILABLE_STATES = [
+  "sem_chave",
+  "desligado",
+  "manutencao",
+  "teto_mensal",
+  "teto_diario",
+  "sem_permissao",
+] as const satisfies readonly AssistantState[];
+
+export type UnavailableState = (typeof UNAVAILABLE_STATES)[number];
+
+export const isUnavailable = (state: AssistantState): state is UnavailableState =>
+  UNAVAILABLE_STATES.some((item) => item === state);
+
+export const AUTONOMY_LEVELS = ["sugerir", "organizar", "completo"] as const;
+
+/** Só para `dividas/importar`, que segue em português: sai quando aquela tela for traduzida. */
 export const STATE_TEXT: Partial<Record<AssistantState, { title: string; text: string }>> = {
   sem_chave: {
     title: "O assistente está indisponível",
@@ -28,38 +45,3 @@ export const STATE_TEXT: Partial<Record<AssistantState, { title: string; text: s
     text: "Só quem é responsável ou adulto na família pode conversar com ele. Peça a um deles para ativar ou perguntar por você.",
   },
 };
-
-export const ERROR_TEXT: Record<AssistantErrorCode | "sessao", string> = {
-  sem_conversa: "Não achei essa conversa. Comece uma nova.",
-  limite_de_uso: "Muita gente usando ao mesmo tempo. Tente de novo em alguns instantes.",
-  indisponivel: "O assistente não respondeu agora. Tente de novo em alguns instantes.",
-  muito_longa:
-    "Não consegui processar esse pedido. Tente uma pergunta mais curta ou uma nova conversa.",
-  chave_invalida: "O assistente está indisponível no momento. Tente de novo mais tarde.",
-  falha: "Algo deu errado aqui. Sua pergunta ficou guardada; tente de novo.",
-  sessao: "Sua sessão expirou. Recarregue a página e entre de novo.",
-};
-
-export const AUTONOMY_OPTIONS = [
-  {
-    value: "sugerir",
-    label: "Sugerir",
-    text: "Só dá dicas e sugestões. Você decide tudo.",
-  },
-  {
-    value: "organizar",
-    label: "Organizar",
-    text: "Também arruma sozinho o que ficou para revisar, sempre com Desfazer.",
-  },
-  {
-    value: "completo",
-    label: "Completo",
-    text: "Também cria metas em rascunho. Valor que você informou continua sendo sugestão.",
-  },
-] as const;
-
-export const INVESTMENT_NOTICE =
-  "Conteúdo educativo, não é recomendação de investimento. A decisão é sua, e um profissional autorizado pode ajudar.";
-
-export const UNCHECKED_NOTICE =
-  "Alguns valores desta resposta não vieram direto dos seus dados. Confira antes de decidir.";

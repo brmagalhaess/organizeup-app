@@ -10,12 +10,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Button, EmptyState, FormMessage, IconButton } from "@/components/ui";
 import { Activation } from "./activation";
 import { Answer } from "./answer";
-import { INVESTMENT_NOTICE, STATE_TEXT, UNCHECKED_NOTICE } from "./copy";
+import { formatMonthYear } from "@/i18n/format";
+import { isUnavailable } from "./copy";
+import { toolLabel } from "./tool-labels";
 import {
   fetchThreads,
   removeThread,
@@ -24,19 +26,27 @@ import {
   type ThreadSummary,
 } from "./use-chat";
 
-const SUGGESTIONS = [
-  "Como foi este mês?",
-  "O que vence nos próximos dias?",
-  "E se eu guardar mais R$ 500 por mês?",
-];
+const SUGGESTIONS = ["month", "upcoming", "saveMore"] as const;
 
 const MAX_LENGTH = 2000;
 
+/** O que veio de `packages/ai`, no idioma da pessoa. Frase desconhecida fica como veio. */
+function ToolName({ text }: { text: string }) {
+  const t = useTranslations("assistente.tools");
+  const locale = useLocale();
+  const label = toolLabel(text);
+  if (!label) return text;
+  return "month" in label
+    ? t(label.key, { month: formatMonthYear(label.month, locale) })
+    : t(label.key);
+}
+
 function MessageView({ message }: { message: ChatMessage }) {
+  const t = useTranslations("assistente");
   if (message.role === "user") {
     return (
       <li className="ml-8 self-end whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-brand-100 px-4 py-2 text-sm">
-        <span className="sr-only">Você disse: </span>
+        <span className="sr-only">{t("chat.youSaid")}</span>
         {message.text}
       </li>
     );
@@ -45,37 +55,34 @@ function MessageView({ message }: { message: ChatMessage }) {
   return (
     <li className="mr-4 flex flex-col gap-2 text-sm">
       {message.tools.length > 0 ? (
-        <ul
-          aria-label="O que o assistente olhou"
-          className="m-0 flex list-none flex-wrap gap-1 p-0"
-        >
+        <ul aria-label={t("chat.toolsLabel")} className="m-0 flex list-none flex-wrap gap-1 p-0">
           {message.tools.map((tool, index) => (
             <li
               key={`${tool}-${index}`}
               className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs text-muted"
             >
-              {tool}
+              <ToolName text={tool} />
             </li>
           ))}
         </ul>
       ) : null}
       {waiting ? (
         <p role="status" className="m-0 text-muted">
-          Pensando…
+          {t("chat.thinking")}
         </p>
       ) : null}
       {message.text ? <Answer text={message.text} /> : null}
       {message.status === "parada" ? (
-        <p className="m-0 text-xs text-muted">Você parou aqui.</p>
+        <p className="m-0 text-xs text-muted">{t("chat.stopped")}</p>
       ) : null}
       {message.uncheckedNumbers ? (
         <p className="m-0 rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
-          {UNCHECKED_NOTICE}
+          {t("notices.unchecked")}
         </p>
       ) : null}
       {message.investment ? (
         <p className="m-0 rounded-lg bg-card-soft px-3 py-2 text-xs text-muted">
-          {INVESTMENT_NOTICE}
+          {t("notices.investment")}
         </p>
       ) : null}
     </li>
@@ -83,6 +90,7 @@ function MessageView({ message }: { message: ChatMessage }) {
 }
 
 function Conversation({ chat }: { chat: ReturnType<typeof useChat> }) {
+  const t = useTranslations("assistente");
   const { messages, busy, error, send, stop } = chat;
   const [draft, setDraft] = useState("");
   const inputId = useId();
@@ -119,10 +127,7 @@ function Conversation({ chat }: { chat: ReturnType<typeof useChat> }) {
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         {messages.length === 0 ? (
           <div className="flex flex-col gap-3">
-            <p className="m-0 text-sm text-muted">
-              Pergunte sobre seus gastos, metas, dívidas ou aposentadoria. Eu olho seus números
-              antes de responder.
-            </p>
+            <p className="m-0 text-sm text-muted">{t("chat.intro")}</p>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {SUGGESTIONS.map((suggestion) => (
                 <li key={suggestion}>
@@ -131,16 +136,16 @@ function Conversation({ chat }: { chat: ReturnType<typeof useChat> }) {
                     variant="secondary"
                     small
                     className="h-auto w-full justify-start py-2 text-left"
-                    onClick={() => submit(suggestion)}
+                    onClick={() => submit(t(`chat.suggestions.${suggestion}`))}
                   >
-                    {suggestion}
+                    {t(`chat.suggestions.${suggestion}`)}
                   </Button>
                 </li>
               ))}
             </ul>
           </div>
         ) : (
-          <div role="log" aria-live="polite" aria-label="Conversa">
+          <div role="log" aria-live="polite" aria-label={t("chat.conversation")}>
             <ol className="m-0 flex list-none flex-col gap-4 p-0">
               {messages.map((message) => (
                 <MessageView key={message.id} message={message} />
@@ -154,9 +159,9 @@ function Conversation({ chat }: { chat: ReturnType<typeof useChat> }) {
         onSubmit={onSubmit}
         className="flex flex-col gap-2 border-t border-line bg-card px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       >
-        <FormMessage message={error} />
+        <FormMessage message={error ? t(`errors.${error}`) : null} />
         <label htmlFor={inputId} className="text-sm font-medium">
-          Sua pergunta
+          {t("chat.question")}
         </label>
         <div className="flex items-end gap-2">
           <textarea
@@ -172,12 +177,12 @@ function Conversation({ chat }: { chat: ReturnType<typeof useChat> }) {
           {busy ? (
             <Button type="button" variant="secondary" onClick={stop}>
               <CircleStop className="size-4.5" aria-hidden="true" />
-              Parar
+              {t("chat.stop")}
             </Button>
           ) : (
             <Button type="submit" disabled={!draft.trim()}>
               <SendHorizontal className="size-4.5" aria-hidden="true" />
-              Enviar
+              {t("chat.send")}
             </Button>
           )}
         </div>
@@ -187,6 +192,8 @@ function Conversation({ chat }: { chat: ReturnType<typeof useChat> }) {
 }
 
 function Threads({ onOpen, onBack }: { onOpen: (id: string) => void; onBack: () => void }) {
+  const t = useTranslations("assistente.threads");
+  const tCommon = useTranslations("common");
   const [threads, setThreads] = useState<ThreadSummary[] | null | undefined>(undefined);
 
   useEffect(() => {
@@ -209,21 +216,18 @@ function Threads({ onOpen, onBack }: { onOpen: (id: string) => void; onBack: () 
     <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
       <Button type="button" variant="ghost" small onClick={onBack} className="mb-3">
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Voltar
+        {t("back")}
       </Button>
       {threads === undefined ? (
         <p role="status" className="m-0 text-sm text-muted">
-          Carregando…
+          {tCommon("loadingEllipsis")}
         </p>
       ) : threads === null ? (
-        <FormMessage message="Não foi possível abrir suas conversas." />
+        <FormMessage message={t("failed")} />
       ) : threads.length === 0 ? (
-        <EmptyState
-          title="Nenhuma conversa ainda"
-          text="O que você perguntar fica guardado aqui."
-        />
+        <EmptyState title={t("emptyTitle")} text={t("emptyText")} />
       ) : (
-        <ul aria-label="Suas conversas" className="m-0 flex list-none flex-col gap-2 p-0">
+        <ul aria-label={t("listLabel")} className="m-0 flex list-none flex-col gap-2 p-0">
           {threads.map((thread) => (
             <li
               key={thread.id}
@@ -237,7 +241,7 @@ function Threads({ onOpen, onBack }: { onOpen: (id: string) => void; onBack: () 
                 {thread.title}
               </button>
               <IconButton
-                label={`Apagar a conversa: ${thread.title}`}
+                label={t("delete", { title: thread.title })}
                 onClick={() => remove(thread.id)}
               >
                 <Trash2 className="size-4" aria-hidden="true" />
@@ -253,6 +257,8 @@ function Threads({ onOpen, onBack }: { onOpen: (id: string) => void; onBack: () 
 /** Botão em todas as telas do painel: painel lateral no computador, tela cheia no celular. */
 export function AssistantPanel({ state: initialState }: { state: AssistantState }) {
   const t = useTranslations("settings.assistant");
+  const tAssistant = useTranslations("assistente");
+  const tCommon = useTranslations("common");
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"chat" | "threads">("chat");
   const dialog = useRef<HTMLDialogElement>(null);
@@ -260,7 +266,6 @@ export function AssistantPanel({ state: initialState }: { state: AssistantState 
   const activationId = useId();
   const chat = useChat(initialState);
   const { state } = chat;
-  const unavailable = STATE_TEXT[state];
 
   useEffect(() => {
     const element = dialog.current;
@@ -302,7 +307,7 @@ export function AssistantPanel({ state: initialState }: { state: AssistantState 
                 {canChat ? (
                   <>
                     <IconButton
-                      label="Nova conversa"
+                      label={tAssistant("threads.new")}
                       onClick={() => {
                         chat.reset();
                         setView("chat");
@@ -310,12 +315,15 @@ export function AssistantPanel({ state: initialState }: { state: AssistantState 
                     >
                       <Plus className="size-5" aria-hidden="true" />
                     </IconButton>
-                    <IconButton label="Conversas anteriores" onClick={() => setView("threads")}>
+                    <IconButton
+                      label={tAssistant("threads.previous")}
+                      onClick={() => setView("threads")}
+                    >
                       <History className="size-5" aria-hidden="true" />
                     </IconButton>
                   </>
                 ) : null}
-                <IconButton label="Fechar" onClick={() => setOpen(false)}>
+                <IconButton label={tCommon("close")} onClick={() => setOpen(false)}>
                   <X className="size-5" aria-hidden="true" />
                 </IconButton>
               </div>
@@ -324,9 +332,12 @@ export function AssistantPanel({ state: initialState }: { state: AssistantState 
               <div className="min-h-0 flex-1 overflow-y-auto p-5">
                 <Activation headingId={activationId} />
               </div>
-            ) : unavailable ? (
+            ) : isUnavailable(state) ? (
               <div className="min-h-0 flex-1 overflow-y-auto p-5">
-                <EmptyState title={unavailable.title} text={unavailable.text} />
+                <EmptyState
+                  title={tAssistant(`states.${state}.title`)}
+                  text={tAssistant(`states.${state}.text`)}
+                />
               </div>
             ) : view === "threads" ? (
               <Threads

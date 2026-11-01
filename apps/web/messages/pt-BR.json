@@ -1197,6 +1197,120 @@
       "ownerOnly": "Somente o responsável pode convidar."
     }
   },
+  "assistente": {
+    "activation": {
+      "title": "Antes de começar",
+      "text": "Pergunte sobre o dinheiro da família, simule uma decisão e receba os próximos passos para metas, viagens e aposentadoria.",
+      "usesTitle": "O que ele usa",
+      "uses": "Sua pergunta e, quando ela precisar, lançamentos, renda, reserva, dívidas, investimentos, metas, viagens e calendário. As descrições vão como estão no extrato. De madrugada, ele usa os mesmos dados para preparar dicas em cada tela e arrumar as categorias dos lançamentos.",
+      "leavesOutTitle": "O que fica de fora",
+      "leavesOut": "Nomes, e-mails, CPF e senhas. Ele não acessa banco nenhum e não move dinheiro.",
+      "levelLegend": "O que ele pode fazer sozinho",
+      "levelHint": "Dá para mudar quando quiser em Configurações.",
+      "consent": "Autorizo o uso desses dados para gerar as respostas, inclusive fora do Brasil, como explica a <privacy>Política de Privacidade</privacy>. Dá para desligar depois em Configurações.",
+      "submit": "Ativar o assistente",
+      "pending": "Ativando…",
+      "unavailable": "O assistente está indisponível no momento.",
+      "consentRequired": "Para ativar, marque que você leu e autoriza o envio.",
+      "pickLevel": "Escolha o que o assistente pode fazer."
+    },
+    "states": {
+      "sem_chave": {
+        "title": "O assistente está indisponível",
+        "text": "Ele ainda não está ligado neste ambiente. Todo o resto do OrganizeUp segue normal."
+      },
+      "desligado": {
+        "title": "O assistente está desligado por enquanto",
+        "text": "Todo o resto do OrganizeUp segue normal. Assim que ele voltar, este botão libera a conversa."
+      },
+      "manutencao": {
+        "title": "Estamos em manutenção",
+        "text": "O assistente volta junto com as alterações. Você pode consultar tudo normalmente."
+      },
+      "teto_mensal": {
+        "title": "O assistente fez uma pausa até o próximo mês",
+        "text": "O limite de uso do serviço neste mês foi atingido, então ele parou sozinho. Seus dados estão seguros e o resto do OrganizeUp segue normal."
+      },
+      "teto_diario": {
+        "title": "Sua família usou o limite de hoje",
+        "text": "O assistente volta amanhã, sem você precisar fazer nada. O resto do OrganizeUp segue normal."
+      },
+      "sem_permissao": {
+        "title": "O assistente é para os adultos da família",
+        "text": "Só quem é responsável ou adulto na família pode conversar com ele. Peça a um deles para ativar ou perguntar por você."
+      }
+    },
+    "errors": {
+      "sem_conversa": "Não achei essa conversa. Comece uma nova.",
+      "limite_de_uso": "Muita gente usando ao mesmo tempo. Tente de novo em alguns instantes.",
+      "indisponivel": "O assistente não respondeu agora. Tente de novo em alguns instantes.",
+      "muito_longa": "Não consegui processar esse pedido. Tente uma pergunta mais curta ou uma nova conversa.",
+      "chave_invalida": "O assistente está indisponível no momento. Tente de novo mais tarde.",
+      "falha": "Algo deu errado aqui. Sua pergunta ficou guardada; tente de novo.",
+      "sessao": "Sua sessão expirou. Recarregue a página e entre de novo."
+    },
+    "notices": {
+      "investment": "Conteúdo educativo, não é recomendação de investimento. A decisão é sua, e um profissional autorizado pode ajudar.",
+      "unchecked": "Alguns valores desta resposta não vieram direto dos seus dados. Confira antes de decidir."
+    },
+    "chat": {
+      "intro": "Pergunte sobre seus gastos, metas, dívidas ou aposentadoria. Eu olho seus números antes de responder.",
+      "question": "Sua pergunta",
+      "send": "Enviar",
+      "stop": "Parar",
+      "thinking": "Pensando…",
+      "youSaid": "Você disse: ",
+      "stopped": "Você parou aqui.",
+      "toolsLabel": "O que o assistente olhou",
+      "conversation": "Conversa",
+      "suggestions": {
+        "month": "Como foi este mês?",
+        "upcoming": "O que vence nos próximos dias?",
+        "saveMore": "E se eu guardar mais R$ 500 por mês?"
+      }
+    },
+    "threads": {
+      "new": "Nova conversa",
+      "previous": "Conversas anteriores",
+      "back": "Voltar",
+      "failed": "Não foi possível abrir suas conversas.",
+      "emptyTitle": "Nenhuma conversa ainda",
+      "emptyText": "O que você perguntar fica guardado aqui.",
+      "listLabel": "Suas conversas",
+      "delete": "Apagar a conversa: {title}"
+    },
+    "tools": {
+      "organizedCategory": "organizei uma categoria",
+      "savingSuggestion": "deixei uma sugestão de quanto guardar",
+      "goalSuggestion": "deixei uma sugestão para a sua meta",
+      "draftGoal": "preparei uma meta em rascunho",
+      "reminder": "criei um lembrete",
+      "categories": "olhei suas categorias",
+      "income": "olhei sua renda",
+      "reserve": "olhei sua reserva",
+      "debts": "olhei suas dívidas",
+      "debtPlan": "olhei seu plano para sair das dívidas",
+      "portfolio": "olhei sua carteira",
+      "dividends": "olhei seus proventos",
+      "retirementPlan": "olhei seu plano de aposentadoria",
+      "goals": "olhei suas metas",
+      "trips": "olhei suas viagens",
+      "reports": "olhei os relatórios de hoje",
+      "suggestions": "olhei as sugestões pendentes",
+      "monthPlan": "olhei o seu plano do mês",
+      "rules": "olhei as regras oficiais",
+      "note": "deixei anotado para lembrar depois",
+      "simulatedSaving": "simulei guardar mais por mês",
+      "simulatedRetirement": "simulei antecipar a aposentadoria",
+      "simulatedGoal": "simulei o prazo da sua meta",
+      "summaryCurrent": "olhei o resumo do mês",
+      "summaryMonth": "olhei o resumo de {month}",
+      "entriesCurrent": "olhei seus lançamentos do mês",
+      "entriesMonth": "olhei seus lançamentos de {month}",
+      "calendarCurrent": "olhei seu calendário do mês",
+      "calendarMonth": "olhei seu calendário de {month}"
+    }
+  },
   "meta": {
     "description": "Finanças da família, sonhos e aposentadoria em um só plano."
   },
