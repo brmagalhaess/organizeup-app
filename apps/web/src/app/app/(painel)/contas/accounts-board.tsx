@@ -1,6 +1,7 @@
 "use client";
 import {
   Archive,
+  ArrowLeftRight,
   ArchiveRestore,
   Banknote,
   Landmark,
@@ -22,6 +23,7 @@ import {
   Sheet,
 } from "@/components/ui";
 import { saveAccount, setAccountArchived, type SimpleFormState } from "./actions";
+import { TransferForm, TransferList, type TransferRow } from "./transfers";
 
 const TYPES = {
   corrente: { label: "Conta corrente", icon: Landmark },
@@ -86,7 +88,18 @@ function AccountForm({ account, onDone }: { account: AccountRow | null; onDone: 
   );
 }
 
-export function AccountsBoard({ rows, writable }: { rows: AccountRow[]; writable: boolean }) {
+export function AccountsBoard({
+  rows,
+  transfers,
+  today,
+  writable,
+}: {
+  rows: AccountRow[];
+  transfers: TransferRow[];
+  today: string;
+  writable: boolean;
+}) {
+  const [moving, setMoving] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ nonce: number; account: AccountRow | null } | null>(
     null,
   );
@@ -98,6 +111,14 @@ export function AccountsBoard({ rows, writable }: { rows: AccountRow[]; writable
 
   return (
     <>
+      {writable && active.length >= 2 ? (
+        <div>
+          <Button variant="secondary" onClick={() => setMoving((n) => (n ?? 0) + 1)}>
+            <ArrowLeftRight className="size-4" aria-hidden="true" />
+            Transferir entre contas
+          </Button>
+        </div>
+      ) : null}
       <ul
         aria-label="Contas"
         className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
@@ -177,6 +198,11 @@ export function AccountsBoard({ rows, writable }: { rows: AccountRow[]; writable
         </Card>
       ) : null}
 
+      <TransferList rows={transfers} writable={writable} />
+
+      <Sheet open={moving !== null} onClose={() => setMoving(null)} title="Transferir entre contas">
+        <TransferForm key={moving} accounts={active} today={today} onDone={() => setMoving(null)} />
+      </Sheet>
       <Sheet
         open={editing !== null}
         onClose={close}

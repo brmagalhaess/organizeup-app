@@ -1,5 +1,8 @@
 import "server-only";
 import {
+  accounts,
+  eq,
+  transactions,
   asc,
   desc,
   dividendGoals,
@@ -36,12 +39,22 @@ export async function loadPortfolio(ctx: TenantContext) {
   return withHousehold(ctx, async (tx) => {
     const today = todayIn(await householdTimezone(tx, ctx.householdId));
     const events = await loadStockEvents(tx);
-    const [holdings, trades, targets, paid] = await Promise.all([
+    const [holdings, trades, targets, paid, accountRows, moves] = await Promise.all([
       tx.select().from(investments).orderBy(asc(investments.createdAt)),
       tx.select().from(investmentTrades).orderBy(desc(investmentTrades.occurredOn)),
       tx.select().from(investmentTargets),
       tx.select().from(dividends),
+      tx
+        .select({ id: accounts.id, name: accounts.name, archived: accounts.archived })
+        .from(accounts)
+        .orderBy(asc(accounts.createdAt)),
+      tx
+        .select({ id: transactions.id, accountId: transactions.accountId })
+        .from(transactions)
+        .innerJoin(investmentTrades, eq(investmentTrades.transactionId, transactions.id)),
     ]);
+    const nameOf = new Map(accountRows.map((row) => [row.id, row.name]));
+    const accountOf = new Map(moves.map((row) => [row.id, nameOf.get(row.accountId) ?? null]));
     const tickers = [
       ...new Set(holdings.flatMap((holding) => normalizeTicker(holding.ticker) ?? [])),
     ];
@@ -57,7 +70,12 @@ export async function loadPortfolio(ctx: TenantContext) {
 
     const list = holdings.map((holding) => ({
       ...holding,
-      trades: trades.filter((trade) => trade.investmentId === holding.id),
+      trades: trades
+        .filter((trade) => trade.investmentId === holding.id)
+        .map((trade) => ({
+          ...trade,
+          accountName: trade.transactionId ? (accountOf.get(trade.transactionId) ?? null) : null,
+        })),
       events: events.filter((event) => event.investmentId === holding.id),
     }));
     const summary = summarizePortfolio(list, targets);
@@ -66,6 +84,7 @@ export async function loadPortfolio(ctx: TenantContext) {
       today,
       summary,
       targets,
+      accounts: accountRows.filter((row) => !row.archived),
       dividends12: received.last12,
       rows: list.map((holding, index) => {
         const ticker = normalizeTicker(holding.ticker);

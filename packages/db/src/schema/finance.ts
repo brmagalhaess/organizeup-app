@@ -573,6 +573,37 @@ export const investments = pgTable(
   ],
 );
 
+/** Fora de `transactions`: só muda o saldo das contas, sem entrar nos resumos do mês. */
+export const accountTransfers = pgTable(
+  "account_transfers",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    fromAccountId: text("from_account_id").notNull(),
+    toAccountId: text("to_account_id").notNull(),
+    amount: amount("amount").notNull(),
+    occurredOn: date("occurred_on", { mode: "string" }).notNull(),
+    note: text("note"),
+    createdBy: text("created_by"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    foreignKey({
+      columns: [t.householdId, t.fromAccountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+    }),
+    foreignKey({
+      columns: [t.householdId, t.toAccountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+    }),
+  ],
+);
+
 export const investmentTrades = pgTable(
   "investment_trades",
   {
@@ -588,6 +619,8 @@ export const investmentTrades = pgTable(
     quantity: quantity("quantity").notNull(),
     unitPrice: quantity("unit_price").notNull(),
     fees: amount("fees").notNull().default("0"),
+    /** Lançamento que mexeu na conta. Null: a família não escolheu conta. */
+    transactionId: text("transaction_id"),
     createdAt: ts("created_at").notNull().defaultNow(),
   },
   (t) => [

@@ -5,6 +5,7 @@ import { formatBRL, money, parseBRL } from "@organizeup/domain";
 import { cx } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select, submitKeeping } from "@/components/ui";
 
+import { AccountField } from "./account-field";
 import { addAsset, type FormState } from "./actions";
 
 interface Asset {
@@ -265,7 +266,15 @@ function ManualFields({ kind, today }: { kind: Exclude<Kind, "bolsa">; today: st
 }
 
 /** Um cadastro só: o ativo e a compra na mesma tela. Trocar o tipo limpa o que estava preenchido. */
-export function AddAssetForm({ today, onDone }: { today: string; onDone: () => void }) {
+export function AddAssetForm({
+  today,
+  accounts,
+  onDone,
+}: {
+  today: string;
+  accounts: Array<{ id: string; name: string }>;
+  onDone: () => void;
+}) {
   const [state, action, pending] = useActionState(addAsset, initial);
   const [kind, setKind] = useState<Kind>("bolsa");
   useEffect(() => {
@@ -303,6 +312,7 @@ export function AddAssetForm({ today, onDone }: { today: string; onDone: () => v
       ) : (
         <ManualFields key={kind} kind={kind} today={today} />
       )}
+      <AccountField accounts={accounts} />
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
         {pending ? "Salvando…" : "Adicionar à carteira"}

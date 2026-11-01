@@ -1,13 +1,16 @@
 import "server-only";
 import {
   accounts,
+  accountTransfers,
   and,
   asc,
   cashflowPlans,
   categories,
+  desc,
   eq,
   gte,
   householdSettings,
+  householdTimezone,
   incomeSources,
   lte,
   people,
@@ -70,7 +73,35 @@ export async function loadMonth(ctx: TenantContext, requestedMonth?: string | nu
   });
 }
 
-/** Saldo atual de cada conta: saldo inicial + tudo que já foi realizado. */
+/** Últimas transferências, da mais nova à mais antiga. */
+export async function loadTransfers(ctx: TenantContext) {
+  return withHousehold(ctx, async (tx) => {
+    const names = new Map(
+      (await tx.select({ id: accounts.id, name: accounts.name }).from(accounts)).map((row) => [
+        row.id,
+        row.name,
+      ]),
+    );
+    const rows = await tx
+      .select()
+      .from(accountTransfers)
+      .orderBy(desc(accountTransfers.occurredOn), desc(accountTransfers.createdAt))
+      .limit(20);
+    return {
+      today: todayIn(await householdTimezone(tx, ctx.householdId)),
+      rows: rows.map((row) => ({
+        id: row.id,
+        fromName: names.get(row.fromAccountId) ?? "Conta",
+        toName: names.get(row.toAccountId) ?? "Conta",
+        amount: row.amount,
+        occurredOn: row.occurredOn,
+        note: row.note,
+      })),
+    };
+  });
+}
+
+/** Saldo atual de cada conta: saldo inicial + tudo que já foi realizado + transferências. */
 export async function loadAccountBalances(ctx: TenantContext) {
   return withHousehold(ctx, async (tx) => {
     const accountRows = await tx.select().from(accounts).orderBy(asc(accounts.createdAt));
@@ -83,9 +114,24 @@ export async function loadAccountBalances(ctx: TenantContext) {
       .where(eq(transactions.status, "realizado"))
       .groupBy(transactions.accountId);
     const net = new Map(movements.map((m) => [m.accountId, m.net]));
+    const moved = await tx.select().from(accountTransfers);
+    const transferred = (id: string) =>
+      moved.reduce(
+        (acc, row) =>
+          row.toAccountId === id
+            ? acc.plus(row.amount)
+            : row.fromAccountId === id
+              ? acc.minus(row.amount)
+              : acc,
+        money(0),
+      );
     return accountRows.map((account) => ({
       ...account,
-      balance: toDbAmount(money(account.openingBalance).plus(net.get(account.id) ?? "0")),
+      balance: toDbAmount(
+        money(account.openingBalance)
+          .plus(net.get(account.id) ?? "0")
+          .plus(transferred(account.id)),
+      ),
     }));
   });
 }

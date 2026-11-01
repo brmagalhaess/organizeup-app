@@ -53,6 +53,10 @@ export async function netWorthInputs(tx: TenantTx) {
           select sum(case when t.kind = 'receita' then t.amount else -t.amount end)
           from transactions t
           where t.account_id = accounts.id and t.status = 'realizado'
+        ), 0) + coalesce((
+          select sum(case when f.to_account_id = accounts.id then f.amount else -f.amount end)
+          from account_transfers f
+          where accounts.id in (f.from_account_id, f.to_account_id)
         ), 0))::text`,
         })
         .from(accounts)

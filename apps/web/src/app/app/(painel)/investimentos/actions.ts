@@ -2,20 +2,27 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
+  accounts,
   and,
   canWrite,
+  ensureCategory,
   eq,
   findMarketAsset,
   householdTimezone,
+  inArray,
   INVESTMENT_CLASSES,
   investments,
   investmentTargets,
   investmentTrades,
   loadStockEvents,
   TRADE_SIDES,
+  transactions,
   withHousehold,
+  type TenantContext,
+  type TenantTx,
 } from "@organizeup/db";
 import {
+  CONTRIBUTION_CATEGORY,
   isUnitPriced,
   money,
   parseBRL,
@@ -107,6 +114,45 @@ export async function saveInvestment(_prev: FormState, form: FormData): Promise<
   return { ok: true, message: null };
 }
 
+/** Lançamento da operação na conta. A categoria de aportes fica fora do que sobra no mês. */
+async function recordTradeCash(
+  tx: TenantTx,
+  ctx: TenantContext,
+  input: {
+    accountId: string;
+    side: (typeof TRADE_SIDES)[number];
+    name: string;
+    trade: TradeInput;
+  },
+): Promise<string | null> {
+  const { accountId, side, name, trade } = input;
+  const gross = money(trade.quantity).times(trade.unitPrice);
+  const total = side === "compra" ? gross.plus(trade.fees) : gross.minus(trade.fees);
+  if (total.lte(0)) return null;
+  const [account] = await tx
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(eq(accounts.id, accountId));
+  if (!account) throw new RangeError("conta");
+  const kind = side === "compra" ? "despesa" : "receita";
+  const category = await ensureCategory(tx, ctx.householdId, kind, CONTRIBUTION_CATEGORY, false);
+  const [row] = await tx
+    .insert(transactions)
+    .values({
+      householdId: ctx.householdId,
+      accountId,
+      categoryId: category.id,
+      kind,
+      description: `${side === "compra" ? "Aporte em" : "Resgate de"} ${name}`.slice(0, 200),
+      amount: toDbAmount(total),
+      occurredOn: trade.occurredOn,
+      categorySource: "familia",
+      createdBy: ctx.userId,
+    })
+    .returning({ id: transactions.id });
+  return row!.id;
+}
+
 const assetSchema = z.object({
   ticker: z
     .string()
@@ -134,6 +180,7 @@ export async function addAsset(_prev: FormState, form: FormData): Promise<FormSt
   if (!parsed.success)
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
   const { ticker, occurredOn } = parsed.data;
+  const accountId = String(form.get("accountId") ?? "");
   const catalog = ticker ? await findMarketAsset(ticker) : null;
   const name = catalog?.name.slice(0, 80) ?? parsed.data.name;
   const assetClass = catalog?.assetClass ?? parsed.data.assetClass;
@@ -198,14 +245,15 @@ export async function addAsset(_prev: FormState, form: FormData): Promise<FormSt
       investmentId = created!.id;
       await audit(tx, ctx, "create", "investments", investmentId);
     }
+    const trade: TradeInput = { side: "compra", occurredOn, quantity, unitPrice, fees: fees.data };
+    const transactionId = accountId
+      ? await recordTradeCash(tx, ctx, { accountId, side: "compra", name: ticker || name, trade })
+      : null;
     await tx.insert(investmentTrades).values({
       householdId: ctx.householdId,
       investmentId,
-      side: "compra",
-      occurredOn,
-      quantity,
-      unitPrice,
-      fees: fees.data,
+      transactionId,
+      ...trade,
     });
   });
   refresh();
@@ -217,11 +265,18 @@ export async function deleteInvestment(form: FormData): Promise<void> {
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
+    const linked = await tx
+      .select({ id: investmentTrades.transactionId })
+      .from(investmentTrades)
+      .where(eq(investmentTrades.investmentId, id));
     const removed = await tx
       .delete(investments)
       .where(eq(investments.id, id))
       .returning({ id: investments.id });
-    if (removed.length > 0) await audit(tx, ctx, "delete", "investments", id);
+    if (removed.length === 0) return;
+    const ids = linked.flatMap((row) => row.id ?? []);
+    if (ids.length > 0) await tx.delete(transactions).where(inArray(transactions.id, ids));
+    await audit(tx, ctx, "delete", "investments", id);
   });
   refresh();
 }
@@ -298,9 +353,18 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
     if (positionOf([...trades, next], events).oversold)
       return "Você não tinha essa quantidade nessa data.";
 
+    const accountId = String(form.get("accountId") ?? "");
+    const transactionId = accountId
+      ? await recordTradeCash(tx, ctx, {
+          accountId,
+          side,
+          name: investment.ticker ?? investment.name,
+          trade: next,
+        })
+      : null;
     const [created] = await tx
       .insert(investmentTrades)
-      .values({ householdId: ctx.householdId, investmentId, ...next })
+      .values({ householdId: ctx.householdId, investmentId, transactionId, ...next })
       .returning({ id: investmentTrades.id });
     if (currentValue !== investment.currentValue)
       await tx.update(investments).set({ currentValue }).where(eq(investments.id, investmentId));
@@ -320,8 +384,13 @@ export async function deleteTrade(form: FormData): Promise<void> {
     const removed = await tx
       .delete(investmentTrades)
       .where(eq(investmentTrades.id, id))
-      .returning({ id: investmentTrades.id });
-    if (removed.length > 0) await audit(tx, ctx, "delete", "investment_trades", id);
+      .returning({ id: investmentTrades.id, transactionId: investmentTrades.transactionId });
+    const [trade] = removed;
+    if (!trade) return;
+    if (trade.transactionId) {
+      await tx.delete(transactions).where(eq(transactions.id, trade.transactionId));
+    }
+    await audit(tx, ctx, "delete", "investment_trades", id);
   });
   refresh();
 }

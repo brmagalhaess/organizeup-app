@@ -2884,6 +2884,55 @@ describe("gerência do painel do serviço", () => {
   });
 });
 
+describe("transferência entre contas", () => {
+  const { accountTransfers, accounts } = db;
+  const accountsOf = async (user: string, household: string) => {
+    const ctx = await ctxFor(user, household);
+    return db.withHousehold(ctx, async (tx) => {
+      await db.ensureFinanceDefaults(tx, household);
+      const [first] = await tx.select({ id: accounts.id }).from(accounts).limit(1);
+      const [second] = await tx
+        .insert(accounts)
+        .values({ householdId: household, name: `Conta de teste ${household}`, type: "poupanca" })
+        .returning({ id: accounts.id });
+      return { ctx, first: first!.id, second: second!.id };
+    });
+  };
+
+  it("fica na família, recusa conta alheia e quem só vê não transfere", async () => {
+    const mine = await accountsOf(A.owner, A.household);
+    const theirs = await accountsOf(B.owner, B.household);
+    const row = (household: string, from: string, to: string) => ({
+      householdId: household,
+      fromAccountId: from,
+      toAccountId: to,
+      amount: "100.00",
+      occurredOn: "2026-11-01",
+    });
+    await db.withHousehold(mine.ctx, (tx) =>
+      tx.insert(accountTransfers).values(row(A.household, mine.first, mine.second)),
+    );
+    await db.withHousehold(theirs.ctx, async (tx) => {
+      expect(await tx.select().from(accountTransfers)).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(mine.ctx, (tx) =>
+        tx.insert(accountTransfers).values(row(A.household, mine.first, theirs.first)),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(mine.ctx, (tx) =>
+        tx.insert(accountTransfers).values(row(A.household, mine.first, mine.first)),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(await ctxFor(A.viewer, A.household), (tx) =>
+        tx.insert(accountTransfers).values(row(A.household, mine.first, mine.second)),
+      ),
+    ).rejects.toThrow();
+  });
+});
+
 describe("dicas por tela", () => {
   const { householdInsights } = db;
   const row = (household: string, title: string) => ({

@@ -103,6 +103,7 @@ test("carteira, proventos e patrimônio", async ({ page, browser }) => {
   await expect(tile(page, "Já realizado")).toContainText("R$ 50,00");
 
   // Meta por classe só compara.
+  await page.getByRole("link", { name: "Balanceamento" }).click();
   await page.getByRole("button", { name: "Metas", exact: true }).click();
   const targets = page.getByRole("dialog", { name: "Metas por classe" });
   await targets.getByLabel("Ações (%)").fill("90");
@@ -112,9 +113,18 @@ test("carteira, proventos e patrimônio", async ({ page, browser }) => {
   await targets.getByLabel("Renda fixa (%)").fill("10");
   await targets.getByRole("button", { name: "Salvar metas" }).click();
   await expect(page.getByText(/Meta de 90%: R\$\s195,00 abaixo/)).toBeVisible();
+  await page.getByLabel("Valor do aporte (R$)").fill("100,00");
+  await expect(page.getByRole("list", { name: "Divisão do aporte" })).toContainText("Ações");
 
   let a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(a11y.violations.map((v) => v.id)).toEqual([]);
+
+  // Lançamentos: as operações ficam numa tela só, com a conta usada.
+  await page
+    .getByRole("navigation", { name: "Telas de investimentos" })
+    .getByRole("link", { name: "Lançamentos" })
+    .click();
+  await expect(page.getByRole("list", { name: "Operações" })).toContainText("EXMP3");
 
   // Provento entra líquido.
   await page.goto("/app/proventos");
