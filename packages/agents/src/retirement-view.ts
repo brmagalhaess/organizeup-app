@@ -1,15 +1,6 @@
 // Plano de aposentadoria recalculado a cada leitura, compartilhado pela tela e pelo assistente.
 // Rode dentro de withHousehold.
-import {
-  debts,
-  eq,
-  gte,
-  sql,
-  tripCosts,
-  tripPeople,
-  trips,
-  type TenantTx,
-} from "@organizeup/db";
+import { debts, eq, gte, sql, tripCosts, tripPeople, trips, type TenantTx } from "@organizeup/db";
 import {
   availableToAllocate,
   isExpensiveDebt,

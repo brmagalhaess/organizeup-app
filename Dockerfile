@@ -20,6 +20,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY packages/agents/package.json packages/agents/
+COPY packages/ai/package.json packages/ai/
 COPY packages/db/package.json packages/db/
 COPY packages/domain/package.json packages/domain/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \

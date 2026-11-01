@@ -31,6 +31,7 @@ export {
   scheduledIncome,
   systemCategories,
 } from "./commitments";
+export { calendarMonth } from "./calendar-view";
 export { currentDividendPlan } from "./retirement-view";
 export {
   DEFAULT_RETIREMENT_AGE,
@@ -69,6 +70,7 @@ export {
 export { METAS_AGENT, runMetasAgent } from "./run-metas";
 export { loadDestinations, runViagensAgent, VIAGENS_AGENT } from "./run-viagens";
 export {
+  ASSET_CLASS_LABELS,
   IGNORED_DAYS,
   recordAudit,
   resolveAllocation,
