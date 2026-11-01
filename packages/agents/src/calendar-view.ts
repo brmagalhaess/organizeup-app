@@ -26,6 +26,7 @@ import {
   summarizeMonth,
   toDbAmount,
   yearMonthOf,
+  type FxTotalNote,
   type YearMonth,
 } from "@organizeup/domain";
 import { calendarItemType, type CalendarItemType } from "./calendar-types";
@@ -68,13 +69,15 @@ export async function calendarMonth(tx: TenantTx, input: { today: string; month:
     .where(eq(creditCards.archived, false));
 
   let balances: Record<string, string> = {};
+  let fx: FxTotalNote | null = null;
   if (projects) {
     const pending = [];
     for (let ym = firstMonth; ym <= month; ym = addMonths(ym, 1)) {
       pending.push(...entriesOf(ym).filter((entry) => entry.status === "previsto"));
     }
-    const { accounts } = await netWorthInputs(tx);
-    const total = accounts
+    const worth = await netWorthInputs(tx);
+    fx = worth.fx;
+    const total = worth.accounts
       .filter((account) => !account.archived)
       .reduce((acc, account) => acc.plus(account.balance), money(0));
     balances = projectDailyBalance(toDbAmount(total), today, pending, cells.days);
@@ -100,6 +103,7 @@ export async function calendarMonth(tx: TenantTx, input: { today: string; month:
     items,
     types,
     balances,
+    fx,
     summary: summarizeMonth(entries),
     lowest: lowestBalance(balances),
     closing: balances[cells.days.at(-1)!] ?? null,

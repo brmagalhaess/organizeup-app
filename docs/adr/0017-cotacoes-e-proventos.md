@@ -14,7 +14,8 @@ valendo para os agentes diários, que não chamam nada de fora, e a coleta é um
   de terça a sábado (antes dos agentes das 04:00), `America/Sao_Paulo`, e no boot se ainda não rodou hoje.
   `DAILY_AGENTS_ENABLED=false` desliga junto.
 - **Fontes:** brapi.dev para cotações e proventos da B3; SGS do Banco Central, sem chave, para CDI (série
-  12), SELIC (11) e IPCA (433). Índices ficam guardados; nada os usa ainda.
+  12), SELIC (11) e IPCA (433). Índices ficam guardados; nada os usa ainda. PTAX de dólar e euro, no mesmo job:
+  ADR-0020.
 - **Rota antiga da brapi** (`/api/quote/{ticker}?dividends=true`): traz cotação e proventos numa chamada só. A
   documentação recomenda a v2 para integrações novas, mas ela pede uma chamada por tipo de dado e dobraria o
   gasto. A rota antiga "continua ativa e não tem data de remoção". FII tem rota própria,

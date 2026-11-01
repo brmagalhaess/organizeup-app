@@ -10,9 +10,15 @@ import {
   paidRate,
   shiftYears,
   type DividendKind,
+  type FxCurrency,
   type StockEvent,
 } from "@organizeup/domain";
-import type { MarketAssetRow, MarketDividendRow, MarketIndexCode } from "@organizeup/db";
+import type {
+  MarketAssetRow,
+  MarketDividendRow,
+  MarketFxRow,
+  MarketIndexCode,
+} from "@organizeup/db";
 import { z } from "zod";
 
 export const BRAPI_URL = "https://brapi.dev";
@@ -24,6 +30,12 @@ export const FETCH_TIMEOUT_MS = 15_000;
 
 /** Séries do SGS: CDI e SELIC em % ao dia, IPCA em % ao mês. */
 export const SGS_SERIES: Record<MarketIndexCode, number> = { CDI: 12, SELIC: 11, IPCA: 433 };
+/**
+ * PTAX de venda em reais por unidade, conferida contra o boletim de fechamento da PTAX (ADR-0020).
+ * A 21619 chega com 7 casas, e a série 1 com 4.
+ */
+export const FX_SERIES: Record<FxCurrency, number> = { USD: 1, EUR: 21619 };
+export const FX_SOURCE = "bcb.sgs";
 /** Máximo de pontos pedidos a cada série: basta para cobrir semanas sem rodar. */
 const SGS_LAST_POINTS = 20;
 
@@ -342,5 +354,44 @@ export async function fetchSgsSeries(
     const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data);
     if (!match || !/^-?\d+(\.\d+)?$/.test(valor)) return [];
     return [{ code, date: `${match[3]}-${match[2]}-${match[1]}`, value: money(valor).toFixed(8) }];
+  });
+}
+
+/** O SGS recebe e devolve datas como dd/mm/aaaa. */
+const sgsDate = (date: string) => date.split("-").reverse().join("/");
+
+/**
+ * PTAX de venda de um intervalo. O SGS recusa janela de mais de 10 anos (406) e responde 404 quando não há
+ * valor no intervalo, como num fim de semana: isso não é erro, é lista vazia.
+ */
+export async function fetchFxSeries(
+  currency: FxCurrency,
+  from: string,
+  to: string,
+  options: MarketClientOptions,
+): Promise<MarketFxRow[]> {
+  const url =
+    `${SGS_URL}.${FX_SERIES[currency]}/dados?formato=json` +
+    `&dataInicial=${sgsDate(from)}&dataFinal=${sgsDate(to)}`;
+  let body: unknown;
+  try {
+    body = await getJson(url, { ...options, token: undefined });
+  } catch (error) {
+    if (error instanceof MarketError && error.code === "nao_encontrado") return [];
+    throw error;
+  }
+  const parsed = sgsResponse.safeParse(body);
+  if (!parsed.success) throw new MarketError("formato");
+  return parsed.data.flatMap(({ data, valor }) => {
+    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data);
+    if (!match || !/^\d+(\.\d+)?$/.test(valor) || money(valor).lte(0)) return [];
+    return [
+      {
+        currency,
+        date: `${match[3]}-${match[2]}-${match[1]}`,
+        rate: money(valor).toFixed(8),
+        source: FX_SOURCE,
+      },
+    ];
   });
 }

@@ -1,7 +1,22 @@
 "use client";
 import { useActionState, useEffect, useState } from "react";
-import { CARD_CATEGORY, type MonthEntry } from "@organizeup/domain";
-import { saveEntry, type EntryFormState } from "@/app/app/(painel)/lancamentos/actions";
+import {
+  CARD_CATEGORY,
+  currencySymbol,
+  formatBRL,
+  isForeign,
+  parseBRL,
+  toReais,
+  type Currency,
+  type FxCurrency,
+  type FxQuote,
+  type MonthEntry,
+} from "@organizeup/domain";
+import {
+  quoteForEntry,
+  saveEntry,
+  type EntryFormState,
+} from "@/app/app/(painel)/lancamentos/actions";
 import { cx } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select } from "@/components/ui";
 import { DEFAULT_LOCALE } from "@/i18n/locales";
@@ -9,7 +24,7 @@ import { DEFAULT_LOCALE } from "@/i18n/locales";
 const initial: EntryFormState = { ok: false, message: null };
 
 export interface EntryOptions {
-  accounts: Array<{ id: string; name: string; archived: boolean }>;
+  accounts: Array<{ id: string; name: string; archived: boolean; currency: Currency }>;
   categories: Array<{ id: string; name: string; kind: "receita" | "despesa"; archived: boolean }>;
   cards: Array<{ id: string; name: string }>;
 }
@@ -25,7 +40,54 @@ export type EditableEntry = Pick<
   | "categoryId"
   | "accountId"
   | "source"
+  | "originalAmount"
 >;
+
+const fullDate = (date: string) => date.split("-").reverse().join("/");
+
+/** "≈ R$ 542,12, cotação de 30/10/2026", enquanto a pessoa digita em dólar ou euro. */
+function FxPreview({
+  currency,
+  date,
+  typed,
+}: {
+  currency: FxCurrency;
+  date: string;
+  typed: string;
+}) {
+  const asked = `${currency}|${date}`;
+  const [found, setFound] = useState<{ asked: string; quote: FxQuote | null } | null>(null);
+  useEffect(() => {
+    let current = true;
+    quoteForEntry(currency, date)
+      .then((quote) => {
+        if (current) setFound({ asked: `${currency}|${date}`, quote });
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [currency, date]);
+  if (found?.asked !== asked) return null;
+  if (!found.quote)
+    return (
+      <p className="m-0 text-xs text-warning" role="status">
+        Ainda não temos a cotação para esta data.
+      </p>
+    );
+  let value: string | null = null;
+  try {
+    const parsed = parseBRL(typed);
+    if (parsed.gt(0)) value = toReais(parsed, found.quote.rate);
+  } catch {
+    value = null;
+  }
+  return (
+    <p className="m-0 text-xs text-muted" role="status">
+      {value ? `≈ ${formatBRL(value)}, cotação` : "Cotação"} de {fullDate(found.quote.date)}
+    </p>
+  );
+}
 
 export function EntryForm({
   today,
@@ -47,9 +109,14 @@ export function EntryForm({
   const [paidWith, setPaidWith] = useState(
     initialCard ? `card:${initialCard}` : (entry?.accountId ?? options.accounts[0]?.id ?? ""),
   );
+  const startValue = (entry?.originalAmount ?? entry?.amount)?.replace(".", ",");
+  const [typed, setTyped] = useState(startValue ?? "");
+  const [date, setDate] = useState(entry?.date ?? today);
   const isPlan = entry?.source === "previsao";
   const showCards = !entry && kind === "despesa" && options.cards.length > 0;
   const onCard = showCards && paidWith.startsWith("card:");
+  const currency = options.accounts.find((account) => account.id === paidWith)?.currency ?? "BRL";
+  const foreign = isForeign(currency);
 
   useEffect(() => {
     if (state.ok) onDone();
@@ -98,19 +165,27 @@ export function EntryForm({
         />
       </Field>
       <div className="grid grid-cols-[2fr_3fr] gap-3">
-        <Field label="Valor (R$)" error={state.fieldErrors?.amount}>
+        <Field label={`Valor (${currencySymbol(currency)})`} error={state.fieldErrors?.amount}>
           <Input
             name="amount"
             inputMode="decimal"
             required
             placeholder="0,00"
-            defaultValue={entry?.amount.replace(".", ",")}
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
           />
         </Field>
         <Field label="Data" error={state.fieldErrors?.date}>
-          <Input name="date" type="date" required defaultValue={entry?.date ?? today} />
+          <Input
+            name="date"
+            type="date"
+            required
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+          />
         </Field>
       </div>
+      {foreign ? <FxPreview currency={currency} date={date} typed={typed} /> : null}
       <Field label="Categoria" error={state.fieldErrors?.categoryId}>
         <Select
           name="categoryId"
@@ -177,7 +252,7 @@ export function EntryForm({
           {kind === "despesa" ? "Já foi pago" : "Já foi recebido"}
         </label>
       ) : null}
-      {!entry && !onCard ? (
+      {!entry && !onCard && !foreign ? (
         <label className="flex min-h-10 items-center gap-2 text-sm">
           <input type="checkbox" name="repeat" className="size-5 accent-brand-500" />
           Repete todo mês

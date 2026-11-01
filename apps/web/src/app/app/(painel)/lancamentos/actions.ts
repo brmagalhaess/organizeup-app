@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
-  accounts,
+  accountCurrency,
   canWrite,
   cardPurchases,
   cardStatementPayments,
@@ -11,18 +11,25 @@ import {
   creditCards,
   ENTRY_KINDS,
   eq,
+  fxRateOn,
   inArray,
   transactions,
   withHousehold,
 } from "@organizeup/db";
 import {
   addMonths,
+  currencyName,
+  entryFromTyped,
+  FX_CURRENCIES,
+  fitsAmount,
   formatYearMonth,
+  isForeign,
   isYearMonth,
   parseBRL,
   purchaseLines,
   toDbAmount,
   yearMonthOf,
+  type FxQuote,
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
 import { confirmCommitment, goalEntryLink, reverseGoalSaved } from "@/lib/confirm-entry";
@@ -35,6 +42,14 @@ export interface EntryFormState {
 }
 
 const READ_ONLY = "Seu papel nesta família não permite alterações.";
+
+/** Cotação que um lançamento nesta data usaria, para a prévia do formulário. Só lê. */
+export async function quoteForEntry(currency: string, date: string): Promise<FxQuote | null> {
+  const { ctx } = await requireTenant();
+  const known = FX_CURRENCIES.find((code) => code === currency);
+  if (!known || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return withHousehold(ctx, (tx) => fxRateOn(tx, known, date));
+}
 
 const entrySchema = z.object({
   key: z.string(),
@@ -138,11 +153,17 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
       return null;
     }
 
-    const [account] = await tx
-      .select({ id: accounts.id })
-      .from(accounts)
-      .where(eq(accounts.id, data.accountId));
-    if (!account) return "Escolha uma conta válida.";
+    const currency = await accountCurrency(tx, data.accountId);
+    if (!currency) return "Escolha uma conta válida.";
+    const foreign = isForeign(currency);
+    // O valor digitado está na moeda da conta; `amount` guarda sempre reais.
+    const inAccount = async () => {
+      const quote = foreign ? await fxRateOn(tx, currency, data.date) : null;
+      const entry = entryFromTyped(data.amount, currency, quote);
+      if (!entry)
+        return `Ainda não temos a cotação do ${currencyName(currency)} para esta data. Tente de novo mais tarde ou use outra data.`;
+      return fitsAmount(entry.amount) ? entry : "Este valor passa do limite em reais.";
+    };
 
     const common = {
       householdId: ctx.householdId,
@@ -150,9 +171,10 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
       categoryId: data.categoryId,
       kind: data.kind,
       description: data.description,
-      amount: data.amount,
     };
     const month = yearMonthOf(data.date);
+    const NO_REPEAT =
+      "Conta em dólar ou euro ainda não aceita conta que se repete. Lance mês a mês ou use uma conta em reais.";
 
     if (data.key.startsWith("t:")) {
       const [current] = await tx.select().from(transactions).where(eq(transactions.id, id));
@@ -160,16 +182,21 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
       // A previsão só some do mês do lançamento ligado a ela; trocar de mês a faria voltar.
       if (current.planId && current.planMonth !== month)
         return "Lançamento de conta recorrente precisa continuar no mesmo mês.";
-      const changed =
-        current.amount !== data.amount ||
-        current.description !== data.description ||
-        current.occurredOn !== data.date;
+      // A cotação fica congelada: só valor, data ou moeda novos pedem outra conversão.
+      const sameMoney =
+        (current.originalAmount ?? current.amount) === data.amount &&
+        current.occurredOn === data.date &&
+        (current.originalCurrency ?? "BRL") === currency;
+      const changed = !sameMoney || current.description !== data.description;
       if (changed && (await goalEntryLink(tx, id)))
         return "Este lançamento guarda dinheiro para uma meta. Para mudar, exclua e confirme de novo.";
+      const entry = sameMoney ? {} : await inAccount();
+      if (typeof entry === "string") return entry;
       await tx
         .update(transactions)
         .set({
           ...common,
+          ...entry,
           categorySource: "familia",
           occurredOn: data.date,
           status: data.done ? "realizado" : "previsto",
@@ -181,9 +208,10 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
     }
 
     if (data.key.startsWith("p:")) {
+      if (foreign) return NO_REPEAT;
       const updated = await tx
         .update(cashflowPlans)
-        .set({ ...common, dayOfMonth: Number(data.date.slice(8, 10)) })
+        .set({ ...common, amount: data.amount, dayOfMonth: Number(data.date.slice(8, 10)) })
         .where(eq(cashflowPlans.id, id))
         .returning({ id: cashflowPlans.id });
       if (updated.length === 0) return "Previsão não encontrada.";
@@ -191,11 +219,20 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
       return null;
     }
 
+    if (data.repeat && foreign) return NO_REPEAT;
+    const entry = await inAccount();
+    if (typeof entry === "string") return entry;
+
     let planId: string | null = null;
     if (data.repeat) {
       const [plan] = await tx
         .insert(cashflowPlans)
-        .values({ ...common, dayOfMonth: Number(data.date.slice(8, 10)), startMonth: month })
+        .values({
+          ...common,
+          amount: data.amount,
+          dayOfMonth: Number(data.date.slice(8, 10)),
+          startMonth: month,
+        })
         .returning({ id: cashflowPlans.id });
       planId = plan!.id;
       await audit(tx, ctx, "create", "cashflow_plans", planId);
@@ -206,6 +243,7 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
         .insert(transactions)
         .values({
           ...common,
+          ...entry,
           categorySource: "familia",
           occurredOn: data.date,
           status: data.done ? "realizado" : "previsto",

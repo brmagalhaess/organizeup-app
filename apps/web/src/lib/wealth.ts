@@ -116,6 +116,7 @@ export async function loadReserve(ctx: TenantContext) {
       informedMonthly: fund?.monthlyAmount ?? null,
       contribution: fund?.contribution ?? null,
       baseline,
+      fx: input.fx,
       accounts: active.map((account) => ({ ...account, selected: marked.has(account.id) })),
       status: reserveStatus(sum(selected.map((a) => a.balance)), baseline.monthly, targetMonths),
     };
@@ -154,6 +155,7 @@ export async function loadNetWorth(ctx: TenantContext, options: { record: boolea
     return {
       today,
       summary,
+      fx: input.fx,
       accounts: input.accounts.filter((account) => !account.archived),
       debts: input.debts.filter((debt) => !debt.archived && money(debt.balance).gt(0)),
       debtOptions: debtNames.filter((debt) => !debt.archived),

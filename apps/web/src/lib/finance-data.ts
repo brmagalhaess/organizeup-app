@@ -1,6 +1,8 @@
 import "server-only";
 import {
+  accountBalances,
   accounts,
+  accountsWithMovement,
   accountTransfers,
   and,
   asc,
@@ -76,11 +78,12 @@ export async function loadMonth(ctx: TenantContext, requestedMonth?: string | nu
 /** Últimas transferências, da mais nova à mais antiga. */
 export async function loadTransfers(ctx: TenantContext) {
   return withHousehold(ctx, async (tx) => {
-    const names = new Map(
-      (await tx.select({ id: accounts.id, name: accounts.name }).from(accounts)).map((row) => [
-        row.id,
-        row.name,
-      ]),
+    const known = new Map(
+      (
+        await tx
+          .select({ id: accounts.id, name: accounts.name, currency: accounts.currency })
+          .from(accounts)
+      ).map((row) => [row.id, row]),
     );
     const rows = await tx
       .select()
@@ -89,56 +92,37 @@ export async function loadTransfers(ctx: TenantContext) {
       .limit(20);
     return {
       today: todayIn(await householdTimezone(tx, ctx.householdId)),
-      rows: rows.map((row) => ({
-        id: row.id,
-        fromName: names.get(row.fromAccountId) ?? "Conta",
-        toName: names.get(row.toAccountId) ?? "Conta",
-        amount: row.amount,
-        occurredOn: row.occurredOn,
-        note: row.note,
-      })),
+      /** Conta com movimento não muda de moeda. */
+      moved: [...(await accountsWithMovement(tx))],
+      rows: rows.map((row) => {
+        const from = known.get(row.fromAccountId);
+        const to = known.get(row.toAccountId);
+        return {
+          id: row.id,
+          fromName: from?.name ?? "Conta",
+          toName: to?.name ?? "Conta",
+          fromCurrency: from?.currency ?? ("BRL" as const),
+          toCurrency: to?.currency ?? ("BRL" as const),
+          amount: row.amount,
+          toAmount: row.toAmount,
+          occurredOn: row.occurredOn,
+          note: row.note,
+        };
+      }),
     };
   });
 }
 
-/** Saldo atual de cada conta: saldo inicial + tudo que já foi realizado + transferências. */
+/**
+ * Saldo atual de cada conta (`accountBalances`): `nativeBalance` na moeda dela e `balance` em reais.
+ */
 export async function loadAccountBalances(ctx: TenantContext) {
-  return withHousehold(ctx, async (tx) => {
-    const accountRows = await tx.select().from(accounts).orderBy(asc(accounts.createdAt));
-    const movements = await tx
-      .select({
-        accountId: transactions.accountId,
-        net: sql<string>`coalesce(sum(case when ${transactions.kind} = 'receita' then ${transactions.amount} else -${transactions.amount} end), 0)`,
-      })
-      .from(transactions)
-      .where(eq(transactions.status, "realizado"))
-      .groupBy(transactions.accountId);
-    const net = new Map(movements.map((m) => [m.accountId, m.net]));
-    const moved = await tx.select().from(accountTransfers);
-    const transferred = (id: string) =>
-      moved.reduce(
-        (acc, row) =>
-          row.toAccountId === id
-            ? acc.plus(row.amount)
-            : row.fromAccountId === id
-              ? acc.minus(row.amount)
-              : acc,
-        money(0),
-      );
-    return accountRows.map((account) => ({
-      ...account,
-      balance: toDbAmount(
-        money(account.openingBalance)
-          .plus(net.get(account.id) ?? "0")
-          .plus(transferred(account.id)),
-      ),
-    }));
-  });
+  return withHousehold(ctx, (tx) => accountBalances(tx));
 }
 
 /** Dados do painel inicial. */
 export async function loadOverview(ctx: TenantContext) {
-  const balances = await loadAccountBalances(ctx);
+  const { accounts: balances, fx } = await loadAccountBalances(ctx);
   return withHousehold(ctx, async (tx) => {
     const [settings] = await tx
       .select({
@@ -196,6 +180,7 @@ export async function loadOverview(ctx: TenantContext) {
         ? `${settings.city}${settings.state ? `/${settings.state}` : ""}`
         : null,
       total: toDbAmount(active.reduce((acc, b) => acc.plus(b.balance), money(0))),
+      fx,
       summary: summarizeMonth(current),
       previousSummary: summarizeMonth(previous),
       series: monthlySeries(months, planRows, transactionRows),

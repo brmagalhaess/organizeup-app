@@ -190,6 +190,12 @@ describe("verificação da resposta", () => {
 
   it("aceita valor da ferramenta, da pergunta e arredondado", () => {
     expect(uncheckedAmounts("Você gastou R$ 1.234,56.", known)).toEqual([]);
+    expect(uncheckedAmounts("Saldo de US$ 1.234,56.", known)).toEqual([]);
+    expect(uncheckedAmounts("Saldo de € 1.234,56.", known)).toEqual([]);
+    expect(uncheckedAmounts("Balance of $1,234.56.", known)).toEqual([]);
+    expect(uncheckedAmounts("Saldo de 1.234,56 €.", known)).toEqual([]);
+    expect(uncheckedAmounts("Saldo de US$ 9.999,00.", known)).toEqual([9999]);
+    expect(uncheckedAmounts("Saldo de € 7.777,00.", known)).toEqual([7777]);
     expect(uncheckedAmounts("Guardando R$ 500 sobra R$ 800,00.", known)).toEqual([]);
     expect(uncheckedAmounts("Cerca de R$ 1,2 mil.", known)).toEqual([]);
   });

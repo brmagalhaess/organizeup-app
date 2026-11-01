@@ -91,7 +91,12 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       .from(householdSettings)
       .where(eq(householdSettings.householdId, ctx.householdId));
     const accountRows = await tx
-      .select({ id: accounts.id, name: accounts.name, archived: accounts.archived })
+      .select({
+        id: accounts.id,
+        name: accounts.name,
+        archived: accounts.archived,
+        currency: accounts.currency,
+      })
       .from(accounts)
       .orderBy(asc(accounts.createdAt));
     const categoryRows = await tx

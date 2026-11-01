@@ -101,7 +101,11 @@ export default async function OverviewPage() {
         <StatTile
           label={t("stats.balance")}
           value={amount(data.total)}
-          hint={t("stats.balanceHint")}
+          hint={
+            data.fx?.date
+              ? t("stats.balanceConverted", { date: formatLongDate(data.fx.date, locale) })
+              : t("stats.balanceHint")
+          }
         />
         <StatTile
           label={t("stats.received")}

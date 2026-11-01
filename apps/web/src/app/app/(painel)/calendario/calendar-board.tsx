@@ -8,6 +8,7 @@ import {
   formatBRLShort,
   formatShortDate,
   formatYearMonth,
+  fxNoteText,
   money,
   yearMonthOf,
   type CalendarItem,
@@ -276,7 +277,11 @@ export function CalendarBoard({
           <StatTile
             label="Saldo final previsto"
             value={formatBRL(closing)}
-            hint="Saldo das contas mais o que está em aberto."
+            hint={
+              fxNoteText(data.fx)
+                ? `Saldo das contas mais o que está em aberto. ${fxNoteText(data.fx)}`
+                : "Saldo das contas mais o que está em aberto."
+            }
           />
         ) : (
           <StatTile

@@ -5,6 +5,7 @@ import {
   addMarketCalls,
   inArray,
   investments,
+  lastMarketFxDate,
   listActiveHouseholdIds,
   listMarketTickers,
   marketCallsOn,
@@ -12,18 +13,26 @@ import {
   recordAgentRun,
   saveMarketAssets,
   saveMarketDividends,
+  saveMarketFx,
   saveMarketIndices,
   saveMarketQuote,
   saveMarketStockEvents,
   saveMarketTicker,
   withWorkerHousehold,
 } from "@organizeup/db";
-import { MARKET_RULES, normalizeTicker, todayIn } from "@organizeup/domain";
+import {
+  FX_CURRENCIES,
+  MARKET_RULES,
+  normalizeTicker,
+  shiftYears,
+  todayIn,
+} from "@organizeup/domain";
 import {
   BRAPI_SOURCE,
   fetchBrapiCatalog,
   fetchBrapiQuote,
   fetchFiiDividends,
+  fetchFxSeries,
   fetchSgsSeries,
   KEYLESS_TICKERS,
   MarketError,
@@ -40,6 +49,10 @@ export const DEFAULT_PAUSE_MS = 300;
 export const UNKNOWN_RETRY_DAYS = 30;
 /** Um ticker consultado há menos que isto fica de fora: a rodada seguinte cobre só o que faltou. */
 export const CHECK_INTERVAL_MS = 12 * 3_600_000;
+/** Lançamento antigo precisa da cotação da data dele: a primeira rodada traz tudo isto. */
+export const FX_HISTORY_YEARS = 10;
+/** O histórico vem em blocos: uma resposta pequena, e quem falha no meio retoma de onde parou. */
+export const FX_BLOCK_YEARS = 2;
 
 const PRICED_CLASSES = ["acao", "fii", "etf_bdr"] as const;
 
@@ -72,6 +85,7 @@ export interface MarketRunResult {
   stockEvents: number;
   assets: number;
   indices: number;
+  fx: number;
   unknown: number;
   noPlan: number;
   failed: number;
@@ -133,6 +147,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     stockEvents: 0,
     assets: 0,
     indices: 0,
+    fx: 0,
     unknown: 0,
     noPlan: 0,
     failed: 0,
@@ -147,6 +162,24 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     } catch (error) {
       result.failed += 1;
       log.error({ code: codeOf(error) }, "mercado: índice do Banco Central falhou");
+    }
+  }
+
+  // Câmbio: do dia seguinte ao último gravado até hoje. Falhar deixa o resto para a próxima rodada.
+  for (const currency of FX_CURRENCIES) {
+    try {
+      const last = await lastMarketFxDate(currency);
+      let from = last ? shiftDays(last, 1) : shiftYears(today, -FX_HISTORY_YEARS);
+      while (from <= today) {
+        const end = shiftDays(shiftYears(from, FX_BLOCK_YEARS), -1);
+        const to = end < today ? end : today;
+        result.fx += await saveMarketFx(await fetchFxSeries(currency, from, to, client));
+        from = shiftDays(to, 1);
+        if (from <= today) await sleep(pause);
+      }
+    } catch (error) {
+      result.failed += 1;
+      log.error({ code: codeOf(error) }, "mercado: câmbio do Banco Central falhou");
     }
   }
 
@@ -262,7 +295,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     ok: result.quotes,
     failed: result.failed,
     suggestions: 0,
-    applied: result.dividends + result.stockEvents + result.indices,
+    applied: result.dividends + result.stockEvents + result.indices + result.fx,
     durationMs: Date.now() - startedAt,
   });
   log.info({ ...result }, "mercado: rodada concluída");

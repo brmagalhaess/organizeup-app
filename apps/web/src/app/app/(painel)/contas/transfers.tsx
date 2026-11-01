@@ -1,7 +1,14 @@
 "use client";
 import { ArrowRight, Trash2 } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
-import { formatBRL } from "@organizeup/domain";
+import {
+  currencySymbol,
+  formatMoney,
+  parseBRL,
+  suggestTransfer,
+  type Currency,
+  type FxRates,
+} from "@organizeup/domain";
 import {
   Button,
   Card,
@@ -18,24 +25,50 @@ export interface TransferRow {
   id: string;
   fromName: string;
   toName: string;
+  fromCurrency: Currency;
+  toCurrency: Currency;
   amount: string;
+  /** Null: mesma moeda, mesmo valor nas duas pontas. */
+  toAmount: string | null;
   occurredOn: string;
   note: string | null;
 }
 
 const initial: SimpleFormState = { ok: false, message: null };
 const fullDate = (date: string) => date.split("-").reverse().join("/");
+const toField = (value: string) => value.replace(".", ",");
+
+/** Quanto entraria pela cotação de hoje, para sugerir. Null com valor inválido ou sem cotação. */
+function suggestion(typed: string, from: Currency, to: Currency, rates: FxRates) {
+  try {
+    const value = parseBRL(typed);
+    return value.gt(0) ? suggestTransfer(value, from, to, rates) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function TransferForm({
   accounts,
+  rates,
   today,
   onDone,
 }: {
-  accounts: Array<{ id: string; name: string }>;
+  accounts: Array<{ id: string; name: string; currency: Currency }>;
+  rates: FxRates;
   today: string;
   onDone: () => void;
 }) {
   const [state, action, pending] = useActionState(createTransfer, initial);
+  const [fromId, setFromId] = useState(accounts[0]?.id ?? "");
+  const [toId, setToId] = useState(accounts[1]?.id ?? "");
+  const [typed, setTyped] = useState("");
+  /** O que a pessoa escreveu em "entrou". Null: segue a sugestão. */
+  const [received, setReceived] = useState<string | null>(null);
+  const from = accounts.find((account) => account.id === fromId)?.currency ?? "BRL";
+  const to = accounts.find((account) => account.id === toId)?.currency ?? "BRL";
+  const exchange = from !== to;
+  const suggested = exchange ? suggestion(typed, from, to, rates) : null;
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
@@ -43,7 +76,11 @@ export function TransferForm({
     <form action={action} className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="De">
-          <Select name="fromAccountId" defaultValue={accounts[0]?.id}>
+          <Select
+            name="fromAccountId"
+            value={fromId}
+            onChange={(event) => setFromId(event.target.value)}
+          >
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
@@ -52,7 +89,7 @@ export function TransferForm({
           </Select>
         </Field>
         <Field label="Para">
-          <Select name="toAccountId" defaultValue={accounts[1]?.id}>
+          <Select name="toAccountId" value={toId} onChange={(event) => setToId(event.target.value)}>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
@@ -62,9 +99,31 @@ export function TransferForm({
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Valor (R$)">
-          <Input name="amount" inputMode="decimal" required placeholder="500,00" />
+        <Field label={`${exchange ? "Saiu" : "Valor"} (${currencySymbol(from)})`}>
+          <Input
+            name="amount"
+            inputMode="decimal"
+            required
+            placeholder="500,00"
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+          />
         </Field>
+        {exchange ? (
+          <Field
+            label={`Entrou (${currencySymbol(to)})`}
+            hint="Sugerido pela cotação do dia. Ajuste para o que o banco cobrou."
+          >
+            <Input
+              name="toAmount"
+              inputMode="decimal"
+              required
+              placeholder="500,00"
+              value={received ?? (suggested ? toField(suggested) : "")}
+              onChange={(event) => setReceived(event.target.value)}
+            />
+          </Field>
+        ) : null}
         <Field label="Data">
           <Input name="occurredOn" type="date" required defaultValue={today} />
         </Field>
@@ -73,7 +132,8 @@ export function TransferForm({
         <Input name="note" maxLength={120} />
       </Field>
       <p className="m-0 text-xs text-muted">
-        O saldo das duas contas muda. Não conta como gasto nem como receita.
+        O saldo das duas contas muda. Não conta como gasto nem como receita
+        {exchange ? ", e a diferença de câmbio também não." : "."}
       </p>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
@@ -102,8 +162,13 @@ export function TransferList({ rows, writable }: { rows: TransferRow[]; writable
                 {row.note ? ` · ${row.note}` : ""}
               </p>
             </div>
-            <p className="m-0 whitespace-nowrap font-medium tabular-nums">
-              {formatBRL(row.amount)}
+            <p className="m-0 whitespace-nowrap text-right font-medium tabular-nums">
+              {formatMoney(row.amount, row.fromCurrency)}
+              {row.toAmount ? (
+                <span className="block text-xs font-normal text-muted">
+                  entrou {formatMoney(row.toAmount, row.toCurrency)}
+                </span>
+              ) : null}
             </p>
             {writable ? (
               <IconButton label="Desfazer transferência" onClick={() => setRemoving(row)}>

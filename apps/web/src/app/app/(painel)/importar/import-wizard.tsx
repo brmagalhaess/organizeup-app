@@ -13,16 +13,19 @@ import Link from "next/link";
 import { useMemo, useState, useTransition, type ChangeEvent } from "react";
 import {
   csvRows,
+  currencyName,
   decodeStatement,
   detectCsvMapping,
-  formatBRL,
+  formatMoney,
   formatShortDate,
+  isForeign,
   merchantKey,
   parseCsvTable,
   parseOfx,
   parsePdfLines,
   yearMonthOf,
   type CsvMapping,
+  type Currency,
   type StatementRow,
   type StatementSource,
 } from "@organizeup/domain";
@@ -54,6 +57,9 @@ const OUTDATED =
 interface Option {
   id: string;
   name: string;
+}
+interface AccountOption extends Option {
+  currency: Currency;
 }
 interface CategoryOption extends Option {
   kind: "receita" | "despesa";
@@ -118,12 +124,14 @@ function ColumnSelect({
 
 function CsvMapper({
   csv,
+  currency,
   onChange,
   onContinue,
   onCancel,
   busy,
 }: {
   csv: CsvState;
+  currency: Currency;
   onChange: (mapping: CsvMapping) => void;
   onContinue: (rows: StatementRow[]) => void;
   onCancel: () => void;
@@ -198,7 +206,7 @@ function CsvMapper({
                 className={cx("whitespace-nowrap font-medium tabular-nums", amountClass(row.kind))}
               >
                 {row.kind === "receita" ? "+ " : "− "}
-                {formatBRL(row.amount)}
+                {formatMoney(row.amount, currency)}
               </span>
             </li>
           ))}
@@ -288,6 +296,7 @@ function AgentBadge({ row }: { row: PreparedRow }) {
 function Review({
   notice,
   rows,
+  currency,
   categories,
   busy,
   message,
@@ -296,6 +305,7 @@ function Review({
 }: {
   notice: string | null;
   rows: PreparedRow[];
+  currency: Currency;
   categories: CategoryOption[];
   busy: boolean;
   message: string | null;
@@ -440,7 +450,7 @@ function Review({
                 )}
               >
                 {row.kind === "receita" ? "+ " : "− "}
-                {formatBRL(row.amount)}
+                {formatMoney(row.amount, currency)}
               </span>
               <div className="col-span-2 col-start-2 min-w-0 md:col-span-1 md:col-start-4 md:row-start-1">
                 {row.state === "previsto" || locked ? null : (
@@ -509,11 +519,12 @@ export function ImportWizard({
   categories,
   batches,
 }: {
-  accounts: Option[];
+  accounts: AccountOption[];
   categories: CategoryOption[];
   batches: BatchRow[];
 }) {
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
+  const currency = accounts.find((account) => account.id === accountId)?.currency ?? "BRL";
   const [message, setMessage] = useState<string | null>(null);
   const [source, setSource] = useState<StatementSource>("csv");
   const [csv, setCsv] = useState<CsvState | null>(null);
@@ -700,6 +711,7 @@ export function ImportWizard({
         <Review
           notice={notice}
           rows={rows}
+          currency={currency}
           categories={categories}
           busy={busy}
           message={message}
@@ -709,6 +721,7 @@ export function ImportWizard({
       ) : csv ? (
         <CsvMapper
           csv={csv}
+          currency={currency}
           busy={busy}
           onChange={(mapping) => setCsv({ ...csv, mapping })}
           onContinue={(parsed) => review("csv", parsed)}
@@ -741,6 +754,12 @@ export function ImportWizard({
             </Field>
           </div>
           <div className="mt-3">
+            {isForeign(currency) ? (
+              <p className="m-0 mb-2 text-sm text-muted">
+                Os valores do arquivo são lidos em {currencyName(currency)} e convertidos para reais
+                pela cotação da data de cada linha.
+              </p>
+            ) : null}
             {message ? (
               <div
                 role="alert"

@@ -35,6 +35,7 @@ import {
   essentialBaseline,
   excludeSavings,
   forecastSurplus,
+  fxNoteOf,
   GOAL_CATEGORY,
   money,
   monthBounds,
@@ -57,6 +58,7 @@ import {
   type DividendPlanInput,
   type EssentialBaseline,
   type FiscalTable,
+  type FxTotalNote,
   type MonthPoint,
   type PensionInput,
   type ReserveStatus,
@@ -91,8 +93,10 @@ export interface ReserveData {
   /** Aporte mensal planejado (emergency_fund.contribution). */
   contribution: string | null;
   baseline: EssentialBaseline;
-  /** Soma das contas marcadas como reserva. */
+  /** Soma das contas marcadas como reserva, em reais. */
   saved: string;
+  /** Cotação usada na soma; null se só há real. */
+  fx: FxTotalNote | null;
   status: ReserveStatus;
   /** Meses até completar com o aporte planejado. Null sem aporte. */
   monthsLeft: number | null;
@@ -174,11 +178,10 @@ export async function reserveInputs(
 
   const baseline = essentialBaseline(closedTotals, currentTotal, fund?.monthlyAmount ?? null);
   const targetMonths = fund?.targetMonths ?? DEFAULT_RESERVE_MONTHS;
-  const saved = sum(
-    worth.accounts
-      .filter((account) => !account.archived && marked.has(account.id))
-      .map((account) => account.balance),
+  const reserved = worth.accounts.filter(
+    (account) => !account.archived && marked.has(account.id),
   );
+  const saved = sum(reserved.map((account) => account.balance));
   const status = reserveStatus(saved, baseline.monthly, targetMonths);
   const contribution = fund?.contribution ?? null;
   return {
@@ -189,6 +192,7 @@ export async function reserveInputs(
     contribution,
     baseline,
     saved,
+    fx: fxNoteOf(reserved, worth.rates),
     status,
     monthsLeft: contribution ? monthsToReserve(status.missing, contribution) : null,
   };

@@ -19,6 +19,7 @@ import {
   parseBRL,
   reserveStatus,
 } from "@organizeup/domain";
+import { FxNote } from "@/components/fx-note";
 import { buttonClass, cx } from "@/components/styles";
 import {
   Badge,
@@ -269,6 +270,7 @@ function HaveCard({ data, status, writable }: { data: Data; status: Status; writ
   return (
     <Card title="Quanto já tenho">
       <p className="font-display text-4xl font-medium tabular-nums">{formatBRL(status.saved)}</p>
+      <FxNote fx={data.fx} className="m-0 mt-1 text-xs text-muted" />
       <p className="mt-2 text-sm">
         {selected.length === 0
           ? "Nenhuma conta marcada ainda."

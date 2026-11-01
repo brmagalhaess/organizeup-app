@@ -11,7 +11,16 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
-import { formatBRL } from "@organizeup/domain";
+import {
+  CURRENCIES,
+  currencyName,
+  currencySymbol,
+  formatBRL,
+  formatMoney,
+  isForeign,
+  type Currency,
+  type FxRates,
+} from "@organizeup/domain";
 import {
   Button,
   Card,
@@ -36,15 +45,34 @@ export interface AccountRow {
   id: string;
   name: string;
   type: keyof typeof TYPES;
+  currency: Currency;
   openingBalance: string;
+  /** Na moeda da conta. */
+  nativeBalance: string;
+  /** Em reais, pela última cotação. */
   balance: string;
   archived: boolean;
 }
 
 const initial: SimpleFormState = { ok: false, message: null };
 
-function AccountForm({ account, onDone }: { account: AccountRow | null; onDone: () => void }) {
+const CURRENCY_LABELS: Record<Currency, string> = {
+  BRL: "Real (R$)",
+  USD: "Dólar (US$)",
+  EUR: "Euro (€)",
+};
+
+function AccountForm({
+  account,
+  moved,
+  onDone,
+}: {
+  account: AccountRow | null;
+  moved: boolean;
+  onDone: () => void;
+}) {
   const [state, action, pending] = useActionState(saveAccount, initial);
+  const [currency, setCurrency] = useState<Currency>(account?.currency ?? "BRL");
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
@@ -70,7 +98,29 @@ function AccountForm({ account, onDone }: { account: AccountRow | null; onDone: 
         </Select>
       </Field>
       <Field
-        label="Saldo inicial (R$)"
+        label="Moeda"
+        hint={
+          moved
+            ? "Esta conta já tem movimento, então a moeda fica como está."
+            : "Lançamentos e saldo ficam nesta moeda. Os totais do app seguem em reais."
+        }
+      >
+        <Select
+          name="currency"
+          value={currency}
+          disabled={moved}
+          onChange={(event) => setCurrency(event.target.value as Currency)}
+        >
+          {CURRENCIES.map((value) => (
+            <option key={value} value={value}>
+              {CURRENCY_LABELS[value]}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {moved ? <input type="hidden" name="currency" value={currency} /> : null}
+      <Field
+        label={`Saldo inicial (${currencySymbol(currency)})`}
         hint="Quanto havia na conta antes dos lançamentos daqui. Eles somam e subtraem deste valor."
       >
         <Input
@@ -90,11 +140,15 @@ function AccountForm({ account, onDone }: { account: AccountRow | null; onDone: 
 
 export function AccountsBoard({
   rows,
+  moved,
+  rates,
   transfers,
   today,
   writable,
 }: {
   rows: AccountRow[];
+  moved: string[];
+  rates: FxRates;
   transfers: TransferRow[];
   today: string;
   writable: boolean;
@@ -157,9 +211,24 @@ export function AccountsBoard({
                   </div>
                 ) : null}
               </div>
-              <p className="text-2xl font-semibold tabular-nums tracking-tight">
-                {formatBRL(account.balance)}
-              </p>
+              <div>
+                <p className="text-2xl font-semibold tabular-nums tracking-tight">
+                  {formatMoney(account.nativeBalance, account.currency)}
+                </p>
+                {isForeign(account.currency) ? (
+                  <>
+                    <p className="m-0 text-sm tabular-nums text-muted">
+                      {rates[account.currency]
+                        ? `≈ ${formatBRL(account.balance)}`
+                        : "Ainda sem cotação para mostrar em reais"}
+                    </p>
+                    <p className="m-0 mt-1 text-xs text-muted">
+                      O saldo em {currencyName(account.currency)} só muda com lançamentos; em reais,
+                      varia com a cotação.
+                    </p>
+                  </>
+                ) : null}
+              </div>
             </li>
           );
         })}
@@ -201,14 +270,25 @@ export function AccountsBoard({
       <TransferList rows={transfers} writable={writable} />
 
       <Sheet open={moving !== null} onClose={() => setMoving(null)} title="Transferir entre contas">
-        <TransferForm key={moving} accounts={active} today={today} onDone={() => setMoving(null)} />
+        <TransferForm
+          key={moving}
+          accounts={active}
+          rates={rates}
+          today={today}
+          onDone={() => setMoving(null)}
+        />
       </Sheet>
       <Sheet
         open={editing !== null}
         onClose={close}
         title={editing?.account ? "Editar conta" : "Nova conta"}
       >
-        <AccountForm key={editing?.nonce} account={editing?.account ?? null} onDone={close} />
+        <AccountForm
+          key={editing?.nonce}
+          account={editing?.account ?? null}
+          moved={editing?.account ? moved.includes(editing.account.id) : false}
+          onDone={close}
+        />
       </Sheet>
     </>
   );

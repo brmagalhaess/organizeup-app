@@ -15,6 +15,7 @@ import {
   investmentTargets,
   investmentTrades,
   loadStockEvents,
+  reaisEntry,
   TRADE_SIDES,
   transactions,
   withHousehold,
@@ -79,6 +80,13 @@ function refresh() {
   revalidatePath("/app", "layout");
 }
 
+/** Conta estrangeira sem cotação na data da operação: nada é gravado. */
+class MissingQuote extends Error {}
+const NO_QUOTE: FormState = {
+  ok: false,
+  message: "Ainda não temos a cotação desta conta para essa data. Tente mais tarde ou use outra conta.",
+};
+
 /** Cria um investimento ou edita o do `id`. */
 export async function saveInvestment(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireTenant();
@@ -134,6 +142,9 @@ async function recordTradeCash(
     .from(accounts)
     .where(eq(accounts.id, accountId));
   if (!account) throw new RangeError("conta");
+  // A carteira é em reais; numa conta estrangeira, o lançamento converte pela data da operação.
+  const entry = await reaisEntry(tx, accountId, toDbAmount(total), trade.occurredOn);
+  if (!entry) throw new MissingQuote();
   const kind = side === "compra" ? "despesa" : "receita";
   const category = await ensureCategory(tx, ctx.householdId, kind, CONTRIBUTION_CATEGORY, false);
   const [row] = await tx
@@ -144,7 +155,7 @@ async function recordTradeCash(
       categoryId: category.id,
       kind,
       description: `${side === "compra" ? "Aporte em" : "Resgate de"} ${name}`.slice(0, 200),
-      amount: toDbAmount(total),
+      ...entry,
       occurredOn: trade.occurredOn,
       categorySource: "familia",
       createdBy: ctx.userId,
@@ -219,7 +230,7 @@ export async function addAsset(_prev: FormState, form: FormData): Promise<FormSt
     }
   }
 
-  await withHousehold(ctx, async (tx) => {
+  const saved = await withHousehold(ctx, async (tx) => {
     const today = todayIn(await householdTimezone(tx, ctx.householdId));
     const [existing] = ticker
       ? await tx
@@ -255,7 +266,12 @@ export async function addAsset(_prev: FormState, form: FormData): Promise<FormSt
       transactionId,
       ...trade,
     });
+    return true;
+  }).catch((error: unknown) => {
+    if (error instanceof MissingQuote) return false;
+    throw error;
   });
+  if (!saved) return NO_QUOTE;
   refresh();
   return { ok: true, message: null };
 }
@@ -370,6 +386,9 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
       await tx.update(investments).set({ currentValue }).where(eq(investments.id, investmentId));
     await audit(tx, ctx, "create", "investment_trades", created!.id);
     return null;
+  }).catch((error: unknown) => {
+    if (error instanceof MissingQuote) return NO_QUOTE.message;
+    throw error;
   });
   if (failure) return { ok: false, message: failure };
   refresh();

@@ -10,6 +10,7 @@ import {
   goalContributions,
   goals,
   incomeReceipts,
+  reaisEntry,
   transactions,
   type TenantContext,
   type TenantTx,
@@ -41,7 +42,8 @@ export interface ImportMark {
 /**
  * Marca como pago ou recebido. `key` é `t:<lançamento>`, `p:<previsão>` (com `month`),
  * `d:<parcela>`, `f:<cartão>:<mês>`, `r:<renda>:<mês>:<parte>` ou `g:<meta>:<mês>`. Devolve se algo
- * foi confirmado.
+ * foi confirmado. Compromissos são em reais: pagos com conta estrangeira, convertem pela data
+ * (`reaisEntry`), e sem cotação nada é confirmado.
  */
 export async function confirmCommitment(
   tx: TenantTx,
@@ -66,6 +68,9 @@ export async function confirmCommitment(
   if (key.startsWith("p:") && isYearMonth(month)) {
     const [plan] = await tx.select().from(cashflowPlans).where(eq(cashflowPlans.id, id));
     if (!plan) return false;
+    const occurredOn = occurrenceDate(plan.dayOfMonth, month);
+    const entry = await reaisEntry(tx, plan.accountId, plan.amount, occurredOn);
+    if (!entry) return false;
     const created = await tx
       .insert(transactions)
       .values({
@@ -74,8 +79,8 @@ export async function confirmCommitment(
         categoryId: plan.categoryId,
         kind: plan.kind,
         description: plan.description,
-        amount: plan.amount,
-        occurredOn: occurrenceDate(plan.dayOfMonth, month),
+        ...entry,
+        occurredOn,
         status: "realizado",
         planId: plan.id,
         planMonth: month,
@@ -94,6 +99,8 @@ export async function confirmCommitment(
     const { debt: categoryId } = await systemCategories(tx);
     if (!open || !categoryId) return false;
     const { installment, debt, total } = open;
+    const entry = await reaisEntry(tx, debt.accountId, installment.amount, installment.dueDate);
+    if (!entry) return false;
     const [created] = await tx
       .insert(transactions)
       .values({
@@ -102,7 +109,7 @@ export async function confirmCommitment(
         categoryId,
         kind: "despesa",
         description: `${debt.name} (${installment.number}/${total})`,
-        amount: installment.amount,
+        ...entry,
         occurredOn: installment.dueDate,
         status: "realizado",
         createdBy: ctx.userId,
@@ -138,6 +145,9 @@ export async function confirmCommitment(
       .flatMap((purchase) => purchaseLines(purchase, card))
       .filter((line) => line.statementMonth === statementMonth);
     if (lines.length === 0) return false;
+    const occurredOn = statementDueDate(statementMonth, card);
+    const entry = await reaisEntry(tx, card.payingAccountId, linesTotal(lines), occurredOn);
+    if (!entry) return false;
     const [created] = await tx
       .insert(transactions)
       .values({
@@ -146,8 +156,8 @@ export async function confirmCommitment(
         categoryId,
         kind: "despesa",
         description: `Fatura ${card.name}`,
-        amount: linesTotal(lines),
-        occurredOn: statementDueDate(statementMonth, card),
+        ...entry,
+        occurredOn,
         status: "realizado",
         createdBy: ctx.userId,
         ...mark,
@@ -172,21 +182,28 @@ export async function confirmCommitment(
     const { contribution, goal, number, total } = open;
     const { accountId } = goal;
     if (!accountId || (goal.destinationAccountId && !goalIncome)) return false;
+    const occurredOn = occurrenceDate(goal.planDay, goalMonth);
     const common = {
       householdId: ctx.householdId,
       description: goalEntryDescription(goal.name, number, total),
-      amount: contribution.amount,
-      occurredOn: occurrenceDate(goal.planDay, goalMonth),
+      occurredOn,
       status: "realizado" as const,
       createdBy: ctx.userId,
     };
+    // `amount` fica igual nos dois lados, em reais: é por ele que `goalEntryLink` acha a receita espelho.
+    const entry = await reaisEntry(tx, accountId, contribution.amount, occurredOn);
+    const mirror = goal.destinationAccountId
+      ? await reaisEntry(tx, goal.destinationAccountId, contribution.amount, occurredOn)
+      : null;
+    if (!entry || (goal.destinationAccountId && !mirror)) return false;
     const [created] = await tx
       .insert(transactions)
-      .values({ ...common, accountId, categoryId, kind: "despesa", ...mark })
+      .values({ ...common, ...entry, accountId, categoryId, kind: "despesa", ...mark })
       .returning({ id: transactions.id });
     if (goal.destinationAccountId && goalIncome) {
       await tx.insert(transactions).values({
         ...common,
+        ...mirror!,
         accountId: goal.destinationAccountId,
         categoryId: goalIncome,
         kind: "receita",
@@ -226,6 +243,8 @@ export async function confirmCommitment(
       );
     if (received) return false;
     const { source, entry } = found;
+    const entryMoney = await reaisEntry(tx, source.accountId, entry.amount, entry.date);
+    if (!entryMoney) return false;
     const [created] = await tx
       .insert(transactions)
       .values({
@@ -234,7 +253,7 @@ export async function confirmCommitment(
         categoryId: source.categoryId,
         kind: "receita",
         description: entry.description,
-        amount: entry.amount,
+        ...entryMoney,
         occurredOn: entry.date,
         status: "realizado",
         createdBy: ctx.userId,

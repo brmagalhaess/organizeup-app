@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { formatBRL, formatShortDate, type MonthEntry } from "@organizeup/domain";
+import { formatBRL, formatMoney, formatShortDate, type MonthEntry } from "@organizeup/domain";
 import { useEntryDialog } from "@/components/shell/entry-context";
 import {
   Badge,
@@ -296,7 +296,16 @@ export function EntriesTable({
                     )}
                   >
                     {entry.kind === "receita" ? "+ " : "− "}
-                    {formatBRL(entry.amount)}
+                    {entry.originalAmount && entry.originalCurrency ? (
+                      <>
+                        {formatMoney(entry.originalAmount, entry.originalCurrency)}
+                        <span className="block text-xs font-normal text-muted">
+                          ≈ {formatBRL(entry.amount)}
+                        </span>
+                      </>
+                    ) : (
+                      formatBRL(entry.amount)
+                    )}
                   </td>
                   {writable ? (
                     <td className="hidden py-2 pl-3 pr-5 align-top sm:table-cell sm:pr-6">
