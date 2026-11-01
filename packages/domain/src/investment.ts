@@ -17,6 +17,13 @@ export interface TradeInput {
   fees: string;
 }
 
+export interface StockEvent {
+  /** Data-com do desdobramento, grupamento ou bonificação. */
+  comDate: string;
+  /** Ações novas por ação antiga (0,1 num grupamento de 10 para 1). */
+  factor: string;
+}
+
 export interface Position {
   quantity: string;
   averagePrice: string;
@@ -27,15 +34,27 @@ export interface Position {
   oversold: boolean;
 }
 
-export function positionOf(trades: TradeInput[]): Position {
+/**
+ * Posição das operações digitadas, com os eventos em ações por cima. O evento vale depois de todas as
+ * operações da própria data-com: quem compra nesse dia tem direito (mesma regra de `paidRate`). Ele
+ * muda a quantidade e não o custo, então o preço médio se ajusta sozinho.
+ */
+export function positionOf(trades: TradeInput[], events: StockEvent[] = []): Position {
   const ordered = [...trades].sort(
     (a, b) => a.occurredOn.localeCompare(b.occurredOn) || a.side.localeCompare(b.side),
   );
+  const pending = [...events].sort((a, b) => a.comDate.localeCompare(b.comDate));
   let held = money(0);
   let cost = money(0);
   let realized = money(0);
   let oversold = false;
+  const applyEvents = (until: string | null) => {
+    while (pending.length > 0 && (until === null || pending[0]!.comDate < until)) {
+      held = held.times(pending.shift()!.factor);
+    }
+  };
   for (const trade of ordered) {
+    applyEvents(trade.occurredOn);
     const quantity = money(trade.quantity);
     if (trade.side === "compra") {
       held = held.plus(quantity);
@@ -52,6 +71,7 @@ export function positionOf(trades: TradeInput[]): Position {
     held = held.minus(sold);
     cost = held.isZero() ? money(0) : cost.minus(sold.times(average));
   }
+  applyEvents(null);
   return {
     quantity: held.toString(),
     averagePrice: held.isZero() ? "0" : cost.dividedBy(held).toDecimalPlaces(8).toString(),
@@ -100,6 +120,8 @@ export interface InvestmentInput {
   currentPrice: string | null;
   currentValue: string | null;
   trades: TradeInput[];
+  /** Eventos em ações já aplicados a este investimento. */
+  events?: StockEvent[];
 }
 
 export interface PortfolioRow {
@@ -114,7 +136,7 @@ export interface PortfolioRow {
 }
 
 function rowOf(input: InvestmentInput): PortfolioRow {
-  const position = positionOf(input.trades);
+  const position = positionOf(input.trades, input.events);
   const held = money(position.quantity);
   const unit = isUnitPriced(input.assetClass);
   const informed = unit ? input.currentPrice : input.currentValue;

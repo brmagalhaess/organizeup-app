@@ -83,6 +83,139 @@ describe("preço médio", () => {
   });
 });
 
+describe("eventos em ações", () => {
+  const split = { comDate: "2026-03-12", factor: "2" };
+
+  it("desdobramento multiplica a quantidade, mantém o custo e divide o preço médio", () => {
+    const position = positionOf([buy("2026-01-10", "100", "30", "10")], [split]);
+    expect(position).toMatchObject({ quantity: "200", cost: "3010.00", averagePrice: "15.05" });
+  });
+
+  it("grupamento de 10 para 1 divide a quantidade", () => {
+    const position = positionOf(
+      [buy("2026-01-10", "100", "3")],
+      [{ comDate: "2026-03-12", factor: "0.1" }],
+    );
+    expect(position).toMatchObject({ quantity: "10", cost: "300.00", averagePrice: "30" });
+  });
+
+  it("bonificação de 3% acrescenta ações sem mudar o custo", () => {
+    // Fixture real: ITUB4, bonificação de 3% com data-com 23/12/2025 (ADR-0017).
+    const position = positionOf(
+      [buy("2025-06-10", "100", "30")],
+      [{ comDate: "2025-12-23", factor: "1.03" }],
+    );
+    expect(position).toMatchObject({ quantity: "103", cost: "3000.00" });
+  });
+
+  it("compra na própria data-com tem direito; compra no dia seguinte, não", () => {
+    expect(positionOf([buy("2026-03-12", "10", "30")], [split]).quantity).toBe("20");
+    expect(positionOf([buy("2026-03-13", "10", "15")], [split]).quantity).toBe("10");
+  });
+
+  it("venda na data-com sai antes do evento, mesmo fora de ordem na lista", () => {
+    const position = positionOf(
+      [sell("2026-03-12", "40", "30"), buy("2026-01-10", "100", "30")],
+      [split],
+    );
+    expect(position).toMatchObject({ quantity: "120", cost: "1800.00", oversold: false });
+  });
+
+  it("venda depois do evento conta na quantidade nova e usa o preço médio novo", () => {
+    const position = positionOf(
+      [buy("2026-01-10", "100", "30"), sell("2026-04-01", "150", "20")],
+      [split],
+    );
+    expect(position).toMatchObject({
+      quantity: "50",
+      averagePrice: "15",
+      cost: "750.00",
+      realized: "750.00",
+      oversold: false,
+    });
+  });
+
+  it("dois eventos seguidos se acumulam, com compra no meio", () => {
+    const position = positionOf(
+      [buy("2026-01-10", "100", "30"), buy("2026-05-01", "10", "15")],
+      [{ comDate: "2026-06-01", factor: "1.1" }, split],
+    );
+    // 100 × 2 = 200; + 10 = 210; × 1,1 = 231.
+    expect(position).toMatchObject({ quantity: "231", cost: "3150.00" });
+  });
+
+  it("sem evento fica tudo como antes; sem posição, o evento não cria ações", () => {
+    const trades = [buy("2026-01-10", "100", "30")];
+    expect(positionOf(trades, [])).toEqual(positionOf(trades));
+    expect(positionOf([], [split]).quantity).toBe("0");
+  });
+
+  it("a carteira usa os eventos do investimento", () => {
+    const summary = summarizePortfolio([
+      {
+        id: "a",
+        assetClass: "acao",
+        currentPrice: "15",
+        currentValue: null,
+        trades: [buy("2026-01-10", "100", "30")],
+        events: [split],
+      },
+    ]);
+    expect(summary.rows[0]!.position.quantity).toBe("200");
+    expect(summary.total).toBe("3000.00");
+    expect(summary.cost).toBe("3000.00");
+  });
+
+  it("desdobrar não muda o custo e multiplica a quantidade", () => {
+    const trade = fc.record({
+      side: fc.constant("compra" as const),
+      occurredOn: fc.constantFrom("2026-01-01", "2026-02-01", "2026-03-12"),
+      quantity: fc.integer({ min: 1, max: 5000 }).map(String),
+      unitPrice: fc.integer({ min: 1, max: 900 }).map(String),
+      fees: fc.integer({ min: 0, max: 20 }).map(String),
+    });
+    fc.assert(
+      fc.property(
+        fc.array(trade, { minLength: 1, maxLength: 20 }),
+        fc.integer({ min: 2, max: 20 }),
+        (trades, factor) => {
+          const before = positionOf(trades);
+          const after = positionOf(trades, [{ comDate: "2026-03-12", factor: String(factor) }]);
+          expect(after.cost).toBe(before.cost);
+          expect(after.realized).toBe(before.realized);
+          expect(money(after.quantity).eq(money(before.quantity).times(factor))).toBe(true);
+        },
+      ),
+    );
+  });
+
+  it("vendas no meio não mudam o custo que fica: desdobrar e vender o mesmo pedaço dá no mesmo", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 2, max: 1000 }),
+        fc.integer({ min: 1, max: 1000 }),
+        fc.integer({ min: 2, max: 20 }),
+        (quantity, soldRaw, factor) => {
+          const sold = Math.min(soldRaw, quantity);
+          const old = positionOf([
+            buy("2026-01-10", String(quantity), "30"),
+            sell("2026-03-01", String(sold), "30"),
+          ]);
+          const split = positionOf(
+            [
+              buy("2026-01-10", String(quantity), "30"),
+              sell("2026-04-01", String(sold * factor), "15"),
+            ],
+            [{ comDate: "2026-03-12", factor: String(factor) }],
+          );
+          expect(split.cost).toBe(old.cost);
+          expect(money(split.quantity).eq(money(old.quantity).times(factor))).toBe(true);
+        },
+      ),
+    );
+  });
+});
+
 describe("resgate sem preço unitário", () => {
   it("baixa o aplicado na proporção do valor atual", () => {
     const out = redemptionOf("1000", "1100", "550");

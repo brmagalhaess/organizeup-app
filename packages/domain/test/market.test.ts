@@ -106,6 +106,28 @@ describe("entitledQuantity", () => {
       ),
     );
   });
+
+  describe("com eventos em ações", () => {
+    const trades = [buy("2026-01-05", "100")];
+    const split = { comDate: "2026-03-12", factor: "2" };
+
+    it("provento antes do evento vai para a quantidade antiga", () => {
+      expect(entitledQuantity(trades, "2026-02-20", [split])).toBe("100");
+    });
+
+    it("provento na data-com do evento vai para as ações de antes dele", () => {
+      expect(entitledQuantity(trades, "2026-03-12", [split])).toBe("100");
+    });
+
+    it("provento depois do evento vai para a quantidade nova", () => {
+      expect(entitledQuantity(trades, "2026-03-13", [split])).toBe("200");
+    });
+
+    it("soma compra na data do provento à quantidade já ajustada", () => {
+      const more = [...trades, buy("2026-05-20", "10")];
+      expect(entitledQuantity(more, "2026-05-20", [split])).toBe("210");
+    });
+  });
 });
 
 describe("paidRate", () => {

@@ -15,7 +15,7 @@
 import Decimal from "decimal.js";
 import { DEFAULT_TIMEZONE, todayIn } from "./dates";
 import { yearMonthOf } from "./cashflow";
-import { isUnitPriced, positionOf, type TradeInput } from "./investment";
+import { isUnitPriced, positionOf, type StockEvent, type TradeInput } from "./investment";
 import { money, toDbAmount, type MoneyValue } from "./money";
 
 export const MARKET_RULES = {
@@ -48,17 +48,23 @@ export function normalizeTicker(raw: string | null | undefined): string | null {
 export const marketDateOf = (at: Date | string): string =>
   todayIn(MARKET_RULES.timezone, typeof at === "string" ? new Date(at) : at);
 
-/** Quantidade com direito ao provento: só operações até a data-com, inclusive. */
-export function entitledQuantity(trades: TradeInput[], comDate: string): string {
-  return positionOf(trades.filter((trade) => trade.occurredOn <= comDate)).quantity;
+/**
+ * Quantidade com direito ao provento: só operações até a data-com, inclusive, e eventos em ações
+ * anteriores a ela. Evento na própria data-com fica de fora: o provento vai para as ações de antes dele.
+ */
+export function entitledQuantity(
+  trades: TradeInput[],
+  comDate: string,
+  events: StockEvent[] = [],
+): string {
+  return positionOf(
+    trades.filter((trade) => trade.occurredOn <= comDate),
+    events.filter((event) => event.comDate < comDate),
+  ).quantity;
 }
 
-export interface StockEvent {
-  /** Data-com do desdobramento, grupamento ou bonificação. */
-  comDate: string;
-  /** Ações novas por ação antiga (0,1 num grupamento de 10 para 1). */
-  factor: string;
-}
+/** "Desdobramento de 2 para 1" vira "desdobramento": a primeira palavra da nota é o tipo do evento. */
+export const stockEventKind = (note: string): string => note.split(" ")[0]!.toLowerCase();
 
 /**
  * A fonte ajusta o valor por ação pelos eventos em ações posteriores à data-com. A família recebeu o
@@ -128,6 +134,8 @@ export interface ExistingDividend {
 export interface ReconcileInput {
   assetClass: string;
   trades: TradeInput[];
+  /** Eventos em ações já aplicados ao investimento. */
+  stockEvents?: StockEvent[];
   /** Proventos de mercado do ticker do investimento. */
   events: MarketProvento[];
   /** Todos os proventos do investimento. */
@@ -177,7 +185,7 @@ export function reconcileProventos(input: ReconcileInput): ProventoPlan {
   for (const event of input.events) {
     if (input.blocked.has(event.id)) continue;
     const current = automatic.get(event.id);
-    const quantity = entitledQuantity(input.trades, event.comDate);
+    const quantity = entitledQuantity(input.trades, event.comDate, input.stockEvents);
     if (money(quantity).lte(0)) {
       if (current) plan.remove.push(current);
       continue;
