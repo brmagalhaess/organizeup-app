@@ -22,7 +22,7 @@ import { migrate, migrateOptionsFromEnv } from "@organizeup/db/migrator";
 import { todayIn } from "@organizeup/domain";
 import { dailyAgentsSentinel, runDailyAgents } from "./daily-agents";
 import { reportingFailures, reportJobFailure } from "./diagnostics";
-import { MARKET_SCHEDULES, runMarketDataJob } from "./market-data";
+import { MARKET_SCHEDULES, maxCallsPerDay, runMarketDataJob } from "./market-data";
 import { runInsightsJob } from "./insights";
 import { snapshotNetWorth } from "./net-worth";
 
@@ -32,10 +32,11 @@ const log = pino({ base: { service: "worker" } });
 const commit = process.env.APP_COMMIT ?? "dev";
 const workerId = `${hostname()}:${process.pid}`;
 const dailyAgentsOn = process.env.DAILY_AGENTS_ENABLED !== "false";
-/** O painel do serviço mostra só se existe: nunca o valor. */
+/** O painel do serviço mostra se a chave existe, nunca o valor. O teto de chamadas não é segredo. */
 const integrations = {
   dailyAgents: dailyAgentsOn,
   brapi: Boolean(process.env.BRAPI_TOKEN),
+  brapiMaxCalls: maxCallsPerDay(),
   ai: assistantConfigured(),
 };
 

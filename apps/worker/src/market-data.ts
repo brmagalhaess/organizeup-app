@@ -1,6 +1,7 @@
 // Job `market-data` (ADR-0017): cotações, proventos e índices públicos, gravados nas tabelas globais
 // antes de os agentes da madrugada lerem. A rotina fica em @organizeup/agents.
-import { DEFAULT_MAX_CALLS_PER_DAY, runMarketData } from "@organizeup/agents";
+import { DEFAULT_MAX_CALLS_PER_DAY, MERCADO_AGENT, runMarketData } from "@organizeup/agents";
+import { readPlatformFlags } from "@organizeup/db";
 import { ACTIVE_DAYS } from "./daily-agents";
 
 interface Log {
@@ -15,12 +16,18 @@ export const MARKET_SCHEDULES = [
   { key: "madrugada", cron: "30 3 * * 2-6" },
 ] as const;
 
-function maxCallsPerDay(): number {
+export function maxCallsPerDay(): number {
   const parsed = Number.parseInt(process.env.BRAPI_MAX_CALLS_PER_DAY ?? "", 10);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_MAX_CALLS_PER_DAY;
 }
 
 export async function runMarketDataJob(log: Log): Promise<void> {
+  // Como os outros agentes: o painel desliga, e o modo manutenção para tudo.
+  const flags = await readPlatformFlags();
+  if (flags.maintenance || flags.disabledAgents.includes(MERCADO_AGENT)) {
+    log.info({}, "mercado pulado: desligado no painel");
+    return;
+  }
   await runMarketData({
     log,
     catalog: true,

@@ -1,7 +1,14 @@
 // Job `ai-insights`: dicas por tela, uma família por vez, depois dos agentes de regras (§5). Falha de
 // uma família não para as outras. Logs só com id da família, código do erro e contagens.
 import { assistantConfigured, createModelClient, runNightlyInsights } from "@organizeup/ai";
-import { fromJob, listActiveHouseholdIds, readPlatformFlags, recordAgentRun } from "@organizeup/db";
+import {
+  fromJob,
+  hasAgentRunToday,
+  listActiveHouseholdIds,
+  readPlatformFlags,
+  recordAgentDiscards,
+  recordAgentRun,
+} from "@organizeup/db";
 import { todayIn } from "@organizeup/domain";
 import { ACTIVE_DAYS } from "./daily-agents";
 import { reportAgentFailure } from "./diagnostics";
@@ -47,6 +54,10 @@ export async function runInsightsJob(log: Log): Promise<void> {
     }
   }
   const durationMs = Date.now() - startedAt;
-  await recordAgentRun(day, INSIGHTS_AGENT, { ...counts, durationMs });
+  if (discarded > 0) await recordAgentDiscards(day, INSIGHTS_AGENT, discarded);
+  // Pedir de novo no mesmo dia pula quem já recebeu dicas: sem ninguém atendido, a rodada do dia vale.
+  if (counts.households > 0 || !(await hasAgentRunToday(day, INSIGHTS_AGENT))) {
+    await recordAgentRun(day, INSIGHTS_AGENT, { ...counts, durationMs });
+  }
   log.info({ ...counts, discarded, durationMs }, "dicas concluídas");
 }
