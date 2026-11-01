@@ -11,7 +11,7 @@ export interface EventFormState {
 }
 
 const schema = z.object({
-  title: z.string().trim().min(1, "Informe o compromisso.").max(120),
+  title: z.string().trim().min(1, "Informe o nome do evento.").max(120),
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.")
@@ -45,7 +45,7 @@ export async function saveEvent(_prev: EventFormState, form: FormData): Promise<
     await audit(tx, ctx, "create", "calendar_events", created!.id);
   });
   revalidatePath("/app", "layout");
-  return { ok: true, message: "Compromisso salvo." };
+  return { ok: true, message: "Evento salvo." };
 }
 
 export async function deleteEvent(form: FormData): Promise<void> {

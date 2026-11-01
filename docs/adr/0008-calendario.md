@@ -14,8 +14,11 @@ Status: aceito (2026-10-30)
   Mês passado não tem previsão, e o cálculo para em 24 meses à frente.
 - **Pagar pelo dia** usa o mesmo `confirmEntry` das outras telas.
 - **Semana começa no domingo**, como nos calendários brasileiros.
-- **Cor nunca sozinha**: no computador cada item tem nome e ícone. No celular as marcas são pequenas, mas o
-  dia abre com os nomes e a agenda do mês lista tudo em texto.
+- **Cor nunca sozinha**: na grade do computador cada tipo tem seu ícone; no celular as marcas são pontos.
+  Nos dois casos, o painel do dia, ao lado ou abaixo da grade, lista cada item com ícone, rótulo e ações.
+- **Tipos de item** (`calendarItemType` em `packages/agents`): conta, receita, cartão, dívida, meta, viagem e
+  evento. O previsto diz a origem em `source`; o que já foi pago diz pela categoria do sistema; viagem é o
+  evento ligado a `trips.calendar_event_id`. O filtro por tipo roda no navegador, sobre o mês já carregado.
 
 ## Fora do escopo por enquanto
 
