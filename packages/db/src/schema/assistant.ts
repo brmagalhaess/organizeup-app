@@ -1,4 +1,5 @@
 // Assistente com IA (ADR-0018). Ver migrations/0019_assistente.sql.
+import { sql } from "drizzle-orm";
 import {
   bigint,
   date,
@@ -61,6 +62,57 @@ export const householdInsights = pgTable(
   },
   (t) => [unique().on(t.householdId, t.id), unique().on(t.householdId, t.day, t.dedupeKey)],
 );
+
+export const MEMORY_KINDS = ["fato", "preferencia", "objetivo"] as const;
+export type HouseholdMemoryKind = (typeof MEMORY_KINDS)[number];
+
+// `search` existe só no banco: é coluna gerada, usada direto em SQL.
+/** O que a família pediu para lembrar. Ver migrations/0024_memoria_conhecimento.sql. */
+export const householdMemories = pgTable(
+  "household_memories",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: MEMORY_KINDS }).notNull(),
+    content: text("content").notNull(),
+    source: text("source", { enum: ["conversa", "familia"] })
+      .notNull()
+      .default("conversa"),
+    confidence: smallint("confidence").notNull().default(2),
+    expiresOn: date("expires_on", { mode: "string" }),
+    supersededBy: text("superseded_by"),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("household_memories_active_idx")
+      .on(t.householdId, t.createdAt.desc())
+      .where(sql`superseded_by IS NULL`),
+    foreignKey({
+      columns: [t.householdId, t.supersededBy],
+      foreignColumns: [t.householdId, t.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+/** Regras públicas com fonte, sem RLS, como market_quotes. O texto vem de knowledge-seed.ts. */
+export const knowledgeChunks = pgTable("knowledge_chunks", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  slug: text("slug").notNull().unique(),
+  topic: text("topic").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  sourceName: text("source_name").notNull(),
+  sourceUrl: text("source_url").notNull(),
+  reviewedOn: date("reviewed_on", { mode: "string" }).notNull(),
+});
 
 export const ASSISTANT_ROLES = ["user", "assistant"] as const;
 export type AssistantRole = (typeof ASSISTANT_ROLES)[number];

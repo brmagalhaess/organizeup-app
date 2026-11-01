@@ -113,6 +113,8 @@ export {
   type MarketQuoteRow,
   type MarketStockEventRow,
 } from "./market";
+export { searchKnowledge } from "./knowledge";
+export { KNOWLEDGE_SEED, type KnowledgeSeed } from "./knowledge-seed";
 export {
   agentWakeKey,
   dailyAgentsKey,
