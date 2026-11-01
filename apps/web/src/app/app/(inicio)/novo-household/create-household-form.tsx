@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Field, FormMessage, Input } from "@/components/ui";
@@ -17,6 +18,7 @@ function slugify(name: string): string {
 }
 
 export function CreateHouseholdForm() {
+  const t = useTranslations("familiaOnboarding.create");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -33,11 +35,7 @@ export function CreateHouseholdForm() {
     });
     if (createError || !data) {
       setPending(false);
-      setError(
-        createError?.message === "MAINTENANCE"
-          ? "O sistema está em manutenção. Tente de novo mais tarde."
-          : "Não foi possível criar a família. Tente novamente.",
-      );
+      setError(t(createError?.message === "MAINTENANCE" ? "maintenanceError" : "failed"));
       return;
     }
     const { error: activeError } = await authClient.organization.setActive({
@@ -45,7 +43,7 @@ export function CreateHouseholdForm() {
     });
     if (activeError) {
       setPending(false);
-      setError("Família criada, mas não foi possível abri-la. Entre novamente.");
+      setError(t("openFailed"));
       return;
     }
     const result = await bootstrapHousehold({
@@ -54,7 +52,7 @@ export function CreateHouseholdForm() {
     });
     if (!result.ok) {
       setPending(false);
-      setError(result.message ?? "Não foi possível concluir a configuração.");
+      setError(result.message ?? t("setupFailed"));
       return;
     }
     router.replace("/app");
@@ -63,20 +61,20 @@ export function CreateHouseholdForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <Field label="Nome da família" hint='Ex.: "Família Souza" ou "Casa da Ana e do Leo".'>
+      <Field label={t("name")} hint={t("nameHint")}>
         <Input name="name" required maxLength={80} />
       </Field>
       <div className="grid grid-cols-[1fr_6rem] gap-3">
-        <Field label="Cidade onde moram">
+        <Field label={t("city")}>
           <Input name="city" maxLength={80} autoComplete="address-level2" />
         </Field>
-        <Field label="UF">
+        <Field label={t("state")}>
           <Input name="state" maxLength={2} autoComplete="address-level1" className="uppercase" />
         </Field>
       </div>
       <FormMessage message={error} />
       <Button type="submit" disabled={pending}>
-        {pending ? "Criando…" : "Criar família"}
+        {t(pending ? "pending" : "submit")}
       </Button>
     </form>
   );

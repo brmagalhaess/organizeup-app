@@ -1411,5 +1411,157 @@
       "goalDateChanged": "La fecha de la meta ya se cambió; no se deshizo nada.",
       "goalDateRestored": "Fecha de la meta restaurada."
     }
+  },
+  "familiaOnboarding": {
+    "maintenance": "Estamos en mantenimiento. Crear una familia y hacer cambios están desactivados por ahora.",
+    "create": {
+      "metaTitle": "Nueva familia",
+      "title": "Crea el espacio de tu familia",
+      "text": "Aquí quedan ingresos, gastos, objetivos y el plan de jubilación. Solo quien invites tendrá acceso.",
+      "name": "Nombre de la familia",
+      "nameHint": "Ej.: \"Familia Souza\" o \"Casa de Ana y Leo\".",
+      "city": "Ciudad donde viven",
+      "state": "Estado",
+      "pending": "Creando…",
+      "submit": "Crear familia",
+      "maintenanceError": "El sistema está en mantenimiento. Inténtalo más tarde.",
+      "failed": "No se pudo crear la familia. Inténtalo de nuevo.",
+      "openFailed": "Familia creada, pero no se pudo abrir. Vuelve a entrar.",
+      "setupFailed": "No se pudo completar la configuración.",
+      "ownerOnly": "Solo el responsable puede configurar.",
+      "invalid": "Datos no válidos."
+    },
+    "choose": {
+      "metaTitle": "Elegir familia",
+      "title": "¿Qué familia quieres abrir?",
+      "suspended": "Suspendida",
+      "createOther": "Crear otra familia",
+      "roles": {
+        "owner": "Responsable",
+        "adult": "Adulto",
+        "child": "Niño",
+        "viewer": "Lectura",
+        "other": "Miembro"
+      }
+    },
+    "suspended": {
+      "metaTitle": "Acceso suspendido",
+      "title": "El acceso a esta familia está suspendido",
+      "text": "La administración de OrganizeUp suspendió el acceso. Los datos de la familia siguen guardados. Para saber más, habla con soporte.",
+      "open": "Abrir {name}",
+      "signOut": "Salir"
+    },
+    "complete": {
+      "metaTitle": "Completar registro",
+      "title": "Completar registro",
+      "backToPanel": "Volver al panel",
+      "adultsOnly": "Solo el responsable o un adulto puede completar el registro.",
+      "steps": {
+        "family": "Tu familia",
+        "retirement": "Jubilación",
+        "trips": "Viajes",
+        "goal": "Primera meta"
+      },
+      "stepTitle": "Paso {step} de {total} · {name}",
+      "progress": "Progreso del registro",
+      "privacy": "Estos datos quedan solo en tu familia y sirven para el plan de jubilación. <link>Mira qué cambió.</link>",
+      "previous": "Volver al paso anterior",
+      "suggestedYear": "Sugerimos {year}, cuando {name} cumple {age} años.",
+      "skip": "Saltar por ahora",
+      "continue": "Continuar",
+      "finish": "Concluir",
+      "personAdded": "Persona añadida."
+    },
+    "family": {
+      "birthOf": "Nacimiento de {name}",
+      "birthHint": "Solo mes y año. Es la base del plan de jubilación.",
+      "others": "Otras personas",
+      "people": "Personas de la familia",
+      "name": "Nombre",
+      "relation": "Relación",
+      "birth": "Nacimiento",
+      "add": "Añadir persona",
+      "wedding": "Matrimonio",
+      "weddingHint": "Opcional. Con el día, entra en el calendario como aniversario de boda.",
+      "relations": {
+        "conjuge": "Cónyuge",
+        "filho": "Hijo(a)",
+        "pai_mae": "Padre/Madre",
+        "outro": "Otro"
+      }
+    },
+    "retirement": {
+      "year": "Año en que quieren dejar de trabajar",
+      "income": "Ingreso que quieres al mes",
+      "incomeHint": "Vacío: usamos tu gasto promedio",
+      "yield": "Rendimiento anual de la cartera (%)",
+      "yieldHint": "Cuánto paga la cartera en dividendos al año. Ej.: R$ 100 mil que pagan R$ 6 mil = 6 %.",
+      "pensionHint": "Si no lo sabes, sáltalo; puedes rellenarlo después en Familia"
+    },
+    "trips": {
+      "perYear": "Cuántos viajes al año",
+      "days": "Cuántos días suelen durar"
+    },
+    "goal": {
+      "optional": "Opcional. ¿Sin una meta en mente? Déjalo en blanco y concluye.",
+      "name": "Nombre de la meta",
+      "kind": "Tipo",
+      "amount": "Cuánto cuesta (R$)",
+      "month": "Cuándo quieres lograrla",
+      "account": "De dónde sale",
+      "accountHint": "La cuenta de donde sale el dinero cada mes.",
+      "kinds": {
+        "veiculo": "Coche o moto",
+        "imovel": "Casa o apartamento",
+        "reforma": "Reforma",
+        "educacao": "Estudios",
+        "compra": "Compra",
+        "evento": "Fiesta o evento",
+        "outro": "Otro"
+      }
+    },
+    "person": {
+      "workStatus": "Situación laboral",
+      "notInformed": "No informado",
+      "work": {
+        "clt": "CLT (empleo formal)",
+        "pj_autonomo": "Autónomo o contratista",
+        "servidor": "Funcionario público",
+        "aposentado": "Jubilado(a)",
+        "estudante": "Estudiante",
+        "sem_renda": "Sin ingresos",
+        "outro": "Otro"
+      },
+      "inss": "¿Cotiza al INSS?",
+      "yes": "Sí",
+      "no": "No",
+      "pension": "Beneficio mensual esperado (R$)",
+      "day": "Día",
+      "month": "Mes",
+      "year": "Año",
+      "choose": "Elige"
+    },
+    "errors": {
+      "name": "Escribe el nombre.",
+      "relation": "Elige la relación.",
+      "monthYear": "Usa un mes/año válidos.",
+      "day": "Indica un día del 1 al 31.",
+      "month": "Elige el mes.",
+      "weddingYear": "Indica un año entre 1900 y 2100.",
+      "noSuchDay": "Ese día no existe.",
+      "income": "Escribe el ingreso como 6.000,00.",
+      "yield": "Escribe un porcentaje hasta 30, como 6 o 6,5.",
+      "retirementYear": "Indica un año entre 1950 y 2150.",
+      "workStatus": "Elige la situación laboral.",
+      "option": "Elige una opción.",
+      "pension": "Escribe el beneficio como 2.500,00.",
+      "tripsPerYear": "Indica de 0 a 12 viajes al año.",
+      "tripDays": "Indica de 1 a 60 días.",
+      "goalName": "Escribe el nombre de la meta.",
+      "goalKind": "Elige el tipo.",
+      "goalAmountFormat": "Escribe el importe como 80.000,00.",
+      "goalAmount": "Indica cuánto cuesta.",
+      "goalAccount": "Elige la cuenta de donde sale."
+    }
   }
 }

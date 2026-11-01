@@ -1411,5 +1411,157 @@
       "goalDateChanged": "A data da meta já foi alterada; nada foi desfeito.",
       "goalDateRestored": "Data da meta devolvida à anterior."
     }
+  },
+  "familiaOnboarding": {
+    "maintenance": "Estamos em manutenção. Criar família e fazer alterações estão desligados por enquanto.",
+    "create": {
+      "metaTitle": "Nova família",
+      "title": "Crie o espaço da sua família",
+      "text": "É aqui que ficam receitas, despesas, objetivos e o plano de aposentadoria. Só quem você convidar terá acesso.",
+      "name": "Nome da família",
+      "nameHint": "Ex.: \"Família Souza\" ou \"Casa da Ana e do Leo\".",
+      "city": "Cidade onde moram",
+      "state": "UF",
+      "pending": "Criando…",
+      "submit": "Criar família",
+      "maintenanceError": "O sistema está em manutenção. Tente de novo mais tarde.",
+      "failed": "Não foi possível criar a família. Tente novamente.",
+      "openFailed": "Família criada, mas não foi possível abri-la. Entre novamente.",
+      "setupFailed": "Não foi possível concluir a configuração.",
+      "ownerOnly": "Somente o responsável pode configurar.",
+      "invalid": "Dados inválidos."
+    },
+    "choose": {
+      "metaTitle": "Escolher família",
+      "title": "Qual família você quer abrir?",
+      "suspended": "Suspensa",
+      "createOther": "Criar outra família",
+      "roles": {
+        "owner": "Responsável",
+        "adult": "Adulto",
+        "child": "Criança",
+        "viewer": "Leitura",
+        "other": "Membro"
+      }
+    },
+    "suspended": {
+      "metaTitle": "Acesso suspenso",
+      "title": "O acesso a esta família está suspenso",
+      "text": "A administração do OrganizeUp suspendeu o acesso. Os dados da família continuam guardados. Para saber mais, fale com o suporte.",
+      "open": "Abrir {name}",
+      "signOut": "Sair"
+    },
+    "complete": {
+      "metaTitle": "Completar cadastro",
+      "title": "Completar cadastro",
+      "backToPanel": "Voltar ao painel",
+      "adultsOnly": "Só o responsável ou um adulto pode completar o cadastro.",
+      "steps": {
+        "family": "Sua família",
+        "retirement": "Aposentadoria",
+        "trips": "Viagens",
+        "goal": "Primeira meta"
+      },
+      "stepTitle": "Passo {step} de {total} · {name}",
+      "progress": "Progresso do cadastro",
+      "privacy": "Esses dados ficam só na sua família e servem para o plano de aposentadoria. <link>Veja o que mudou.</link>",
+      "previous": "Voltar ao passo anterior",
+      "suggestedYear": "Sugerimos {year}, quando {name} faz {age} anos.",
+      "skip": "Pular por agora",
+      "continue": "Continuar",
+      "finish": "Concluir",
+      "personAdded": "Pessoa adicionada."
+    },
+    "family": {
+      "birthOf": "Nascimento de {name}",
+      "birthHint": "Só mês e ano. É a base do plano de aposentadoria.",
+      "others": "Outras pessoas",
+      "people": "Pessoas da família",
+      "name": "Nome",
+      "relation": "Relação",
+      "birth": "Nascimento",
+      "add": "Adicionar pessoa",
+      "wedding": "Casamento",
+      "weddingHint": "Opcional. Com o dia, entra no calendário como “Aniversário de casamento”.",
+      "relations": {
+        "conjuge": "Cônjuge",
+        "filho": "Filho(a)",
+        "pai_mae": "Pai/Mãe",
+        "outro": "Outro"
+      }
+    },
+    "retirement": {
+      "year": "Ano em que querem parar",
+      "income": "Renda que você quer por mês",
+      "incomeHint": "Vazio: usamos seu gasto médio",
+      "yield": "Rendimento anual da carteira (%)",
+      "yieldHint": "Quanto a carteira paga em proventos por ano. Ex.: R$ 100 mil que pagam R$ 6 mil = 6%.",
+      "pensionHint": "Se não sabe, pule; dá para preencher depois em Família"
+    },
+    "trips": {
+      "perYear": "Quantas viagens por ano",
+      "days": "Quantos dias costumam durar"
+    },
+    "goal": {
+      "optional": "Opcional. Sem uma meta em mente? Deixe em branco e conclua.",
+      "name": "Nome da meta",
+      "kind": "Tipo",
+      "amount": "Quanto custa (R$)",
+      "month": "Quando quer ter conquistado",
+      "account": "De onde sai",
+      "accountHint": "A conta de onde o dinheiro sai todo mês.",
+      "kinds": {
+        "veiculo": "Carro ou moto",
+        "imovel": "Casa ou apartamento",
+        "reforma": "Reforma",
+        "educacao": "Estudos",
+        "compra": "Compra",
+        "evento": "Festa ou evento",
+        "outro": "Outro"
+      }
+    },
+    "person": {
+      "workStatus": "Situação de trabalho",
+      "notInformed": "Não informado",
+      "work": {
+        "clt": "CLT (carteira assinada)",
+        "pj_autonomo": "PJ ou autônomo",
+        "servidor": "Servidor público",
+        "aposentado": "Aposentado(a)",
+        "estudante": "Estudante",
+        "sem_renda": "Sem renda",
+        "outro": "Outro"
+      },
+      "inss": "Contribui para o INSS?",
+      "yes": "Sim",
+      "no": "Não",
+      "pension": "Benefício mensal esperado (R$)",
+      "day": "Dia",
+      "month": "Mês",
+      "year": "Ano",
+      "choose": "Escolha"
+    },
+    "errors": {
+      "name": "Informe o nome.",
+      "relation": "Escolha a relação.",
+      "monthYear": "Use mês/ano válidos.",
+      "day": "Informe um dia de 1 a 31.",
+      "month": "Escolha o mês.",
+      "weddingYear": "Informe um ano entre 1900 e 2100.",
+      "noSuchDay": "Esse dia não existe.",
+      "income": "Informe a renda como 6.000,00.",
+      "yield": "Informe um percentual até 30, como 6 ou 6,5.",
+      "retirementYear": "Informe um ano entre 1950 e 2150.",
+      "workStatus": "Escolha a situação de trabalho.",
+      "option": "Escolha uma opção.",
+      "pension": "Informe o benefício como 2.500,00.",
+      "tripsPerYear": "Informe de 0 a 12 viagens por ano.",
+      "tripDays": "Informe de 1 a 60 dias.",
+      "goalName": "Informe o nome da meta.",
+      "goalKind": "Escolha o tipo.",
+      "goalAmountFormat": "Informe o valor como 80.000,00.",
+      "goalAmount": "Informe quanto custa.",
+      "goalAccount": "Escolha a conta de onde sai."
+    }
   }
 }

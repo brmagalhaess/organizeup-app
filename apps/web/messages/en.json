@@ -1411,5 +1411,157 @@
       "goalDateChanged": "The goal date was already changed; nothing was undone.",
       "goalDateRestored": "Goal date restored."
     }
+  },
+  "familiaOnboarding": {
+    "maintenance": "We're under maintenance. Creating a family and making changes are turned off for now.",
+    "create": {
+      "metaTitle": "New family",
+      "title": "Create your family's space",
+      "text": "This is where your income, expenses, goals and retirement plan live. Only the people you invite will have access.",
+      "name": "Family name",
+      "nameHint": "E.g.: \"The Souza Family\" or \"Ana and Leo's home\".",
+      "city": "City where you live",
+      "state": "State",
+      "pending": "Creating…",
+      "submit": "Create family",
+      "maintenanceError": "The system is under maintenance. Try again later.",
+      "failed": "We couldn't create the family. Try again.",
+      "openFailed": "Family created, but we couldn't open it. Sign in again.",
+      "setupFailed": "We couldn't finish the setup.",
+      "ownerOnly": "Only the person in charge can set this up.",
+      "invalid": "Invalid details."
+    },
+    "choose": {
+      "metaTitle": "Choose family",
+      "title": "Which family do you want to open?",
+      "suspended": "Suspended",
+      "createOther": "Create another family",
+      "roles": {
+        "owner": "Person in charge",
+        "adult": "Adult",
+        "child": "Child",
+        "viewer": "View only",
+        "other": "Member"
+      }
+    },
+    "suspended": {
+      "metaTitle": "Access suspended",
+      "title": "Access to this family is suspended",
+      "text": "OrganizeUp's administration suspended access. The family's data stays stored. To learn more, contact support.",
+      "open": "Open {name}",
+      "signOut": "Sign out"
+    },
+    "complete": {
+      "metaTitle": "Complete your profile",
+      "title": "Complete your profile",
+      "backToPanel": "Back to dashboard",
+      "adultsOnly": "Only the person in charge or an adult can complete the profile.",
+      "steps": {
+        "family": "Your family",
+        "retirement": "Retirement",
+        "trips": "Trips",
+        "goal": "First goal"
+      },
+      "stepTitle": "Step {step} of {total} · {name}",
+      "progress": "Profile progress",
+      "privacy": "This data stays within your family and is used for the retirement plan. <link>See what changed.</link>",
+      "previous": "Back to previous step",
+      "suggestedYear": "We suggest {year}, when {name} turns {age}.",
+      "skip": "Skip for now",
+      "continue": "Continue",
+      "finish": "Finish",
+      "personAdded": "Person added."
+    },
+    "family": {
+      "birthOf": "{name}'s birth date",
+      "birthHint": "Month and year only. It's the basis of the retirement plan.",
+      "others": "Other people",
+      "people": "Family members",
+      "name": "Name",
+      "relation": "Relationship",
+      "birth": "Birth date",
+      "add": "Add person",
+      "wedding": "Wedding",
+      "weddingHint": "Optional. With the day, it goes on the calendar as a wedding anniversary.",
+      "relations": {
+        "conjuge": "Spouse",
+        "filho": "Child",
+        "pai_mae": "Parent",
+        "outro": "Other"
+      }
+    },
+    "retirement": {
+      "year": "Year you want to stop",
+      "income": "Monthly income you want",
+      "incomeHint": "Blank: we use your average spending",
+      "yield": "Annual portfolio yield (%)",
+      "yieldHint": "How much the portfolio pays in dividends per year. E.g.: R$100k paying R$6k = 6%.",
+      "pensionHint": "If you don't know, skip it; you can fill it in later in Family"
+    },
+    "trips": {
+      "perYear": "How many trips per year",
+      "days": "How many days they usually last"
+    },
+    "goal": {
+      "optional": "Optional. No goal in mind? Leave it blank and finish.",
+      "name": "Goal name",
+      "kind": "Type",
+      "amount": "How much it costs (R$)",
+      "month": "When you want to achieve it",
+      "account": "Where it comes from",
+      "accountHint": "The account the money comes out of each month.",
+      "kinds": {
+        "veiculo": "Car or motorcycle",
+        "imovel": "House or apartment",
+        "reforma": "Renovation",
+        "educacao": "Education",
+        "compra": "Purchase",
+        "evento": "Party or event",
+        "outro": "Other"
+      }
+    },
+    "person": {
+      "workStatus": "Work status",
+      "notInformed": "Not provided",
+      "work": {
+        "clt": "CLT (formal employment)",
+        "pj_autonomo": "Contractor or self-employed",
+        "servidor": "Public servant",
+        "aposentado": "Retired",
+        "estudante": "Student",
+        "sem_renda": "No income",
+        "outro": "Other"
+      },
+      "inss": "Contributes to INSS?",
+      "yes": "Yes",
+      "no": "No",
+      "pension": "Expected monthly benefit (R$)",
+      "day": "Day",
+      "month": "Month",
+      "year": "Year",
+      "choose": "Choose"
+    },
+    "errors": {
+      "name": "Enter the name.",
+      "relation": "Choose the relationship.",
+      "monthYear": "Use a valid month/year.",
+      "day": "Enter a day from 1 to 31.",
+      "month": "Choose the month.",
+      "weddingYear": "Enter a year between 1900 and 2100.",
+      "noSuchDay": "That day doesn't exist.",
+      "income": "Enter the income like 6,000.00.",
+      "yield": "Enter a percentage up to 30, like 6 or 6.5.",
+      "retirementYear": "Enter a year between 1950 and 2150.",
+      "workStatus": "Choose the work status.",
+      "option": "Choose an option.",
+      "pension": "Enter the benefit like 2,500.00.",
+      "tripsPerYear": "Enter 0 to 12 trips per year.",
+      "tripDays": "Enter 1 to 60 days.",
+      "goalName": "Enter the goal name.",
+      "goalKind": "Choose the type.",
+      "goalAmountFormat": "Enter the amount like 80,000.00.",
+      "goalAmount": "Enter how much it costs.",
+      "goalAccount": "Choose the account it comes from."
+    }
   }
 }
