@@ -521,5 +521,96 @@
       "close": "Entendi",
       "failed": "Não foi possível confirmar agora. Tente de novo."
     }
+  },
+  "contas": {
+    "metaTitle": "Contas",
+    "eyebrow": "Contas",
+    "description": "Soma do saldo das contas ativas.",
+    "listLabel": "Contas",
+    "types": {
+      "corrente": "Conta corrente",
+      "poupanca": "Poupança",
+      "dinheiro": "Dinheiro em espécie",
+      "investimento": "Investimento"
+    },
+    "currencies": {
+      "BRL": "Real (R$)",
+      "USD": "Dólar (US$)",
+      "EUR": "Euro (€)"
+    },
+    "currencyName": "{currency, select, USD {dólar} EUR {euro} other {real}}",
+    "fx": {
+      "converted": "Convertido pela cotação de {date}.",
+      "missing": "Ainda sem cotação de {names}: essas contas ficam fora da soma.",
+      "noBalanceInReais": "Ainda sem cotação para mostrar em reais",
+      "balanceNote": "O saldo em {currency, select, USD {dólar} EUR {euro} other {real}} só muda com lançamentos; em reais, varia com a cotação."
+    },
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Arquivar {name}",
+      "restore": "Reativar {name}",
+      "transfer": "Transferir entre contas",
+      "new": "Nova conta"
+    },
+    "archived": {
+      "title": "Arquivadas",
+      "text": "Fora dos formulários e do saldo total."
+    },
+    "sheet": {
+      "edit": "Editar conta",
+      "new": "Nova conta"
+    },
+    "form": {
+      "name": "Nome da conta",
+      "nameExample": "Ex.: Banco do dia a dia",
+      "type": "Tipo",
+      "currency": "Moeda",
+      "currencyLocked": "Esta conta já tem movimento, então a moeda fica como está.",
+      "currencyHint": "Lançamentos e saldo ficam nesta moeda. Os totais do app seguem em reais.",
+      "openingBalance": "Saldo inicial ({symbol})",
+      "openingBalanceHint": "Quanto havia na conta antes dos lançamentos daqui. Eles somam e subtraem deste valor.",
+      "save": "Salvar conta"
+    },
+    "transfer": {
+      "from": "De",
+      "to": "Para",
+      "amount": "Valor ({symbol})",
+      "left": "Saiu ({symbol})",
+      "entered": "Entrou ({symbol})",
+      "enteredHint": "Sugerido pela cotação do dia. Ajuste para o que o banco cobrou.",
+      "date": "Data",
+      "note": "Observação",
+      "noteHint": "Opcional.",
+      "explain": "O saldo das duas contas muda. Não conta como gasto nem como receita.",
+      "explainExchange": "O saldo das duas contas muda. Não conta como gasto nem como receita, e a diferença de câmbio também não.",
+      "pending": "Transferindo…",
+      "submit": "Transferir",
+      "recent": "Transferências recentes",
+      "list": "Transferências",
+      "arrow": "para",
+      "received": "entrou {value}",
+      "undo": "Desfazer transferência",
+      "undoText": "O valor volta para a conta de origem.",
+      "undoConfirm": "Desfazer"
+    },
+    "saved": "Conta salva.",
+    "created": "Conta criada.",
+    "errors": {
+      "name": "Informe o nome da conta.",
+      "currency": "Escolha a moeda.",
+      "check": "Verifique.",
+      "checkData": "Verifique os dados.",
+      "from": "Escolha a conta de origem.",
+      "to": "Escolha a conta de destino.",
+      "amount": "Informe o valor.",
+      "date": "Informe a data.",
+      "sameAccount": "Escolha duas contas diferentes.",
+      "amountFormat": "Informe o valor como 500,00.",
+      "accountGone": "Uma das contas não existe mais.",
+      "enteredFormat": "Informe quanto entrou em {symbol}, como 500,00.",
+      "oddRate": "Confira os dois valores: a taxa ficou fora do comum.",
+      "balanceFormat": "Informe o saldo como 1.250,00.",
+      "currencyLocked": "Esta conta já tem movimento e não pode mudar de moeda. Crie outra conta."
+    }
   }
 }

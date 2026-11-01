@@ -521,5 +521,96 @@
       "close": "Got it",
       "failed": "We couldn't confirm this right now. Try again."
     }
+  },
+  "contas": {
+    "metaTitle": "Accounts",
+    "eyebrow": "Accounts",
+    "description": "Total balance of your active accounts.",
+    "listLabel": "Accounts",
+    "types": {
+      "corrente": "Checking account",
+      "poupanca": "Savings account",
+      "dinheiro": "Cash",
+      "investimento": "Investment"
+    },
+    "currencies": {
+      "BRL": "Brazilian real (R$)",
+      "USD": "US dollar (US$)",
+      "EUR": "Euro (€)"
+    },
+    "currencyName": "{currency, select, USD {US dollar} EUR {euro} other {real}}",
+    "fx": {
+      "converted": "Converted at the exchange rate of {date}.",
+      "missing": "No exchange rate yet for {names}: those accounts are left out of the total.",
+      "noBalanceInReais": "No exchange rate yet to show this in reais",
+      "balanceNote": "The balance in {currency, select, USD {US dollars} EUR {euros} other {reais}} only changes with transactions; in reais, it moves with the exchange rate."
+    },
+    "actions": {
+      "edit": "Edit {name}",
+      "archive": "Archive {name}",
+      "restore": "Reactivate {name}",
+      "transfer": "Transfer between accounts",
+      "new": "New account"
+    },
+    "archived": {
+      "title": "Archived",
+      "text": "Left out of forms and the total balance."
+    },
+    "sheet": {
+      "edit": "Edit account",
+      "new": "New account"
+    },
+    "form": {
+      "name": "Account name",
+      "nameExample": "E.g.: Everyday bank",
+      "type": "Type",
+      "currency": "Currency",
+      "currencyLocked": "This account already has activity, so its currency stays as it is.",
+      "currencyHint": "Transactions and balance stay in this currency. App totals remain in reais.",
+      "openingBalance": "Opening balance ({symbol})",
+      "openingBalanceHint": "How much was in the account before the transactions here. They add to and subtract from this amount.",
+      "save": "Save account"
+    },
+    "transfer": {
+      "from": "From",
+      "to": "To",
+      "amount": "Amount ({symbol})",
+      "left": "Sent ({symbol})",
+      "entered": "Received ({symbol})",
+      "enteredHint": "Suggested from today's exchange rate. Adjust it to what the bank charged.",
+      "date": "Date",
+      "note": "Note",
+      "noteHint": "Optional.",
+      "explain": "Both account balances change. It doesn't count as an expense or as income.",
+      "explainExchange": "Both account balances change. It doesn't count as an expense or as income, and neither does the exchange difference.",
+      "pending": "Transferring…",
+      "submit": "Transfer",
+      "recent": "Recent transfers",
+      "list": "Transfers",
+      "arrow": "to",
+      "received": "received {value}",
+      "undo": "Undo transfer",
+      "undoText": "The amount goes back to the source account.",
+      "undoConfirm": "Undo"
+    },
+    "saved": "Account saved.",
+    "created": "Account created.",
+    "errors": {
+      "name": "Enter the account name.",
+      "currency": "Choose a currency.",
+      "check": "Please check.",
+      "checkData": "Please check the details.",
+      "from": "Choose the source account.",
+      "to": "Choose the destination account.",
+      "amount": "Enter the amount.",
+      "date": "Enter the date.",
+      "sameAccount": "Choose two different accounts.",
+      "amountFormat": "Enter the amount like 500.00.",
+      "accountGone": "One of the accounts no longer exists.",
+      "enteredFormat": "Enter how much was received in {symbol}, like 500.00.",
+      "oddRate": "Check both amounts: the exchange rate looks unusual.",
+      "balanceFormat": "Enter the balance like 1,250.00.",
+      "currencyLocked": "This account already has activity and can't change currency. Create another account."
+    }
   }
 }
