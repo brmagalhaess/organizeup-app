@@ -26,6 +26,7 @@ import {
   SuggestionFeedback,
   useSuggestionActions,
 } from "../sugestoes/suggestion-controls";
+import { AddAssetForm } from "./add-asset-form";
 import {
   addTrade,
   deleteInvestment,
@@ -624,7 +625,7 @@ export function PortfolioBoard({
         }
       >
         {sheet?.type === "new" ? (
-          <InvestmentForm key={sheet.nonce} row={null} onDone={close} />
+          <AddAssetForm key={sheet.nonce} today={data.today} onDone={close} />
         ) : null}
         {sheet?.type === "targets" ? (
           <TargetsForm key={sheet.nonce} data={data} onDone={close} />

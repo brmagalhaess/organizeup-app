@@ -5,6 +5,8 @@ import {
   and,
   canWrite,
   eq,
+  findMarketAsset,
+  householdTimezone,
   INVESTMENT_CLASSES,
   investments,
   investmentTargets,
@@ -20,6 +22,7 @@ import {
   positionOf,
   redemptionOf,
   toDbAmount,
+  todayIn,
   type TradeInput,
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
@@ -100,6 +103,111 @@ export async function saveInvestment(_prev: FormState, form: FormData): Promise<
       return { ok: false, message: "Já existe um investimento com este código." };
     throw error;
   }
+  refresh();
+  return { ok: true, message: null };
+}
+
+const assetSchema = z.object({
+  ticker: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9.]{0,12}$/, "Use só letras e números no código."),
+  name: z.string().trim().max(80),
+  assetClass: z.enum(INVESTMENT_CLASSES).nullable(),
+  occurredOn: dateSchema,
+});
+
+/**
+ * Cadastro único: cria o investimento e a primeira compra na mesma transação. Com código do catálogo,
+ * nome, tipo e preço de hoje vêm de lá. Código que a família já tem vira uma compra a mais.
+ */
+export async function addAsset(_prev: FormState, form: FormData): Promise<FormState> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx)) return blocked;
+  const parsed = assetSchema.safeParse({
+    ticker: form.get("ticker") ?? "",
+    name: form.get("name") ?? "",
+    assetClass: form.get("assetClass"),
+    occurredOn: form.get("occurredOn") ?? "",
+  });
+  if (!parsed.success)
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Verifique." };
+  const { ticker, occurredOn } = parsed.data;
+  const catalog = ticker ? await findMarketAsset(ticker) : null;
+  const name = catalog?.name.slice(0, 80) ?? parsed.data.name;
+  const assetClass = catalog?.assetClass ?? parsed.data.assetClass;
+  const fees = positive("Informe as taxas como 4,90.", true).safeParse(form.get("fees") || "0");
+  if (!fees.success) return { ok: false, message: fees.error.issues[0]?.message ?? "Verifique." };
+  if (!name) return { ok: false, message: "Informe o nome." };
+  if (!assetClass) return { ok: false, message: "Escolha o tipo." };
+
+  let quantity: string;
+  let unitPrice: string;
+  let currentValue: string | null = null;
+  if (isUnitPriced(assetClass)) {
+    const fields = z
+      .object({
+        quantity: positive("Informe a quantidade."),
+        unitPrice: positive("Informe o preço pago."),
+      })
+      .safeParse({ quantity: form.get("quantity") ?? "", unitPrice: form.get("unitPrice") ?? "" });
+    if (!fields.success)
+      return { ok: false, message: fields.error.issues[0]?.message ?? "Verifique." };
+    ({ quantity, unitPrice } = fields.data);
+  } else {
+    const amount = positive("Informe o valor aplicado.").safeParse(form.get("amount") ?? "");
+    if (!amount.success)
+      return { ok: false, message: amount.error.issues[0]?.message ?? "Verifique." };
+    quantity = amount.data;
+    unitPrice = "1";
+    const raw = form.get("currentValue");
+    if (raw) {
+      const value = positive("Informe o valor de hoje como 1.050,00.").safeParse(raw);
+      if (!value.success)
+        return { ok: false, message: value.error.issues[0]?.message ?? "Verifique." };
+      currentValue = toDbAmount(value.data);
+    } else {
+      currentValue = toDbAmount(amount.data);
+    }
+  }
+
+  await withHousehold(ctx, async (tx) => {
+    const today = todayIn(await householdTimezone(tx, ctx.householdId));
+    const [existing] = ticker
+      ? await tx
+          .select({ id: investments.id })
+          .from(investments)
+          .where(eq(investments.ticker, ticker))
+      : [];
+    let investmentId = existing?.id;
+    if (!investmentId) {
+      const [created] = await tx
+        .insert(investments)
+        .values({
+          householdId: ctx.householdId,
+          name,
+          assetClass,
+          ticker: ticker || null,
+          ...(catalog?.close
+            ? { currentPrice: catalog.close, valuedOn: today, priceSource: "mercado" as const }
+            : {}),
+          ...(currentValue ? { currentValue, valuedOn: today } : {}),
+        })
+        .returning({ id: investments.id });
+      investmentId = created!.id;
+      await audit(tx, ctx, "create", "investments", investmentId);
+    }
+    await tx.insert(investmentTrades).values({
+      householdId: ctx.householdId,
+      investmentId,
+      side: "compra",
+      occurredOn,
+      quantity,
+      unitPrice,
+      fees: fees.data,
+    });
+  });
   refresh();
   return { ok: true, message: null };
 }

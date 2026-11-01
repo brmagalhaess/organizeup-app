@@ -532,6 +532,44 @@ describe("job de mercado", () => {
     expect(calls.every((url) => !url.includes("token"))).toBe(true);
   });
 
+  it("catálogo guarda ação, FII, ETF e BDR, e a busca acha por código e por nome", async () => {
+    const stocks = [
+      {
+        stock: "FICT3",
+        name: "FICTICIA S.A.",
+        close: 12.5,
+        sector: "Finance",
+        type: "stock",
+        subType: "stock",
+      },
+      { stock: "FICT11", name: "FICTICIA LOG FUNDO", close: 100, type: "fund", subType: "fii" },
+      { stock: "FETF11", name: "ISHARES FICTICIO", close: 50, type: "fund", subType: "etf" },
+      { stock: "FBDR34", name: "BDR FICTICIO", close: 30, type: "bdr", subType: "bdr" },
+      { stock: "FFIP11", name: "FIP FICTICIO", close: 9, type: "fund", subType: "fip" },
+      { stock: "NADA4F", name: "CODIGO FRACIONARIO", close: 1, type: "stock", subType: "stock" },
+    ];
+    const fn = (async (input: string | URL | Request) => {
+      if (String(input).includes("bcdata.sgs")) return sgs();
+      if (String(input).includes("quote/list")) return json({ stocks, hasNextPage: false });
+      return json({}, 404);
+    }) as typeof fetch;
+    const result = await agents.runMarketData({
+      log: silent,
+      activeDays: 60,
+      fetch: fn,
+      pauseMs: 0,
+      catalog: true,
+    });
+    expect(result.assets).toBe(4);
+    const byCode = await db.searchMarketAssets("fict");
+    expect(byCode.map((row) => row.ticker).slice(0, 2)).toEqual(["FICT11", "FICT3"]);
+    expect(byCode.find((row) => row.ticker === "FICT11")).toMatchObject({ assetClass: "fii" });
+    const byName = await db.searchMarketAssets("ishares");
+    expect(byName).toEqual([expect.objectContaining({ ticker: "FETF11", assetClass: "etf_bdr" })]);
+    expect((await db.findMarketAsset("FBDR34"))?.assetClass).toBe("etf_bdr");
+    expect(await db.findMarketAsset("FFIP11")).toBeNull();
+  });
+
   it("guarda só o que a fonte confirma, no valor pago na data", async () => {
     const rows = await inC((tx) =>
       tx.select().from(marketDividends).where(eq(marketDividends.payDate, "2026-12-30")),

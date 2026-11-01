@@ -125,6 +125,12 @@ valendo para os agentes diários, que não chamam nada de fora, e a coleta é um
 `BRAPI_TOKEN` e `BRAPI_MAX_CALLS_PER_DAY`. Sem token, consulta só PETR4, VALE3, MGLU3 e ITUB4, loga um aviso e
 segue. Detalhes no runbook de bootstrap.
 
+## Catálogo de ativos (2026-11-01)
+
+`/api/quote/list` traz a bolsa inteira, sem chave, com nome, tipo, setor e fechamento. O job de mercado grava em
+`market_assets` e o cadastro busca lá: o que a família digita não sai do sistema e não gasta cota. Fica de fora
+fundo que não é ETF, FII, FI-Agro ou FI-Infra, como FIP e FIDC.
+
 ## O que a API devolveu de verdade em 2026-10-31
 
 - Sem token: os quatro tickers livres respondem com todo o histórico de proventos (ITUB4 desde 1995). Qualquer

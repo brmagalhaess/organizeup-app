@@ -116,11 +116,13 @@ async function applyGrants(sql: postgres.Sql) {
     -- Dados de mercado: todos leem; só o worker grava, e nada é apagado (ADR-0017).
     REVOKE INSERT, UPDATE, DELETE
       ON public.market_quotes, public.market_dividends, public.market_indices,
-         public.market_tickers, public.market_usage, public.market_stock_events
+         public.market_tickers, public.market_usage, public.market_stock_events,
+         public.market_assets
       FROM ${app}, ${admin};
     REVOKE DELETE
       ON public.market_quotes, public.market_dividends, public.market_indices,
-         public.market_tickers, public.market_usage, public.market_stock_events
+         public.market_tickers, public.market_usage, public.market_stock_events,
+         public.market_assets
       FROM ${worker};
 
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.

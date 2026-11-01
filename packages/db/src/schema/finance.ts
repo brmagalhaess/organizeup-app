@@ -682,6 +682,16 @@ export const dividendGoals = pgTable("dividend_goals", {
  * Tabelas de mercado (ADR-0017): globais, sem household_id e sem RLS de tenant. Guardam fatos públicos
  * da bolsa e do Banco Central. Todos leem; só ou_worker grava (grants no migrador).
  */
+/** Catálogo da bolsa: uma chamada do job de mercado traz a lista inteira. */
+export const marketAssets = pgTable("market_assets", {
+  ticker: text("ticker").primaryKey(),
+  name: text("name").notNull(),
+  assetClass: text("asset_class", { enum: ["acao", "fii", "etf_bdr"] }).notNull(),
+  sector: text("sector"),
+  close: quantity("close"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
 export const marketQuotes = pgTable("market_quotes", {
   ticker: text("ticker").primaryKey(),
   price: quantity("price").notNull(),

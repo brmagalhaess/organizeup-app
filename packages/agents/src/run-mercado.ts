@@ -10,6 +10,7 @@ import {
   marketCallsOn,
   MARKET_INDEX_CODES,
   recordAgentRun,
+  saveMarketAssets,
   saveMarketDividends,
   saveMarketIndices,
   saveMarketQuote,
@@ -20,6 +21,7 @@ import {
 import { MARKET_RULES, normalizeTicker, todayIn } from "@organizeup/domain";
 import {
   BRAPI_SOURCE,
+  fetchBrapiCatalog,
   fetchBrapiQuote,
   fetchFiiDividends,
   fetchSgsSeries,
@@ -48,6 +50,8 @@ interface Log {
 }
 
 export interface MarketRunOptions {
+  /** Atualiza o catálogo de ativos. O job do worker sempre liga. */
+  catalog?: boolean;
   log: Log;
   token?: string | undefined;
   maxCallsPerDay?: number;
@@ -66,6 +70,7 @@ export interface MarketRunResult {
   quotes: number;
   dividends: number;
   stockEvents: number;
+  assets: number;
   indices: number;
   unknown: number;
   noPlan: number;
@@ -126,6 +131,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     quotes: 0,
     dividends: 0,
     stockEvents: 0,
+    assets: 0,
     indices: 0,
     unknown: 0,
     noPlan: 0,
@@ -173,6 +179,18 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     result.calls += 1;
     await addMarketCalls(today, 1);
   };
+
+  // O catálogo vem primeiro: é uma chamada para a bolsa inteira, e o cadastro depende dele.
+  if (options.catalog && available > 0) {
+    try {
+      const catalog = await fetchBrapiCatalog(client);
+      for (let page = 0; page < catalog.pages; page += 1) await spend();
+      result.assets = await saveMarketAssets(catalog.rows);
+    } catch (error) {
+      result.failed += 1;
+      log.error({ code: codeOf(error) }, "mercado: catálogo de ativos falhou");
+    }
+  }
 
   for (const [index, ticker] of due.entries()) {
     if (available <= 0) {

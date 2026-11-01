@@ -23,6 +23,7 @@ function maxCallsPerDay(): number {
 export async function runMarketDataJob(log: Log): Promise<void> {
   await runMarketData({
     log,
+    catalog: true,
     token: process.env.BRAPI_TOKEN || undefined,
     maxCallsPerDay: maxCallsPerDay(),
     activeDays: ACTIVE_DAYS,

@@ -1,8 +1,10 @@
 // Helpers das tabelas globais de mercado (ADR-0017). Sem dado de família e sem RLS de tenant: rodam
 // fora de withHousehold, como os do schema `ops`. Gravar exige a conexão ou_worker.
-import { asc, sql } from "drizzle-orm";
+import { asc, eq, ilike, like, or, sql } from "drizzle-orm";
+import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
 import {
+  marketAssets,
   marketDividends,
   marketIndices,
   marketQuotes,
@@ -12,6 +14,78 @@ import {
   type MarketIndexCode,
   type MarketTickerStatus,
 } from "./schema";
+
+export interface MarketAssetRow {
+  ticker: string;
+  name: string;
+  assetClass: "acao" | "fii" | "etf_bdr";
+  sector: string | null;
+  close: string | null;
+}
+
+const ASSET_CHUNK = 500;
+const MAX_FOUND = 8;
+
+/** Grava a lista inteira do catálogo. Só o worker tem permissão. */
+export async function saveMarketAssets(rows: MarketAssetRow[]): Promise<number> {
+  const { db } = appPool();
+  for (let start = 0; start < rows.length; start += ASSET_CHUNK) {
+    await db
+      .insert(marketAssets)
+      .values(rows.slice(start, start + ASSET_CHUNK))
+      .onConflictDoUpdate({
+        target: marketAssets.ticker,
+        set: {
+          name: sql`excluded.name`,
+          assetClass: sql`excluded.asset_class`,
+          sector: sql`excluded.sector`,
+          close: sql`excluded.close`,
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+  return rows.length;
+}
+
+const assetFields = {
+  ticker: marketAssets.ticker,
+  name: marketAssets.name,
+  assetClass: marketAssets.assetClass,
+  close: marketAssets.close,
+};
+
+/** Código que começa com o texto vem primeiro, depois nome que o contém. Sem a tabela, lista vazia. */
+export function searchMarketAssets(query: string) {
+  const term = query.trim();
+  const prefix = `${term.replace(/[%_\\]/g, "\\export interface MarketQuoteRow {").toUpperCase()}%`;
+  const anywhere = `%${term.replace(/[%_\\]/g, "\\export interface MarketQuoteRow {")}%`;
+  return tolerateSchemaLag(
+    () =>
+      appPool()
+        .db.select(assetFields)
+        .from(marketAssets)
+        .where(or(like(marketAssets.ticker, prefix), ilike(marketAssets.name, anywhere)))
+        .orderBy(
+          sql`case when ${marketAssets.ticker} like ${prefix} then 0 else 1 end`,
+          marketAssets.ticker,
+        )
+        .limit(MAX_FOUND),
+    [],
+  );
+}
+
+export async function findMarketAsset(ticker: string) {
+  const [row] = await tolerateSchemaLag(
+    () =>
+      appPool()
+        .db.select(assetFields)
+        .from(marketAssets)
+        .where(eq(marketAssets.ticker, ticker))
+        .limit(1),
+    [],
+  );
+  return row ?? null;
+}
 
 export interface MarketQuoteRow {
   ticker: string;

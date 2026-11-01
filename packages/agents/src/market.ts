@@ -6,12 +6,13 @@ import {
   marketDateOf,
   MARKET_RULES,
   money,
+  normalizeTicker,
   paidRate,
   shiftYears,
   type DividendKind,
   type StockEvent,
 } from "@organizeup/domain";
-import type { MarketDividendRow, MarketIndexCode } from "@organizeup/db";
+import type { MarketAssetRow, MarketDividendRow, MarketIndexCode } from "@organizeup/db";
 import { z } from "zod";
 
 export const BRAPI_URL = "https://brapi.dev";
@@ -206,6 +207,59 @@ function dividendRows(
     seen.set(key, seq);
     return { ...row, seq };
   });
+}
+
+const catalogResponse = z.object({
+  stocks: z.array(z.unknown()),
+  hasNextPage: z.boolean().nullish(),
+});
+const catalogRow = z.object({
+  stock: z.string(),
+  name: z.string().nullish(),
+  close: z.number().positive().nullish(),
+  sector: z.string().nullish(),
+  type: z.string().nullish(),
+  subType: z.string().nullish(),
+});
+
+/** Fundo sem renda periódica (FIP, FIDC) fica fora: o catálogo é o que o sistema sabe acompanhar. */
+function catalogClass(type: string, subType: string | null | undefined) {
+  if (type === "stock") return "acao" as const;
+  if (type === "bdr") return "etf_bdr" as const;
+  if (type !== "fund") return null;
+  if (subType === "etf") return "etf_bdr" as const;
+  return subType === "fii" || subType === "fi-agro" || subType === "fi-infra"
+    ? ("fii" as const)
+    : null;
+}
+
+const CATALOG_PAGE = 2000;
+const CATALOG_MAX_PAGES = 5;
+
+/** Lista inteira da bolsa. Rota pública, que vale para todos os ativos numa chamada por página. */
+export async function fetchBrapiCatalog(options: MarketClientOptions) {
+  const rows: MarketAssetRow[] = [];
+  let pages = 0;
+  for (let page = 1; page <= CATALOG_MAX_PAGES; page += 1) {
+    const url = `${BRAPI_URL}/api/quote/list?limit=${CATALOG_PAGE}&page=${page}`;
+    const parsed = catalogResponse.safeParse(await getJson(url, options));
+    if (!parsed.success) throw new MarketError("formato");
+    pages += 1;
+    for (const row of parseEach(catalogRow, parsed.data.stocks)) {
+      const ticker = normalizeTicker(row.stock);
+      const assetClass = catalogClass(row.type ?? "", row.subType);
+      if (ticker !== row.stock || !assetClass) continue;
+      rows.push({
+        ticker,
+        name: (row.name?.trim() || ticker).slice(0, 160),
+        assetClass,
+        sector: row.sector?.trim().slice(0, 120) || null,
+        close: row.close == null ? null : money(String(row.close)).toFixed(8),
+      });
+    }
+    if (!parsed.data.hasNextPage) break;
+  }
+  return { rows, pages };
 }
 
 export interface BrapiQuote {

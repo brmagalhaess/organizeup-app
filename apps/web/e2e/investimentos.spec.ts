@@ -22,10 +22,19 @@ async function signUp(page: Page, name: string) {
 async function newInvestment(page: Page, name: string, assetClass: string, ticker = "") {
   await page.getByRole("button", { name: "Novo investimento" }).click();
   const dialog = page.getByRole("dialog", { name: "Novo investimento" });
-  await dialog.getByLabel("Nome").fill(name);
-  await dialog.getByLabel("Classe").selectOption(assetClass);
-  await dialog.getByLabel("Código").fill(ticker);
-  await dialog.getByRole("button", { name: "Salvar investimento" }).click();
+  if (assetClass === "renda_fixa") {
+    await dialog.getByText("Renda fixa", { exact: true }).click();
+    await dialog.getByLabel("Nome").fill(name);
+    await dialog.getByLabel("Valor aplicado (R$)").fill("1.000,00");
+  } else {
+    await dialog.getByRole("button", { name: "Preencher à mão" }).click();
+    await dialog.getByLabel("Código").fill(ticker);
+    await dialog.getByLabel("Nome").fill(name);
+    await dialog.getByLabel("Quantidade").fill("100");
+    await dialog.getByLabel("Preço pago (R$)").fill("10,00");
+    await dialog.getByLabel("Taxas (R$)").fill("5,00");
+  }
+  await dialog.getByRole("button", { name: "Adicionar à carteira" }).click();
   await expect(
     page.getByRole("list", { name: "Carteira", exact: true }).getByText(name),
   ).toBeVisible();
@@ -47,11 +56,8 @@ test("carteira, proventos e patrimônio", async ({ page, browser }) => {
   await newInvestment(page, "Banco Exemplo", "acao", "exmp3");
   await expect(page.getByText("EXMP3")).toBeVisible();
 
-  // Duas compras: 100 × 10 + 5 de taxa e 100 × 12 dão preço médio de 11,025.
-  for (const [quantity, price, fees] of [
-    ["100", "10,00", "5,00"],
-    ["100", "12,00", ""],
-  ] as const) {
+  // Duas compras: 100 × 10 + 5 de taxa no cadastro e 100 × 12 dão preço médio de 11,025.
+  for (const [quantity, price, fees] of [["100", "12,00", ""]] as const) {
     await page.getByRole("button", { name: "Registrar operação de Banco Exemplo" }).click();
     const dialog = page.getByRole("dialog", { name: "Registrar operação" });
     await dialog.getByLabel("Quantidade").fill(quantity);
@@ -83,11 +89,6 @@ test("carteira, proventos e patrimônio", async ({ page, browser }) => {
 
   // Renda fixa vale o total informado, e o resgate baixa o aplicado na proporção.
   await newInvestment(page, "Tesouro Exemplo", "renda_fixa");
-  await page.getByRole("button", { name: "Registrar operação de Tesouro Exemplo" }).click();
-  const deposit = page.getByRole("dialog", { name: "Registrar operação" });
-  await deposit.getByLabel("Valor (R$)").fill("1.000,00");
-  await deposit.getByRole("button", { name: "Salvar operação" }).click();
-  await expect(deposit).toBeHidden();
   await page.getByRole("button", { name: "Atualizar valor de Tesouro Exemplo" }).click();
   const statement = page.getByRole("dialog", { name: "Atualizar valor" });
   await statement.getByLabel("Valor total hoje (R$)").fill("1.100,00");
