@@ -90,3 +90,40 @@ test("ativa, conversa, vê o que foi olhado, reabre e desliga", async ({ page })
   const off = await page.request.post("/api/assistente", { data: { message: "Oi" } });
   expect(await off.text()).toContain('"state":"precisa_ativar"');
 });
+
+test("anota na conversa, mostra em Configurações e apaga de verdade", async ({ page }) => {
+  await signUp(page, "Noa");
+  await page.goto("/app/configuracoes");
+  await expect(page.getByText("Nada anotado ainda")).toBeVisible();
+
+  const open = page.getByRole("button", { name: "Assistente", exact: true });
+  await open.click();
+  const panel = page.getByRole("dialog", { name: "Assistente" });
+  await panel.getByRole("checkbox", { name: /Autorizo o uso/ }).check();
+  await panel.getByRole("button", { name: "Ativar o assistente" }).click();
+
+  for (const note of ["Prefere resumo aos domingos", "Quer viajar para a praia em família"]) {
+    const question = panel.getByLabel("Sua pergunta");
+    await question.fill(`Anote: ${note}`);
+    await panel.getByRole("button", { name: "Enviar" }).click();
+    await expect(panel.getByText("Tudo em ordem").last()).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Enviar" })).toBeVisible();
+  }
+  await expect(panel.getByRole("list", { name: "O que o assistente olhou" }).last()).toContainText(
+    "deixei anotado",
+  );
+
+  await page.goto("/app/configuracoes");
+  await expect(page.getByText("Prefere resumo aos domingos")).toBeVisible();
+  await expect(page.getByText("Quer viajar para a praia em família")).toBeVisible();
+  expect(await violations(page)).toEqual([]);
+
+  await page.getByRole("button", { name: /Apagar a anotação: Prefere resumo/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Apagar", exact: true }).click();
+  await expect(page.getByText("Prefere resumo aos domingos")).toBeHidden();
+  await expect(page.getByText("Quer viajar para a praia em família")).toBeVisible();
+
+  await page.getByRole("button", { name: "Apagar tudo" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Apagar tudo" }).click();
+  await expect(page.getByText("Nada anotado ainda")).toBeVisible();
+});
