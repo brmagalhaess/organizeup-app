@@ -60,6 +60,11 @@ curl -s -X POST -H "Authorization: Bearer $OPS_TOKEN" -H "Content-Type: applicat
   -d '{"agent":"<seu-slug>","kind":"licao","content":"...","sourceIssue":"ORG-1"}' "$OPS_URL/memory"
 ```
 
+Se o seu ambiente tiver o MCP `organizeup-ops` (`/api/mcp/ops`, mesmo token), prefira as ferramentas dele ao
+curl: `contexto_producao`, `listar_deploys`, `listar_erros_abertos`, `marcar_erro_resolvido`,
+`listar_relatorios`, `salvar_relatorio`, `buscar_memoria` e `salvar_memoria`. Elas passam pela mesma barreira
+de dado pessoal da API.
+
 Guarde só o que evita repetir erro ou trabalho, em uma ou duas frases. Se a API estiver fora do ar, siga
 a tarefa e avise nela.
 

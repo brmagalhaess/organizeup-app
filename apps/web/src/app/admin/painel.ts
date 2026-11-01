@@ -2,6 +2,7 @@
 import "server-only";
 import { recordAdminAccess } from "@organizeup/db";
 import { z } from "zod";
+import { reportActionFailure } from "@/lib/diagnostics";
 import { failed, type AdminResult } from "./painel-result";
 
 export const ADMIN_DB_MISSING = "Falta configurar o acesso administrativo do painel.";
@@ -13,6 +14,7 @@ export const hasAdminDatabase = () => Boolean(process.env.ADMIN_DATABASE_URL);
 export function logAdminFailure(msg: string, error: unknown) {
   const { name, cause } = error as { name?: string; cause?: { code?: string } };
   console.error(JSON.stringify({ level: "error", msg, name, code: cause?.code }));
+  reportActionFailure(msg, error);
 }
 
 /** Registra a visita. `action` é curta e fixa: nunca leva o texto da busca. */

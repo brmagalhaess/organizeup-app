@@ -1,4 +1,5 @@
 // Schema `ops`: dados operacionais SEM PII (lidos pelos agentes via Ops API).
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -127,6 +128,37 @@ export const aiStats = opsSchema.table(
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.day, t.route] })],
+);
+
+/** Erros de web e worker, um por impressão digital e versão. Nada de texto livre: ver 0020. */
+export const diagnostics = opsSchema.table(
+  "diagnostics",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    fingerprint: text("fingerprint").notNull(),
+    service: text("service", { enum: ["web", "worker"] }).notNull(),
+    source: text("source", {
+      enum: ["render", "route", "action", "proxy", "client", "job", "agent"],
+    }).notNull(),
+    errorType: text("error_type").notNull(),
+    route: text("route").notNull(),
+    commit: text("commit").notNull(),
+    code: text("code"),
+    stack: text("stack")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    count: integer("count").notNull().default(1),
+    day: date("day", { mode: "string" }).notNull(),
+    dayCount: integer("day_count").notNull().default(1),
+    firstSeenAt: ts("first_seen_at").notNull().defaultNow(),
+    lastSeenAt: ts("last_seen_at").notNull().defaultNow(),
+    status: text("status", { enum: ["aberto", "resolvido"] })
+      .notNull()
+      .default("aberto"),
+    resolvedAt: ts("resolved_at"),
+  },
+  (t) => [unique().on(t.fingerprint, t.commit)],
 );
 
 /** Contagens diárias do agente de categorização, sem família nem descrição. */

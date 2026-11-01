@@ -12,6 +12,8 @@ export interface AdminAlert {
 export const WORKER_STALE_MINUTES = 15;
 /** Tempo para os dois serviços terminarem de subir depois de um deploy. */
 const DEPLOY_GRACE_MINUTES = 15;
+/** Erro aberto que apareceu há menos que isto é novidade; depois, fica só na tela Sistema. */
+const NEW_ERROR_MINUTES = 24 * 60;
 /** A rodada começa às 04:00 de Brasília; às 06:00 ela já devia ter terminado. */
 const DAILY_RUN_HOUR = 6;
 
@@ -24,6 +26,8 @@ interface Input {
   workers: Array<{ lastSeenAt: Date }>;
   deployments: Array<{ service: "web" | "worker"; commit: string; startedAt: Date }>;
   queues: Array<{ name: string; failed: number }>;
+  /** Erros abertos. */
+  diagnostics: Array<{ firstSeenAt: Date }>;
   statsDay: string | null;
   maintenance: boolean;
   signupClosed: boolean;
@@ -110,6 +114,23 @@ function workerAlert({ workers, now }: Input): AdminAlert | null {
   };
 }
 
+function errorAlert({ diagnostics, now }: Input): AdminAlert | null {
+  const fresh = diagnostics.filter(
+    (error) => minutesAgo(error.firstSeenAt, now) < NEW_ERROR_MINUTES,
+  ).length;
+  if (fresh === 0) return null;
+  return {
+    key: "erros",
+    tone: "danger",
+    title: fresh === 1 ? "Erro novo no serviço" : "Erros novos no serviço",
+    text:
+      fresh === 1
+        ? "1 erro apareceu nas últimas 24 horas e segue aberto."
+        : `${fresh} erros apareceram nas últimas 24 horas e seguem abertos.`,
+    href: "/admin/sistema",
+  };
+}
+
 function deployAlert({ deployments, now }: Input): AdminAlert | null {
   const web = deployments.find((deploy) => deploy.service === "web");
   const worker = deployments.find((deploy) => deploy.service === "worker");
@@ -131,6 +152,8 @@ export function buildAlerts(input: Input): AdminAlert[] {
   const alerts = [...agentAlerts(input)];
   const worker = workerAlert(input);
   if (worker) alerts.push(worker);
+  const error = errorAlert(input);
+  if (error) alerts.push(error);
   const deploy = deployAlert(input);
   if (deploy) alerts.push(deploy);
   const ai = aiAlert(input);

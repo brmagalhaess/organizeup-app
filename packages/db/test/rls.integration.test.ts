@@ -1,5 +1,5 @@
 // Teste de isolamento entre households (obrigatório no CI — ver ADR-0002).
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import postgres from "postgres";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -3035,6 +3035,238 @@ describe("exportação e exclusão da família", () => {
       }
     } finally {
       await owner.end();
+    }
+  });
+});
+
+describe("diagnósticos", () => {
+  const raw = postgres(urls.owner, { max: 1, onnotice: () => {} });
+  const app = postgres(urls.app, { max: 1, onnotice: () => {} });
+  afterAll(async () => {
+    await raw.end();
+    await app.end();
+  });
+
+  let serial = 0;
+  /** Cada teste usa impressão digital e origem próprias. */
+  function event(over: Partial<import("../src/index").DiagnosticEvent> = {}) {
+    serial += 1;
+    return {
+      fingerprint: serial.toString(16).padStart(32, "a"),
+      service: "web" as const,
+      source: "route" as const,
+      errorType: "TypeError",
+      route: "/api/teste",
+      commit: "commit-a",
+      code: null,
+      stack: ["apps/web/src/lib/goals.ts:42"],
+      ...over,
+    };
+  }
+  const rowOf = async (fingerprint: string) => {
+    const rows = await raw<
+      { count: number; day_count: number; status: string; commit: string }[]
+    >`select count, day_count, status, commit from ops.diagnostics
+      where fingerprint = ${fingerprint} order by id`;
+    return rows;
+  };
+
+  it("um erro com e-mail e valor na mensagem grava só o que é permitido", async () => {
+    const message = "Falha na meta de ana@example.com: R$ 1.234,56 família hh-a";
+    await db.captureError(Object.assign(new TypeError(message), { code: "23505" }), {
+      service: "web",
+      source: "action",
+      route: "/app/(painel)/metas/[id]/page?email=ana@example.com",
+      commit: "commit-pii",
+    });
+    const rows = await raw`select * from ops.diagnostics where commit = 'commit-pii'`;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      service: "web",
+      source: "action",
+      error_type: "TypeError",
+      route: "/app/metas/[id]",
+      code: "23505",
+      status: "aberto",
+    });
+    expect(JSON.stringify(rows)).not.toMatch(/ana@example|1\.234,56|hh-a|Falha/);
+  });
+
+  it("repetir soma na mesma linha; outra versão abre outra linha", async () => {
+    const first = event();
+    expect(await db.recordDiagnostic(first)).toBe(true);
+    expect(await db.recordDiagnostic(first)).toBe(true);
+    await db.recordDiagnostic({ ...first, commit: "commit-b" });
+    const rows = await rowOf(first.fingerprint);
+    expect(rows.map((row) => [row.commit, row.count])).toEqual([
+      ["commit-a", 2],
+      ["commit-b", 1],
+    ]);
+    const [item] = await db.listDiagnostics({ fingerprint: first.fingerprint });
+    expect(item).toMatchObject({ count: 3, status: "aberto", errorType: "TypeError" });
+    expect([...item!.commits].sort()).toEqual(["commit-a", "commit-b"]);
+    expect(item!.stack).toEqual(["apps/web/src/lib/goals.ts:42"]);
+    expect(item!.firstSeenAt).toBeInstanceOf(Date);
+    const onlyB = await db.listDiagnostics({ fingerprint: first.fingerprint, commit: "commit-b" });
+    expect(onlyB[0]!.count).toBe(1);
+  });
+
+  it("a mesma impressão digital para de somar no teto do dia e volta no dia seguinte", async () => {
+    const limits = { perFingerprintDay: 3, newPerSourceDay: 1000 };
+    const noisy = event({ commit: "commit-teto" });
+    for (let time = 0; time < 3; time += 1) {
+      expect(await db.recordDiagnostic(noisy, limits)).toBe(true);
+    }
+    expect(await db.recordDiagnostic(noisy, limits)).toBe(false);
+    expect((await rowOf(noisy.fingerprint))[0]).toMatchObject({ count: 3, day_count: 3 });
+
+    await raw`update ops.diagnostics set day = day - 1 where fingerprint = ${noisy.fingerprint}`;
+    expect(await db.recordDiagnostic(noisy, limits)).toBe(true);
+    expect((await rowOf(noisy.fingerprint))[0]).toMatchObject({ count: 4, day_count: 1 });
+  });
+
+  it("cada origem tem o próprio teto de linhas novas por dia", async () => {
+    await raw`delete from ops.diagnostics where source = 'proxy'`;
+    const limits = { perFingerprintDay: 1000, newPerSourceDay: 2 };
+    const first = event({ source: "proxy" });
+    expect(await db.recordDiagnostic(first, limits)).toBe(true);
+    expect(await db.recordDiagnostic(event({ source: "proxy" }), limits)).toBe(true);
+    const third = event({ source: "proxy" });
+    expect(await db.recordDiagnostic(third, limits)).toBe(false);
+    expect(await rowOf(third.fingerprint)).toEqual([]);
+    // O teto só barra erro novo: quem já tem linha continua somando, e as outras origens seguem.
+    expect(await db.recordDiagnostic(first, limits)).toBe(true);
+    expect(await db.recordDiagnostic(event({ source: "job" }), limits)).toBe(true);
+
+    await raw`update ops.diagnostics set first_seen_at = now() - interval '2 days'
+      where source = 'proxy'`;
+    expect(await db.recordDiagnostic(third, limits)).toBe(true);
+  });
+
+  it("marcar resolvido vale para todas as versões, e o erro que volta reabre", async () => {
+    const error = event();
+    await db.recordDiagnostic(error);
+    await db.recordDiagnostic({ ...error, commit: "commit-b" });
+    expect(await db.resolveDiagnostic(error.fingerprint)).toBe(2);
+    expect(await db.resolveDiagnostic(error.fingerprint)).toBe(0);
+    expect(await db.listDiagnostics({ fingerprint: error.fingerprint })).toEqual([]);
+    const [done] = await db.listDiagnostics({
+      fingerprint: error.fingerprint,
+      status: "resolvido",
+    });
+    expect(done!.status).toBe("resolvido");
+
+    // Mesmo no teto do dia: resolvido que continua acontecendo precisa aparecer.
+    await db.recordDiagnostic(
+      { ...error, commit: "commit-b" },
+      { perFingerprintDay: 1, newPerSourceDay: 1000 },
+    );
+    const [open] = await db.listDiagnostics({ fingerprint: error.fingerprint });
+    expect(open).toMatchObject({ status: "aberto", commits: ["commit-b"] });
+    const [all] = await db.listDiagnostics({ fingerprint: error.fingerprint, status: "todos" });
+    expect(all!.status).toBe("aberto");
+    expect(all!.commits).toHaveLength(2);
+  });
+
+  it("filtra por serviço, origem, rota e data", async () => {
+    const worker = event({ service: "worker", source: "agent", route: "agente:metas" });
+    await db.recordDiagnostic(worker);
+    const found = (filters: Parameters<typeof db.listDiagnostics>[0]) =>
+      db
+        .listDiagnostics({ limit: 100, ...filters })
+        .then((rows) => rows.some((row) => row.fingerprint === worker.fingerprint));
+    expect(await found({ service: "worker", source: "agent" })).toBe(true);
+    expect(await found({ route: "agente:metas" })).toBe(true);
+    expect(await found({ service: "web" })).toBe(false);
+    expect(await found({ source: "job" })).toBe(false);
+    expect(await found({ route: "agente:viagens" })).toBe(false);
+    expect(await found({ since: new Date(Date.now() + 60_000) })).toBe(false);
+  });
+
+  it("a taxa por versão usa o tempo que cada uma ficou no ar", async () => {
+    await raw`delete from ops.deployments`;
+    await raw`insert into ops.deployments (service, commit, started_at) values
+      ('web', 'taxa-antiga', now() - interval '12 hours'),
+      ('worker', 'taxa-antiga', now() - interval '11 hours'),
+      ('web', 'taxa-nova', now() - interval '2 hours')`;
+    const old = event({ commit: "taxa-antiga" });
+    const fresh = event({ commit: "taxa-nova" });
+    for (const item of [old, old, old, old, old, fresh, fresh, fresh, fresh]) {
+      await db.recordDiagnostic(item);
+    }
+    await db.recordDiagnostic(event({ commit: "taxa-nova" }));
+
+    const rates = await db.listDiagnosticRates(5);
+    expect(rates.map((rate) => rate.commit)).toEqual(["taxa-nova", "taxa-antiga"]);
+    expect(rates[0]).toMatchObject({ occurrences: 5, fingerprints: 2 });
+    expect(rates[0]!.perHour).toBeCloseTo(2.5, 1);
+    expect(rates[1]).toMatchObject({ occurrences: 5, fingerprints: 1 });
+    expect(rates[1]!.perHour).toBeCloseTo(0.5, 1);
+    expect(rates[0]!.startedAt).toBeInstanceOf(Date);
+  });
+
+  it("web e worker gravam; ninguém da aplicação apaga", async () => {
+    const worker = postgres(urls.worker, { max: 1, onnotice: () => {} });
+    try {
+      for (const role of [app, worker]) {
+        await expect(role`select count(*) from ops.diagnostics`).resolves.toBeDefined();
+        await expect(
+          role`update ops.diagnostics set status = 'aberto' where false`,
+        ).resolves.toBeDefined();
+        await expect(role`delete from ops.diagnostics`).rejects.toThrow();
+      }
+    } finally {
+      await worker.end();
+    }
+    const previous = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = urls.worker;
+    try {
+      const failure = event({ service: "worker", source: "job", route: "job:market-data" });
+      expect(await db.recordDiagnostic(failure)).toBe(true);
+      expect(await db.resolveDiagnostic(failure.fingerprint)).toBe(1);
+    } finally {
+      process.env.DATABASE_URL = previous;
+    }
+  });
+
+  it("o banco recusa texto livre em qualquer coluna", async () => {
+    const insert = (over: Record<string, unknown>) => {
+      const row = {
+        fingerprint: "b".repeat(32),
+        service: "web",
+        source: "route",
+        error_type: "TypeError",
+        route: "/api/teste",
+        commit: "commit-a",
+        code: null,
+        stack: "{}",
+        day: "2026-10-31",
+        ...over,
+      };
+      return app`insert into ops.diagnostics ${app(row as never)}`;
+    };
+    await expect(insert({ error_type: "Falha de ana@example.com" })).rejects.toThrow();
+    await expect(insert({ route: "/app/metas?email=ana@example.com" })).rejects.toThrow();
+    await expect(insert({ code: "R$ 1.234,56" })).rejects.toThrow();
+    await expect(insert({ commit: "ana silva" })).rejects.toThrow();
+    await expect(insert({ fingerprint: "nao-e-hash" })).rejects.toThrow();
+    await expect(insert({ stack: '{"a.ts:1 ana@example.com"}' })).rejects.toThrow();
+    await expect(insert({ service: "outro" })).rejects.toThrow();
+  });
+
+  it("antes da migração chegar, a leitura devolve vazio e o registro não estoura", async () => {
+    await raw`alter table ops.diagnostics rename to diagnostics_escondida`;
+    try {
+      expect(await db.listDiagnostics()).toEqual([]);
+      expect(await db.listDiagnosticRates()).toEqual([]);
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      await expect(
+        db.captureError(new Error("x"), { service: "web", source: "route", route: "/api/x" }),
+      ).resolves.toBeUndefined();
+      expect(log.mock.calls.join()).toContain("42P01");
+      log.mockRestore();
+    } finally {
+      await raw`alter table ops.diagnostics_escondida rename to diagnostics`;
     }
   });
 });

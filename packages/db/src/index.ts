@@ -77,6 +77,25 @@ export {
   type ReportKind,
 } from "./ops";
 export {
+  DIAGNOSTIC_LIMITS,
+  captureError,
+  captureEvent,
+  describeClientError,
+  describeError,
+  listDiagnosticRates,
+  listDiagnostics,
+  normalizeRoute,
+  recordDiagnostic,
+  resolveDiagnostic,
+  type DiagnosticEvent,
+  type DiagnosticFilters,
+  type DiagnosticOrigin,
+  type DiagnosticRate,
+  type DiagnosticService,
+  type DiagnosticSource,
+  type DiagnosticStatus,
+} from "./diagnostics";
+export {
   addMarketCalls,
   listMarketTickers,
   marketCallsOn,

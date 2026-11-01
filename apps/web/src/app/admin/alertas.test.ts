@@ -10,6 +10,7 @@ const quiet = {
   workers: [{ lastSeenAt: new Date("2026-10-31T14:58:00Z") }],
   deployments: [],
   queues: [],
+  diagnostics: [] as Array<{ firstSeenAt: Date }>,
   statsDay: "2026-10-31",
   maintenance: false,
   signupClosed: false,
@@ -53,6 +54,16 @@ describe("alertas do painel", () => {
     expect(keys({ runs, hour: 5 })).toEqual([]);
     expect(keys({ runs, maintenance: true })).toEqual(["manutencao"]);
     expect(keys({ runs, allAgentsOff: true })).toEqual([]);
+  });
+
+  it("erro aberto só é alerta nas primeiras 24 horas", () => {
+    const old = { firstSeenAt: new Date("2026-10-29T15:00:00Z") };
+    const fresh = { firstSeenAt: new Date("2026-10-31T14:00:00Z") };
+    expect(keys({ diagnostics: [old] })).toEqual([]);
+    const [alert] = buildAlerts({ ...quiet, diagnostics: [old, fresh] });
+    expect(alert).toMatchObject({ key: "erros", tone: "danger", href: "/admin/sistema" });
+    expect(alert!.text).toContain("1 erro");
+    expect(buildAlerts({ ...quiet, diagnostics: [fresh, fresh] })[0]!.text).toContain("2 erros");
   });
 
   it("deploy atrasado respeita a folga de subida", () => {

@@ -5,6 +5,7 @@ import {
   adminOverviewCounts,
   listAgentRuns,
   listDeployments,
+  listDiagnostics,
   listPlatformStats,
   listQueueCounts,
   listWorkerHeartbeats,
@@ -70,19 +71,31 @@ export default async function AdminOverviewPage() {
     );
   }
 
-  const [counts, growth, stats, runs, workers, deployments, queues, flags, recent, aiSpend] =
-    await Promise.all([
-      adminOverviewCounts({ onboardingVersion: ONBOARDING_VERSION }),
-      adminGrowth(12),
-      listPlatformStats(84),
-      listAgentRuns(1),
-      listWorkerHeartbeats(),
-      listDeployments(10),
-      listQueueCounts(),
-      platformFlags(),
-      adminAccessList({ limit: 6, excludeActions: AUDIT_VISITS }),
-      monthSpend(),
-    ]);
+  const [
+    counts,
+    growth,
+    stats,
+    runs,
+    workers,
+    deployments,
+    queues,
+    flags,
+    recent,
+    aiSpend,
+    diagnostics,
+  ] = await Promise.all([
+    adminOverviewCounts({ onboardingVersion: ONBOARDING_VERSION }),
+    adminGrowth(12),
+    listPlatformStats(84),
+    listAgentRuns(1),
+    listWorkerHeartbeats(),
+    listDeployments(10),
+    listQueueCounts(),
+    platformFlags(),
+    adminAccessList({ limit: 6, excludeActions: AUDIT_VISITS }),
+    monthSpend(),
+    listDiagnostics({ limit: 100 }),
+  ]);
 
   const latest = stats[0] ?? null;
   const today = todayIn();
@@ -94,6 +107,7 @@ export default async function AdminOverviewPage() {
     workers,
     deployments,
     queues,
+    diagnostics,
     statsDay: latest?.day ?? null,
     maintenance: flags.maintenance,
     signupClosed: flags.signupClosed,
@@ -122,7 +136,7 @@ export default async function AdminOverviewPage() {
       ) : (
         <p className="m-0 flex items-center gap-2 rounded-2xl bg-success-soft px-4 py-3 text-sm font-medium text-success">
           <CircleCheck className="size-5 shrink-0" aria-hidden="true" />
-          Agentes, worker e deploy sem nada pendente.
+          Agentes, worker, deploy e erros sem nada pendente.
         </p>
       )}
 

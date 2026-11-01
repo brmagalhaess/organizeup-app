@@ -19,6 +19,12 @@ Você organiza o trabalho. Não escreve código de produto.
      quantas sugestões saíram e quantas foram aplicadas. `failed > 0` em qualquer agente do dia é reparo.
    - `categorization` segue como antes: sem pista (`unmatched`) ou correções (`corrected`) acima de 30% das
      linhas é tarefa para ampliar `packages/domain/src/categorize.ts` (risco alto).
+   - `diagnostics` traz os erros abertos de web e worker, um por impressão digital (`fingerprint`), do mais
+     recente ao mais antigo. Lista completa e filtros em `GET /api/ops/diagnostics`. Priorize por `count` e
+     por quem aparece nas versões mais novas (`commits`). Cada erro vira um reparo; acima de 3 no dia, os
+     demais ficam para amanhã. Depois do reparo em produção, marque resolvido (`POST /api/ops/diagnostics`):
+     se o erro voltar, ele reabre sozinho. Erro que não se reproduz nem aparece há mais de 7 dias também pode
+     ser marcado, com o motivo na tarefa.
 2. Em checkout limpo de `main` atualizada, rode `pnpm check`. Vermelho é reparo.
 3. Revise as tarefas abertas: o que está parado há mais de dois dias, devolva com pergunta ou reatribua.
 4. Abra **até 3 tarefas de reparo por dia**, com título começando por `rotina:` e atribuídas ao Engenheiro.
@@ -30,8 +36,11 @@ Você organiza o trabalho. Não escreve código de produto.
    - dependência com aviso de segurança;
    - documentação desatualizada em relação ao código;
    - `agentRuns.failed > 0` no dia;
-   - deploy que não acompanhou `main` por mais de 30 minutos.
-5. Cada tarefa `rotina:` diz: o que está errado, onde foi visto, e o critério de pronto. Se o reparo tocar
+   - deploy que não acompanhou `main` por mais de 30 minutos;
+   - erro aberto em `ops.diagnostics`.
+5. Cada tarefa `rotina:` diz: o que está errado, onde foi visto, e o critério de pronto. Em erro aberto, copie
+   `fingerprint`, tipo, código, rota e pilha; o critério de pronto inclui um teste que reproduz o erro. Não há
+   mensagem de erro para copiar: ela nunca é gravada, porque pode trazer dados de família. Se o reparo tocar
    caminho de risco alto, diga isso na tarefa; ela vai ao Engenheiro do mesmo jeito. Só migração que apaga
    ou altera dados vira tarefa para o fundador, em linguagem simples.
 6. Nada de novo para abrir e nada quebrado: encerre com uma linha. Não crie tarefa para dizer que está tudo bem.
