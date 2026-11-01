@@ -25,6 +25,7 @@ import {
   type AgentInput,
   type AgentResult,
 } from "@organizeup/agents";
+import { reportAgentFailure } from "./diagnostics";
 
 interface Log {
   error: (data: object, message: string) => void;
@@ -79,6 +80,7 @@ export async function runDailyAgents(log: Log): Promise<void> {
       );
     } catch (err) {
       log.error({ householdId, code: codeOf(err) }, "agentes diários: fuso da família falhou");
+      await reportAgentFailure("fuso", err);
     }
     const input: AgentInput = { today, householdId };
     let allocation: Allocation | undefined;
@@ -100,6 +102,7 @@ export async function runDailyAgents(log: Log): Promise<void> {
         // Sem a mensagem do erro: ela pode trazer valores da família.
         count.failed += 1;
         log.error({ householdId, agent, code: codeOf(err) }, "agente diário falhou");
+        await reportAgentFailure(agent, err);
         return null;
       }
     };

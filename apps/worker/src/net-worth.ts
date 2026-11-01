@@ -1,12 +1,14 @@
 // Foto mensal do patrimônio de cada família. Cada família roda na própria transação, com RLS.
 import {
   householdTimezone,
+  JOB_QUEUES,
   listHouseholdIds,
   netWorthInputs,
   recordNetWorth,
   withWorkerHousehold,
 } from "@organizeup/db";
 import { money, summarizeNetWorth, todayIn, yearMonthOf } from "@organizeup/domain";
+import { reportJobFailure } from "./diagnostics";
 
 interface Log {
   error: (data: object, message: string) => void;
@@ -35,6 +37,7 @@ export async function snapshotNetWorth(log: Log): Promise<void> {
         { householdId, code: (err as { code?: string }).code },
         "foto do patrimônio falhou",
       );
+      await reportJobFailure(JOB_QUEUES.netWorthSnapshot, err);
     }
   }
   log.info({ households: ids.length, recorded, failed }, "fotos do patrimônio concluídas");

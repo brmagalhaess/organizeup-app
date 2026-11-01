@@ -19,6 +19,7 @@ import { MERCADO_AGENT } from "@organizeup/agents";
 import { migrate, migrateOptionsFromEnv } from "@organizeup/db/migrator";
 import { todayIn } from "@organizeup/domain";
 import { dailyAgentsSentinel, runDailyAgents } from "./daily-agents";
+import { reportingFailures, reportJobFailure } from "./diagnostics";
 import { MARKET_SCHEDULES, runMarketDataJob } from "./market-data";
 import { snapshotNetWorth } from "./net-worth";
 
@@ -56,35 +57,47 @@ async function main() {
     // Manutenção (arquivamento/limpeza) exige DDL; fica para o migrador/rotina dedicada.
     supervise: false,
   });
-  boss.on("error", (err) => log.error({ err }, "pg-boss"));
+  boss.on("error", (err) => {
+    log.error({ err }, "pg-boss");
+    void reportJobFailure("pg-boss", err);
+  });
   await boss.start();
 
-  await boss.work(JOB_QUEUES.opsHeartbeat, async () => {
-    await recordWorkerHeartbeat({
-      workerId,
-      commit,
-      info: { lastJobAt: new Date().toISOString(), ...integrations },
-    });
-  });
+  await boss.work(
+    JOB_QUEUES.opsHeartbeat,
+    reportingFailures(JOB_QUEUES.opsHeartbeat, async () => {
+      await recordWorkerHeartbeat({
+        workerId,
+        commit,
+        info: { lastJobAt: new Date().toISOString(), ...integrations },
+      });
+    }),
+  );
   await boss.schedule(JOB_QUEUES.opsHeartbeat, "*/5 * * * *", null, { tz: "America/Sao_Paulo" });
 
   // Atualiza todo dia a foto do mês: a última de cada mês fica como o fechamento dele.
   // Em manutenção as famílias estão só leitura: a foto do mês espera a próxima rodada.
-  await boss.work(JOB_QUEUES.netWorthSnapshot, async () => {
-    if ((await readPlatformFlags()).maintenance) return;
-    await snapshotNetWorth(log);
-  });
+  await boss.work(
+    JOB_QUEUES.netWorthSnapshot,
+    reportingFailures(JOB_QUEUES.netWorthSnapshot, async () => {
+      if ((await readPlatformFlags()).maintenance) return;
+      await snapshotNetWorth(log);
+    }),
+  );
   await boss.schedule(JOB_QUEUES.netWorthSnapshot, "30 2 * * *", null, {
     tz: "America/Sao_Paulo",
   });
   await boss.send(JOB_QUEUES.netWorthSnapshot, null);
 
   // Contagens do painel do serviço: todo dia às 03:15 e no boot. Só soma; não depende dos agentes.
-  await boss.work(JOB_QUEUES.platformStats, async () => {
-    const day = todayIn();
-    const counts = await collectPlatformStats(day, log);
-    log.info({ day, households: counts.households }, "estatística da plataforma concluída");
-  });
+  await boss.work(
+    JOB_QUEUES.platformStats,
+    reportingFailures(JOB_QUEUES.platformStats, async () => {
+      const day = todayIn();
+      const counts = await collectPlatformStats(day, log);
+      log.info({ day, households: counts.households }, "estatística da plataforma concluída");
+    }),
+  );
   await boss.schedule(JOB_QUEUES.platformStats, "15 3 * * *", null, { tz: "America/Sao_Paulo" });
   await boss.send(JOB_QUEUES.platformStats, null);
 
@@ -96,11 +109,17 @@ async function main() {
     for (const { key } of MARKET_SCHEDULES) await boss.unschedule(JOB_QUEUES.marketData, key);
     log.info("agentes diários desligados (DAILY_AGENTS_ENABLED=false)");
   } else {
-    await boss.work(JOB_QUEUES.marketData, () => runMarketDataJob(log));
+    await boss.work(
+      JOB_QUEUES.marketData,
+      reportingFailures(JOB_QUEUES.marketData, () => runMarketDataJob(log)),
+    );
     for (const { key, cron } of MARKET_SCHEDULES) {
       await boss.schedule(JOB_QUEUES.marketData, cron, null, { tz: "America/Sao_Paulo", key });
     }
-    await boss.work(JOB_QUEUES.dailyAgents, () => runDailyAgents(log));
+    await boss.work(
+      JOB_QUEUES.dailyAgents,
+      reportingFailures(JOB_QUEUES.dailyAgents, () => runDailyAgents(log)),
+    );
     await boss.schedule(JOB_QUEUES.dailyAgents, "0 4 * * *", null, { tz: "America/Sao_Paulo" });
     const today = todayIn();
     // Com chave, o boot atualiza já: quem acabou de colar o token não espera o próximo pregão.
