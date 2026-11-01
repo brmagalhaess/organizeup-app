@@ -1311,6 +1311,178 @@
       "calendarMonth": "revisé tu calendario de {month}"
     }
   },
+  "landing": {
+    "meta": {
+      "title": "OrganizeUp · El plan financiero de tu familia",
+      "description": "Ingresos, gastos, deudas, viajes y jubilación conectados en el plan de tu familia. Datos separados por familia, y nada cambia sin tu confirmación."
+    },
+    "skip": "Saltar al contenido",
+    "language": "Idioma",
+    "nav": {
+      "home": "OrganizeUp, inicio",
+      "main": "Principal",
+      "howItWorks": "Cómo funciona",
+      "inside": "Qué incluye",
+      "security": "Seguridad",
+      "signIn": "Entrar",
+      "signUp": "Crear cuenta"
+    },
+    "hero": {
+      "eyebrow": "Finanzas · Familia · Sueños · Jubilación",
+      "title": "Organiza el hoy. Dale espacio a lo que viene después.",
+      "text": "El dinero de la casa, los viajes que quieren hacer y la jubilación en un mismo plan, en un lenguaje que se entiende.",
+      "start": "Empezar mi plan",
+      "seeHow": "Ver cómo funciona",
+      "note": "Sin contraseña del banco. Datos separados por familia.",
+      "imageAlt": "Familia tomada de la mano, de espaldas, mirando el mar al atardecer"
+    },
+    "how": {
+      "eyebrow": "Cómo funciona",
+      "title": "Planificar juntos, sin hojas de cálculo y sin discusiones.",
+      "imageAlt": "Pareja conversando en la barra de la cocina, con una laptop y una tableta",
+      "steps": {
+        "family": {
+          "title": "Cuéntanos cómo es tu familia",
+          "text": "Quién vive contigo, dónde viven y qué quieren para los próximos años."
+        },
+        "month": {
+          "title": "Mira el dinero del mes",
+          "text": "Ingresos y gastos en un solo lugar, separados entre lo que ya pasó y lo que todavía viene."
+        },
+        "decide": {
+          "title": "Decide con claridad",
+          "text": "Cada cambio aparece ligado a lo que importa: el mes, el fondo de emergencia, el viaje y la jubilación."
+        }
+      }
+    },
+    "glance": {
+      "title": "Todo el mes de un vistazo.",
+      "text": "Lo que entró, lo que salió y lo que quedó. Fácil de leer, incluso si nunca te gustaron las hojas de cálculo."
+    },
+    "preview": {
+      "family": "Familia Oliveira",
+      "month": "Marzo de un vistazo",
+      "onPlan": "En el plan",
+      "received": "Entró",
+      "spent": "Salió",
+      "left": "Quedó",
+      "salary": "Salario",
+      "mortgage": "Hipoteca",
+      "groceries": "Supermercado",
+      "tripFund": "Ahorro para el viaje",
+      "day": "Día {day}",
+      "wealth": "Patrimonio de la familia",
+      "caption": "Pantalla ilustrativa, con valores y familia ficticios."
+    },
+    "modules": {
+      "eyebrow": "Qué incluye",
+      "title": "Un sistema que crece con tu plan.",
+      "text": "Estamos construyendo por etapas, y aquí mostramos exactamente lo que ya funciona.",
+      "available": "Disponible",
+      "building": "En construcción",
+      "items": {
+        "family": {
+          "name": "Familia y configuración",
+          "text": "Personas, ciudad y zona horaria de tu plan."
+        },
+        "cashflow": {
+          "name": "Ingresos y gastos",
+          "text": "Movimientos, importación de extractos, salario neto, 13.º salario (paga extra de fin de año en Brasil), vacaciones y el resumen del mes."
+        },
+        "calendar": {
+          "name": "Calendario",
+          "text": "Vencimientos, compromisos y el saldo previsto de cada día."
+        },
+        "debts": {
+          "name": "Deudas y tarjetas",
+          "text": "Facturas, cuotas, intereses y el mejor orden para pagar."
+        },
+        "reserve": {
+          "name": "Fondo de emergencia y patrimonio",
+          "text": "Tu seguridad y la evolución de lo que es tuyo."
+        },
+        "investments": {
+          "name": "Inversiones",
+          "text": "Cartera, dividendos y clases de activos."
+        },
+        "retirement": {
+          "name": "Jubilación",
+          "text": "El aporte necesario y escenarios con supuestos claros."
+        },
+        "trips": {
+          "name": "Viajes y objetivos",
+          "text": "Sueños con fecha, costo y aporte mensual."
+        },
+        "assistant": {
+          "name": "Asistente de la familia",
+          "text": "Resuelve dudas y explica tu plan."
+        }
+      }
+    },
+    "retirement": {
+      "eyebrow": "Jubilación",
+      "title": "El futuro también es un gasto del mes.",
+      "text": "La jubilación no es un asunto para después. OrganizeUp está pensado para mostrar cuánto guardar hoy para vivir bien mañana, sin renunciar al viaje de los niños.",
+      "note": "Este módulo está en construcción. Las proyecciones siempre mostrarán los supuestos usados.",
+      "imageAlt": "Pareja de ancianos tomada de la mano, de espaldas, caminando por un jardín"
+    },
+    "security": {
+      "eyebrow": "Seguridad",
+      "title": "Tu vida financiera merece respeto.",
+      "items": {
+        "spaces": {
+          "title": "Cada familia en su espacio",
+          "text": "Los datos están separados por familia directamente en la base de datos, y esa separación está cubierta por pruebas automatizadas."
+        },
+        "bank": {
+          "title": "Sin la contraseña de tu banco",
+          "text": "Registras los movimientos en el propio OrganizeUp. No pedimos la contraseña de tu banco ni acceso a tu cuenta."
+        },
+        "connection": {
+          "title": "Conexión protegida",
+          "text": "El acceso se hace por conexión segura (HTTPS), y tu contraseña de OrganizeUp nunca se guarda en texto plano: está protegida con un hash."
+        },
+        "control": {
+          "title": "Tú tienes el control",
+          "text": "OrganizeUp organiza y explica. No mueve dinero y no indica la compra o venta de inversiones."
+        }
+      }
+    },
+    "faq": {
+      "title": "Preguntas frecuentes",
+      "items": {
+        "bank": {
+          "q": "¿Tengo que conectar mi cuenta bancaria?",
+          "a": "No. Registras lo que entra y lo que sale en el propio OrganizeUp, sin dar contraseña ni acceso al banco."
+        },
+        "who": {
+          "q": "¿Quién puede ver mis datos?",
+          "a": "Dentro del sistema, solo quienes forman parte del espacio de tu familia ven esos datos. Cada familia está separada de las demás."
+        },
+        "invest": {
+          "q": "¿OrganizeUp recomienda inversiones?",
+          "a": "No. Te ayuda a organizar y entender tu plan. Las decisiones de inversión siguen siendo tuyas."
+        },
+        "mobile": {
+          "q": "¿Funciona en el celular?",
+          "a": "Sí. El sistema se diseñó primero para la pantalla del celular y funciona directamente en el navegador, sin instalar nada."
+        },
+        "ready": {
+          "q": "¿Ya están listos todos los módulos?",
+          "a": "Todavía no. OrganizeUp se está construyendo por etapas. En esta página ves lo que ya funciona y lo que está en construcción."
+        }
+      }
+    },
+    "closing": {
+      "title": "El próximo capítulo empieza con una conversación en casa."
+    },
+    "footer": {
+      "text": "OrganizeUp es una herramienta de organización financiera. No es un banco ni una correduría, no mueve dinero y no hace recomendaciones de inversión. Fotos ilustrativas, de bancos de imágenes; las personas retratadas no son clientes.",
+      "documents": "Documentos",
+      "terms": "Términos de uso",
+      "privacy": "Política de Privacidad"
+    }
+  },
   "meta": {
     "description": "Las finanzas de tu familia, sus sueños y la jubilación en un solo plan."
   },

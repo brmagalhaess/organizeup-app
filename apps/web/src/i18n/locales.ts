@@ -9,6 +9,12 @@ export const DEFAULT_LOCALE: Locale = "pt-BR";
 export const LOCALE_COOKIE = "organizeup_locale";
 export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
+/** Endereço da landing em cada idioma. */
+export const LANDING_PATHS: Record<Locale, string> = { "pt-BR": "/", en: "/en", es: "/es" };
+
+/** `/en` e `/es`: o endereço escolhe o idioma, e `proxy.ts` avisa por este cabeçalho. */
+export const LANDING_LOCALE_HEADER = "x-organizeup-landing-locale";
+
 /** Cada idioma no próprio idioma: quem não lê o atual ainda acha o seu. */
 export const LOCALE_NAMES: Record<Locale, string> = {
   "pt-BR": "Português (Brasil)",
