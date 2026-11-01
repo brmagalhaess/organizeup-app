@@ -1,3 +1,6 @@
+import { createTranslator } from "next-intl";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { messagesFor } from "@/i18n/messages";
 import type { EmailTemplate } from "./email";
 
 export const RESET_LINK_HOURS = 1;
@@ -19,6 +22,7 @@ const COLOR = {
 type RenderedEmail = { subject: string; html: string; text: string; template: EmailTemplate };
 
 type Layout = {
+  locale: Locale;
   template: EmailTemplate;
   subject: string;
   heading: string;
@@ -48,18 +52,28 @@ function cleanName(value: string) {
   return value.replace(/\s+/g, " ").trim().slice(0, MAX_NAME_LENGTH).trim();
 }
 
-function greeting(name: string) {
+/** Textos do e-mail no idioma de quem recebe. */
+const textsFor = (locale: Locale) =>
+  createTranslator({
+    locale,
+    messages: messagesFor(locale),
+    namespace: "emails" as never,
+  }) as unknown as (key: string, values?: Record<string, string | number>) => string;
+
+function greeting(name: string, locale: Locale) {
+  const t = textsFor(locale);
   const clean = cleanName(name);
-  return clean ? `Olá, ${clean}!` : "Olá!";
+  return clean ? t("helloName", { name: clean }) : t("hello");
 }
 
-function render({ template, subject, heading, paragraphs, action, note }: Layout): RenderedEmail {
+function render(layout: Layout): RenderedEmail {
+  const { locale, template, subject, heading, paragraphs, action, note } = layout;
   const url = escapeHtml(action.url);
   const body = paragraphs
     .map((text) => `<p style="margin:0 0 16px;line-height:1.5">${escapeHtml(text)}</p>`)
     .join("");
   const html = `<!doctype html>
-<html lang="pt-BR">
+<html lang="${locale}">
 <body style="margin:0;padding:24px 12px;background:${COLOR.page};color:${COLOR.text};font-family:Arial,Helvetica,sans-serif;font-size:16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:${COLOR.surface};border-radius:12px">
@@ -68,7 +82,7 @@ function render({ template, subject, heading, paragraphs, action, note }: Layout
 <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:${COLOR.brandDark}">${escapeHtml(heading)}</h1>
 ${body}
 <p style="margin:24px 0"><a href="${url}" style="display:inline-block;padding:12px 20px;border-radius:8px;background:${COLOR.brand};color:#ffffff;font-weight:bold;text-decoration:none">${escapeHtml(action.label)}</a></p>
-<p style="margin:0 0 8px;font-size:14px;color:${COLOR.muted}">Se o botão não abrir, copie este endereço no navegador:</p>
+<p style="margin:0 0 8px;font-size:14px;color:${COLOR.muted}">${escapeHtml(textsFor(locale)("fallbackLink"))}</p>
 <p style="margin:0 0 16px;font-size:14px;word-break:break-all"><a href="${url}" style="color:${COLOR.brand}">${url}</a></p>
 ${note ? `<p style="margin:0;font-size:14px;color:${COLOR.muted}">${escapeHtml(note)}</p>` : ""}
 </td></tr>
@@ -82,74 +96,77 @@ ${note ? `<p style="margin:0;font-size:14px;color:${COLOR.muted}">${escapeHtml(n
   return { subject, html, text, template };
 }
 
-export function resetPasswordEmail({ name, token }: { name: string; token: string }) {
+export function resetPasswordEmail(input: { name: string; token: string; locale?: Locale }) {
+  const { name, token, locale = DEFAULT_LOCALE } = input;
+  const t = textsFor(locale);
   return render({
+    locale,
     template: "redefinir-senha",
-    subject: "Redefina sua senha do OrganizeUp",
-    heading: "Redefina sua senha",
-    paragraphs: [
-      greeting(name),
-      `Recebemos um pedido para trocar a senha da sua conta. O link vale ${RESET_LINK_HOURS} hora.`,
-    ],
+    subject: t("reset.subject"),
+    heading: t("reset.heading"),
+    paragraphs: [greeting(name, locale), t("reset.text", { hours: RESET_LINK_HOURS })],
     action: {
-      label: "Criar nova senha",
+      label: t("reset.action"),
       url: appUrl(
         `/api/auth/reset-password/${encodeURIComponent(token)}?callbackURL=%2Fredefinir-senha`,
       ),
     },
-    note: "Se não foi você, ignore este e-mail. Sua senha continua a mesma.",
+    note: t("reset.note"),
   });
 }
 
-export function passwordChangedEmail({ name }: { name: string }) {
+export function passwordChangedEmail(input: { name: string; locale?: Locale }) {
+  const { name, locale = DEFAULT_LOCALE } = input;
+  const t = textsFor(locale);
   return render({
+    locale,
     template: "senha-alterada",
-    subject: "Sua senha do OrganizeUp foi alterada",
-    heading: "Sua senha foi alterada",
-    paragraphs: [greeting(name), "A senha da sua conta acabou de ser trocada."],
-    action: { label: "Pedir nova senha", url: appUrl("/esqueci-senha") },
-    note: "Se foi você, não precisa fazer nada. Se não foi, peça uma nova senha agora.",
+    subject: t("changed.subject"),
+    heading: t("changed.heading"),
+    paragraphs: [greeting(name, locale), t("changed.text")],
+    action: { label: t("changed.action"), url: appUrl("/esqueci-senha") },
+    note: t("changed.note"),
   });
 }
 
-export function verifyEmail({ name, token }: { name: string; token: string }) {
+export function verifyEmail(input: { name: string; token: string; locale?: Locale }) {
+  const { name, token, locale = DEFAULT_LOCALE } = input;
+  const t = textsFor(locale);
   return render({
+    locale,
     template: "confirmar-email",
-    subject: "Confirme seu e-mail no OrganizeUp",
-    heading: "Confirme seu e-mail",
-    paragraphs: [
-      greeting(name),
-      `Falta só confirmar que este e-mail é seu. O link vale ${VERIFY_LINK_HOURS} horas.`,
-    ],
+    subject: t("verify.subject"),
+    heading: t("verify.heading"),
+    paragraphs: [greeting(name, locale), t("verify.text", { hours: VERIFY_LINK_HOURS })],
     action: {
-      label: "Confirmar e-mail",
+      label: t("verify.action"),
       url: appUrl(
         `/api/auth/verify-email?token=${encodeURIComponent(token)}&callbackURL=%2Fapp%2Fescolher`,
       ),
     },
-    note: "Se você não criou esta conta, ignore este e-mail.",
+    note: t("verify.note"),
   });
 }
 
-export function invitationEmail({
-  id,
-  familyName,
-  inviterName,
-}: {
+export function invitationEmail(input: {
   id: string;
   familyName: string;
   inviterName: string;
+  locale?: Locale;
 }) {
+  const { id, familyName, inviterName, locale = DEFAULT_LOCALE } = input;
+  const t = textsFor(locale);
   return render({
+    locale,
     template: "convite",
     // Assunto fixo: nome digitado por outra pessoa só aparece dentro do e-mail.
-    subject: "Você recebeu um convite no OrganizeUp",
-    heading: "Você recebeu um convite",
+    subject: t("invite.subject"),
+    heading: t("invite.heading"),
     paragraphs: [
-      `${cleanName(inviterName)} convidou você para acompanhar as finanças da família ${cleanName(familyName)} no OrganizeUp.`,
-      `Entre ou crie sua conta com este mesmo e-mail. O convite vale ${INVITE_LINK_DAYS} dias.`,
+      t("invite.text", { inviter: cleanName(inviterName), family: cleanName(familyName) }),
+      t("invite.validity", { days: INVITE_LINK_DAYS }),
     ],
-    action: { label: "Ver convite", url: appUrl(`/convite/${encodeURIComponent(id)}`) },
-    note: "Se você não conhece quem enviou, ignore este e-mail.",
+    action: { label: t("invite.action"), url: appUrl(`/convite/${encodeURIComponent(id)}`) },
+    note: t("invite.note"),
   });
 }

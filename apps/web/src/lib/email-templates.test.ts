@@ -90,6 +90,77 @@ describe("modelos de e-mail", () => {
     expect(resetPasswordEmail({ name: "  ", token: "t" }).text).toContain("Olá!");
   });
 
+  describe.each([
+    {
+      locale: "en" as const,
+      reset: "Reset your OrganizeUp password",
+      resetHello: "Hello, Ana!",
+      resetText: "valid for 1 hour",
+      changed: "Your OrganizeUp password was changed",
+      verify: "Confirm your email on OrganizeUp",
+      verifyText: "valid for 24 hours",
+      invite: "You've received an invitation on OrganizeUp",
+      inviteText: "Ana invited you to follow the finances of the Silva family",
+      inviteDays: "valid for 7 days",
+      fallback: "If the button doesn't open",
+    },
+    {
+      locale: "es" as const,
+      reset: "Restablece tu contraseña de OrganizeUp",
+      resetHello: "¡Hola, Ana!",
+      resetText: "vale 1 hora",
+      changed: "Tu contraseña de OrganizeUp fue cambiada",
+      verify: "Confirma tu correo en OrganizeUp",
+      verifyText: "vale 24 horas",
+      invite: "Recibiste una invitación en OrganizeUp",
+      inviteText: "Ana te invitó a seguir las finanzas de la familia Silva",
+      inviteDays: "vale 7 días",
+      fallback: "Si el botón no abre",
+    },
+  ])("no idioma de quem recebe: $locale", (text) => {
+    const { locale } = text;
+
+    it("redefinir senha", () => {
+      const email = resetPasswordEmail({ name: "Ana", token: "t", locale });
+      expect(email.subject).toBe(text.reset);
+      expect(email.text).toContain(text.resetHello);
+      expect(email.text).toContain(text.resetText);
+      expect(email.html).toContain(`lang="${locale}"`);
+      expect(email.html).toContain(escapeHtml(text.fallback));
+      expect(email.html).not.toContain("Se o botão não abrir");
+    });
+
+    it("aviso de senha alterada", () => {
+      const email = passwordChangedEmail({ name: "Ana", locale });
+      expect(email.subject).toBe(text.changed);
+      expect(email.text).toContain("/esqueci-senha");
+    });
+
+    it("confirmar e-mail", () => {
+      const email = verifyEmail({ name: "Ana", token: "t", locale });
+      expect(email.subject).toBe(text.verify);
+      expect(email.text).toContain(text.verifyText);
+    });
+
+    it("convite", () => {
+      const email = invitationEmail({ id: "1", familyName: "Silva", inviterName: "Ana", locale });
+      expect(email.subject).toBe(text.invite);
+      expect(email.text).toContain(text.inviteText);
+      expect(email.text).toContain(text.inviteDays);
+    });
+
+    it("nome hostil não vira HTML", () => {
+      const email = invitationEmail({
+        id: "1",
+        familyName: hostile,
+        inviterName: hostile,
+        locale,
+      });
+      expect(email.html).not.toContain("<script");
+      expect(email.html).not.toContain("&amp;lt;");
+    });
+  });
+
   it("todo modelo tem HTML em pt-BR e versão em texto sem marcação", () => {
     const emails = [
       resetPasswordEmail({ name: "Ana", token: "t" }),

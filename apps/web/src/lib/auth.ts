@@ -15,12 +15,14 @@ import {
   legalAcceptance,
   ne,
   readPlatformFlags,
+  readUserLocale,
   saveUserLocale,
   sql,
+  user,
   userIsBlocked,
 } from "@organizeup/db";
 import { authDb, betterAuthSchema } from "@organizeup/db/auth-db";
-import { isLocale, LOCALE_COOKIE } from "@/i18n/locales";
+import { isLocale, LOCALE_COOKIE, negotiateLocale, type Locale } from "@/i18n/locales";
 import { sendEmailInBackground } from "./email";
 import {
   INVITE_LINK_DAYS,
@@ -72,6 +74,31 @@ async function hasPendingInvite(email: string) {
   return Boolean(invite);
 }
 
+/** Idioma de quem fez o pedido: o mesmo caminho da tela, sem a conta. */
+function requestLocale(request: Request | undefined): Locale {
+  const cookies = request?.headers.get("cookie") ?? "";
+  const chosen = new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]+)`).exec(cookies)?.[1];
+  return isLocale(chosen) ? chosen : negotiateLocale(request?.headers.get("accept-language"));
+}
+
+/** Idioma de quem recebe: o da conta e, sem escolha, o do pedido. Falhar aqui não barra o e-mail. */
+async function emailLocale(userId: string, request: Request | undefined): Promise<Locale> {
+  const saved = await readUserLocale(userId).catch(() => null);
+  return isLocale(saved) ? saved : requestLocale(request);
+}
+
+/** Convite: o idioma de quem recebe, se já tem conta; se não, o de quem convidou. */
+async function invitationLocale(email: string, inviterId: string, request: Request | undefined) {
+  const [invited] = await authDb()
+    .select({ id: user.id })
+    .from(user)
+    .where(sql`lower(${user.email}) = ${email.trim().toLowerCase()}`)
+    .limit(1)
+    .catch(() => []);
+  const saved = invited ? await readUserLocale(invited.id).catch(() => null) : null;
+  return isLocale(saved) ? saved : emailLocale(inviterId, request);
+}
+
 /** Rotas que escrevem e ficam fechadas na manutenção. Entrar, sair e abrir a família continuam. */
 const writesInMaintenance = (path: string) =>
   path === "/sign-up/email" ||
@@ -94,20 +121,32 @@ function createAuth() {
       // Trocar a senha derruba quem estiver dentro da conta.
       revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: RESET_LINK_HOURS * 60 * 60,
-      sendResetPassword: ({ user, token }) =>
-        sendEmailInBackground({
-          to: user.email,
-          ...resetPasswordEmail({ name: user.name, token }),
-        }),
-      onPasswordReset: ({ user }) =>
-        sendEmailInBackground({ to: user.email, ...passwordChangedEmail({ name: user.name }) }),
+      sendResetPassword: ({ user, token }, request) =>
+        sendEmailInBackground(
+          emailLocale(user.id, request).then((locale) => ({
+            to: user.email,
+            ...resetPasswordEmail({ name: user.name, token, locale }),
+          })),
+        ),
+      onPasswordReset: ({ user }, request) =>
+        sendEmailInBackground(
+          emailLocale(user.id, request).then((locale) => ({
+            to: user.email,
+            ...passwordChangedEmail({ name: user.name, locale }),
+          })),
+        ),
     },
     emailVerification: {
       sendOnSignUp: true,
       autoSignInAfterVerification: true,
       expiresIn: VERIFY_LINK_HOURS * 60 * 60,
-      sendVerificationEmail: ({ user, token }) =>
-        sendEmailInBackground({ to: user.email, ...verifyEmail({ name: user.name, token }) }),
+      sendVerificationEmail: ({ user, token }, request) =>
+        sendEmailInBackground(
+          emailLocale(user.id, request).then((locale) => ({
+            to: user.email,
+            ...verifyEmail({ name: user.name, token, locale }),
+          })),
+        ),
     },
     user: {
       deleteUser: { enabled: true, beforeDelete: (user) => closeOwnHouseholds(user.id) },
@@ -185,15 +224,18 @@ function createAuth() {
         requireEmailVerificationOnInvitation: false,
         invitationExpiresIn: INVITE_LINK_DAYS * 60 * 60 * 24,
         cancelPendingInvitationsOnReInvite: true,
-        sendInvitationEmail: ({ id, email, organization, inviter }) =>
-          sendEmailInBackground({
-            to: email,
-            ...invitationEmail({
-              id,
-              familyName: organization.name,
-              inviterName: inviter.user.name,
-            }),
-          }),
+        sendInvitationEmail: ({ id, email, organization, inviter }, request) =>
+          sendEmailInBackground(
+            invitationLocale(email, inviter.user.id, request).then((locale) => ({
+              to: email,
+              ...invitationEmail({
+                id,
+                familyName: organization.name,
+                inviterName: inviter.user.name,
+                locale,
+              }),
+            })),
+          ),
       }),
       nextCookies(),
     ],
