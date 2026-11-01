@@ -38,6 +38,9 @@ Lembretes ao fundador, por tarefa:
 - Início de cada mês: teste de restauração de `docs/runbooks/backup.md`, e conferir se o backup diário está verde.
 - A partir de 01/01/2027: renovar a chave do GitHub dos agentes, que vence em 28/01/2027.
 - Em janeiro de cada ano: tabelas fiscais novas de INSS e IR (ver `docs/adr/0009-renda.md`).
+- Em janeiro de cada ano, depois das tabelas: revisar a base do assistente em
+  `packages/db/src/knowledge-seed.ts`. Cada trecho é conferido na fonte citada, com `reviewedOn` novo; o que não
+  se confirma sai da lista.
 - Em outubro de cada ano: revisar a tabela de destinos de viagem (`trip_destination_templates`): cada linha
   precisa de fonte real com data e os valores envelhecem. Linha sem fonte sai; nova linha só com fonte
   (ver `docs/adr/0015-agentes-diarios-e-automacao.md`). É migração nova em `packages/db`, risco alto.

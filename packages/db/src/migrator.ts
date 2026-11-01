@@ -1,7 +1,8 @@
 // Migrador: roda com a credencial do DONO do banco (MIGRATION_DATABASE_URL), dentro do
 // container do worker, antes do worker iniciar. A web nunca recebe essa credencial.
 //
-// Passos (idempotentes): lock → roles → migrations SQL → grants → pg-boss + filas → grants pg-boss.
+// Passos (idempotentes): lock → roles → migrations SQL → grants → base de conhecimento →
+// pg-boss + filas → grants pg-boss.
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
@@ -10,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { PgBoss } from "pg-boss";
 import { JOB_QUEUES, PGBOSS_SCHEMA } from "./jobs";
+import { KNOWLEDGE_SEED, type KnowledgeSeed } from "./knowledge-seed";
 
 export interface MigrateOptions {
   ownerUrl: string;
@@ -124,6 +126,9 @@ async function applyGrants(sql: postgres.Sql) {
          public.market_tickers, public.market_usage, public.market_stock_events,
          public.market_assets
       FROM ${worker};
+    -- Base de conhecimento: mesma regra do mercado. O texto chega pelo migrador (ADR-0018).
+    REVOKE INSERT, UPDATE, DELETE ON public.knowledge_chunks FROM ${app}, ${admin};
+    REVOKE DELETE ON public.knowledge_chunks FROM ${worker};
 
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.
     GRANT SELECT ON ALL TABLES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
@@ -141,6 +146,28 @@ async function applyGrants(sql: postgres.Sql) {
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
     GRANT ALL ON ALL TABLES IN SCHEMA ops TO ${admin};
   `);
+}
+
+/** Deixa `knowledge_chunks` igual à lista do código: grava cada trecho e tira o que saiu dela. */
+export async function seedKnowledge(sql: postgres.Sql, chunks: KnowledgeSeed[] = KNOWLEDGE_SEED) {
+  await sql.begin(async (tx) => {
+    for (const chunk of chunks) {
+      await tx`
+        insert into public.knowledge_chunks
+          (slug, topic, title, content, source_name, source_url, reviewed_on)
+        values (${chunk.slug}, ${chunk.topic}, ${chunk.title}, ${chunk.content},
+                ${chunk.sourceName}, ${chunk.sourceUrl}, ${chunk.reviewedOn})
+        on conflict (slug) do update set
+          topic = excluded.topic,
+          title = excluded.title,
+          content = excluded.content,
+          source_name = excluded.source_name,
+          source_url = excluded.source_url,
+          reviewed_on = excluded.reviewed_on`;
+    }
+    await tx`delete from public.knowledge_chunks
+             where slug <> all(${tx.array(chunks.map((chunk) => chunk.slug))})`;
+  });
 }
 
 async function installJobs(ownerUrl: string, sql: postgres.Sql, log: (m: string) => void) {
@@ -181,6 +208,7 @@ export async function migrate(opts: MigrateOptions): Promise<void> {
       await ensureRoles(sql, opts, log);
       await applyMigrations(sql, opts.migrationsDir ?? defaultMigrationsDir(), log);
       await applyGrants(sql);
+      await seedKnowledge(sql);
       if (opts.installJobs !== false) {
         await installJobs(opts.ownerUrl, sql, log);
       }

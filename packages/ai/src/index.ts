@@ -41,6 +41,7 @@ export {
   type AssistantEvent,
   type ChatTurnInput,
 } from "./loop";
+export { deleteAllMemories, deleteMemory, listMemories, type MemoryRow } from "./memories";
 export {
   CHAT_ROUTE,
   costUsd,

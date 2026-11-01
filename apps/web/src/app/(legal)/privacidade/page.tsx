@@ -35,7 +35,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Assistente:</strong> se a família ativar, as conversas de cada pessoa, que só ela
-          vê, as dicas preparadas para a família e a quantidade de uso por dia, sem nenhum texto.
+          vê, as dicas preparadas para a família, as anotações que você pedir para ele lembrar e a
+          quantidade de uso por dia, sem nenhum texto.
         </li>
         <li>
           <strong>Uso:</strong> endereço IP e navegador da sessão, e um registro das ações feitas na
@@ -88,8 +89,9 @@ export default function PrivacyPage() {
         <li>
           <strong>O que vai:</strong> o que você escreve e, quando a pergunta precisa, dados das
           suas finanças, como lançamentos e suas descrições, categorias, renda, reserva, dívidas,
-          investimentos, proventos, metas, viagens e calendário. De madrugada, os mesmos dados são
-          usados para preparar as dicas que aparecem em cada tela, sem que ninguém pergunte.
+          investimentos, proventos, metas, viagens e calendário. As anotações da família também vão
+          em cada conversa. De madrugada, os mesmos dados são usados para preparar as dicas que
+          aparecem em cada tela, sem que ninguém pergunte.
         </li>
         <li>
           <strong>O que não vai:</strong> nomes, e-mails, CPF e senhas. As pessoas aparecem como
@@ -113,6 +115,16 @@ export default function PrivacyPage() {
         <li>
           <strong>Conversas:</strong> ficam guardadas na sua conta e só você as vê. Você pode apagar
           cada uma quando quiser, e elas somem ao apagar a conta.
+        </li>
+        <li>
+          <strong>Memórias:</strong> quando você pede na conversa, o assistente anota uma
+          preferência, um objetivo ou um fato sobre a família, para não perguntar de novo. As
+          anotações não guardam valores em dinheiro, e os nomes conhecidos da família são trocados
+          antes de gravar. Quem é da família vê tudo em Configurações, no bloco O que o assistente
+          sabe, e os adultos podem apagar uma por uma ou todas de uma vez, e aí elas somem de
+          verdade, com as versões antigas. Desligar o assistente não apaga as anotações, mas elas
+          deixam de ser enviadas. Elas somem ao apagar a família e entram no arquivo de dados que o
+          responsável baixa.
         </li>
         <li>
           <strong>Limites:</strong> o assistente não acessa bancos, não move dinheiro e não faz
@@ -183,6 +195,7 @@ export default function PrivacyPage() {
       <ul>
         <li>Corrigir: nas telas do próprio sistema.</li>
         <li>Baixar os dados da família: Configurações, opção disponível para o responsável.</li>
+        <li>Apagar as anotações do assistente: Configurações.</li>
         <li>Apagar a conta: Configurações.</li>
       </ul>
       <p>Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).</p>

@@ -1,6 +1,7 @@
 // Servidor falso do modelo, só para o e2e: fala o formato de streaming da API em /v1/messages. A
 // web só aponta para cá com AI_TEST_BASE_URL fora de produção e nesta máquina (ver
 // packages/ai/src/client.ts). Na primeira volta pede uma ferramenta; depois responde em duas partes.
+// Pergunta que começa com "Anote:" pede salvar_memoria com o resto do texto.
 //   node apps/web/e2e/fake-model.mjs [porta]
 import { createServer } from "node:http";
 
@@ -42,19 +43,19 @@ const envelope = (stop_reason, blocks, output_tokens) => [
   { type: "message_stop" },
 ];
 
-const toolTurn = () =>
+const toolTurn = (name, input) =>
   envelope(
     "tool_use",
     [
       {
         type: "content_block_start",
         index: 0,
-        content_block: { type: "tool_use", id: "toolu_e2e", name: "resumo_do_mes", input: {} },
+        content_block: { type: "tool_use", id: "toolu_e2e", name, input: {} },
       },
       {
         type: "content_block_delta",
         index: 0,
-        delta: { type: "input_json_delta", partial_json: "{}" },
+        delta: { type: "input_json_delta", partial_json: JSON.stringify(input) },
       },
       { type: "content_block_stop", index: 0 },
     ],
@@ -89,6 +90,15 @@ const hasToolResult = (messages) =>
       message.content.some((block) => block.type === "tool_result"),
   );
 
+const NOTE = /^Anote: (.+)$/;
+
+const noteIn = (messages) => {
+  const question = messages.findLast(
+    (message) => message.role === "user" && typeof message.content === "string",
+  );
+  return question?.content.match(NOTE)?.[1];
+};
+
 createServer(async (request, response) => {
   if (request.method !== "POST" || !request.url?.startsWith("/v1/messages")) {
     response.writeHead(404).end();
@@ -98,6 +108,12 @@ createServer(async (request, response) => {
   if (hasToolResult(messages)) {
     sse(response, textTurn(["Olhei seu mês. **Tudo em ordem** ", "por aqui, sem surpresas."]));
   } else {
-    sse(response, toolTurn());
+    const note = noteIn(messages);
+    sse(
+      response,
+      note
+        ? toolTurn("salvar_memoria", { tipo: "preferencia", texto: note })
+        : toolTurn("resumo_do_mes", {}),
+    );
   }
 }).listen(port, "127.0.0.1", () => console.log(`modelo falso em 127.0.0.1:${port}`));

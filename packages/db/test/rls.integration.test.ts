@@ -9,6 +9,7 @@ process.env.ADMIN_DATABASE_URL = urls.admin;
 
 const db = await import("../src/index");
 const { closeAllPools } = await import("../src/client");
+const { seedKnowledge } = await import("../src/migrator");
 const { people, householdSettings, auditLog, household, user, householdMember } = db;
 
 const A = {
@@ -2933,6 +2934,192 @@ describe("dicas por tela", () => {
         ),
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe("memória da família (ADR-0018)", () => {
+  const { householdMemories } = db;
+  const row = (household: string, content: string) => ({
+    householdId: household,
+    kind: "preferencia" as const,
+    content,
+  });
+
+  it("outra família não lê, não muda e não apaga; quem só vê não escreve", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const ctxB = await ctxFor(B.owner, B.household);
+    await db.withHousehold(owner, (tx) =>
+      tx.insert(householdMemories).values(row(A.household, "Prefere resumo semanal")),
+    );
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(householdMemories)).toHaveLength(0);
+      const changed = await tx
+        .update(householdMemories)
+        .set({ content: "Trocada" })
+        .returning({ id: householdMemories.id });
+      expect(changed).toHaveLength(0);
+      const gone = await tx.delete(householdMemories).returning({ id: householdMemories.id });
+      expect(gone).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(householdMemories).values(row(A.household, "Forjada")),
+      ),
+    ).rejects.toThrow();
+
+    const viewer = await ctxFor(A.viewer, A.household);
+    await db.withHousehold(viewer, async (tx) => {
+      expect(await tx.select().from(householdMemories)).toHaveLength(1);
+      const gone = await tx.delete(householdMemories).returning({ id: householdMemories.id });
+      expect(gone).toHaveLength(0);
+      const changed = await tx
+        .update(householdMemories)
+        .set({ content: "Trocada" })
+        .returning({ id: householdMemories.id });
+      expect(changed).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        tx.insert(householdMemories).values(row(A.household, "Sem permissão")),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("substituição não cruza família e apagar a nova leva as antigas", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const ctxB = await ctxFor(B.owner, B.household);
+    const ids = await db.withHousehold(owner, async (tx) => {
+      const [first] = await tx
+        .insert(householdMemories)
+        .values(row(A.household, "Objetivo antigo"))
+        .returning({ id: householdMemories.id });
+      const [second] = await tx
+        .insert(householdMemories)
+        .values(row(A.household, "Objetivo novo"))
+        .returning({ id: householdMemories.id });
+      await tx
+        .update(householdMemories)
+        .set({ supersededBy: second!.id })
+        .where(eq(householdMemories.id, first!.id));
+      return { first: first!.id, second: second!.id };
+    });
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(householdMemories).values({
+          ...row(B.household, "Aponta para a família A"),
+          supersededBy: ids.second,
+        }),
+      ),
+    ).rejects.toThrow();
+
+    await db.withHousehold(owner, async (tx) => {
+      await tx.delete(householdMemories).where(eq(householdMemories.id, ids.second));
+      expect(
+        await tx.select().from(householdMemories).where(eq(householdMemories.id, ids.first)),
+      ).toHaveLength(0);
+    });
+  });
+
+  it("não aceita tipo fora da lista nem texto longo", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.execute(
+          sql`insert into household_memories (household_id, kind, content)
+               values (${A.household}, 'senha', 'texto')`,
+        ),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.insert(householdMemories).values(row(A.household, "x".repeat(301))),
+      ),
+    ).rejects.toThrow();
+  });
+});
+
+describe("base de conhecimento (ADR-0018)", () => {
+  const { KNOWLEDGE_SEED, knowledgeChunks, searchKnowledge } = db;
+
+  it("o migrador carrega tudo, e a tabela não tem vínculo com família", async () => {
+    const raw = postgres(urls.owner, { max: 1, onnotice: () => {} });
+    try {
+      const rows = await raw<{ slug: string }[]>`select slug from knowledge_chunks order by slug`;
+      expect(rows.map((row) => row.slug)).toEqual(KNOWLEDGE_SEED.map((chunk) => chunk.slug).sort());
+      const columns = await raw`
+        select 1 from information_schema.columns
+        where table_name = 'knowledge_chunks' and column_name = 'household_id'`;
+      expect(columns).toHaveLength(0);
+    } finally {
+      await raw.end();
+    }
+  });
+
+  it("o que sai da lista do código sai do banco", async () => {
+    const raw = postgres(urls.owner, { max: 1, onnotice: () => {} });
+    try {
+      const fake = {
+        ...KNOWLEDGE_SEED[0]!,
+        slug: "trecho-removido",
+        title: "Trecho que saiu",
+      };
+      await seedKnowledge(raw, [...KNOWLEDGE_SEED, fake]);
+      expect(await raw`select 1 from knowledge_chunks where slug = ${fake.slug}`).toHaveLength(1);
+      await seedKnowledge(raw, KNOWLEDGE_SEED);
+      expect(await raw`select 1 from knowledge_chunks where slug = ${fake.slug}`).toHaveLength(0);
+    } finally {
+      await raw.end();
+    }
+  });
+
+  it("todos leem; só ou_worker grava; ninguém apaga", async () => {
+    const worker = postgres(urls.worker, { max: 1, onnotice: () => {} });
+    try {
+      expect((await worker`select slug from knowledge_chunks`).length).toBe(KNOWLEDGE_SEED.length);
+      await worker`update knowledge_chunks set topic = topic`;
+      await expect(worker`delete from knowledge_chunks`).rejects.toThrow(/permission denied/);
+    } finally {
+      await worker.end();
+    }
+    const ctx = await ctxFor(A.owner, A.household);
+    const found = await db.withHousehold(ctx, (tx) => tx.select().from(knowledgeChunks));
+    expect(found.length).toBe(KNOWLEDGE_SEED.length);
+    await expect(
+      db.withHousehold(ctx, (tx) => tx.update(knowledgeChunks).set({ topic: "x" })),
+    ).rejects.toThrow();
+    await expect(
+      db.withAdmin("confere o grant da base", (admin) =>
+        admin.update(knowledgeChunks).set({ topic: "x" }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("acha por termo em português, com ou sem acento", async () => {
+    const [teto] = await searchKnowledge("qual o teto do INSS em 2026?");
+    expect(teto?.title).toContain("INSS");
+    const [fgc] = await searchKnowledge("garantia do FGC por CPF");
+    expect(fgc?.title).toContain("FGC");
+    const accented = await searchKnowledge("previdência privada");
+    const plain = await searchKnowledge("previdencia privada");
+    expect(plain.map((row) => row.title)).toEqual(accented.map((row) => row.title));
+    expect(plain.length).toBeGreaterThan(0);
+    expect(plain.length).toBeLessThanOrEqual(3);
+  });
+
+  it.each([
+    `"dividendos`,
+    `dividendos' OR 1=1; drop table knowledge_chunks; --`,
+    "dividendos & | ! ( ) : * <-> \\",
+    "%_%",
+    "''''",
+    "()",
+  ])("não quebra com %s", async (text) => {
+    await expect(searchKnowledge(text)).resolves.toBeInstanceOf(Array);
+  });
+
+  it("palavra vazia de sentido não devolve nada", async () => {
+    await expect(searchKnowledge("de que o")).resolves.toEqual([]);
+    expect(await searchKnowledge("dividendos")).not.toHaveLength(0);
   });
 });
 

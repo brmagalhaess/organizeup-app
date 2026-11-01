@@ -57,14 +57,26 @@ Exposição real por **MCP**:
 
 ## 3. Conhecimento (RAG) e memória
 
-- `knowledge_chunks` global: regras de INSS, IR, FGTS, previdência, educação financeira, cada trecho
-  com fonte e data. Só entra conteúdo com fonte; revisão anual pelo SRE.
-- `household_memories` (RLS): fatos e preferências da família, com origem, confiança, validade e
-  substituição, mais a tela "O que o assistente sabe" para ver, corrigir e apagar. Entra em exportar e
-  apagar conta.
-- Busca híbrida: `tsvector` em português agora; coluna `embedding` do pgvector, nula, pronta para ligar
-  quando houver chave de embeddings (a Anthropic não oferece esse serviço). Enquanto isso, as
-  ferramentas estruturadas são a fonte principal: dado financeiro não se busca por semelhança.
+- `knowledge_chunks` global: regras de INSS, IR, FGC, previdência, FII, dividendos e educação
+  financeira, cada trecho com fonte, endereço e data. Só entra conteúdo conferido na fonte oficial. A lista
+  fica em `packages/db/src/knowledge-seed.ts`, e o migrador deixa o banco igual a ela. Revisão anual pelo
+  SRE.
+- `household_memories` (RLS): fatos, preferências e objetivos da família, com origem, confiança, validade
+  e substituição. Até 50 ativas por família e 20 no contexto de cada conversa. Entra em exportar e apagar
+  conta.
+- Busca: `tsvector` em português, sem depender de acento. Sem embeddings por enquanto, porque a Anthropic
+  não oferece esse serviço; ver ADR-0018. As ferramentas estruturadas seguem como fonte principal: dado
+  financeiro não se busca por semelhança.
+
+**Tela "O que o assistente sabe"**, um bloco em Configurações:
+
+- **Campos:** tipo (Fato, Preferência, Objetivo), texto e data de cada anotação em vigor, com selo
+  "Vencida" na que passou da validade. A substituída não aparece. Não há edição: para corrigir, a pessoa
+  apaga ou diz de novo na conversa, e a anotação nova substitui a antiga.
+- **Ações:** "Apagar" e "Apagar tudo", com confirmação, só para quem pode escrever. É DELETE de verdade e
+  leva as versões antigas. Quem só vê lê a lista, sem botões.
+- **Estados:** carregando, vazio ("Nada anotado ainda"), erro ao carregar e erro ao apagar.
+- **Primeiro uso:** começa vazia. A anotação só nasce na conversa, quando a pessoa pede ou concorda.
 
 ## 4. Autonomia por família
 

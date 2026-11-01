@@ -82,6 +82,33 @@ O verificador que reprova antes de gravar é o da rotina noturna (Fase 2). Recus
 Só `owner` e `adult`. `child` e `viewer` veem a explicação. Modo manutenção bloqueia, porque o contexto vira só
 leitura e o RLS recusaria gravar a conversa.
 
+### Memória e conhecimento (Fase 4)
+
+- **Busca por texto, sem embeddings.** A Anthropic não oferece serviço de embeddings, e contratar outro fornecedor
+  mandaria texto a mais um operador para uma base de 15 trechos. `knowledge_chunks.search` é `tsvector` em
+  português, com `websearch_to_tsquery`, que aceita qualquer texto como parâmetro, e `ts_rank`. Os termos da
+  pergunta entram com OU, porque com E uma pergunta em linguagem natural quase nunca acha nada. `sem_acento()` faz
+  "previdencia" achar "previdência". A coluna `embedding` ficou de fora: nem o Postgres embutido dos testes nem o
+  `pnpm db:local` têm pgvector, e não há como confirmar o de produção daqui. Entra por migração nova se um dia
+  houver chave de embeddings.
+- **A base é código.** Os trechos ficam em `packages/db/src/knowledge-seed.ts`, e o migrador, com a credencial do
+  dono, grava pelo `slug` e tira o que saiu da lista. Assim a revisão anual do SRE é um PR comum, sem migração nova
+  a cada ano. Na aplicação, todos leem, só `ou_worker` poderia gravar e ninguém apaga, como no mercado.
+- **Só entra o que foi conferido na fonte oficial**, com endereço https, data de revisão e, se o valor muda todo
+  ano, o ano no texto. O teste do seed recusa domínio fora de `.gov.br` e do FGC.
+- **Memória não é sugestão.** `salvar_memoria` grava direto, fora da regra 7: o que entra não é valor nem data da
+  família, é uma anotação que a pessoa pediu ou aceitou, visível e apagável em Configurações. Por isso a ferramenta
+  recusa dinheiro: número vem das ferramentas, e uma anotação velha não pode competir com o saldo de hoje. Também
+  recusa texto com jeito de ordem ou link, para uma injeção não virar instrução que dura entre conversas.
+- **Memória parecida substitui.** Compara os radicais de memórias vigentes do mesmo tipo e substitui a partir de
+  60% em comum, com `superseded_by`. Apagar a nova leva as antigas, em cascata, para o texto apagado não sobreviver
+  numa versão anterior.
+- **No contexto, nunca nas instruções.** Até 20 memórias vão em `turnContext`, marcadas como
+  `dado_nao_confiavel` e passando por `privacy.scrub` de novo, porque um nome pode ter sido cadastrado depois.
+  `SYSTEM_PROMPT` continua fixo. A madrugada não recebe memória e não anota, mas pode consultar a base.
+- **Sem aceite novo.** Memória é o que a pessoa já disse na conversa, para o mesmo operador e a mesma finalidade.
+  A Política foi atualizada, e `INSIGHTS_CONSENT_VERSION` não muda.
+
 ## Pronto para as próximas fases
 
 Ferramenta de escrita entra em `packages/ai/src/tools` com `kind: "escrita"` e só cria sugestão (regra 7); rota nova
@@ -97,5 +124,9 @@ precisa do grant de escrita em `ops.ai_stats`, e a integração passa a valer no
   erro menos grave.
 - **O modelo pode errar.** A conferência de valores aceita 5% de diferença, para deixar passar arredondamento, e
   não confere datas nem percentuais. A tela pede para conferir.
+- **Memória parecida é um palpite.** A comparação é por palavras: "tem dois carros" e "não tem dois carros" são a
+  mesma memória, e a última dita vale, o que serve. Duas coisas diferentes com as mesmas palavras se substituem, e
+  a família vê o resultado em Configurações. A busca por texto também não acha sinônimo que não esteja no trecho.
+- **Nome de terceiro numa memória.** O filtro só conhece os nomes da família, como nas descrições de extrato.
 - **Texto legal.** A Política e a ativação descrevem retenção curta e não treinamento conforme os termos
   comerciais da Anthropic. O fundador confere com o contrato vigente antes de ligar a chave.
