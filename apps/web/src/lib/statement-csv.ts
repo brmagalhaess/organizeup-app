@@ -18,11 +18,18 @@ export interface StatementFileInfo {
 const separatorOf = (locale: Locale) => (locale === "en" ? "," : ";");
 const decimalOf = (locale: Locale) => (locale === "en" ? "." : ",");
 
-/** Planilha trata `=`, `+`, `-` e `@` no começo como fórmula: texto digitado não pode virar uma. */
-const safeText = (text: string) => (/^[=+\-@\t\r]/.test(text) ? `'${text}` : text);
+/**
+ * Planilha trata `=`, `+`, `-` e `@` no começo como fórmula, e há as que ignoram os espaços antes deles:
+ * texto digitado não pode virar uma.
+ */
+const safeText = (text: string) => (/^(?:[\t\r]|\s*[=+\-@])/.test(text) ? `'${text}` : text);
 
+/**
+ * Planilha com o outro separador corta a linha onde esta não corta: entre aspas, o `;` ou a `,` antes de
+ * um sinal de fórmula não abre uma célula nova.
+ */
 function quoted(value: string, separator: string) {
-  const needs = value.includes(separator) || /["\r\n]/.test(value);
+  const needs = value.includes(separator) || /["\r\n]|[,;]\s*[=+\-@]/.test(value);
   return needs ? `"${value.replaceAll('"', '""')}"` : value;
 }
 
