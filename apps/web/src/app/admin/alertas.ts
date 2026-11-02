@@ -37,6 +37,7 @@ interface Input {
   statsDay: string | null;
   maintenance: boolean;
   signupClosed: boolean;
+  documentKeyMissing?: boolean;
   allAgentsOff: boolean;
   /** Gasto de IA do mês contra o teto. */
   aiSpend?: { spentUsd: number; budgetUsd: number; reached: boolean };
@@ -320,6 +321,15 @@ export function buildAlerts(input: Input): AdminAlert[] {
       title: "Modo manutenção ligado",
       text: "As famílias estão só leitura e os agentes estão parados.",
       href: "/admin/controles",
+    });
+  }
+  if (input.documentKeyMissing) {
+    alerts.push({
+      key: "cofre",
+      tone: "danger",
+      title: "Falta a chave dos documentos",
+      text: "Sem DOCUMENT_ENCRYPTION_KEY na web, cadastro com CPF é recusado. Nada fica em texto puro.",
+      href: "/admin/sistema",
     });
   }
   if (input.signupClosed) {

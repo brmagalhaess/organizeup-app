@@ -16,6 +16,7 @@ const LABELS: Record<string, string> = {
   "usuarios:busca": "Buscou usuários",
   "usuario:detalhe": "Abriu um usuário",
   "usuario:revelar": "Viu nome e e-mail de um usuário",
+  "usuario:revelar_documento": "Viu o documento completo de um usuário",
   "usuario:encerrar_sessoes": "Encerrou as sessões de um usuário",
   "usuario:bloquear": "Bloqueou um usuário",
   "usuario:desbloquear": "Desbloqueou um usuário",
@@ -72,4 +73,8 @@ export const AUDIT_VISITS = [
 ];
 
 /** Dados pessoais revelados por ação explícita. */
-export const AUDIT_REVEALS = ["familia:email_responsavel", "usuario:revelar"];
+export const AUDIT_REVEALS = [
+  "familia:email_responsavel",
+  "usuario:revelar",
+  "usuario:revelar_documento",
+];

@@ -1,5 +1,6 @@
 import { exportHousehold, withHousehold } from "@organizeup/db";
 import { audit } from "@/lib/audit";
+import { identityForExport } from "@/lib/identity";
 import { requireTenant } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,9 @@ export async function GET() {
     await audit(tx, ctx, "export", "household", ctx.householdId);
     return data;
   });
-  const body = JSON.stringify({ exportedAt: new Date().toISOString(), tables }, null, 2);
+  const identificacao = await identityForExport(ctx.userId ?? "");
+  const exportedAt = new Date().toISOString();
+  const body = JSON.stringify({ exportedAt, identificacao, tables }, null, 2);
   return new Response(body, {
     headers: {
       "Content-Type": "application/json; charset=utf-8",

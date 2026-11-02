@@ -10,8 +10,11 @@ import { AdminPage, Fact, Facts } from "../../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../../painel";
 import { blockUser, deleteUser, endUserSessions, sendPasswordReset, unblockUser } from "../actions";
 import { UserContact } from "./user-contact";
+import { UserDocument } from "./user-document";
 
 export const metadata: Metadata = { title: "Usuário" };
+
+const DOCUMENT_LABEL = { pf: "Pessoa física", pj: "Pessoa jurídica" };
 
 export default async function AdminUserPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin();
@@ -59,13 +62,19 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
                   {account.emailVerified ? "Verificado" : "Não verificado"}
                 </Badge>
               </Fact>
+              <Fact label="Documento">
+                <Badge tone={account.personType ? "success" : "warning"}>
+                  {account.personType ? DOCUMENT_LABEL[account.personType] : "Sem documento"}
+                </Badge>
+              </Fact>
               {account.blockedAt ? (
                 <Fact label="Bloqueada em">{formatDateTime(account.blockedAt)}</Fact>
               ) : null}
             </Facts>
             {account.canReveal ? (
-              <div className="mt-5">
+              <div className="mt-5 flex flex-col gap-2">
                 <UserContact id={account.id} />
+                {account.personType ? <UserDocument id={account.id} /> : null}
               </div>
             ) : null}
           </Card>

@@ -3,6 +3,7 @@ import {
   adminDeleteUser,
   adminEndUserSessions,
   adminPasswordResetTarget,
+  adminRevealIdentity,
   adminRevealUser,
   adminSetUserBlocked,
 } from "@organizeup/db";
@@ -10,6 +11,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getAuth } from "@/lib/auth";
+import { openedIdentity } from "@/lib/identity";
 import { requireAdmin } from "@/lib/session";
 import {
   ADMIN_DB_MISSING,
@@ -72,6 +74,38 @@ export async function revealUser(
     return { ...result, message: null };
   } catch (error) {
     logAdminFailure("admin_user_reveal_failed", error);
+    return { ...empty, message: "Não foi possível consultar agora. Tente de novo." };
+  }
+}
+
+export interface UserDocumentState {
+  cpf: string | null;
+  cnpj: string | null;
+  companyName: string | null;
+  message: string | null;
+}
+
+/** Documento completo: só por ação, registrada na mesma transação em que o cifrado é lido. */
+export async function revealUserDocument(
+  _previous: UserDocumentState,
+  form: FormData,
+): Promise<UserDocumentState> {
+  const session = await requireAdmin();
+  const empty = { cpf: null, cnpj: null, companyName: null };
+  const id = targetId.safeParse(form.get("id"));
+  if (!id.success) return { ...empty, message: "Conta inválida." };
+  if (!hasAdminDatabase()) return { ...empty, message: ADMIN_DB_MISSING };
+  try {
+    const result = await adminRevealIdentity({ adminUserId: session.user.id }, id.data);
+    if (result === "not_found") return { ...empty, message: "Conta sem documento." };
+    if (result === "not_allowed") {
+      return { ...empty, message: "Disponível só para responsável de família." };
+    }
+    const shown = openedIdentity(id.data, result);
+    if (!shown) return { ...empty, message: "Falta a chave dos documentos neste serviço." };
+    return { ...shown, message: null };
+  } catch (error) {
+    logAdminFailure("admin_user_document_failed", error);
     return { ...empty, message: "Não foi possível consultar agora. Tente de novo." };
   }
 }

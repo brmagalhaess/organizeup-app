@@ -9,6 +9,7 @@ import {
   eq,
   gt,
   household,
+  householdAccountType,
   householdInvitation,
   householdMember,
   inArray,
@@ -22,7 +23,9 @@ import {
   userIsBlocked,
 } from "@organizeup/db";
 import { authDb, betterAuthSchema } from "@organizeup/db/auth-db";
+import { parseIdentity } from "@organizeup/domain";
 import { isLocale, LOCALE_COOKIE, negotiateLocale, type Locale } from "@/i18n/locales";
+import { vaultReady } from "./document-vault";
 import { sendEmailInBackground } from "./email";
 import {
   INVITE_LINK_DAYS,
@@ -33,6 +36,7 @@ import {
   VERIFY_LINK_HOURS,
   verifyEmail,
 } from "./email-templates";
+import { logVaultMissing, storeIdentity } from "./identity";
 import { LEGAL_VERSION } from "./legal";
 import { isValidPassword } from "./password";
 import { ac, roles } from "./permissions";
@@ -99,6 +103,33 @@ async function invitationLocale(email: string, inviterId: string, request: Reque
   return isLocale(saved) ? saved : emailLocale(inviterId, request);
 }
 
+/**
+ * Documento do cadastro, ainda antes de criar a conta: dígito errado não passa e, sem a chave do cofre,
+ * só quem mora fora se cadastra. Nada é aceito para depois ser perdido ou guardado em texto puro.
+ */
+function checkSignUpIdentity(raw: unknown) {
+  const identity = parseIdentity(raw);
+  if (!identity.ok) throw new APIError("BAD_REQUEST", { message: "DOCUMENT_INVALID" });
+  if (identity.value.inBrazil && !vaultReady()) {
+    logVaultMissing();
+    throw new APIError("SERVICE_UNAVAILABLE", { message: "DOCUMENT_UNAVAILABLE" });
+  }
+}
+
+/**
+ * Grava o documento logo depois de criar a conta. A RLS esconde as linhas dos outros, então quem acha a
+ * duplicidade é o índice único: se ele recusar, a conta recém-criada sai, e a pessoa recebe a mensagem
+ * neutra, que não diz que o documento existe. Vale também para dois cadastros ao mesmo tempo.
+ */
+async function saveSignUpIdentity(userId: string, raw: unknown) {
+  const identity = parseIdentity(raw);
+  const result = identity.ok ? await storeIdentity(userId, identity.value) : "refused";
+  if (result === "ok") return;
+  await authDb().delete(user).where(eq(user.id, userId));
+  const message = result === "refused" ? "DOCUMENT_REFUSED" : "DOCUMENT_UNAVAILABLE";
+  throw new APIError("BAD_REQUEST", { message });
+}
+
 /** Rotas que escrevem e ficam fechadas na manutenção. Entrar, sair e abrir a família continuam. */
 const writesInMaintenance = (path: string) =>
   path === "/sign-up/email" ||
@@ -163,8 +194,12 @@ function createAuth() {
             if (closed && !(await hasPendingInvite(String(ctx.body?.email ?? "")))) {
               throw new APIError("FORBIDDEN", { message: "SIGNUP_CLOSED" });
             }
+            checkSignUpIdentity(ctx.body?.identity);
           },
           after: async (user, ctx) => {
+            if (ctx?.path === "/sign-up/email") {
+              await saveSignUpIdentity(user.id, ctx.body?.identity);
+            }
             await authDb()
               .insert(legalAcceptance)
               .values({ userId: user.id, version: LEGAL_VERSION });
@@ -205,7 +240,13 @@ function createAuth() {
     },
     // Limite por IP (inclui regras mais rígidas do Better Auth para cadastro/login).
     // AUTH_RATE_LIMIT=disabled só no e2e do CI/local — nunca em produção.
-    rateLimit: { enabled: process.env.AUTH_RATE_LIMIT !== "disabled", window: 60, max: 60 },
+    // A recusa de documento repetido é neutra, mas ainda é uma recusa: o cadastro tem limite por hora.
+    rateLimit: {
+      enabled: process.env.AUTH_RATE_LIMIT !== "disabled",
+      window: 60,
+      max: 60,
+      customRules: { "/sign-up/email": { window: 60 * 60, max: 20 } },
+    },
     advanced: {
       database: { generateId: () => crypto.randomUUID() },
     },
@@ -226,13 +267,17 @@ function createAuth() {
         cancelPendingInvitationsOnReInvite: true,
         sendInvitationEmail: ({ id, email, organization, inviter }, request) =>
           sendEmailInBackground(
-            invitationLocale(email, inviter.user.id, request).then((locale) => ({
+            Promise.all([
+              invitationLocale(email, inviter.user.id, request),
+              householdAccountType(organization.id),
+            ]).then(([locale, accountType]) => ({
               to: email,
               ...invitationEmail({
                 id,
                 familyName: organization.name,
                 inviterName: inviter.user.name,
                 locale,
+                accountType,
               }),
             })),
           ),

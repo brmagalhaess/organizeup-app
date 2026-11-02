@@ -19,6 +19,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, EmptyState, FormMessage } from "@/components/ui";
 import { ONBOARDING_VERSION } from "@/lib/onboarding";
+import { vaultReady } from "@/lib/document-vault";
 import { platformFlags, requireAdmin } from "@/lib/session";
 import { buildAlerts } from "./alertas";
 import { actionLabel, AI_TEST_FAILED, AI_TEST_OK, AUDIT_VISITS } from "./auditoria/labels";
@@ -130,6 +131,7 @@ export default async function AdminOverviewPage() {
     statsDay: latest?.day ?? null,
     maintenance: flags.maintenance,
     signupClosed: flags.signupClosed,
+    documentKeyMissing: !vaultReady(),
     allAgentsOff: DAILY_AGENT_IDS.every((id) => disabled.includes(id)),
     aiSpend,
     expectedAgents: DAILY_AGENT_IDS.filter((id) => !disabled.includes(id)).map((id) => ({

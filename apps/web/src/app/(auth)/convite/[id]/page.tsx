@@ -4,9 +4,14 @@ import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { APIError } from "better-auth/api";
+import { inviteAccountType } from "@organizeup/db";
+import { accountFeatures } from "@organizeup/domain";
+import { IdentityFields } from "@/components/identity-fields";
 import { Button, FormMessage } from "@/components/ui";
 import { buttonClass } from "@/components/styles";
+import { textsForAccount } from "@/i18n/account-server";
 import { getAuth } from "@/lib/auth";
+import { identityView } from "@/lib/identity";
 import { inviteId } from "@/lib/invites";
 import { getSession } from "@/lib/session";
 import { acceptInvite } from "./actions";
@@ -54,7 +59,8 @@ export default async function InvitePage({
 }) {
   const id = inviteId((await params).id);
   const { erro } = await searchParams;
-  const t = await getTranslations("auth.invite");
+  const accountType = id ? await inviteAccountType(id) : "pf";
+  const t = await textsForAccount(accountType, "auth.invite");
   const unavailable = { title: t("unavailableTitle"), text: t("unavailableText") };
   if (!id) return <Blocked {...unavailable} />;
 
@@ -96,6 +102,10 @@ export default async function InvitePage({
       : invitation.role === "viewer"
         ? t("roleViewer")
         : t("roleOther");
+  const tIdentity = await getTranslations("identity");
+  const identity = await identityView(session.user.id);
+  const asksDocument =
+    accountFeatures(accountType).inviteAsksCpf && identity.canFill && !identity.abroad;
 
   return (
     <>
@@ -105,9 +115,22 @@ export default async function InvitePage({
         </h1>
         <p className="text-sm text-muted">{t("joinText", { role })}</p>
       </div>
-      <FormMessage message={erro ? t("acceptFailed") : null} />
-      <form action={acceptInvite}>
+      <FormMessage
+        message={
+          erro === "documento" ? tIdentity("invite.failed") : erro ? t("acceptFailed") : null
+        }
+      />
+      <form action={acceptInvite} className="flex flex-col gap-4">
         <input type="hidden" name="id" value={id} />
+        {asksDocument ? (
+          <>
+            <div>
+              <h2 className="text-base font-semibold">{tIdentity("invite.title")}</h2>
+              <p className="text-sm text-muted">{tIdentity("invite.text")}</p>
+            </div>
+            <IdentityFields personOnly />
+          </>
+        ) : null}
         <Button type="submit" className="w-full">
           {t("accept")}
         </Button>
