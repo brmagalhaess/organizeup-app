@@ -1,7 +1,7 @@
 // Painel de planos: VIP, assinaturas, catálogo, receita e chave, no computador e a 375 px, com axe. Precisa de
 // E2E_ADMIN_EMAIL, E2E_BILLING=1, E2E_WORKER_DATABASE_URL e ADMIN_DATABASE_URL do mesmo banco do servidor, e do
-// servidor com ADMIN_EMAILS igual e STRIPE_SECRET_KEY=sk_test_ qualquer: nada aqui chama a Stripe. Rode sozinho, com
-// --workers=1: a chave da cobrança é global. Dados fictícios.
+// servidor com ADMIN_EMAILS igual, STRIPE_SECRET_KEY=sk_test_ e STRIPE_WEBHOOK_SECRET quaisquer: nada aqui chama a
+// Stripe. Rode sozinho, com --workers=1: a chave da cobrança é global. Dados fictícios.
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
@@ -133,7 +133,6 @@ test("com a chave desligada, receita é honesta e a Stripe fica fora, com o moti
   browser,
 }) => {
   plano("chave", "off");
-  const family = await withMember(browser, createFamily);
   await signInAsAdmin(page);
 
   await page.goto("/admin/receita");
@@ -141,17 +140,41 @@ test("com a chave desligada, receita é honesta e a Stripe fica fora, com o moti
   await expect(page.getByText("Receita mensal recorrente")).toHaveCount(0);
   await expect(page.locator("main").getByText("R$")).toHaveCount(0);
   await expect(page.getByText("Sem limite enquanto a cobrança estiver desligada")).toBeVisible();
+});
 
-  await openFamily(page, family);
-  await page.getByRole("link", { name: "Ver assinatura" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: family })).toBeVisible();
-  await expect(page.getByText(/ações da Stripe só ficam disponíveis/)).toBeVisible();
-  for (const name of ["Cancelar assinatura", "Devolver", "Reenviar cobrança"]) {
-    await expect(page.getByRole("button", { name })).toBeDisabled();
-  }
-  await axe(page);
-  await noSideScroll(page);
-  await shot(page, "assinatura-chave-desligada");
+test("com a chave desligada, quem já paga sai: família e painel cancelam e devolvem", async ({
+  page,
+  browser,
+}) => {
+  await withMember(browser, async (member) => {
+    plano("chave", "off");
+    const family = await createFamily(member);
+    await member.goto("/app");
+    await expect(member.getByRole("link", { name: "Plano e assinatura" })).toHaveCount(0);
+
+    plano("plano", family, "familia");
+    plano("stripe", family);
+    await member.goto("/app/assinatura");
+    await expect(situation(member)).toContainText("As novas assinaturas estão pausadas");
+    await expect(member.getByRole("button", { name: "Cancelar" }).first()).toBeEnabled();
+    await expect(member.getByTestId("plano-total")).toHaveCount(0);
+    await axe(member);
+    await noSideScroll(member);
+    await shot(member, "familia-chave-desligada");
+
+    await signInAsAdmin(page);
+    await openFamily(page, family);
+    await page.getByRole("link", { name: "Ver assinatura" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: family })).toBeVisible();
+    for (const name of ["Cancelar assinatura", "Devolver"]) {
+      await expect(page.getByRole("button", { name })).toBeEnabled();
+    }
+    await expect(page.getByRole("button", { name: "Reenviar cobrança" })).toBeDisabled();
+    await expect(page.getByText(/reenviar e mexer em desconto só com ela ligada/)).toBeVisible();
+    await axe(page);
+    await noSideScroll(page);
+    await shot(page, "assinatura-chave-desligada");
+  });
 });
 
 test("VIP sem custo: libera sem cobrança, e vencer ou remover devolve o que havia", async ({
@@ -177,6 +200,11 @@ test("VIP sem custo: libera sem cobrança, e vencer ou remover devolve o que hav
     await expect(page.getByLabel("Mensagens por mês")).toHaveCount(0);
     await axe(page);
     await shot(page, "vip-novo");
+    // Com desconto o formulário abre em "nada a mais": liberar módulos é escolha.
+    await page.getByRole("radio", { name: /^Com desconto/ }).check();
+    await expect(page.getByRole("radio", { name: /^Só o desconto/ })).toBeChecked();
+    await page.getByRole("radio", { name: /^Sem custo/ }).check();
+    await expect(page.getByRole("radio", { name: /^Só o desconto/ })).toHaveCount(0);
     await page.getByRole("radio", { name: "Tudo liberado" }).check();
     await page.getByLabel("Motivo").selectOption("imprensa");
     const soon = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
@@ -205,7 +233,8 @@ test("VIP sem custo: libera sem cobrança, e vencer ou remover devolve o que hav
     await expect(
       member.getByText(/Depois volta ao que era antes, sem nenhuma cobrança/),
     ).toBeVisible();
-    await expect(member.getByRole("button", { name: "Assinar" })).toHaveCount(0);
+    // Com data, dá para assinar antes: a primeira cobrança é quando o VIP acaba.
+    await expect(member.getByText(/a primeira cobrança é só em/)).toBeVisible();
 
     await page.goto("/admin/vip");
     await page.getByRole("button", { name: `Remover o VIP de ${family}` }).click();
@@ -220,6 +249,55 @@ test("VIP sem custo: libera sem cobrança, e vencer ou remover devolve o que hav
     await page.goto("/admin/auditoria");
     await expect(page.getByText("Concedeu VIP").first()).toBeVisible();
     await expect(page.getByText("Removeu VIP").first()).toBeVisible();
+    plano("chave", "off");
+  });
+});
+
+test("desconto: o total diz o valor real, e a família só vê o que a Stripe aplicou", async ({
+  page,
+  browser,
+}) => {
+  await withMember(browser, async (member) => {
+    const family = await createFamily(member);
+    plano("vencer", family);
+    plano("chave", "on");
+    await signInAsAdmin(page);
+
+    const giveDiscount = async () => {
+      await openFamily(page, family);
+      await page.getByRole("link", { name: "Marcar como VIP" }).click();
+      await page.getByRole("radio", { name: /^Com desconto/ }).check();
+      await page.getByLabel("Desconto em %").fill("30");
+      await page.getByRole("button", { name: "Conceder VIP" }).click();
+      await expect(page).toHaveURL(/\/admin\/vip$/);
+    };
+
+    // Ainda não assina: o cupom entra na primeira cobrança, e o total já diz isso.
+    await giveDiscount();
+    await member.goto("/app/assinatura");
+    await expect(member.getByTestId("plano-total")).toContainText("31,43");
+    await expect(member.getByText("Com desconto VIP de 30%.")).toBeVisible();
+
+    // Assina sem o cupom aplicado: concedido, mas a família não vê desconto nenhum.
+    plano("plano", family, "familia");
+    plano("stripe", family);
+    await member.goto("/app/assinatura");
+    await expect(member.getByText("Desconto VIP de 30% na assinatura.")).toHaveCount(0);
+    await expect(member.getByTestId("plano-total")).not.toContainText("31,43");
+    await page.goto("/admin/vip");
+    await expect(
+      page.getByText(new RegExp(`Desconto de ${family} concedido e não aplicado`)),
+    ).toBeVisible();
+    await axe(page);
+    await noSideScroll(page);
+    await shot(page, "vip-desconto-nao-aplicado");
+
+    // O webhook confirmou: agora a família vê.
+    plano("desconto", family, "30");
+    await member.goto("/app/assinatura");
+    await expect(member.getByText("Desconto VIP de 30% na assinatura.")).toBeVisible();
+    await page.goto("/admin/vip");
+    await expect(page.getByText(/concedido e não aplicado/)).toHaveCount(0);
     plano("chave", "off");
   });
 });
@@ -262,6 +340,12 @@ test("catálogo: preço novo não troca o antigo de lugar, e contas conectadas f
   await expect(blocked.getByText("Bloqueado")).toBeVisible();
   await expect(blocked.getByRole("switch")).toHaveCount(0);
   await expect(blocked.getByText("Anual")).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("table", { name: "Família completa" })
+      .getByText("Família completa, 300 mensagens")
+      .first(),
+  ).toBeVisible();
 
   const item = "Moeda adicional EUR, anual";
   const cents = String(10 + Math.floor(Math.random() * 89));
@@ -317,7 +401,11 @@ test("ligar a chave pede a digitação, mostra o checklist e fica na auditoria",
   await shot(page, "receita-ligada");
 
   await page.goto("/admin/cobranca");
+  await expect(page.getByRole("alert").filter({ hasText: /segue|seguem cobrando/ })).toBeVisible();
   await page.getByRole("button", { name: "Desligar cobrança" }).click();
+  const off = page.getByRole("dialog");
+  await expect(off.getByRole("button", { name: "Desligar" })).toBeDisabled();
+  await off.getByLabel("Digite DESLIGAR COBRANCA para confirmar").fill("DESLIGAR COBRANCA");
   await confirm(page, "Desligar");
   await expect(page.getByRole("button", { name: "Ligar cobrança" })).toBeVisible();
 
