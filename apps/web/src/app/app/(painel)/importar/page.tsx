@@ -98,11 +98,13 @@ export default async function ImportPage() {
               {t("investments.link")}
             </Link>
           </Card>
-          <Card title={t("dividends.title")} description={t("dividends.text")}>
-            <Link href="/app/proventos/importar" className={buttonClass("secondary")}>
-              {t("dividends.link")}
-            </Link>
-          </Card>
+          {canWrite(ctx) ? (
+            <Card title={t("dividends.title")} description={t("dividends.text")}>
+              <Link href="/app/proventos/importar" className={buttonClass("secondary")}>
+                {t("dividends.link")}
+              </Link>
+            </Card>
+          ) : null}
         </>
       ) : null}
       {canWrite(ctx) ? (

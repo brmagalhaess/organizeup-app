@@ -21,6 +21,7 @@ import {
 import {
   brazilRulesApply,
   investmentClassAllowed,
+  isB3Ticker,
   money,
   newAssetsOf,
   normalizeTicker,
@@ -50,11 +51,11 @@ const MAX_LINES = 2000;
 const DECIMAL = /^\d{1,12}(\.\d{1,8})?$/;
 const CENTS = /^\d{1,12}\.\d{2}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const TICKER = /^[A-Z]{4}\d{1,2}$/;
 const positive = z
   .string()
   .regex(DECIMAL)
   .refine((value) => money(value).gt(0));
+const ticker = z.string().max(8).refine(isB3Ticker);
 const validDate = z
   .string()
   .regex(DATE)
@@ -62,7 +63,7 @@ const validDate = z
 
 const tradeSchema = z.object({
   line: z.number().int().min(0).max(10_000_000),
-  ticker: z.string().regex(TICKER).nullable(),
+  ticker: ticker.nullable(),
   title: z.string().max(80).nullable(),
   side: z.enum(TRADE_SIDES),
   date: validDate,
@@ -74,7 +75,7 @@ const tradeSchema = z.object({
 
 const positionSchema = z.object({
   line: z.number().int().min(0).max(10_000_000),
-  ticker: z.string().regex(TICKER),
+  ticker,
   name: z.string().max(80).nullable(),
   quantity: positive,
   closePrice: z.string().regex(DECIMAL).nullable(),
@@ -92,7 +93,7 @@ const classSchema = z.enum(["acao", "fii", "etf_bdr"]);
 const commitSchema = fileSchema.extend({
   accountId: z.string().max(100),
   selected: z.array(z.number().int()).max(MAX_LINES),
-  classes: z.record(z.string().regex(TICKER), classSchema),
+  classes: z.record(ticker, classSchema),
   /** Preço pago de cada linha da Posição, digitado na prévia. */
   prices: z.record(z.string().max(12), z.string().max(30)),
   /** Data das operações que vêm da Posição. */

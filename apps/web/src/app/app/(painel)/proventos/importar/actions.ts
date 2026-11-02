@@ -11,6 +11,7 @@ import {
   eq,
   householdCurrency,
   householdTimezone,
+  inArray,
   investments,
   lockFamilyImport,
   marketDividends,
@@ -18,9 +19,14 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import {
+  amountsProblem,
   brazilRulesApply,
-  dividendSelectable,
+  DIVIDEND_DOUBTS,
+  DIVIDEND_STATES,
+  dividendsToWrite,
   importedDividendId,
+  isB3Ticker,
+  isCalendarDate,
   normalizeTicker,
   planDividendImport,
   todayIn,
@@ -37,25 +43,22 @@ const MAX_LINES = 2000;
 const CENTS = /^\d{1,12}\.\d{2}$/;
 /** Pelo menos um dígito diferente de zero. */
 const POSITIVE_CENTS = /^(?=[\d.]*[1-9])\d{1,12}\.\d{2}$/;
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const TICKER = /^[A-Z]{4}\d{1,2}$/;
 
 const cents = z.string().regex(CENTS);
 const positive = z.string().regex(POSITIVE_CENTS);
-const validDate = z
-  .string()
-  .regex(DATE)
-  .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)));
+const validDate = z.string().refine(isCalendarDate);
+const ticker = z.string().max(8).refine(isB3Ticker);
 
 const rowSchema = z
   .object({
     line: z.number().int().min(0).max(10_000_000),
-    ticker: z.string().regex(TICKER),
+    ticker,
     kind: z.enum(DIVIDEND_KINDS),
     paidOn: validDate,
     gross: positive.nullable(),
     withheld: cents.nullable(),
     net: positive.nullable(),
+    ambiguous: z.literal(true).optional(),
   })
   .refine((row) => row.gross !== null || row.net !== null);
 
@@ -65,11 +68,21 @@ const fileSchema = z.object({
     .max(MAX_LINES)
     .refine((rows) => new Set(rows.map((row) => row.line)).size === rows.length),
   /** Investimento escolhido na prévia para cada código fora da carteira. */
-  assignments: z.record(z.string().regex(TICKER), z.string().max(100)),
+  assignments: z.record(ticker, z.string().max(100)),
 });
 
 const commitSchema = fileSchema.extend({
   selected: z.array(z.number().int()).max(MAX_LINES),
+  /** O que a pessoa viu: o que mudou depois da prévia é pulado, sem gravar nada que ela não aceitou. */
+  seen: z
+    .array(
+      z.object({
+        line: z.number().int(),
+        state: z.enum(DIVIDEND_STATES),
+        doubtReason: z.enum(DIVIDEND_DOUBTS).nullable(),
+      }),
+    )
+    .max(MAX_LINES),
 });
 
 export type DividendFileInput = z.input<typeof fileSchema>;
@@ -89,6 +102,16 @@ const blocked = async () => (await getTranslations("settings"))("noPermission");
 const texts = () => getTranslations("proventos.importar.errors");
 
 class ImportRefused extends Error {}
+
+/** Depois do formato, os valores entre si: o que chega aqui não confia na leitura do navegador. */
+function amountsRefusal(
+  rows: z.output<typeof fileSchema>["rows"],
+  t: Awaited<ReturnType<typeof texts>>,
+): string | null {
+  const problems = rows.map(amountsProblem);
+  if (problems.includes("retido_maior")) return t("withheldTooHigh");
+  return problems.includes("nao_fecham") ? t("amountsOff") : null;
+}
 
 function failed(event: string, error: unknown, message: string) {
   // Só nome e código: a mensagem do banco pode trazer dados da família.
@@ -116,8 +139,8 @@ async function planOf(tx: TenantTx, data: z.output<typeof fileSchema>, today: st
           payDate: marketDividends.payDate,
         })
         .from(marketDividends)
+        .where(inArray(marketDividends.ticker, tickers))
     : [];
-  const known = new Set(tickers);
   const owned: DividendHolding[] = holdings.map((holding) => ({
     id: holding.id,
     name: holding.name,
@@ -128,14 +151,14 @@ async function planOf(tx: TenantTx, data: z.output<typeof fileSchema>, today: st
   const rows = planDividendImport({
     rows: data.rows,
     holdings: owned,
-    events: events.filter((event) => known.has(event.ticker)),
+    events,
     blocked: blocks.proventos,
     today,
     assignments: data.assignments,
   });
-  const options = owned.map(({ id, name, ticker }) => ({
+  const options = owned.map(({ id, name, ticker: code }) => ({
     id,
-    label: normalizeTicker(ticker) ? `${normalizeTicker(ticker)} · ${name}` : name,
+    label: normalizeTicker(code) ? `${normalizeTicker(code)} · ${name}` : name,
   }));
   return { rows, options };
 }
@@ -147,6 +170,8 @@ export async function prepareDividendImport(input: DividendFileInput): Promise<P
   const t = await texts();
   const parsed = fileSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: t("invalid") };
+  const refusal = amountsRefusal(parsed.data.rows, t);
+  if (refusal) return { ok: false, message: refusal };
   try {
     return await withHousehold(ctx, async (tx) => {
       if (!brazilRulesApply(await householdCurrency(tx))) {
@@ -177,6 +202,8 @@ export async function commitDividendImport(input: DividendCommitInput): Promise<
   const t = await texts();
   const parsed = commitSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: t("invalid") };
+  const refusal = amountsRefusal(parsed.data.rows, t);
+  if (refusal) return { ok: false, message: refusal };
   const selected = new Set(parsed.data.selected);
   try {
     const result = await withHousehold(ctx, async (tx) => {
@@ -187,7 +214,7 @@ export async function commitDividendImport(input: DividendCommitInput): Promise<
       const today = todayIn(await householdTimezone(tx, ctx.householdId));
       const { rows } = await planOf(tx, parsed.data, today);
       const chosen = rows.filter((row) => selected.has(row.line));
-      const writing = chosen.filter(dividendSelectable);
+      const writing = dividendsToWrite(rows, selected, parsed.data.seen);
       const fresh = writing.filter((row) => row.replaces === null);
       if (fresh.length > 0) {
         await tx.insert(dividends).values(

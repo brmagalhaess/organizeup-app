@@ -20,6 +20,7 @@ import {
   type IgnoredDividendLine,
   type ParsedDividendFile,
   type PlannedDividend,
+  type SeenDividend,
 } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import { Badge, Button, Card, EmptyState, Field, FormMessage, Select } from "@/components/ui";
@@ -36,13 +37,15 @@ import {
 } from "./actions";
 
 const GUIDES = ["recebidos", "movimentacao", "csv"] as const;
-const COLUMN_FIELDS = ["date", "asset", "kind", "value", "gross", "withheld"] as const;
-const REQUIRED_FIELDS = new Set<ColumnField>(["date", "asset", "kind", "value"]);
+const COLUMN_FIELDS = ["date", "asset", "kind", "value", "net", "gross", "withheld"] as const;
+const REQUIRED_FIELDS = new Set<ColumnField>(["date", "asset", "kind"]);
 
 type ColumnField = (typeof COLUMN_FIELDS)[number];
 type Prepared = Extract<PrepareResult, { ok: true }>;
 type Done = Extract<CommitResult, { ok: true }>;
 type Assignments = Record<string, string>;
+/** Só o que a pessoa mexeu, por linha: refazer a prévia não apaga as marcações dela. */
+type Marks = Record<number, boolean>;
 
 /** CSV que a leitura automática não entendeu: fica aqui até a pessoa escolher as colunas. */
 interface PendingCsv {
@@ -161,6 +164,14 @@ function DividendRow({
         ) : null}
         {row.state === "ignorado" && row.ignoreReason ? (
           <p className="text-xs text-muted">{t(`reasons.${row.ignoreReason}`)}</p>
+        ) : null}
+        {row.state === "conferir" && row.current && row.amounts ? (
+          <p className="text-xs tabular-nums text-muted">
+            {t("review.current", {
+              current: moneyText(row.current.net),
+              file: moneyText(row.amounts.net),
+            })}
+          </p>
         ) : null}
         {row.state === "conferir" && row.doubtReason ? (
           <p className="text-xs text-warning">
@@ -300,28 +311,32 @@ function Preview({
   file,
   prepared,
   assignments,
+  marks,
   busy,
   message,
   onAssign,
   onApply,
+  onMarks,
   onCommit,
+  onColumns,
   onCancel,
 }: {
   file: ParsedDividendFile;
   prepared: Prepared;
   assignments: Assignments;
+  marks: Marks;
   busy: boolean;
   message: string | null;
   onAssign: (ticker: string, value: string) => void;
   onApply: () => void;
-  onCommit: (selected: number[]) => void;
+  onMarks: (marks: Marks) => void;
+  onCommit: (selected: number[], seen: SeenDividend[]) => void;
+  onColumns: (() => void) | null;
   onCancel: () => void;
 }) {
   const t = useTranslations("proventos.importar");
   const { rows, options } = prepared;
-  const [selected, setSelected] = useState<Set<number>>(
-    () => new Set(rows.filter(dividendSelectedByDefault).map((row) => row.line)),
-  );
+  const isMarked = (row: PlannedDividend) => marks[row.line] ?? dividendSelectedByDefault(row);
   const count = (state: PlannedDividend["state"]) =>
     rows.filter((row) => row.state === state).length;
   const ignored = count("ignorado") + file.ignored.length;
@@ -331,15 +346,17 @@ function Preview({
       ...Object.keys(assignments),
     ]),
   ];
-  const chosen = rows.filter((row) => selected.has(row.line) && dividendSelectable(row));
+  const chosen = rows.filter((row) => isMarked(row) && dividendSelectable(row));
   const hasAnything = count("novo") + count("conferir") > 0;
-  const toggle = (line: number, value: boolean) =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (value) next.add(line);
-      else next.delete(line);
-      return next;
-    });
+  // Linha que entra junto com a que troca o automático: uma não vai sem a outra.
+  const toggle = (row: PlannedDividend, value: boolean) => {
+    const next: Marks = { ...marks, [row.line]: value };
+    if (value && row.pairedWith !== null) next[row.pairedWith] = true;
+    if (!value) {
+      for (const other of rows) if (other.pairedWith === row.line) next[other.line] = false;
+    }
+    onMarks(next);
+  };
   const list = useMemo(
     () =>
       [
@@ -388,8 +405,8 @@ function Preview({
               <DividendRow
                 key={item.key}
                 row={item.row}
-                checked={selected.has(item.line)}
-                onToggle={(value) => toggle(item.line, value)}
+                checked={isMarked(item.row)}
+                onToggle={(value) => toggle(item.row, value)}
               />
             ) : (
               <IgnoredRow key={item.key} line={item.ignored} />
@@ -401,10 +418,20 @@ function Preview({
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button
           disabled={chosen.length === 0 || busy}
-          onClick={() => onCommit(chosen.map((row) => row.line))}
+          onClick={() =>
+            onCommit(
+              chosen.map((row) => row.line),
+              rows.map(({ line, state, doubtReason }) => ({ line, state, doubtReason })),
+            )
+          }
         >
           {busy ? t("review.importing") : t("review.submit", { count: chosen.length })}
         </Button>
+        {onColumns ? (
+          <Button variant="secondary" onClick={onColumns}>
+            {t("review.columns")}
+          </Button>
+        ) : null}
         <Button variant="secondary" onClick={onCancel}>
           {t("review.cancel")}
         </Button>
@@ -423,12 +450,13 @@ export function DividendImport() {
   const [file, setFile] = useState<ParsedDividendFile | null>(null);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [pending, setPending] = useState<PendingCsv | null>(null);
+  const [csv, setCsv] = useState<PendingCsv | null>(null);
   const [assignments, setAssignments] = useState<Assignments>({});
+  const [marks, setMarks] = useState<Marks>({});
   const [message, setMessage] = useState<string | null>(null);
   const [reading, setReading] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
   const [fileKey, setFileKey] = useState(0);
-  const [version, setVersion] = useState(0);
   const [busy, startTransition] = useTransition();
   // Num celular lento, o arquivo escolhido antes da hidratação se perderia sem aviso.
   const hydrated = useSyncExternalStore(
@@ -441,7 +469,9 @@ export function DividendImport() {
     setFile(null);
     setPrepared(null);
     setPending(null);
+    setCsv(null);
     setAssignments({});
+    setMarks({});
     setMessage(null);
     setDone(null);
     setFileKey((key) => key + 1);
@@ -461,7 +491,6 @@ export function DividendImport() {
       setPending(null);
       setFile(parsed);
       setPrepared(result);
-      setVersion((value) => value + 1);
     });
   };
 
@@ -470,15 +499,17 @@ export function DividendImport() {
     error instanceof DividendFileError ? tErrors(error.code) : tErrors("readFailed");
 
   const readCsv = (text: string) => {
+    const table = parseCsvTable(text);
+    const columns = dividendCsvColumns(table);
+    const source = columns.header < 0 ? null : { text, names: table[columns.header]!, columns };
+    setCsv(source);
     try {
       prepare(parseDividendFile({ format: "csv", text }), {});
     } catch (error) {
       if (!(error instanceof DividendFileError) || error.code !== "colunas") throw error;
-      const table = parseCsvTable(text);
-      const columns = dividendCsvColumns(table);
       // Uma coluna só não dá para mapear: falta o separador, ou nem é uma tabela.
-      if (columns.header < 0) throw new DividendFileError("layout");
-      setPending({ text, names: table[columns.header]!, columns });
+      if (!source) throw new DividendFileError("layout");
+      setPending(source);
     }
   };
 
@@ -504,9 +535,11 @@ export function DividendImport() {
   const useColumns = () => {
     if (!pending) return;
     try {
+      setCsv(pending);
+      setMarks({});
       prepare(
         parseDividendFile({ format: "csv", text: pending.text, columns: pending.columns }),
-        {},
+        assignments,
       );
     } catch (error) {
       setPending(null);
@@ -514,13 +547,14 @@ export function DividendImport() {
     }
   };
 
-  const commit = (selected: number[]) => {
+  const commit = (selected: number[], seen: SeenDividend[]) => {
     if (!file) return;
     startTransition(async () => {
       const result = await commitDividendImport({
         rows: file.rows,
         assignments,
         selected,
+        seen,
       }).catch(() => ({ ok: false as const, message: outdated }));
       if (!result.ok) {
         setMessage(result.message);
@@ -542,7 +576,11 @@ export function DividendImport() {
             {t("done.title")}
           </p>
           <p className="text-sm text-muted">
-            {t("done.counts", { created: done.created, replaced: done.replaced })}
+            {t("done.counts", {
+              created: done.created,
+              replaced: done.replaced,
+              skipped: done.skipped,
+            })}
           </p>
           <div className="mt-2 flex flex-wrap justify-center gap-2">
             <Link href="/app/proventos" className={buttonClass()}>
@@ -574,16 +612,26 @@ export function DividendImport() {
   if (file && prepared) {
     return (
       <Preview
-        key={version}
         file={file}
         prepared={prepared}
         assignments={assignments}
+        marks={marks}
         busy={busy}
         message={message}
         // "Deixar de fora" guarda o vazio: o seletor continua na tela, e dá para mudar de ideia.
         onAssign={(ticker, value) => setAssignments((all) => ({ ...all, [ticker]: value }))}
         onApply={() => prepare(file, assignments)}
+        onMarks={setMarks}
         onCommit={commit}
+        onColumns={
+          file.kind === "csv" && csv
+            ? () => {
+                setFile(null);
+                setPrepared(null);
+                setPending(csv);
+              }
+            : null
+        }
         onCancel={reset}
       />
     );

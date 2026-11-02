@@ -289,6 +289,13 @@ export const proventosCsvSemTitulos = () =>
     "Quando;Papel;Natureza;Quanto\n02/03/2026;ABCD3;Dividendo;4,00\n",
   );
 
+/** A linha de FICT11 de `proventosCsv`, com outro valor. */
+export const proventosCsvOutroValor = () =>
+  textFile(
+    "proventos-corrigido.csv",
+    "Data;Ativo;Tipo;Valor\n31/03/2026;FICT11;Rendimento;15,00\n",
+  );
+
 export const csvTexto = () => textFile("anotacao.csv", "uma frase qualquer\n");
 
 export const unknownSheet = () =>

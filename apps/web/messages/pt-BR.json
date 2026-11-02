@@ -843,7 +843,8 @@
           "kind": "Tipo do provento",
           "value": "Valor recebido",
           "gross": "Valor bruto",
-          "withheld": "Imposto retido"
+          "withheld": "Imposto retido",
+          "net": "Valor líquido"
         }
       },
       "states": {
@@ -864,7 +865,9 @@
         "parecida": "Há um lançamento seu por perto com outro valor. Se marcar, entra mais um.",
         "imposto_incerto": "Não dá para saber o imposto só por este arquivo. Se marcar, entra o valor do arquivo, sem imposto. Confira no extrato.",
         "acima_do_limite": "Acima de {limit} no mês da mesma empresa pode haver retenção de 10%. Confira no extrato.",
-        "excluido": "Você já excluiu ou desfez este provento. Marque se quiser trazer de volta."
+        "excluido": "Você já excluiu ou desfez este provento. Marque se quiser trazer de volta.",
+        "parte_do_automatico": "Faz parte do mesmo pagamento da linha que troca o automático: entra só junto com ela.",
+        "valor_ambiguo": "Este valor pode ser lido de mais de um jeito. Confira no extrato antes de marcar."
       },
       "reasons": {
         "transferido": "Repete outra linha do extrato.",
@@ -903,11 +906,13 @@
         "nothingText": "Tudo o que dá para importar já está nos seus proventos.",
         "submit": "{count, plural, =0 {Nada marcado} one {Importar # provento} other {Importar # proventos}}",
         "importing": "Importando…",
-        "cancel": "Cancelar"
+        "cancel": "Cancelar",
+        "current": "Hoje: {current} · no arquivo: {file}",
+        "columns": "Trocar as colunas"
       },
       "done": {
         "title": "Proventos atualizados",
-        "counts": "{created, plural, one {# provento novo} other {# proventos novos}}{replaced, plural, =0 {} one { · # trocado pelo valor do arquivo} other { · # trocados pelo valor do arquivo}}",
+        "counts": "{created, plural, one {# provento novo} other {# proventos novos}}{replaced, plural, =0 {} one { · # trocado pelo valor do arquivo} other { · # trocados pelo valor do arquivo}}{skipped, plural, =0 {} one { · # linha pulada, confira de novo} other { · # linhas puladas, confira de novo}}",
         "list": "Ver proventos",
         "another": "Importar outro arquivo"
       },
@@ -923,7 +928,9 @@
         "readFailed": "Não conseguimos ler este arquivo. Baixe de novo e tente outra vez.",
         "invalid": "Algumas linhas vieram em formato inválido. Envie o arquivo de novo.",
         "onlyBrazil": "A importação de proventos vale para quem tem moeda principal em reais.",
-        "failed": "Não conseguimos concluir agora. Nada foi gravado. Tente de novo."
+        "failed": "Não conseguimos concluir agora. Nada foi gravado. Tente de novo.",
+        "withheldTooHigh": "Há linha com imposto maior que o valor bruto. Confira o arquivo.",
+        "amountsOff": "Bruto, imposto e líquido de alguma linha não fecham. Confira o arquivo."
       }
     },
     "importLink": "Importar arquivo"

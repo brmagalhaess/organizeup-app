@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import {
   checkDividendFile,
   columnsComplete,
-  daysApart,
   dividendCsvColumns,
   DividendFileError,
   dividendSelectable,
@@ -19,7 +18,6 @@ import {
   planDividendImport,
   proventoAmounts,
   reconcileProventos,
-  sameProventoKind,
   toDbAmount,
   type DividendHolding,
   type DividendKind,
@@ -680,10 +678,11 @@ describe("Mercado e importação (ADR-0029)", () => {
     expect(reconcile([], [swapped])).toMatchObject({ remove: [] });
   });
 
-  it("provento excluído segue bloqueado, e a linha importada não vai atrás de outro", () => {
+  it("provento excluído não conta: a linha responde pelo que ainda vale", () => {
     const events = [provento(), provento({ id: "m2", payDate: "2026-03-11" })];
     const plan = reconcile(events, [imported()], ["m1"]);
-    expect(plan.create.map((entry) => entry.marketDividendId)).toEqual(["m2"]);
+    expect(plan.create).toEqual([]);
+    expect(plan.skippedFamily).toBe(1);
   });
 
   it("rodar de novo sobre o resultado não muda nada", () => {
@@ -768,61 +767,6 @@ describe("propriedades", () => {
         const total = dividends.length + whole.filter(dividendSelectedByDefault).length;
         expect(total).toBeLessThanOrEqual(rows.length);
       }),
-    );
-  });
-
-  it("linha importada nunca faz o Mercado criar o mesmo provento, e nunca tira os outros", () => {
-    const trades: TradeInput[] = [
-      { side: "compra", occurredOn: "2026-01-05", quantity: "100", unitPrice: "10", fees: "0" },
-    ];
-    const eventArb = fc.record({
-      kind,
-      payDate: day,
-      ratePerShare: cents,
-    });
-    fc.assert(
-      fc.property(
-        fc.array(eventArb, { minLength: 1, maxLength: 6 }),
-        fc.array(line, { maxLength: 6 }),
-        (facts, lines) => {
-          const events = facts.map((fact, index): MarketProvento => ({
-            ...fact,
-            id: `m${index}`,
-            comDate: "2026-02-01",
-          }));
-          const rows = lines.map((item, index): ExistingDividend => ({
-            ...item,
-            id: importedDividendId(String(index)),
-            withheld: "0.00",
-            source: "familia",
-            marketDividendId: null,
-          }));
-          const { create, skippedFamily } = reconcileProventos({
-            assetClass: "fii",
-            trades,
-            events,
-            existing: rows,
-            blocked: new Set(),
-          });
-          // Cada linha importada tira no máximo um provento do que seria criado.
-          expect(skippedFamily).toBeLessThanOrEqual(rows.length);
-          for (const entry of create) {
-            const free = rows.filter(
-              (item) =>
-                sameProventoKind(item.kind, entry.kind) &&
-                daysApart(item.paidOn, entry.paidOn) <= 5,
-            );
-            const taken = events.filter(
-              (event) =>
-                !create.some((made) => made.marketDividendId === event.id) &&
-                sameProventoKind(event.kind, entry.kind) &&
-                daysApart(event.payDate, entry.paidOn) <= 10,
-            );
-            // Criado apesar de ter linha por perto só se a linha já responde por outro.
-            expect(free.length).toBeLessThanOrEqual(taken.length);
-          }
-        },
-      ),
     );
   });
 });

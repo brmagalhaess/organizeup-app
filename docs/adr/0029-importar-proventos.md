@@ -19,19 +19,26 @@ dia e tudo o que o Mercado achasse depois.
   em dois lugares para guardar um único bit. O `id` é texto opaco, ninguém o interpreta fora dessa função, e o prefixo
   não muda nenhuma leitura. Se um dia outro dado da origem for preciso, uma coluna preenchida a partir do prefixo
   resolve.
-- **Linha importada responde por um provento só.** Fica fora da regra dos 5 dias. Em `reconcileProventos`, cada linha
-  importada reivindica um provento da fonte do mesmo tipo a até 5 dias, o mais perto da data e, no empate, o de valor
-  mais próximo. O reivindicado não é criado; todos os outros são. Assim, a importação que chega antes do Mercado não
-  duplica nem bloqueia. Quem lançou à mão segue na regra antiga, sem mudança.
+- **Linha importada responde pelo que ela cobre.** Fica fora da regra dos 5 dias. Em `reconcileProventos`, as linhas
+  importadas do mesmo dia e tipo são um pagamento só, porque a corretora parte o valor. O pagamento consome proventos da
+  fonte do mesmo tipo a até 5 dias, nesta ordem: o de mesmo valor; vários que somam o valor, parando quando a soma cobre;
+  o do mesmo dia, ainda que o valor divirja; e, em data diferente, só o de valor até 20% distante, a folga para
+  quantidade e imposto. O que ele cobre não é criado; todo o resto é. Assim, a data do arquivo diferente da fonte não
+  duplica, e sobra de linha não engole o provento seguinte. Provento bloqueado, sem posição na data-com ou ainda não
+  pago não entra na conta. Quem lançou à mão segue na regra antiga, sem mudança.
 - **Dividendo e rendimento contam como o mesmo tipo ao comparar** (`sameProventoKind`), porque a B3 e a fonte de mercado
   podem dar nomes diferentes ao pagamento de um FII. JCP é sempre separado: o imposto é outro.
 - **Mercado primeiro.** A linha automática igual, com um centavo de folga, sai como "já existe". A soma de várias
   linhas também vale: a mesma ação em duas corretoras vem em duas linhas e no Mercado é uma. Valor diferente fica em
-  conferir. Se a pessoa marcar, a linha automática recebe o valor do arquivo, passa a `source = 'familia'` e mantém
-  `market_dividend_id`. O job não mexe em linha `familia` e entende que aquele provento já tem resposta. É dado informado
-  (regra 7): o aceite está na prévia.
+  conferir, com os dois valores na tela. Se a pessoa marcar, a linha automática recebe o valor do arquivo, passa a
+  `source = 'familia'` e mantém `market_dividend_id`. O job não mexe em linha `familia` e entende que aquele provento já
+  tem resposta. É dado informado (regra 7): o aceite está na prévia. Outra linha do arquivo que disputa o mesmo automático
+  também fica em conferir e só entra junto com a que troca, para o valor nunca somar por cima do que já está lá.
+- **Desfazer de remoção** não recria o automático ao lado de uma linha importada que já responde por ele.
 - **A confirmação reconfere.** `planDividendImport` roda de novo dentro da transação, sob a trava da família
-  (`lockFamilyImport`), a mesma da importação da carteira, e só grava o que ele mandar. O job de Mercado toma a mesma
+  (`lockFamilyImport`), a mesma da importação da carteira, e só grava o que ele mandar. O navegador manda o estado que a
+  pessoa viu em cada linha: a que mudou depois da prévia é pulada e contada como pulada, para um "novo" nunca virar troca
+  sem ninguém ver. O servidor repete a conferência de bruto, retido e líquido e valida a data no calendário. O job de Mercado toma a mesma
   trava antes de ler, para não decidir em cima de uma foto de antes da importação.
 - **Identidade.** Linha por linha, por investimento, tipo compatível, a até 5 dias e valor. Dois lançamentos iguais no
   mesmo dia seguem sendo dois, porque cada linha gasta uma linha do banco. Sem coluna de impressão digital, pelo mesmo
@@ -45,6 +52,10 @@ dia e tudo o que o Mercado achasse depois.
   - Rendimento fora de FII segue a mesma recusa de `proventoAmounts`.
   - Só líquido em dividendo, com mais de R$ 50 mil no mês da mesma empresa: conferir, porque pode haver retenção de 10%.
   - "Valor da Operação" e "Valor líquido" são tratados como líquido. Coluna só de "Valor" no CSV, também.
+  - Valor com um separador e três casas, como `1.234` ou `0.125`, ou número do Excel com mais de duas casas, vai para
+    conferir: não dá para saber o que a pessoa quis dizer. Coluna com `%` no título não é dinheiro. `$` sem o R, célula
+    de valor que não é número, valor acima do teto de `numeric(14,2)` e linha com mais células que o cabeçalho ficam de
+    fora com motivo, sem derrubar o arquivo.
 - **Provento não vira lançamento nem receita.** A tela de Proventos nunca criou lançamento em conta, e a importação
   segue a mesma regra, sem opção. Quando a tela ganhar a escolha, a importação pode ganhar também.
 - **Ativo fora da carteira** nunca cria posição. A pessoa escolhe um investimento, ou a linha fica de fora. Código
@@ -64,8 +75,9 @@ dia e tudo o que o Mercado achasse depois.
   pede que a pessoa diga o que foi.
 - Excluir um provento importado libera o automático: na rodada seguinte, o Mercado cria o dele. Excluir a linha trocada,
   que tem `market_dividend_id`, bloqueia o automático para sempre, como qualquer exclusão de automático.
-- Duas linhas importadas iguais reivindicam dois proventos, se houver. Uma linha que soma dois pagamentos do mesmo dia
-  reivindica só um, e o outro é criado: a família vê e exclui. É raro e aparece na tela.
+- Data do arquivo diferente da fonte e valor mais de 20% distante é outro pagamento para o job: se for o mesmo, a família
+  vê dois e exclui um. A fonte com data posterior à real cria um "a receber" que fica ao lado da linha importada, pelo
+  mesmo motivo. Os dois casos são raros e aparecem na tela.
 - Data do arquivo a mais de 5 dias do pagamento da fonte é outro provento para o job, como já acontece com o lançamento
   à mão. Não há Desfazer por lote; cada linha se exclui na tela de Proventos.
 

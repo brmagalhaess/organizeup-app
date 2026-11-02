@@ -843,7 +843,8 @@
           "kind": "Dividend type",
           "value": "Amount received",
           "gross": "Gross amount",
-          "withheld": "Tax withheld"
+          "withheld": "Tax withheld",
+          "net": "Net amount"
         }
       },
       "states": {
@@ -864,7 +865,9 @@
         "parecida": "There is an entry of yours nearby with another amount. If you check this, one more comes in.",
         "imposto_incerto": "The tax cannot be known from this file alone. If you check this, the file's amount comes in with no tax. Check your statement.",
         "acima_do_limite": "Above {limit} in a month from the same company, 10% may be withheld. Check your statement.",
-        "excluido": "You already deleted or undid this dividend. Check this to bring it back."
+        "excluido": "You already deleted or undid this dividend. Check this to bring it back.",
+        "parte_do_automatico": "Part of the same payment as the line replacing the automatic one: it only comes in with it.",
+        "valor_ambiguo": "This amount can be read in more than one way. Check your statement before ticking it."
       },
       "reasons": {
         "transferido": "Repeats another line of the statement.",
@@ -903,11 +906,13 @@
         "nothingText": "Everything that can be imported is already in your dividends.",
         "submit": "{count, plural, =0 {Nothing checked} one {Import # dividend} other {Import # dividends}}",
         "importing": "Importing…",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "current": "Now: {current} · in the file: {file}",
+        "columns": "Change columns"
       },
       "done": {
         "title": "Dividends updated",
-        "counts": "{created, plural, one {# new dividend} other {# new dividends}}{replaced, plural, =0 {} one { · # replaced by the file's amount} other { · # replaced by the file's amount}}",
+        "counts": "{created, plural, one {# new dividend} other {# new dividends}}{replaced, plural, =0 {} one { · # replaced by the file's amount} other { · # replaced by the file's amount}}{skipped, plural, =0 {} one { · # line skipped, review again} other { · # lines skipped, review again}}",
         "list": "See dividends",
         "another": "Import another file"
       },
@@ -923,7 +928,9 @@
         "readFailed": "We could not read this file. Download it again and retry.",
         "invalid": "Some lines came in an invalid format. Send the file again.",
         "onlyBrazil": "Dividend import is for accounts whose main currency is the Brazilian real.",
-        "failed": "We could not finish now. Nothing was saved. Try again."
+        "failed": "We could not finish now. Nothing was saved. Try again.",
+        "withheldTooHigh": "A line has more tax than its gross amount. Check the file.",
+        "amountsOff": "Gross, tax and net do not add up on some line. Check the file."
       }
     },
     "importLink": "Import file"

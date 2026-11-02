@@ -91,6 +91,8 @@ export interface ParsedDividend {
   gross: string | null;
   withheld: string | null;
   net: string | null;
+  /** Valor que dá para ler de mais de um jeito, como 1.234: a pessoa confere. */
+  ambiguous?: true;
 }
 
 export const DIVIDEND_IGNORE_REASONS = [
@@ -150,26 +152,68 @@ function kindOf(type: string): DividendKind | null {
   return null;
 }
 
-/** Tudo em centavos. Zero, negativo ou texto: null. */
-function centsOf(cell: SheetCell): string | null {
-  const value = decimalOf(cell);
-  if (!value || value.lte(0) || value.gte("1000000000000")) return null;
-  const cents = toDbAmount(value);
-  return money(cents).gt(0) ? cents : null;
+/** Teto de `numeric(14,2)`. */
+const AMOUNT_LIMIT = "1000000000000";
+const ONE_CENT = "0.01";
+const EMPTY_CELL = /^[-–—]?$/;
+/** `$` sem o R na frente é outra moeda, ou erro de digitação. */
+const FOREIGN_MONEY = /(^|[^Rr])\$/;
+/** Um separador só e três casas: 1.234 pode ser mil e tanto, e 0.125 não cabe em centavos. */
+const THREE_PLACES = /^\D*\d+[.,]\d{3}\D*$/;
+const MONEY_PLACES = 2;
+/** Número do Excel pode trazer ruído de ponto flutuante nas últimas casas. */
+const FLOAT_NOISE_PLACES = 6;
+
+interface MoneyCell {
+  value: string | null;
+  ambiguous: boolean;
+  /** Preenchida com algo que não é valor aceitável: a linha não pode seguir sem ela. */
+  bad: boolean;
 }
 
-const ONE_CENT = "0.01";
+const blankMoney: MoneyCell = { value: null, ambiguous: false, bad: false };
+const badMoney: MoneyCell = { value: null, ambiguous: false, bad: true };
+
+/** Lê um valor em reais. Vazio é vazio; o que está preenchido e não serve invalida a linha. */
+function moneyCell(cell: SheetCell, { zero = false } = {}): MoneyCell {
+  if (cell === null || cell === undefined) return blankMoney;
+  const text = typeof cell === "string" ? cell.trim() : null;
+  if (text !== null && EMPTY_CELL.test(text)) return blankMoney;
+  if (text !== null && FOREIGN_MONEY.test(text)) return badMoney;
+  const value = decimalOf(cell);
+  if (!value || !value.isFinite() || value.lt(0) || value.gte(AMOUNT_LIMIT)) return badMoney;
+  const cents = toDbAmount(value);
+  if (!zero && money(cents).lte(0)) return badMoney;
+  const ambiguous =
+    (text !== null && THREE_PLACES.test(text)) ||
+    value.toDecimalPlaces(FLOAT_NOISE_PLACES).decimalPlaces() > MONEY_PLACES;
+  return { value: cents, ambiguous, bad: false };
+}
 
 type Amounts = Pick<ParsedDividend, "gross" | "withheld" | "net">;
 
+export type AmountsProblem = "retido_maior" | "nao_fecham";
+
 /** Bruto, retido e líquido que vieram juntos precisam fechar: um centavo por arredondamento. */
-function amountsClose({ gross, withheld, net }: Amounts): boolean {
-  if (gross === null) return true;
-  const paidOut = money(withheld ?? 0).plus(net ?? 0);
-  if (money(withheld ?? 0).gt(gross)) return false;
-  if (net === null) return true;
-  if (money(net).gt(gross)) return false;
-  return withheld === null || paidOut.minus(gross).abs().lte(ONE_CENT);
+export function amountsProblem({ gross, withheld, net }: Amounts): AmountsProblem | null {
+  if (gross === null) {
+    const total = money(net ?? 0).plus(withheld ?? 0);
+    return total.gte(AMOUNT_LIMIT) ? "nao_fecham" : null;
+  }
+  if (money(withheld ?? 0).gt(gross) || money(net ?? 0).gt(gross)) return "retido_maior";
+  if (net === null || withheld === null) return null;
+  const gap = money(withheld).plus(net).minus(gross).abs();
+  return gap.lte(ONE_CENT) ? null : "nao_fecham";
+}
+
+const CALENDAR_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
+const FIRST_YEAR = "1900";
+
+/** O `Date.parse` aceita 31 de fevereiro: só vale se a data voltar igual. */
+export function isCalendarDate(text: string): boolean {
+  if (!CALENDAR_FORMAT.test(text) || text < FIRST_YEAR) return false;
+  const at = Date.parse(`${text}T00:00:00Z`);
+  return !Number.isNaN(at) && new Date(at).toISOString().slice(0, 10) === text;
 }
 
 interface Collector extends Omit<ParsedDividendFile, "kind"> {
@@ -180,6 +224,9 @@ interface Collector extends Omit<ParsedDividendFile, "kind"> {
     reason: DividendIgnoreReason | null;
     date: SheetCell;
     amounts: Amounts;
+    /** Alguma célula de valor preenchida com o que não serve, ou célula sobrando na linha. */
+    broken?: boolean;
+    ambiguous?: boolean;
   }): void;
 }
 
@@ -189,18 +236,24 @@ function collector(): Collector {
   return {
     rows,
     ignored,
-    add({ line, product, kind, reason, date, amounts }) {
+    add({ line, product, kind, reason, date, amounts, broken = false, ambiguous = false }) {
       const paidOn = dateOf(date);
       const skip = (why: DividendIgnoreReason) =>
         void ignored.push({ line, label: product.label || "—", date: paidOn, reason: why });
       if (reason) return skip(reason);
       if (!kind) return skip("tipo_desconhecido");
       if (!product.ticker) return skip("ativo_nao_listado");
-      if (!paidOn || (amounts.gross === null && amounts.net === null)) {
-        return skip("dados_invalidos");
-      }
-      if (!amountsClose(amounts)) return skip("valores_nao_fecham");
-      rows.push({ line, ticker: product.ticker, kind, paidOn, ...amounts });
+      if (broken || !paidOn || !isCalendarDate(paidOn)) return skip("dados_invalidos");
+      if (amounts.gross === null && amounts.net === null) return skip("dados_invalidos");
+      if (amountsProblem(amounts)) return skip("valores_nao_fecham");
+      rows.push({
+        line,
+        ticker: product.ticker,
+        kind,
+        paidOn,
+        ...amounts,
+        ...(ambiguous ? { ambiguous: true as const } : {}),
+      });
     },
   };
 }
@@ -243,13 +296,16 @@ function parseSheet(sheet: WorkbookSheet, base: number, out: Collector): Found |
       : type.startsWith("reembolso")
         ? "reembolso"
         : null;
+    const net = moneyCell(row[columns.net]);
     out.add({
       line: base + header + offset + 2,
       product: productOf(row[columns.product]),
       kind: kindOf(type),
       reason: typeReason ?? (flow === "credito" ? null : "debito"),
       date: row[columns.date],
-      amounts: { gross: null, withheld: null, net: centsOf(row[columns.net]) },
+      amounts: { gross: null, withheld: null, net: net.value },
+      broken: net.bad,
+      ambiguous: net.ambiguous,
     });
   });
   return recebidos ? "recebidos" : "movimentacao";
@@ -281,8 +337,7 @@ export interface DividendColumns {
 }
 
 const NAME_RULES: Record<Exclude<keyof DividendColumns, "header">, (name: string) => boolean> = {
-  date: (n) =>
-    n.includes("pagamento") || n === "data" || n === "date" || n === "payment date" || n === "dt",
+  date: (n) => n === "data" || n === "date" || n === "payment date" || n === "dt",
   asset: (n) =>
     [
       "ativo",
@@ -323,10 +378,15 @@ const FIELDS = Object.keys(NAME_RULES) as Array<keyof typeof NAME_RULES>;
 
 const HEADER_SEARCH_ROWS = 15;
 
+const isPaymentDate = (name: string) => name.includes("pagamento") && !name.startsWith("valor");
+
 function columnsAt(row: string[], header: number): DividendColumns {
-  const names = row.map(normalizeDescription);
+  // Coluna em percentual não é dinheiro: "IR (%)" com 15 não são R$ 15,00.
+  const names = row.map((cell) => (cell.includes("%") ? "" : normalizeDescription(cell)));
   const columns = { header } as DividendColumns;
   for (const field of FIELDS) columns[field] = names.findIndex(NAME_RULES[field]);
+  const paid = names.findIndex(isPaymentDate);
+  if (paid >= 0) columns.date = paid;
   return columns;
 }
 
@@ -360,32 +420,31 @@ export function dividendCsvColumns(table: string[][]): DividendColumns {
 function parseCsv(table: string[][], columns: DividendColumns): ParsedDividendFile {
   if (!columnsComplete(columns)) throw new DividendFileError("colunas");
   const out = collector();
+  const width = table[columns.header]!.length;
   const at = (row: string[], column: number) => (column >= 0 ? (row[column] ?? "") : "");
   table.slice(columns.header + 1).forEach((row, offset) => {
     if (row.every((cell) => !cell.trim())) return;
     const type = normalizeDescription(at(row, columns.kind));
     const asset = cleanFileText(at(row, columns.asset));
+    const gross = moneyCell(at(row, columns.gross));
+    const withheld = moneyCell(at(row, columns.withheld), { zero: true });
+    const net = moneyCell(at(row, columns.net));
+    const value = moneyCell(at(row, columns.value));
+    const received = net.value !== null || net.bad ? net : value;
+    // Vírgula decimal sem aspas corta o valor em duas células, e os centavos sumiriam calados.
+    const filled = row.findLastIndex((cell) => cell.trim() !== "") + 1;
     out.add({
       line: columns.header + offset + 2,
       product: { label: asset, ticker: normalizeTicker(splitProduct(asset).code) },
       kind: kindOf(type),
       reason: type.endsWith("transferido") ? "transferido" : null,
       date: at(row, columns.date),
-      amounts: {
-        gross: centsOf(at(row, columns.gross)),
-        withheld: taxOf(at(row, columns.withheld)),
-        net: centsOf(at(row, columns.net)) ?? centsOf(at(row, columns.value)),
-      },
+      amounts: { gross: gross.value, withheld: withheld.value, net: received.value },
+      broken: filled > width || gross.bad || withheld.bad || received.bad,
+      ambiguous: gross.ambiguous || withheld.ambiguous || received.ambiguous,
     });
   });
   return { kind: "csv", rows: out.rows, ignored: out.ignored };
-}
-
-/** Coluna de imposto aceita zero: "0,00" é informação, vazio não. */
-function taxOf(cell: string): string | null {
-  const value = decimalOf(cell);
-  if (!cell.trim() || !value || value.lt(0)) return null;
-  return toDbAmount(value);
 }
 
 export type DividendFileInput =

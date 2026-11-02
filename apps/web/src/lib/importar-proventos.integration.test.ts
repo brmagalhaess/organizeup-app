@@ -1,6 +1,8 @@
 // Importar proventos (ADR-0029), pelas server actions de verdade, contra um Postgres real, com a web conectada
 // como ou_app e o job como ou_worker. Prova a conversa com o Mercado nas duas ordens, a transação única, a
 // confirmação que reconfere, quem pode e o isolamento. Dados fictícios.
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, inject, it, vi } from "vitest";
 import type { MarketDividendRow, TenantContext, TenantTx } from "@organizeup/db";
 
@@ -34,6 +36,7 @@ const { commitDividendImport, prepareDividendImport } =
   await import("@/app/app/(painel)/proventos/importar/actions");
 const { deleteDividend } = await import("@/app/app/(painel)/proventos/actions");
 const { loadDividends } = await import("@/lib/investments");
+const domain = await import("@organizeup/domain");
 
 const { auditLog, dividends, eq, household, householdMember, householdSettings } = db;
 const { householdSuggestions, investments, investmentTrades, transactions, user } = db;
@@ -124,10 +127,22 @@ const prepared = async (rows: Line[], assignments: Record<string, string> = {}) 
 };
 const statesOf = async (rows: Line[]) => (await prepared(rows)).rows.map((row) => row.state);
 
-const send = (rows: Line[], over: Record<string, unknown> = {}) =>
+/** O que a tela mandaria: a prévia vista logo antes da confirmação. */
+const seenOf = async (rows: Line[], assignments: Record<string, string>) => {
+  const preview = await prepareDividendImport(file(rows, assignments));
+  if (!preview.ok) return [];
+  return preview.rows.map(({ line: number, state, doubtReason }) => ({
+    line: number,
+    state,
+    doubtReason,
+  }));
+};
+
+const send = async (rows: Line[], over: Partial<Parameters<typeof commitDividendImport>[0]> = {}) =>
   commitDividendImport({
     ...file(rows),
     selected: rows.map((row) => row.line),
+    seen: await seenOf(rows, over.assignments ?? {}),
     ...over,
   });
 
@@ -192,7 +207,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   ctx = owner;
   round += 1;
-  ticker = `TST${String.fromCharCode(64 + round)}3`;
+  ticker = `TS${String.fromCharCode(65 + Math.floor(round / 26), 65 + (round % 26))}3`;
   await inA(async (tx) => {
     await tx.delete(dividends);
     await tx.delete(householdSuggestions);
@@ -435,7 +450,8 @@ describe("confirmar", () => {
 
   it("descarta o que não é do formato, como nome e CPF enviados à força", async () => {
     const dirty = { ...line({ line: 1 }), nome: "Pessoa Ficticia", cpf: "000.000.000-00" };
-    await commitDividendImport({ rows: [dirty], assignments: {}, selected: [1] });
+    const seen = await seenOf([{ line: 1 }], {});
+    await commitDividendImport({ rows: [dirty], assignments: {}, selected: [1], seen });
     const rows = await stored();
     expect(rows).toHaveLength(1);
     expect(JSON.stringify(rows)).not.toContain("Pessoa");
@@ -467,6 +483,175 @@ describe("ativo fora da carteira", () => {
     expect(result).toMatchObject({ ok: true, created: 0 });
     expect(await stored()).toHaveLength(0);
     expect(await inB((tx) => tx.select().from(dividends))).toHaveLength(0);
+  });
+});
+
+describe("revisão: Mercado", () => {
+  const setQuantity = (quantity: string) =>
+    inA((tx) =>
+      tx.update(investmentTrades).set({ quantity }).where(eq(investmentTrades.investmentId, abcd)),
+    );
+
+  it("automático 95, arquivo 60 + 40: nada entra sozinho, e marcar as duas dá 100", async () => {
+    await setQuantity("95");
+    await seedMarket([provento({ ratePerShare: "1" })]);
+    await mercado();
+    const rows: Line[] = [
+      { line: 1, net: "60.00" },
+      { line: 2, net: "40.00" },
+    ];
+    expect((await prepared(rows)).rows.map((row) => [row.state, row.pairedWith])).toEqual([
+      ["conferir", null],
+      ["conferir", 1],
+    ]);
+    expect(await send(rows, { selected: [] })).toMatchObject({ created: 0, replaced: 0 });
+    expect(await send(rows, { selected: [2] })).toMatchObject({ created: 0, skipped: 1 });
+    expect(await stored()).toMatchObject([{ source: "agente", gross: "95.00" }]);
+    expect(await send(rows)).toMatchObject({ created: 1, replaced: 1 });
+    await mercado();
+    const after = await stored();
+    expect(after.map((row) => row.gross).toSorted()).toEqual(["40.00", "60.00"]);
+  });
+
+  it("duas corretoras antes do Mercado não engolem o provento de três dias depois", async () => {
+    await send([
+      { line: 1, net: "60.00" },
+      { line: 2, net: "40.00" },
+    ]);
+    await seedMarket([
+      provento({ ratePerShare: "1" }),
+      provento({ ratePerShare: "0.5", comDate: "2026-02-21", payDate: "2026-03-13" }),
+    ]);
+    await mercado();
+    const rows = await stored();
+    expect(rows).toHaveLength(3);
+    expect(rows.filter((row) => row.source === "agente")).toMatchObject([
+      { paidOn: "2026-03-13", gross: "50.00" },
+    ]);
+  });
+
+  it("Desfazer da remoção não recria o automático ao lado da importada", async () => {
+    await seedMarket([provento({})]);
+    await mercado();
+    await inA((tx) =>
+      tx
+        .update(investmentTrades)
+        .set({ occurredOn: "2026-02-25" })
+        .where(eq(investmentTrades.investmentId, abcd)),
+    );
+    await mercado();
+    expect(await stored()).toHaveLength(0);
+    await send([{ line: 1 }]);
+    const suggestions = await inA((tx) =>
+      tx.select().from(householdSuggestions).where(eq(householdSuggestions.status, "aplicada")),
+    );
+    const removal = suggestions.find((row) => JSON.stringify(row.payload).includes('"removed":[{'));
+    const undone = await db.withHousehold(owner, (tx) =>
+      agents.undoSuggestion(tx, owner, removal!.id),
+    );
+    expect(undone).toMatchObject({ ok: true });
+    expect(await stored()).toMatchObject([{ source: "familia", marketDividendId: null }]);
+  });
+
+  it("Desfazer da remoção, sem linha importada, devolve o automático como sempre", async () => {
+    await seedMarket([provento({})]);
+    await mercado();
+    await inA((tx) =>
+      tx
+        .update(investmentTrades)
+        .set({ occurredOn: "2026-02-25" })
+        .where(eq(investmentTrades.investmentId, abcd)),
+    );
+    await mercado();
+    const suggestions = await inA((tx) =>
+      tx.select().from(householdSuggestions).where(eq(householdSuggestions.status, "aplicada")),
+    );
+    const removal = suggestions.find((row) => JSON.stringify(row.payload).includes('"removed":[{'));
+    await db.withHousehold(owner, (tx) => agents.undoSuggestion(tx, owner, removal!.id));
+    expect(await stored()).toMatchObject([{ source: "agente" }]);
+  });
+
+  it("prévia velha: novo que virou troca é pulado, e a linha automática fica", async () => {
+    const rows: Line[] = [{ line: 1, net: "70.00" }];
+    const seen = await seenOf(rows, {});
+    expect(seen).toMatchObject([{ state: "novo" }]);
+    await seedMarket([provento({})]);
+    await mercado();
+    expect(await send(rows, { seen })).toMatchObject({
+      ok: true,
+      created: 0,
+      replaced: 0,
+      skipped: 1,
+    });
+    expect(await stored()).toMatchObject([{ source: "agente", gross: "50.00" }]);
+  });
+
+  it("linha trocada aparece como vinda de arquivo na tela de Proventos", async () => {
+    await seedMarket([provento({})]);
+    await mercado();
+    await send([{ line: 1, net: "70.00" }]);
+    const { rows } = await loadDividends(owner);
+    expect(rows.map(domain.cameFromFile)).toEqual([true]);
+  });
+
+  it("a fonte só é lida para os códigos do arquivo", () => {
+    const source = readFileSync(
+      path.resolve(import.meta.dirname, "../app/app/(painel)/proventos/importar/actions.ts"),
+      "utf8",
+    );
+    expect(source).toContain(".where(inArray(marketDividends.ticker, tickers))");
+  });
+});
+
+describe("revisão: o servidor não confia", () => {
+  const refused = async (row: Line) => {
+    const result = await send([row]);
+    expect(result).toMatchObject({ ok: false });
+    expect(await stored()).toHaveLength(0);
+    return result.ok ? "" : result.message;
+  };
+
+  it("retido maior que bruto é recusado com mensagem própria", async () => {
+    expect(await refused({ line: 1, gross: "10.00", withheld: "15.00", net: null })).toContain(
+      "imposto maior",
+    );
+    expect(await refused({ line: 1, gross: "10.00", net: "15.00" })).toContain("imposto maior");
+  });
+
+  it("valores que não fecham ou estouram são recusados, e a prévia também recusa", async () => {
+    expect(await refused({ line: 1, gross: "100.00", withheld: "1.00", net: "50.00" })).toContain(
+      "não fecham",
+    );
+    expect(
+      await refused({ line: 1, withheld: "999999999999.99", net: "999999999999.99" }),
+    ).toContain("não fecham");
+    const preview = await prepareDividendImport(
+      file([{ line: 1, gross: "10.00", withheld: "15.00", net: null }]),
+    );
+    expect(preview).toMatchObject({ ok: false });
+  });
+
+  it("data fora do calendário é formato inválido, e não erro de banco", async () => {
+    for (const paidOn of ["2026-02-31", "2026-04-31", "0000-01-01"]) {
+      expect(await refused({ line: 1, paidOn })).toContain("formato inválido");
+    }
+  });
+});
+
+describe("revisão: tela de importar", () => {
+  it("cartão de proventos só para quem pode importar", async () => {
+    vi.doMock("@/i18n/resolve", () => ({ resolveLocale: async () => "pt-BR" }));
+    vi.doMock("@/i18n/account-server", () => ({ familyAccountType: async () => "pf" }));
+    const { default: ImportPage } = await import("@/app/app/(painel)/importar/page");
+    const links = (node: unknown): string[] => {
+      if (Array.isArray(node)) return node.flatMap(links);
+      const props = (node as { props?: { href?: string; children?: unknown } } | null)?.props;
+      return props ? [...(props.href ? [props.href] : []), ...links(props.children)] : [];
+    };
+    expect(links(await ImportPage())).toContain("/app/proventos/importar");
+    ctx = viewer;
+    expect(links(await ImportPage())).not.toContain("/app/proventos/importar");
+    ctx = owner;
   });
 });
 

@@ -3,7 +3,7 @@ import { Plus, Target, Trash2, Upload } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useEffect, useState, type ReactNode } from "react";
-import { isImportedDividend, money, netDividend } from "@organizeup/domain";
+import { cameFromFile, money, netDividend } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import {
   Badge,
@@ -113,7 +113,7 @@ function DividendLine({
           {row.label}
           <Badge>{t(`kinds.${row.kind}`)}</Badge>
           {row.source === "agente" ? <Badge tone="success">{t("line.automatic")}</Badge> : null}
-          {isImportedDividend(row.id) ? <Badge>{t("line.imported")}</Badge> : null}
+          {cameFromFile(row) ? <Badge>{t("line.imported")}</Badge> : null}
         </p>
         <p className="text-xs text-muted">
           {formatDate(row.paidOn, locale)}

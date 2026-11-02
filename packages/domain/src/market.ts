@@ -33,7 +33,9 @@ export const MARKET_RULES = {
   historyYears: 5,
 } as const;
 
-const TICKER = /^([A-Z]{4}[0-9]{1,2})F?$/;
+/** Raiz e final do código, sem o F do fracionário. */
+export const TICKER_ROOTS = String.raw`[A-Z]{4}[0-9]{1,2}`;
+const TICKER = new RegExp(`^(${TICKER_ROOTS})F?$`);
 
 /**
  * Código da B3 no formato que a fonte entende; null quando não parece um. O sufixo F é o mercado
@@ -43,6 +45,9 @@ export function normalizeTicker(raw: string | null | undefined): string | null {
   const match = TICKER.exec(raw?.trim().toUpperCase() ?? "");
   return match ? match[1]! : null;
 }
+
+/** Código já no formato de `normalizeTicker`, sem o F do fracionário. */
+export const isB3Ticker = (text: string) => normalizeTicker(text) === text;
 
 /** Data civil na B3 de um instante da fonte. */
 export const marketDateOf = (at: Date | string): string =>
@@ -142,6 +147,8 @@ export interface ReconcileInput {
   existing: ExistingDividend[];
   /** Proventos de mercado que a família desfez ou excluiu: nunca mais mexidos. */
   blocked: ReadonlySet<string>;
+  /** Hoje, na família. Provento ainda não pago não responde por linha já paga. */
+  today?: string;
 }
 
 export interface ProventoEntry {
@@ -164,10 +171,23 @@ export interface ProventoPlan {
   skippedTax: number;
 }
 
-const dayNumber = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
+/** Número do dia. Calcule uma vez por linha: comparar datas pelo texto ou por este número, nunca reconverter. */
+export const dayNumber = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
 
-/** Distância em dias entre duas datas. */
-export const daysApart = (a: string, b: string) => Math.abs(dayNumber(a) - dayNumber(b));
+/** Fatia de uma lista ordenada por `day` que cabe na janela em torno de `day`. */
+export function inWindow<T extends { day: number }>(sorted: T[], day: number, window: number): T[] {
+  const firstAt = (limit: number) => {
+    let low = 0;
+    let high = sorted.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (sorted[middle]!.day < limit) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  };
+  return sorted.slice(firstAt(day - window), firstAt(day + window + 1));
+}
 
 /** Marca da linha que veio de arquivo, no próprio `id` (ADR-0029). */
 const IMPORTED_DIVIDEND_PREFIX = "importado-";
@@ -176,40 +196,143 @@ export const importedDividendId = (uuid: string) => `${IMPORTED_DIVIDEND_PREFIX}
 
 export const isImportedDividend = (id: string) => id.startsWith(IMPORTED_DIVIDEND_PREFIX);
 
+/** Veio de arquivo: importada, ou automática que a pessoa trocou pelo valor do arquivo. */
+export const cameFromFile = (row: {
+  id: string;
+  source: ExistingDividend["source"];
+  marketDividendId: string | null;
+}) => isImportedDividend(row.id) || (row.source === "familia" && row.marketDividendId !== null);
+
 /** A B3 e a fonte de mercado podem chamar de jeitos diferentes o pagamento de um FII. JCP é à parte. */
 export const sameProventoKind = (a: DividendKind, b: DividendKind) =>
   a === b || (a !== "jcp" && b !== "jcp");
 
+/** Em data diferente, até esta distância de valor ainda é o mesmo pagamento: quantidade ou imposto divergem. */
+const CLAIM_VALUE_SLACK = "0.2";
+const CENT = "0.01";
+
+const similarValue = (a: MoneyValue, b: MoneyValue) =>
+  a.minus(b).abs().lte(a.times(CLAIM_VALUE_SLACK));
+
+interface ImportedGroup {
+  day: number;
+  kind: DividendKind;
+  gross: MoneyValue;
+  net: MoneyValue;
+  rows: number;
+}
+
+/** Linhas do mesmo dia e tipo são um pagamento só, partido por corretora. */
+function importedGroups(existing: ExistingDividend[]): ImportedGroup[] {
+  const groups = new Map<string, ImportedGroup>();
+  for (const row of existing) {
+    if (row.marketDividendId !== null || !isImportedDividend(row.id)) continue;
+    const key = `${row.paidOn}|${row.kind === "jcp"}`;
+    const group = groups.get(key) ?? {
+      day: dayNumber(row.paidOn),
+      kind: row.kind,
+      gross: money(0),
+      net: money(0),
+      rows: 0,
+    };
+    group.gross = group.gross.plus(row.gross);
+    group.net = group.net.plus(row.gross).minus(row.withheld);
+    group.rows += 1;
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort((a, b) => a.day - b.day);
+}
+
+interface OpenEvent {
+  id: string;
+  kind: DividendKind;
+  day: number;
+  due: MoneyValue;
+}
+
+/** Provento que ainda pode ser reivindicado, com o valor devido. Bloqueado e sem posição não valem. */
+function openEvents(input: ReconcileInput, taken: ReadonlySet<string>): OpenEvent[] {
+  const { today } = input;
+  return input.events
+    .flatMap((event): OpenEvent[] => {
+      if (taken.has(event.id) || input.blocked.has(event.id)) return [];
+      if (today !== undefined && event.payDate > today) return [];
+      const quantity = entitledQuantity(input.trades, event.comDate, input.stockEvents);
+      const due = money(quantity).times(event.ratePerShare);
+      if (due.lte(0)) return [];
+      return [{ id: event.id, kind: event.kind, day: dayNumber(event.payDate), due }];
+    })
+    .sort((a, b) => a.day - b.day);
+}
+
 /**
- * Cada linha importada responde por um provento só: o do mesmo tipo mais perto da data e, no empate, o de
- * valor mais próximo. O resto a fonte cria, ao contrário do que vale para o lançamento à mão (ADR-0029).
+ * O que um pagamento do arquivo cobre, nesta ordem: o provento do mesmo valor; vários que somam o valor; o do
+ * mesmo dia, ainda que o valor divirja; e, em outra data, só o de valor parecido. Assim a data do arquivo
+ * diferente da fonte não duplica, e sobra de linha não engole o provento seguinte.
  */
+function coveredBy(group: ImportedGroup, candidates: OpenEvent[]): OpenEvent[] {
+  const tolerance = money(CENT).times(group.rows);
+  const fits = (due: MoneyValue) =>
+    due.minus(group.gross).abs().lte(tolerance) || due.minus(group.net).abs().lte(tolerance);
+  const ordered = candidates.toSorted(
+    (a, b) =>
+      Math.abs(a.day - group.day) - Math.abs(b.day - group.day) ||
+      a.due.minus(group.gross).abs().comparedTo(b.due.minus(group.gross).abs()),
+  );
+  const exact = ordered.find((event) => fits(event.due));
+  if (exact) return [exact];
+
+  const summed: OpenEvent[] = [];
+  let left = group.gross;
+  for (const event of ordered) {
+    if (left.lte(tolerance)) break;
+    if (event.due.lte(left.plus(tolerance))) {
+      summed.push(event);
+      left = left.minus(event.due);
+    }
+  }
+  if (summed.length > 0 && left.lte(tolerance)) return summed;
+
+  const sameDay: OpenEvent[] = [];
+  left = group.gross;
+  for (const event of ordered.filter((item) => item.day === group.day)) {
+    sameDay.push(event);
+    left = left.minus(event.due);
+    if (left.lte(tolerance)) break;
+  }
+  if (sameDay.length > 0) return sameDay;
+
+  const similar = ordered.find((event) => similarValue(event.due, group.gross));
+  return similar ? [similar] : [];
+}
+
+/** Proventos respondidos por linhas importadas. O resto a fonte cria, ao contrário do lançamento à mão. */
 function claimedByImports(input: ReconcileInput, taken: ReadonlySet<string>): Set<string> {
   const claimed = new Set<string>();
-  const imported = input.existing
-    .filter((row) => row.marketDividendId === null && isImportedDividend(row.id))
-    .toSorted((a, b) => a.paidOn.localeCompare(b.paidOn) || a.id.localeCompare(b.id));
-  const valueOf = (event: MarketProvento) =>
-    money(entitledQuantity(input.trades, event.comDate, input.stockEvents)).times(
-      event.ratePerShare,
+  const open = openEvents(input, taken);
+  for (const group of importedGroups(input.existing)) {
+    const candidates = inWindow(open, group.day, MARKET_RULES.familyMatchDays).filter(
+      (event) => !claimed.has(event.id) && sameProventoKind(event.kind, group.kind),
     );
-  for (const row of imported) {
-    const near = input.events
-      .filter(
-        (event) =>
-          !taken.has(event.id) &&
-          !claimed.has(event.id) &&
-          sameProventoKind(event.kind, row.kind) &&
-          daysApart(event.payDate, row.paidOn) <= MARKET_RULES.familyMatchDays,
-      )
-      .toSorted(
-        (a, b) =>
-          daysApart(a.payDate, row.paidOn) - daysApart(b.payDate, row.paidOn) ||
-          valueOf(a).minus(row.gross).abs().comparedTo(valueOf(b).minus(row.gross).abs()),
-      );
-    if (near[0]) claimed.add(near[0].id);
+    for (const event of coveredBy(group, candidates)) claimed.add(event.id);
   }
   return claimed;
+}
+
+/** Linha automática que voltaria por um Desfazer já tem resposta numa linha importada? */
+export function answeredByImport(
+  entry: { kind: DividendKind; paidOn: string; gross: string },
+  existing: ExistingDividend[],
+): boolean {
+  const day = dayNumber(entry.paidOn);
+  const gross = money(entry.gross);
+  return existing.some((row) => {
+    if (row.marketDividendId !== null || !isImportedDividend(row.id)) return false;
+    if (!sameProventoKind(row.kind, entry.kind)) return false;
+    const apart = Math.abs(dayNumber(row.paidOn) - day);
+    if (apart > MARKET_RULES.familyMatchDays) return false;
+    return apart === 0 || similarValue(gross, money(row.gross));
+  });
 }
 
 /** Decide o que criar, corrigir e tirar para um investimento. Rodar de novo sobre o resultado não muda nada. */
@@ -224,6 +347,7 @@ export function reconcileProventos(input: ReconcileInput): ProventoPlan {
   const family = input.existing.filter(
     (row) => row.marketDividendId === null && !isImportedDividend(row.id),
   );
+  const familyDays = family.map((row) => dayNumber(row.paidOn));
   const linked = input.existing.flatMap((row) =>
     row.marketDividendId === null ? [] : [{ ...row, marketDividendId: row.marketDividendId }],
   );
@@ -244,10 +368,11 @@ export function reconcileProventos(input: ReconcileInput): ProventoPlan {
       if (current) plan.remove.push(current);
       continue;
     }
+    const eventDay = dayNumber(event.payDate);
     const recorded =
       answered.has(event.id) ||
       claimed.has(event.id) ||
-      family.some((row) => daysApart(row.paidOn, event.payDate) <= MARKET_RULES.familyMatchDays);
+      familyDays.some((day) => Math.abs(day - eventDay) <= MARKET_RULES.familyMatchDays);
     if (!current && recorded) {
       plan.skippedFamily += 1;
       continue;

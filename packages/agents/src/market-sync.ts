@@ -361,6 +361,7 @@ export async function syncMarketData(
       events: events.filter((event) => event.ticker === holding.marketTicker),
       existing,
       blocked: blocks.proventos.get(holding.id) ?? new Set(),
+      today,
     });
     result.skippedFamily += plan.skippedFamily;
     if (plan.skippedTax > 0) result.skippedTax.push(holding.marketTicker);

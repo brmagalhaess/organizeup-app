@@ -95,7 +95,8 @@ function titleParts(title: string) {
   return { company: tokens.slice(0, kindAt).join(" "), kind: tokens[kindAt]! };
 }
 
-const digitsOf = (ticker: string) => ticker.replace(/^[A-Z]+/, "");
+/** O que vem depois da raiz de quatro caracteres, que também pode ter dígito. */
+const digitsOf = (ticker: string) => ticker.slice(4);
 
 /**
  * Código de um título da nota, pelo catálogo e pela carteira. Só responde quando um único ativo bate. Sem

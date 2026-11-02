@@ -4,9 +4,14 @@
 // Identidade: a B3 não dá número ao provento, então a chave é investimento, tipo, data e valor. Cada linha do
 // arquivo gasta uma linha do banco, para dois pagamentos iguais continuarem sendo dois. O que sobra vale como o
 // mesmo provento se a soma fechar, porque a mesma ação em duas corretoras vem em duas linhas.
+//
+// Dias são calculados uma vez por linha, e valores viram centavos inteiros: com 2.000 linhas contra 2.000, a
+// comparação roda milhões de vezes.
+import { yearMonthOf } from "./cashflow";
 import type { DividendIgnoreReason, ParsedDividend } from "./dividend-file";
 import {
-  daysApart,
+  dayNumber,
+  inWindow,
   jcpRateOf,
   MARKET_RULES,
   normalizeTicker,
@@ -16,7 +21,6 @@ import {
   type ExistingDividend,
 } from "./market";
 import { money, toDbAmount, type MoneyValue } from "./money";
-import { yearMonthOf } from "./cashflow";
 
 const CENT = "0.01";
 const WINDOW = MARKET_RULES.familyMatchDays;
@@ -40,19 +44,27 @@ export interface MarketEventRef {
 
 export type DividendState = "novo" | "existe" | "conferir" | "ignorado";
 
-export type DividendDoubt =
+export const DIVIDEND_STATES = ["novo", "existe", "conferir", "ignorado"] as const;
+
+export const DIVIDEND_DOUBTS = [
   /** Código fora da carteira, ou em mais de um investimento: a pessoa escolhe. */
-  | "sem_ativo"
+  "sem_ativo",
   /** Há linha automática com outro valor: marcar troca pelo valor do arquivo. */
-  | "valor_diferente"
+  "valor_diferente",
+  /** Outra linha do arquivo já responde pelo mesmo automático: esta entra junto com ela. */
+  "parte_do_automatico",
   /** Há lançamento à mão por perto: marcar grava mais um. */
-  | "parecida"
+  "parecida",
   /** Só o valor recebido, e a alíquota depende do que o arquivo não diz. */
-  | "imposto_incerto"
+  "imposto_incerto",
   /** Mais de R$ 50 mil no mês da mesma empresa: pode haver retenção. */
-  | "acima_do_limite"
+  "acima_do_limite",
   /** A família já excluiu ou desfez este provento. */
-  | "excluido";
+  "excluido",
+  /** O valor pode ser lido de mais de um jeito, como 1.234. */
+  "valor_ambiguo",
+] as const;
+export type DividendDoubt = (typeof DIVIDEND_DOUBTS)[number];
 
 export type DividendCalculation =
   /** Bruto e retido a partir do líquido, com a alíquota de JCP. */
@@ -82,6 +94,10 @@ export interface PlannedDividend extends ParsedDividend {
   ignoreReason: DividendIgnoreReason | null;
   /** Linha automática que a pessoa pode trocar pelo valor do arquivo. */
   replaces: string | null;
+  /** O que já está gravado perto desta linha, para a tela mostrar os dois valores. */
+  current: DividendAmounts | null;
+  /** Linha do arquivo que troca o automático: sem ela, esta somaria por cima dele. */
+  pairedWith: number | null;
 }
 
 export interface DividendImportInput {
@@ -95,16 +111,6 @@ export interface DividendImportInput {
   /** Investimento escolhido na prévia, por código. */
   assignments?: Record<string, string>;
 }
-
-const nearestEvent = (row: ParsedDividend, events: MarketEventRef[]) =>
-  events
-    .filter(
-      (event) =>
-        event.ticker === row.ticker &&
-        sameProventoKind(event.kind, row.kind) &&
-        daysApart(event.payDate, row.paidOn) <= WINDOW,
-    )
-    .toSorted((a, b) => daysApart(a.payDate, row.paidOn) - daysApart(b.payDate, row.paidOn))[0];
 
 interface Resolved {
   amounts: DividendAmounts;
@@ -188,91 +194,167 @@ function resolveAmounts(row: ParsedDividend, assetClass: string, comDate: string
   };
 }
 
-const close = (a: MoneyValue | string, b: MoneyValue | string, cents = 1) =>
-  money(a).minus(b).abs().lte(money(CENT).times(cents));
+/** Centavos inteiros e exatos, calculados uma vez por linha. */
+const centsOf = (value: string) => BigInt(toDbAmount(value).replace(".", ""));
 
-const rowNet = (row: ExistingDividend) => money(row.gross).minus(row.withheld);
+const within = (a: bigint, b: bigint, cents: number) => {
+  const gap = a > b ? a - b : b - a;
+  return gap <= BigInt(cents);
+};
 
-/** Vale o líquido, e o bruto também, porque a coluna de valor pode trazer um ou outro. */
-function sameValue(amounts: DividendAmounts, row: ExistingDividend): boolean {
-  return (
-    close(amounts.net, rowNet(row)) ||
-    close(amounts.gross, row.gross) ||
-    close(amounts.net, row.gross)
-  );
+const sumCents = (values: bigint[]) => values.reduce((total, value) => total + value, 0n);
+
+interface Stored {
+  row: ExistingDividend;
+  day: number;
+  gross: bigint;
+  net: bigint;
+  manual: boolean;
+  used: boolean;
+  /** Linha do arquivo que ficou em conferir por causa desta. */
+  pairedLine: number | null;
 }
-
-const sum = (values: Array<MoneyValue | string>) =>
-  values.reduce<MoneyValue>((acc, value) => acc.plus(value), money(0));
-
-const isManual = (row: ExistingDividend) =>
-  row.source === "familia" && row.marketDividendId === null;
 
 interface Pending {
   row: PlannedDividend;
   amounts: DividendAmounts;
   uncertain: boolean;
-  event: MarketEventRef | undefined;
+  event: EventOnDay | undefined;
+  day: number;
+  gross: bigint;
+  net: bigint;
 }
 
-const near = (a: string, b: string) => daysApart(a, b) <= WINDOW;
-
-function closestFirst(pool: ExistingDividend[], paidOn: string) {
-  return pool.toSorted((a, b) => daysApart(a.paidOn, paidOn) - daysApart(b.paidOn, paidOn));
+interface EventOnDay extends MarketEventRef {
+  day: number;
 }
 
-const fitsKind = (line: Pending, row: ExistingDividend) =>
-  near(row.paidOn, line.row.paidOn) && sameProventoKind(row.kind, line.row.kind);
+const storedOf = (row: ExistingDividend): Stored => {
+  const gross = centsOf(row.gross);
+  return {
+    row,
+    day: dayNumber(row.paidOn),
+    gross,
+    net: gross - centsOf(row.withheld),
+    manual: row.source === "familia" && row.marketDividendId === null,
+    used: false,
+    pairedLine: null,
+  };
+};
 
-/** Passa pela holding igualando com o banco. Cada linha do banco responde por uma só. */
-function matchExisting(lines: Pending[], existing: ExistingDividend[]) {
-  const used = new Set<string>();
-  const open = () => lines.filter((line) => line.row.state === "novo");
-  const free = () => existing.filter((row) => !used.has(row.id));
+const byDay = <T extends { day: number }>(list: T[]) => list.sort((a, b) => a.day - b.day);
 
-  // Linha contra linha.
-  for (const line of open()) {
-    const twin = closestFirst(free(), line.row.paidOn).find(
-      (row) => fitsKind(line, row) && sameValue(line.amounts, row),
+/** Vale o líquido, e o bruto também, porque a coluna de valor pode trazer um ou outro. */
+const sameValue = (line: Pending, stored: Stored) =>
+  within(line.net, stored.net, 1) ||
+  within(line.gross, stored.gross, 1) ||
+  within(line.net, stored.gross, 1);
+
+const fitsKind = (line: Pending, stored: Stored) =>
+  sameProventoKind(stored.row.kind, line.row.kind);
+
+/** A candidata mais perto da data da linha. */
+function closest(line: Pending, near: Stored[], accepts: (stored: Stored) => boolean) {
+  let best: Stored | undefined;
+  for (const stored of near) {
+    if (!accepts(stored)) continue;
+    if (!best || Math.abs(stored.day - line.day) < Math.abs(best.day - line.day)) best = stored;
+  }
+  return best;
+}
+
+const isOpen = (line: Pending) => line.row.state === "novo";
+
+/** Linha contra linha. */
+function matchTwins(lines: Pending[], stored: Stored[]) {
+  for (const line of lines) {
+    const twin = closest(
+      line,
+      inWindow(stored, line.day, WINDOW),
+      (item) => !item.used && fitsKind(line, item) && sameValue(line, item),
     );
     if (twin) {
-      used.add(twin.id);
+      twin.used = true;
       line.row.state = "existe";
     }
   }
-  // Duas corretoras no arquivo, uma linha no banco. À mão, a soma pode juntar JCP e dividendo (ADR-0017).
-  for (const row of free()) {
-    const group = open().filter((line) =>
-      isManual(row) ? near(row.paidOn, line.row.paidOn) : fitsKind(line, row),
+}
+
+/** Duas corretoras no arquivo, uma linha no banco. À mão, a soma pode juntar JCP e dividendo (ADR-0017). */
+function matchSplitLines(lines: Pending[], stored: Stored[]) {
+  const sorted = byDay([...lines]);
+  for (const item of stored) {
+    if (item.used) continue;
+    const group = inWindow(sorted, item.day, WINDOW).filter(
+      (line) => isOpen(line) && (item.manual || fitsKind(line, item)),
     );
-    const total = sum(group.map((line) => line.amounts.net));
-    const fits = close(total, rowNet(row), group.length) || close(total, row.gross, group.length);
-    if (group.length > 1 && fits) {
-      used.add(row.id);
+    if (group.length < 2) continue;
+    const total = sumCents(group.map((line) => line.net));
+    if (within(total, item.net, group.length) || within(total, item.gross, group.length)) {
+      item.used = true;
       for (const line of group) line.row.state = "existe";
     }
   }
-  // Uma linha no arquivo, dois pagamentos no banco.
-  for (const line of open()) {
-    const group = free().filter((row) => fitsKind(line, row));
-    if (group.length > 1 && close(line.amounts.net, sum(group.map(rowNet)), group.length)) {
-      for (const row of group) used.add(row.id);
+}
+
+/** Uma linha no arquivo, dois pagamentos no banco. */
+function matchSplitStored(lines: Pending[], stored: Stored[]) {
+  for (const line of lines) {
+    if (!isOpen(line)) continue;
+    const group = inWindow(stored, line.day, WINDOW).filter(
+      (item) => !item.used && fitsKind(line, item),
+    );
+    if (group.length < 2) continue;
+    if (within(line.net, sumCents(group.map((item) => item.net)), group.length)) {
+      for (const item of group) item.used = true;
       line.row.state = "existe";
     }
   }
-  // Tem algo perto, mas não bate: a pessoa decide.
-  for (const line of open()) {
-    const candidates = closestFirst(free(), line.row.paidOn);
+}
+
+const amountsOf = ({ row }: Stored): DividendAmounts => asAmounts(row.gross, row.withheld);
+
+/** Tem algo perto que não bate: a pessoa decide, e nada entra marcado sozinho. */
+function pairDoubts(lines: Pending[], stored: Stored[]) {
+  for (const line of lines) {
+    if (!isOpen(line)) continue;
+    const near = inWindow(stored, line.day, WINDOW);
     const paired =
-      candidates.find((row) => fitsKind(line, row)) ??
-      candidates.find((row) => isManual(row) && near(row.paidOn, line.row.paidOn));
+      closest(line, near, (item) => !item.used && fitsKind(line, item)) ??
+      closest(line, near, (item) => !item.used && item.manual);
     if (!paired) continue;
-    used.add(paired.id);
+    paired.used = true;
+    paired.pairedLine = line.row.line;
+    const automatic = paired.row.source === "agente";
     line.row.state = "conferir";
-    const automatic = paired.source === "agente";
     line.row.doubtReason = automatic ? "valor_diferente" : "parecida";
-    line.row.replaces = automatic ? paired.id : null;
+    line.row.replaces = automatic ? paired.row.id : null;
+    line.row.current = amountsOf(paired);
   }
+  // Sobrou linha do mesmo pagamento: como nova, somaria por cima do valor que já está lá.
+  for (const line of lines) {
+    if (!isOpen(line)) continue;
+    const near = inWindow(stored, line.day, WINDOW);
+    const paired = closest(
+      line,
+      near,
+      (item) => item.pairedLine !== null && (fitsKind(line, item) || item.manual),
+    );
+    if (!paired) continue;
+    const automatic = paired.row.source === "agente";
+    line.row.state = "conferir";
+    line.row.doubtReason = automatic ? "parte_do_automatico" : "parecida";
+    line.row.pairedWith = automatic ? paired.pairedLine : null;
+    line.row.current = amountsOf(paired);
+  }
+}
+
+function matchExisting(lines: Pending[], existing: ExistingDividend[]) {
+  const stored = byDay(existing.map(storedOf));
+  matchTwins(lines, stored);
+  matchSplitLines(lines, stored);
+  matchSplitStored(lines, stored);
+  pairDoubts(lines, stored);
 }
 
 /** Mais de R$ 50 mil no mês, e o arquivo não disse quanto foi retido. */
@@ -283,7 +365,7 @@ function overLimit(lines: Pending[], existing: ExistingDividend[]) {
     months.set(month, (months.get(month) ?? money(0)).plus(gross));
   };
   for (const row of existing) if (row.kind === "dividendo") add(row.paidOn, row.gross);
-  const fresh = lines.filter((line) => line.row.kind === "dividendo" && line.row.state === "novo");
+  const fresh = lines.filter((line) => line.row.kind === "dividendo" && isOpen(line));
   for (const line of fresh) add(line.row.paidOn, line.amounts.gross);
   return fresh.filter(
     (line) =>
@@ -303,8 +385,29 @@ function holdingFor(
   return same.length === 1 ? same[0] : undefined;
 }
 
+function eventsByTicker(events: MarketEventRef[]) {
+  const grouped = new Map<string, EventOnDay[]>();
+  for (const event of events) {
+    const list = grouped.get(event.ticker) ?? [];
+    list.push({ ...event, day: dayNumber(event.payDate) });
+    grouped.set(event.ticker, list);
+  }
+  for (const list of grouped.values()) byDay(list);
+  return grouped;
+}
+
+function nearestEvent(row: ParsedDividend, day: number, events: EventOnDay[] | undefined) {
+  let best: EventOnDay | undefined;
+  for (const event of inWindow(events ?? [], day, WINDOW)) {
+    if (!sameProventoKind(event.kind, row.kind)) continue;
+    if (!best || Math.abs(event.day - day) < Math.abs(best.day - day)) best = event;
+  }
+  return best;
+}
+
 export function planDividendImport(input: DividendImportInput): PlannedDividend[] {
   const assignments = input.assignments ?? {};
+  const events = eventsByTicker(input.events);
   const planned = input.rows.map((row): PlannedDividend => ({
     ...row,
     state: "novo",
@@ -315,6 +418,8 @@ export function planDividendImport(input: DividendImportInput): PlannedDividend[
     doubtReason: null,
     ignoreReason: null,
     replaces: null,
+    current: null,
+    pairedWith: null,
   }));
   const byHolding = new Map<DividendHolding, Pending[]>();
   for (const row of planned) {
@@ -329,23 +434,33 @@ export function planDividendImport(input: DividendImportInput): PlannedDividend[
       row.doubtReason = "sem_ativo";
       continue;
     }
-    const event = nearestEvent(row, input.events);
+    const day = dayNumber(row.paidOn);
+    const event = nearestEvent(row, day, events.get(row.ticker));
     const resolved = resolveAmounts(row, holding.assetClass, event?.comDate ?? null);
     row.investmentId = holding.id;
     row.amounts = resolved.amounts;
     row.calculation = resolved.calculation;
     row.rate = resolved.rate;
     const list = byHolding.get(holding) ?? [];
-    list.push({ row, amounts: resolved.amounts, uncertain: resolved.uncertain, event });
+    list.push({
+      row,
+      amounts: resolved.amounts,
+      uncertain: resolved.uncertain,
+      event,
+      day,
+      gross: centsOf(resolved.amounts.gross),
+      net: centsOf(resolved.amounts.net),
+    });
     byHolding.set(holding, list);
   }
   for (const [holding, lines] of byHolding) {
     matchExisting(lines, holding.dividends);
     const blocked = input.blocked?.get(holding.id);
     for (const line of lines) {
-      if (line.row.state !== "novo") continue;
-      const doubt: DividendDoubt | null =
-        line.event && blocked?.has(line.event.id)
+      if (!isOpen(line)) continue;
+      const doubt: DividendDoubt | null = line.row.ambiguous
+        ? "valor_ambiguo"
+        : line.event && blocked?.has(line.event.id)
           ? "excluido"
           : line.uncertain
             ? "imposto_incerto"
@@ -369,3 +484,33 @@ export const dividendSelectedByDefault = (row: PlannedDividend) => row.state ===
 /** A pessoa pode marcar. Sem investimento escolhido, ainda não. */
 export const dividendSelectable = (row: PlannedDividend) =>
   (row.state === "novo" || row.state === "conferir") && row.amounts !== null;
+
+/** O que a pessoa viu na prévia, por linha. */
+export interface SeenDividend {
+  line: number;
+  state: DividendState;
+  doubtReason: DividendDoubt | null;
+}
+
+/**
+ * O que a confirmação grava: marcado, gravável, igual ao que a pessoa viu e com a linha de que depende. O resto
+ * é pulado, para o Mercado que rodou no meio não transformar um "novo" em troca sem ninguém ver.
+ */
+export function dividendsToWrite(
+  rows: PlannedDividend[],
+  selected: ReadonlySet<number>,
+  seen: SeenDividend[],
+): PlannedDividend[] {
+  const before = new Map(seen.map((item) => [item.line, item]));
+  const ready = rows.filter((row) => {
+    const shown = before.get(row.line);
+    return (
+      selected.has(row.line) &&
+      dividendSelectable(row) &&
+      shown?.state === row.state &&
+      shown.doubtReason === row.doubtReason
+    );
+  });
+  const lines = new Set(ready.map((row) => row.line));
+  return ready.filter((row) => row.pairedWith === null || lines.has(row.pairedWith));
+}

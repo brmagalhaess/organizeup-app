@@ -14,6 +14,7 @@ import {
   movimentacaoProventos,
   negociacao,
   proventosCsv,
+  proventosCsvOutroValor,
   proventosCsvSemTitulos,
   proventosRecebidos,
   unknownSheet,
@@ -161,6 +162,13 @@ test.describe("em português", () => {
     await page.getByRole("button", { name: "Conferir com esta escolha" }).click();
     await expect(tile(page, "Novos")).toHaveText("3");
 
+    // Marcação sobrevive a refazer a prévia: a linha sem imposto certo continua como a pessoa deixou.
+    const uncertain = page.getByRole("checkbox", { name: /JCP · ABCD3 de 20\/03\/2026/ });
+    await uncertain.check();
+    await page.getByRole("button", { name: "Conferir com esta escolha" }).click();
+    await expect(uncertain).toBeChecked();
+    await uncertain.uncheck();
+
     // Linha em conferir só entra marcada.
     await page.getByRole("button", { name: "Importar 3 proventos" }).click();
     await expect(page.getByText("Proventos atualizados")).toBeVisible();
@@ -233,6 +241,10 @@ test.describe("em português", () => {
     await expect(use).toBeDisabled();
     await page.getByLabel("Data do pagamento").selectOption({ label: "Quando" });
     await page.getByLabel("Tipo do provento").selectOption({ label: "Natureza" });
+    await page.getByLabel("Valor líquido").selectOption({ label: "Quanto" });
+    await expect(use).toBeEnabled();
+    await page.getByLabel("Valor líquido").selectOption("-1");
+    await expect(use).toBeDisabled();
     await page.getByLabel("Valor recebido").selectOption({ label: "Quanto" });
     await expect(page.getByLabel("Ativo")).toHaveValue("1");
     await expectClean(page);
@@ -240,6 +252,22 @@ test.describe("em português", () => {
     await use.click();
     await expect(tile(page, "Novos")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Importar 1 provento" })).toBeEnabled();
+
+    // Dá para voltar e trocar a escolha.
+    await page.getByRole("button", { name: "Trocar as colunas" }).click();
+    await expect(page.getByLabel("Valor recebido")).toHaveValue("3");
+    await page.getByRole("button", { name: "Usar estas colunas" }).click();
+    await expect(tile(page, "Novos")).toHaveText("1");
+    await page.getByRole("button", { name: "Importar 1 provento" }).click();
+    await expect(page.getByText("1 provento novo")).toBeVisible();
+
+    // Mesmo dia, outro valor: os dois valores aparecem antes de decidir.
+    await page.getByRole("button", { name: "Importar outro arquivo" }).click();
+    await picker().setInputFiles(proventosCsvOutroValor());
+    await expect(tile(page, "Para conferir")).toHaveText("1");
+    await expect(page.getByText(/Hoje: R\$\s12,00 · no arquivo: R\$\s15,00/)).toBeVisible();
+    await expectClean(page);
+    await shot(page, "prov-8-dois-valores");
   });
 });
 

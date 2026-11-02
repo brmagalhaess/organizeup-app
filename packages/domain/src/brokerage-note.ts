@@ -20,7 +20,7 @@ import {
   type ParsedInvestmentFile,
   type ParsedTrade,
 } from "./investment-file";
-import { normalizeTicker } from "./market";
+import { normalizeTicker, TICKER_ROOTS } from "./market";
 import { money, toCents, toDbAmount, type MoneyValue } from "./money";
 import { parseStatementAmount, parseStatementDate } from "./statement";
 
@@ -60,7 +60,7 @@ const TRADE_LINE = new RegExp(
   String.raw`^(?:.*?\s)?([CV])\s+(.+?)\s+(\d[\d.]*)\s+(\d[\d.]*,\d{2,8})\s+${AMOUNT}\s*([DC])?$`,
 );
 const SUPPORTED_MARKET = /^(VISTA|FRACIONARIO)\b\s*(.*)$/;
-const TICKER_IN_TITLE = /\b[A-Z]{4}\d{1,2}F?\b/;
+const TICKER_IN_TITLE = new RegExp(String.raw`\b(?:${TICKER_ROOTS})F?\b`);
 const OBSERVATION = /^(?:#\S*|[A-Z0-9]|\*+)$/;
 
 /** Até 3 linhas depois do rótulo: o número e a data ficam na linha de baixo em boa parte das notas. */
