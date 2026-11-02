@@ -142,6 +142,9 @@ async function applyGrants(sql: postgres.Sql) {
     -- VIP (ADR-0025): a família e o worker só leem. Só o painel grava, e nem ele apaga: remover é marcar.
     REVOKE INSERT, UPDATE, DELETE ON public.vip_grants FROM ${app}, ${worker};
     REVOKE DELETE ON public.vip_grants FROM ${admin};
+    -- Importador (ADR-0030): arquivo inteiro e rascunho são da família, o painel do serviço não lê. Apagar a
+    -- família leva tudo pela cascata, que não depende deste grant.
+    REVOKE ALL ON public.smart_imports, public.smart_import_files, public.smart_import_items FROM ${admin};
 
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.
     GRANT SELECT ON ALL TABLES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
