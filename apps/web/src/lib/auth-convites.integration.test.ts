@@ -43,6 +43,7 @@ async function signUp(email: string) {
     email,
     password: "Senha#1234",
     termsAccepted: true,
+    identity: { inBrazil: false },
   });
   expect(status).toBe(200);
   return response.headers

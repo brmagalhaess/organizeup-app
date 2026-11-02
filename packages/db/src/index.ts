@@ -38,7 +38,10 @@ export {
 export * from "./admin";
 export {
   dismissIdentityPrompt,
+  identityKeyMismatch,
   readUserIdentity,
+  releaseIdentityDocument,
+  reserveIdentityDocument,
   saveUserIdentity,
   type IdentityColumns,
   type UserIdentityRow,

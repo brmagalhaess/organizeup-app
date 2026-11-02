@@ -38,6 +38,8 @@ interface Input {
   maintenance: boolean;
   signupClosed: boolean;
   documentKeyMissing?: boolean;
+  documentKeyChanged?: boolean;
+  documentRefusalsHigh?: boolean;
   allAgentsOff: boolean;
   /** Gasto de IA do mês contra o teto. */
   aiSpend?: { spentUsd: number; budgetUsd: number; reached: boolean };
@@ -329,6 +331,24 @@ export function buildAlerts(input: Input): AdminAlert[] {
       tone: "danger",
       title: "Falta a chave dos documentos",
       text: "Sem DOCUMENT_ENCRYPTION_KEY na web, cadastro com CPF é recusado. Nada fica em texto puro.",
+      href: "/admin/sistema",
+    });
+  }
+  if (input.documentKeyChanged) {
+    alerts.push({
+      key: "cofre-trocado",
+      tone: "danger",
+      title: "A chave dos documentos mudou",
+      text: "Há documento cifrado com outra chave. Os documentos não abrem, a duplicidade não funciona e cadastro com CPF está recusado. Volte a chave ou recifre.",
+      href: "/admin/sistema",
+    });
+  }
+  if (input.documentRefusalsHigh) {
+    alerts.push({
+      key: "recusas",
+      tone: "warning",
+      title: "Muitas recusas de documento nesta hora",
+      text: "Pode ser alguém testando CPFs. Quem já foi recusado parou de consultar até a hora virar. Quem acerta segue se cadastrando.",
       href: "/admin/sistema",
     });
   }

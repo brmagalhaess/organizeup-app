@@ -131,6 +131,8 @@ async function applyGrants(sql: postgres.Sql) {
     REVOKE DELETE ON public.knowledge_chunks FROM ${worker};
     -- Documento da conta: o worker não tem por que encostar, nem cifrado (ADR-0022).
     REVOKE ALL ON public.user_identity FROM ${worker};
+    -- Reserva de documento: só pelas funções da 0037, nem a web lê a tabela.
+    REVOKE ALL ON public.identity_reservations FROM ${app}, ${worker}, ${admin};
 
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.
     GRANT SELECT ON ALL TABLES IN SCHEMA ops TO ${app}, ${worker}, ${admin};

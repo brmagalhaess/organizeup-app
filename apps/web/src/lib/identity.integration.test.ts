@@ -1,6 +1,7 @@
 // Documento da conta na ponta da web, contra um Postgres real com RLS: gravado cifrado, hash único, nada no
 // log, mascarado ao ler, e o que acontece sem a chave. CPF e CNPJ fictícios.
 import { randomBytes } from "node:crypto";
+import { TEST_DOCUMENT_KEY } from "@/test/document-key";
 import {
   afterAll,
   afterEach,
@@ -48,7 +49,7 @@ const companyOf = (cpf: string, cnpj: string, companyName = COMPANY) =>
   parsed({ inBrazil: true, personType: "pj", cpf, cnpj, companyName });
 const company = companyOf(CPF, CNPJ);
 
-const KEY = randomBytes(32).toString("base64");
+const KEY = TEST_DOCUMENT_KEY;
 
 /** A linha como está no banco, pela conexão administrativa. */
 const rowOf = async (id: string) => {

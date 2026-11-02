@@ -34,6 +34,13 @@ describe("alertas do painel", () => {
     ).toEqual(["agente:metas", "worker", "manutencao"]);
   });
 
+  it("chave dos documentos ausente ou trocada e recusas demais aparecem", () => {
+    const of = (input: object) => buildAlerts({ ...quiet, ...input }).map((alert) => alert.key);
+    expect(of({ documentKeyMissing: true })).toEqual(["cofre"]);
+    expect(of({ documentKeyChanged: true })).toEqual(["cofre-trocado"]);
+    expect(of({ documentRefusalsHigh: true })).toEqual(["recusas"]);
+  });
+
   it("teto de IA: avisa perto e alerta ao bater", () => {
     const at = (spentUsd: number) =>
       buildAlerts({ ...quiet, aiSpend: { spentUsd, budgetUsd: 50, reached: spentUsd >= 50 } }).map(

@@ -2,7 +2,10 @@
 // O texto puro existe em memória durante a requisição e não passa daqui, nem em erro nem em log.
 import "server-only";
 import {
+  identityKeyMismatch,
   readUserIdentity,
+  releaseIdentityDocument,
+  reserveIdentityDocument,
   saveUserIdentity,
   type AdminSealedIdentity,
   type IdentityColumns,
@@ -16,7 +19,8 @@ import {
   type Identity,
   type PersonType,
 } from "@organizeup/domain";
-import { documentHash, openDocument, sealDocument, vaultReady } from "./document-vault";
+import { accountKey, allowDocumentTry, noteRefusal } from "./document-refusals";
+import { documentHash, openDocument, sealDocument, vaultKeyId, vaultReady } from "./document-vault";
 
 export type StoreResult = "ok" | "refused" | "unavailable";
 
@@ -67,12 +71,79 @@ export async function storeIdentity(userId: string, identity: Identity): Promise
     return "unavailable";
   }
   try {
+    if (identity.inBrazil && (await keyWasChanged())) return "unavailable";
     const saved = await saveUserIdentity(userId, sealedColumns(userId, identity));
     return saved === "ok" ? "ok" : "refused";
   } catch (error) {
     logIdentity("document_save_failed", error);
     return "unavailable";
   }
+}
+
+/**
+ * Chave diferente da que cifrou o que já está no banco: os hashes novos não casam com os antigos, e a
+ * duplicidade pararia de funcionar calada. Enquanto isso, documento novo não entra.
+ */
+async function keyWasChanged(): Promise<boolean> {
+  const keyId = vaultKeyId();
+  const changed = keyId !== null && (await identityKeyMismatch(keyId));
+  if (changed) logIdentity("document_key_mismatch");
+  return changed;
+}
+
+/** Para o aviso do painel. Falhar aqui não derruba a tela. */
+export async function documentKeyChanged(): Promise<boolean> {
+  try {
+    return await keyWasChanged();
+  } catch (error) {
+    logIdentity("document_read_failed", error);
+    return false;
+  }
+}
+
+/** O que identifica a conta na disputa: o CPF só para pessoa física, o CNPJ para empresa. */
+function claimOf(identity: Identity & { inBrazil: true }) {
+  return identity.personType === "pj"
+    ? { kind: "cnpj" as const, hash: documentHash("cnpj", identity.cnpj) }
+    : { kind: "cpf" as const, hash: documentHash("cpf", identity.cpf) };
+}
+
+/**
+ * Reserva o documento antes de a conta existir: recusa aqui não cria conta, nem sessão, nem e-mail. Quem
+ * mora fora não disputa nada.
+ */
+export async function reserveDocument(identity: Identity): Promise<StoreResult> {
+  if (!identity.inBrazil) return "ok";
+  if (!vaultReady()) {
+    logVaultMissing();
+    return "unavailable";
+  }
+  try {
+    if (await keyWasChanged()) return "unavailable";
+    const { kind, hash } = claimOf(identity);
+    return (await reserveIdentityDocument(kind, hash)) ? "ok" : "refused";
+  } catch (error) {
+    logIdentity("document_reserve_failed", error);
+    return "unavailable";
+  }
+}
+
+/** A linha gravada já segura o documento. Falhar aqui só deixa a reserva vencer sozinha. */
+export async function releaseDocument(identity: Identity): Promise<void> {
+  if (!identity.inBrazil) return;
+  try {
+    await releaseIdentityDocument(claimOf(identity).hash);
+  } catch (error) {
+    logIdentity("document_release_failed", error);
+  }
+}
+
+/** Documento informado por quem já tem conta: com limite, e a recusa conta para o teto da hora. */
+export async function storeOwnDocument(userId: string, identity: Identity): Promise<StoreResult> {
+  if (identity.inBrazil && !allowDocumentTry(userId)) return "refused";
+  const result = await storeIdentity(userId, identity);
+  if (result === "refused") noteRefusal(accountKey(userId));
+  return result;
 }
 
 export interface IdentityView {

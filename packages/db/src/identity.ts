@@ -77,6 +77,33 @@ export async function saveUserIdentity(
   }
 }
 
+/**
+ * Reserva o documento antes de a conta existir, para o cadastro recusado não chegar a criar nada. Devolve
+ * false se ele já está em uma conta, ou em outro cadastro neste instante. Migração 0037: só a web executa.
+ */
+export async function reserveIdentityDocument(
+  kind: "cpf" | "cnpj",
+  hash: string,
+): Promise<boolean> {
+  const rows = await appPool().db.execute<{ reserved: boolean }>(
+    sql`select reserve_identity_document(${kind}, ${hash}) as reserved`,
+  );
+  return rows[0]?.reserved === true;
+}
+
+/** A linha em `user_identity` já segura o documento: a reserva pode sair. */
+export async function releaseIdentityDocument(hash: string): Promise<void> {
+  await appPool().db.execute(sql`select release_identity_document(${hash})`);
+}
+
+/** Há documento cifrado com outra chave? Aí os hashes não casam, e a duplicidade não funciona. */
+export async function identityKeyMismatch(keyId: string): Promise<boolean> {
+  const rows = await appPool().db.execute<{ mismatch: boolean }>(
+    sql`select identity_key_mismatch(${keyId}) as mismatch`,
+  );
+  return rows[0]?.mismatch === true;
+}
+
 /** "Agora não": o pedido não volta sozinho. Dá para informar depois, em Configurações. */
 export async function dismissIdentityPrompt(userId: string): Promise<void> {
   const now = new Date();

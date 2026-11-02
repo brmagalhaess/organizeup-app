@@ -39,13 +39,14 @@ export function SignUpForm({ invite }: { invite: string | null }) {
       return;
     }
     setPending(true);
-    // termsAccepted e identity são conferidos no hook de cadastro; o cliente tipado não os conhece.
+    // termsAccepted, identity e invitation são conferidos no hook de cadastro; o cliente tipado não os conhece.
     const input = {
       name: String(form.get("name") ?? "").trim(),
       email: String(form.get("email") ?? "").trim(),
       password,
       termsAccepted: form.get("terms") === "on",
       identity: parsed.value,
+      invitation: invite,
     };
     const { error: signUpError } = await authClient.signUp.email(input);
     if (signUpError) {

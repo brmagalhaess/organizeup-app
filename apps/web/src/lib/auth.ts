@@ -23,9 +23,10 @@ import {
   userIsBlocked,
 } from "@organizeup/db";
 import { authDb, betterAuthSchema } from "@organizeup/db/auth-db";
-import { parseIdentity } from "@organizeup/domain";
+import { parseIdentity, parseInviteeIdentity } from "@organizeup/domain";
 import { isLocale, LOCALE_COOKIE, negotiateLocale, type Locale } from "@/i18n/locales";
-import { vaultReady } from "./document-vault";
+import { clientIp, withClientIp } from "./client-ip";
+import { noteRefusal, refusalsBlocked } from "./document-refusals";
 import { sendEmailInBackground } from "./email";
 import {
   INVITE_LINK_DAYS,
@@ -36,7 +37,8 @@ import {
   VERIFY_LINK_HOURS,
   verifyEmail,
 } from "./email-templates";
-import { logVaultMissing, storeIdentity } from "./identity";
+import { releaseDocument, reserveDocument, storeIdentity } from "./identity";
+import { inviteId } from "./invites";
 import { LEGAL_VERSION } from "./legal";
 import { isValidPassword } from "./password";
 import { ac, roles } from "./permissions";
@@ -103,27 +105,47 @@ async function invitationLocale(email: string, inviterId: string, request: Reque
   return isLocale(saved) ? saved : emailLocale(inviterId, request);
 }
 
+interface SignUpBody {
+  identity?: unknown;
+  invitation?: unknown;
+}
+
+/** Quem se cadastra por convite é pessoa: o id do convite vem do link, e o servidor é que decide o tipo. */
+const signUpIdentity = (body: SignUpBody) =>
+  inviteId(body.invitation) ? parseInviteeIdentity(body.identity) : parseIdentity(body.identity);
+
 /**
- * Documento do cadastro, ainda antes de criar a conta: dígito errado não passa e, sem a chave do cofre,
- * só quem mora fora se cadastra. Nada é aceito para depois ser perdido ou guardado em texto puro.
+ * Documento do cadastro, antes de criar a conta: dígito errado não passa, sem a chave do cofre só quem mora
+ * fora se cadastra, e documento repetido é recusado aqui, sem deixar conta, sessão nem e-mail para trás. A
+ * mensagem é neutra: não diz que o documento existe.
  */
-function checkSignUpIdentity(raw: unknown) {
-  const identity = parseIdentity(raw);
+async function reserveSignUpDocument(body: SignUpBody, headers: Headers | undefined) {
+  const identity = signUpIdentity(body);
   if (!identity.ok) throw new APIError("BAD_REQUEST", { message: "DOCUMENT_INVALID" });
-  if (identity.value.inBrazil && !vaultReady()) {
-    logVaultMissing();
+  if (!identity.value.inBrazil) return;
+  const key = `ip:${headers ? clientIp(headers) : null}`;
+  if (refusalsBlocked(key)) {
+    throw new APIError("TOO_MANY_REQUESTS", { message: "TOO_MANY_ATTEMPTS" });
+  }
+  const reserved = await reserveDocument(identity.value);
+  if (reserved === "refused") {
+    noteRefusal(key);
+    throw new APIError("BAD_REQUEST", { message: "DOCUMENT_REFUSED" });
+  }
+  if (reserved === "unavailable") {
     throw new APIError("SERVICE_UNAVAILABLE", { message: "DOCUMENT_UNAVAILABLE" });
   }
 }
 
 /**
- * Grava o documento logo depois de criar a conta. A RLS esconde as linhas dos outros, então quem acha a
- * duplicidade é o índice único: se ele recusar, a conta recém-criada sai, e a pessoa recebe a mensagem
- * neutra, que não diz que o documento existe. Vale também para dois cadastros ao mesmo tempo.
+ * Grava o documento reservado. A recusa aqui é o caso raro de a mesma pessoa informar o documento em
+ * `/app/completar` no mesmo instante: a conta recém-criada sai, e a mensagem é a mesma.
  */
-async function saveSignUpIdentity(userId: string, raw: unknown) {
-  const identity = parseIdentity(raw);
-  const result = identity.ok ? await storeIdentity(userId, identity.value) : "refused";
+async function saveSignUpIdentity(userId: string, body: SignUpBody) {
+  const identity = signUpIdentity(body);
+  if (!identity.ok) throw new APIError("BAD_REQUEST", { message: "DOCUMENT_INVALID" });
+  const result = await storeIdentity(userId, identity.value);
+  await releaseDocument(identity.value);
   if (result === "ok") return;
   await authDb().delete(user).where(eq(user.id, userId));
   const message = result === "refused" ? "DOCUMENT_REFUSED" : "DOCUMENT_UNAVAILABLE";
@@ -139,7 +161,7 @@ const writesInMaintenance = (path: string) =>
     !["/organization/set-active", "/organization/list"].includes(path));
 
 function createAuth() {
-  return betterAuth({
+  const auth = betterAuth({
     appName: "OrganizeUp",
     database: drizzleAdapter(authDb(), { provider: "pg", schema: betterAuthSchema }),
     emailAndPassword: {
@@ -194,12 +216,10 @@ function createAuth() {
             if (closed && !(await hasPendingInvite(String(ctx.body?.email ?? "")))) {
               throw new APIError("FORBIDDEN", { message: "SIGNUP_CLOSED" });
             }
-            checkSignUpIdentity(ctx.body?.identity);
+            await reserveSignUpDocument(ctx.body ?? {}, ctx.headers);
           },
           after: async (user, ctx) => {
-            if (ctx?.path === "/sign-up/email") {
-              await saveSignUpIdentity(user.id, ctx.body?.identity);
-            }
+            if (ctx?.path === "/sign-up/email") await saveSignUpIdentity(user.id, ctx.body ?? {});
             await authDb()
               .insert(legalAcceptance)
               .values({ userId: user.id, version: LEGAL_VERSION });
@@ -249,6 +269,8 @@ function createAuth() {
     },
     advanced: {
       database: { generateId: () => crypto.randomUUID() },
+      // Chega aqui só o IP confiável: ver `withClientIp`.
+      ipAddress: { ipAddressHeaders: ["x-forwarded-for"] },
     },
     telemetry: { enabled: false },
     // Só a rota pública. A tela e a action usam `auth.api`, que não passa por aqui. Fechadas porque
@@ -293,6 +315,8 @@ function createAuth() {
       nextCookies(),
     ],
   });
+  // O limite de pedidos lê o IP antes de qualquer plugin: a troca precisa ser aqui, na entrada.
+  return { ...auth, handler: (request: Request) => auth.handler(withClientIp(request)) };
 }
 
 type Auth = ReturnType<typeof createAuth>;

@@ -22,7 +22,7 @@ import {
 import { isYearMonth, parseIdentity } from "@organizeup/domain";
 import { knownText } from "@/i18n/known-text";
 import { audit } from "@/lib/audit";
-import { storeIdentity } from "@/lib/identity";
+import { storeOwnDocument } from "@/lib/identity";
 import { identityFromForm } from "@/lib/identity-form";
 import {
   adultProfileFor,
@@ -36,7 +36,6 @@ import {
   saveWedding,
   weddingSchema,
 } from "@/lib/onboarding";
-import { createRateLimiter } from "@/lib/rate-limit";
 import { platformFlags, requireTenant } from "@/lib/session";
 import ptBR from "../../../../../messages/pt-BR.json";
 
@@ -321,9 +320,6 @@ export async function skipOnboarding(_form: FormData): Promise<void> {
   revalidatePath("/app", "layout");
 }
 
-/** Cada tentativa pode bater em documento de outra conta: a tela não vira consulta de CPF. */
-const documentTries = createRateLimiter({ limit: 5, windowMs: 60 * 60 * 1000 });
-
 /**
  * Documento de quem já tinha conta. É da pessoa, não da família: vale para qualquer papel, e fica fora
  * da auditoria da família, como o idioma. O passo seguinte é o cadastro complementar, se ainda faltar.
@@ -342,8 +338,7 @@ export async function saveDocumentStep(
     const fields = parsed.fields.map((field) => [field, t(`errors.${field}`)]);
     return { ok: false, message: null, fieldErrors: Object.fromEntries(fields) };
   }
-  if (!documentTries(session.user.id)) return { ok: false, message: t("errors.refused") };
-  const result = await storeIdentity(session.user.id, parsed.value);
+  const result = await storeOwnDocument(session.user.id, parsed.value);
   if (result !== "ok") return { ok: false, message: t(`errors.${result}`) };
   // Quem é responsável e informou empresa: a conta passa a ser de sócios.
   if (parsed.value.personType === "pj" && ctx.role === "owner") {
