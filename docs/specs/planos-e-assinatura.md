@@ -2,7 +2,7 @@
 
 Pedido do fundador em 2026-11-01: o cliente define e monta o próprio plano, vê o valor mensal e o que libera enquanto
 escolhe, e dentro do sistema faz upgrade, downgrade e cancelamento. Pesquisa de preços e da Stripe feita na mesma data.
-Decisões duráveis vão para o ADR-0021.
+Decisões duráveis vão para o ADR-0023.
 
 ## 1. Modelo
 
@@ -44,6 +44,12 @@ relatórios.
 | 300               | R$ 29,90 |
 
 **Moeda adicional:** a moeda principal é grátis, e cada outra custa R$ 4,90 por mês.
+
+**Contas conectadas:** R$ 19,90 por mês, por conta conectada, escolhido num campo de quantidade na montagem do plano,
+como lançamentos e mensagens. Decisão do fundador em 2026-11-01; o porquê do preço está em
+[conexao-de-contas.md](conexao-de-contas.md). É item com quantidade e cobrança mensal recorrente, por cima de qualquer
+plano, sem preço anual. **Nasce fora de venda, invisível ao cliente e impossível de comprar, até a conexão com bancos
+existir.**
 
 **Família completa, R$ 44,90:** lançamentos sem limite, todos os módulos e 100 mensagens. Vem marcada. Em cima dela, a
 pessoa ainda pode aumentar mensagens e somar moedas. O caminho mais caro no avulso soma R$ 103,40, com duas moedas.

@@ -41,6 +41,19 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      chave não pertence a um workspace; o botão **Testar a IA** em `/admin/sistema` avisa), `AI_MONTHLY_BUDGET_USD` (opcional; padrão 50, teto do
      serviço no mês) e `AI_FAMILY_DAILY_TOKENS` (opcional; padrão 200000, teto por família e dia). Ao bater o teto
      mensal o assistente para sozinho e o painel avisa. Para desligar na hora, use `/admin/controles` (ADR-0018).
+   - Stripe (ADR-0023): `STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET`, no `ou3-web` e no `ou3-worker`, nunca com
+     `NEXT_PUBLIC`. Quem usa as duas hoje é a web; o worker só aplica eventos, mas fica pronto. **`STRIPE_ALLOW_LIVE` não
+     entra em ambiente nenhum até a seção 7 da especificação estar feita**: só o fundador define, com `true` escrito assim, e
+     sem ela o código recusa `sk_live_` e `rk_live_`. Ids de preço não são variáveis: ficam em `billing_catalog`.
+     Primeira configuração, com chave de **teste**:
+     1. Criar os preços: `pnpm exec tsx apps/web/scripts/stripe-criar-precos.ts` mostra o que faria, e `--gravar` cria e
+        grava. Precisa de `STRIPE_SECRET_KEY` e `ADMIN_DATABASE_URL`.
+     2. Em Developers › Webhooks, criar o endpoint `https://<domínio>/api/webhooks/stripe`, com os eventos de
+        `STRIPE_EVENTS`, em `apps/web/src/lib/billing/events.ts`, e copiar o segredo para `STRIPE_WEBHOOK_SECRET`.
+     3. No Customer Portal, deixar só cartão e faturas: desligar troca de plano e cancelamento.
+     4. Em Settings › Payment methods, ligar cartão e boleto. Boleto só é oferecido no anual.
+        `billing_enabled` fica desligada em `ops.feature_flags`: com ela assim, só quem está em `ADMIN_USER_IDS` abre
+        `/app/assinatura`, e só com chave de teste. Ligar a chave é a Fase 5.
    - E2E (fora do Dokploy): `assistente.spec.ts` e `dividas-arquivo.spec.ts` precisam de `E2E_ASSISTANT=1` no Playwright e do servidor em
      `next dev` (com `NODE_ENV=production` o modelo falso é ignorado), com `ANTHROPIC_API_KEY` qualquer e
      `AI_TEST_BASE_URL=http://127.0.0.1:3199`, depois de `node apps/web/e2e/fake-model.mjs 3199`. Rode com
@@ -49,6 +62,8 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      `ADMIN_EMAILS` igual a esse valor. `EMAIL_CAPTURE_FILE` liga `recuperar-senha.spec.ts`: o servidor
      grava os e-mails nesse arquivo em vez de enviar. Como `NODE_ENV=production` desliga a captura, esse
      spec roda contra `next dev`, com a mesma variável no servidor e no Playwright.
+     `E2E_BILLING=1`, com `E2E_WORKER_DATABASE_URL` e `ADMIN_DATABASE_URL`, liga `assinatura.spec.ts`, que liga e desliga
+     `billing_enabled`: rode sozinho, com `--workers=1`. Ele não chama a Stripe.
 4. **Domínios da web**: `organizeup.crowntech.com.br` (HTTPS, Let's Encrypt) e `organizeup.com.br`
    (preparado, sem HTTPS, ver `cutover-dominio.md`).
 5. **Ordem do primeiro deploy**: `ou3-db`, depois `ou3-worker` (cria tabelas, papéis e filas), depois `ou3-web`.
