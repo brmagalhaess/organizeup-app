@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { keyNotice, stripeActions, webhookConfigured } from "./estado";
+import {
+  enableRefusal,
+  keyNotice,
+  stripeActions,
+  stripeExitActions,
+  webhookConfigured,
+} from "./estado";
 
 const TEST = { STRIPE_SECRET_KEY: "sk_test_abc" };
 const LIVE = { STRIPE_SECRET_KEY: "sk_live_abc" };
@@ -36,10 +42,15 @@ describe("chave da Stripe no painel", () => {
 });
 
 describe("ações da Stripe", () => {
-  it("cobrança desligada: indisponíveis, com explicação, mesmo com chave de teste", () => {
+  it("cobrança desligada: reenviar e desconto ficam fora, com explicação", () => {
     const state = stripeActions(false, TEST);
     expect(state.available).toBe(false);
     expect(state.reason).toContain("desligada");
+  });
+
+  it("cancelar e devolver não dependem da chave da cobrança, só de uma chave da Stripe", () => {
+    expect(stripeExitActions(TEST).available).toBe(true);
+    expect(stripeExitActions({}).reason).toContain("STRIPE_SECRET_KEY");
   });
 
   it("cobrança ligada e chave boa: disponíveis", () => {
@@ -48,6 +59,23 @@ describe("ações da Stripe", () => {
 
   it("cobrança ligada sem chave: indisponíveis, dizendo o que falta", () => {
     expect(stripeActions(true, {}).reason).toContain("STRIPE_SECRET_KEY");
+  });
+});
+
+describe("ligar a cobrança", () => {
+  const WEBHOOK = { STRIPE_WEBHOOK_SECRET: "whsec_a" };
+
+  it("sem webhook é recusado: quem pagasse não receberia o plano", () => {
+    expect(enableRefusal(TEST)).toContain("STRIPE_WEBHOOK_SECRET");
+  });
+
+  it("sem chave utilizável é recusado", () => {
+    expect(enableRefusal(WEBHOOK)).toContain("STRIPE_SECRET_KEY");
+    expect(enableRefusal({ ...LIVE, ...WEBHOOK })).toContain("STRIPE_ALLOW_LIVE");
+  });
+
+  it("com as duas, pode", () => {
+    expect(enableRefusal({ ...TEST, ...WEBHOOK })).toBeNull();
   });
 });
 

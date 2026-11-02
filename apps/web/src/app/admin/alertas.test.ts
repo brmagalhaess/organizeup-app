@@ -45,13 +45,29 @@ describe("alertas do painel", () => {
     const billing = (over: Partial<Parameters<typeof buildAlerts>[0]["billing"]>) =>
       buildAlerts({
         ...quiet,
-        billing: { vipEnding: 0, vipCharged: 0, leftoverDiscounts: 0, duplicates: 0, ...over },
+        billing: {
+          vipEnding: 0,
+          vipCharged: 0,
+          unappliedDiscounts: 0,
+          leftoverDiscounts: 0,
+          duplicates: 0,
+          ...over,
+        },
       }).map((alert) => alert.key);
     expect(billing({})).toEqual([]);
-    expect(billing({ vipEnding: 2, vipCharged: 1, leftoverDiscounts: 1, duplicates: 1 })).toEqual([
+    expect(
+      billing({
+        vipEnding: 2,
+        vipCharged: 1,
+        unappliedDiscounts: 1,
+        leftoverDiscounts: 1,
+        duplicates: 1,
+      }),
+    ).toEqual([
       "cobranca:duplicada",
       "vip:cobrado",
       "vip:vencendo",
+      "vip:nao_aplicado",
       "vip:desconto",
     ]);
   });

@@ -16,10 +16,11 @@ import {
 import { requireAdmin } from "@/lib/session";
 import { ConfirmAction } from "../admin-actions";
 import type { AdminAlert } from "../alertas";
+import { billingAttention } from "../cobranca/atencao";
 import { formatCount, formatDate, shortId } from "../format";
 import { AdminPage, AdminTable, AlertList, Tile, type Column } from "../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../painel";
-import { vipCostText, vipGiftText, vipReasonLabel } from "../planos";
+import { dayOf, vipCostText, vipGiftText, vipReasonLabel } from "../planos";
 import { changeVipValidity, revokeVip } from "./actions";
 
 export const metadata: Metadata = { title: "VIP" };
@@ -98,6 +99,9 @@ export default async function AdminVipPage({
     return row.status === status;
   });
 
+  const attention = billingAttention(
+    families.map((family) => ({ family, access: adminFamilyAccess(family, now) })),
+  );
   const alerts: AdminAlert[] = [
     ...ending.map((row) => ({
       key: `vip:${row.grant.id}`,
@@ -106,26 +110,27 @@ export default async function AdminVipPage({
       text: "Ao vencer, volta ao que tinha antes, sem cobrança. Mude a validade se for continuar.",
       href: `/admin/assinaturas/${row.grant.householdId}`,
     })),
-    ...list
-      .filter((row) => row.stillCharged)
-      .map((row) => ({
-        key: `vip:cobrado:${row.grant.id}`,
-        tone: "danger" as const,
-        title: `${row.familyName} é VIP sem custo, e a Stripe segue cobrando`,
-        text: "A assinatura entrou depois da concessão. Cancele para a família não pagar pelo que ganhou.",
-        href: `/admin/assinaturas/${row.grant.householdId}`,
-      })),
-    ...families
-      .filter(
-        (family) => family.subscription?.discountPercent && !adminFamilyAccess(family, now).vip,
-      )
-      .map((family) => ({
-        key: `vip:desconto:${family.householdId}`,
-        tone: "warning" as const,
-        title: `${family.name} segue com desconto na Stripe, sem VIP valendo`,
-        text: "Vencer não aumenta o preço de ninguém. Tirar o desconto é uma ação sua, avisando a família.",
-        href: `/admin/assinaturas/${family.householdId}`,
-      })),
+    ...attention.charged.map(({ family }) => ({
+      key: `vip:cobrado:${family.householdId}`,
+      tone: "danger" as const,
+      title: `${family.name} não devia pagar, e a Stripe segue cobrando`,
+      text: "Tem cortesia ou VIP sem custo. Cancele para a família não pagar pelo que ganhou.",
+      href: `/admin/assinaturas/${family.householdId}`,
+    })),
+    ...attention.unapplied.map(({ family }) => ({
+      key: `vip:nao_aplicado:${family.householdId}`,
+      tone: "warning" as const,
+      title: `Desconto de ${family.name} concedido e não aplicado`,
+      text: "A Stripe ainda cobra outro valor. Aplique o desconto na assinatura.",
+      href: `/admin/assinaturas/${family.householdId}`,
+    })),
+    ...attention.leftover.map(({ family }) => ({
+      key: `vip:desconto:${family.householdId}`,
+      tone: "warning" as const,
+      title: `${family.name} segue com desconto na Stripe, sem VIP valendo`,
+      text: "Vencer não aumenta o preço de ninguém. Tirar o desconto é uma ação sua, avisando a família.",
+      href: `/admin/assinaturas/${family.householdId}`,
+    })),
   ];
 
   return (
@@ -265,7 +270,7 @@ export default async function AdminVipPage({
                             <Input
                               name="endsOn"
                               type="date"
-                              defaultValue={grant.endsAt?.toISOString().slice(0, 10) ?? ""}
+                              defaultValue={grant.endsAt ? dayOf(grant.endsAt) : ""}
                             />
                           </Field>
                         }

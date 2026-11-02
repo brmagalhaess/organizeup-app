@@ -12,7 +12,15 @@ import {
   type RevenueTier,
   type UsageLevel,
 } from "@organizeup/domain";
-import { AlertTriangle, Banknote, Hourglass, Receipt, UserMinus, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  Banknote,
+  CalendarX,
+  Hourglass,
+  Receipt,
+  UserMinus,
+  Users,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Card, EmptyState, FormMessage } from "@/components/ui";
@@ -31,7 +39,7 @@ const TIER_LABELS: Record<RevenueTier, string> = {
   "30": "30 mensagens",
   "100": "100 mensagens",
   "300": "300 mensagens",
-  sem_receita: "Sem receita: cortesia, VIP, teste",
+  sem_receita: "Sem cobrança agora",
 };
 
 const tierColumns: Column[] = [
@@ -153,11 +161,13 @@ export default async function AdminRevenuePage() {
                 label="Cancelamentos em 30 dias"
                 value={formatCount(summary.canceled30d)}
                 icon={UserMinus}
-                hint={
-                  summary.cancelling > 0
-                    ? `${formatCount(summary.cancelling)} não renovam`
-                    : undefined
-                }
+                hint="Assinaturas que acabaram de fato."
+              />
+              <Tile
+                label="Pedidos de cancelamento"
+                value={formatCount(summary.cancelling)}
+                icon={CalendarX}
+                hint="Seguem pagando até o fim do período."
               />
             </dl>
           </section>

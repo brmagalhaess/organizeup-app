@@ -45,17 +45,22 @@ export async function setPrice(form: FormData): Promise<AdminResult> {
   const session = await requireAdmin();
   const parsed = line.safeParse({ item: form.get("item"), cycle: form.get("cycle") });
   if (!parsed.success) return failed("Item inválido.");
+  const basedOn = targetId.safeParse(form.get("basedOn"));
+  if (!basedOn.success) return failed("Item inválido.");
   const amount = parsePrice(form.get("amount"));
   if (!amount) return failed("Escreva o preço assim: 12,90.");
   if (money(amount).lt(MIN_PRICE)) return failed("O preço mínimo é R$ 0,50.");
   return runAdminAction("admin_catalog_price_failed", async () => {
     const result = await adminNewPrice(
       { adminUserId: session.user.id },
-      { ...parsed.data, amount },
+      { ...parsed.data, amount, basedOn: basedOn.data },
     );
     if (result === "not_found") return failed("Item não encontrado.");
     if (result === "igual") return failed("Este já é o preço atual.");
     if (result === "sem_anual") return failed("Contas conectadas não têm preço anual.");
+    if (result === "mudou") {
+      return failed("Este preço acabou de mudar. Atualize a tela e confira antes de trocar.");
+    }
     refresh();
     return done("Preço novo salvo. Vale só para quem assinar depois.");
   });

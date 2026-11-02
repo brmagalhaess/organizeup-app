@@ -28,6 +28,7 @@ import { vaultReady } from "@/lib/document-vault";
 import { documentKeyChanged } from "@/lib/identity";
 import { platformFlags, requireAdmin } from "@/lib/session";
 import { buildAlerts } from "./alertas";
+import { billingAttention } from "./cobranca/atencao";
 import { actionLabel, AI_TEST_FAILED, AI_TEST_OK, AUDIT_VISITS } from "./auditoria/labels";
 import { ActivityChart, AdoptionBars, GrowthChart } from "./charts";
 import { formatCount, formatDateTime, formatDay, formatDayShort } from "./format";
@@ -127,6 +128,12 @@ export default async function AdminOverviewPage() {
     adminBillingSummary(),
   ]);
 
+  const attention = billingAttention(
+    billingFamilies.map((family) => ({
+      family,
+      access: adminFamilyAccess(family, new Date()),
+    })),
+  );
   const latest = stats[0] ?? null;
   const disabled = flags.disabledAgents;
   const workerHasAiKey = workerAiKey(workers[0]?.info);
@@ -163,11 +170,9 @@ export default async function AdminOverviewPage() {
     workerHasAiKey: flags.aiEnabled ? workerHasAiKey : null,
     billing: {
       vipEnding: vipList.filter((row) => row.status === "vencendo").length,
-      vipCharged: vipList.filter((row) => row.stillCharged).length,
-      leftoverDiscounts: billingFamilies.filter(
-        (family) =>
-          family.subscription?.discountPercent && !adminFamilyAccess(family, new Date()).vip,
-      ).length,
+      vipCharged: attention.charged.length,
+      unappliedDiscounts: attention.unapplied.length,
+      leftoverDiscounts: attention.leftover.length,
       duplicates: billingSummary.events.duplicates,
     },
   });

@@ -1,4 +1,10 @@
-import { adminBillingHealth, adminBillingSummary, adminCatalog } from "@organizeup/db";
+import {
+  adminBillingFamilies,
+  adminBillingHealth,
+  adminBillingSummary,
+  adminCatalog,
+  adminFamilyAccess,
+} from "@organizeup/db";
 import { AlertTriangle, CircleCheck, CircleDashed } from "lucide-react";
 import type { Metadata } from "next";
 import { Badge, Button, Card, EmptyState, FormMessage } from "@/components/ui";
@@ -9,7 +15,14 @@ import { AdminPage, AdminTable, Fact, Facts, type Column } from "../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../painel";
 import { ERROR_LABELS, EVENT_LABELS } from "../planos";
 import { disableBilling, enableBilling } from "./actions";
-import { BILLING_CONFIRM, keyNotice, webhookConfigured } from "./estado";
+import { liveSubscriptions } from "./atencao";
+import {
+  BILLING_CONFIRM,
+  BILLING_OFF_CONFIRM,
+  enableRefusal,
+  keyNotice,
+  webhookConfigured,
+} from "./estado";
 
 export const metadata: Metadata = { title: "Chave da cobrança" };
 
@@ -52,12 +65,18 @@ export default async function AdminBillingKeyPage() {
     );
   }
 
-  const [flags, health, summary, catalog] = await Promise.all([
+  const [flags, health, summary, catalog, families] = await Promise.all([
     platformFlags(),
     adminBillingHealth(),
     adminBillingSummary(),
     adminCatalog(),
+    adminBillingFamilies(),
   ]);
+  const now = new Date();
+  const live = liveSubscriptions(
+    families.map((family) => ({ family, access: adminFamilyAccess(family, now) })),
+  );
+  const refusal = enableRefusal();
   const key = keyNotice();
   const webhook = webhookConfigured();
   const onSale = catalog.filter((row) => row.onSale);
@@ -118,20 +137,47 @@ export default async function AdminBillingKeyPage() {
         >
           <div className="flex flex-col gap-3">
             {flags.billingEnabled ? (
-              <ConfirmAction
-                label="Desligar cobrança"
-                action={disableBilling}
-                hidden={{}}
-                title="Desligar a cobrança"
-                text="Todas as famílias voltam ao acesso livre. Nada é cancelado: assinaturas seguem na Stripe até alguém cancelar."
-                confirmLabel="Desligar"
-              />
-            ) : key.mode === "ausente" || key.mode === "invalida" ? (
+              <>
+                {live > 0 ? (
+                  <p
+                    role="alert"
+                    className="m-0 rounded-xl bg-danger-soft p-3 text-sm font-semibold"
+                  >
+                    {live === 1
+                      ? "1 assinatura segue cobrando na Stripe."
+                      : `${formatCount(live)} assinaturas seguem cobrando na Stripe.`}{" "}
+                    Desligar não cancela nenhuma: elas continuam pagando, e só podem cancelar ou
+                    pedir a devolução.
+                  </p>
+                ) : null}
+                <ConfirmAction
+                  label="Desligar cobrança"
+                  variant={live > 0 ? "danger" : "secondary"}
+                  action={disableBilling}
+                  hidden={{}}
+                  title="Desligar a cobrança"
+                  text={
+                    live > 0
+                      ? `Todas as famílias voltam ao acesso livre, mas ${formatCount(live)} seguem pagando na Stripe. Nada é cancelado por aqui.`
+                      : "Todas as famílias voltam ao acesso livre. Nada é cancelado."
+                  }
+                  confirmLabel="Desligar"
+                  {...(live > 0
+                    ? {
+                        typeToConfirm: {
+                          label: `Digite ${BILLING_OFF_CONFIRM} para confirmar`,
+                          value: BILLING_OFF_CONFIRM,
+                        },
+                      }
+                    : {})}
+                />
+              </>
+            ) : refusal ? (
               <>
                 <Button type="button" variant="secondary" small disabled>
                   Ligar cobrança
                 </Button>
-                <p className="m-0 text-sm text-muted">{key.text}</p>
+                <p className="m-0 text-sm text-muted">{refusal}</p>
               </>
             ) : (
               <ConfirmAction

@@ -25,14 +25,13 @@ const limit = z
   .regex(/^\d{0,6}$/, "Use só números nos limites.")
   .transform((value) => (value === "" ? null : Number(value)));
 
-const day = z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Data inválida.");
-
 const grantSchema = z
   .object({
     householdId: targetId,
     scope: z.enum(VIP_SCOPES),
     userId: z.string().max(64),
-    access: z.enum(["tudo", "escolhido"]),
+    /** `nada`: só o desconto. Liberar módulos é sempre escolha explícita. */
+    access: z.enum(["tudo", "escolhido", "nada"]),
     modules: z.array(z.enum(BILLING_MODULES)),
     entryLimit: limit,
     messageLimit: limit,
@@ -40,7 +39,7 @@ const grantSchema = z
     cost: z.enum(VIP_COSTS),
     discountPercent: limit,
     reason: z.enum(VIP_REASONS),
-    endsOn: day,
+    endsOn: z.string(),
   })
   .refine(
     ({ cost, discountPercent }) =>
@@ -49,7 +48,10 @@ const grantSchema = z
         discountPercent >= MIN_VIP_DISCOUNT &&
         discountPercent <= MAX_VIP_DISCOUNT),
     { message: `O desconto vai de ${MIN_VIP_DISCOUNT}% a ${MAX_VIP_DISCOUNT}%.` },
-  );
+  )
+  .refine(({ access, cost }) => access !== "nada" || cost === "desconto", {
+    message: "Sem custo, escolha o que a família recebe.",
+  });
 
 const REFUSALS = {
   not_found: "Família não encontrada.",
@@ -83,7 +85,9 @@ export async function grantVip(_previous: VipFormState, form: FormData): Promise
   if (!parsed.success) return { message: parsed.error.issues[0]?.message ?? "Confira os campos." };
   const data = parsed.data;
   const endsAt = data.endsOn ? endOfDay(data.endsOn) : null;
+  if (data.endsOn && !endsAt) return { message: "Data inválida." };
   if (endsAt && endsAt <= new Date()) return { message: "A validade precisa ser no futuro." };
+  const nothing = data.access === "nada";
   const outcome = await runAdminAction("admin_vip_grant_failed", async () => {
     const result = await adminGrantVip(
       { adminUserId: session.user.id },
@@ -92,11 +96,11 @@ export async function grantVip(_previous: VipFormState, form: FormData): Promise
         scope: data.scope,
         userId: data.scope === "pessoa" ? data.userId : null,
         full: data.access === "tudo",
-        modules: data.modules,
-        entryLimit: data.entryLimit,
+        modules: nothing ? [] : data.modules,
+        entryLimit: nothing ? 0 : data.entryLimit,
         // Sem o assistente marcado, nenhuma mensagem: a tela não pode dar o limite sem o módulo.
-        messageLimit: data.modules.includes("assistente") ? data.messageLimit : 0,
-        currencies: data.currencies,
+        messageLimit: !nothing && data.modules.includes("assistente") ? data.messageLimit : 0,
+        currencies: nothing ? [] : data.currencies,
         cost: data.cost,
         discountPercent: data.cost === "desconto" ? data.discountPercent : null,
         reason: data.reason,
@@ -119,6 +123,7 @@ export async function revokeVip(form: FormData): Promise<AdminResult> {
   return runAdminAction("admin_vip_revoke_failed", async () => {
     const result = await adminRevokeVip({ adminUserId: session.user.id }, id.data);
     if (result === "not_found") return failed("Este VIP já foi removido.");
+    if (result === "own_family") return failed(REFUSALS.own_family);
     revalidatePath("/admin", "layout");
     return done("VIP removido. A família volta ao que tinha antes.");
   });
@@ -127,15 +132,16 @@ export async function revokeVip(form: FormData): Promise<AdminResult> {
 export async function changeVipValidity(form: FormData): Promise<AdminResult> {
   const session = await requireAdmin();
   const id = targetId.safeParse(form.get("id"));
-  const ends = day.safeParse(form.get("endsOn") ?? "");
   if (!id.success) return failed("VIP não encontrado.");
-  if (!ends.success) return failed("Data inválida.");
-  const endsAt = ends.data ? endOfDay(ends.data) : null;
+  const day = String(form.get("endsOn") ?? "");
+  const endsAt = day ? endOfDay(day) : null;
+  if (day && !endsAt) return failed("Data inválida.");
   if (endsAt && endsAt <= new Date()) return failed("A validade precisa ser no futuro.");
   return runAdminAction("admin_vip_validity_failed", async () => {
     const result = await adminExtendVip({ adminUserId: session.user.id }, id.data, endsAt);
     if (result === "not_found") return failed("Este VIP já foi removido.");
     if (result === "own_family") return failed(REFUSALS.own_family);
+    if (result === "assinatura_viva") return failed(REFUSALS.assinatura_viva);
     revalidatePath("/admin", "layout");
     return done("Validade alterada.");
   });

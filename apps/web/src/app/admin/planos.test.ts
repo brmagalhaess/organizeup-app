@@ -1,6 +1,7 @@
 import type { VipGrant } from "@organizeup/db";
 import { describe, expect, it } from "vitest";
 import {
+  dayOf,
   endOfDay,
   itemLabel,
   nearLimit,
@@ -49,6 +50,9 @@ describe("textos", () => {
       "Metas e viagens, 200 lançamentos, 0 mensagens",
     );
     expect(vipCostText(grant({ cost: "desconto", discountPercent: 30 }))).toBe("Desconto de 30%");
+    expect(
+      vipGiftText(grant({ cost: "desconto", discountPercent: 30, entryLimit: 0, messageLimit: 0 })),
+    ).toBe("Só o desconto");
   });
 
   it("situação da Stripe em português, e o código quando for nova", () => {
@@ -58,6 +62,18 @@ describe("textos", () => {
   });
 
   it("a validade vale até o fim do dia em Brasília", () => {
-    expect(endOfDay("2026-11-02").toISOString()).toBe("2026-11-03T02:59:59.000Z");
+    expect(endOfDay("2026-11-02")?.toISOString()).toBe("2026-11-03T02:59:59.000Z");
+  });
+
+  it("a validade não salta um dia ao voltar para a tela", () => {
+    for (const day of ["2026-11-30", "2026-12-31", "2027-01-01"]) {
+      expect(dayOf(endOfDay(day)!)).toBe(day);
+    }
+  });
+
+  it("data que não existe não vira outra data", () => {
+    for (const day of ["2026-02-31", "2026-13-01", "2026-02-30", "ontem", ""]) {
+      expect(endOfDay(day), day).toBeNull();
+    }
   });
 });

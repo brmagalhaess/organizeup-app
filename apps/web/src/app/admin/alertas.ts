@@ -58,8 +58,10 @@ interface Input {
   /** O que pede atenção na cobrança (ADR-0025). */
   billing?: {
     vipEnding: number;
-    /** VIP sem custo, e a Stripe segue cobrando. */
+    /** Cortesia ou VIP sem custo, e a Stripe segue cobrando. */
     vipCharged: number;
+    /** Desconto concedido que a Stripe ainda não aplica. */
+    unappliedDiscounts: number;
     /** Desconto na Stripe sem VIP valendo. */
     leftoverDiscounts: number;
     /** Segunda assinatura paga: a Stripe cobra duas vezes. */
@@ -201,7 +203,7 @@ function workerKeyAlert({ workerHasAiKey }: Input): AdminAlert | null {
 
 function billingAlerts({ billing }: Input): AdminAlert[] {
   if (!billing) return [];
-  const { vipEnding, vipCharged, leftoverDiscounts, duplicates } = billing;
+  const { vipEnding, vipCharged, unappliedDiscounts, leftoverDiscounts, duplicates } = billing;
   const alerts: AdminAlert[] = [];
   if (duplicates > 0) {
     alerts.push({
@@ -219,8 +221,8 @@ function billingAlerts({ billing }: Input): AdminAlert[] {
     alerts.push({
       key: "vip:cobrado",
       tone: "danger",
-      title: "VIP sem custo sendo cobrado",
-      text: "A assinatura entrou depois da concessão. Cancele para a família não pagar pelo que ganhou.",
+      title: "Cortesia ou VIP sendo cobrado",
+      text: "A Stripe segue cobrando quem não devia pagar. Cancele para a família não pagar pelo que ganhou.",
       href: "/admin/vip",
     });
   }
@@ -234,6 +236,15 @@ function billingAlerts({ billing }: Input): AdminAlert[] {
           ? "1 concessão vence em breve. Ao vencer, volta ao que era, sem cobrança."
           : `${vipEnding} concessões vencem em breve. Ao vencer, voltam ao que eram, sem cobrança.`,
       href: "/admin/vip?situacao=vencendo",
+    });
+  }
+  if (unappliedDiscounts > 0) {
+    alerts.push({
+      key: "vip:nao_aplicado",
+      tone: "warning",
+      title: "Desconto concedido e não aplicado",
+      text: "A Stripe ainda cobra outro valor. Aplique o desconto na assinatura da família.",
+      href: "/admin/vip",
     });
   }
   if (leftoverDiscounts > 0) {

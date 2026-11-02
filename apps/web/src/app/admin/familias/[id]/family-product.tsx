@@ -1,8 +1,8 @@
-// Telas novas no detalhe da família: moeda, relatórios, notificações e dívidas. Só código, datas e contagens:
-// nenhuma coluna de texto ou valor é lida.
+// Telas novas no detalhe da família: moeda, relatórios e notificações. Só código, datas e contagens: nenhuma
+// coluna de texto ou valor é lida. Uso de módulo por família nomeada fica de fora (ADR-0025).
 import { adminFamilyProduct } from "@organizeup/db";
 import Link from "next/link";
-import { Badge, Card } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { formatCount, formatDate } from "../../format";
 import { Fact } from "../../kit";
 
@@ -23,11 +23,6 @@ export async function FamilyProduct({ id }: { id: string }) {
           </Fact>
           <Fact label="Notificações">
             {formatCount(product.notifications)}, {formatCount(product.unread)} não lidas
-          </Fact>
-          <Fact label="Dívidas">
-            <Badge tone={product.debts ? "success" : "neutral"}>
-              {product.debts ? "Usa" : "Não usa"}
-            </Badge>
           </Fact>
         </dl>
       ) : (

@@ -5,6 +5,7 @@ import {
   formatBRL,
   monthlyAmount,
   selectionOfSubscribed,
+  todayIn,
   usageLevel,
   type AccessMode,
   type BillingCycle,
@@ -77,9 +78,17 @@ export const vipReasonLabel = (reason: string) => VIP_REASON_LABELS[reason as Vi
 const limitText = (limit: number | null, unit: string) =>
   limit === null ? `${unit} sem limite` : `${limit} ${unit}`;
 
+const onlyDiscount = (grant: VipGrant) =>
+  grant.cost === "desconto" &&
+  grant.modules.length === 0 &&
+  grant.currencies.length === 0 &&
+  grant.entryLimit === 0 &&
+  grant.messageLimit === 0;
+
 /** O que a concessão dá, numa frase. */
 export function vipGiftText(grant: VipGrant): string {
   if (grant.fullAccess) return "Tudo liberado";
+  if (onlyDiscount(grant)) return "Só o desconto";
   const parts = [
     grant.modules.map((module) => MODULE_LABELS[module]).join(", ") || "Só a Base",
     limitText(grant.entryLimit, "lançamentos"),
@@ -157,5 +166,15 @@ export const ERROR_LABELS: Record<string, string> = {
 export const nearLimit = (used: number, limit: number | null): UsageLevel =>
   limit === 0 ? "normal" : usageLevel(used, limit);
 
-/** Fim do dia escolhido, no horário de Brasília: a validade vale o dia inteiro. */
-export const endOfDay = (day: string) => new Date(`${day}T23:59:59-03:00`);
+/**
+ * Fim do dia escolhido, no horário de Brasília: a validade vale o dia inteiro. Null: não é uma data que existe.
+ * O `Date` aceita 31 de fevereiro e passa para março, e a validade sairia outro dia sem ninguém ver.
+ */
+export function endOfDay(day: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const value = new Date(`${day}T23:59:59-03:00`);
+  return Number.isNaN(value.getTime()) || dayOf(value) !== day ? null : value;
+}
+
+/** O dia, no horário de Brasília. Sem `toISOString`: 23:59 daqui já é o dia seguinte em UTC. */
+export const dayOf = (value: Date) => todayIn(undefined, value);

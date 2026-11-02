@@ -13,7 +13,7 @@ import { Badge, Button, Card, EmptyState, Field, FormMessage, Input } from "@/co
 import { platformFlags, requireAdmin } from "@/lib/session";
 import { ConfirmAction } from "../../admin-actions";
 import { actionLabel } from "../../auditoria/labels";
-import { stripeActions } from "../../cobranca/estado";
+import { stripeActions, stripeExitActions } from "../../cobranca/estado";
 import { formatDate, formatDateTime } from "../../format";
 import { AdminPage, AdminTable, Fact, Facts, type Column } from "../../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../../painel";
@@ -100,6 +100,7 @@ export default async function AdminSubscriptionPage({
   const vip = family.vip?.grant ?? null;
   const badge = MODE_BADGES[access.mode];
   const stripe = stripeActions(flags.billingEnabled);
+  const exit = stripeExitActions();
   const charging = sub !== null && willChargeAgain(sub);
   const canRefund = sub !== null && sub.hasSubscription && refundWindowOpen({ ...sub, now });
   const hidden = { id };
@@ -308,17 +309,17 @@ export default async function AdminSubscriptionPage({
           </Card>
 
           <Card title="Na Stripe" description="Pedem confirmação e ficam na auditoria.">
-            {!stripe.available ? (
+            {!sub?.hasSubscription ? (
+              <p className="m-0 text-sm text-muted">Esta família não tem assinatura na Stripe.</p>
+            ) : !exit.available ? (
               <div className="flex flex-col gap-3">
-                <p className="m-0 text-sm text-muted">{stripe.reason}</p>
+                <p className="m-0 text-sm text-muted">{exit.reason}</p>
                 {["Cancelar assinatura", "Devolver", "Reenviar cobrança"].map((label) => (
                   <Button key={label} type="button" variant="secondary" small disabled>
                     {label}
                   </Button>
                 ))}
               </div>
-            ) : !sub?.hasSubscription ? (
-              <p className="m-0 text-sm text-muted">Esta família não tem assinatura na Stripe.</p>
             ) : (
               <div className="flex flex-col gap-3">
                 {charging ? (
@@ -348,7 +349,9 @@ export default async function AdminSubscriptionPage({
                     reason="Só nos 7 dias da primeira cobrança, uma vez."
                   />
                 )}
-                {sub.status === "past_due" ? (
+                {!stripe.available ? (
+                  <Unavailable label="Reenviar cobrança" reason={stripe.reason ?? ""} />
+                ) : sub.status === "past_due" ? (
                   <ConfirmAction
                     label="Reenviar cobrança"
                     action={retryCharge}
@@ -360,7 +363,7 @@ export default async function AdminSubscriptionPage({
                 ) : (
                   <Unavailable label="Reenviar cobrança" reason="Só com a assinatura em atraso." />
                 )}
-                {discountDue && discountDue !== sub.discountPercent ? (
+                {stripe.available && discountDue && discountDue !== sub.discountPercent ? (
                   <ConfirmAction
                     label={`Aplicar desconto de ${discountDue}%`}
                     action={applyDiscount}
@@ -370,7 +373,7 @@ export default async function AdminSubscriptionPage({
                     confirmLabel="Aplicar"
                   />
                 ) : null}
-                {sub.discountPercent ? (
+                {stripe.available && sub.discountPercent ? (
                   <ConfirmAction
                     label="Tirar desconto"
                     action={removeDiscount}

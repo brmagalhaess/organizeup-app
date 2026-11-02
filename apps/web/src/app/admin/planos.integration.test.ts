@@ -30,6 +30,7 @@ const gateway = vi.hoisted(() => ({
   setCancelAtPeriodEnd: vi.fn(async () => undefined),
   refundAndCancel: vi.fn(async () => "devolvido"),
   setDiscount: vi.fn(async () => undefined),
+  previewChange: vi.fn(async () => ({ dueNow: "3.20", prorationDate: 1_790_000_000 })),
   retryInvoice: vi.fn(async () => "cobrada"),
   createPrice: vi.fn(async () => `price_painel${Math.random().toString(36).slice(2, 10)}`),
 }));
@@ -145,6 +146,20 @@ const vipForm = (householdId: string, over: Record<string, string | string[]> = 
 const grant = (householdId: string, over: Record<string, string | string[]> = {}) =>
   vip.grantVip({ message: null }, vipForm(householdId, over));
 
+const sellFamily = () =>
+  db.withAdmin("teste do painel de planos", (tx) =>
+    tx
+      .update(billingCatalog)
+      .set({ stripePriceId: "price_painel_familia" })
+      .where(
+        db.and(
+          eq(billingCatalog.item, "familia"),
+          eq(billingCatalog.cycle, "mes"),
+          eq(billingCatalog.onSale, true),
+        ),
+      ),
+  );
+
 const logged = (action: string, target: string) =>
   db.withAdminRead("teste do painel de planos", (tx) =>
     tx
@@ -157,6 +172,7 @@ beforeEach(() => {
   session.admin = true;
   vi.clearAllMocks();
   vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_painel");
+  vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_painel");
 });
 
 afterEach(async () => {
@@ -266,7 +282,7 @@ describe("VIP", () => {
     expect(row?.endsAt?.toISOString()).toBe("2030-03-11T02:59:59.000Z");
   });
 
-  it("família VIP sem custo não abre pagamento: pagaria pelo que ganhou", async () => {
+  it("VIP sem custo e sem data não abre pagamento: não há o que assinar", async () => {
     const family = await newFamily();
     await setSub(family.id, { courtesy: false, trialEndsAt: new Date(Date.now() - DAY) });
     await setBilling(true);
@@ -275,19 +291,97 @@ describe("VIP", () => {
     expect(gateway.createCheckout).not.toHaveBeenCalled();
   });
 
-  it("família com desconto assina pagando menos, já na primeira cobrança", async () => {
-    await db.withAdmin("teste do painel de planos", (tx) =>
-      tx
-        .update(billingCatalog)
-        .set({ stripePriceId: "price_painel_familia" })
-        .where(
-          db.and(
-            eq(billingCatalog.item, "familia"),
-            eq(billingCatalog.cycle, "mes"),
-            eq(billingCatalog.onSale, true),
-          ),
-        ),
+  it("VIP sem custo com data assina antes de vencer, e a primeira cobrança é no fim dele", async () => {
+    await sellFamily();
+    const family = await newFamily();
+    await setSub(family.id, { courtesy: false, trialEndsAt: new Date(Date.now() - DAY) });
+    await setBilling(true);
+    const day = domain.todayIn(undefined, new Date(Date.now() + 20 * DAY));
+    await expect(grant(family.id, { endsOn: day })).rejects.toThrow("redirect");
+    const [row] = await db.withHousehold(family.ctx, (tx) => tx.select().from(vipGrants));
+    expect(await plan.subscribe(domain.FAMILY_SELECTION)).toMatchObject({ ok: true });
+    expect(gateway.createCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ firstChargeAt: row!.endsAt }),
     );
+  });
+
+  it("VIP acabando em horas: vale o prazo da Stripe, sem pagamento em dobro", async () => {
+    await sellFamily();
+    const family = await newFamily();
+    await setSub(family.id, { courtesy: false, trialEndsAt: new Date(Date.now() - DAY) });
+    await setBilling(true);
+    await db.adminGrantVip(
+      { adminUserId: "admin-outro" },
+      {
+        householdId: family.id,
+        scope: "familia",
+        userId: null,
+        full: true,
+        modules: [],
+        entryLimit: null,
+        messageLimit: null,
+        currencies: [],
+        cost: "sem_custo",
+        discountPercent: null,
+        reason: "parceria",
+        endsAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+      },
+    );
+    expect(await plan.subscribe(domain.FAMILY_SELECTION)).toMatchObject({ ok: true });
+    const [input] = gateway.createCheckout.mock.calls.at(-1) as unknown as [
+      { firstChargeAt: Date },
+    ];
+    expect(input.firstChargeAt.getTime()).toBeGreaterThan(Date.now() + 48 * 60 * 60 * 1000);
+  });
+
+  it("a prévia da troca desconta o que a Stripe vai aplicar", async () => {
+    await sellFamily();
+    const family = await newFamily();
+    await subscribed(family.id, { discountPercent: 30 });
+    await setBilling(true);
+    const reply = await plan.previewPlan({ ...domain.FAMILY_SELECTION, cycle: "mes" });
+    // R$ 44,90 com 30% de desconto = 31,43.
+    expect(reply).toMatchObject({ ok: true, preview: { nextTotal: "31.43" } });
+  });
+
+  it("sem desconto na Stripe, a prévia é o valor cheio, mesmo com VIP concedido", async () => {
+    await sellFamily();
+    const family = await newFamily();
+    await subscribed(family.id);
+    await setBilling(true);
+    await expect(
+      grant(family.id, { access: "nada", cost: "desconto", discountPercent: "30" }),
+    ).rejects.toThrow("redirect");
+    const reply = await plan.previewPlan({ ...domain.FAMILY_SELECTION, cycle: "mes" });
+    expect(reply).toMatchObject({ ok: true, preview: { nextTotal: "44.90" } });
+  });
+
+  it("só o desconto não libera nada a mais que o plano", async () => {
+    const family = await newFamily();
+    await subscribed(family.id, {
+      items: [{ price: "price_base", item: "base:50", amount: "9.90", quantity: 1 }],
+    });
+    await setBilling(true);
+    await expect(
+      grant(family.id, { access: "nada", cost: "desconto", discountPercent: "30" }),
+    ).rejects.toThrow("redirect");
+    const access = await db.readFamilyAccess(family.ctx);
+    expect(access).toMatchObject({ mode: "assinatura", entryLimit: 50, messageLimit: 0 });
+    expect(access.modules).toEqual([]);
+    expect((await grant(family.id, { access: "nada" })).message).toBeTruthy();
+  });
+
+  it("validade de um VIP de quem paga: data que não existe é recusada", async () => {
+    const family = await newFamily();
+    await expect(grant(family.id)).rejects.toThrow("redirect");
+    expect((await grant(family.id, { endsOn: "2030-02-31" })).message).toBe("Data inválida.");
+    const [row] = await db.withHousehold(family.ctx, (tx) => tx.select().from(vipGrants));
+    const reply = await vip.changeVipValidity(form({ id: row!.id, endsOn: "2030-02-31" }));
+    expect(reply.message).toBe("Data inválida.");
+  });
+
+  it("família com desconto assina pagando menos, já na primeira cobrança", async () => {
+    await sellFamily();
     const family = await newFamily();
     await setSub(family.id, { courtesy: false, trialEndsAt: new Date(Date.now() - DAY) });
     await setBilling(true);
@@ -322,18 +416,16 @@ describe("ações na Stripe", () => {
     ["aplicar desconto", billing.applyDiscount, {}],
     ["tirar desconto", billing.removeDiscount, {}],
   ] as const;
+  const needKey = stripeActions.slice(2);
 
-  it.each(stripeActions)(
-    "%s: indisponível com a cobrança desligada",
-    async (_name, action, extra) => {
-      const family = await newFamily();
-      await subscribed(family.id);
-      const result = await action(form({ id: family.id, ...extra }));
-      expect(result).toMatchObject({ ok: false });
-      expect(result.message).toContain("desligada");
-      for (const call of Object.values(gateway)) expect(call).not.toHaveBeenCalled();
-    },
-  );
+  it.each(needKey)("%s: indisponível com a cobrança desligada", async (_name, action, extra) => {
+    const family = await newFamily();
+    await subscribed(family.id, { status: "past_due", discountPercent: 30 });
+    const result = await action(form({ id: family.id, ...extra }));
+    expect(result).toMatchObject({ ok: false });
+    expect(result.message).toContain("desligada");
+    for (const call of Object.values(gateway)) expect(call).not.toHaveBeenCalled();
+  });
 
   it.each(stripeActions)("%s: indisponível sem chave da Stripe", async (_name, action, extra) => {
     const family = await newFamily();
@@ -343,6 +435,83 @@ describe("ações na Stripe", () => {
     const result = await action(form({ id: family.id, ...extra }));
     expect(result.message).toContain("STRIPE_SECRET_KEY");
     for (const call of Object.values(gateway)) expect(call).not.toHaveBeenCalled();
+  });
+
+  it("com a cobrança desligada, quem já paga sai: painel cancela e devolve", async () => {
+    const family = await newFamily();
+    await subscribed(family.id);
+    expect((await db.readPlatformFlags()).billingEnabled).toBe(false);
+    expect((await billing.cancelSubscription(form({ id: family.id }))).ok).toBe(true);
+    expect(gateway.setCancelAtPeriodEnd).toHaveBeenCalled();
+    const refund = await billing.refundSubscription(form({ id: family.id, confirm: "DEVOLVER" }));
+    expect(refund.ok).toBe(true);
+    expect(gateway.refundAndCancel).toHaveBeenCalled();
+  });
+
+  it("com a cobrança desligada, a família também sai, e não assina", async () => {
+    await sellFamily();
+    const family = await newFamily();
+    await subscribed(family.id);
+    session.admin = false;
+    expect(await plan.cancelPlan()).toEqual({ ok: true });
+    expect(await plan.refundPlan()).toMatchObject({ ok: true });
+    expect(await plan.resumePlan()).toEqual({ ok: false, code: "desligado" });
+
+    const other = await newFamily();
+    await setSub(other.id, { courtesy: false });
+    expect(await plan.subscribe(domain.FAMILY_SELECTION)).toEqual({ ok: false, code: "desligado" });
+    expect(await plan.cancelPlan()).toEqual({ ok: false, code: "desligado" });
+    expect(gateway.createCheckout).not.toHaveBeenCalled();
+  });
+
+  it("recusa não entra na auditoria como tentativa", async () => {
+    const family = await newFamily();
+    await subscribed(family.id, { firstPaidAt: new Date(Date.now() - 30 * DAY) });
+    await setBilling(true);
+    const refund = await billing.refundSubscription(form({ id: family.id, confirm: "DEVOLVER" }));
+    expect(refund.ok).toBe(false);
+    expect((await billing.applyDiscount(form({ id: family.id }))).ok).toBe(false);
+    expect((await billing.removeDiscount(form({ id: family.id }))).ok).toBe(false);
+    expect((await billing.retryCharge(form({ id: family.id }))).ok).toBe(false);
+    for (const action of ["devolver", "desconto", "desconto_fim", "reenviar"]) {
+      expect(await logged(`assinatura:${action}`, family.id), action).toEqual([]);
+    }
+  });
+
+  it("reenviar só com a assinatura em atraso, no servidor", async () => {
+    const family = await newFamily();
+    await setBilling(true);
+    for (const status of ["active", "canceled"]) {
+      await subscribed(family.id, { status });
+      const reply = await billing.retryCharge(form({ id: family.id }));
+      expect(reply.message).toContain("em atraso");
+    }
+    expect(gateway.retryInvoice).not.toHaveBeenCalled();
+  });
+
+  it("quem participa da família não opera a Stripe dela pelo painel", async () => {
+    const family = await newFamily();
+    await db.withAdmin("seed do painel de planos", async (tx) => {
+      await tx
+        .insert(user)
+        .values({ id: "admin-painel", name: "Teste", email: "admin-painel@example.com" })
+        .onConflictDoNothing();
+      await tx.insert(householdMember).values({
+        id: `m-adm-${family.id}`,
+        organizationId: family.id,
+        userId: "admin-painel",
+        role: "adult",
+      });
+    });
+    await subscribed(family.id);
+    await setBilling(true);
+    const reply = await billing.cancelSubscription(form({ id: family.id }));
+    expect(reply.message).toContain("participa");
+    expect(gateway.setCancelAtPeriodEnd).not.toHaveBeenCalled();
+    expect(await logged("assinatura:cancelar", family.id)).toEqual([]);
+    await db.withAdmin("seed do painel de planos", (tx) =>
+      tx.delete(householdMember).where(eq(householdMember.id, `m-adm-${family.id}`)),
+    );
   });
 
   it("cancelar vai para a Stripe e fica na auditoria, sem gravar no plano", async () => {
@@ -405,9 +574,8 @@ describe("ações na Stripe", () => {
       "redirect",
     );
     expect((await billing.applyDiscount(form({ id: family.id }))).ok).toBe(true);
-    expect(gateway.setDiscount).toHaveBeenLastCalledWith(
-      expect.objectContaining({ householdId: family.id, percent: 15 }),
-    );
+    expect(gateway.setDiscount).toHaveBeenLastCalledWith(expect.objectContaining({ percent: 15 }));
+    await setSub(family.id, { discountPercent: 15 });
     expect((await billing.removeDiscount(form({ id: family.id }))).ok).toBe(true);
     expect(gateway.setDiscount).toHaveBeenLastCalledWith(
       expect.objectContaining({ percent: null }),
@@ -438,18 +606,36 @@ describe("dias de teste e cortesia pela action", () => {
 describe("catálogo pela action", () => {
   const line = { item: "modulo:investimentos", cycle: "ano" };
 
+  /** A linha que a tela mostra: é ela que vai no formulário. */
+  const basedOn = async (item = line.item, cycle = line.cycle) => {
+    const rows = await db.adminCatalog();
+    const found = rows.find((row) => row.item === item && row.cycle === cycle && row.onSale);
+    return found?.id ?? rows.find((row) => row.item === item)!.id;
+  };
+
   it("aceita vírgula, recusa valor estranho e abaixo do mínimo", async () => {
-    expect((await catalog.setPrice(form({ ...line, amount: "abc" }))).ok).toBe(false);
-    expect((await catalog.setPrice(form({ ...line, amount: "0,10" }))).ok).toBe(false);
-    expect((await catalog.setPrice(form({ ...line, amount: "101,50" }))).ok).toBe(true);
+    const current = await basedOn();
+    const price = (amount: string) => catalog.setPrice(form({ ...line, amount, basedOn: current }));
+    expect((await price("abc")).ok).toBe(false);
+    expect((await price("0,10")).ok).toBe(false);
+    expect((await price("101,50")).ok).toBe(true);
     const sold = await db.readBillingCatalog();
     expect(sold.find((row) => row.item === line.item && row.cycle === line.cycle)?.amount).toBe(
       "101.50",
     );
   });
 
+  it("quem salvou olhando um preço velho ouve que mudou, e nada se perde", async () => {
+    const stale = await basedOn();
+    expect((await catalog.setPrice(form({ ...line, amount: "103,50", basedOn: stale }))).ok).toBe(
+      true,
+    );
+    const reply = await catalog.setPrice(form({ ...line, amount: "104,50", basedOn: stale }));
+    expect(reply).toMatchObject({ ok: false, message: expect.stringContaining("mudar") });
+  });
+
   it("criar na Stripe só por clique, e grava o id uma vez", async () => {
-    await catalog.setPrice(form({ ...line, amount: "102,50" }));
+    await catalog.setPrice(form({ ...line, amount: "102,50", basedOn: await basedOn() }));
     expect(gateway.createPrice).not.toHaveBeenCalled();
     const row = (await db.adminCatalog()).find(
       (item) => item.item === line.item && item.cycle === line.cycle && item.onSale,
@@ -477,7 +663,7 @@ describe("catálogo pela action", () => {
     expect((await catalog.createStripePrice(form({ id: row.id }))).ok).toBe(false);
     expect(gateway.createPrice).not.toHaveBeenCalled();
     const annual = await catalog.setPrice(
-      form({ item: domain.CONNECTED_ITEM, cycle: "ano", amount: "199,00" }),
+      form({ item: domain.CONNECTED_ITEM, cycle: "ano", amount: "199,00", basedOn: row.id }),
     );
     expect(annual.message).toContain("anual");
   });
@@ -500,11 +686,30 @@ describe("chave da cobrança", () => {
     expect((await db.readPlatformFlags()).billingEnabled).toBe(true);
     const rows = await db.adminAccessList({ actions: ["cobranca:ligar"] });
     expect(rows.length).toBeGreaterThanOrEqual(1);
-    expect((await key.disableBilling(form({}))).ok).toBe(true);
+    expect((await key.disableBilling(form({ confirm: "DESLIGAR COBRANCA" }))).ok).toBe(true);
     expect((await db.readPlatformFlags()).billingEnabled).toBe(false);
     expect((await db.adminAccessList({ actions: ["cobranca:desligar"] })).length).toBeGreaterThan(
       0,
     );
+  });
+
+  it("sem o segredo do webhook não liga: quem pagasse não receberia o plano", async () => {
+    vi.stubEnv("STRIPE_WEBHOOK_SECRET", "");
+    const reply = await key.enableBilling(form({ confirm: "LIGAR COBRANCA" }));
+    expect(reply.message).toContain("STRIPE_WEBHOOK_SECRET");
+    expect((await db.readPlatformFlags()).billingEnabled).toBe(false);
+  });
+
+  it("desligar com assinatura de pé pede a digitação, e avisa quantas seguem", async () => {
+    const family = await newFamily();
+    await subscribed(family.id);
+    await setBilling(true);
+    const refused = await key.disableBilling(form({}));
+    expect(refused).toMatchObject({ ok: false, message: expect.stringContaining("Stripe") });
+    expect((await db.readPlatformFlags()).billingEnabled).toBe(true);
+    expect((await key.disableBilling(form({ confirm: "DESLIGAR COBRANCA" }))).ok).toBe(true);
+    expect((await db.readPlatformFlags()).billingEnabled).toBe(false);
+    await setSub(family.id, { status: "canceled" });
   });
 
   it("sem chave da Stripe, ou de produção sem a variável, não liga", async () => {

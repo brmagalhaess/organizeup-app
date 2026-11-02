@@ -16,19 +16,24 @@ export interface StripeActions {
 }
 
 /**
- * Cancelar, devolver, reenviar e mexer em desconto só com a cobrança ligada e uma chave que pode ser usada.
- * Desligada, ninguém assina de verdade e não há o que operar.
+ * Cancelar e devolver não dependem de `billing_enabled`: quem já paga sempre consegue sair. Só precisam de uma
+ * chave que possa ser usada.
  */
+export function stripeExitActions(env: Env = process.env): StripeActions {
+  return stripeUsable(env)
+    ? { available: true, reason: null }
+    : { available: false, reason: keyNotice(env).text };
+}
+
+/** Reenviar cobrança e mexer em desconto mexem em quanto se paga: só com a cobrança ligada. */
 export function stripeActions(billingEnabled: boolean, env: Env = process.env): StripeActions {
   if (!billingEnabled) {
     return {
       available: false,
-      reason: "A cobrança está desligada: as ações da Stripe só ficam disponíveis com ela ligada.",
+      reason: "A cobrança está desligada: reenviar e mexer em desconto só com ela ligada.",
     };
   }
-  return stripeUsable(env)
-    ? { available: true, reason: null }
-    : { available: false, reason: keyNotice(env).text };
+  return stripeExitActions(env);
 }
 
 export interface KeyNotice {
@@ -89,5 +94,15 @@ export function keyNotice(env: Env = process.env): KeyNotice {
 export const webhookConfigured = (env: Env = process.env) =>
   Boolean(env.STRIPE_WEBHOOK_SECRET?.trim());
 
+/** Por que a cobrança não pode ser ligada. Null: pode. Sem webhook, quem paga não receberia o plano. */
+export function enableRefusal(env: Env = process.env): string | null {
+  if (!stripeUsable(env)) return keyNotice(env).text;
+  return webhookConfigured(env)
+    ? null
+    : "Falta STRIPE_WEBHOOK_SECRET: sem o webhook, quem pagar não recebe o plano.";
+}
+
 /** O que precisa ser digitado para ligar. O servidor confere de novo. */
 export const BILLING_CONFIRM = "LIGAR COBRANCA";
+/** Para desligar com assinatura de pé: o servidor confere de novo. */
+export const BILLING_OFF_CONFIRM = "DESLIGAR COBRANCA";

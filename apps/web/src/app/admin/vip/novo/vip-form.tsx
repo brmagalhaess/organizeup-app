@@ -76,7 +76,8 @@ export function VipForm({
   charged: boolean;
 }) {
   const [state, action] = useActionState(grantVip, EMPTY);
-  const [access, setAccess] = useState<"tudo" | "escolhido">("tudo");
+  // Com desconto, a família paga o plano dela: liberar mais que isso é escolha, nunca o padrão.
+  const [access, setAccess] = useState<"tudo" | "escolhido" | "nada">(charged ? "nada" : "tudo");
   const [cost, setCost] = useState<"sem_custo" | "desconto">(charged ? "desconto" : "sem_custo");
   const [talks, setTalks] = useState(false);
   const only = families.length === 1 ? families[0] : undefined;
@@ -100,6 +101,16 @@ export function VipForm({
       )}
 
       <Options legend="O que recebe">
+        {cost === "desconto" ? (
+          <Option
+            type="radio"
+            name="access"
+            value="nada"
+            label="Só o desconto: nada a mais que o plano dela"
+            checked={access === "nada"}
+            onChange={() => setAccess("nada")}
+          />
+        ) : null}
         <Option
           type="radio"
           name="access"
@@ -177,7 +188,10 @@ export function VipForm({
             value="sem_custo"
             label="Sem custo: não passa pela Stripe"
             checked={cost === "sem_custo"}
-            onChange={() => setCost("sem_custo")}
+            onChange={() => {
+              setCost("sem_custo");
+              if (access === "nada") setAccess("tudo");
+            }}
           />
         )}
         <Option
@@ -186,7 +200,10 @@ export function VipForm({
           value="desconto"
           label="Com desconto: a família assina na Stripe"
           checked={cost === "desconto"}
-          onChange={() => setCost("desconto")}
+          onChange={() => {
+            setCost("desconto");
+            setAccess("nada");
+          }}
         />
       </Options>
 

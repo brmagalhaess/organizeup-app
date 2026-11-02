@@ -11,26 +11,9 @@ import { AdminPage, AdminTable, type Column } from "../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../painel";
 import { brl, CYCLE_LABELS, itemLabel } from "../planos";
 import { createStripePrice, setPrice, setSale } from "./actions";
+import { linesOf, sectionLines, SECTIONS } from "./linhas";
 
 export const metadata: Metadata = { title: "Catálogo" };
-
-const SECTIONS: Array<{ title: string; description: string; prefix: string[] }> = [
-  {
-    title: "Família completa",
-    description: "O pacote que já vem marcado.",
-    prefix: ["familia"],
-  },
-  { title: "Base", description: "Degraus de lançamentos por mês.", prefix: ["base:"] },
-  { title: "Módulos", description: "O que a família liga e desliga.", prefix: ["modulo:"] },
-  { title: "Assistente", description: "Degraus de mensagens por mês.", prefix: ["assistente:"] },
-  { title: "Moedas", description: "Cada moeda além da principal.", prefix: ["moeda:"] },
-  {
-    title: "Contas conectadas",
-    description:
-      "Bloqueado: não vai à venda enquanto a conexão com bancos não existir. Só mensal, sem preço anual.",
-    prefix: [CONNECTED_ITEM],
-  },
-];
 
 const columns: Column[] = [
   { key: "item", label: "Item", primary: true },
@@ -40,24 +23,6 @@ const columns: Column[] = [
   { key: "stripe", label: "Na Stripe" },
   { key: "actions", label: "Ações" },
 ];
-
-interface Line {
-  current: AdminCatalogRow;
-  older: AdminCatalogRow[];
-}
-
-/** Uma linha por item e ciclo: a que está à venda, ou a mais nova, com as antigas guardadas. */
-function linesOf(rows: AdminCatalogRow[]): Line[] {
-  const groups = new Map<string, AdminCatalogRow[]>();
-  for (const row of rows) {
-    const key = `${row.item}|${row.cycle}`;
-    groups.set(key, [...(groups.get(key) ?? []), row]);
-  }
-  return [...groups.values()].map((group) => {
-    const current = group.find((row) => row.onSale) ?? group[0]!;
-    return { current, older: group.filter((row) => row !== current) };
-  });
-}
 
 function StripeCell({ row, usable }: { row: AdminCatalogRow; usable: boolean }) {
   if (row.hasStripePrice) return <Badge tone="success">Criado</Badge>;
@@ -111,13 +76,7 @@ export default async function AdminCatalogPage() {
         </Card>
       ) : null}
       {SECTIONS.map((section) => {
-        const rows = lines.filter(({ current }) =>
-          section.prefix.some((prefix) =>
-            prefix.endsWith(":")
-              ? current.item.startsWith(prefix)
-              : current.item.split(":")[0] === prefix,
-          ),
-        );
+        const rows = sectionLines(section, lines);
         if (rows.length === 0) return null;
         return (
           <Card key={section.title} title={section.title} description={section.description}>
@@ -160,7 +119,7 @@ export default async function AdminCatalogPage() {
                         label="Preço novo"
                         ariaLabel={`Preço novo: ${name}`}
                         action={setPrice}
-                        hidden={hidden}
+                        hidden={{ ...hidden, basedOn: current.id }}
                         title="Preço novo"
                         text={`Hoje: ${brl(current.amount)}, desde ${formatDate(current.createdAt)}. O preço antigo fica guardado, e quem assinou por ele continua nele.`}
                         confirmLabel="Salvar preço"
