@@ -155,7 +155,10 @@ test("link incompleto, vencido ou inventado leva a pedir outro", async ({ page }
   await expect(page.getByRole("heading", { name: "Este link não vale mais" })).toBeVisible();
 });
 
-test("cadastro envia a confirmação e o link confirma e já entra", async ({ browser, page }) => {
+test("cadastro envia a confirmação, e o link confirma sem entrar na conta", async ({
+  browser,
+  page,
+}) => {
   const email = uniqueEmail("confirmar");
   await signUp(page, email);
   const session = await page.request.get("/api/auth/get-session");
@@ -166,9 +169,12 @@ test("cadastro envia a confirmação e o link confirma e já entra", async ({ br
   const otherPage = await other.newPage();
   await otherPage.goto(link);
   await expect(otherPage).toHaveURL(/\/confirmar-email\?estado=confirmado$/);
-  const verified = await otherPage.request.get("/api/auth/get-session");
-  expect((await verified.json()).user.emailVerified).toBe(true);
+  const visitor = await otherPage.request.get("/api/auth/get-session");
+  expect(await visitor.json()).toBeNull();
   await other.close();
+
+  const verified = await page.request.get("/api/auth/get-session");
+  expect((await verified.json()).user.emailVerified).toBe(true);
 });
 
 test("convite chega por e-mail com o mesmo link da tela", async ({ page }) => {
