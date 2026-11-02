@@ -28,10 +28,13 @@ export {
   parsePlatformFlags,
   readPlatformFlags,
   readUserLocale,
+  releaseConfirmationEmail,
+  reserveConfirmationEmail,
   saveUserLocale,
   suspendedHouseholdIds,
   tolerateSchemaLag,
   userIsBlocked,
+  type ConfirmationSlot,
   type PlatformFlags,
   type PlatformNotice,
 } from "./access";

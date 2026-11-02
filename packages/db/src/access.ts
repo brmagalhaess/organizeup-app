@@ -1,7 +1,7 @@
 // Portão do serviço: conta bloqueada, família suspensa e chaves do sistema (ADR-0016). Roda a cada
 // requisição do app, então tudo aqui tolera a migração ainda não aplicada: a coluna ou a tabela nova
 // faltando vale como "liberado", e a web sobe antes do worker sem derrubar nada.
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, lte, sql } from "drizzle-orm";
 import type { AccountType } from "@organizeup/domain";
 import { appPool } from "./client";
 import {
@@ -10,6 +10,7 @@ import {
   householdInvitation,
   userAccess,
   userPreferences,
+  verification,
 } from "./schema";
 
 /** 42703 (coluna) e 42P01 (tabela): a versão nova subiu antes da migração. */
@@ -221,4 +222,64 @@ export function activeNotices(flags: PlatformFlags, now = new Date()): PlatformN
         (!notice.endsAt || new Date(notice.endsAt).getTime() > time),
     )
     .sort((a, b) => (a.startsAt ?? "").localeCompare(b.startsAt ?? ""));
+}
+
+const CONFIRMATION_LIMITS = [
+  { max: 1, windowMs: 60 * 1000 },
+  { max: 5, windowMs: 60 * 60 * 1000 },
+];
+const CONFIRMATION_KEEP_MS = 60 * 60 * 1000;
+
+export type ConfirmationSlot = { id: string } | { retryAfterSeconds: number };
+
+/** `sentAt` do mais novo para o mais velho. Zero quando há vaga nas duas janelas. */
+function confirmationWait(sentAt: number[], now: number) {
+  const waits = CONFIRMATION_LIMITS.map(({ max, windowMs }) => {
+    const oldestCounted = sentAt[max - 1];
+    return oldestCounted === undefined ? 0 : oldestCounted + windowMs - now;
+  });
+  return Math.max(0, Math.ceil(Math.max(...waits) / 1000));
+}
+
+/**
+ * Vaga para reenviar a confirmação de e-mail: 1 por minuto e 5 por hora, por conta. Guarda cada envio em
+ * `verification`, a tabela do Better Auth que apaga as linhas vencidas, para valer entre instâncias e depois
+ * de um reinício sem migração. A trava por conta impede dois pedidos simultâneos de contarem a mesma vaga.
+ */
+export async function reserveConfirmationEmail(
+  userId: string,
+  now = new Date(),
+): Promise<ConfirmationSlot> {
+  const identifier = `confirmar-email:${userId}`;
+  return appPool().db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${identifier}, 0))`);
+    await tx
+      .delete(verification)
+      .where(and(eq(verification.identifier, identifier), lte(verification.expiresAt, now)));
+    const sent = await tx
+      .select({ at: verification.createdAt })
+      .from(verification)
+      .where(eq(verification.identifier, identifier))
+      .orderBy(desc(verification.createdAt));
+    const retryAfterSeconds = confirmationWait(
+      sent.map((row) => row.at.getTime()),
+      now.getTime(),
+    );
+    if (retryAfterSeconds > 0) return { retryAfterSeconds };
+    const id = crypto.randomUUID();
+    await tx.insert(verification).values({
+      id,
+      identifier,
+      value: "enviado",
+      createdAt: now,
+      updatedAt: now,
+      expiresAt: new Date(now.getTime() + CONFIRMATION_KEEP_MS),
+    });
+    return { id };
+  });
+}
+
+/** O envio falhou: a vaga volta, porque nada chegou à pessoa. */
+export async function releaseConfirmationEmail(id: string): Promise<void> {
+  await appPool().db.delete(verification).where(eq(verification.id, id));
 }
