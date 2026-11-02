@@ -286,9 +286,9 @@ export function entitlementsOf(items: readonly string[]): Entitlements {
 
 /**
  * `livre`: chave desligada, todos como hoje. `leitura`: teste acabou, ou a assinatura acabou: vê e
- * exporta, sem gravar, sem agentes e sem IA.
+ * exporta, sem gravar, sem agentes e sem IA. `vip`: concessão sem custo do painel (ADR-0025).
  */
-export type AccessMode = "livre" | "cortesia" | "teste" | "assinatura" | "leitura";
+export type AccessMode = "livre" | "cortesia" | "teste" | "assinatura" | "leitura" | "vip";
 
 export interface FamilyAccess {
   mode: AccessMode;
@@ -301,6 +301,8 @@ export interface FamilyAccess {
   /** Cobrança falhou: o acesso segue enquanto a Stripe tenta de novo. */
   pastDue: boolean;
   trialEndsAt: Date | null;
+  /** Concessão VIP valendo agora, de qualquer tipo. Null: nenhuma. */
+  vip: VipSummary | null;
 }
 
 export interface SubscriptionState {
@@ -312,6 +314,57 @@ export interface SubscriptionState {
   cancelAtPeriodEnd: boolean;
   currentPeriodEnd: Date | null;
 }
+
+export const VIP_COSTS = ["sem_custo", "desconto"] as const;
+export type VipCost = (typeof VIP_COSTS)[number];
+
+export const VIP_SCOPES = ["familia", "pessoa"] as const;
+export type VipScope = (typeof VIP_SCOPES)[number];
+
+/** Lista fechada, e não texto livre: motivo escrito à mão vira nome de pessoa no painel (regra 5). */
+export const VIP_REASONS = [
+  "parceria",
+  "imprensa",
+  "equipe",
+  "primeiros_clientes",
+  "atendimento",
+  "teste_interno",
+  "outro",
+] as const;
+export type VipReason = (typeof VIP_REASONS)[number];
+
+/** Quantos dias antes do fim o painel avisa. */
+export const VIP_NOTICE_DAYS = 14;
+export const MIN_VIP_DISCOUNT = 1;
+export const MAX_VIP_DISCOUNT = 99;
+
+export interface VipState {
+  cost: VipCost;
+  discountPercent: number | null;
+  /** Tudo liberado. Falso: só `modules`, com os limites e as moedas abaixo. */
+  full: boolean;
+  modules: readonly BillingModule[];
+  /** Null: sem limite. */
+  entryLimit: number | null;
+  messageLimit: number | null;
+  currencies: readonly Currency[];
+  endsAt: Date | null;
+  revokedAt: Date | null;
+  /** Falso: VIP de pessoa, e ela deixou de ser responsável pela família. */
+  holderActive: boolean;
+}
+
+export type VipSummary = Pick<VipState, "cost" | "discountPercent" | "endsAt">;
+
+/** Vale agora? Vencer não apaga nada: é só deixar de responder sim. */
+export const vipActive = (vip: VipState, now: Date) =>
+  vip.revokedAt === null && vip.holderActive && (vip.endsAt === null || vip.endsAt > now);
+
+/** Termina nos próximos `VIP_NOTICE_DAYS` dias. */
+export const vipEndingSoon = (vip: Pick<VipState, "endsAt">, now: Date) =>
+  vip.endsAt !== null &&
+  vip.endsAt > now &&
+  vip.endsAt.getTime() - now.getTime() <= VIP_NOTICE_DAYS * DAY_MS;
 
 /** Situações da Stripe em que o serviço segue. `incomplete` espera o boleto ou o primeiro pagamento. */
 const PAYING = new Set(["active", "trialing", "past_due"]);
@@ -325,19 +378,11 @@ const FULL = {
   currencies: null,
   pastDue: false,
   trialEndsAt: null,
+  vip: null,
 } as const;
 
-/**
- * Uma regra só para web, worker e assistente. Sem linha da família, o que não deveria acontecer porque
- * o gatilho da migração cria uma, a família fica com tudo: erro nosso não vira cobrança nem bloqueio.
- */
-export function resolveAccess(input: {
-  billingEnabled: boolean;
-  subscription: SubscriptionState | null;
-  now: Date;
-}): FamilyAccess {
-  const { billingEnabled, subscription, now } = input;
-  if (!billingEnabled) return { ...FULL, mode: "livre" };
+/** O que a família tem sem contar o VIP. */
+function planAccess(subscription: SubscriptionState | null, now: Date): FamilyAccess {
   if (!subscription) return { ...FULL, mode: "cortesia" };
   const { courtesy, courtesyUntil, trialEndsAt, status, items } = subscription;
   if (courtesy && (!courtesyUntil || courtesyUntil > now)) return { ...FULL, mode: "cortesia" };
@@ -356,6 +401,7 @@ export function resolveAccess(input: {
       currencies: granted.currencies,
       pastDue: status === "past_due",
       trialEndsAt: null,
+      vip: null,
     };
   }
   if (trialEndsAt && trialEndsAt > now) return { ...FULL, mode: "teste", trialEndsAt };
@@ -367,8 +413,84 @@ export function resolveAccess(input: {
     currencies: [],
     pastDue: false,
     trialEndsAt,
+    vip: null,
   };
 }
+
+/** O maior dos dois limites. Null: sem limite. */
+const widest = (a: number | null, b: number | null) =>
+  a === null || b === null ? null : Math.max(a, b);
+
+/** O que a concessão libera. Sem mensagens, o assistente não entra, mesmo que venha na lista. */
+function vipEntitlements(vip: VipState) {
+  if (vip.full) return FULL;
+  const talks = vip.messageLimit === null || vip.messageLimit > 0;
+  return {
+    modules: vip.modules.filter((module) => module !== "assistente" || talks),
+    entryLimit: vip.entryLimit,
+    messageLimit: vip.messageLimit,
+    currencies: vip.currencies,
+  };
+}
+
+/** Plano e concessão somam: VIP nunca tira nada do que a família já tinha. */
+function addVip(plan: FamilyAccess, vip: VipState): FamilyAccess {
+  const grant = vipEntitlements(vip);
+  return {
+    ...plan,
+    modules: BILLING_MODULES.filter(
+      (module) => plan.modules.includes(module) || grant.modules.includes(module),
+    ),
+    entryLimit: widest(plan.entryLimit, grant.entryLimit),
+    messageLimit: widest(plan.messageLimit, grant.messageLimit),
+    currencies:
+      plan.currencies === null || grant.currencies === null
+        ? null
+        : unique([...plan.currencies, ...grant.currencies]),
+  };
+}
+
+/**
+ * Uma regra só para web, worker e assistente. Sem linha da família, o que não deveria acontecer porque
+ * o gatilho da migração cria uma, a família fica com tudo: erro nosso não vira cobrança nem bloqueio.
+ *
+ * O VIP é uma camada por cima do plano e não muda a assinatura. Por isso vencer devolve exatamente o que
+ * havia antes, sem apagar nada, e ninguém é cobrado: acabar a concessão não abre cobrança nenhuma. Com
+ * desconto, ela só soma enquanto a assinatura paga: desconto não é acesso de graça.
+ */
+export function resolveAccess(input: {
+  billingEnabled: boolean;
+  subscription: SubscriptionState | null;
+  now: Date;
+  vip?: VipState | null;
+}): FamilyAccess {
+  const { billingEnabled, subscription, now, vip = null } = input;
+  if (!billingEnabled) return { ...FULL, mode: "livre" };
+  const plan = planAccess(subscription, now);
+  if (!vip || !vipActive(vip, now)) return plan;
+  const summary: VipSummary = {
+    cost: vip.cost,
+    discountPercent: vip.discountPercent,
+    endsAt: vip.endsAt,
+  };
+  if (vip.cost === "desconto") {
+    return plan.mode === "assinatura"
+      ? { ...addVip(plan, vip), vip: summary }
+      : { ...plan, vip: summary };
+  }
+  return { ...addVip(plan, vip), mode: "vip", trialEndsAt: null, vip: summary };
+}
+
+/**
+ * A próxima renovação vai cobrar? Conceder de graça a quem a Stripe segue cobrando faria a família pagar
+ * por algo que ganhou: o painel recusa até a assinatura estar marcada para acabar.
+ */
+export const willChargeAgain = (
+  subscription: Pick<SubscriptionState, "status" | "cancelAtPeriodEnd">,
+) =>
+  subscription.status !== null &&
+  PAYING.has(subscription.status) &&
+  !subscription.cancelAtPeriodEnd;
 
 /** Pode agir: gravar, rodar agente, chamar a IA. */
 export const canUse = (access: FamilyAccess, module: BillingModule) =>
