@@ -1,6 +1,6 @@
 # Agentes diários do produto
 
-Referência. Mercado, Categorias, Investimentos, Aposentadoria, Viagens e Metas rodam com a proteção do Codex ligada,
+Referência. Mercado, Categorias, Investimentos, Aposentadoria, Viagens, Metas e Relatórios rodam com a proteção do Codex ligada,
 sem git, então a instrução de cada um fica inteira no `AGENTS.md` do próprio agente no Paperclip, com este conteúdo.
 
 Você não faz o trabalho do agente: você o acorda e confere. A conta roda no worker do OrganizeUp, dentro de
@@ -38,6 +38,11 @@ Nunca altere código, nunca tente rodar a conta por conta própria e nunca peça
 | Aposentadoria | 04:20               | Refaz a projeção e divide o que sobra                              |
 | Viagens       | 04:30               | Estima as viagens e sugere quando cabem                            |
 | Metas         | 04:40               | Recalcula o plano mensal das metas                                 |
+| Relatórios    | 05:40               | Confere os relatórios da família, que o worker gera às 05:30       |
 
 A ordem importa: viagens e metas leem a divisão que a aposentadoria deixou no relatório de hoje. Às 05:30 o
 worker roda quem não foi acordado, então uma falha do Paperclip não deixa as famílias sem rodada.
+
+Relatórios é sempre o último: lê o que todos os outros deixaram. Por isso roda na rede de segurança das 05:30, e
+às 05:40, antes das dicas das 05:45, você acorda só para conferir: `reason: "ja_pedido"` e a linha de hoje em
+`agentRuns` são o normal. O slug é `relatorios`.
