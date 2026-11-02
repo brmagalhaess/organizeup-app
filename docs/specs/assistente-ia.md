@@ -49,6 +49,8 @@ Um registro único em `packages/ai/tools`, com nome, descrição, esquema zod e 
 - **Simulação, sem gravar:** "e se guardar mais 500?", "e se antecipar a aposentadoria?", usando
   `packages/domain`.
 
+`ver_documentos` (ADR-0030) lê os campos do que a família aprovou no importador, nunca o arquivo.
+
 Exposição real por **MCP**:
 
 - `/api/mcp/ops` para a equipe do Paperclip, com o token da Ops API e sem dado de família: contexto,

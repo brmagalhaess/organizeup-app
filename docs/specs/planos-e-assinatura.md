@@ -43,6 +43,11 @@ relatórios.
 | 100               | R$ 14,90 |
 | 300               | R$ 29,90 |
 
+**Importador inteligente (ADR-0030):** a leitura por regras vem na Base. A leitura com IA fica no módulo Assistente, em
+qualquer degrau, sem gastar mensagem, com limite próprio: **30 arquivos lidos com IA por mês, por família**
+(`SMART_MODEL_FILES_PER_MONTH`), e 1,5 milhão de tokens por mês (`SMART_MODEL_TOKENS_PER_MONTH`). O item de um módulo
+desligado aparece na revisão e não grava.
+
 **Moeda adicional:** a moeda principal é grátis, e cada outra custa R$ 4,90 por mês.
 
 **Contas conectadas:** R$ 19,90 por mês, por conta conectada, escolhido num campo de quantidade na montagem do plano,

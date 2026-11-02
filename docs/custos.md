@@ -32,3 +32,23 @@ Preencha os valores reais; os agentes e o fundador revisam este arquivo todo mê
 - Antes da Fase 3: fixar preço do plano e meta "custo de IA ≤ 20–25% do preço" medida por `ai_usage`.
 - Relatórios e sugestões automáticos só para households ativos: 60 dias para os agentes diários do produto
   (ADR-0015), 30 dias para o assistente com IA da Fase 3.
+
+## Importador inteligente (ADR-0030)
+
+Haiku 5.5: US$ 0,10 por milhão de tokens de entrada e US$ 0,50 de saída, até 100 mil tokens de prompt. Instruções em cache
+depois do primeiro arquivo do lote. Leitura por regras não custa nada. Estimativa sem uso real: conferir em `ai_usage`,
+rota `importador`.
+
+| Arquivo                                 | Entrada       | Saída   | Custo estimado |
+| --------------------------------------- | ------------- | ------- | -------------- |
+| Contrato de 10 páginas com texto        | 8 mil tokens  | 1,5 mil | US$ 0,002      |
+| Pior caso de texto (120 mil caracteres) | 40 mil tokens | 8 mil   | US$ 0,008      |
+| Digitalização de 20 páginas             | 60 mil tokens | 2 mil   | US$ 0,007      |
+| Pior caso de saída (24 mil tokens)      | 40 mil tokens | 24 mil  | US$ 0,016      |
+
+**Por família:** 30 arquivos no mês custam de US$ 0,06 a US$ 0,24 no pior caso realista, cerca de R$ 0,35 a R$ 1,40. Teto
+duro: 1,5 milhão de tokens por mês, cerca de US$ 0,30. O teto diário (200 mil tokens) e o mensal do serviço continuam
+valendo.
+
+**Armazenamento:** até 100 MB por família no banco e no backup, além dos 50 MB de dívidas. Lote sem aprovação some em 30
+dias.
