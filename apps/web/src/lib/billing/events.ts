@@ -5,6 +5,13 @@ import type { BillingEventInput } from "@organizeup/db";
 import Stripe from "stripe";
 
 export const HOUSEHOLD_METADATA = "household_id";
+/** Percentual do desconto VIP, na metadata da assinatura: é assim que o webhook diz que ele está em vigor. */
+export const DISCOUNT_METADATA = "vip_desconto";
+
+function discountOf(metadata: Record<string, string>): number | null {
+  const percent = Number(metadata[DISCOUNT_METADATA]);
+  return Number.isInteger(percent) && percent >= 1 && percent <= 99 ? percent : null;
+}
 
 /** Eventos que o endpoint precisa assinar na Stripe. A lista está também no runbook. */
 export const STRIPE_EVENTS = [
@@ -49,6 +56,7 @@ function subscriptionData(subscription: Stripe.Subscription): BillingEventData {
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
     canceledAt: iso(subscription.canceled_at),
     scheduleId: idOf(subscription.schedule),
+    discountPercent: discountOf(subscription.metadata),
   };
 }
 

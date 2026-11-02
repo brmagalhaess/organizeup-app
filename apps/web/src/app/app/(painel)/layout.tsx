@@ -93,7 +93,8 @@ async function billingBanners(ctx: TenantContext): Promise<ShellBanner[]> {
     const days = Math.ceil((access.trialEndsAt.getTime() - Date.now()) / DAY_MS);
     if (days <= TRIAL_NOTICE_DAYS) dismissible("plano-teste", t("trial", { count: days }));
   }
-  if (access.mode !== "assinatura") return banners;
+  // VIP com limites escolhidos também precisa saber que está perto deles.
+  if (access.mode !== "assinatura" && access.mode !== "vip") return banners;
   const usage = await readMonthUsage(ctx);
   if (!usage) return banners;
   const entries = usageLevel(usage.entries, access.entryLimit);

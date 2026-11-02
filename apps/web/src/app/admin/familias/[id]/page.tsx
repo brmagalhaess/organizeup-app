@@ -12,6 +12,7 @@ import { formatCount, formatDate, formatDateTime, roleLabel, shortId } from "../
 import { AdminPage, AdminTable, Fact, Facts, type Column } from "../../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../../painel";
 import { deleteFamily, reactivateFamily, suspendFamily } from "../actions";
+import { FamilyProduct } from "./family-product";
 import { OwnerContact } from "./owner-contact";
 
 export const metadata: Metadata = { title: "Família" };
@@ -174,8 +175,16 @@ export default async function AdminFamilyPage({ params }: { params: Promise<{ id
             )}
           </Card>
 
+          <FamilyProduct id={family.id} />
+
           <Card title="Ações" description="Tudo fica na auditoria.">
             <div className="flex flex-col gap-3">
+              <Link
+                href={`/admin/vip/novo?familia=${family.id}`}
+                className="text-sm font-semibold text-brand-700 underline underline-offset-2"
+              >
+                Marcar como VIP
+              </Link>
               {suspended ? (
                 <ConfirmAction
                   label="Reativar família"

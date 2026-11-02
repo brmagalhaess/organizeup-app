@@ -52,6 +52,16 @@ interface Input {
   knowledgeOldest?: string | null;
   /** Falso quando o worker avisou que não tem a chave. Sem sinal dele, fica de fora. */
   workerHasAiKey?: boolean | null;
+  /** O que pede atenção na cobrança (ADR-0025). */
+  billing?: {
+    vipEnding: number;
+    /** VIP sem custo, e a Stripe segue cobrando. */
+    vipCharged: number;
+    /** Desconto na Stripe sem VIP valendo. */
+    leftoverDiscounts: number;
+    /** Segunda assinatura paga: a Stripe cobra duas vezes. */
+    duplicates: number;
+  };
 }
 
 export const catalogStale = (updatedAt: Date, now: Date) =>
@@ -186,6 +196,55 @@ function workerKeyAlert({ workerHasAiKey }: Input): AdminAlert | null {
   };
 }
 
+function billingAlerts({ billing }: Input): AdminAlert[] {
+  if (!billing) return [];
+  const { vipEnding, vipCharged, leftoverDiscounts, duplicates } = billing;
+  const alerts: AdminAlert[] = [];
+  if (duplicates > 0) {
+    alerts.push({
+      key: "cobranca:duplicada",
+      tone: "danger",
+      title: "Família cobrada duas vezes",
+      text:
+        duplicates === 1
+          ? "1 assinatura paga não entrou, e a Stripe segue cobrando."
+          : `${duplicates} assinaturas pagas não entraram, e a Stripe segue cobrando.`,
+      href: "/admin/cobranca",
+    });
+  }
+  if (vipCharged > 0) {
+    alerts.push({
+      key: "vip:cobrado",
+      tone: "danger",
+      title: "VIP sem custo sendo cobrado",
+      text: "A assinatura entrou depois da concessão. Cancele para a família não pagar pelo que ganhou.",
+      href: "/admin/vip",
+    });
+  }
+  if (vipEnding > 0) {
+    alerts.push({
+      key: "vip:vencendo",
+      tone: "warning",
+      title: vipEnding === 1 ? "VIP perto de vencer" : "VIPs perto de vencer",
+      text:
+        vipEnding === 1
+          ? "1 concessão vence em breve. Ao vencer, volta ao que era, sem cobrança."
+          : `${vipEnding} concessões vencem em breve. Ao vencer, voltam ao que eram, sem cobrança.`,
+      href: "/admin/vip?situacao=vencendo",
+    });
+  }
+  if (leftoverDiscounts > 0) {
+    alerts.push({
+      key: "vip:desconto",
+      tone: "info",
+      title: "Desconto na Stripe sem VIP valendo",
+      text: "O preço não sobe sozinho. Tirar o desconto é uma ação sua, avisando a família.",
+      href: "/admin/vip",
+    });
+  }
+  return alerts;
+}
+
 function catalogAlert({ catalogUpdatedAt, now }: Input): AdminAlert | null {
   if (catalogUpdatedAt === undefined) return null;
   if (catalogUpdatedAt === null) {
@@ -282,6 +341,7 @@ export function buildAlerts(input: Input): AdminAlert[] {
   if (error) alerts.push(error);
   const deploy = deployAlert(input);
   if (deploy) alerts.push(deploy);
+  alerts.push(...billingAlerts(input));
   for (const alert of [
     aiAlert(input),
     workerKeyAlert(input),

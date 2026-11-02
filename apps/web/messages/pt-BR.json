@@ -3985,6 +3985,7 @@
     "saved": "Pedido feito. A tela atualiza em instantes.",
     "waiting": "Recebemos seu pagamento. Estamos ligando o plano, e isso leva menos de um minuto.",
     "ownerOnly": "Só o responsável pela família pode assinar ou trocar o plano.",
+    "vipNote": "Sua família é VIP, e por isso não há plano para assinar agora.",
     "priceNote": "Preços em reais. A assinatura é da família: todas as pessoas usam, sem custo por pessoa.",
     "noCatalog": {
       "title": "Os preços ainda não estão aqui",
@@ -4083,6 +4084,9 @@
       "teste": "Teste grátis até {date}, com tudo liberado.",
       "assinatura": "Assinatura ativa.",
       "leitura": "O teste acabou. Você vê e exporta tudo, mas para alterar precisa assinar. Nada foi apagado.",
+      "vip": "Sua família é VIP: o que foi liberado não tem cobrança.",
+      "vipUntil": "Vale até {date}. Depois volta ao que era antes, sem nenhuma cobrança.",
+      "vipDiscount": "Desconto VIP de {percent}% na assinatura.",
       "renewsAt": "Próxima cobrança em {date}.",
       "endsAt": "Cancelada. Vale até {date}.",
       "scheduled": "Troca de plano marcada para {date}.",
@@ -4126,7 +4130,8 @@
       "catalogo": "Um dos itens ainda não está à venda.",
       "sem_assinatura": "Não encontramos uma assinatura ativa para isso.",
       "invalido": "Confira o plano e tente de novo.",
-      "em_andamento": "Já há um pagamento em andamento. Se você acabou de pagar, o plano liga em instantes."
+      "em_andamento": "Já há um pagamento em andamento. Se você acabou de pagar, o plano liga em instantes.",
+      "vip": "Sua família é VIP, sem custo. Não é preciso assinar agora."
     },
     "invite": {
       "eyebrow": "Fora do seu plano",

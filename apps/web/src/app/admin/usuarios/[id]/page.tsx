@@ -97,6 +97,14 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
                 ))}
               </ul>
             )}
+            {account.families.some((family) => family.role === "owner") ? (
+              <Link
+                href={`/admin/vip/novo?conta=${account.id}`}
+                className="mt-3 inline-block text-sm font-semibold text-brand-700 underline underline-offset-2"
+              >
+                Marcar como VIP
+              </Link>
+            ) : null}
           </Card>
         </div>
 

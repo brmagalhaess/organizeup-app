@@ -53,7 +53,8 @@ export default async function SubscriptionPage({
   const subscribed =
     row?.cycle && ["active", "trialing", "past_due"].includes(row.status ?? "") ? row : null;
   const current = subscribed ? selectionOfSubscribed(subscribed.items, subscribed.cycle!) : null;
-  const canBuy = role === "owner" && !flags.maintenance;
+  const vipFree = access.mode === "vip";
+  const canBuy = role === "owner" && !flags.maintenance && !vipFree;
   const refundable =
     row !== null &&
     Boolean(row.stripeSubscriptionId) &&
@@ -87,6 +88,16 @@ export default async function SubscriptionPage({
               date: access.trialEndsAt ? dateOf(access.trialEndsAt, locale) : "",
             })}
           </p>
+          {access.vip?.cost === "sem_custo" && access.vip.endsAt ? (
+            <p className="m-0 text-sm text-muted">
+              {t("status.vipUntil", { date: dateOf(access.vip.endsAt, locale) })}
+            </p>
+          ) : null}
+          {access.vip?.cost === "desconto" ? (
+            <p className="m-0 text-sm text-muted">
+              {t("status.vipDiscount", { percent: access.vip.discountPercent ?? 0 })}
+            </p>
+          ) : null}
           {subscribed?.currentPeriodEnd ? (
             <p className="m-0 text-sm text-muted">
               {t(subscribed.cancelAtPeriodEnd ? "status.endsAt" : "status.renewsAt", {
@@ -129,6 +140,7 @@ export default async function SubscriptionPage({
         items={subscribed?.items ?? []}
         main={main}
         canBuy={canBuy}
+        vipFree={vipFree}
       />
 
       {subscribed || refundable ? (

@@ -5,6 +5,7 @@ import {
   claimBillingCheckout,
   householdCurrency,
   readBillingCatalog,
+  readFamilyAccess,
   releaseBillingCheckout,
   saveBillingCheckout,
   withHousehold,
@@ -43,7 +44,9 @@ export type PlanFailure =
   | "sem_assinatura"
   | "invalido"
   /** Já há pagamento abrindo, ou pago e esperando o webhook. */
-  | "em_andamento";
+  | "em_andamento"
+  /** VIP sem custo: abrir assinatura faria a família pagar pelo que ganhou (ADR-0025). */
+  | "vip";
 export type PlanRefused = { ok: false; code: PlanFailure };
 export type PlanReply<T = object> = ({ ok: true } & T) | PlanRefused;
 
@@ -111,6 +114,8 @@ export async function subscribe(raw: unknown): Promise<PlanReply<{ url: string }
     if (!actor.ok) return actor;
     const { ctx, subscription } = actor;
     if (hasSubscription(subscription)) return refuse("invalido");
+    const access = await readFamilyAccess(ctx);
+    if (access.mode === "vip") return refuse("vip");
     const selection = await chosen(raw, ctx);
     if (!selection) return refuse("invalido");
     const priced = await pricesOf(selection, null);
@@ -138,6 +143,7 @@ export async function subscribe(raw: unknown): Promise<PlanReply<{ url: string }
         locale: await getLocale(),
         successUrl: appUrl(`${SCREEN}?assinou=1`),
         cancelUrl: appUrl(SCREEN),
+        discountPercent: access.vip?.discountPercent ?? null,
       });
       await saveBillingCheckout(householdId, { sessionId: session.id });
       return { ok: true, url: session.url };

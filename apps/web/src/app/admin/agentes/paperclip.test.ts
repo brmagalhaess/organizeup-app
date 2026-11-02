@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { agentName, agentsInView, DICAS_AGENT, MERCADO_AGENT, runMetrics } from "./catalogo";
+import {
+  agentName,
+  agentsInView,
+  DICAS_AGENT,
+  MERCADO_AGENT,
+  PRODUCT_AGENTS,
+  runMetrics,
+} from "./catalogo";
 import { lastActivity, PAPERCLIP_TEAM, paperclipAgentUrl } from "./paperclip";
 
 const tech = PAPERCLIP_TEAM.find((agent) => agent.id === "tech-lead")!;
@@ -8,9 +15,18 @@ const old = new Date("2026-10-01T10:00:00Z");
 const recent = new Date("2026-10-30T10:00:00Z");
 
 describe("equipe do Paperclip", () => {
-  it("traz os 14 agentes, sem repetir", () => {
-    expect(PAPERCLIP_TEAM).toHaveLength(14);
-    expect(new Set(PAPERCLIP_TEAM.map((agent) => agent.id)).size).toBe(14);
+  it("traz os 16 agentes, sem repetir, com Dívidas e Relatórios", () => {
+    expect(PAPERCLIP_TEAM).toHaveLength(16);
+    expect(new Set(PAPERCLIP_TEAM.map((agent) => agent.id)).size).toBe(16);
+    for (const name of ["Dívidas", "Relatórios"]) {
+      expect(PAPERCLIP_TEAM.map((agent) => agent.name)).toContain(name);
+    }
+  });
+
+  it("os agentes do produto dizem a hora em que o Paperclip acorda", () => {
+    const wake = (id: string) => PRODUCT_AGENTS.find((agent) => agent.id === id)?.wake;
+    expect(wake("dividas")).toContain("04:15");
+    expect(wake("relatorios")).toContain("05:40");
   });
 
   it("sem registro, a atividade é nula: nada de status inventado", () => {

@@ -2,8 +2,12 @@ import { INSIGHTS_CONSENT_VERSION, monthSpend } from "@organizeup/ai";
 import {
   adminAccessList,
   adminAssistantCounts,
+  adminBillingFamilies,
+  adminBillingSummary,
+  adminFamilyAccess,
   adminGrowth,
   adminOverviewCounts,
+  adminVipList,
   knowledgeStatus,
   listAgentRuns,
   listDeployments,
@@ -96,6 +100,9 @@ export default async function AdminOverviewPage() {
     market,
     knowledge,
     aiTests,
+    vipList,
+    billingFamilies,
+    billingSummary,
   ] = await Promise.all([
     adminOverviewCounts({ onboardingVersion: ONBOARDING_VERSION }),
     adminGrowth(12),
@@ -112,6 +119,9 @@ export default async function AdminOverviewPage() {
     marketStatus(today),
     knowledgeStatus(),
     adminAccessList({ actions: [AI_TEST_OK, AI_TEST_FAILED], limit: 1 }),
+    adminVipList(),
+    adminBillingFamilies(),
+    adminBillingSummary(),
   ]);
 
   const latest = stats[0] ?? null;
@@ -145,6 +155,15 @@ export default async function AdminOverviewPage() {
     ...(disabled.includes(MERCADO_AGENT) ? {} : { catalogUpdatedAt: market.assetsUpdatedAt }),
     knowledgeOldest: knowledge.oldestReview,
     workerHasAiKey: flags.aiEnabled ? workerHasAiKey : null,
+    billing: {
+      vipEnding: vipList.filter((row) => row.status === "vencendo").length,
+      vipCharged: vipList.filter((row) => row.stillCharged).length,
+      leftoverDiscounts: billingFamilies.filter(
+        (family) =>
+          family.subscription?.discountPercent && !adminFamilyAccess(family, new Date()).vip,
+      ).length,
+      duplicates: billingSummary.events.duplicates,
+    },
   });
   const growthPoints = growth.map((week) => ({
     label: formatDayShort(week.week),

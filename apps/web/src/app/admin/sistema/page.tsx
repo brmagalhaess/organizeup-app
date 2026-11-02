@@ -20,6 +20,7 @@ import { todayIn } from "@organizeup/domain";
 import { Boxes, Database, Globe, Server } from "lucide-react";
 import type { Metadata } from "next";
 import { Badge, Card, EmptyState } from "@/components/ui";
+import { stripeUsable } from "@/lib/billing/stripe-key";
 import { emailConfigured } from "@/lib/email";
 import { platformFlags, requireAdmin } from "@/lib/session";
 import { DICAS_AGENT } from "../agentes/catalogo";
@@ -29,6 +30,7 @@ import { formatAge, formatCount, formatDateTime, lastDays, minutesSince } from "
 import { AdminPage, AdminTable, Tile, type Column } from "../kit";
 import { hasAdminDatabase, noteAdminAccess } from "../painel";
 import { AiCard, InsightsCard, KnowledgeCard, MarketCard } from "./blocos";
+import { ProductCard } from "./produto";
 import { insightsByDay } from "./resumo";
 
 export const metadata: Metadata = { title: "Sistema" };
@@ -149,6 +151,12 @@ export default async function AdminSystemPage() {
       on: workerInfo.ai === true,
       hint: "ANTHROPIC_API_KEY e ANTHROPIC_WORKSPACE_ID",
     },
+    {
+      name: "Cobrança (Stripe)",
+      where: "ou3-web",
+      on: stripeUsable(),
+      hint: "STRIPE_SECRET_KEY e STRIPE_WEBHOOK_SECRET",
+    },
   ];
 
   return (
@@ -241,6 +249,8 @@ export default async function AdminSystemPage() {
           />
         )}
       </Card>
+
+      <ProductCard debtsAgentOff={flags.disabledAgents.includes("dividas")} />
 
       <AiCard
         model={MODEL}

@@ -3985,6 +3985,7 @@
     "saved": "Request sent. This page updates shortly.",
     "waiting": "We got your payment. We're turning your plan on, which takes less than a minute.",
     "ownerOnly": "Only the family's owner can subscribe or change the plan.",
+    "vipNote": "Your family is VIP, so there is no plan to subscribe to right now.",
     "priceNote": "Prices in Brazilian reais. The subscription is for the family: everyone uses it, with no per-person fee.",
     "noCatalog": {
       "title": "Prices aren't available yet",
@@ -4083,6 +4084,9 @@
       "teste": "Free trial until {date}, with everything available.",
       "assinatura": "Active subscription.",
       "leitura": "The trial ended. You can view and export everything, but changes need a subscription. Nothing was deleted.",
+      "vip": "Your family is VIP: what was unlocked comes at no charge.",
+      "vipUntil": "Valid until {date}. After that it goes back to how it was, with no charge.",
+      "vipDiscount": "VIP discount of {percent}% on the subscription.",
       "renewsAt": "Next charge on {date}.",
       "endsAt": "Canceled. Active until {date}.",
       "scheduled": "Plan change scheduled for {date}.",
@@ -4126,7 +4130,8 @@
       "catalogo": "One of the items isn't on sale yet.",
       "sem_assinatura": "We couldn't find an active subscription for this.",
       "invalido": "Check the plan and try again.",
-      "em_andamento": "A payment is already in progress. If you just paid, your plan turns on shortly."
+      "em_andamento": "A payment is already in progress. If you just paid, your plan turns on shortly.",
+      "vip": "Your family is VIP, at no cost. There is no need to subscribe right now."
     },
     "invite": {
       "eyebrow": "Not in your plan",

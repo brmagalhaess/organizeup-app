@@ -52,6 +52,8 @@ export interface PlanBuilderProps {
   main: Currency;
   /** Só o responsável assina e troca. */
   canBuy: boolean;
+  /** VIP sem custo: não há o que assinar agora. */
+  vipFree?: boolean;
 }
 
 /** Sair da Família completa leva o que ela trazia: só sai o módulo desmarcado. */
@@ -102,7 +104,14 @@ function Choice({
   );
 }
 
-export function PlanBuilder({ catalog, current, items, main, canBuy }: PlanBuilderProps) {
+export function PlanBuilder({
+  catalog,
+  current,
+  items,
+  main,
+  canBuy,
+  vipFree = false,
+}: PlanBuilderProps) {
   const t = useTranslations("assinatura");
   const locale = useLocale() as Locale;
   const moneyText = useMoney();
@@ -378,7 +387,7 @@ export function PlanBuilder({ catalog, current, items, main, canBuy }: PlanBuild
         {failure ? <FormMessage message={t(`failure.${failure}`)} /> : null}
         {quote.missing.length > 0 ? <FormMessage message={t("failure.catalogo")} /> : null}
         {!canBuy ? (
-          <p className="m-0 text-sm text-muted">{t("ownerOnly")}</p>
+          <p className="m-0 text-sm text-muted">{t(vipFree ? "vipNote" : "ownerOnly")}</p>
         ) : current ? (
           <Button disabled={busy || unchanged} onClick={askPreview}>
             {busy ? t("wait") : t("seeChange")}

@@ -3985,6 +3985,7 @@
     "saved": "Pedido enviado. La página se actualiza en instantes.",
     "waiting": "Recibimos tu pago. Estamos activando el plan, y tarda menos de un minuto.",
     "ownerOnly": "Solo el responsable de la familia puede suscribirse o cambiar el plan.",
+    "vipNote": "Tu familia es VIP, por eso ahora no hay plan para suscribir.",
     "priceNote": "Precios en reales. La suscripción es de la familia: todos la usan, sin costo por persona.",
     "noCatalog": {
       "title": "Los precios todavía no están aquí",
@@ -4083,6 +4084,9 @@
       "teste": "Prueba gratis hasta el {date}, con todo disponible.",
       "assinatura": "Suscripción activa.",
       "leitura": "La prueba terminó. Ves y exportas todo, pero para cambiar algo debes suscribirte. No se borró nada.",
+      "vip": "Tu familia es VIP: lo que se liberó no tiene cargo.",
+      "vipUntil": "Vale hasta el {date}. Después vuelve a como estaba, sin ningún cargo.",
+      "vipDiscount": "Descuento VIP de {percent}% en la suscripción.",
       "renewsAt": "Próximo cobro el {date}.",
       "endsAt": "Cancelada. Vale hasta el {date}.",
       "scheduled": "Cambio de plan programado para el {date}.",
@@ -4126,7 +4130,8 @@
       "catalogo": "Uno de los artículos todavía no está a la venta.",
       "sem_assinatura": "No encontramos una suscripción activa para esto.",
       "invalido": "Revisa el plan e inténtalo de nuevo.",
-      "em_andamento": "Ya hay un pago en curso. Si acabas de pagar, el plan se activa en instantes."
+      "em_andamento": "Ya hay un pago en curso. Si acabas de pagar, el plan se activa en instantes.",
+      "vip": "Tu familia es VIP, sin costo. No hace falta suscribirse ahora."
     },
     "invite": {
       "eyebrow": "Fuera de tu plan",

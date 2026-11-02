@@ -71,6 +71,13 @@ export const PAPERCLIP_TEAM: TeamAgent[] = [
     slugs: ["investimentos"],
   },
   {
+    id: "dividas",
+    name: "Dívidas",
+    role: "Acorda o agente de dívidas e confere o resultado.",
+    wake: "Todo dia às 04:15.",
+    slugs: ["dividas"],
+  },
+  {
     id: "aposentadoria",
     name: "Aposentadoria",
     role: "Acorda o agente de aposentadoria e confere o resultado.",
@@ -90,6 +97,13 @@ export const PAPERCLIP_TEAM: TeamAgent[] = [
     role: "Acorda o agente de metas e confere o resultado.",
     wake: "Todo dia às 04:40.",
     slugs: ["metas"],
+  },
+  {
+    id: "relatorios",
+    name: "Relatórios",
+    role: "Confere os relatórios da família, que o worker gera às 05:30.",
+    wake: "Todo dia às 05:40.",
+    slugs: ["relatorios"],
   },
   {
     id: "produto",
