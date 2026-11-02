@@ -128,6 +128,8 @@ describe("sem intenção", () => {
       fc.property(inputArb, ({ kids, ...data }) => {
         const input = { ...data, travelers: withKids(kids) };
         const before = suggestTripsBefore(input);
+        // A função antiga repetia mês quando duas viagens paravam no teto de 36 meses: esse é o conserto.
+        fc.pre(new Set(before.map((item) => item.month)).size === before.length);
         expect(suggestTrips(input)).toStrictEqual(before);
         expect(suggestTrips({ ...input, intentions: [] })).toStrictEqual(before);
       }),
@@ -782,6 +784,69 @@ describe("propriedades", () => {
       intentions: build(data, picks),
       intentionUsedThisYear,
     }));
+
+  it("orçamento apertado no teto de 36 meses: cada viagem do catálogo em seu mês", () => {
+    // Contraexemplo da seed 1336148952: as duas últimas paravam no mês 36, juntas.
+    const destination = (
+      id: string,
+      lodgingPerNight: string,
+      foodPerPersonDay: string,
+      localTransportPerPersonDay: string,
+      flightPerPerson: string,
+      bestMonths: number[] = [],
+    ): DestinationTemplate => ({
+      id,
+      name: id,
+      country: "BR",
+      region: "brasil",
+      lodgingPerNight,
+      foodPerPersonDay,
+      localTransportPerPersonDay,
+      flightPerPerson,
+      minDays: 2,
+      kidsFriendly: false,
+      bestMonths,
+      source: "tabela de teste, 10/2026",
+      confidence: "media",
+    });
+    const { suggestions } = planTrips({
+      ...base,
+      today: "2026-01-15",
+      tripsPerYear: 4,
+      tripDays: 2,
+      tripsBudgetMonthly: "5342.34",
+      destinations: [
+        destination("a", "307", "174", "76", "7360"),
+        destination("b", "100", "50", "0", "3036"),
+        destination("c", "360", "50", "16", "7392"),
+        destination("d", "976", "296", "80", "6773", [1]),
+      ],
+      existingTripMonths: [],
+      weddingMonth: null,
+      travelers: [
+        { personId: "p1", ageYears: 40 },
+        { personId: "p2", ageYears: 38 },
+      ],
+      intentions: [],
+      intentionUsedThisYear: false,
+    });
+    expect(suggestions).toHaveLength(4);
+    expect(new Set(suggestions.map((item) => item.month)).size).toBe(4);
+  });
+
+  it("duas intenções sem mês livre no teto: a segunda fica sem sugestão", () => {
+    const { suggestions, intentions } = planTrips({
+      ...base,
+      tripsPerYear: 2,
+      tripsBudgetMonthly: "1.00",
+      intentions: [
+        intention({ id: "i1", destinationId: "praia" }),
+        intention({ id: "i2", destinationId: "capital" }),
+      ],
+    });
+    expect(new Set(suggestions.map((item) => item.month)).size).toBe(suggestions.length);
+    expect(intentions).toHaveLength(2);
+  });
 
   it("mesmos limites: teto de viagens, meses livres e distintos, 4 a 36 meses", () => {
     fc.assert(

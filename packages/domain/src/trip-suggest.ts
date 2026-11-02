@@ -578,6 +578,10 @@ export function planTrips(input: TripSuggestInput): TripSuggestionPlan {
         }
       }
     }
+    // Teto de 36 meses cheio: a viagem do catálogo vai para o próximo mês livre. Intenção não passa do teto.
+    if (!costed.intention) {
+      while (!isFree(offset)) offset += 1;
+    }
     offsets.push(offset);
     used.add(addMonths(currentMonth, offset));
   }
@@ -610,7 +614,7 @@ export function planTrips(input: TripSuggestInput): TripSuggestionPlan {
   const extraPerMonth = nothingFits
     ? toCents(ordered[0]!.total.minus(perTrip).dividedBy(12))
     : money(0);
-  const suggestions = ordered
+  const listed = ordered
     .map((costed, i): TripSuggestion => {
       const month = addMonths(currentMonth, offsets[i]!);
       const notes: string[] = [];
@@ -691,9 +695,16 @@ export function planTrips(input: TripSuggestInput): TripSuggestionPlan {
         ...(moved ? { postponed: moved } : {}),
       };
     })
-    .sort((a, b) => a.month.localeCompare(b.month))
-    // Sem mês livre nos 36 meses, a intenção não vira sugestão por cima de outra viagem.
-    .filter((item) => !(item.intentionId && input.existingTripMonths.includes(item.month)));
+    .sort((a, b) => a.month.localeCompare(b.month));
+  // Sem mês livre nos 36 meses, a intenção não vira sugestão por cima de outra viagem.
+  const taken = new Set(input.existingTripMonths);
+  for (const item of listed) if (!item.intentionId) taken.add(item.month);
+  const suggestions = listed.filter((item) => {
+    if (!item.intentionId) return true;
+    if (taken.has(item.month)) return false;
+    taken.add(item.month);
+    return true;
+  });
 
   for (const item of chosen.filter((costed) => costed.intention)) {
     const { id } = item.intention!;
