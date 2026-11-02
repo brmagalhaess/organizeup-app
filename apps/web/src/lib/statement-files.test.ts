@@ -105,7 +105,7 @@ describe("CSV", () => {
   };
 
   it("abre certo na planilha de cada idioma", () => {
-    expect(csvOf("pt-BR")).toMatch(/^﻿/);
+    expect(csvOf("pt-BR")).toMatch(/^\uFEFF/);
     expect(csvOf("pt-BR")).toContain("Entrou;1234,50");
     expect(csvOf("en")).toContain("Came in,1234.50");
     expect(csvOf("en")).toContain("Currency,BRL");
@@ -145,6 +145,6 @@ describe("PDF", () => {
   });
 
   it("troca o que a fonte padrão não tem, sem perder acento nem euro", () => {
-    expect(pdfText("Café € 1 234 − 😀")).toBe("Café € 1 234 - ?");
+    expect(pdfText("Café € 1\u00A0234 \u2212 😀")).toBe("Café € 1 234 - ?");
   });
 });

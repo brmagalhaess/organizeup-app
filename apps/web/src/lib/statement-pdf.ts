@@ -28,8 +28,8 @@ const EXPENSE = "#b42318";
 /** Fica só o que a codificação das fontes padrão tem. */
 export const pdfText = (text: string) =>
   text
-    .replace(/[    ]/g, " ")
-    .replace(/−/g, "-")
+    .replace(/[\u00A0\u202F\u2007\u2009]/g, " ")
+    .replace(/\u2212/g, "-")
     .replace(/[^\x20-\x7E¡-ÿ€–—‘’“”•…]/gu, "?");
 
 const isNumeric = (cell: StatementCell) =>

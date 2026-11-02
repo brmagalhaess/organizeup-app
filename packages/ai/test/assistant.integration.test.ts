@@ -287,6 +287,7 @@ const INPUTS: Record<string, unknown> = {
   sugerir_aporte: { destino: "reserva", valor_mensal: "100.00" },
   sugerir_categoria: { busca: "MERCADO", categoria: "Outros", mes: month },
   sugerir_data_meta: { meta: "Carro", mes: "2031-01" },
+  ver_relatorio: { tipo: "resumo" },
 };
 
 describe("ferramentas contra o Postgres", () => {

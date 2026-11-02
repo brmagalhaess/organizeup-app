@@ -670,12 +670,12 @@ describe("somas e comparação", () => {
       [],
       [
         ...transactionsOf([
-          { kind: "receita", amount: "10.00", category: "r", status: "realizado" },
-          { kind: "receita", amount: "99.00", category: "r", status: "previsto" },
+          { kind: "receita", amount: "10.00", category: "saude", status: "realizado" },
+          { kind: "receita", amount: "99.00", category: "saude", status: "previsto" },
         ]),
       ],
     );
-    expect(incomeByCategory(entries)).toEqual([{ categoryId: "r", amount: "10.00" }]);
+    expect(incomeByCategory(entries)).toEqual([{ categoryId: "saude", amount: "10.00" }]);
   });
 
   it("compara dois períodos pelos números que os dois têm", () => {

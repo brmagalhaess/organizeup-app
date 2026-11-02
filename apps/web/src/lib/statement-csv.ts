@@ -56,5 +56,5 @@ export function statementCsv(file: StatementFileInfo, writer: StatementWriter): 
     for (const row of section.rows) lines.push(line(row.map((cell) => cellText(cell, writer))));
   }
   // O BOM faz a planilha ler acentos em UTF-8.
-  return `﻿${lines.join("\r\n")}\r\n`;
+  return `\uFEFF${lines.join("\r\n")}\r\n`;
 }
