@@ -50,6 +50,8 @@ const GATE_STATES = [
   "teto_mensal",
   "teto_diario",
   "sem_permissao",
+  "somente_leitura",
+  "sem_modulo",
 ] as const;
 
 /** Número do banco para o campo, no jeito que a pessoa digita: 12500,00. */

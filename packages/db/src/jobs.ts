@@ -10,6 +10,10 @@ export const JOB_QUEUES = {
   aiInsights: "ai-insights",
   /** Contagens diárias da plataforma (ops.platform_stats). */
   platformStats: "platform-stats",
+  /** Eventos da Stripe recebidos pela web, aplicados à assinatura da família (ADR-0023). */
+  billingEvents: "billing-events",
+  /** Aviso de renovação anual, 30 dias antes. */
+  billingRenewals: "billing-renewals",
 } as const;
 
 export type JobQueue = (typeof JOB_QUEUES)[keyof typeof JOB_QUEUES];

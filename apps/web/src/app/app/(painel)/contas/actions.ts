@@ -10,6 +10,7 @@ import {
   accountTransfers,
   and,
   canWrite,
+  currencyFrozen,
   eq,
   inArray,
   withHousehold,
@@ -104,6 +105,10 @@ export async function createTransfer(
     if (found.length !== 2) return t("accountGone");
     const from = found.find((account) => account.id === values.fromAccountId)!.currency;
     const to = found.find((account) => account.id === values.toAccountId)!.currency;
+    // Moeda adicional cancelada: a conta fica, só leitura.
+    for (const currency of [from, to]) {
+      if (await currencyFrozen(tx, currency)) return t("currencyOff", { currency });
+    }
     // Entre moedas, as duas pontas são o que aconteceu de fato: a taxa sai delas, não da PTAX.
     let exchange: { toAmount: string; fxRate: string } | null = null;
     if (from !== to) {
@@ -193,6 +198,10 @@ export async function saveAccount(
         .where(eq(accounts.id, id));
       if (current && current.currency !== currency && (await accountsWithMovement(tx)).has(id))
         return t("errors.currencyLocked");
+      // Trocar a moeda é abrir conta nela: vale a mesma regra de criar.
+      if (current && current.currency !== currency && (await currencyFrozen(tx, currency))) {
+        return t("errors.currencyOff", { currency });
+      }
       // O formulário mostra o nome padrão traduzido: sem mudança, o gravado fica como estava.
       const kept = current && system.name(current.name) === name ? current.name : name;
       await tx
@@ -201,6 +210,8 @@ export async function saveAccount(
         .where(eq(accounts.id, id));
       await audit(tx, ctx, "update", "accounts", id);
     } else {
+      // Só a moeda assinada libera conta nova nela.
+      if (await currencyFrozen(tx, currency)) return t("errors.currencyOff", { currency });
       const [created] = await tx
         .insert(accounts)
         .values({ householdId: ctx.householdId, name, type, currency, openingBalance })

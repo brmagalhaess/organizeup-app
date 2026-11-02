@@ -4,7 +4,9 @@ import {
   dismissSuggestion as dismiss,
   undoSuggestion as undo,
   type ApplyResult,
+  SUGGESTION_MODULE,
 } from "@organizeup/agents";
+import { canUse } from "@organizeup/domain";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
@@ -18,6 +20,7 @@ import {
   withHousehold,
   type TenantContext,
   type TenantTx,
+  readFamilyAccess,
 } from "@organizeup/db";
 import { requireTenant } from "@/lib/session";
 import { BULK_KINDS, noticeCookie, secondsUntilMidnight } from "@/lib/suggestions";
@@ -37,22 +40,37 @@ async function inLocale(result: ApplyResult): Promise<ApplyResult> {
   return { ...result, message };
 }
 
+async function moduleOff(ctx: TenantContext, id: string): Promise<boolean> {
+  const access = await readFamilyAccess(ctx);
+  return withHousehold(ctx, async (tx) => {
+    const [row] = await tx
+      .select({ kind: householdSuggestions.kind })
+      .from(householdSuggestions)
+      .where(eq(householdSuggestions.id, id));
+    const owner = row ? SUGGESTION_MODULE[row.kind] : undefined;
+    return owner !== undefined && !canUse(access, owner);
+  });
+}
+
 /** A lógica fica em @organizeup/agents; aqui só a sessão, a transação e a revalidação. */
 async function decide(
   form: FormData,
   run: (tx: TenantTx, ctx: TenantContext, id: string) => Promise<ApplyResult>,
+  changesData = false,
 ): Promise<ApplyResult> {
   const { ctx } = await requireTenant();
   if (!canWrite(ctx)) return blocked();
   const id = String(form.get("id") ?? "");
   if (!id) return { ok: false, message: (await getTranslations("sugestoes.agent"))("notFound") };
+  // Sugestão de módulo desligado fica guardada, e dá para dispensar, mas não muda nada.
+  if (changesData && (await moduleOff(ctx, id))) return blocked();
   const result = await withHousehold(ctx, (tx) => run(tx, ctx, id));
   if (result.ok) revalidatePath("/app", "layout");
   return inLocale(result);
 }
 
 export async function applySuggestion(form: FormData): Promise<ApplyResult> {
-  return decide(form, apply);
+  return decide(form, apply, true);
 }
 
 export async function dismissSuggestion(form: FormData): Promise<ApplyResult> {
@@ -60,7 +78,7 @@ export async function dismissSuggestion(form: FormData): Promise<ApplyResult> {
 }
 
 export async function undoSuggestion(form: FormData): Promise<ApplyResult> {
-  return decide(form, undo);
+  return decide(form, undo, true);
 }
 
 const bulkSchema = z.enum(BULK_KINDS);

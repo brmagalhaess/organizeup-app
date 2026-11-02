@@ -5,12 +5,16 @@
 // - no log, só código de erro e contagens. Nada de texto da conversa.
 import Anthropic from "@anthropic-ai/sdk";
 import {
+  giveBackMessage,
   householdCurrency,
   householdTimezone,
+  readFamilyAccess,
+  takeMessage,
+  usageMonthOf,
   withHousehold,
   type TenantContext,
 } from "@organizeup/db";
-import { todayIn, type Currency } from "@organizeup/domain";
+import { todayIn, type Currency, type FamilyAccess } from "@organizeup/domain";
 import { aiLimits, assistantState, serviceDay, type AiLimits, type AssistantState } from "./access";
 import { errorCode, reportFailure, type AssistantErrorCode } from "./api-errors";
 import type { ModelClient, ModelMessage, ModelStream, StreamParams } from "./client";
@@ -108,6 +112,7 @@ export function requestParams(
   messages: MessageParam[],
   withTools: boolean,
   format?: OutputFormat,
+  access?: FamilyAccess,
 ): StreamParams {
   return {
     model: MODEL,
@@ -116,7 +121,7 @@ export function requestParams(
     // Marca fixa nas instruções e cache automático para a parte que cresce.
     cache_control: { type: "ephemeral" },
     system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-    tools: apiToolsFor(route),
+    tools: apiToolsFor(route, access),
     tool_choice: withTools ? { type: "auto" } : { type: "none" },
     messages,
   };
@@ -146,27 +151,45 @@ interface Prepared {
   history: MessageParam[];
   memories: TurnMemory[];
   currency: Currency;
+  /** Mês em que a mensagem foi gasta. Null: chave desligada, nada foi contado. */
+  usageMonth: string | null;
 }
 
+/** A pergunta nem foi gravada: as mensagens do mês acabaram. */
+const NO_MESSAGES = "sem_mensagens";
+
 /** Grava a pergunta antes de chamar o modelo: se a chamada cair, ela continua na conversa. */
-async function prepare(input: ChatTurnInput): Promise<Prepared | null> {
+async function prepare(
+  input: ChatTurnInput,
+  access: FamilyAccess,
+): Promise<Prepared | typeof NO_MESSAGES | null> {
   const { ctx, message } = input;
   const prepared = await withHousehold(ctx, async (tx) => {
+    // Chave desligada não conta nada: a tabela de uso pode ainda nem existir.
+    const usageMonth = access.mode === "livre" ? null : await usageMonthOf(tx, ctx.householdId);
+    // Gasta aqui, com a linha travada: duas conversas na última vaga não passam juntas.
+    if (usageMonth && !(await takeMessage(tx, ctx.householdId, usageMonth, access.messageLimit))) {
+      return NO_MESSAGES;
+    }
     const privacy = await loadPrivacyFilter(tx, ctx.householdId);
     const today = todayIn(await householdTimezone(tx, ctx.householdId));
     let threadId = input.threadId ?? null;
     let earlier: ThreadMessage[] = [];
     if (threadId) {
-      if (!(await threadExists(tx, threadId))) return null;
+      if (!(await threadExists(tx, threadId))) {
+        if (usageMonth) await giveBackMessage(tx, ctx.householdId, usageMonth);
+        return null;
+      }
       earlier = await threadMessages(tx, threadId);
     } else {
       threadId = await createThread(tx, ctx, message);
     }
     await appendMessage(tx, ctx, threadId, "user", { text: message });
     const currency = await householdCurrency(tx);
-    return { threadId, today, currency, privacy, history: historyParams(earlier, privacy) };
+    const history = historyParams(earlier, privacy);
+    return { threadId, today, currency, privacy, history, usageMonth };
   });
-  if (!prepared) return null;
+  if (!prepared || prepared === NO_MESSAGES) return prepared;
   const memories = await memoriesForTurn(ctx, prepared.today);
   return {
     ...prepared,
@@ -206,10 +229,14 @@ async function consume(
   }
 }
 
-async function converse(input: ChatTurnInput, prepared: Prepared): Promise<Answer> {
+async function converse(
+  input: ChatTurnInput,
+  prepared: Prepared,
+  access: FamilyAccess,
+): Promise<Answer> {
   const { ctx, emit, signal, route = CHAT_ROUTE, limits = aiLimits() } = input;
   const day = input.day ?? serviceDay();
-  const tools = toolsFor(route);
+  const tools = toolsFor(route, access);
   const question = prepared.privacy.scrub(input.message);
   const messages: MessageParam[] = [
     ...prepared.history,
@@ -226,7 +253,7 @@ async function converse(input: ChatTurnInput, prepared: Prepared): Promise<Answe
 
   for (let iteration = 0; iteration < route.maxIterations; iteration += 1) {
     if (signal?.aborted) return { ...answer, status: "parada" };
-    const state = await assistantState({ ctx, limits, day });
+    const state = await assistantState({ ctx, limits, day, skipMessageLimit: true });
     if (state !== "pronto") {
       emit({ type: "text", delta: `${answer.text ? "\n\n" : ""}${LIMIT_TEXT}` });
       answer.text += `${answer.text ? "\n\n" : ""}${LIMIT_TEXT}`;
@@ -235,7 +262,8 @@ async function converse(input: ChatTurnInput, prepared: Prepared): Promise<Answe
 
     const withTools = iteration < route.maxIterations - 1;
     let chars = 0;
-    const result = await consume(input, requestParams(route, messages, withTools), (delta) => {
+    const params = requestParams(route, messages, withTools, undefined, access);
+    const result = await consume(input, params, (delta) => {
       chars += delta.length;
       answer.text += delta;
       emit({ type: "text", delta });
@@ -303,7 +331,12 @@ export async function runChatTurn(input: ChatTurnInput): Promise<void> {
       emit({ type: "blocked", state });
       return;
     }
-    const prepared = await prepare(input);
+    const access = await readFamilyAccess(ctx);
+    const prepared = await prepare(input, access);
+    if (prepared === NO_MESSAGES) {
+      emit({ type: "blocked", state: "limite_mensagens" });
+      return;
+    }
     if (!prepared) {
       emit({ type: "error", code: "sem_conversa" });
       return;
@@ -312,10 +345,17 @@ export async function runChatTurn(input: ChatTurnInput): Promise<void> {
 
     let answer: Answer;
     try {
-      answer = await converse(input, prepared);
+      answer = await converse(input, prepared, access);
     } catch (error) {
       const code = errorCode(error);
       reportFailure(code, error);
+      // A pergunta ficou sem resposta: não conta como mensagem.
+      if (prepared.usageMonth) {
+        const { usageMonth } = prepared;
+        await withHousehold(ctx, (tx) => giveBackMessage(tx, ctx.householdId, usageMonth)).catch(
+          () => undefined,
+        );
+      }
       emit({ type: "error", code });
       return;
     }

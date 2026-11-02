@@ -33,6 +33,7 @@ export {
   type PlatformNotice,
 } from "./access";
 export * from "./admin";
+export * from "./billing";
 export {
   PLATFORM_MODULES,
   collectPlatformStats,

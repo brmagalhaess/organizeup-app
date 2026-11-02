@@ -1,3 +1,4 @@
+import { moduleInvite } from "@/lib/billing/module-invite";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { getMoney } from "@/i18n/money-server";
@@ -23,6 +24,8 @@ const HREF: Record<PlanAction["kind"], string> = {
 };
 
 export default async function PlanPage() {
+  const invite = await moduleInvite("aposentadoria");
+  if (invite) return invite;
   const { ctx } = await requireTenant();
   const { actions, targetYear, year } = await loadMonthlyPlan(ctx);
   const [t, tSystem, moneyText] = await Promise.all([

@@ -15,7 +15,7 @@ import {
 import { money, parseMoney, toDbAmount } from "@organizeup/domain";
 import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
 
 export interface FormState {
   ok: boolean;
@@ -54,7 +54,7 @@ const dividendSchema = (t: Errors, locale: Locale) =>
   });
 
 export async function addDividend(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await Promise.all([getTranslations("proventos.errors"), getLocale()]);
   const parsed = dividendSchema(t, locale).safeParse({
@@ -88,7 +88,7 @@ export async function addDividend(_prev: FormState, form: FormData): Promise<For
 }
 
 export async function deleteDividend(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
@@ -113,7 +113,7 @@ export async function deleteDividend(form: FormData): Promise<void> {
 
 /** Meta de renda mensal com proventos. Campo vazio tira a meta. */
 export async function saveGoal(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await Promise.all([getTranslations("proventos.errors"), getLocale()]);
   const raw = String(form.get("monthlyAmount") ?? "").trim();

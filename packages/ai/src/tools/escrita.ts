@@ -30,8 +30,10 @@ import {
   type SuggestionKind,
   type TenantContext,
   type TenantTx,
+  readFamilyAccess,
 } from "@organizeup/db";
 import {
+  canUse,
   categoryDedupeKey,
   isCategoryCandidate,
   isCategoryTarget,
@@ -69,6 +71,8 @@ const SCREEN_LINKS = {
 type Screen = keyof typeof SCREEN_LINKS;
 
 const PENDING = "Deixei na tela Sugestões. Nada mudou até a família aceitar.";
+const NO_MODULE =
+  "O plano da família não tem Aposentadoria. Diga isso à pessoa: nada foi sugerido.";
 const NOT_MOVED =
   "Não mexi no que a família colocou numa categoria específica nem no que ela já desfez. Quem quiser, troca direto no lançamento.";
 const DAILY_LIMIT = "Cheguei ao limite de alterações de hoje. Amanhã posso fazer essa.";
@@ -141,6 +145,7 @@ async function applyAlone(tx: TenantTx, ctx: TenantContext, id: string): Promise
 
 const sugerirCategoria = defineTool({
   name: "sugerir_categoria",
+  module: null,
   description:
     "Move lançamentos de um mês para uma categoria. Chame só quando a pessoa pedir ou concordar. Lançamento em categoria genérica ou que ficou para revisar muda na hora, em qualquer nível de autonomia, com aviso em Notificações e Desfazer. Lançamento que a família colocou numa categoria específica não muda nem vira sugestão. Use o nome da categoria como em listar_categorias.",
   kind: "escrita",
@@ -238,6 +243,7 @@ const sugerirCategoria = defineTool({
 
 const sugerirAporte = defineTool({
   name: "sugerir_aporte",
+  module: null,
   description:
     "Propõe mudar quanto a família guarda por mês na reserva ou na aposentadoria. Chame só quando a pessoa pedir ou concordar. É sempre uma sugestão: o valor só muda quando a família aceitar.",
   kind: "escrita",
@@ -246,8 +252,12 @@ const sugerirAporte = defineTool({
     valor_mensal: amountInput("Quanto guardar por mês."),
   }),
   label: () => "deixei uma sugestão de quanto guardar",
-  run: (ctx, { destino, valor_mensal }) =>
-    read(ctx, async (tx, today) => {
+  run: async (ctx, { destino, valor_mensal }) => {
+    // A reserva é da Base; a aposentadoria tem módulo próprio.
+    if (destino === "aposentadoria" && !canUse(await readFamilyAccess(ctx), "aposentadoria")) {
+      return { feito: false, aviso: NO_MODULE };
+    }
+    return read(ctx, async (tx, today) => {
       const month = yearMonthOf(today);
       const monthlyAmount = toDbAmount(valor_mensal);
       const reserve = destino === "reserva";
@@ -262,11 +272,13 @@ const sugerirAporte = defineTool({
         dedupeKey: reserve ? DEDUPE.aporteReserva(month) : DEDUPE.aporteInvestimento(month),
       });
       return { feito: false, aviso: PENDING };
-    }),
+    });
+  },
 });
 
 const sugerirDataMeta = defineTool({
   name: "sugerir_data_meta",
+  module: "metas",
   description:
     "Propõe mudar o mês desejado de uma meta. Chame só quando a pessoa pedir ou concordar. É sempre uma sugestão: a data que a família informou só muda quando ela aceitar.",
   kind: "escrita",
@@ -297,6 +309,7 @@ const sugerirDataMeta = defineTool({
 
 const criarMetaRascunho = defineTool({
   name: "criar_meta_rascunho",
+  module: "metas",
   description:
     "Cria uma meta nova em rascunho. Chame só quando a pessoa pedir. No nível de autonomia Completo a meta aparece na hora, com Desfazer; nos outros, fica como sugestão.",
   kind: "escrita",
@@ -338,6 +351,7 @@ const criarMetaRascunho = defineTool({
 
 const criarLembrete = defineTool({
   name: "criar_lembrete",
+  module: null,
   description:
     "Deixa um lembrete na tela Sugestões, com link para a tela onde a pessoa resolve. Chame quando a pessoa pedir para não esquecer de algo.",
   kind: "escrita",

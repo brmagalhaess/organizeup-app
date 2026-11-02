@@ -6,7 +6,7 @@ import { checkDebtFile, DEBT_FILE_MAX_BYTES } from "@organizeup/domain";
 import { getTranslations } from "next-intl/server";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { sameSite } from "@/lib/same-site";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
 
 /** Código devolvido por domínio e agentes → texto em `dividas.upload`. */
 const FILE_TEXT = { vazio: "empty", tamanho: "tooLarge", tipo: "wrongType" } as const;
@@ -23,7 +23,7 @@ const refuse = (message: string, status: number) =>
 
 export async function POST(request: Request) {
   if (!sameSite(request)) return new Response(null, { status: 403 });
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("dividas");
   const t = await getTranslations("dividas.upload");
   if (!canWrite(ctx)) return refuse(t("readOnly"), 403);
   if (!allow(ctx.householdId)) return refuse(t("tooMany"), 429);

@@ -154,6 +154,20 @@ export {
   type SuggestionPayload,
   type ViagemPayload,
 } from "./suggestions";
+export { currentAllocation } from "./run-aposentadoria";
+export {
+  AGENT_MODULE,
+  agentMayRun,
+  applyBillingEvent,
+  billingEventData,
+  MAX_EVENT_ATTEMPTS,
+  runBillingEvents,
+  runBillingRenewals,
+  SUGGESTION_MODULE,
+  type BillingEventData,
+  type BillingOutcome,
+  type BillingRunResult,
+} from "./billing";
 export * from "./texts";
 export { createTrip, type CreateTripInput, type TripCostKind } from "./trips";
 export { shiftDays } from "./shared";

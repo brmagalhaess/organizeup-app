@@ -1,3 +1,4 @@
+import { moduleInvite } from "@/lib/billing/module-invite";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { debtFileGate } from "@organizeup/ai";
@@ -27,6 +28,8 @@ export default async function DebtImportPage({
 }: {
   searchParams: Promise<{ arquivo?: string | string[] }>;
 }) {
+  const invite = await moduleInvite("dividas");
+  if (invite) return invite;
   const { ctx } = await requireTenant();
   const t = await getTranslations("dividas");
   const { arquivo } = await searchParams;

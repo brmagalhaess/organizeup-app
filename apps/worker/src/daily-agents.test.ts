@@ -8,14 +8,22 @@ const step = vi.hoisted(() => (name: string, extra: object = {}) => async () => 
 });
 
 vi.mock("@organizeup/db", () => ({
+  fromJob: vi.fn((job: object) => job),
   hasAgentRunToday: vi.fn(),
   householdTimezone: vi.fn(async () => undefined),
   listActiveHouseholdIds: vi.fn(async () => ["hh-1"]),
+  readFamilyAccess: vi.fn(async () => ({ mode: "livre" })),
   readPlatformFlags: vi.fn(async () => ({ maintenance: false, disabledAgents: [] })),
   recordAgentRun: vi.fn(async () => undefined),
   withWorkerHousehold: vi.fn(async (_: string, fn: (tx: object) => Promise<unknown>) => fn({})),
 }));
 vi.mock("@organizeup/agents", () => ({
+  agentMayRun: (agent: string, access: { off?: string[] }) => !access.off?.includes(agent),
+  currentAllocation: vi.fn(async () => {
+    order.push("divisao");
+    return {};
+  }),
+  runDividasAgent: step("dividas"),
   APOSENTADORIA_AGENT: "aposentadoria",
   CATEGORIAS_AGENT: "categorias",
   CATEGORIAS_IA_AGENT: "categorias_ia",
@@ -35,7 +43,7 @@ vi.mock("./category-review", () => ({ categoryReviewer: vi.fn() }));
 vi.mock("./statement-narration", () => ({ statementNarrator: vi.fn() }));
 vi.mock("./diagnostics", () => ({ reportAgentFailure: vi.fn() }));
 
-const { recordAgentRun } = await import("@organizeup/db");
+const { readFamilyAccess, recordAgentRun } = await import("@organizeup/db");
 const { categoryReviewer } = await import("./category-review");
 const { statementNarrator } = await import("./statement-narration");
 const { agentsToRun, DAILY_AGENTS, runDailyAgents } = await import("./daily-agents");
@@ -108,10 +116,11 @@ describe("etapa de IA na rodada", () => {
       return { moved: 7 } as never;
     });
     await runDailyAgents(log);
-    expect(order.slice(0, 4)).toEqual([
+    expect(order.slice(0, 5)).toEqual([
       "categorias",
       "categorias_ia",
       "investimentos",
+      "dividas",
       "aposentadoria",
     ]);
     expect(runOf("categorias_ia")).toMatchObject({ ok: 1, suggestions: 0, applied: 7 });
@@ -149,5 +158,62 @@ describe("etapa de IA na rodada", () => {
     await runDailyAgents(log);
     expect(order).toContain("categorias");
     expect(runOf("categorias_ia")).toMatchObject({ households: 0, ok: 0 });
+  });
+});
+
+describe("plano da família (ADR-0023)", () => {
+  const log = { error: vi.fn(), info: vi.fn() };
+  const off = (agents: string[]) =>
+    vi.mocked(readFamilyAccess).mockResolvedValueOnce({ off: agents } as never);
+
+  beforeEach(() => {
+    order.length = 0;
+    vi.mocked(categoryReviewer).mockReturnValue(null);
+  });
+
+  it("agente de módulo desligado não roda, e os outros seguem", async () => {
+    off(["investimentos", "dividas"]);
+    await runDailyAgents(log);
+    expect(order).not.toContain("investimentos");
+    expect(order).not.toContain("dividas");
+    expect(order).toEqual(expect.arrayContaining(["categorias", "aposentadoria", "metas"]));
+  });
+
+  it("em só leitura nenhum agente roda", async () => {
+    off([...DAILY_AGENTS]);
+    await runDailyAgents(log);
+    expect(order).toEqual([]);
+  });
+
+  it("metas sem aposentadoria recebem a divisão, sem o agente de aposentadoria gravar nada", async () => {
+    off(["aposentadoria"]);
+    await runDailyAgents(log);
+    expect(order).not.toContain("aposentadoria");
+    expect(order.indexOf("divisao")).toBeGreaterThan(-1);
+    expect(order.indexOf("divisao")).toBeLessThan(order.indexOf("metas"));
+  });
+
+  it("viagens acordado sozinho, sem Aposentadoria, também recebe a divisão", async () => {
+    off(["aposentadoria"]);
+    await runDailyAgents(log, { agents: ["viagens"] });
+    expect(order).toEqual(["divisao", "viagens"]);
+  });
+
+  it("metas acordado sozinho também", async () => {
+    off(["aposentadoria"]);
+    await runDailyAgents(log, { agents: ["metas"] });
+    expect(order).toEqual(["divisao", "metas"]);
+  });
+
+  it("sem metas nem viagens, ninguém calcula a divisão à toa", async () => {
+    off(["aposentadoria", "metas", "viagens"]);
+    await runDailyAgents(log);
+    expect(order).not.toContain("divisao");
+  });
+
+  it("falha ao ler o plano pula a família, sem rodar nada com acesso errado", async () => {
+    vi.mocked(readFamilyAccess).mockRejectedValueOnce(new Error("x"));
+    await runDailyAgents(log);
+    expect(order).toEqual([]);
   });
 });

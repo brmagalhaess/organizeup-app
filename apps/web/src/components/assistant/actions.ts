@@ -11,7 +11,8 @@ import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { LEGAL_VERSION } from "@/lib/legal";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
+import { requireOwnData } from "@/lib/session";
 
 export interface AssistantActionState {
   ok: boolean;
@@ -26,7 +27,7 @@ export async function activate(
   _previous: AssistantActionState,
   form: FormData,
 ): Promise<AssistantActionState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("assistente");
   const [t, tSettings] = await Promise.all([
     getTranslations("assistente.activation"),
     getTranslations("settings.assistant"),
@@ -50,7 +51,7 @@ export async function acceptInsights(
   _previous: AssistantActionState,
   form: FormData,
 ): Promise<AssistantActionState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("assistente");
   const t = await getTranslations("settings.assistant");
   if (!canUseAssistant(ctx)) return { ok: false, message: t("notAllowed") };
   if (form.get("consent") !== "on") return { ok: false, message: t("consentRequired") };
@@ -66,7 +67,8 @@ export async function acceptInsights(
 }
 
 export async function deactivate(): Promise<void> {
-  const { ctx } = await requireTenant();
+  // Desligar vale em só leitura e sem o módulo: quem ligou pode voltar atrás.
+  const { ctx } = await requireOwnData();
   if (!canUseAssistant(ctx)) return;
   await deactivateAssistant(ctx);
   refresh();
@@ -76,7 +78,7 @@ export async function changeAutonomy(
   _previous: AssistantActionState,
   form: FormData,
 ): Promise<AssistantActionState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("assistente");
   const t = await getTranslations("settings.assistant");
   if (!canUseAssistant(ctx)) return { ok: false, message: t("notAllowed") };
   const level = autonomy.safeParse(form.get("autonomy"));

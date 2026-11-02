@@ -44,7 +44,13 @@ import { formatDayMonth } from "@/i18n/format";
 import { DEFAULT_LOCALE } from "@/i18n/locales";
 import { readPdfLines, readSpreadsheet } from "@/lib/statement-files";
 import { systemTextOf } from "@/i18n/system-text";
-import { commitImport, prepareImport, undoImport, type PreparedRow } from "./actions";
+import {
+  commitImport,
+  prepareImport,
+  undoImport,
+  type ImportRoom,
+  type PreparedRow,
+} from "./actions";
 import { useFamilyCurrency, useMoney } from "@/i18n/money";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -305,6 +311,7 @@ function AgentBadge({ row }: { row: PreparedRow }) {
 function Review({
   notice,
   rows,
+  room,
   currency,
   categories,
   busy,
@@ -314,6 +321,7 @@ function Review({
 }: {
   notice: string | null;
   rows: PreparedRow[];
+  room: ImportRoom;
   currency: Currency;
   categories: CategoryOption[];
   busy: boolean;
@@ -341,6 +349,11 @@ function Review({
   );
   const count = (state: PreparedRow["state"]) => rows.filter((r) => r.state === state).length;
   const selected = rows.filter((row) => choices[row.fingerprint]?.selected).length;
+  // Dar baixa em algo previsto não é lançamento novo: só o resto conta para o limite do plano.
+  const newRows = rows.filter(
+    (row) => choices[row.fingerprint]?.selected && row.state !== "previsto",
+  ).length;
+  const overRoom = room !== null && newRows > room;
   const update = (fingerprint: string, change: Partial<Choice>) =>
     setChoices((current) => ({
       ...current,
@@ -504,8 +517,24 @@ function Review({
         })}
       </ul>
 
+      {room !== null ? (
+        <p
+          role={overRoom ? "alert" : undefined}
+          className={`m-0 mt-4 text-sm ${overRoom ? "text-danger" : "text-muted"}`}
+        >
+          {overRoom ? t("overRoom", { room, count: newRows }) : t("room", { room })}{" "}
+          {overRoom ? (
+            <a href="/app/assinatura" className="font-semibold underline">
+              {t("roomLink")}
+            </a>
+          ) : null}
+        </p>
+      ) : null}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button disabled={selected === 0 || busy || unnamed} onClick={() => onSubmit(choices)}>
+        <Button
+          disabled={selected === 0 || busy || unnamed || overRoom}
+          onClick={() => onSubmit(choices)}
+        >
           {busy ? t("importing") : t("submit", { count: selected })}
         </Button>
         <Button variant="secondary" onClick={onCancel}>
@@ -541,6 +570,7 @@ export function ImportWizard({
   const [source, setSource] = useState<StatementSource>("csv");
   const [csv, setCsv] = useState<CsvState | null>(null);
   const [rows, setRows] = useState<PreparedRow[] | null>(null);
+  const [room, setRoom] = useState<ImportRoom>(null);
   const [done, setDone] = useState<{
     imported: number;
     settled: number;
@@ -582,6 +612,7 @@ export function ImportWizard({
       setSource(nextSource);
       setCsv(null);
       setRows(result.rows);
+      setRoom(result.room);
     });
   };
 
@@ -715,6 +746,7 @@ export function ImportWizard({
         <Review
           notice={notice}
           rows={rows}
+          room={room}
           currency={currency}
           categories={categories}
           busy={busy}

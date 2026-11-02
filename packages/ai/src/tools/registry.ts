@@ -7,12 +7,14 @@ import {
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
-import { todayIn } from "@organizeup/domain";
+import { todayIn, type BillingModule } from "@organizeup/domain";
 import { z } from "zod";
 import type { ToolKind } from "../models";
 
 export interface AssistantTool {
   name: string;
+  /** Módulo do plano. Null: vem com o assistente. Sem o módulo, a ferramenta nem vai ao modelo. */
+  module: BillingModule | null;
   /** Para o modelo: diz quando chamar. */
   description: string;
   kind: ToolKind;
@@ -26,6 +28,7 @@ export interface AssistantTool {
 
 export function defineTool<S extends z.ZodType>(tool: {
   name: string;
+  module: BillingModule | null;
   description: string;
   kind: ToolKind;
   input: S;

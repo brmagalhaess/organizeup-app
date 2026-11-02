@@ -1,5 +1,6 @@
 // Registro de ferramentas. A ordem é fixa (por nome): ferramentas ficam no começo do prefixo do cache.
 import type { TenantContext } from "@organizeup/db";
+import { canUse, type FamilyAccess } from "@organizeup/domain";
 import { z } from "zod";
 import type { AiRoute } from "../models";
 import type { PrivacyFilter } from "../privacy";
@@ -19,10 +20,19 @@ export const ALL_TOOLS: AssistantTool[] = [
   ...MEMORY_TOOLS,
 ].sort((a, b) => a.name.localeCompare(b.name));
 
-export const toolsFor = (route: Pick<AiRoute, "toolKinds">) =>
-  ALL_TOOLS.filter((tool) => route.toolKinds.includes(tool.kind));
+/**
+ * Ferramentas da rota, cortadas pelo plano. Sem `access`, todas: é a conferência do painel, que não
+ * fala de nenhuma família. `executeTool` só acha o que está aqui, então módulo desligado não roda.
+ */
+export const toolsFor = (route: Pick<AiRoute, "toolKinds">, access?: FamilyAccess) =>
+  ALL_TOOLS.filter(
+    (tool) =>
+      route.toolKinds.includes(tool.kind) &&
+      (!access || !tool.module || canUse(access, tool.module)),
+  );
 
-export const apiToolsFor = (route: Pick<AiRoute, "toolKinds">) => toolsFor(route).map(toApiTool);
+export const apiToolsFor = (route: Pick<AiRoute, "toolKinds">, access?: FamilyAccess) =>
+  toolsFor(route, access).map(toApiTool);
 
 export type ToolOutcome =
   | { ok: true; content: string; label: string; investment: boolean }

@@ -35,6 +35,7 @@ const OUTSIDE_BRAZIL =
 
 const buscarConhecimento = defineTool({
   name: "buscar_conhecimento",
+  module: null,
   description:
     "Busca na base conferida as regras de INSS, imposto de renda, FGC, previdência, FII, dividendos, reserva de emergência, inflação e diversificação. Chame antes de explicar qualquer regra desses assuntos. Devolve até 3 trechos, cada um com fonte e data de revisão, e essa fonte precisa ser citada na resposta.",
   kind: "leitura",
@@ -67,6 +68,7 @@ const buscarConhecimento = defineTool({
 
 const salvarMemoria = defineTool({
   name: "salvar_memoria",
+  module: null,
   description:
     "Anota algo durável sobre a família: uma preferência, um objetivo ou um fato. Chame só quando a pessoa disser isso na conversa e pedir para lembrar ou concordar com a anotação. Nunca anote valor em dinheiro nem nome de pessoa. Escreva em uma frase curta, como dado sobre a família. Anotação parecida com uma já existente substitui a antiga.",
   kind: "escrita",

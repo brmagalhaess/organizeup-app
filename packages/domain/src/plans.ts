@@ -1,0 +1,484 @@
+// Plano montado pela família (ADR-0023, docs/specs/planos-e-assinatura.md). Tudo aqui é puro: o que a
+// tela soma ao vivo, o que vai para a Stripe e o que libera cada item saem das mesmas funções, para o
+// total na tela ser o total cobrado. Valores de catálogo vêm do banco como string, em BRL.
+import { CURRENCIES, money, toDbAmount, type Currency } from "./money";
+
+export const PAID_MODULES = ["investimentos", "aposentadoria", "dividas", "metas"] as const;
+export type PaidModule = (typeof PAID_MODULES)[number];
+
+/** O que `canUse` responde. O assistente tem campo próprio, mas liga e desliga como módulo. */
+export const BILLING_MODULES = [...PAID_MODULES, "assistente"] as const;
+export type BillingModule = (typeof BILLING_MODULES)[number];
+
+export const BILLING_CYCLES = ["mes", "ano"] as const;
+export type BillingCycle = (typeof BILLING_CYCLES)[number];
+
+export const ENTRY_TIERS = ["50", "200", "ilimitado"] as const;
+export type EntryTier = (typeof ENTRY_TIERS)[number];
+
+/** `0`: sem assistente. */
+export const MESSAGE_TIERS = [0, 30, 100, 300] as const;
+export type MessageTier = (typeof MESSAGE_TIERS)[number];
+
+/** Item por quantidade: uma linha da Stripe, com `quantity`. Fora de venda até a conexão com bancos existir. */
+export const CONNECTED_ITEM = "contas_conectadas";
+export const MAX_CONNECTED_ACCOUNTS = 20;
+
+/** Mensagens que a Família completa traz sem custo a mais. */
+export const FAMILY_MESSAGES = 100;
+/** Aviso em 80% do limite (spec, seção 1). */
+export const USAGE_WARNING_RATIO = "0.8";
+export const TRIAL_DAYS = 7;
+/** Arrependimento: 7 dias da primeira cobrança (CDC, art. 49). */
+export const REFUND_DAYS = 7;
+export const ANNUAL_RENEWAL_NOTICE_DAYS = 30;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export interface PlanSelection {
+  family: boolean;
+  entries: EntryTier;
+  modules: PaidModule[];
+  messages: MessageTier;
+  /** Moedas além da principal. */
+  currencies: Currency[];
+  /** Contas conectadas: quantidade, por cima de qualquer plano. */
+  connectedAccounts: number;
+  cycle: BillingCycle;
+}
+
+export const FAMILY_SELECTION: PlanSelection = {
+  family: true,
+  entries: "ilimitado",
+  modules: [...PAID_MODULES],
+  messages: 100,
+  currencies: [],
+  connectedAccounts: 0,
+  cycle: "mes",
+};
+
+export interface CatalogPrice {
+  id: string;
+  item: string;
+  cycle: BillingCycle;
+  amount: string;
+  stripePriceId: string | null;
+}
+
+/** Item que a família assina, com o preço com que assinou. */
+export interface SubscribedItem {
+  price: string;
+  item: string;
+  amount: string;
+  quantity: number;
+}
+
+const unique = <T>(list: readonly T[]) => [...new Set(list)];
+
+/** Só o que faz sentido: a Família completa traz tudo, e a tela pode mandar qualquer combinação. */
+export function normalizeSelection(selection: PlanSelection): PlanSelection {
+  const currencies = CURRENCIES.filter((code) => selection.currencies.includes(code));
+  const connectedAccounts = Math.min(
+    Math.max(Math.trunc(selection.connectedAccounts), 0),
+    MAX_CONNECTED_ACCOUNTS,
+  );
+  if (!selection.family) {
+    return {
+      ...selection,
+      modules: PAID_MODULES.filter((module) => selection.modules.includes(module)),
+      currencies,
+      connectedAccounts,
+    };
+  }
+  return {
+    ...FAMILY_SELECTION,
+    messages: selection.messages === 300 ? 300 : 100,
+    currencies,
+    connectedAccounts,
+    cycle: selection.cycle,
+  };
+}
+
+/** Itens do catálogo que formam a escolha. */
+export function itemsOf(input: PlanSelection): string[] {
+  const selection = normalizeSelection(input);
+  const coins = selection.currencies.map((code) => `moeda:${code}`);
+  const connected = selection.connectedAccounts > 0 ? [CONNECTED_ITEM] : [];
+  if (selection.family) {
+    return [
+      "familia",
+      ...(selection.messages === 300 ? ["familia_mensagens:300"] : []),
+      ...coins,
+      ...connected,
+    ];
+  }
+  return [
+    `base:${selection.entries}`,
+    ...selection.modules.map((module) => `modulo:${module}`),
+    ...(selection.messages > 0 ? [`assistente:${selection.messages}`] : []),
+    ...coins,
+    ...connected,
+  ];
+}
+
+const isEntryTier = (value: string): value is EntryTier =>
+  (ENTRY_TIERS as readonly string[]).includes(value);
+const isPaidModule = (value: string): value is PaidModule =>
+  (PAID_MODULES as readonly string[]).includes(value);
+const isCurrency = (value: string): value is Currency =>
+  (CURRENCIES as readonly string[]).includes(value);
+const isMessageTier = (value: number): value is MessageTier =>
+  (MESSAGE_TIERS as readonly number[]).includes(value);
+
+/** O caminho de volta: a tela abre mostrando o plano de quem já assina. */
+export function selectionOfItems(items: readonly string[], cycle: BillingCycle): PlanSelection {
+  const selection: PlanSelection = {
+    family: false,
+    entries: "50",
+    modules: [],
+    messages: 0,
+    currencies: [],
+    connectedAccounts: 0,
+    cycle,
+  };
+  for (const item of items) {
+    const [kind, value = ""] = item.split(":");
+    if (kind === "familia") {
+      selection.family = true;
+      selection.entries = "ilimitado";
+      selection.modules = [...PAID_MODULES];
+      selection.messages = selection.messages === 300 ? 300 : 100;
+    } else if (kind === "familia_mensagens") {
+      selection.messages = 300;
+    } else if (kind === "base" && isEntryTier(value)) {
+      selection.entries = value;
+    } else if (kind === "modulo" && isPaidModule(value)) {
+      if (!selection.family) selection.modules.push(value);
+    } else if (kind === "assistente" && isMessageTier(Number(value))) {
+      selection.messages = Number(value) as MessageTier;
+    } else if (kind === "moeda" && isCurrency(value)) {
+      selection.currencies.push(value);
+    }
+  }
+  return normalizeSelection(selection);
+}
+
+/** Quantas contas conectadas a assinatura paga. */
+export const connectedAccountsOf = (items: readonly SubscribedItem[]) =>
+  items.find((row) => row.item === CONNECTED_ITEM)?.quantity ?? 0;
+
+/** Como `selectionOfItems`, com a quantidade: é assim que a tela abre o plano de quem assina. */
+export const selectionOfSubscribed = (items: readonly SubscribedItem[], cycle: BillingCycle) => ({
+  ...selectionOfItems(
+    items.map((row) => row.item),
+    cycle,
+  ),
+  connectedAccounts: connectedAccountsOf(items),
+});
+
+export interface QuoteLine {
+  item: string;
+  /** Preço de uma unidade. */
+  amount: string;
+  quantity: number;
+  /** Preço da Stripe. Null: o item ainda não tem preço criado lá, e a assinatura não fecha. */
+  stripePriceId: string | null;
+}
+
+export interface PlanQuote {
+  lines: QuoteLine[];
+  /** Total do ciclo escolhido. É o que a Stripe cobra. */
+  total: string;
+  /** Item sem preço no catálogo. Com algum, a tela não deixa assinar. */
+  missing: string[];
+  /** Quanto a Família completa economizaria sobre esta escolha, no mesmo ciclo. Null: nada. */
+  familySaves: string | null;
+}
+
+/** Valor da Stripe, sempre em centavos, para o formato do banco. */
+export const fromCents = (cents: number) => toDbAmount(money(cents).dividedBy(100));
+
+/** O contrário, para criar o preço: a Stripe pede inteiro em centavos, e valor fora disso é erro. */
+export function stripeUnitAmount(amount: string): number {
+  const cents = money(amount).times(100);
+  if (!cents.isInteger() || cents.lte(0)) throw new RangeError("Preço inválido.");
+  return cents.toNumber();
+}
+
+/** Soma das linhas, sem arredondar no meio. */
+const sum = (lines: readonly QuoteLine[]) =>
+  toDbAmount(
+    lines.reduce((acc, line) => acc.plus(money(line.amount).times(line.quantity)), money(0)),
+  );
+
+function linesFor(
+  selection: PlanSelection,
+  catalog: readonly CatalogPrice[],
+  kept: readonly SubscribedItem[],
+) {
+  const lines: QuoteLine[] = [];
+  const missing: string[] = [];
+  for (const item of itemsOf(selection)) {
+    const quantity = item === CONNECTED_ITEM ? selection.connectedAccounts : 1;
+    // Preço novo não muda quem já assina: item que continua fica no preço com que entrou.
+    const own = kept.find((row) => row.item === item);
+    if (own) {
+      lines.push({ item, amount: own.amount, quantity, stripePriceId: own.price });
+      continue;
+    }
+    const price = catalog.find((row) => row.item === item && row.cycle === selection.cycle);
+    if (price) {
+      lines.push({ item, amount: price.amount, quantity, stripePriceId: price.stripePriceId });
+    } else {
+      missing.push(item);
+    }
+  }
+  return { lines, missing };
+}
+
+/**
+ * Preço da escolha. `kept` são os itens que a família já assina **no mesmo ciclo**: chega vazio a quem
+ * ainda não assina ou está trocando de ciclo.
+ */
+export function quotePlan(
+  input: PlanSelection,
+  catalog: readonly CatalogPrice[],
+  kept: readonly SubscribedItem[] = [],
+): PlanQuote {
+  const selection = normalizeSelection(input);
+  const { lines, missing } = linesFor(selection, catalog, kept);
+  const total = sum(lines);
+  if (selection.family) return { lines, total, missing, familySaves: null };
+
+  const family = normalizeSelection({
+    ...FAMILY_SELECTION,
+    messages: selection.messages,
+    currencies: selection.currencies,
+    connectedAccounts: selection.connectedAccounts,
+    cycle: selection.cycle,
+  });
+  const packed = linesFor(family, catalog, kept);
+  const difference = money(total).minus(sum(packed.lines));
+  const saves = packed.missing.length === 0 && difference.gt(0);
+  return { lines, total, missing, familySaves: saves ? toDbAmount(difference) : null };
+}
+
+export interface Entitlements {
+  modules: BillingModule[];
+  /** Null: sem limite. */
+  entryLimit: number | null;
+  messageLimit: number;
+  currencies: Currency[];
+}
+
+/** O que os itens liberam. Item desconhecido não libera nada. */
+export function entitlementsOf(items: readonly string[]): Entitlements {
+  const selection = selectionOfItems(items, "mes");
+  const hasBase = items.some((item) => item === "familia" || item.startsWith("base:"));
+  const entries = selection.entries;
+  return {
+    modules: selection.messages > 0 ? [...selection.modules, "assistente"] : selection.modules,
+    entryLimit: !hasBase ? 0 : entries === "ilimitado" ? null : Number(entries),
+    messageLimit: selection.messages,
+    currencies: selection.currencies,
+  };
+}
+
+/**
+ * `livre`: chave desligada, todos como hoje. `leitura`: teste acabou, ou a assinatura acabou: vê e
+ * exporta, sem gravar, sem agentes e sem IA.
+ */
+export type AccessMode = "livre" | "cortesia" | "teste" | "assinatura" | "leitura";
+
+export interface FamilyAccess {
+  mode: AccessMode;
+  modules: readonly BillingModule[];
+  /** Null: sem limite. */
+  entryLimit: number | null;
+  messageLimit: number | null;
+  /** Moedas além da principal. Null: todas. */
+  currencies: readonly Currency[] | null;
+  /** Cobrança falhou: o acesso segue enquanto a Stripe tenta de novo. */
+  pastDue: boolean;
+  trialEndsAt: Date | null;
+}
+
+export interface SubscriptionState {
+  courtesy: boolean;
+  courtesyUntil: Date | null;
+  trialEndsAt: Date | null;
+  status: string | null;
+  items: readonly SubscribedItem[];
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: Date | null;
+}
+
+/** Situações da Stripe em que o serviço segue. `incomplete` espera o boleto ou o primeiro pagamento. */
+const PAYING = new Set(["active", "trialing", "past_due"]);
+/** Evento de cancelamento atrasado não dá acesso de graça depois do fim do período pago. */
+const CANCEL_GRACE_DAYS = 3;
+
+const FULL = {
+  modules: BILLING_MODULES,
+  entryLimit: null,
+  messageLimit: null,
+  currencies: null,
+  pastDue: false,
+  trialEndsAt: null,
+} as const;
+
+/**
+ * Uma regra só para web, worker e assistente. Sem linha da família, o que não deveria acontecer porque
+ * o gatilho da migração cria uma, a família fica com tudo: erro nosso não vira cobrança nem bloqueio.
+ */
+export function resolveAccess(input: {
+  billingEnabled: boolean;
+  subscription: SubscriptionState | null;
+  now: Date;
+}): FamilyAccess {
+  const { billingEnabled, subscription, now } = input;
+  if (!billingEnabled) return { ...FULL, mode: "livre" };
+  if (!subscription) return { ...FULL, mode: "cortesia" };
+  const { courtesy, courtesyUntil, trialEndsAt, status, items } = subscription;
+  if (courtesy && (!courtesyUntil || courtesyUntil > now)) return { ...FULL, mode: "cortesia" };
+
+  const ended =
+    subscription.cancelAtPeriodEnd &&
+    subscription.currentPeriodEnd !== null &&
+    now.getTime() > subscription.currentPeriodEnd.getTime() + CANCEL_GRACE_DAYS * DAY_MS;
+  if (status && PAYING.has(status) && !ended) {
+    const granted = entitlementsOf(items.map((row) => row.item));
+    return {
+      mode: "assinatura",
+      modules: granted.modules,
+      entryLimit: granted.entryLimit,
+      messageLimit: granted.messageLimit,
+      currencies: granted.currencies,
+      pastDue: status === "past_due",
+      trialEndsAt: null,
+    };
+  }
+  if (trialEndsAt && trialEndsAt > now) return { ...FULL, mode: "teste", trialEndsAt };
+  return {
+    mode: "leitura",
+    modules: [],
+    entryLimit: 0,
+    messageLimit: 0,
+    currencies: [],
+    pastDue: false,
+    trialEndsAt,
+  };
+}
+
+/** Pode agir: gravar, rodar agente, chamar a IA. */
+export const canUse = (access: FamilyAccess, module: BillingModule) =>
+  access.modules.includes(module);
+
+/** Pode abrir a tela. Em só leitura a família continua vendo tudo o que é dela. */
+export const canView = (access: FamilyAccess, module: BillingModule) =>
+  access.mode === "leitura" || canUse(access, module);
+
+/** Moeda principal é grátis. Moeda adicional cancelada: a conta fica, só leitura. */
+export const canUseCurrency = (access: FamilyAccess, currency: Currency, main: Currency) =>
+  currency === main || access.currencies === null || access.currencies.includes(currency);
+
+export type UsageLevel = "normal" | "aviso" | "limite";
+
+export function usageLevel(used: number, limit: number | null): UsageLevel {
+  if (limit === null) return "normal";
+  if (used >= limit) return "limite";
+  return money(used).gte(money(limit).times(USAGE_WARNING_RATIO)) ? "aviso" : "normal";
+}
+
+/** Vagas que sobram. Quem passou do limite não fica com número negativo. */
+export const quotaLeft = (used: number, limit: number) => Math.max(limit - used, 0);
+
+export type ChangeStep = PlanSelection | null;
+
+export interface PlanChange {
+  /** Vale na hora, com cobrança proporcional. Null: nada muda agora. */
+  now: ChangeStep;
+  /** Vale no fim do ciclo pago. Null: nada fica marcado. */
+  later: ChangeStep;
+}
+
+const tierRank = (tier: EntryTier) => ENTRY_TIERS.indexOf(tier);
+
+const sameItems = (a: PlanSelection, b: PlanSelection) => {
+  const left = itemsOf(a).toSorted();
+  const right = itemsOf(b).toSorted();
+  return left.length === right.length && left.every((item, index) => item === right[index]);
+};
+
+const sameSelection = (a: PlanSelection, b: PlanSelection) =>
+  a.cycle === b.cycle && a.connectedAccounts === b.connectedAccounts && sameItems(a, b);
+
+/** O melhor dos dois em cada campo: é o que a família tem enquanto a redução não chega. */
+function strongest(a: PlanSelection, b: PlanSelection, cycle: BillingCycle): PlanSelection {
+  const currencies = unique([...a.currencies, ...b.currencies]);
+  const messages = Math.max(a.messages, b.messages) as MessageTier;
+  const connectedAccounts = Math.max(a.connectedAccounts, b.connectedAccounts);
+  if (a.family || b.family) {
+    return normalizeSelection({
+      ...FAMILY_SELECTION,
+      messages,
+      currencies,
+      connectedAccounts,
+      cycle,
+    });
+  }
+  return normalizeSelection({
+    family: false,
+    entries: tierRank(a.entries) >= tierRank(b.entries) ? a.entries : b.entries,
+    modules: unique([...a.modules, ...b.modules]),
+    messages,
+    currencies,
+    connectedAccounts,
+    cycle,
+  });
+}
+
+/**
+ * Separa o que sobe, que vale na hora, do que desce, que espera o fim do ciclo. Quem soma um módulo e
+ * tira outro recebe o novo agora e perde o antigo só depois do que já pagou. Mensal para anual vale
+ * inteiro na hora; anual para mensal espera o ano acabar.
+ */
+export function planChange(currentInput: PlanSelection, targetInput: PlanSelection): PlanChange {
+  const current = normalizeSelection(currentInput);
+  const target = normalizeSelection(targetInput);
+  if (sameSelection(current, target)) return { now: null, later: null };
+  // Mensal para anual abre um ciclo novo na hora: cobra só o que a pessoa pediu, e o resto do mês vira
+  // crédito na Stripe. Nada fica para depois, porque o "depois" seria daqui a um ano.
+  if (current.cycle === "mes" && target.cycle === "ano") return { now: target, later: null };
+  const cycle: BillingCycle = current.cycle === "ano" || target.cycle === "ano" ? "ano" : "mes";
+  const reached = strongest(current, target, cycle);
+  const now = sameSelection(reached, current) ? null : reached;
+  const later = sameSelection(reached, target) ? null : target;
+  return { now, later };
+}
+
+/** Dentro dos 7 dias da primeira cobrança, e uma vez só. */
+export function refundWindowOpen(input: {
+  firstPaidAt: Date | null;
+  refundedAt: Date | null;
+  now: Date;
+}): boolean {
+  const { firstPaidAt, refundedAt, now } = input;
+  if (!firstPaidAt || refundedAt) return false;
+  return now.getTime() <= firstPaidAt.getTime() + REFUND_DAYS * DAY_MS;
+}
+
+/** Assinatura anual que renova nos próximos 30 dias e ainda vai renovar. */
+export function annualRenewalDue(input: {
+  cycle: BillingCycle | null;
+  status: string | null;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: Date | null;
+  now: Date;
+}): boolean {
+  const { cycle, status, cancelAtPeriodEnd, currentPeriodEnd, now } = input;
+  if (cycle !== "ano" || cancelAtPeriodEnd || !currentPeriodEnd) return false;
+  if (status !== "active") return false;
+  const left = currentPeriodEnd.getTime() - now.getTime();
+  return left > 0 && left <= ANNUAL_RENEWAL_NOTICE_DAYS * DAY_MS;
+}

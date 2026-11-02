@@ -1,11 +1,13 @@
 import "server-only";
 import {
+  accessWithin,
   accountCurrency,
   and,
   cardPurchases,
   cardStatementPayments,
   cashflowPlans,
   creditCards,
+  currencyFrozen,
   debtInstallments,
   eq,
   goalContributions,
@@ -18,6 +20,7 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import {
+  canUse,
   isForeign,
   isYearMonth,
   linesTotal,
@@ -54,6 +57,13 @@ class MissingQuote extends Error {
   }
 }
 
+/** A conta está numa moeda adicional que a família cancelou: fica só leitura. */
+class FrozenCurrency extends Error {
+  constructor(readonly currency: Currency) {
+    super("moeda_cancelada");
+  }
+}
+
 /** Compromisso na moeda principal, lançado na conta. Null só se a conta não existir mais. */
 async function commitmentEntry(
   tx: TenantTx,
@@ -61,9 +71,10 @@ async function commitmentEntry(
   value: string,
   date: string,
 ): Promise<EntryMoney | null> {
+  const currency = await accountCurrency(tx, accountId);
+  if (currency && (await currencyFrozen(tx, currency))) throw new FrozenCurrency(currency);
   const entry = await mainEntry(tx, accountId, value, date);
   if (entry) return entry;
-  const currency = await accountCurrency(tx, accountId);
   if (currency && isForeign(currency, await householdCurrency(tx)))
     throw new MissingQuote(currency, date);
   return null;
@@ -71,8 +82,15 @@ async function commitmentEntry(
 
 /** Confirmou, não havia o que confirmar, ou faltou a cotação: aí a pessoa precisa de um aviso. */
 export type ConfirmOutcome =
-  | { done: boolean; missingQuote?: undefined }
-  | { done: false; missingQuote: { currency: Currency; date: string } };
+  | { done: boolean; missingQuote?: undefined; frozenCurrency?: undefined; moduleOff?: undefined }
+  | {
+      done: false;
+      missingQuote: { currency: Currency; date: string };
+      frozenCurrency?: undefined;
+      moduleOff?: undefined;
+    }
+  | { done: false; missingQuote?: undefined; frozenCurrency: Currency; moduleOff?: undefined }
+  | { done: false; missingQuote?: undefined; frozenCurrency?: undefined; moduleOff: true };
 
 /**
  * Marca como pago ou recebido. `key` é `t:<lançamento>`, `p:<previsão>` (com `month`),
@@ -86,9 +104,13 @@ export async function confirmCommitment(
   month: string,
   mark: ImportMark | Record<string, never> = {},
 ): Promise<ConfirmOutcome> {
+  // Parcela de dívida e de meta são dados de módulo: desligado, ficam guardadas, sem baixa.
+  const owner = key.startsWith("d:") ? "dividas" : key.startsWith("g:") ? "metas" : null;
+  if (owner && !canUse(await accessWithin(tx), owner)) return { done: false, moduleOff: true };
   try {
     return { done: await confirmByKey(tx, ctx, key, month, mark) };
   } catch (error) {
+    if (error instanceof FrozenCurrency) return { done: false, frozenCurrency: error.currency };
     if (!(error instanceof MissingQuote)) throw error;
     return { done: false, missingQuote: { currency: error.currency, date: error.date } };
   }
