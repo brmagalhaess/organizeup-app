@@ -87,7 +87,7 @@ import {
   type ReportKind,
   type StatementReportStatus,
 } from "@organizeup/domain";
-import { loadCommitments } from "./commitments";
+import { loadCommitments, withIncomePlans } from "./commitments";
 import { currentDebtPlan } from "./debt-view";
 import { loadFiscalTables, loadSavingsRule } from "./inputs";
 import { currentDividendPlan } from "./retirement-view";
@@ -206,7 +206,10 @@ async function loadSource(tx: TenantTx, today: string) {
     contributionRows,
     income: once(async () => ({
       // Mesma regra de `scheduledIncome`: fora do real, o valor informado não leva desconto do Brasil.
-      sources: plainIncomes(await tx.select().from(incomeSources), await householdCurrency(tx)),
+      sources: await withIncomePlans(
+        tx,
+        plainIncomes(await tx.select().from(incomeSources), await householdCurrency(tx)),
+      ),
       tables: await loadFiscalTables(tx),
     })),
     worth: once(async () => summarizeNetWorth(await netWorthInputs(tx))),

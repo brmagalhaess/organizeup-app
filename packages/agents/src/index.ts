@@ -30,9 +30,12 @@ export {
 export {
   cardBook,
   goalEntryDescription,
+  incomePlansBySource,
+  incomeReceiptRows,
   loadCommitments,
   scheduledIncome,
   systemCategories,
+  withIncomePlans,
 } from "./commitments";
 export { calendarMonth } from "./calendar-view";
 export type { CalendarItemType } from "./calendar-types";

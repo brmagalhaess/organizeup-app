@@ -1073,6 +1073,7 @@ describe("isolamento do calendário", () => {
 describe("isolamento da renda", () => {
   const { accounts, categories, fiscalParameters, incomeReceipts, incomeSources, transactions } =
     db;
+  const { incomeVacationReceipts, incomeYearPlans } = db;
   let ctxA: Awaited<ReturnType<typeof ctxFor>>;
   let ctxB: Awaited<ReturnType<typeof ctxFor>>;
   let accountA: string;
@@ -1222,6 +1223,117 @@ describe("isolamento da renda", () => {
         await tx.insert(incomeReceipts).values(receipt);
       }),
     ).rejects.toThrow();
+  });
+
+  it("escolhas de 13º e férias ficam na família, ligadas à renda dela", async () => {
+    const plan = (householdId: string, incomeSourceId: string) => ({
+      householdId,
+      incomeSourceId,
+      year: 2026,
+      thirteenthFirstMonth: 7,
+      vacationPeriods: [{ month: 7, startDay: 1, days: 30, received: false }],
+    });
+    await db.withHousehold(ctxA, async (tx) => {
+      await tx.insert(incomeYearPlans).values(plan(A.household, sourceA));
+    });
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(incomeYearPlans)).toHaveLength(0);
+      expect(
+        await tx
+          .update(incomeYearPlans)
+          .set({ thirteenthFirstMonth: 3 })
+          .where(eq(incomeYearPlans.incomeSourceId, sourceA))
+          .returning({ id: incomeYearPlans.id }),
+      ).toHaveLength(0);
+      expect(
+        await tx
+          .delete(incomeYearPlans)
+          .where(eq(incomeYearPlans.incomeSourceId, sourceA))
+          .returning({ id: incomeYearPlans.id }),
+      ).toHaveLength(0);
+    });
+    // Outra família não aponta para a renda de A, nem pela RLS nem pela FK composta.
+    await expect(
+      db.withHousehold(ctxB, (tx) => tx.insert(incomeYearPlans).values(plan(A.household, sourceA))),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxB, (tx) => tx.insert(incomeYearPlans).values(plan(B.household, sourceA))),
+    ).rejects.toThrow();
+    // Janeiro não é mês da 1ª parcela: só com as férias.
+    await expect(
+      db.withHousehold(ctxA, (tx) =>
+        tx
+          .insert(incomeYearPlans)
+          .values({ ...plan(A.household, sourceA), year: 2028, thirteenthFirstMonth: 1 }),
+      ),
+    ).rejects.toThrow();
+    // Uma linha por renda e ano, e a 1ª parcela antes da 2ª.
+    await expect(
+      db.withHousehold(ctxA, (tx) => tx.insert(incomeYearPlans).values(plan(A.household, sourceA))),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxA, (tx) =>
+        tx
+          .insert(incomeYearPlans)
+          .values({ ...plan(A.household, sourceA), year: 2027, thirteenthSecondMonth: 7 }),
+      ),
+    ).rejects.toThrow();
+    // Exportar leva as escolhas, sem misturar famílias.
+    const exported = await db.withHousehold(ctxA, (tx) => db.exportHousehold(tx));
+    expect(exported.income_year_plans).toHaveLength(1);
+    const other = await db.withHousehold(ctxB, (tx) => db.exportHousehold(tx));
+    expect(other.income_year_plans).toHaveLength(0);
+  });
+
+  it("baixa do 2º período de férias fica na família e some com o lançamento", async () => {
+    const entry = (householdId: string, accountId: string, categoryId: string) => ({
+      householdId,
+      accountId,
+      categoryId,
+      kind: "receita" as const,
+      description: "Férias",
+      amount: "1000.00",
+      occurredOn: "2026-07-20",
+    });
+    const receipt = (householdId: string, transactionId: string) => ({
+      householdId,
+      incomeSourceId: sourceA,
+      month: "2026-07",
+      part: "ferias-2" as const,
+      transactionId,
+    });
+    const received = await db.withHousehold(ctxA, async (tx) => {
+      const [row] = await tx
+        .insert(transactions)
+        .values(entry(A.household, accountA, categoryA))
+        .returning({ id: transactions.id });
+      await tx.insert(incomeVacationReceipts).values(receipt(A.household, row!.id));
+      return row!.id;
+    });
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(incomeVacationReceipts)).toHaveLength(0);
+      expect(
+        await tx.delete(incomeVacationReceipts).returning({ id: incomeVacationReceipts.id }),
+      ).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(ctxB, async (tx) => {
+        const [row] = await tx
+          .insert(transactions)
+          .values(entry(B.household, accountB, categoryB))
+          .returning({ id: transactions.id });
+        await tx.insert(incomeVacationReceipts).values(receipt(B.household, row!.id));
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(ctxA, (tx) =>
+        tx.insert(incomeVacationReceipts).values(receipt(A.household, received)),
+      ),
+    ).rejects.toThrow();
+    await db.withHousehold(ctxA, async (tx) => {
+      await tx.delete(transactions).where(eq(transactions.id, received));
+      expect(await tx.select().from(incomeVacationReceipts)).toHaveLength(0);
+    });
   });
 
   it("tabelas fiscais são públicas e somente leitura para a aplicação", async () => {

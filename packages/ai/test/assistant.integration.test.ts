@@ -351,8 +351,58 @@ describe("ferramentas contra o Postgres", () => {
     const renda = parsed((await runTool(ownerCtx, "ver_renda")).content);
     expect(renda.fontes[0].pessoa).toBe("titular");
     expect(renda.total_liquido_mensal).toBe("900.00");
+    // Aluguel não tem 13º nem férias.
+    expect(renda.fontes[0].decimo_terceiro).toBeUndefined();
     const viagens = parsed((await runTool(ownerCtx, "listar_viagens")).content);
     expect(viagens.viagens[0].quem_vai).toEqual(["titular"]);
+  });
+
+  it("ver_renda conta 13º e férias com a mesma conta das previsões", async () => {
+    const year = Number(domain.yearMonthOf(domain.todayIn()).slice(0, 4));
+    const [source] = await db.withHousehold(ownerCtx, async (tx) => {
+      const [existing] = await tx.select().from(db.incomeSources);
+      const rows = await tx
+        .insert(db.incomeSources)
+        .values({
+          ...existing!,
+          id: undefined,
+          createdAt: undefined,
+          name: "Empresa Exemplo",
+          kind: "clt",
+          amount: "6000.00",
+          isGross: true,
+        })
+        .returning();
+      await tx.insert(db.incomeYearPlans).values({
+        householdId: ownerCtx.householdId,
+        incomeSourceId: rows[0]!.id,
+        year,
+        thirteenthFirstMonth: 7,
+        thirteenthFirstReceived: true,
+        thirteenthFirstAmount: "2800.00",
+        vacationSoldDays: 10,
+        vacationPeriods: [{ month: 3, startDay: 16, days: 20, received: false }],
+      });
+      return rows;
+    });
+    const renda = parsed((await runTool(ownerCtx, "ver_renda")).content);
+    const clt = renda.fontes.find((row: { tipo: string }) => row.tipo === "clt");
+    expect(clt.decimo_terceiro).toMatchObject({ forma: "duas_parcelas", liquido_total: "4973.39" });
+    expect(clt.decimo_terceiro.pagamentos).toEqual([
+      expect.objectContaining({ parte: "1ª parcela", valor: "2800.00", situacao: "recebido" }),
+      expect.objectContaining({ parte: "2ª parcela", valor: "2173.39", situacao: "previsto" }),
+    ]);
+    expect(clt.ferias).toEqual([
+      expect.objectContaining({
+        inicio: `${year}-03-16`,
+        dias: 20,
+        dias_vendidos: 10,
+        pagamento: `${year}-03-14`,
+      }),
+    ]);
+    await db.withHousehold(ownerCtx, (tx) =>
+      tx.delete(db.incomeSources).where(db.eq(db.incomeSources.id, source!.id)),
+    );
   });
 
   it("listar_viagens traz as intenções, com o nome livre marcado como dado", async () => {
