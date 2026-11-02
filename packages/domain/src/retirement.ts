@@ -1,4 +1,4 @@
-// Projeção de aposentadoria. Puro. Tudo em reais de hoje, com retorno real (acima da inflação),
+// Projeção de aposentadoria. Puro. Tudo em dinheiro de hoje, com retorno real (acima da inflação),
 // para o número fazer sentido sem adivinhar a inflação de décadas. É estimativa, não promessa.
 import { money, toDbAmount, type MoneyInput, type MoneyValue } from "./money";
 

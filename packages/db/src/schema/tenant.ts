@@ -13,6 +13,7 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
+import { CURRENCIES } from "@organizeup/domain";
 import { household, user } from "./auth";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
@@ -69,7 +70,10 @@ export const householdSettings = pgTable(
       .primaryKey()
       .references(() => household.id, { onDelete: "cascade" }),
     timezone: text("timezone").notNull().default("America/Sao_Paulo"),
+    /** Sempre 'BRL': a CHECK da 0002 não aceita outra. A moeda principal é `mainCurrency` (0033). */
     currency: text("currency").notNull().default("BRL"),
+    /** Moeda principal da família, em que estão os totais e `transactions.amount` (ADR-0020). */
+    mainCurrency: text("main_currency", { enum: CURRENCIES }).notNull().default("BRL"),
     city: text("city"),
     state: char("state", { length: 2 }),
     country: char("country", { length: 2 }).notNull().default("BR"),

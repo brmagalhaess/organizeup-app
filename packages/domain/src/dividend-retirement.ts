@@ -1,5 +1,5 @@
 // Aposentadoria por renda de proventos (ADR-0015, substitui em parte o ADR-0014). Puro e estimativa:
-// a carteira paga as contas e não acaba. Premissas: tudo em reais de hoje; proventos líquidos do
+// a carteira paga as contas e não acaba. Premissas: tudo em dinheiro de hoje; proventos líquidos do
 // imposto retido; proventos reinvestidos ao mesmo rendimento; o preço acompanha os proventos, então o
 // rendimento (yield) fica constante; retorno real anual = (1 + y)(1 + g) − 1, com g o crescimento real
 // dos proventos; não prevê mudança de tributação. Proventos passados não garantem proventos futuros e
@@ -7,7 +7,7 @@
 import Decimal from "decimal.js";
 import { addMonths, recentMonths, yearMonthOf, type YearMonth } from "./cashflow";
 import { netDividend, type DividendInput } from "./investment";
-import { formatBRL, money, toCents, toDbAmount, type MoneyValue } from "./money";
+import { formatMoney, money, toCents, toDbAmount, type Currency, type MoneyValue } from "./money";
 import { accumulationFactor, monthlyRate } from "./retirement";
 import { monthsBetween } from "./trip";
 
@@ -60,6 +60,8 @@ export interface DividendPlanInput {
   dividendGrowth: string;
   /** Aporte mensal real, para projetar. */
   contribution: string;
+  /** Moeda principal da família, para as notas. Sem ela, real. */
+  currency?: Currency;
 }
 
 export type DividendPlanStatus = "ok" | "sem_dados" | "sem_yield" | "sem_ano";
@@ -220,7 +222,9 @@ export function planDividendRetirement(input: DividendPlanInput): DividendPlan {
     if (later) {
       const fromYear = input.targetYear! + (pension.retirementAge - pension.ageAtTarget!);
       pensionsLater.push({ amount: toDbAmount(pension.amount), fromYear });
-      notes.push(`${formatBRL(pension.amount)} de INSS ou pensão entra só em ${fromYear}.`);
+      notes.push(
+        `${formatMoney(pension.amount, input.currency)} de INSS ou pensão entra só em ${fromYear}.`,
+      );
     } else {
       otherIncome = otherIncome.plus(pension.amount);
     }
@@ -285,7 +289,7 @@ export function planDividendRetirement(input: DividendPlanInput): DividendPlan {
     : money(0);
   if (otherBase.gt(0) && portfolioGap.gt(0)) {
     notes.push(
-      `Premissa: os outros investimentos (${formatBRL(otherBase)}) migram para ativos que pagam renda.`,
+      `Premissa: os outros investimentos (${formatMoney(otherBase, input.currency)}) migram para ativos que pagam renda.`,
     );
   }
 

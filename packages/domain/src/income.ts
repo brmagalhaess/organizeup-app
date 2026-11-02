@@ -1,8 +1,9 @@
 // Renda: bruto para líquido (CLT), 13º, férias e previsões do mês. Puro.
 // As tabelas mudam todo ano e vêm como dados (fiscal_parameters); fontes no ADR-0009.
 // É estimativa: o holerite real tem verbas que o sistema não conhece.
+import { brazilRulesApply } from "./brazil-rules";
 import { addMonths, occurrenceDate, type ScheduledEntry, type YearMonth } from "./cashflow";
-import { money, toCents, toDbAmount, type MoneyValue } from "./money";
+import { money, toCents, toDbAmount, type Currency, type MoneyValue } from "./money";
 
 export interface FiscalTable {
   validFrom: YearMonth;
@@ -265,6 +266,13 @@ const payrollOf = (source: IncomeSourceInput): PayrollInput => ({
 
 export const isPayroll = (source: Pick<IncomeSourceInput, "kind" | "isGross">) =>
   source.kind === "clt" && source.isGross;
+
+/** Fora das regras brasileiras não há tabela fiscal: o valor cadastrado é o que cai na conta. */
+export const plainIncomes = <T extends { isGross: boolean }>(
+  sources: T[],
+  currency: Currency,
+): T[] =>
+  brazilRulesApply(currency) ? sources : sources.map((source) => ({ ...source, isGross: false }));
 
 /** O que a renda paga em um mês, sem tratar do que já foi recebido. */
 export function monthIncome(

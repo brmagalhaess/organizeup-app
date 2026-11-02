@@ -1,5 +1,6 @@
 // Regras do fluxo de caixa do mês. Puras: recebem dados e devolvem o que a tela mostra.
-import type { FxCurrency } from "./fx";
+import { entryOrigin, type FxCurrency } from "./fx";
+import type { Currency } from "./money";
 import { money, toDbAmount, type MoneyValue } from "./money";
 
 export type EntryKind = "receita" | "despesa";
@@ -31,10 +32,12 @@ export interface TransactionInput {
   accountId: string;
   planId: string | null;
   planMonth: YearMonth | null;
-  /** Em conta estrangeira, o que foi digitado; `amount` segue em reais (ADR-0020). */
+  /** Em conta estrangeira, o que foi digitado; `amount` segue na moeda principal (ADR-0020). */
   originalAmount?: string | null;
   originalCurrency?: FxCurrency | null;
   fxRate?: string | null;
+  brlAmount?: string | null;
+  brlRate?: string | null;
 }
 
 export interface MonthEntry {
@@ -57,7 +60,7 @@ export interface MonthEntry {
   recurring: boolean;
   /** Só em lançamento de conta estrangeira. */
   originalAmount?: string;
-  originalCurrency?: FxCurrency;
+  originalCurrency?: Currency;
   fxRate?: string;
 }
 
@@ -134,26 +137,29 @@ export function buildMonthEntries(
   const confirmed = new Set(
     transactions.filter((t) => t.planId && t.planMonth === ym).map((t) => t.planId),
   );
-  const fromTransactions: MonthEntry[] = transactions.map((t) => ({
-    key: `t:${t.id}`,
-    source: "lancamento",
-    id: t.id,
-    kind: t.kind,
-    description: t.description,
-    amount: t.amount,
-    date: t.occurredOn,
-    status: t.status,
-    categoryId: t.categoryId,
-    accountId: t.accountId,
-    recurring: t.planId !== null,
-    ...(t.originalAmount && t.originalCurrency && t.fxRate
-      ? {
-          originalAmount: t.originalAmount,
-          originalCurrency: t.originalCurrency,
-          fxRate: t.fxRate,
-        }
-      : {}),
-  }));
+  const fromTransactions: MonthEntry[] = transactions.map((t) => {
+    const origin = entryOrigin(t);
+    return {
+      key: `t:${t.id}`,
+      source: "lancamento",
+      id: t.id,
+      kind: t.kind,
+      description: t.description,
+      amount: t.amount,
+      date: t.occurredOn,
+      status: t.status,
+      categoryId: t.categoryId,
+      accountId: t.accountId,
+      recurring: t.planId !== null,
+      ...(origin
+        ? {
+            originalAmount: origin.amount,
+            originalCurrency: origin.currency,
+            fxRate: origin.rate,
+          }
+        : {}),
+    };
+  });
   const fromPlans: MonthEntry[] = plans
     .filter((plan) => planIsActiveIn(plan, ym) && !confirmed.has(plan.id))
     .map((plan) => ({

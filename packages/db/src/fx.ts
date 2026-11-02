@@ -1,8 +1,9 @@
-// Câmbio de contas em dólar e euro (ADR-0020). As contas ficam em @organizeup/domain; aqui só saem os
+// Câmbio entre as moedas da família (ADR-0020). As contas ficam em @organizeup/domain; aqui só saem os
 // dados. `market_fx` é global e entra em qualquer transação, sem RLS de tenant.
 import { and, desc, eq, gt, lte, sql } from "drizzle-orm";
 import {
-  entryFromReais,
+  crossQuote,
+  entryFromMain,
   FX_CURRENCIES,
   isForeign,
   type Currency,
@@ -11,7 +12,7 @@ import {
   type FxQuote,
   type FxRates,
 } from "@organizeup/domain";
-import { accounts, marketFx } from "./schema";
+import { accounts, householdSettings, marketFx } from "./schema";
 import type { TenantTx } from "./tenant";
 
 const quoteFields = { rate: marketFx.rate, date: marketFx.date };
@@ -34,6 +35,34 @@ export async function fxRateOn(
     .orderBy(desc(marketFx.date))
     .limit(1);
   return row ?? null;
+}
+
+/** Moeda principal da família. Sem linha de configurações, real. */
+export async function householdCurrency(tx: TenantTx): Promise<Currency> {
+  const [row] = await tx
+    .select({ currency: householdSettings.mainCurrency })
+    .from(householdSettings);
+  return row?.currency ?? "BRL";
+}
+
+/**
+ * Cotação de `from` na moeda principal `main`, do dia ou a última anterior, com o real como pivô. Null
+ * com moedas iguais ou sem cotação.
+ */
+export async function fxQuoteIn(
+  tx: TenantTx,
+  from: Currency,
+  main: Currency,
+  date: string,
+): Promise<FxQuote | null> {
+  if (from === main) return null;
+  const rates: FxRates = {};
+  for (const currency of FX_CURRENCIES) {
+    if (currency !== from && currency !== main) continue;
+    const quote = await fxRateOn(tx, currency, date);
+    if (quote) rates[currency] = quote;
+  }
+  return crossQuote(from, main, rates);
 }
 
 /** Cotações que cobrem o intervalo, para `quoteOn`: evita uma consulta por linha na importação. */
@@ -70,19 +99,36 @@ export async function accountCurrency(tx: TenantTx, accountId: string): Promise<
 }
 
 /**
- * Colunas de um compromisso em reais (fatura, parcela, meta, aporte, renda) lançado na conta. Em conta
- * em real é só o valor. Null em conta estrangeira sem cotação, ou conta que não existe.
+ * Colunas de um compromisso na moeda principal (fatura, parcela, meta, aporte, renda) lançado na conta.
+ * Em conta na moeda principal é só o valor. Null em conta estrangeira sem cotação, ou conta que não
+ * existe.
  */
-export async function reaisEntry(
+export async function mainEntry(
   tx: TenantTx,
   accountId: string,
-  reais: string,
+  value: string,
   date: string,
 ): Promise<EntryMoney | null> {
   const currency = await accountCurrency(tx, accountId);
   if (!currency) return null;
-  const quote = isForeign(currency) ? await fxRateOn(tx, currency, date) : null;
-  return entryFromReais(reais, currency, quote);
+  const main = await householdCurrency(tx);
+  const quote = isForeign(currency, main) ? await fxQuoteIn(tx, currency, main, date) : null;
+  return entryFromMain(value, currency, quote, main);
+}
+
+/**
+ * A moeda principal só muda enquanto a família não tiver lançamento, compra de cartão, dívida,
+ * investimento, meta nem transferência. Não existe conversão de histórico.
+ */
+export async function householdHasMovement(tx: TenantTx): Promise<boolean> {
+  const rows = await tx.execute<{ found: boolean }>(sql`
+    select exists (select 1 from transactions)
+      or exists (select 1 from card_purchases)
+      or exists (select 1 from debts)
+      or exists (select 1 from investments)
+      or exists (select 1 from goals)
+      or exists (select 1 from account_transfers) as found`);
+  return Boolean(rows[0]?.found);
 }
 
 /** Contas com lançamento, previsão ou transferência: não podem mais mudar de moeda. */

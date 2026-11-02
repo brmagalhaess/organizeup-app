@@ -1,21 +1,25 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import {
-  balanceInReais,
+  balanceInMain,
+  convertMoney,
+  crossQuote,
+  crossQuoteOn,
   currencySymbol,
-  entryFromReais,
+  entryFromMain,
   entryFromTyped,
+  entryOrigin,
   fitsAmount,
-  fromReais,
+  fromMain,
   fxNoteOf,
   fxNoteText,
   isForeign,
   quoteOn,
   suggestTransfer,
-  toReais,
+  toMain,
   transferRate,
 } from "../src/fx";
-import { money } from "../src/money";
+import { CURRENCIES, money } from "../src/money";
 
 // Fonte: PTAX de venda do fechamento, SGS do Banco Central, séries 1 e 21619, consultadas em 2026-11-01.
 // 30/10/2026 foi uma sexta; 31/10 e 01/11, sábado e domingo.
@@ -34,29 +38,29 @@ const rate = fc.bigInt({ min: 10_000_000n, max: 2_000_000_000n }).map((n) => {
   return money(n.toString()).div(100_000_000);
 });
 
-describe("toReais e fromReais", () => {
+describe("toMain e fromMain", () => {
   it.each([
     ["100.00", "5.42120000", "542.12"],
     ["1234.56", "6.05220000", "7471.80"],
     ["0.01", "5.42120000", "0.05"],
   ])("%s a %s dá R$ %s", (value, quote, reais) => {
-    expect(toReais(value, quote)).toBe(reais);
+    expect(toMain(value, quote)).toBe(reais);
   });
 
   it("arredonda meio centavo para o par, a regra do ADR-0004", () => {
-    expect(toReais("10.00", "5.42050000")).toBe("54.20");
-    expect(toReais("10.00", "5.42150000")).toBe("54.22");
+    expect(toMain("10.00", "5.42050000")).toBe("54.20");
+    expect(toMain("10.00", "5.42150000")).toBe("54.22");
   });
 
   it("não aceita number nem na execução", () => {
-    expect(() => toReais(100 as unknown as string, "5")).toThrow(TypeError);
-    expect(() => fromReais("100", 5 as unknown as string)).toThrow(TypeError);
+    expect(() => toMain(100 as unknown as string, "5")).toThrow(TypeError);
+    expect(() => fromMain("100", 5 as unknown as string)).toThrow(TypeError);
   });
 
   it("devolve sempre centavos, a menos de meio centavo da conta exata", () => {
     fc.assert(
       fc.property(cents, rate, (value, quote) => {
-        const result = toReais(value, quote);
+        const result = toMain(value, quote);
         expect(result).toMatch(/^\d+\.\d{2}$/);
         expect(money(result).minus(value.times(quote)).abs().lte("0.005")).toBe(true);
       }),
@@ -66,7 +70,7 @@ describe("toReais e fromReais", () => {
   it("ida e volta perde no máximo um centavo por cotação", () => {
     fc.assert(
       fc.property(cents, rate, (value, quote) => {
-        const back = fromReais(toReais(value, quote), quote);
+        const back = fromMain(toMain(value, quote), quote);
         expect(money(back).minus(value).abs().lte(money("0.005").div(quote).plus("0.005"))).toBe(
           true,
         );
@@ -78,7 +82,7 @@ describe("toReais e fromReais", () => {
     fc.assert(
       fc.property(cents, cents, rate, (a, b, quote) => {
         const [low, high] = a.lte(b) ? [a, b] : [b, a];
-        expect(money(toReais(low, quote)).lte(toReais(high, quote))).toBe(true);
+        expect(money(toMain(low, quote)).lte(toMain(high, quote))).toBe(true);
       }),
     );
   });
@@ -115,6 +119,8 @@ describe("colunas do lançamento", () => {
       originalAmount: null,
       originalCurrency: null,
       fxRate: null,
+      brlAmount: null,
+      brlRate: null,
     });
   });
 
@@ -124,25 +130,29 @@ describe("colunas do lançamento", () => {
       originalAmount: "100.00",
       originalCurrency: "USD",
       fxRate: "5.42120000",
+      brlAmount: null,
+      brlRate: null,
     });
   });
 
   it("sem cotação, recusa", () => {
     expect(entryFromTyped("100", "USD", null)).toBeNull();
-    expect(entryFromReais("100", "EUR", null)).toBeNull();
+    expect(entryFromMain("100", "EUR", null)).toBeNull();
   });
 
   it("compromisso em reais fica exato em reais", () => {
-    expect(entryFromReais("543.21", "USD", rates.USD)).toEqual({
+    expect(entryFromMain("543.21", "USD", rates.USD)).toEqual({
       amount: "543.21",
       originalAmount: "100.20",
       originalCurrency: "USD",
       fxRate: "5.42120000",
+      brlAmount: null,
+      brlRate: null,
     });
   });
 
   it("nunca sai menos de um centavo da conta", () => {
-    expect(entryFromReais("0.01", "USD", rates.USD)?.originalAmount).toBe("0.01");
+    expect(entryFromMain("0.01", "USD", rates.USD)?.originalAmount).toBe("0.01");
   });
 
   it("conta se o valor convertido cabe na coluna", () => {
@@ -153,13 +163,13 @@ describe("colunas do lançamento", () => {
 
 describe("saldo em reais", () => {
   it("converte pela cotação; real fica como está", () => {
-    expect(balanceInReais("1000.00", "USD", rates)).toBe("5421.20");
-    expect(balanceInReais("1000.00", "BRL", {})).toBe("1000.00");
-    expect(balanceInReais("-10.00", "EUR", rates)).toBe("-60.52");
+    expect(balanceInMain("1000.00", "USD", rates)).toBe("5421.20");
+    expect(balanceInMain("1000.00", "BRL", {})).toBe("1000.00");
+    expect(balanceInMain("-10.00", "EUR", rates)).toBe("-60.52");
   });
 
   it("sem cotação devolve null", () => {
-    expect(balanceInReais("1000.00", "USD", {})).toBeNull();
+    expect(balanceInMain("1000.00", "USD", {})).toBeNull();
   });
 });
 
@@ -221,10 +231,166 @@ describe("transferência entre moedas", () => {
   });
 });
 
+describe("conversão entre as três moedas, com o real como pivô", () => {
+  // Conta feita com as PTAX de 30/10/2026: 6,0522 ÷ 5,4212 = 1,11640...; 1 ÷ 5,4212 = 0,18446...
+  it("euro em dólar passa pelo real", () => {
+    expect(crossQuote("EUR", "USD", rates)).toEqual({ rate: "1.11639489", date: "2026-10-30" });
+    expect(convertMoney("100.00", "EUR", "USD", rates)).toBe("111.64");
+    expect(convertMoney("100.00", "USD", "EUR", rates)).toBe("89.57");
+  });
+
+  it("real em dólar e em euro", () => {
+    expect(crossQuote("BRL", "USD", rates)).toEqual({ rate: "0.18446100", date: "2026-10-30" });
+    expect(convertMoney("542.12", "BRL", "USD", rates)).toBe("100.00");
+    expect(convertMoney("605.22", "BRL", "EUR", rates)).toBe("100.00");
+  });
+
+  it("dólar em real é o valor vezes a PTAX", () => {
+    expect(crossQuote("USD", "BRL", rates)).toEqual({ rate: "5.42120000", date: "2026-10-30" });
+    expect(convertMoney("100.00", "USD", "BRL", rates)).toBe("542.12");
+  });
+
+  it("moedas iguais não convertem", () => {
+    expect(crossQuote("USD", "USD", rates)).toBeNull();
+    expect(convertMoney("10.005", "USD", "USD", {})).toBe("10.00");
+  });
+
+  it("sem cotação de uma das duas, null", () => {
+    expect(crossQuote("EUR", "USD", { USD: rates.USD })).toBeNull();
+    expect(convertMoney("10.00", "EUR", "USD", { EUR: rates.EUR })).toBeNull();
+    expect(convertMoney("10.00", "BRL", "USD", {})).toBeNull();
+  });
+
+  it("o dia é o da cotação mais antiga", () => {
+    const older = { USD: rates.USD, EUR: { date: "2026-10-28", rate: "5.95150000" } };
+    expect(crossQuote("EUR", "USD", older)?.date).toBe("2026-10-28");
+  });
+
+  it("nas séries, vale a última cotação até a data", () => {
+    const eur = [{ date: "2026-10-30", rate: "6.05220000" }];
+    expect(crossQuoteOn({ USD: series, EUR: eur }, "EUR", "USD", "2026-11-01")?.rate).toBe(
+      "1.11639489",
+    );
+    expect(crossQuoteOn({ USD: series, EUR: eur }, "EUR", "USD", "2026-10-29")).toBeNull();
+    expect(crossQuoteOn({ USD: series }, "BRL", "USD", "2026-10-29")).toEqual({
+      rate: "0.18606728",
+      date: "2026-10-29",
+    });
+  });
+
+  const anyRates = fc.record({
+    USD: fc
+      .integer({ min: 1, max: 2_000_000 })
+      .map((n) => ({ date: "2026-10-30", rate: (n / 10000).toFixed(4) })),
+    EUR: fc
+      .integer({ min: 1, max: 2_000_000 })
+      .map((n) => ({ date: "2026-10-30", rate: (n / 10000).toFixed(4) })),
+  });
+  const cents = fc.integer({ min: 1, max: 1_000_000_00 }).map((n) => (n / 100).toFixed(2));
+  const currency = fc.constantFrom(...CURRENCIES);
+
+  it("converter e voltar perde no máximo centavos de arredondamento", () => {
+    fc.assert(
+      fc.property(cents, currency, currency, anyRates, (value, from, to, quotes) => {
+        const there = convertMoney(value, from, to, quotes)!;
+        const back = convertMoney(there, to, from, quotes)!;
+        const rate = money(crossQuote(to, from, quotes)?.rate ?? 1);
+        expect(money(back).minus(value).abs().lte(rate.times("0.005").plus("0.01"))).toBe(true);
+      }),
+    );
+  });
+
+  it("passar pelo real dá o mesmo que converter direto", () => {
+    fc.assert(
+      fc.property(cents, anyRates, (value, quotes) => {
+        const direct = money(value).times(quotes.USD.rate).dividedBy(quotes.EUR.rate);
+        const pivot = convertMoney(value, "USD", "EUR", quotes)!;
+        expect(money(pivot).minus(direct).abs().lte("0.005")).toBe(true);
+      }),
+    );
+  });
+});
+
+describe("lançamento com moeda principal fora do real", () => {
+  const brlInUsd = crossQuote("BRL", "USD", rates);
+  const eurInUsd = crossQuote("EUR", "USD", rates);
+
+  it("conta na moeda principal não guarda origem", () => {
+    expect(entryFromTyped("100.00", "USD", null, "USD")).toEqual({
+      amount: "100.00",
+      originalAmount: null,
+      originalCurrency: null,
+      fxRate: null,
+      brlAmount: null,
+      brlRate: null,
+    });
+  });
+
+  it("conta em real é a estrangeira, e a origem fica nas colunas próprias", () => {
+    const entry = entryFromTyped("542.12", "BRL", brlInUsd, "USD")!;
+    expect(entry).toMatchObject({
+      amount: "100.00",
+      originalAmount: null,
+      originalCurrency: null,
+      brlAmount: "542.12",
+      brlRate: "0.18446100",
+    });
+    expect(entryOrigin(entry)).toEqual({ amount: "542.12", currency: "BRL", rate: "0.18446100" });
+  });
+
+  it("euro em família em dólar segue nas colunas de sempre", () => {
+    const entry = entryFromTyped("100.00", "EUR", eurInUsd, "USD")!;
+    expect(entry).toMatchObject({
+      amount: "111.64",
+      originalAmount: "100.00",
+      originalCurrency: "EUR",
+      fxRate: "1.11639489",
+    });
+    expect(entryOrigin(entry)).toEqual({ amount: "100.00", currency: "EUR", rate: "1.11639489" });
+  });
+
+  it("um centavo de real não vira zero", () => {
+    expect(entryFromTyped("0.01", "BRL", brlInUsd, "USD")?.amount).toBe("0.01");
+  });
+
+  it("compromisso na moeda principal fica exato em conta em real", () => {
+    const entry = entryFromMain("100.00", "BRL", brlInUsd, "USD")!;
+    expect(entry).toMatchObject({ amount: "100.00", brlAmount: "542.12" });
+  });
+
+  it("conta estrangeira sem cotação não grava", () => {
+    expect(entryFromTyped("1.00", "BRL", null, "USD")).toBeNull();
+    expect(entryFromMain("1.00", "EUR", null, "USD")).toBeNull();
+  });
+
+  it("família em real segue exatamente igual", () => {
+    expect(entryFromTyped("100.00", "USD", rates.USD)).toEqual(
+      entryFromTyped("100.00", "USD", rates.USD, "BRL"),
+    );
+    expect(entryFromTyped("100.00", "BRL", null)?.originalAmount).toBeNull();
+  });
+
+  it("saldo e aviso seguem a moeda principal", () => {
+    expect(balanceInMain("542.12", "BRL", rates, "USD")).toBe("100.00");
+    expect(fxNoteOf([{ currency: "USD" }], {}, "USD")).toBeNull();
+    expect(fxNoteOf([{ currency: "BRL" }], rates, "USD")).toEqual({
+      date: "2026-10-30",
+      missing: [],
+    });
+    expect(fxNoteOf([{ currency: "BRL" }], {}, "USD")).toEqual({ date: null, missing: ["USD"] });
+    expect(fxNoteOf([{ currency: "EUR" }], { EUR: rates.EUR }, "USD")?.missing).toEqual(["USD"]);
+  });
+});
+
 describe("moedas", () => {
   it("real não é estrangeira", () => {
     expect(isForeign("BRL")).toBe(false);
     expect(isForeign("USD")).toBe(true);
+  });
+
+  it("em família em dólar, o real é a estrangeira", () => {
+    expect(isForeign("BRL", "USD")).toBe(true);
+    expect(isForeign("USD", "USD")).toBe(false);
   });
 
   it("símbolo para o rótulo", () => {

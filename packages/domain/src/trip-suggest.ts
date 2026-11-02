@@ -3,8 +3,8 @@
 // encaixa as viagens no orçamento mensal de viagens. Valores aproximados; a família confere passagem
 // e hospedagem antes de fechar, e nada é criado sem ela aceitar.
 import { addMonths, yearMonthOf, type YearMonth } from "./cashflow";
-import { message, type Message } from "./messages";
-import { formatBRL, money, toCents, toDbAmount, type MoneyValue } from "./money";
+import { message, moneyValue, type Message } from "./messages";
+import { formatMoney, money, toCents, toDbAmount, type Currency, type MoneyValue } from "./money";
 import { monthsBetween } from "./trip";
 
 export const TRIP_RULES = {
@@ -62,6 +62,8 @@ export interface TripSuggestInput {
   existingTripMonths: YearMonth[];
   /** Mês do aniversário de casamento (1 a 12). */
   weddingMonth: number | null;
+  /** Moeda principal da família, para as notas. Sem ela, real. */
+  currency?: Currency;
 }
 
 export interface TripEstimate {
@@ -287,6 +289,7 @@ export function suggestTrips(input: TripSuggestInput): TripSuggestion[] {
   }
 
   const people = Math.max(1, input.travelers.length);
+  const { currency } = input;
   const extraPerMonth = nothingFits
     ? toCents(ordered[0]!.total.minus(perTrip).dividedBy(12))
     : money(0);
@@ -296,9 +299,13 @@ export function suggestTrips(input: TripSuggestInput): TripSuggestion[] {
       const notes: string[] = [];
       const noteMessages: Message[] = [];
       if (nothingFits && extraPerMonth.gt(0)) {
-        notes.push(`Guarde ${formatBRL(extraPerMonth)} a mais por mês para esta viagem caber.`);
+        notes.push(
+          `Guarde ${formatMoney(extraPerMonth, currency)} a mais por mês para esta viagem caber.`,
+        );
         noteMessages.push(
-          message("frases.viagemGuardeMais", { amount: { money: toDbAmount(extraPerMonth) } }),
+          message("frases.viagemGuardeMais", {
+            amount: moneyValue(toDbAmount(extraPerMonth), currency),
+          }),
         );
       }
       if (weddingOffset !== null && offsets[i] === weddingOffset) {

@@ -163,12 +163,15 @@ export const transactions = pgTable(
     categoryId: text("category_id").notNull(),
     kind: text("kind", { enum: ENTRY_KINDS }).notNull(),
     description: text("description").notNull(),
-    /** Sempre em reais, em qualquer conta: é o que os resumos somam (ADR-0020). */
+    /** Sempre na moeda principal da família, em qualquer conta: é o que os resumos somam (ADR-0020). */
     amount: amount("amount").notNull(),
-    /** Em conta estrangeira, o valor na moeda da conta e a cotação congelada. Nulas em conta em real. */
+    /** Em conta estrangeira, o valor na moeda da conta e a cotação congelada. Nulas na moeda principal. */
     originalAmount: amount("original_amount"),
     originalCurrency: text("original_currency", { enum: FX_CURRENCIES }),
     fxRate: numeric("fx_rate", { precision: 20, scale: 8 }),
+    /** O mesmo, em conta em real de família em dólar ou euro: `original_currency` não aceita BRL. */
+    brlAmount: amount("brl_amount"),
+    brlRate: numeric("brl_rate", { precision: 20, scale: 8 }),
     occurredOn: date("occurred_on", { mode: "string" }).notNull(),
     status: text("status", { enum: ENTRY_STATUSES }).notNull().default("realizado"),
     planId: text("plan_id"),
