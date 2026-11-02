@@ -20,7 +20,7 @@ import {
   type ParsedInvestmentFile,
   type ParsedTrade,
 } from "./investment-file";
-import { normalizeTicker, TICKER_ROOTS } from "./market";
+import { normalizeTicker, TICKER_IN_TEXT } from "./market";
 import { money, toCents, toDbAmount, type MoneyValue } from "./money";
 import { parseStatementAmount, parseStatementDate } from "./statement";
 
@@ -60,7 +60,6 @@ const TRADE_LINE = new RegExp(
   String.raw`^(?:.*?\s)?([CV])\s+(.+?)\s+(\d[\d.]*)\s+(\d[\d.]*,\d{2,8})\s+${AMOUNT}\s*([DC])?$`,
 );
 const SUPPORTED_MARKET = /^(VISTA|FRACIONARIO)\b\s*(.*)$/;
-const TICKER_IN_TITLE = new RegExp(String.raw`\b(?:${TICKER_ROOTS})F?\b`);
 const OBSERVATION = /^(?:#\S*|[A-Z0-9]|\*+)$/;
 
 /** Até 3 linhas depois do rótulo: o número e a data ficam na linha de baixo em boa parte das notas. */
@@ -234,7 +233,7 @@ export function parseBrokerageNotes(lines: string[]): ParsedInvestmentFile {
     );
     ignored.push(...note.unread);
     note.lines.forEach((line, index) => {
-      const code = TICKER_IN_TITLE.exec(line.title)?.[0];
+      const code = TICKER_IN_TEXT.exec(line.title)?.[0];
       if (line.reason) {
         ignored.push({
           line: line.line,

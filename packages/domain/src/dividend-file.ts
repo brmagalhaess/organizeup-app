@@ -28,7 +28,7 @@ import {
 } from "./investment-file";
 import { normalizeTicker, type DividendKind } from "./market";
 import { money, toDbAmount } from "./money";
-import { normalizeDescription, parseCsvTable, parseStatementDate } from "./statement";
+import { csvDelimiter, normalizeDescription, parseCsvTable, parseStatementDate } from "./statement";
 
 export const DIVIDEND_FILE_ACCEPT = ".xlsx,.csv";
 
@@ -378,7 +378,9 @@ const FIELDS = Object.keys(NAME_RULES) as Array<keyof typeof NAME_RULES>;
 
 const HEADER_SEARCH_ROWS = 15;
 
-const isPaymentDate = (name: string) => name.includes("pagamento") && !name.startsWith("valor");
+/** "Data de pagamento" e "Pagamento" são a data. "Forma de pagamento" e "Status do pagamento", não. */
+const isPaymentDate = (name: string) =>
+  name === "pagamento" || (name.includes("pagamento") && /\b(data|dt)\b/.test(name));
 
 function columnsAt(row: string[], header: number): DividendColumns {
   // Coluna em percentual não é dinheiro: "IR (%)" com 15 não são R$ 15,00.
@@ -417,11 +419,26 @@ export function dividendCsvColumns(table: string[][]): DividendColumns {
   return best ?? columnsAt([], -1);
 }
 
-function parseCsv(table: string[][], columns: DividendColumns): ParsedDividendFile {
+function parseCsv(
+  table: string[][],
+  columns: DividendColumns,
+  delimiter: string,
+): ParsedDividendFile {
   if (!columnsComplete(columns)) throw new DividendFileError("colunas");
   const out = collector();
   const width = table[columns.header]!.length;
   const at = (row: string[], column: number) => (column >= 0 ? (row[column] ?? "") : "");
+  const moneyColumns = [columns.gross, columns.withheld, columns.net, columns.value];
+  // Com vírgula separando, "150,75" sem aspas vira 150 e, ao lado, 75, que pode cair numa coluna que não lemos.
+  const centsApart = (row: string[]) =>
+    delimiter === "," &&
+    moneyColumns.some(
+      (column) =>
+        column >= 0 &&
+        !moneyColumns.includes(column + 1) &&
+        /^\d+$/.test(at(row, column).trim()) &&
+        /^\d{2}$/.test(at(row, column + 1).trim()),
+    );
   table.slice(columns.header + 1).forEach((row, offset) => {
     if (row.every((cell) => !cell.trim())) return;
     const type = normalizeDescription(at(row, columns.kind));
@@ -440,7 +457,7 @@ function parseCsv(table: string[][], columns: DividendColumns): ParsedDividendFi
       reason: type.endsWith("transferido") ? "transferido" : null,
       date: at(row, columns.date),
       amounts: { gross: gross.value, withheld: withheld.value, net: received.value },
-      broken: filled > width || gross.bad || withheld.bad || received.bad,
+      broken: filled > width || centsApart(row) || gross.bad || withheld.bad || received.bad,
       ambiguous: gross.ambiguous || withheld.ambiguous || received.ambiguous,
     });
   });
@@ -462,7 +479,7 @@ export function parseDividendFile(input: DividendFileInput): ParsedDividendFile 
   } else {
     const table = parseCsvTable(input.text);
     if (table.length === 0) throw new DividendFileError("vazio");
-    parsed = parseCsv(table, input.columns ?? dividendCsvColumns(table));
+    parsed = parseCsv(table, input.columns ?? dividendCsvColumns(table), csvDelimiter(input.text));
   }
   const total = parsed.rows.length + parsed.ignored.length;
   if (total === 0) throw new DividendFileError("sem_linhas");

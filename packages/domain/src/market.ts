@@ -38,6 +38,8 @@ export const MARKET_RULES = {
 // e na quarta, só em ETF. Cada forma é listada para não abrir a porta a nome digitado, como CPF123.
 export const TICKER_ROOTS = String.raw`(?:[A-Z]{4}|[A-Z][0-9][A-Z]{2}|[A-Z]{2}[0-9][A-Z]|[0-9][A-Z]{3})[0-9]{1,2}|[A-Z][0-9][A-Z][0-9]11`;
 const TICKER = new RegExp(`^(${TICKER_ROOTS})F?$`);
+/** Código da B3 no meio de um texto, com ou sem o F do fracionário. */
+export const TICKER_IN_TEXT = new RegExp(String.raw`\b(?:${TICKER_ROOTS})F?\b`);
 
 /**
  * Código da B3 no formato que a fonte entende; null quando não parece um. O sufixo F é o mercado
@@ -250,6 +252,8 @@ interface OpenEvent {
   kind: DividendKind;
   day: number;
   due: MoneyValue;
+  /** Ainda não pago no dia desta rodada. */
+  future: boolean;
 }
 
 /** Provento que ainda pode ser reivindicado, com o valor devido. Bloqueado e sem posição não valem. */
@@ -258,30 +262,34 @@ function openEvents(input: ReconcileInput, taken: ReadonlySet<string>): OpenEven
   return input.events
     .flatMap((event): OpenEvent[] => {
       if (taken.has(event.id) || input.blocked.has(event.id)) return [];
-      if (today !== undefined && event.payDate > today) return [];
       const quantity = entitledQuantity(input.trades, event.comDate, input.stockEvents);
       const due = money(quantity).times(event.ratePerShare);
       if (due.lte(0)) return [];
-      return [{ id: event.id, kind: event.kind, day: dayNumber(event.payDate), due }];
+      const future = today !== undefined && event.payDate > today;
+      return [{ id: event.id, kind: event.kind, day: dayNumber(event.payDate), due, future }];
     })
     .sort((a, b) => a.day - b.day);
 }
 
-/**
- * O que um pagamento do arquivo cobre, nesta ordem: o provento do mesmo valor; vários que somam o valor; o do
- * mesmo dia, ainda que o valor divirja; e, em outra data, só o de valor parecido. Assim a data do arquivo
- * diferente da fonte não duplica, e sobra de linha não engole o provento seguinte.
- */
-function coveredBy(group: ImportedGroup, candidates: OpenEvent[]): OpenEvent[] {
-  const tolerance = money(CENT).times(group.rows);
-  const fits = (due: MoneyValue) =>
-    due.minus(group.gross).abs().lte(tolerance) || due.minus(group.net).abs().lte(tolerance);
-  const ordered = candidates.toSorted(
+const toleranceOf = (group: ImportedGroup) => money(CENT).times(group.rows);
+
+const fitsExactly = (group: ImportedGroup, due: MoneyValue) => {
+  const tolerance = toleranceOf(group);
+  return due.minus(group.gross).abs().lte(tolerance) || due.minus(group.net).abs().lte(tolerance);
+};
+
+const byCloseness = (group: ImportedGroup, candidates: OpenEvent[]) =>
+  candidates.toSorted(
     (a, b) =>
       Math.abs(a.day - group.day) - Math.abs(b.day - group.day) ||
       a.due.minus(group.gross).abs().comparedTo(b.due.minus(group.gross).abs()),
   );
-  const exact = ordered.find((event) => fits(event.due));
+
+/** O que um pagamento do arquivo cobre com certeza: o de mesmo valor, vários que somam, ou o do mesmo dia. */
+function coveredBy(group: ImportedGroup, candidates: OpenEvent[]): OpenEvent[] {
+  const tolerance = toleranceOf(group);
+  const ordered = byCloseness(group, candidates);
+  const exact = ordered.find((event) => fitsExactly(group, event.due));
   if (exact) return [exact];
 
   const summed: OpenEvent[] = [];
@@ -302,39 +310,96 @@ function coveredBy(group: ImportedGroup, candidates: OpenEvent[]): OpenEvent[] {
     left = left.minus(event.due);
     if (left.lte(tolerance)) break;
   }
-  if (sameDay.length > 0) return sameDay;
-
-  const similar = ordered.find((event) => similarValue(event.due, group.gross));
-  return similar ? [similar] : [];
+  return sameDay;
 }
 
-/** Proventos respondidos por linhas importadas. O resto a fonte cria, ao contrário do lançamento à mão. */
+const mergedGroup = (groups: ImportedGroup[], day: number): ImportedGroup => ({
+  day,
+  kind: groups[0]!.kind,
+  gross: groups.reduce((total, group) => total.plus(group.gross), money(0)),
+  net: groups.reduce((total, group) => total.plus(group.net), money(0)),
+  rows: groups.reduce((total, group) => total + group.rows, 0),
+});
+
+/**
+ * Proventos respondidos por linhas importadas. O resto a fonte cria, ao contrário do lançamento à mão. A data do
+ * arquivo diferente da fonte não duplica, e sobra de linha não engole o provento seguinte. Provento ainda não pago
+ * só conta por valor exato, e só se nenhum já pago cobrir: assim o resultado não depende do dia em que o job roda.
+ */
 function claimedByImports(input: ReconcileInput, taken: ReadonlySet<string>): Set<string> {
   const claimed = new Set<string>();
   const open = openEvents(input, taken);
-  for (const group of importedGroups(input.existing)) {
-    const candidates = inWindow(open, group.day, MARKET_RULES.familyMatchDays).filter(
+  const paid = open.filter((event) => !event.future);
+  const upcoming = open.filter((event) => event.future);
+  const free = (list: OpenEvent[], group: ImportedGroup) =>
+    inWindow(list, group.day, MARKET_RULES.familyMatchDays).filter(
       (event) => !claimed.has(event.id) && sameProventoKind(event.kind, group.kind),
     );
-    for (const event of coveredBy(group, candidates)) claimed.add(event.id);
+
+  const unsettled: ImportedGroup[] = [];
+  for (const group of importedGroups(input.existing)) {
+    const covered = coveredBy(group, free(paid, group));
+    if (covered.length === 0) unsettled.push(group);
+    for (const event of covered) claimed.add(event.id);
+  }
+
+  // Corretoras que pagaram em dias diferentes: a soma dos dias responde pelo provento da fonte.
+  const settled = new Set<ImportedGroup>();
+  for (const event of paid) {
+    if (claimed.has(event.id)) continue;
+    const near = inWindow(unsettled, event.day, MARKET_RULES.familyMatchDays).filter(
+      (group) => !settled.has(group) && sameProventoKind(group.kind, event.kind),
+    );
+    if (near.length < 2 || !fitsExactly(mergedGroup(near, event.day), event.due)) continue;
+    claimed.add(event.id);
+    for (const group of near) settled.add(group);
+  }
+
+  for (const group of unsettled) {
+    if (settled.has(group)) continue;
+    const similar = byCloseness(group, free(paid, group)).find((event) =>
+      similarValue(event.due, group.gross),
+    );
+    const exact = byCloseness(group, free(upcoming, group)).find((event) =>
+      fitsExactly(group, event.due),
+    );
+    const answer = similar ?? exact;
+    if (answer) claimed.add(answer.id);
   }
   return claimed;
 }
 
-/** Linha automática que voltaria por um Desfazer já tem resposta numa linha importada? */
+/**
+ * Linha automática que voltaria por um Desfazer já tem resposta numa linha importada? Cada importada responde por
+ * um só: quem chama passa o mesmo `used` para todas, para o Desfazer não perder outro provento do dia.
+ */
 export function answeredByImport(
   entry: { kind: DividendKind; paidOn: string; gross: string },
   existing: ExistingDividend[],
+  used: Set<string> = new Set(),
 ): boolean {
   const day = dayNumber(entry.paidOn);
   const gross = money(entry.gross);
-  return existing.some((row) => {
-    if (row.marketDividendId !== null || !isImportedDividend(row.id)) return false;
-    if (!sameProventoKind(row.kind, entry.kind)) return false;
-    const apart = Math.abs(dayNumber(row.paidOn) - day);
-    if (apart > MARKET_RULES.familyMatchDays) return false;
-    return apart === 0 || similarValue(gross, money(row.gross));
-  });
+  const near = existing
+    .flatMap((row) => {
+      if (row.marketDividendId !== null || !isImportedDividend(row.id) || used.has(row.id)) {
+        return [];
+      }
+      const apart = Math.abs(dayNumber(row.paidOn) - day);
+      const fits = sameProventoKind(row.kind, entry.kind) && apart <= MARKET_RULES.familyMatchDays;
+      return fits ? [{ row, apart }] : [];
+    })
+    .sort((a, b) => a.apart - b.apart);
+  const single = near.find(({ row }) => similarValue(gross, money(row.gross)));
+  if (single) {
+    used.add(single.row.id);
+    return true;
+  }
+  const sameDay = near.filter(({ apart }) => apart === 0).map(({ row }) => row);
+  const total = sameDay.reduce((sum, row) => sum.plus(row.gross), money(0));
+  if (sameDay.length < 2 || !similarValue(gross, total)) return false;
+  for (const row of sameDay) used.add(row.id);
+  return true;
 }
 
 /** Decide o que criar, corrigir e tirar para um investimento. Rodar de novo sobre o resultado não muda nada. */

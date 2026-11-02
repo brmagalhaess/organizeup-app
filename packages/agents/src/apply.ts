@@ -320,13 +320,14 @@ async function undoMercado(tx: TenantTx, ctx: TenantContext, market: MarketChang
         ),
       );
   }
+  const answered = new Set<string>();
   for (const { investmentId, marketDividendId, ...row } of market.removed) {
     // A família importou este provento depois que ele saiu: voltar criaria o mesmo ao lado (ADR-0029).
     const recorded = await tx
       .select()
       .from(dividends)
       .where(eq(dividends.investmentId, investmentId));
-    if (answeredByImport(row, recorded)) continue;
+    if (answeredByImport(row, recorded, answered)) continue;
     await tx
       .insert(dividends)
       .values({

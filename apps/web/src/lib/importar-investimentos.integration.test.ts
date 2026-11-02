@@ -286,6 +286,9 @@ describe("confirmar", () => {
 
   it("não confia no que vem do navegador", async () => {
     await expect(send([{ line: 1, quantity: "-1" }])).resolves.toMatchObject({ ok: false });
+    await expect(send([{ line: 1, quantity: "abc" }])).resolves.toMatchObject({ ok: false });
+    await expect(send([{ line: 1, unitPrice: "abc" }])).resolves.toMatchObject({ ok: false });
+    await expect(send([{ line: 1, quantity: "0.00" }])).resolves.toMatchObject({ ok: false });
     await expect(send([{ line: 1, ticker: "x'; drop table" }])).resolves.toMatchObject({
       ok: false,
     });

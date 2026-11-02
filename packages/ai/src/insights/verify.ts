@@ -1,11 +1,11 @@
 // Verificador determinístico da rotina da madrugada (§5.3). Roda depois do modelo e antes de gravar:
 // reprovou, a dica é descartada. Nada aqui lê banco nem chama o modelo.
+import { TICKER_IN_TEXT } from "@organizeup/domain";
 import type { PrivacyFilter } from "../privacy";
 import { parseNumber, uncheckedAmounts } from "../verify";
 
 export type InsightRejection = "numero" | "ativo" | "recomendacao" | "nome" | "instrucao";
 
-const TICKER = /\b[A-Z]{4}\d{1,2}\b/;
 const ASSET_ORDERS = [
   /\b(compre|comprar|venda|vender|mantenha|manter|invista|investir|troque|resgate|resgatar)\b[^.!?]{0,60}\b(ações|ação|fundos?|fiis?|etfs?|bdrs?|cdbs?|lcis?|lcas?|tesouro|cripto\w*|bitcoin)\b/i,
   // A reserva de emergência é "emergency fund" e "fondo de emergencia": não é ativo.
@@ -32,7 +32,7 @@ export function rejectionOf(
   privacy: PrivacyFilter,
 ): InsightRejection | null {
   if (uncheckedAmounts(text, known).length > 0 || uncheckedPercents(text, known)) return "numero";
-  if (TICKER.test(text)) return "ativo";
+  if (TICKER_IN_TEXT.test(text)) return "ativo";
   if (ASSET_ORDERS.some((order) => order.test(text))) return "recomendacao";
   if (privacy.scrub(text) !== text) return "nome";
   if (INSTRUCTION.test(text)) return "instrucao";

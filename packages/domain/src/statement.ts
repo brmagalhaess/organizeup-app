@@ -186,15 +186,25 @@ function splitCsvLine(line: string, delimiter: string): string[] {
   return cells.map((value) => value.trim());
 }
 
-export function parseCsvTable(text: string): string[][] {
-  const lines = dropBom(text)
+const csvLines = (text: string) =>
+  dropBom(text)
     .split(/\r\n|\r|\n/)
     .filter((line) => line.trim().length > 0);
+
+function delimiterOf(lines: string[]): string {
   const sample = lines.slice(0, 20);
-  const delimiter = [";", "\t", ","].reduce((best, candidate) => {
+  return [";", "\t", ","].reduce((best, candidate) => {
     const score = (d: string) => sample.filter((line) => splitCsvLine(line, d).length > 2).length;
     return score(candidate) > score(best) ? candidate : best;
   }, ";");
+}
+
+/** O separador que `parseCsvTable` usa neste texto. */
+export const csvDelimiter = (text: string) => delimiterOf(csvLines(text));
+
+export function parseCsvTable(text: string): string[][] {
+  const lines = csvLines(text);
+  const delimiter = delimiterOf(lines);
   return lines.map((line) => splitCsvLine(line, delimiter));
 }
 

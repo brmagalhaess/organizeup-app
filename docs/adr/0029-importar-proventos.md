@@ -22,10 +22,12 @@ dia e tudo o que o Mercado achasse depois.
 - **Linha importada responde pelo que ela cobre.** Fica fora da regra dos 5 dias. Em `reconcileProventos`, as linhas
   importadas do mesmo dia e tipo são um pagamento só, porque a corretora parte o valor. O pagamento consome proventos da
   fonte do mesmo tipo a até 5 dias, nesta ordem: o de mesmo valor; vários que somam o valor, parando quando a soma cobre;
-  o do mesmo dia, ainda que o valor divirja; e, em data diferente, só o de valor até 20% distante, a folga para
+  e o do mesmo dia, ainda que o valor divirja. O que sobra passa por mais dois passos: grupos de dias diferentes na janela,
+  somados, contra um provento de valor exato; e, em data diferente, um único valor até 20% distante, a folga para
   quantidade e imposto. O que ele cobre não é criado; todo o resto é. Assim, a data do arquivo diferente da fonte não
-  duplica, e sobra de linha não engole o provento seguinte. Provento bloqueado, sem posição na data-com ou ainda não
-  pago não entra na conta. Quem lançou à mão segue na regra antiga, sem mudança.
+  duplica, e sobra de linha não engole o provento seguinte. Provento bloqueado ou sem posição na data-com não entra na
+  conta. Provento ainda não pago só conta por valor exato, e só se nenhum já pago cobrir: o resultado não pode depender do
+  dia em que o job roda. Quem lançou à mão segue na regra antiga, sem mudança.
 - **Dividendo e rendimento contam como o mesmo tipo ao comparar** (`sameProventoKind`), porque a B3 e a fonte de mercado
   podem dar nomes diferentes ao pagamento de um FII. JCP é sempre separado: o imposto é outro.
 - **Mercado primeiro.** A linha automática igual, com um centavo de folga, sai como "já existe". A soma de várias
@@ -34,7 +36,8 @@ dia e tudo o que o Mercado achasse depois.
   `source = 'familia'` e mantém `market_dividend_id`. O job não mexe em linha `familia` e entende que aquele provento já
   tem resposta. É dado informado (regra 7): o aceite está na prévia. Outra linha do arquivo que disputa o mesmo automático
   também fica em conferir e só entra junto com a que troca, para o valor nunca somar por cima do que já está lá.
-- **Desfazer de remoção** não recria o automático ao lado de uma linha importada que já responde por ele.
+- **Desfazer de remoção** não recria o automático ao lado de uma linha importada que já responde por ele. O valor
+  precisa ser parecido, também no mesmo dia, e cada importada responde por um só: o outro provento do dia volta.
 - **A confirmação reconfere.** `planDividendImport` roda de novo dentro da transação, sob a trava da família
   (`lockFamilyImport`), a mesma da importação da carteira, e só grava o que ele mandar. O navegador manda o estado que a
   pessoa viu em cada linha: a que mudou depois da prévia é pulada e contada como pulada, para um "novo" nunca virar troca
@@ -68,7 +71,7 @@ dia e tudo o que o Mercado achasse depois.
 - **Reaproveitável.** `parseDividendFile` e `planDividendImport` são puros, em `packages/domain`, para o importador
   inteligente chamar. Sem IA aqui.
 
-## Códigos com dígito: depende do fundador
+## Códigos com dígito
 
 A revisão mostrou que `normalizeTicker` recusava B3SA3 e BDRs como M1TA34: esses ativos ficavam sem cotação, sem provento
 automático e fora do catálogo, como `ticker_invalido`, e a importação os ignorava. A raiz passa a aceitar as formas que a
@@ -76,9 +79,9 @@ B3 usa, listadas uma a uma em `TICKER_ROOTS`, para nome digitado como CPF123 con
 na raiz dá o mesmo de antes.
 
 As tabelas de mercado têm `CHECK` no formato antigo, e alargar uma `CHECK` exige `DROP CONSTRAINT`. Isso é exceção à
-regra 3, como a da `0016` (ADR-0015), e **a migração `0041` só pode entrar em `main` com aprovação do fundador**. Nenhuma
-linha é apagada ou alterada. Sem a migração, a mudança de código não pode entrar: o catálogo grava em lote, e um código
-recusado derrubaria a lista inteira. Os dois commits ficam no topo do branch para sair juntos, sem tocar no resto.
+regra 3, como a da `0016` (ADR-0015). **Aprovada pelo fundador em 2026-11-02 ("Sim, aprovo"), conforme repassado pelo
+coordenador desta frente**, só para esta troca de `CHECK` na `0041`. Nenhuma linha é apagada ou alterada. A mudança de
+código não pode entrar sem a migração: o catálogo grava em lote, e um código recusado derrubaria a lista inteira.
 
 Com a mudança, o Mercado passa a consultar esses códigos, e cada um gasta uma chamada do orçamento de
 `BRAPI_MAX_CALLS_PER_DAY`. O catálogo cresce com BDRs que antes eram descartados. Investimento já cadastrado com esses
@@ -93,8 +96,10 @@ proventos dos últimos 5 anos na primeira rodada.
 - Excluir um provento importado libera o automático: na rodada seguinte, o Mercado cria o dele. Excluir a linha trocada,
   que tem `market_dividend_id`, bloqueia o automático para sempre, como qualquer exclusão de automático.
 - Data do arquivo diferente da fonte e valor mais de 20% distante é outro pagamento para o job: se for o mesmo, a família
-  vê dois e exclui um. A fonte com data posterior à real cria um "a receber" que fica ao lado da linha importada, pelo
-  mesmo motivo. Os dois casos são raros e aparecem na tela.
+  vê dois e exclui um.
+- **Soma por coincidência:** uma linha de 100 contra proventos de 60 e 40 a poucos dias cobre os dois, porque a soma fecha,
+  ainda que o de 40 seja outro pagamento que o arquivo não trouxe. É raro, porque exige a soma exata em centavos, e o
+  provento fica de fora até a família lançar. A alternativa, exigir o mesmo dia, duplicaria o caso comum de data divergente.
 - Data do arquivo a mais de 5 dias do pagamento da fonte é outro provento para o job, como já acontece com o lançamento
   à mão. Não há Desfazer por lote; cada linha se exclui na tela de Proventos.
 

@@ -168,13 +168,6 @@ describe("2. reivindicação da linha importada", () => {
     expect(created([events[1]!], [imported(1, "2026-03-12", "100.00")])).toEqual(["B"]);
   });
 
-  it("provento ainda não pago não responde por linha já paga", () => {
-    const events = [event("B", "2026-03-14", "1", "2026-02-25")];
-    const line = imported(1, "2026-03-10", "100.00");
-    expect(created(events, [line], [], "2026-03-11")).toEqual(["B"]);
-    expect(created(events, [line], [], "2026-03-20")).toEqual([]);
-  });
-
   it("propriedade: o arquivo responde pelo que traz, inteiro ou por corretora, e o resto entra", () => {
     const start = Date.UTC(2026, 2, 2);
     const dayOf = (index: number) =>

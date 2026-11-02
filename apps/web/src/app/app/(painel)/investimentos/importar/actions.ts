@@ -22,7 +22,6 @@ import {
   brazilRulesApply,
   investmentClassAllowed,
   isB3Ticker,
-  money,
   newAssetsOf,
   normalizeTicker,
   parseMoney,
@@ -49,12 +48,11 @@ import { MissingQuote, recordTradeCash } from "@/lib/trade-cash";
 const MAX_LINES = 2000;
 /** `investment_trades.quantity` e `unit_price` são numeric(20,8). */
 const DECIMAL = /^\d{1,12}(\.\d{1,8})?$/;
+/** O mesmo, com pelo menos um dígito diferente de zero. */
+const POSITIVE_DECIMAL = /^(?=[\d.]*[1-9])\d{1,12}(\.\d{1,8})?$/;
 const CENTS = /^\d{1,12}\.\d{2}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const positive = z
-  .string()
-  .regex(DECIMAL)
-  .refine((value) => money(value).gt(0));
+const positive = z.string().regex(POSITIVE_DECIMAL);
 const ticker = z.string().max(8).refine(isB3Ticker);
 const validDate = z
   .string()
