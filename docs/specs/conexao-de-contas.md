@@ -10,7 +10,7 @@ data. Não substitui advogado. Preços da Pluggy e da B3 conferidos direto na fo
 | ------------------------- | ----------------------------------------- | ------------ |
 | 1. Importar arquivo       | Agora                                     | R$ 0         |
 | 2. API da B3              | Com CNPJ e 51 assinantes de Investimentos | R$ 500/mês   |
-| 3. Open Finance de bancos | Com 253 conexões pagas confirmadas        | R$ 2.500/mês |
+| 3. Open Finance de bancos | Com 126 conexões pagas confirmadas        | R$ 2.500/mês |
 
 ## Quem conecta e quem aprova
 
@@ -22,7 +22,8 @@ Regra central: **quem aprova é sempre o titular da conta no banco, nunca outra 
   não vê a senha, nem o processo, nem nada antes de aprovar.
 - Conta de CNPJ é aprovada por quem tem poder no banco para representar a empresa. Isso é do banco: o sistema só pede o
   CNPJ, e a pessoa autoriza no ambiente da empresa.
-- Criança e quem não tem login não conectam. Conta de menor fica de fora nesta fase; validar com advogado.
+- **Conta de menor não conecta, nem banco nem investimento** (decisão do fundador em 2026-11-01). Quem não tem login
+  também não. A tela nem oferece a opção, e o servidor recusa.
 - Conta conjunta: o titular que aprovou responde pela conexão. Aviso disso na tela; validar com advogado.
 - O titular escolhe se a família ou os sócios veem os dados daquela conta, e pode revogar sozinho, a qualquer momento.
   Quem pediu não revoga pelo titular, salvo tirar a conta da visão da família.
@@ -56,10 +57,17 @@ Business, entre elas Itaú, Bradesco, Caixa, Santander, Banco do Brasil, Nubank,
 pede CPF ou CNPJ conforme o tipo. O link de consentimento vale uma vez só, então o convite ao titular deve ir de um jeito
 que apps de mensagem não abram antes dele.
 
-- **Cobrar por conexão, não por família:** família ou empresa com vários titulares pode ter muitas contas. No teto do
-  plano, cada conexão custa R$ 5. A R$ 9,90 por conexão, com o campo que a pessoa vai aumentando, o piso se paga com 253
-  conexões, e 500 conexões rendem R$ 4.950. Hipótese de preço, a testar.
-- Confirmar com a Pluggy se conexão de CNPJ custa o mesmo que a de CPF.
+- **Como a Pluggy cobra:** não é por conta. É um mínimo mensal de R$ 2.500 com volume incluso, até 500 conexões ativas. Uma
+  conexão é um consentimento num banco. Acima do volume incluso, o excedente é por requisição, cada leitura de saldo,
+  transação ou investimento, sem preço público. A página não define "conexão ativa".
+- **Preço decidido pelo fundador em 2026-11-01: R$ 19,90 por mês, por conta conectada**, escolhido no campo que a pessoa
+  aumenta ao montar o plano. O valor é mensal porque o custo da Pluggy é mensal: cobrança única daria prejuízo.
+- Com esse preço, o mínimo se paga com 126 conexões, e 500 conexões rendem R$ 9.950 por mês, antes de taxas, impostos e
+  auditor. Acima de 500 a margem depende do preço negociado.
+- Contar por conexão no banco, a mesma unidade da Pluggy. Falta confirmar se conta e cartão do mesmo banco vêm na mesma
+  conexão, e se conexão de CNPJ custa o mesmo.
+- **Sincronizar pouco:** como o excedente é por leitura, buscar dados uma vez por dia, sem atualização a cada tela.
+- Não vender antes de existir: o item fica no catálogo com venda desligada até a Etapa 3 ir ao ar.
 - Open Finance direto, sem agregador, exige ser instituição autorizada pelo Banco Central: inviável neste estágio.
 - Não usar conector por senha do banco: depende da senha do usuário e quebra quando o banco muda.
 
