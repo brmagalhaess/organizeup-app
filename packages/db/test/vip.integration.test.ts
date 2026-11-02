@@ -20,6 +20,15 @@ const admin = { adminUserId: "admin-vip" };
 
 let serial = 0;
 
+/** Agora, no relógio do banco. */
+const databaseNow = (ctx: Parameters<typeof db.withHousehold>[0]) =>
+  db.withHousehold(ctx, async (tx) => {
+    const rows = await tx.execute<{ ms: number }>(
+      db.sql`select (extract(epoch from now()) * 1000)::float8 as ms`,
+    );
+    return Number(rows[0]!.ms);
+  });
+
 async function newFamily(members: Array<{ userId: string; role: string }> = []) {
   serial += 1;
   const id = `hh-vip-${serial}`;
@@ -532,7 +541,8 @@ describe("dias de teste e cortesia", () => {
     const access = await db.readFamilyAccess(family.ctx);
     expect(access.mode).toBe("teste");
     expect(await logged("assinatura:dias_teste", family.id)).toHaveLength(1);
-    const left = access.trialEndsAt!.getTime() - Date.now();
+    // Só o relógio do banco: o fim do teste nasce nele, e o do Node pode estar atrás.
+    const left = access.trialEndsAt!.getTime() - (await databaseNow(family.ctx));
     expect(left).toBeGreaterThan(9.9 * DAY);
     expect(left).toBeLessThanOrEqual(10 * DAY);
   });
