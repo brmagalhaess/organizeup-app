@@ -797,7 +797,7 @@
       "title": "Trae tus proventos",
       "description": "Envía el archivo que descargaste y revisa todo antes de guardar.",
       "back": "Volver a Proventos",
-      "noPermission": "Tu rol en esta familia no permite importar.",
+      "noPermission": "Tu rol no permite importar.",
       "noInvestments": {
         "title": "Primero, las inversiones",
         "text": "Los proventos quedan ligados a los activos de tu cartera. Importa la cartera y vuelve aquí.",
@@ -863,7 +863,7 @@
         "valor_diferente": "Ya hay un provento automático con otro valor. Si lo marcas, queda con el valor del archivo.",
         "parecida": "Hay un registro tuyo cerca con otro valor. Si lo marcas, entra uno más.",
         "imposto_incerto": "No se puede saber el impuesto solo con este archivo. Si lo marcas, entra el valor del archivo, sin impuesto. Revisa tu extracto.",
-        "acima_do_limite": "Por encima de R$ 50 mil al mes de la misma empresa puede haber retención del 10%. Revisa tu extracto.",
+        "acima_do_limite": "Por encima de {limit} al mes de la misma empresa puede haber retención del 10%. Revisa tu extracto.",
         "excluido": "Ya eliminaste o deshiciste este provento. Márcalo si quieres traerlo de vuelta."
       },
       "reasons": {
@@ -922,7 +922,7 @@
         "colunas": "Faltan columnas en este CSV: necesita fecha, activo, tipo y valor.",
         "readFailed": "No pudimos leer este archivo. Descárgalo de nuevo e inténtalo otra vez.",
         "invalid": "Algunas líneas vinieron en un formato inválido. Envía el archivo de nuevo.",
-        "onlyBrazil": "La importación de proventos es para familias con moneda principal en reales.",
+        "onlyBrazil": "La importación de proventos es para quienes tienen moneda principal en reales.",
         "failed": "No pudimos terminar ahora. No se guardó nada. Inténtalo de nuevo."
       }
     },

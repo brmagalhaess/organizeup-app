@@ -12,6 +12,7 @@ import {
   dividendSelectable,
   dividendSelectedByDefault,
   columnsComplete,
+  MARKET_RULES,
   money,
   parseCsvTable,
   parseDividendFile,
@@ -125,6 +126,7 @@ function DividendRow({
   const t = useTranslations("proventos.importar");
   const tKinds = useTranslations("proventos.kinds");
   const locale = useLocale() as Locale;
+  const moneyText = useMoney();
   const date = formatDate(row.paidOn, locale);
   const title = `${tKinds(row.kind)} · ${row.ticker}`;
   return (
@@ -161,7 +163,11 @@ function DividendRow({
           <p className="text-xs text-muted">{t(`reasons.${row.ignoreReason}`)}</p>
         ) : null}
         {row.state === "conferir" && row.doubtReason ? (
-          <p className="text-xs text-warning">{t(`doubts.${row.doubtReason}`)}</p>
+          <p className="text-xs text-warning">
+            {t(`doubts.${row.doubtReason}`, {
+              limit: moneyText(MARKET_RULES.dividendMonthlyLimit),
+            })}
+          </p>
         ) : null}
       </div>
     </li>

@@ -797,7 +797,7 @@
       "title": "Traga seus proventos",
       "description": "Envie o arquivo que você baixou e confira tudo antes de gravar.",
       "back": "Voltar para Proventos",
-      "noPermission": "Seu papel nesta família não permite importar.",
+      "noPermission": "Seu papel não permite importar.",
       "noInvestments": {
         "title": "Primeiro, os investimentos",
         "text": "Os proventos ficam ligados aos ativos da sua carteira. Importe a carteira e volte aqui.",
@@ -863,7 +863,7 @@
         "valor_diferente": "Já há um provento automático com outro valor. Se marcar, ele fica com o valor do arquivo.",
         "parecida": "Há um lançamento seu por perto com outro valor. Se marcar, entra mais um.",
         "imposto_incerto": "Não dá para saber o imposto só por este arquivo. Se marcar, entra o valor do arquivo, sem imposto. Confira no extrato.",
-        "acima_do_limite": "Acima de R$ 50 mil no mês da mesma empresa pode haver retenção de 10%. Confira no extrato.",
+        "acima_do_limite": "Acima de {limit} no mês da mesma empresa pode haver retenção de 10%. Confira no extrato.",
         "excluido": "Você já excluiu ou desfez este provento. Marque se quiser trazer de volta."
       },
       "reasons": {
@@ -922,7 +922,7 @@
         "colunas": "Faltam colunas neste CSV: precisa ter data, ativo, tipo e valor.",
         "readFailed": "Não conseguimos ler este arquivo. Baixe de novo e tente outra vez.",
         "invalid": "Algumas linhas vieram em formato inválido. Envie o arquivo de novo.",
-        "onlyBrazil": "A importação de proventos vale para famílias com moeda principal em reais.",
+        "onlyBrazil": "A importação de proventos vale para quem tem moeda principal em reais.",
         "failed": "Não conseguimos concluir agora. Nada foi gravado. Tente de novo."
       }
     },

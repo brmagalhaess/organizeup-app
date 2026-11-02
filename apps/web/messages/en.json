@@ -797,7 +797,7 @@
       "title": "Bring in your dividends",
       "description": "Send the file you downloaded and review everything before saving.",
       "back": "Back to Dividends",
-      "noPermission": "Your role in this family does not allow importing.",
+      "noPermission": "Your role does not allow importing.",
       "noInvestments": {
         "title": "Investments first",
         "text": "Dividends are linked to the assets in your portfolio. Import your portfolio and come back.",
@@ -863,7 +863,7 @@
         "valor_diferente": "There is already an automatic dividend with another amount. If you check this, it takes the file's amount.",
         "parecida": "There is an entry of yours nearby with another amount. If you check this, one more comes in.",
         "imposto_incerto": "The tax cannot be known from this file alone. If you check this, the file's amount comes in with no tax. Check your statement.",
-        "acima_do_limite": "Above R$ 50 thousand in a month from the same company, 10% may be withheld. Check your statement.",
+        "acima_do_limite": "Above {limit} in a month from the same company, 10% may be withheld. Check your statement.",
         "excluido": "You already deleted or undid this dividend. Check this to bring it back."
       },
       "reasons": {
@@ -922,7 +922,7 @@
         "colunas": "This CSV is missing columns: it needs date, asset, type and amount.",
         "readFailed": "We could not read this file. Download it again and retry.",
         "invalid": "Some lines came in an invalid format. Send the file again.",
-        "onlyBrazil": "Dividend import is for families whose main currency is the Brazilian real.",
+        "onlyBrazil": "Dividend import is for accounts whose main currency is the Brazilian real.",
         "failed": "We could not finish now. Nothing was saved. Try again."
       }
     },

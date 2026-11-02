@@ -22,9 +22,9 @@ Uma frase em cada um diz como baixar.
 Instituição, Quantidade e Preço unitário existem nos arquivos da B3 e não são lidos. Preço unitário vem arredondado e
 não fecha com o valor, então não serve de base para o imposto.
 
-Fora do lista, sem chegar a gravar: Excel antigo (`.xls`), PDF, arquivo acima de 5 MB ou 2.000 linhas, e Excel com outro
-layout. Cada caso tem mensagem própria. CSV sem as colunas reconhecidas abre a escolha de colunas; sem títulos, a tela
-explica o que falta.
+Ficam de fora, sem chegar à prévia: Excel antigo (`.xls`), PDF, arquivo acima de 5 MB ou 2.000 linhas, e Excel com outro
+layout. Cada caso tem mensagem própria. CSV sem as colunas reconhecidas abre a escolha de colunas. CSV sem linha de
+títulos é recusado com a explicação do que precisa ter, para a primeira linha de dados não se perder como título.
 
 ## Passos e estados
 

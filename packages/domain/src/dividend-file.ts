@@ -28,7 +28,7 @@ import {
 } from "./investment-file";
 import { normalizeTicker, type DividendKind } from "./market";
 import { money, toDbAmount } from "./money";
-import { normalizeDescription, parseCsvTable } from "./statement";
+import { normalizeDescription, parseCsvTable, parseStatementDate } from "./statement";
 
 export const DIVIDEND_FILE_ACCEPT = ".xlsx,.csv";
 
@@ -336,14 +336,20 @@ export const columnsComplete = (columns: DividendColumns) =>
   columns.kind >= 0 &&
   (columns.gross >= 0 || columns.net >= 0 || columns.value >= 0);
 
-/** A linha com mais títulos conhecidos, a primeira no empate. Sem nenhum, a primeira com várias colunas. */
+/**
+ * A linha com mais títulos conhecidos, a primeira no empate. Sem nenhum, a primeira com várias colunas. Linha com
+ * data é dado, não título: sem esse cuidado, a primeira linha de um CSV sem títulos sumiria sem aviso.
+ */
 export function dividendCsvColumns(table: string[][]): DividendColumns {
   const known = (columns: DividendColumns) =>
     FIELDS.filter((field) => columns[field] >= 0).length + (columnsComplete(columns) ? 10 : 0);
   const candidates = table
     .slice(0, HEADER_SEARCH_ROWS)
     .map((row, index) => columnsAt(row, index))
-    .filter((columns) => table[columns.header]!.length > 1);
+    .filter((columns) => {
+      const row = table[columns.header]!;
+      return row.length > 1 && !row.some((cell) => parseStatementDate(cell) !== null);
+    });
   const best = candidates.reduce<DividendColumns | null>(
     (top, columns) => (top && known(top) >= known(columns) ? top : columns),
     null,

@@ -303,6 +303,9 @@ describe("CSV genérico", () => {
   it("arquivo sem cabeçalho nem colunas não vira linha", () => {
     expect(failure(() => csv("apenas uma frase\n"))).toBe("colunas");
     expect(failure(() => csv(""))).toBe("vazio");
+    const noTitles = "15/01/2026;ABCD3;Dividendo;50,00\n16/01/2026;ABCD3;Dividendo;60,00\n";
+    expect(failure(() => csv(noTitles))).toBe("colunas");
+    expect(dividendCsvColumns(parseCsvTable(noTitles)).header).toBe(-1);
   });
 });
 
