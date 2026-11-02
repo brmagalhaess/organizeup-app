@@ -71,7 +71,7 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      Com `E2E_ADMIN_EMAIL`, rode a suíte com `--workers=1`: `admin.spec.ts` liga manutenção e fecha o cadastro para todo
      mundo, e os specs em paralelo falham sem ter culpa. `E2E_OPS_TOKEN` precisa de 32 caracteres ou mais.
      `E2E_ADMIN_EMAIL` liga o spec `admin.spec.ts`; o servidor de teste sobe com
-     `ADMIN_EMAILS` igual a esse valor. `EMAIL_CAPTURE_FILE` liga `recuperar-senha.spec.ts`: o servidor
+     `ADMIN_EMAILS` igual a esse valor. `EMAIL_CAPTURE_FILE` liga `recuperar-senha.spec.ts` e `confirmar-email.spec.ts`: o servidor
      grava os e-mails nesse arquivo em vez de enviar. Como `NODE_ENV=production` desliga a captura, esse
      spec roda contra `next dev`, com a mesma variável no servidor e no Playwright.
      `E2E_BILLING=1`, com `E2E_WORKER_DATABASE_URL` e `ADMIN_DATABASE_URL`, liga `assinatura.spec.ts`, que liga e desliga

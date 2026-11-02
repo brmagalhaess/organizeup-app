@@ -165,7 +165,7 @@ test("cadastro envia a confirmação e o link confirma e já entra", async ({ br
   const other = await browser.newContext();
   const otherPage = await other.newPage();
   await otherPage.goto(link);
-  await expect(otherPage).toHaveURL(/\/app\/novo-household$/);
+  await expect(otherPage).toHaveURL(/\/confirmar-email\?estado=confirmado$/);
   const verified = await otherPage.request.get("/api/auth/get-session");
   expect((await verified.json()).user.emailVerified).toBe(true);
   await other.close();
