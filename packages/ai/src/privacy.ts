@@ -1,7 +1,7 @@
 // O que sai para o modelo (§0 da especificação). Pessoas viram "titular", "cônjuge", "filho 1";
 // nome, e-mail, CPF e CNPJ não saem. Toda saída de ferramenta e toda pergunta passam por aqui. O documento
 // da conta nem chega aqui: nada em packages/ai lê `user_identity` (assistant.unit.test.ts confere).
-import { isValidCnpj } from "@organizeup/domain";
+import { isValidCnpj, isValidCpf, maskDocuments } from "@organizeup/domain";
 import { asc, eq, household, householdMember, people, user, type TenantTx } from "@organizeup/db";
 
 const RELATION_LABELS: Record<string, string> = {
@@ -79,16 +79,26 @@ const NOT_A_NAME = new Set([
 ]);
 
 const EMAIL = /[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+/g;
-// Ponto final de frase não protege o CPF: só ponto seguido de número indica que a sequência continua.
-const CPF = /(?<![\d.])\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}(?!\d|\.\d)/g;
-/** Com máscara é CNPJ, numérico ou alfanumérico. A letra é de código: nome de loja não tem barra. */
+const DOCUMENT = "[documento]";
+// Na máscara exata é documento mesmo com dígito errado: quem digitou assim estava falando de um. Fora dela,
+// quem decide é `maskDocuments`, pelo dígito verificador, seja qual for a pontuação.
+const CPF_MASKED = /(?<![\d.])\d{3}\.\d{3}\.\d{3}-\d{2}(?!\d|\.\d)/g;
 const CNPJ_MASKED =
   /(?<![\dA-Za-z])[\dA-Za-z]{2}\.[\dA-Za-z]{3}\.[\dA-Za-z]{3}\/[\dA-Za-z]{4}-\d{2}(?!\d)/g;
-/** Sem máscara, o que tem 14 caracteres seguidos só vira documento se o dígito verificador fechar. */
-const CNPJ_BARE = /(?<![\dA-Za-z])[\dA-Za-z]{12}\d{2}(?![\dA-Za-z])/g;
-const NUMERIC = /^-?\d+(\.\d+)?$/;
-/** Número solto com tamanho de documento não é valor: valor sai sempre com centavos. */
-const DOCUMENT_SIZED = /^\d{11}$|^\d{14}$/;
+const NUMERIC = /^[+-]?(\d+)(\.\d+)?$/;
+/** Maior valor da coluna de dinheiro: numeric(14,2). */
+const MONEY_INTEGER_DIGITS = 12;
+
+const isDocument = (digits: string) => isValidCpf(digits) || isValidCnpj(digits);
+
+/** Valor em string passa intacto: dinheiro sai com centavos. Sem isso, número de documento não é valor. */
+function isPlainNumber(value: string): boolean {
+  const match = NUMERIC.exec(value);
+  if (!match) return false;
+  const [, integer, decimals] = match;
+  const money = decimals?.length === 3 && integer!.length <= MONEY_INTEGER_DIGITS;
+  return money || !isDocument(integer!);
+}
 
 export interface PrivacyEntry {
   /** Nome como está no cadastro. */
@@ -124,11 +134,10 @@ export function createPrivacyFilter(entries: PrivacyEntry[]): PrivacyFilter {
         );
 
   const scrub = (text: string) => {
-    const masked = text
-      .replace(EMAIL, "[e-mail]")
-      .replace(CNPJ_MASKED, "[documento]")
-      .replace(CNPJ_BARE, (found) => (isValidCnpj(found) ? "[documento]" : found))
-      .replace(CPF, "[documento]");
+    const masked = maskDocuments(
+      text.replace(EMAIL, "[e-mail]").replace(CNPJ_MASKED, DOCUMENT).replace(CPF_MASKED, DOCUMENT),
+      DOCUMENT,
+    );
     return pattern
       ? masked.replace(pattern, (found) => labels.get(strip(found)) ?? "pessoa")
       : masked;
@@ -136,12 +145,17 @@ export function createPrivacyFilter(entries: PrivacyEntry[]): PrivacyFilter {
 
   const scrubDeep = <T>(value: T): T => {
     if (typeof value === "string") {
-      return (NUMERIC.test(value) && !DOCUMENT_SIZED.test(value) ? value : scrub(value)) as T;
+      if (isPlainNumber(value)) return value;
+      return (NUMERIC.test(value) ? DOCUMENT : scrub(value)) as T;
+    }
+    if (typeof value === "number") {
+      const document = Number.isSafeInteger(value) && isDocument(String(Math.abs(value)));
+      return (document ? DOCUMENT : value) as T;
     }
     if (Array.isArray(value)) return value.map((item) => scrubDeep(item)) as T;
     if (value && typeof value === "object") {
       return Object.fromEntries(
-        Object.entries(value).map(([key, item]) => [key, scrubDeep(item)]),
+        Object.entries(value).map(([key, item]) => [maskDocuments(key, DOCUMENT), scrubDeep(item)]),
       ) as T;
     }
     return value;

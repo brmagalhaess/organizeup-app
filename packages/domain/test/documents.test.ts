@@ -4,15 +4,18 @@ import {
   accountFeatures,
   cnpjCheckDigits,
   cpfCheckDigits,
+  findDocuments,
   formatCnpj,
   formatCpf,
   isValidCnpj,
   isValidCpf,
   maskCnpj,
   maskCpf,
+  maskDocuments,
   normalizeCnpj,
   normalizeCpf,
   parseIdentity,
+  parseInviteeIdentity,
 } from "../src/documents";
 
 // Fictícios. CPF começando em 000 fica fora das faixas em uso; o exemplo de CNPJ é o da Receita Federal.
@@ -162,6 +165,159 @@ describe("CNPJ", () => {
   });
 });
 
+describe("achar documento em texto livre", () => {
+  const masked = (text: string) => maskDocuments(text, "[d]");
+  // Valores só com dígito verificador certo, com ou sem o exemplo da Receita.
+  const FULL_WIDTH_CPF = [..."12345678909"]
+    .map((char) => String.fromCodePoint(0xff10 + Number(char)))
+    .join("");
+  const ARABIC_CPF = [..."12345678909"]
+    .map((char) => String.fromCodePoint(0x0660 + Number(char)))
+    .join("");
+
+  it.each([
+    "123.456.789-09",
+    "12345678909",
+    "123456789-09",
+    "123 456 789 09",
+    "123.456.789.09",
+    "123-456-789-09",
+    "123/456/789-09",
+    "123,456,789-09",
+    "123_456_789_09",
+    "123.456.789–09",
+    "123.456.789—09",
+    "123.456.789‑09",
+    "123​456​789​09",
+    "1‍2‍3‍4‍5‍6‍7‍8‍9‍0‍9",
+    FULL_WIDTH_CPF,
+    ARABIC_CPF,
+    "1 2 3 4 5 6 7 8 9 0 9",
+    "123.456.789 - 09",
+    "123 . 456 . 789 - 09",
+  ])("acha CPF em %j", (cpf) => {
+    expect(masked(`cpf ${cpf} fim`)).toBe("cpf [d] fim");
+    expect(findDocuments(cpf)).toMatchObject([{ kind: "cpf" }]);
+  });
+
+  it.each([
+    ["CPF.123.456.789-09", "CPF.[d]"],
+    ["doc.12345678909", "doc.[d]"],
+    ["CPF:12345678909.", "CPF:[d]."],
+    ["CPF12345678909", "CPF[d]"],
+    ["PIX12345678909X", "PIX[d]X"],
+    ["12345678909.5", "[d].5"],
+    ["123.456.789-09.5", "[d].5"],
+    ["123.456.789-09.", "[d]."],
+    ["(123.456.789-09)", "([d])"],
+    ["x123.456.789-09", "x[d]"],
+  ])("acha CPF colado: %j", (text, expected) => {
+    expect(masked(text)).toBe(expected);
+  });
+
+  it.each([
+    "11.222.333/0001-81",
+    "11222333000181",
+    "11222333/0001-81",
+    "11.222.333/000181",
+    "11.222.333.0001-81",
+    "11 222 333 0001 81",
+    "11.222.333/0001 81",
+    "11-222-333/0001-81",
+    "11.222.333/0001.81",
+    "11.222.333/0001–81",
+    "12.ABC.345/01DE-35",
+    "12ABC34501DE35",
+    "12abc34501de35",
+    "12.abc.345/01de-35",
+    "12ABC345/01DE-35",
+    "12 ABC 345 01DE 35",
+  ])("acha CNPJ em %j", (cnpj) => {
+    expect(masked(`cnpj ${cnpj} fim`)).toBe("cnpj [d] fim");
+    expect(findDocuments(cnpj)).toMatchObject([{ kind: "cnpj" }]);
+  });
+
+  it.each([
+    ["CNPJ11222333000181", "CNPJ[d]"],
+    ["PIX11222333000181X", "PIX[d]X"],
+    ["CNPJ12ABC34501DE35", "CNPJ[d]"],
+  ])("acha CNPJ colado: %j", (text, expected) => {
+    expect(masked(text)).toBe(expected);
+  });
+
+  it("acha mais de um documento, cercados de valor", () => {
+    expect(masked("R$ 500,00 para 123.456.789-09 e 11.222.333/0001-81 em 01/11/2026")).toBe(
+      "R$ 500,00 para [d] e [d] em 01/11/2026",
+    );
+  });
+
+  it.each([
+    "R$ 1.234,56",
+    "R$ 1.234.567,89",
+    "1234,56",
+    "1,234.56",
+    "12345.67",
+    "12345678909.00",
+    "100,00 200,00 300,00 400,00",
+    "1.234,56 7.890,12 3.456,78",
+    "10.50 20.25 30.75 40.10 50.60",
+    "US$ 1,234.56",
+    "2026-10-31",
+    "01/11/2026 02/11/2026 03/11/2026",
+    "2026-10-31 2026-11-01",
+    "6f1c2b8e-3a4d-4e5f-9a7b-1c2d3e4f5a6b",
+    "E60746948202611011230s12345678901",
+    "20261101000012345678",
+    "123456789012",
+    "1234567890123456",
+    "4111 1111 1111 1111",
+    "MERCADOLIVRE12 compra",
+    "PAGTO CONTA LUZ 12",
+    "TRANSFERENCIA PIX RECEBIDA 26",
+    "12:30:45",
+  ])("deixa em paz %j", (text) => {
+    expect(findDocuments(text)).toEqual([]);
+  });
+
+  it("identificadores aleatórios não viram documento", () => {
+    fc.assert(
+      fc.property(fc.uuid(), (id) => {
+        expect(findDocuments(id)).toEqual([]);
+      }),
+    );
+    fc.assert(
+      fc.property(fc.array(alnum, { minLength: 21, maxLength: 40 }).map(join), (id) => {
+        const hit = findDocuments(id).some((span) => /[A-Z]/.test(id.slice(span.start, span.end)));
+        expect(hit).toBe(false);
+      }),
+    );
+  });
+
+  it("valor em dinheiro nunca vira documento", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 1, max: 99_999_999 }), { minLength: 2, maxLength: 6 }),
+        (cents) => {
+          const list = cents
+            .map((value) => `${Math.floor(value / 100)},${String(value % 100).padStart(2, "0")}`)
+            .join(" ");
+          expect(findDocuments(list)).toEqual([]);
+        },
+      ),
+    );
+  });
+
+  it("todo CPF e CNPJ gerado é achado, em qualquer pontuação", () => {
+    fc.assert(
+      fc.property(cpfArb, cnpjArb, fc.constantFrom(".", "-", " ", "/", "​"), (cpf, cnpj, sep) => {
+        const spacedCpf = `${cpf.slice(0, 3)}${sep}${cpf.slice(3, 6)}${sep}${cpf.slice(6, 9)}${sep}${cpf.slice(9)}`;
+        expect(masked(`a ${spacedCpf} b`)).toBe("a [d] b");
+        expect(masked(`a ${formatCnpj(cnpj)} b`)).toBe("a [d] b");
+      }),
+    );
+  });
+});
+
 describe("recursos por tipo de conta", () => {
   it("família tem parentesco, casamento e dependentes; empresa tem participação", () => {
     expect(accountFeatures("pf")).toEqual({
@@ -242,6 +398,29 @@ describe("parseIdentity", () => {
       expect(parseIdentity(raw)).toEqual({ ok: false, fields: ["choice"] });
     },
   );
+
+  it("convite é sempre de pessoa, mesmo que o formulário peça empresa", () => {
+    const raw = {
+      inBrazil: true,
+      personType: "pj",
+      cpf: CPF,
+      cnpj: CNPJ_ALFA,
+      companyName: "Outra",
+    };
+    expect(parseInviteeIdentity(raw)).toEqual({
+      ok: true,
+      value: { inBrazil: true, personType: "pf", cpf: CPF, cnpj: null, companyName: null },
+    });
+    expect(parseInviteeIdentity({ inBrazil: false, personType: "pj" })).toMatchObject({
+      ok: true,
+      value: { inBrazil: false, personType: null },
+    });
+    expect(parseInviteeIdentity({ inBrazil: true, cpf: "1" })).toEqual({
+      ok: false,
+      fields: ["cpf"],
+    });
+    expect(parseInviteeIdentity(null)).toEqual({ ok: false, fields: ["choice"] });
+  });
 
   it("o resultado nunca repete o que foi digitado quando falha", () => {
     fc.assert(

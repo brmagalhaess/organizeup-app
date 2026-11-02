@@ -71,6 +71,71 @@ describe("privacidade", () => {
     ).toEqual({ a: "[documento]", b: "[documento]", c: "1234.56", d: "100" });
   });
 
+  it("número negativo, número puro, chave e valor com sinal também não escapam", () => {
+    expect(
+      filter.scrubDeep({
+        a: "-12345678909",
+        b: "+12345678909",
+        c: 12345678909,
+        d: 11222333000181,
+        e: "11222333000181.00",
+        f: "12345678909.5",
+        "12345678909": "chave",
+      }),
+    ).toEqual({
+      a: "[documento]",
+      b: "[documento]",
+      c: "[documento]",
+      d: "[documento]",
+      e: "[documento]",
+      f: "[documento]",
+      "[documento]": "chave",
+    });
+  });
+
+  it("número comum e valor em dinheiro passam intactos, como número ou como texto", () => {
+    const values = {
+      a: 12345678901,
+      b: 1500,
+      c: "12345678909.00",
+      d: "-1234.56",
+      e: "0.00000001",
+      f: 321.45,
+      g: "999999999999.99",
+    };
+    expect(filter.scrubDeep(values)).toEqual(values);
+  });
+
+  it.each([
+    "CPF.123.456.789-09",
+    "doc.12345678909",
+    "cpf 123/456/789-09",
+    "cpf 123.456.789–09",
+    "cpf 123​456​789​09",
+    "cpf １２３４５６７８９０９",
+    "cpf 1 2 3 4 5 6 7 8 9 0 9",
+    "cnpj 11-222-333/0001-81",
+    "cnpj 11.222.333/0001.81",
+    "CNPJ11222333000181",
+    "PIX11222333000181X",
+    "CNPJ12ABC34501DE35",
+    "cnpj 12 ABC 345 01DE 35",
+  ])("não deixa passar %j", (text) => {
+    const safe = filter.scrub(text);
+    expect(safe).toContain("[documento]");
+    expect(safe.replace(/\D/g, "").length).toBeLessThan(4);
+  });
+
+  it.each([
+    "PIX de R$ 1.234,56 em 31/10/2026",
+    "100,00 200,00 300,00 400,00",
+    "id 6f1c2b8e-3a4d-4e5f-9a7b-1c2d3e4f5a6b",
+    "E60746948202611011230s12345678901",
+    "fatura 20261101000012345678",
+  ])("não confunde valor nem id de transação: %j", (text) => {
+    expect(filter.scrub(text)).toBe(text);
+  });
+
   it("nada que fala com o modelo lê o documento da conta", () => {
     const files = readdirSync(path.join(import.meta.dirname, "..", "src"), {
       recursive: true,

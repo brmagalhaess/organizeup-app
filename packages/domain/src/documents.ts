@@ -138,6 +138,199 @@ export function parseIdentity(raw: unknown): IdentityResult {
   return { ok: false, fields };
 }
 
+/** Quem entra por convite é sempre pessoa, seja o que vier no formulário. Outro país continua valendo. */
+export function parseInviteeIdentity(raw: unknown): IdentityResult {
+  const { inBrazil, cpf } = (typeof raw === "object" && raw !== null ? raw : {}) as Record<
+    string,
+    unknown
+  >;
+  return parseIdentity({ inBrazil, cpf, personType: "pf" });
+}
+
+// ---------- Achar documento em texto livre ----------
+//
+// Descrição de extrato e mensagem digitada trazem CPF e CNPJ de todo jeito: com barra, travessão, espaço,
+// caractere invisível, dígito de outro alfabeto, colado em letra. Então a busca não olha a pontuação: anda por uma
+// cópia só com letras e dígitos e confere o dígito verificador de cada janela de 11 e de 14 posições. O que evita
+// falso positivo são as fronteiras: a janela não começa nem termina no meio de uma sequência de dígitos, não cruza
+// valor em dinheiro, data ou UUID, e o alfanumérico não vale dentro de um código longo.
+
+export type DocumentKind = "cpf" | "cnpj";
+
+export interface DocumentSpan {
+  kind: DocumentKind;
+  start: number;
+  end: number;
+}
+
+const SEPARATOR = /[\p{Zs}\p{Pd}\p{Cf}._,/\\·•]/u;
+const INVISIBLE = /\p{Cf}/u;
+const UNICODE_DIGIT = /\p{Nd}/u;
+/** "123 . 456 . 789 - 09" tem três caracteres entre os blocos. Mais que isso, já é outra coisa. */
+const MAX_GAP = 3;
+/** Sigla colada no CNPJ cabe aqui; código de transação, com 20 ou mais, não. */
+const MAX_GLUED_RUN = 20;
+
+const PROTECTED = [
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
+  /(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)/g,
+  /(?<!\d)\d{2}\/\d{2}\/\d{4}(?!\d)/g,
+  // Dinheiro não começa com zero: "0001.81" é o fim de um CNPJ.
+  // Colado em letra também não é dinheiro: "60.00W" é pedaço de um CNPJ alfanumérico.
+  /(?<![\dA-Za-z.,])(?:0|[1-9]\d{0,2}(?:\.\d{3})+|[1-9]\d*),\d{2}(?![\dA-Za-z])/g,
+  /(?<![\dA-Za-z.,])(?:0|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)\.\d{2}(?![\dA-Za-z])/g,
+];
+
+interface Mark {
+  char: string;
+  start: number;
+  end: number;
+  digit: boolean;
+  /** Sem separador visível antes dele. */
+  glued: boolean;
+}
+
+function digitOf(char: string): string | null {
+  if (!UNICODE_DIGIT.test(char)) return null;
+  const folded = char.normalize("NFKC");
+  if (/^[0-9]$/.test(folded)) return folded;
+  // Outros alfabetos: os dígitos vêm em blocos contíguos, do 0 ao 9.
+  let code = char.codePointAt(0)!;
+  let value = 0;
+  while (value < 9 && UNICODE_DIGIT.test(String.fromCodePoint(code - 1))) {
+    code -= 1;
+    value += 1;
+  }
+  return String(value);
+}
+
+function letterOf(char: string): string | null {
+  const folded = char.normalize("NFKC").toUpperCase();
+  return /^[A-Z]$/.test(folded) ? folded : null;
+}
+
+/** Trechos de letras e dígitos, cada um com a posição no texto original. */
+function segmentsOf(text: string): Mark[][] {
+  const segments: Mark[][] = [];
+  let current: Mark[] = [];
+  let gap = 0;
+  const flush = () => {
+    if (current.length > 0) segments.push(current);
+    current = [];
+    gap = 0;
+  };
+  for (const match of text.matchAll(/[\s\S]/gu)) {
+    const char = match[0];
+    const value = digitOf(char) ?? letterOf(char);
+    if (value) {
+      current.push({
+        char: value,
+        start: match.index,
+        end: match.index + char.length,
+        digit: value >= "0" && value <= "9",
+        glued: gap === 0,
+      });
+      gap = 0;
+    } else if (!SEPARATOR.test(char)) {
+      flush();
+    } else if (!INVISIBLE.test(char)) {
+      gap += 1;
+      if (gap > MAX_GAP) flush();
+    }
+  }
+  flush();
+  return segments;
+}
+
+function protectedSpans(text: string): Array<{ start: number; end: number }> {
+  return PROTECTED.flatMap((pattern) =>
+    [...text.matchAll(pattern)].map((match) => ({
+      start: match.index,
+      end: match.index + match[0].length,
+    })),
+  );
+}
+
+/** Tamanho da sequência sem separador em volta da janela. */
+function gluedRun(marks: Mark[], first: number, last: number): number {
+  let from = first;
+  while (from > 0 && marks[from]!.glued) from -= 1;
+  let to = last;
+  while (to + 1 < marks.length && marks[to + 1]!.glued) to += 1;
+  return to - from + 1;
+}
+
+/** CNPJ com letra concorre com palavras comuns: pede dígitos na base e não vale dentro de código longo. */
+function plausibleAlphanumeric(marks: Mark[], first: number, last: number): boolean {
+  const window = marks.slice(first, last + 1);
+  const digits = window.slice(0, 12).filter((mark) => mark.digit).length;
+  const breaks = window.flatMap((mark, index) => (index > 0 && !mark.glued ? [index] : []));
+  // Na máscara da Receita, os blocos já dizem o que é.
+  if (breaks.join() === "2,5,8,12") return true;
+  const spaced = breaks.length > 0;
+  if (spaced) return digits >= 4;
+  return digits >= 2 && gluedRun(marks, first, last) <= MAX_GLUED_RUN;
+}
+
+function kindOf(marks: Mark[], first: number, last: number): DocumentKind | null {
+  const window = marks.slice(first, last + 1);
+  const value = window.map((mark) => mark.char).join("");
+  if (window.length === 11) return normalizeCpf(value) ? "cpf" : null;
+  if (!normalizeCnpj(value)) return null;
+  return window.every((mark) => mark.digit) || plausibleAlphanumeric(marks, first, last)
+    ? "cnpj"
+    : null;
+}
+
+/** Todo CPF e CNPJ do texto, com a posição no original. */
+export function findDocuments(text: string): DocumentSpan[] {
+  // Até o CNPJ com mais letras tem os dois dígitos verificadores.
+  if ((text.match(/\p{Nd}/gu)?.length ?? 0) < 2) return [];
+  const spared = protectedSpans(text);
+  const crossesProtected = (start: number, end: number) =>
+    spared.some(
+      (span) => span.start < end && start < span.end && !(span.start === start && span.end === end),
+    );
+  const found: DocumentSpan[] = [];
+  for (const marks of segmentsOf(text)) {
+    const insideDigits = (index: number) =>
+      index > 0 && index < marks.length && marks[index]!.glued && marks[index]!.digit
+        ? marks[index - 1]!.digit
+        : false;
+    let first = 0;
+    while (first < marks.length) {
+      let matched = 0;
+      if (!insideDigits(first)) {
+        for (const size of [14, 11]) {
+          const last = first + size - 1;
+          if (last >= marks.length || insideDigits(last + 1)) continue;
+          const kind = kindOf(marks, first, last);
+          const start = marks[first]!.start;
+          const end = marks[last]!.end;
+          if (kind && !crossesProtected(start, end)) {
+            found.push({ kind, start, end });
+            matched = size;
+            break;
+          }
+        }
+      }
+      first += matched || 1;
+    }
+  }
+  return found.sort((a, b) => a.start - b.start);
+}
+
+/** Troca cada documento do texto por `mark`. */
+export function maskDocuments(text: string, mark: string): string {
+  let out = "";
+  let from = 0;
+  for (const { start, end } of findDocuments(text)) {
+    out += text.slice(from, start) + mark;
+    from = end;
+  }
+  return out + text.slice(from);
+}
+
 /** Tipo da conta, gravado no tenant: pessoa física tem família; pessoa jurídica tem sócios. */
 export const ACCOUNT_TYPES = PERSON_TYPES;
 export type AccountType = PersonType;
