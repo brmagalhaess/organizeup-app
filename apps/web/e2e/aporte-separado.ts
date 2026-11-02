@@ -10,8 +10,10 @@ import {
   ensureCategory,
   eq,
   household,
+  householdSettings,
   investments,
   investmentTrades,
+  retirementPlan,
   transactions,
   withAdmin,
   withWorkerHousehold,
@@ -46,6 +48,32 @@ await withWorkerHousehold(householdId, async (tx) => {
   const out = await ensureCategory(tx, householdId, "despesa", CONTRIBUTION_CATEGORY, false);
   const back = await ensureCategory(tx, householdId, "receita", CONTRIBUTION_CATEGORY, false);
   const base = { householdId, accountId: account!.id, categorySource: "familia" as const };
+  // Dois meses antes, o mesmo aporte: três meses dão hábito, e a divisão aparece com plano completo.
+  await tx.update(householdSettings).set({ retirementYear: 2050 });
+  await tx
+    .insert(retirementPlan)
+    .values({ householdId, targetIncome: "9000.00", expectedYield: "6.00" });
+  for (const delta of [2, 3]) {
+    const earlier = addMonths(month, 1 - delta);
+    await tx.insert(transactions).values([
+      {
+        ...base,
+        kind: "receita",
+        categoryId: await categoryOf("Salário", "receita"),
+        description: "Salário anterior",
+        amount: "9200.00",
+        occurredOn: `${earlier}-01`,
+      },
+      {
+        ...base,
+        kind: "despesa",
+        categoryId: out.id,
+        description: "Aporte anterior",
+        amount: "1500.00",
+        occurredOn: `${earlier}-03`,
+      },
+    ]);
+  }
   await tx.insert(transactions).values([
     {
       ...base,

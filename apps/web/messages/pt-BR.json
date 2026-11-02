@@ -944,7 +944,8 @@
       "accept": "Aceitar este valor",
       "alreadyInvesting": "Você já aporta {amount} por mês: esse valor conta no investimento acima.",
       "short": "Reserva e dívidas caras pedem {amount} por mês a mais do que sobra, porque esse dinheiro já está saindo. Se quiser cobrir, reduza o aporte: nada muda sozinho.",
-      "projectionUsesHabit": "Como nenhum aporte foi informado, a projeção usa o que já sai todo mês."
+      "projectionUsesHabit": "Como nenhum aporte foi informado, a projeção usa o valor da divisão, que já inclui o que sai todo mês.",
+      "habitIsInvestment": "Aportes nessa categoria contam como investimento, mesmo que o dinheiro vá para a reserva. Para contar como reserva, marque a conta em <link>Reserva</link> e transfira para ela."
     },
     "facts": {
       "target": "Renda que você quer por mês",

@@ -944,7 +944,8 @@
       "accept": "Aceptar este valor",
       "alreadyInvesting": "Ya aportas {amount} al mes: ese valor cuenta en la inversión de arriba.",
       "short": "La reserva y las deudas caras piden {amount} al mes más de lo que queda, porque ese dinero ya está saliendo. Para cubrirlo, reduce el aporte: nada cambia solo.",
-      "projectionUsesHabit": "Como no se informó ningún aporte, la proyección usa lo que ya sale cada mes."
+      "projectionUsesHabit": "Como no se informó ningún aporte, la proyección usa el valor de la división, que ya incluye lo que sale cada mes.",
+      "habitIsInvestment": "Los aportes en esta categoría cuentan como inversión, aunque el dinero vaya a la reserva. Para que cuente como reserva, marca la cuenta en <link>Reserva</link> y transfiere a ella."
     },
     "facts": {
       "target": "Ingreso que quieres al mes",

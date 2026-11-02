@@ -15,8 +15,9 @@ Muda o que a [spec do painel](../specs/painel.md) dizia em "Aporte é movimenta�
   obrigatório: esquecer não compila.
 - **Conta como guardado:** lançamento gerado por operação (`investment_trades.transaction_id`), mesmo que a família troque a categoria
   dele; lançamento na categoria de aportes; parcela de meta, feita ou prevista; lançamento na categoria de metas.
-- **Categoria renomeada segue guardada, seja qual for o nome novo.** "Aportes" renomeada para "Seguro de vida" continua fora de despesas.
-  É o preço de não depender do nome, e a etiqueta "Fora de despesas" aparece na lista de Categorias, então a família vê.
+- **Categoria renomeada segue guardada para sempre, seja qual for o nome novo.** A categoria 90 ou 91 renomeada para outra coisa, como "Seguro de
+  vida", continua sendo meta ou aporte. É o preço de não depender do nome, e a etiqueta "Fora de despesas" aparece na lista de Categorias,
+  então a família vê.
 - **Meta é dinheiro guardado, com o mesmo tratamento.** A parcela não some: vira saldo de meta ou entra numa conta da família.
   Excedente e gasto médio já a tiravam (ADR-0015). Reserva não tem categoria própria: é transferência, que nunca foi receita nem
   despesa, ou aporte lançado na categoria de aportes.
@@ -84,6 +85,10 @@ diz a diferença.
 - **Sugestão que a divisão não pede mais fecha sozinha,** com `closePending`, em aporte de reserva, de investimento e de dívida, e
   nos dois lembretes. Sem contar como recusa, e sem tocar no que nasceu na conversa com o assistente. O `aporte_divida` do agente de dívidas
   fica enquanto a divisão ainda tiver dinheiro para dívidas.
+- **Aporte para a reserva conta como investimento.** A categoria de aportes não diz para onde o dinheiro foi, então todo aporte nela
+  entra no hábito de investir. Quem manda 3.000 por mês para a reserva nessa categoria vê a fatia da aposentadoria subir e a da reserva
+  cair. A regra fica, e a tela de Aposentadoria diz isso em uma frase, com o caminho que já existe: marcar a conta em Reserva e transferir
+  para ela. Transferência não é aporte, e a conta marcada soma no guardado da reserva.
 - **Projeção.** Sem aporte informado, a projeção usa `allocation.retirement`, que nunca fica abaixo do aporte real, e a tela de
   Aposentadoria diz isso em uma frase. Com aporte informado, vale o informado.
 - **Meta com parcela paga não perde plano.** O hábito de meta ocupa o orçamento de metas, então a parcela real não é contada duas vezes

@@ -944,7 +944,8 @@
       "accept": "Accept this amount",
       "alreadyInvesting": "You already contribute {amount} a month: that amount counts toward the investment above.",
       "short": "Your emergency fund and expensive debts need {amount} a month more than what is left, because that money is already going out. To cover it, lower your contribution: nothing changes on its own.",
-      "projectionUsesHabit": "Since no contribution was entered, the projection uses what already goes out each month."
+      "projectionUsesHabit": "Since no contribution was entered, the projection uses the amount from the split, which already includes what goes out each month.",
+      "habitIsInvestment": "Contributions in this category count as investments, even if the money goes to your emergency fund. To count it as emergency fund, mark the account under <link>Emergency fund</link> and transfer to it."
     },
     "facts": {
       "target": "Monthly income you want",

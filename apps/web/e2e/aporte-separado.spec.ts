@@ -146,6 +146,14 @@ test("em português: aporte e resgate à parte, batendo em todas as telas", asyn
   await page.goto("/app/categorias");
   await expect(page.getByText("Fora de despesas").first()).toBeVisible();
   await expectAccessible(page);
+
+  // Aporte que vai para a reserva conta como investimento: a divisão diz isso e mostra o caminho.
+  await page.goto("/app/aposentadoria");
+  await expect(page.getByText(/contam como investimento, mesmo que o dinheiro vá/)).toBeVisible();
+  const toReserve = page.getByRole("main").getByRole("link", { name: "Reserva", exact: true });
+  await expect(toReserve).toHaveAttribute("href", "/app/reserva");
+  await expectAccessible(page);
+  await shot(page, "aposentadoria", info.project.name);
 });
 
 test("em inglês, com os mesmos números", async ({ page }, info) => {

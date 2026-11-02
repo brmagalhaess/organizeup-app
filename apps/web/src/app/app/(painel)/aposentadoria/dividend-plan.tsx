@@ -54,7 +54,14 @@ function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) 
       {money(suggested.alreadyInvesting).gt(0) ? (
         <p className="text-sm">
           {t("alreadyInvesting", { amount: moneyText(suggested.alreadyInvesting) })}{" "}
-          {data.form.monthlyContribution === null ? t("projectionUsesHabit") : null}
+          {data.form.monthlyContribution === null ? t("projectionUsesHabit") : null}{" "}
+          {t.rich("habitIsInvestment", {
+            link: (chunks) => (
+              <Link href="/app/reserva" className="font-medium underline underline-offset-2">
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
       ) : null}
       {money(suggested.short).gt(0) ? (
