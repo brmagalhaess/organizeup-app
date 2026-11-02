@@ -573,6 +573,43 @@ describe("revisão: Mercado", () => {
     expect(await stored()).toMatchObject([{ source: "agente" }]);
   });
 
+  it("Desfazer com dois proventos no dia e uma importada devolve o outro", async () => {
+    await seedMarket([provento({}), provento({ comDate: "2026-02-21", ratePerShare: "0.3" })]);
+    await mercado();
+    await inA((tx) =>
+      tx
+        .update(investmentTrades)
+        .set({ occurredOn: "2026-02-25" })
+        .where(eq(investmentTrades.investmentId, abcd)),
+    );
+    await mercado();
+    await send([{ line: 1, net: "50.00" }]);
+    const suggestions = await inA((tx) =>
+      tx.select().from(householdSuggestions).where(eq(householdSuggestions.status, "aplicada")),
+    );
+    const removal = suggestions.find((row) => JSON.stringify(row.payload).includes('"removed":[{'));
+    await db.withHousehold(owner, (tx) => agents.undoSuggestion(tx, owner, removal!.id));
+    const rows = await stored();
+    expect(rows.map((row) => [row.source, row.gross]).toSorted()).toEqual([
+      ["agente", "30.00"],
+      ["familia", "50.00"],
+    ]);
+  });
+
+  it("fonte com data posterior: o job antes e depois do pagamento dá o mesmo resultado", async () => {
+    await send([{ line: 1, paidOn: "2026-10-30" }]);
+    await seedMarket([provento({ comDate: "2026-10-01", payDate: "2026-11-01" })]);
+    const job = (day: string) =>
+      asWorker(() =>
+        db.withWorkerHousehold(A.household, (tx) =>
+          agents.runInvestimentosAgent(tx, { today: day, householdId: A.household }),
+        ),
+      );
+    await job("2026-10-31");
+    await job("2026-11-03");
+    expect(await stored()).toMatchObject([{ source: "familia", gross: "50.00" }]);
+  });
+
   it("prévia velha: novo que virou troca é pulado, e a linha automática fica", async () => {
     const rows: Line[] = [{ line: 1, net: "70.00" }];
     const seen = await seenOf(rows, {});
