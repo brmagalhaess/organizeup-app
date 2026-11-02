@@ -686,6 +686,25 @@ describe("arquivo", () => {
     expect(rows.map((row) => row.id)).toEqual([kept]);
   });
 
+  it("lote aprovado e lido de novo continua aprovado, e não entra na limpeza", async () => {
+    const importId = await lotOf(owner, [
+      ["um.ofx", encode(OFX([["k1", "-1.00", "PADARIA"]]))],
+      ["dois.pdf", encode("%PDF-1.7 corrompido")],
+    ]);
+    await read(importId);
+    await setFileAccount(importId, { accountId: bank });
+    await approveSmartImport(owner, importId);
+    const broken = await db.withHousehold(owner, (tx) =>
+      tx.select(smartImportFileMeta).from(smartImportFiles).where(eq(smartImportFiles.position, 1)),
+    );
+    await db.withHousehold(owner, (tx) => agents.requeueSmartFile(tx, owner, broken[0]!.id));
+    await read(importId);
+    const [lot] = await db.withHousehold(owner, (tx) => tx.select().from(smartImports));
+    expect(lot!.status).toBe("concluido");
+    const later = new Date(Date.now() + 31 * 86_400_000);
+    expect(await db.withHousehold(owner, (tx) => agents.purgeSmartImports(tx, later))).toBe(0);
+  });
+
   it("auditoria registra quem aprovou, sem dado", async () => {
     const importId = await lotOf(owner, [
       ["extrato.ofx", encode(OFX([["au", "-10.00", "PADARIA EXEMPLO"]]))],

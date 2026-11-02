@@ -4644,7 +4644,7 @@
       "muito_grande": "Demasiado grande para leer con IA: digitalización hasta 20 páginas y 5 MB, imagen hasta 3,75 MB.",
       "nao_entendi": "El agente no pudo entender este archivo.",
       "indisponivel": "La lectura con IA no respondió. Inténtalo de nuevo.",
-      "precisa_ia": "Las reglas no entendieron este archivo, y no se pidió la lectura con IA.",
+      "precisa_ia": "Las reglas no entendieron este archivo, y no se pidió la lectura con IA. Usa Leer de nuevo para leerlo con IA.",
       "erro_interno": "Algo salió mal aquí. Inténtalo de nuevo.",
       "modulo_desligado": "Módulo fuera del plan",
       "falta_dado": "Falta un dato para grabar",

@@ -4644,7 +4644,7 @@
       "muito_grande": "Too large to read with AI: scans up to 20 pages and 5 MB, images up to 3.75 MB.",
       "nao_entendi": "The agent could not understand this file.",
       "indisponivel": "AI reading did not respond. Try again.",
-      "precisa_ia": "The rules did not understand this file, and AI reading was not requested.",
+      "precisa_ia": "The rules did not understand this file, and AI reading was not requested. Use Read again to read it with AI.",
       "erro_interno": "Something went wrong here. Try again.",
       "modulo_desligado": "Module not in your plan",
       "falta_dado": "Missing data to save",

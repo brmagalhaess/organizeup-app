@@ -56,7 +56,7 @@ e valor que sai). Depois, um bloco por arquivo com:
 - Nasce marcado só o que é novo e pode ser gravado. "Já lançado" e "possível duplicado" nascem desmarcados.
 - Item de módulo desligado aparece, sem caixa, com a explicação e o link do plano.
 - Item sem o que falta para gravar (conta, categoria, data) mostra o que falta e bloqueia só ele.
-- "Aprovar selecionados" pede confirmação, com a contagem. Só `owner` e `adult`.
+- O botão diz quantos itens vão entrar: "Aprovar 4 itens". Só `owner` e `adult`.
 
 **Relatório:** depois de aprovar, a mesma tela diz quantos entraram, quantos já existiam e quantos falharam, com o motivo
 de cada falha. Tentar de novo só refaz o que falhou.

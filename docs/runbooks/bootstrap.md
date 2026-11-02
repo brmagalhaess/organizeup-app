@@ -65,10 +65,11 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      4. Em Settings › Payment methods, ligar cartão e boleto. Boleto só é oferecido no anual.
         `billing_enabled` fica desligada em `ops.feature_flags`: com ela assim, só quem está em `ADMIN_USER_IDS` abre
         `/app/assinatura`, e só com chave de teste. Ligar a chave é a Fase 5, em `/admin/cobranca`.
-   - E2E (fora do Dokploy): `assistente.spec.ts` e `dividas-arquivo.spec.ts` precisam de `E2E_ASSISTANT=1` no Playwright e do servidor em
+   - E2E (fora do Dokploy): `assistente.spec.ts`, `dividas-arquivo.spec.ts` e `importador.spec.ts` precisam de `E2E_ASSISTANT=1` no Playwright e do servidor em
      `next dev` (com `NODE_ENV=production` o modelo falso é ignorado), com `ANTHROPIC_API_KEY` qualquer e
      `AI_TEST_BASE_URL=http://127.0.0.1:3199`, depois de `node apps/web/e2e/fake-model.mjs 3199`. Rode com
-     `--workers=1`; para vários specs juntos, suba o servidor com `AUTH_RATE_LIMIT=disabled`.
+     `--workers=1`; para vários specs juntos, suba o servidor com `AUTH_RATE_LIMIT=disabled`. `importador.spec.ts` também
+     precisa do worker de pé, com a mesma `ANTHROPIC_API_KEY` e o mesmo `AI_TEST_BASE_URL`.
      Com `E2E_ADMIN_EMAIL`, rode a suíte com `--workers=1`: `admin.spec.ts` liga manutenção e fecha o cadastro para todo
      mundo, e os specs em paralelo falham sem ter culpa. `E2E_OPS_TOKEN` precisa de 32 caracteres ou mais.
      `E2E_ADMIN_EMAIL` liga o spec `admin.spec.ts`; o servidor de teste sobe com

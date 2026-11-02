@@ -287,19 +287,19 @@ function ItemRow({
   item,
   writable,
   categories,
-  busy,
   onToggle,
 }: {
   item: ItemView;
   writable: boolean;
   categories: CategoryOption[];
-  busy: boolean;
   onToggle: (ids: string[], selected: boolean) => void;
 }) {
   const t = useTranslations("importador");
   const locale = useLocale() as Locale;
   const moneyText = useMoney();
   const [editing, setEditing] = useState(false);
+  // A caixa responde na hora; o servidor confirma depois, e a chave do item troca junto.
+  const [checked, setChecked] = useState(item.selected);
   const { payload } = item;
   const name = titleOf(payload) || t("item.untitled");
   const date = dateOf(payload);
@@ -312,10 +312,12 @@ function ItemRow({
         {checkable ? (
           <input
             type="checkbox"
-            checked={item.selected}
-            disabled={busy}
+            checked={checked}
             aria-label={t("item.select", { name })}
-            onChange={(event) => onToggle([item.id], event.target.checked)}
+            onChange={(event) => {
+              setChecked(event.target.checked);
+              onToggle([item.id], event.target.checked);
+            }}
             className="mt-1 size-4 shrink-0 accent-brand-700"
           />
         ) : null}
@@ -406,7 +408,6 @@ function FileBlock({
   cards,
   categories,
   writable,
-  busy,
   onToggle,
 }: {
   file: FileView;
@@ -415,7 +416,6 @@ function FileBlock({
   cards: Option[];
   categories: CategoryOption[];
   writable: boolean;
-  busy: boolean;
   onToggle: (ids: string[], selected: boolean) => void;
 }) {
   const t = useTranslations("importador");
@@ -553,11 +553,10 @@ function FileBlock({
             <ul className="m-0 flex list-none flex-col divide-y divide-line p-0">
               {rows.map((item) => (
                 <ItemRow
-                  key={item.id}
+                  key={`${item.id}:${item.selected}`}
                   item={item}
                   writable={writable}
                   categories={categories}
-                  busy={busy}
                   onToggle={onToggle}
                 />
               ))}
@@ -684,7 +683,6 @@ export function ReviewBoard({
           cards={cards}
           categories={categories}
           writable={writable}
-          busy={pending}
           onToggle={toggle}
         />
       ))}

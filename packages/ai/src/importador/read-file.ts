@@ -24,6 +24,9 @@ async function loadPdfJs() {
   return import("pdfjs-dist/legacy/build/pdf.mjs");
 }
 
+/** Ninguém manda extrato ou contrato maior que isto, e um PDF de milhares de páginas não pode segurar o worker. */
+const MAX_PDF_PAGES = 300;
+
 async function pdfLines(bytes: Uint8Array): Promise<{ lines: string[]; pages: number }> {
   const pdfjs = await loadPdfJs();
   const task = pdfjs.getDocument({
@@ -35,7 +38,7 @@ async function pdfLines(bytes: Uint8Array): Promise<{ lines: string[]; pages: nu
   const pdf = await task.promise;
   try {
     const lines: string[] = [];
-    for (let number = 1; number <= pdf.numPages; number += 1) {
+    for (let number = 1; number <= Math.min(pdf.numPages, MAX_PDF_PAGES); number += 1) {
       const page = await pdf.getPage(number);
       const { items } = await page.getTextContent();
       const byLine = new Map<number, Array<{ x: number; text: string }>>();

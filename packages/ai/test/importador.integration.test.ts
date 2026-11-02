@@ -218,7 +218,15 @@ describe("sem aceite", () => {
     const importId = await lotOf(owner, [["contrato.txt", encode("Contrato")]], false);
     await ai.runSmartImport({ ctx: owner, client, importId, limits, day });
     expect(calls).toHaveLength(0);
-    expect((await view(owner, importId)).files[0]).toMatchObject({ failure: "precisa_ia" });
+    const [file] = (await view(owner, importId)).files;
+    expect(file).toMatchObject({ failure: "precisa_ia" });
+
+    // "Ler de novo" é pedir a leitura: agora vai ao modelo.
+    const reply = fakeClient([contractReply()]);
+    await db.withHousehold(owner, (tx) => agents.requeueSmartFile(tx, owner, file!.id));
+    await ai.runSmartImport({ ctx: owner, client: reply.client, importId, limits, day });
+    expect(reply.calls).toHaveLength(1);
+    expect((await view(owner, importId)).files[0]).toMatchObject({ status: "lido" });
   });
 });
 

@@ -226,7 +226,10 @@ export async function touchSmartImport(tx: TenantTx, importId: string): Promise<
   await tx.update(smartImports).set({ queuedAt: new Date() }).where(eq(smartImports.id, importId));
 }
 
-/** Volta o arquivo para a fila. O que já foi gravado fica; só as propostas pendentes são refeitas. */
+/**
+ * Volta o arquivo para a fila. O que já foi gravado fica; só as propostas pendentes são refeitas. Pedir para
+ * ler de novo é pedir a leitura completa, então o lote passa a aceitar IA: quem barra é o portão.
+ */
 export async function requeueSmartFile(
   tx: TenantTx,
   ctx: TenantContext,
@@ -244,7 +247,7 @@ export async function requeueSmartFile(
     .where(and(eq(smartImportItems.fileId, fileId), ne(smartImportItems.status, "gravado")));
   await tx
     .update(smartImports)
-    .set({ status: "na_fila", queuedAt: new Date(), updatedAt: new Date() })
+    .set({ status: "na_fila", useAi: true, queuedAt: new Date(), updatedAt: new Date() })
     .where(eq(smartImports.id, file.importId));
   return file.importId;
 }
@@ -649,9 +652,11 @@ export async function reviewSmartImport(
       })
       .where(eq(smartImportFiles.id, file.id));
   }
+  // Lote com algo aprovado continua aprovado: é o que o livra da limpeza dos 30 dias.
+  const approved = items.some((item) => item.status === "gravado");
   await tx
     .update(smartImports)
-    .set({ status: "revisao", updatedAt: new Date() })
+    .set({ status: approved ? "concluido" : "revisao", updatedAt: new Date() })
     .where(eq(smartImports.id, importId));
   return {
     items: pending.length,
