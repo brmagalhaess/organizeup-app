@@ -102,7 +102,10 @@ export default async function InvitePage({
       : invitation.role === "viewer"
         ? t("roleViewer")
         : t("roleOther");
-  const tIdentity = await getTranslations("identity");
+  const [tIdentity, tErrors] = await Promise.all([
+    getTranslations("identity"),
+    getTranslations("auth.errors"),
+  ]);
   const identity = await identityView(session.user.id);
   const asksDocument =
     accountFeatures(accountType).inviteAsksCpf && identity.canFill && !identity.abroad;
@@ -117,7 +120,13 @@ export default async function InvitePage({
       </div>
       <FormMessage
         message={
-          erro === "documento" ? tIdentity("invite.failed") : erro ? t("acceptFailed") : null
+          erro === "manutencao"
+            ? tErrors("maintenance")
+            : erro === "documento"
+              ? tIdentity("invite.failed")
+              : erro
+                ? t("acceptFailed")
+                : null
         }
       />
       <form action={acceptInvite} className="flex flex-col gap-4">
