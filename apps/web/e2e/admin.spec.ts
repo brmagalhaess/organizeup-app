@@ -20,6 +20,11 @@ const SCREENS = [
   { path: "/admin/sistema", title: "Sistema", visit: "Sistema" },
   { path: "/admin/controles", title: "Controles", visit: "Controles" },
   { path: "/admin/auditoria", title: "Auditoria", visit: "Auditoria" },
+  { path: "/admin/assinaturas", title: "Assinaturas", visit: "Assinaturas" },
+  { path: "/admin/vip", title: "VIP", visit: "VIP" },
+  { path: "/admin/catalogo", title: "Catálogo", visit: "Catálogo" },
+  { path: "/admin/receita", title: "Receita e uso", visit: "Receita e uso" },
+  { path: "/admin/cobranca", title: "Chave da cobrança", visit: "Chave" },
 ];
 
 const unique = () => `${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
@@ -137,7 +142,9 @@ test("administrador navega por todas as telas, sem violação de acessibilidade"
     "Mercado",
     "Dicas",
   ]) {
-    await expect(page.getByRole("heading", { level: 3, name, exact: true })).toBeVisible();
+    // Com um worker no ar sem as chaves, o título ganha o aviso dele.
+    const title = new RegExp(`^${name}( Sem chave de cotações| Worker sem a chave)?$`);
+    await expect(page.getByRole("heading", { level: 3, name: title })).toBeVisible();
     await expect(page.getByRole("switch", { name: `Agente ${name}`, exact: true })).toBeVisible();
     await expect(
       page.getByRole("button", { name: `Rodar agora: ${name}`, exact: true }),
@@ -148,7 +155,14 @@ test("administrador navega por todas as telas, sem violação de acessibilidade"
     "https://paperclip.home.crowntech.com.br/ORG",
   );
   const team = page.getByRole("table", { name: "Equipe de agentes no Paperclip" });
-  for (const name of ["Tech Lead", "Revisor QA", "Segurança", "Documentação"]) {
+  for (const name of [
+    "Tech Lead",
+    "Revisor QA",
+    "Dívidas",
+    "Relatórios",
+    "Segurança",
+    "Documentação",
+  ]) {
     await expect(team.getByRole("cell", { name: new RegExp(`^${name}`) })).toBeVisible();
     await expect(page.getByRole("link", { name: `Ver ${name} no Paperclip` })).toBeVisible();
   }
