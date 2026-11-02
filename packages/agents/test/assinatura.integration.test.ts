@@ -115,6 +115,22 @@ afterAll(async () => {
 });
 
 describe("assinatura local", () => {
+  it("o desconto VIP entra e sai pelo webhook, e evento antigo sem ele não quebra", async () => {
+    const { id, job } = await newFamily();
+    const customerId = `cus_desc${families}`;
+    await receive({
+      at: 1,
+      householdId: id,
+      customerId,
+      data: subscription({ discountPercent: 30 }),
+    });
+    await silent();
+    expect((await row(job)).discountPercent).toBe(30);
+    await receive({ at: 2, householdId: id, customerId, data: subscription() });
+    await silent();
+    expect((await row(job)).discountPercent).toBeNull();
+  });
+
   it("checkout e assinatura ligam o plano, e o acesso lê da tabela local", async () => {
     const { id, job } = await newFamily();
     await receive({

@@ -293,6 +293,24 @@ describe("o que fica do evento", () => {
     });
   });
 
+  it("desconto vem da nossa metadata; valor estranho é sem desconto", () => {
+    const withMetadata = (metadata: Record<string, string>) => {
+      const sample = samples[1]!;
+      const object = { ...sample.data.object, metadata } as Stripe.Subscription;
+      return { ...sample, data: { object } } as Stripe.Event;
+    };
+    expect(normalizeEvent(samples[1]!)?.data).toMatchObject({ discountPercent: null });
+    expect(
+      normalizeEvent(withMetadata({ household_id: "hh-1", vip_desconto: "30" }))?.data,
+    ).toMatchObject({ discountPercent: 30 });
+    for (const value of ["", "0", "100", "abc", "12.5"]) {
+      expect(
+        normalizeEvent(withMetadata({ household_id: "hh-1", vip_desconto: value }))?.data,
+        value,
+      ).toMatchObject({ discountPercent: null });
+    }
+  });
+
   it("schedule: a próxima fase é a redução marcada; solto, fica sem redução", () => {
     expect(normalizeEvent(samples[5]!)?.data).toMatchObject({
       kind: "schedule",

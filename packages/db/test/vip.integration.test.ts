@@ -97,8 +97,26 @@ const logged = (action: string, target: string) =>
       .where(db.and(eq(adminAccess.action, action), eq(adminAccess.targetHouseholdId, target))),
   );
 
+const catalogBefore = await db.withAdminRead("teste de VIP: catálogo de antes", (tx) =>
+  tx.select().from(billingCatalog),
+);
+
+/** O banco é o mesmo dos outros arquivos, e eles contam as linhas do catálogo. */
+async function restoreCatalog() {
+  await db.withAdmin("teste de VIP: devolve o catálogo", async (tx) => {
+    const ids = catalogBefore.map((row) => row.id);
+    await tx.delete(billingCatalog).where(db.notInArray(billingCatalog.id, ids));
+    for (const { id, onSale, stripePriceId } of catalogBefore) {
+      await tx.update(billingCatalog).set({ onSale, stripePriceId }).where(eq(billingCatalog.id, id));
+    }
+  });
+}
+
 afterEach(() => setBilling(false));
-afterAll(() => closeAllPools());
+afterAll(async () => {
+  await restoreCatalog();
+  await closeAllPools();
+});
 
 describe("quem grava", () => {
   it("nem o responsável nem o worker gravam VIP: nem pela RLS, nem cru", async () => {

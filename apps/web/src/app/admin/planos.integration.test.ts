@@ -80,8 +80,8 @@ let serial = 0;
 
 async function newFamily() {
   serial += 1;
-  const id = `hh-painel-${serial}`;
-  const owner = `user-painel-${serial}`;
+  const id = `hh-painel-planos-${serial}`;
+  const owner = `user-painel-planos-${serial}`;
   await db.withAdmin("seed do painel de planos", async (tx) => {
     await tx.insert(user).values({ id: owner, name: "Teste", email: `${owner}@example.com` });
     await tx.insert(household).values({ id, name: `Família ${serial}`, slug: id });
@@ -164,7 +164,24 @@ afterEach(async () => {
   await setBilling(false);
 });
 
-afterAll(() => closeAllPools());
+const catalogBefore = await db.withAdminRead("teste do painel de planos", (tx) =>
+  tx.select().from(billingCatalog),
+);
+
+afterAll(async () => {
+  // O banco é o mesmo dos outros arquivos: o catálogo volta como estava.
+  await db.withAdmin("teste do painel de planos", async (tx) => {
+    const ids = catalogBefore.map((row) => row.id);
+    await tx.delete(billingCatalog).where(db.notInArray(billingCatalog.id, ids));
+    for (const { id, onSale, stripePriceId } of catalogBefore) {
+      await tx
+        .update(billingCatalog)
+        .set({ onSale, stripePriceId })
+        .where(eq(billingCatalog.id, id));
+    }
+  });
+  await closeAllPools();
+});
 
 describe("quem não é administrador", () => {
   const all = [vip, billing, catalog, key];

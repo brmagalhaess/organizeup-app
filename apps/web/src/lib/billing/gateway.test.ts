@@ -14,6 +14,11 @@ const api = vi.hoisted(() => ({
     payment_method_details?: { type: string };
   }>,
   next: [{ price: "price_reducao", quantity: 1 }] as unknown[] | null,
+  coupons: [] as string[],
+  updates: [] as Array<Record<string, unknown>>,
+  invoiceStatus: "open",
+  latestInvoice: "in_1" as string | null,
+  sessions: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -30,13 +35,41 @@ vi.mock("stripe", () => {
         return {};
       },
     };
+    coupons = {
+      retrieve: async (id: string) => {
+        if (api.coupons.includes(id)) return { id };
+        throw Object.assign(new Error("sem cupom"), { statusCode: 404 });
+      },
+      create: async (params: { id: string }) => {
+        api.log.push(`cupom:${params.id}`);
+        api.coupons.push(params.id);
+        return { id: params.id };
+      },
+    };
+    invoices = {
+      retrieve: async () => ({ status: api.invoiceStatus }),
+      pay: async (id: string) => {
+        api.log.push(`pay:${id}`);
+        return {};
+      },
+    };
+    checkout = {
+      sessions: {
+        create: async (params: Record<string, unknown>) => {
+          api.sessions.push(params);
+          return { id: "cs_1", url: "https://checkout.example.com" };
+        },
+      },
+    };
     subscriptions = {
       retrieve: async () => ({
         status: api.status,
+        latest_invoice: api.latestInvoice,
         items: { data: [{ id: "si_1", price: { id: "price_a" }, quantity: 1 }] },
       }),
-      update: async () => {
+      update: async (_id: string, params: Record<string, unknown> = {}) => {
         api.log.push("update");
+        api.updates.push(params);
         if (api.failUpdate) throw new Error("card_declined");
         return {};
       },
@@ -91,9 +124,77 @@ beforeEach(() => {
   api.failUpdate = false;
   api.status = "active";
   api.next = [{ price: "price_reducao", quantity: 1 }];
+  api.coupons = [];
+  api.updates = [];
+  api.sessions = [];
+  api.invoiceStatus = "open";
+  api.latestInvoice = "in_1";
   api.charges = [
     { id: "ch_1", status: "succeeded", refunded: false, payment_method_details: { type: "card" } },
   ];
+});
+
+describe("desconto VIP", () => {
+  const input = { householdId: "hh-1", subscriptionId: "sub_1" };
+
+  it("cria o cupom uma vez, sem cobrança proporcional, e marca a metadata", async () => {
+    await gateway().setDiscount({ ...input, percent: 30 });
+    await gateway().setDiscount({ ...input, percent: 30 });
+    expect(api.log.filter((line) => line.startsWith("cupom:"))).toEqual([
+      "cupom:organizeup_vip_30",
+    ]);
+    expect(api.updates[0]).toEqual({
+      discounts: [{ coupon: "organizeup_vip_30" }],
+      proration_behavior: "none",
+      metadata: { household_id: "hh-1", vip_desconto: "30" },
+    });
+  });
+
+  it("tirar limpa o cupom e a metadata, sem criar nada", async () => {
+    await gateway().setDiscount({ ...input, percent: null });
+    expect(api.coupons).toEqual([]);
+    expect(api.updates[0]).toMatchObject({
+      discounts: "",
+      metadata: { vip_desconto: "" },
+    });
+  });
+
+  it("assinar com desconto já leva o cupom e a metadata para a assinatura", async () => {
+    const checkout = {
+      householdId: "hh-1",
+      customerId: "cus_1",
+      prices: [{ price: "price_a", quantity: 1 }],
+      cycle: "mes" as const,
+      locale: "pt-BR",
+      successUrl: "https://app.example.com/ok",
+      cancelUrl: "https://app.example.com/nao",
+    };
+    await gateway().createCheckout({ ...checkout, discountPercent: 15 });
+    expect(api.sessions[0]).toMatchObject({
+      discounts: [{ coupon: "organizeup_vip_15" }],
+      subscription_data: { metadata: { household_id: "hh-1", vip_desconto: "15" } },
+    });
+    await gateway().createCheckout(checkout);
+    expect(api.sessions[1]).not.toHaveProperty("discounts");
+    expect(api.sessions[1]).toMatchObject({
+      subscription_data: { metadata: { household_id: "hh-1" } },
+    });
+  });
+});
+
+describe("reenviar cobrança", () => {
+  it("tenta de novo a fatura em aberto", async () => {
+    expect(await gateway().retryInvoice("sub_1")).toBe("cobrada");
+    expect(api.log).toContain("pay:in_1");
+  });
+
+  it("fatura paga, ou sem fatura: nada a fazer, e nada é cobrado", async () => {
+    api.invoiceStatus = "paid";
+    expect(await gateway().retryInvoice("sub_1")).toBe("nada_em_aberto");
+    api.latestInvoice = null;
+    expect(await gateway().retryInvoice("sub_1")).toBe("nada_em_aberto");
+    expect(api.log.some((line) => line.startsWith("pay:"))).toBe(false);
+  });
 });
 
 describe("devolução", () => {
