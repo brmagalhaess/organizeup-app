@@ -32,7 +32,8 @@ vi.mock("next-intl/server", async () => {
 
 const db = await import("@organizeup/db");
 const { bootstrapHousehold, updateCurrency } = await import("@/app/app/actions");
-const { saveEntry, quoteForEntry, confirmEntry } =
+const domain = await import("@organizeup/domain");
+const { saveEntry, quoteForEntry, confirmEntry, confirmEntryNotice } =
   await import("@/app/app/(painel)/lancamentos/actions");
 const { createTransfer } = await import("@/app/app/(painel)/contas/actions");
 const { addAsset, saveInvestment } = await import("@/app/app/(painel)/investimentos/actions");
@@ -317,6 +318,134 @@ describe("família em dólar", () => {
       brlAmount: null,
       originalAmount: null,
     });
+  });
+
+  it("fatura paga com a conta em real fica exata em dólar", async () => {
+    const family = await usdFamily();
+    const card = await inFamily(family.id, async (tx) => {
+      await db.ensureCategory(tx, family.id, "despesa", "Cartão de crédito", false);
+      const [row] = await tx
+        .insert(db.creditCards)
+        .values({
+          householdId: family.id,
+          name: "Visa",
+          closingDay: 25,
+          dueDay: 5,
+          payingAccountId: family.real.id,
+        })
+        .returning({ id: db.creditCards.id });
+      await tx.insert(db.cardPurchases).values({
+        householdId: family.id,
+        cardId: row!.id,
+        categoryId: family.expense,
+        description: "Passagem",
+        amount: "100.00",
+        purchasedOn: "2026-10-10",
+      });
+      return row!.id;
+    });
+    await confirmEntry(form({ key: `f:${card}:2026-10`, month: "2026-10" }));
+    expect(await lastEntry(family.id, "Fatura Visa")).toMatchObject({
+      amount: "100.00",
+      brlAmount: "542.12",
+    });
+  });
+
+  it("parcela de dívida paga com a conta em real fica exata em dólar", async () => {
+    const family = await usdFamily();
+    const installment = await inFamily(family.id, async (tx) => {
+      await db.ensureCategory(tx, family.id, "despesa", domain.DEBT_CATEGORY, false);
+      const [debt] = await tx
+        .insert(db.debts)
+        .values({
+          householdId: family.id,
+          accountId: family.real.id,
+          name: "Carro",
+          system: "price",
+          originalBalance: "1000.00",
+        })
+        .returning({ id: db.debts.id });
+      const [row] = await tx
+        .insert(db.debtInstallments)
+        .values({
+          householdId: family.id,
+          debtId: debt!.id,
+          number: 1,
+          dueDate: "2026-10-30",
+          amount: "100.00",
+          principal: "90.00",
+          interest: "10.00",
+        })
+        .returning({ id: db.debtInstallments.id });
+      return row!.id;
+    });
+    await confirmEntry(form({ key: `d:${installment}`, month: "2026-10" }));
+    expect(await lastEntry(family.id, "Carro (1/1)")).toMatchObject({
+      amount: "100.00",
+      brlAmount: "542.12",
+    });
+  });
+
+  it("parcela de meta sai da conta em real e chega em dólar", async () => {
+    const family = await usdFamily();
+    const goal = await inFamily(family.id, async (tx) => {
+      await db.ensureCategory(tx, family.id, "despesa", domain.GOAL_CATEGORY, false);
+      await db.ensureCategory(tx, family.id, "receita", domain.GOAL_CATEGORY, false);
+      const [row] = await tx
+        .insert(db.goals)
+        .values({
+          householdId: family.id,
+          name: "Viagem",
+          kind: "outro",
+          targetAmount: "1000.00",
+          accountId: family.real.id,
+          destinationAccountId: family.main.id,
+          planDay: 28,
+        })
+        .returning({ id: db.goals.id });
+      await tx.insert(db.goalContributions).values({
+        householdId: family.id,
+        goalId: row!.id,
+        month: "2026-10",
+        amount: "100.00",
+      });
+      return row!.id;
+    });
+    await confirmEntry(form({ key: `g:${goal}:2026-10`, month: "2026-10" }));
+    const rows = await inFamily(family.id, (tx) => tx.select().from(transactions));
+    expect(rows.find((row) => row.kind === "despesa")).toMatchObject({
+      amount: "100.00",
+      brlAmount: "542.12",
+    });
+    expect(rows.find((row) => row.kind === "receita")).toMatchObject({
+      amount: "100.00",
+      brlAmount: null,
+      originalAmount: null,
+    });
+    const [saved] = await inFamily(family.id, (tx) => tx.select().from(db.goals));
+    expect(saved?.saved).toBe("100.00");
+  });
+
+  it("sem cotação, compromisso em conta em real não é confirmado", async () => {
+    const family = await usdFamily();
+    const [plan] = await inFamily(family.id, (tx) =>
+      tx
+        .insert(db.cashflowPlans)
+        .values({
+          householdId: family.id,
+          accountId: family.real.id,
+          categoryId: family.expense,
+          kind: "despesa",
+          description: "Antigo",
+          amount: "10.00",
+          dayOfMonth: 5,
+          startMonth: "2016-01",
+        })
+        .returning({ id: db.cashflowPlans.id }),
+    );
+    const notice = await confirmEntryNotice(form({ key: `p:${plan!.id}`, month: "2015-01" }));
+    expect(notice).toContain("Nada foi confirmado");
+    expect(await inFamily(family.id, (tx) => tx.select().from(transactions))).toEqual([]);
   });
 
   it("reserva e patrimônio somam na moeda principal", async () => {
