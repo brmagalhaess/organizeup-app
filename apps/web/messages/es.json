@@ -270,7 +270,8 @@
       "label": "Pantallas de inversiones",
       "portfolio": "Cartera",
       "trades": "Movimientos",
-      "rebalance": "Rebalanceo"
+      "rebalance": "Rebalanceo",
+      "import": "Importar"
     },
     "form": {
       "name": "Nombre",
@@ -516,6 +517,149 @@
       "percentMax": "Cada clase llega hasta el 100 %.",
       "percentSum": "La suma de las metas supera el 100 %.",
       "classNotAllowed": "Esta clase solo vale para familias en reales."
+    },
+    "importar": {
+      "metaTitle": "Importar inversiones",
+      "eyebrow": "Inversiones",
+      "title": "Trae tu cartera de B3",
+      "description": "Envía el archivo que descargaste y revisa todo antes de guardar, sin escribir operación por operación.",
+      "noPermission": "Tu papel en esta familia no permite importar.",
+      "onlyBrazil": "La importación de B3 es para familias con moneda principal en reales.",
+      "choose": {
+        "title": "Elige el archivo",
+        "text": "El archivo se lee aquí en el navegador y no se guarda. Solo las operaciones van a tu cartera, nunca tu nombre ni tu CPF.",
+        "file": "Archivo de B3 o del corredor",
+        "fileHint": "Excel (.xlsx) o PDF, hasta 5 MB.",
+        "reading": "Leyendo {name}…",
+        "checking": "Comparando con tu cartera…",
+        "other": "Elegir otro archivo"
+      },
+      "how": {
+        "title": "Cómo descargar el archivo",
+        "text": "Puedes usar más de uno: lo que ya esté en la cartera no entra de nuevo.",
+        "label": "Archivos aceptados",
+        "negociacao": {
+          "name": "Negociação (Excel)",
+          "text": "En el área del inversor de B3, abre Extratos, elige Negociação, marca el período y descarga en Excel. Es el mejor archivo, porque trae la fecha y el precio de cada compra y venta."
+        },
+        "movimentacao": {
+          "name": "Movimentação (Excel)",
+          "text": "En el área del inversor de B3, abre Extratos, elige Movimentação, marca el período y descarga en Excel. B3 muestra la fecha de liquidación, así que la fecha de la compra es estimada."
+        },
+        "posicao": {
+          "name": "Posição (Excel)",
+          "text": "En el área del inversor de B3, abre Extratos, elige Posição y descarga en Excel. Muestra cuántas cuotas tienes, para revisar la cartera."
+        },
+        "nota": {
+          "name": "Nota de corretaje (PDF)",
+          "text": "En el sitio o app del corredor, busca las notas de corretaje y descarga el PDF sin contraseña. Trae las comisiones, que entran en el precio medio."
+        }
+      },
+      "sides": {
+        "compra": "Compra",
+        "venda": "Venta"
+      },
+      "states": {
+        "novo": "Nueva",
+        "taxas": "Ya existe, con comisiones nuevas",
+        "conferir": "Para revisar",
+        "existe": "Ya existe",
+        "ignorado": "Ignorada"
+      },
+      "doubts": {
+        "parecida": "La cartera ya tiene una operación parecida. Márcala solo si es otra.",
+        "nota_nao_fecha": "Los valores de esta nota no cuadran con su neto. Revísala antes de marcar."
+      },
+      "reasons": {
+        "provento": "Dividendo: el sistema lo registra solo, revisa en Dividendos.",
+        "evento": "Evento de la empresa: desdoblamientos y similares los aplica el sistema.",
+        "transferencia": "Cambio de corredor: no es compra ni venta.",
+        "outra_movimentacao": "Este tipo de movimiento no cambia la cartera por aquí.",
+        "ativo_nao_listado": "Solo acciones, fondos inmobiliarios, ETF y BDR entran por aquí.",
+        "mercado_nao_suportado": "Solo el mercado al contado y fraccionario entran por aquí.",
+        "dados_invalidos": "A esta línea le faltan datos o no se entendieron.",
+        "valores_nao_fecham": "Cantidad por precio no da el valor de la línea.",
+        "venda_maior_que_posicao": "La venta supera lo que tenías en esa fecha. Envía antes el archivo con las compras.",
+        "classe_sem_cotacao": "Este activo está en la cartera como renta fija u otro tipo sin cotización.",
+        "sem_codigo": "Falta el código del activo. Indícalo arriba."
+      },
+      "codes": {
+        "title": "Falta el código de algunos activos",
+        "text": "La nota trae el nombre de la empresa, y no encontramos un único código para él.",
+        "codeOf": "Código de {title}",
+        "apply": "Comparar con estos códigos"
+      },
+      "assets": {
+        "title": "Activos que entran en la cartera",
+        "classOf": "Tipo de {ticker}",
+        "notInCatalog": "No está en nuestro catálogo de activos.",
+        "choose": "Elige"
+      },
+      "positions": {
+        "text": "Posição no trae fecha ni precio pagado, así que nada entra solo. Compárala con la cartera y, si falta algo, indica el precio pagado.",
+        "list": "Posición en B3",
+        "compare": "B3: {b3} · Cartera: {held}",
+        "price": "Precio medio pagado por {ticker} (¤)",
+        "priceHint": "Entra una compra de {quantity}.",
+        "date": "Fecha de las compras",
+        "dateHint": "Úsala para lo que no aparece en Negociação, o la compra contará dos veces.",
+        "states": {
+          "confere": "Coincide",
+          "falta": "Falta en la cartera",
+          "sobra": "La cartera tiene más",
+          "ignorado": "Ignorada"
+        }
+      },
+      "review": {
+        "title": {
+          "negociacao": "Revisa Negociação",
+          "movimentacao": "Revisa Movimentação",
+          "posicao": "Revisa Posição",
+          "nota": "Revisa la nota de corretaje"
+        },
+        "text": "Aún no se guardó nada. Desmarca lo que no quieras importar.",
+        "new": "Nuevas",
+        "check": "Para revisar",
+        "exists": "Ya existen",
+        "ignored": "Ignoradas",
+        "rows": "Líneas del archivo",
+        "selectRow": "Importar {name} del {date}",
+        "quantityAt": "{quantity} a {price}",
+        "fees": "comisiones de {value}",
+        "accountHint": "Si no eliges, la importación no crea movimiento en ninguna cuenta.",
+        "nothingTitle": "Nada nuevo en este archivo",
+        "nothingText": "Todo lo que se puede importar ya está en la cartera.",
+        "submit": "{count, plural, =0 {Nada marcado} =1 {Importar 1 operación} other {Importar # operaciones}}",
+        "importing": "Importando…",
+        "cancel": "Cancelar"
+      },
+      "done": {
+        "title": "Cartera actualizada",
+        "counts": "{created, plural, =0 {Ninguna operación nueva} =1 {1 operación nueva} other {# operaciones nuevas}}, {assets, plural, =0 {ningún activo nuevo} =1 {1 activo nuevo} other {# activos nuevos}} y {fees, plural, =0 {ninguna comisión actualizada} =1 {1 operación con comisiones} other {# operaciones con comisiones}}.",
+        "portfolio": "Ver la cartera",
+        "another": "Importar otro archivo"
+      },
+      "errors": {
+        "vazio": "El archivo está vacío.",
+        "tamanho": "El archivo supera los 5 MB.",
+        "tipo": "Este archivo no es un Excel (.xlsx) o PDF de verdad.",
+        "xls_antigo": "Este es el Excel antiguo (.xls). Descárgalo de nuevo en .xlsx.",
+        "layout": "No reconocemos este archivo. Envía el Excel de Negociação, Movimentação o Posição de B3, o la nota de corretaje en formato SINACOR.",
+        "sem_linhas": "El archivo no tiene ninguna operación.",
+        "muitas_linhas": "El archivo supera las 2.000 líneas. Descarga un período menor.",
+        "pdf_sem_texto": "Este PDF es una imagen, sin texto para leer. Descarga la nota original en el sitio del corredor.",
+        "pdf_com_senha": "Este PDF tiene contraseña. Descarga o guarda la nota sin contraseña y envíala de nuevo. No necesitamos tu contraseña.",
+        "readFailed": "No pudimos leer este archivo. Descárgalo de nuevo e inténtalo otra vez.",
+        "invalid": "Algunas líneas llegaron en formato no válido. Envía el archivo de nuevo.",
+        "onlyBrazil": "La importación de B3 es para familias con moneda principal en reales.",
+        "oversold": "La venta de {ticker} supera lo que había en esa fecha. Marca sus compras o desmarca la venta.",
+        "future": "Hay una operación con fecha futura. Revisa las fechas.",
+        "priceFormat": "Revisa el precio pagado: usa un valor como 32,50.",
+        "classRequired": "Elige el tipo de cada activo nuevo.",
+        "noAccount": "Esta cuenta ya no está disponible.",
+        "noQuote": "Falta la cotización de la moneda de la cuenta en la fecha de alguna operación.",
+        "failed": "No pudimos terminar ahora. No se guardó nada. Inténtalo de nuevo."
+      }
     }
   },
   "proventos": {
@@ -2640,6 +2784,11 @@
       "invalidAccount": "Elige una cuenta válida.",
       "reviewRows": "Revisa los movimientos e inténtalo de nuevo.",
       "invalidCategory": "Elige una categoría válida en cada movimiento."
+    },
+    "investments": {
+      "title": "¿Inviertes en la bolsa?",
+      "text": "El Excel del área del inversor de B3 y la nota de corretaje en PDF se importan desde la pantalla de inversiones.",
+      "link": "Importar de B3 o del corredor"
     }
   },
   "renda": {

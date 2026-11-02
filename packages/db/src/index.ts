@@ -125,6 +125,7 @@ export {
   saveMarketIndices,
   lastMarketFxDate,
   findMarketAsset,
+  listMarketAssets,
   saveMarketAssets,
   saveMarketQuote,
   searchMarketAssets,

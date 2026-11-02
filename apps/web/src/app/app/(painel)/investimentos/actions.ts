@@ -3,10 +3,8 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
-  accounts,
   and,
   canWrite,
-  ensureCategory,
   eq,
   findMarketAsset,
   householdCurrency,
@@ -17,16 +15,12 @@ import {
   investmentTargets,
   investmentTrades,
   loadStockEvents,
-  mainEntry,
   TRADE_SIDES,
   transactions,
   withHousehold,
-  type TenantContext,
-  type TenantTx,
 } from "@organizeup/db";
 import {
   brazilRulesApply,
-  CONTRIBUTION_CATEGORY,
   investmentClassAllowed,
   isUnitPriced,
   money,
@@ -40,6 +34,7 @@ import {
 import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
+import { MissingQuote, recordTradeCash } from "@/lib/trade-cash";
 
 export interface FormState {
   ok: boolean;
@@ -92,9 +87,6 @@ function refresh() {
   revalidatePath("/app", "layout");
 }
 
-/** Conta estrangeira sem cotação na data da operação: nada é gravado. */
-class MissingQuote extends Error {}
-
 /** Cria um investimento ou edita o do `id`. */
 export async function saveInvestment(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireTenant();
@@ -132,48 +124,6 @@ export async function saveInvestment(_prev: FormState, form: FormData): Promise<
   }
   refresh();
   return { ok: true, message: null };
-}
-
-/** Lançamento da operação na conta. A categoria de aportes fica fora do que sobra no mês. */
-async function recordTradeCash(
-  tx: TenantTx,
-  ctx: TenantContext,
-  input: {
-    accountId: string;
-    side: (typeof TRADE_SIDES)[number];
-    name: string;
-    trade: TradeInput;
-  },
-): Promise<string | null> {
-  const { accountId, side, name, trade } = input;
-  const gross = money(trade.quantity).times(trade.unitPrice);
-  const total = side === "compra" ? gross.plus(trade.fees) : gross.minus(trade.fees);
-  if (total.lte(0)) return null;
-  const [account] = await tx
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(eq(accounts.id, accountId));
-  if (!account) throw new RangeError("conta");
-  // A carteira é na moeda principal; numa conta estrangeira, o lançamento converte pela data da operação.
-  const entry = await mainEntry(tx, accountId, toDbAmount(total), trade.occurredOn);
-  if (!entry) throw new MissingQuote();
-  const kind = side === "compra" ? "despesa" : "receita";
-  const category = await ensureCategory(tx, ctx.householdId, kind, CONTRIBUTION_CATEGORY, false);
-  const [row] = await tx
-    .insert(transactions)
-    .values({
-      householdId: ctx.householdId,
-      accountId,
-      categoryId: category.id,
-      kind,
-      description: `${side === "compra" ? "Aporte em" : "Resgate de"} ${name}`.slice(0, 200),
-      ...entry,
-      occurredOn: trade.occurredOn,
-      categorySource: "familia",
-      createdBy: ctx.userId,
-    })
-    .returning({ id: transactions.id });
-  return row!.id;
 }
 
 const assetSchema = (t: Errors) =>

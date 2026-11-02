@@ -270,7 +270,8 @@
       "label": "Investment screens",
       "portfolio": "Portfolio",
       "trades": "Transactions",
-      "rebalance": "Rebalancing"
+      "rebalance": "Rebalancing",
+      "import": "Import"
     },
     "form": {
       "name": "Name",
@@ -516,6 +517,149 @@
       "percentMax": "Each class goes up to 100%.",
       "percentSum": "The targets add up to more than 100%.",
       "classNotAllowed": "This class is only available to families in reais."
+    },
+    "importar": {
+      "metaTitle": "Import investments",
+      "eyebrow": "Investments",
+      "title": "Bring in your B3 portfolio",
+      "description": "Send the file you downloaded and review everything before saving, with no need to type each trade.",
+      "noPermission": "Your role in this family does not allow importing.",
+      "onlyBrazil": "B3 import is for families whose main currency is the Brazilian real.",
+      "choose": {
+        "title": "Choose the file",
+        "text": "The file is read here in your browser and is not stored. Only the trades go to your portfolio, never your name or CPF.",
+        "file": "File from B3 or your broker",
+        "fileHint": "Excel (.xlsx) or PDF, up to 5 MB.",
+        "reading": "Reading {name}…",
+        "checking": "Checking against your portfolio…",
+        "other": "Choose another file"
+      },
+      "how": {
+        "title": "How to download the file",
+        "text": "You can use more than one: whatever is already in the portfolio is not added again.",
+        "label": "Accepted files",
+        "negociacao": {
+          "name": "Negociação (Excel)",
+          "text": "In the B3 investor area, open Extratos, choose Negociação, pick the period and download it as Excel. This is the best file, because it has the date and price of each trade."
+        },
+        "movimentacao": {
+          "name": "Movimentação (Excel)",
+          "text": "In the B3 investor area, open Extratos, choose Movimentação, pick the period and download it as Excel. B3 shows the settlement date, so the trade date is an estimate."
+        },
+        "posicao": {
+          "name": "Posição (Excel)",
+          "text": "In the B3 investor area, open Extratos, choose Posição and download it as Excel. It shows how many shares you hold, so you can check your portfolio."
+        },
+        "nota": {
+          "name": "Brokerage note (PDF)",
+          "text": "On your broker's site or app, look for brokerage notes (notas de corretagem) and download the PDF without a password. It has the fees, which go into the average price."
+        }
+      },
+      "sides": {
+        "compra": "Buy",
+        "venda": "Sell"
+      },
+      "states": {
+        "novo": "New",
+        "taxas": "Already there, with new fees",
+        "conferir": "To review",
+        "existe": "Already there",
+        "ignorado": "Ignored"
+      },
+      "doubts": {
+        "parecida": "The portfolio already has a similar trade. Tick it only if this is a different one.",
+        "nota_nao_fecha": "The amounts in this note do not add up to its net total. Review before ticking."
+      },
+      "reasons": {
+        "provento": "Dividend: the system records it for you, check under Dividends.",
+        "evento": "Corporate event: splits and the like are applied by the system.",
+        "transferencia": "Change of broker: not a buy or a sell.",
+        "outra_movimentacao": "This kind of movement does not change the portfolio here.",
+        "ativo_nao_listado": "Only stocks, real estate funds, ETFs and BDRs can be imported here.",
+        "mercado_nao_suportado": "Only the spot and odd-lot markets can be imported here.",
+        "dados_invalidos": "This line is missing data or could not be understood.",
+        "valores_nao_fecham": "Quantity times price does not match the line amount.",
+        "venda_maior_que_posicao": "This sale is larger than what you held on that date. Send the file with the purchases first.",
+        "classe_sem_cotacao": "This asset is in the portfolio as fixed income or another type without a quote.",
+        "sem_codigo": "The asset code is missing. Enter it above."
+      },
+      "codes": {
+        "title": "Some asset codes are missing",
+        "text": "The note has the company name, and we could not find a single code for it.",
+        "codeOf": "Code of {title}",
+        "apply": "Check with these codes"
+      },
+      "assets": {
+        "title": "Assets joining the portfolio",
+        "classOf": "Type of {ticker}",
+        "notInCatalog": "Not in our asset catalog.",
+        "choose": "Choose"
+      },
+      "positions": {
+        "text": "Posição has no date or price paid, so nothing comes in by itself. Compare it with the portfolio and, if something is missing, enter the price you paid.",
+        "list": "Position at B3",
+        "compare": "B3: {b3} · Portfolio: {held}",
+        "price": "Average price paid for {ticker} (¤)",
+        "priceHint": "Adds a purchase of {quantity}.",
+        "date": "Purchase date",
+        "dateHint": "Use this for what is not in Negociação, or the purchase will count twice.",
+        "states": {
+          "confere": "Matches",
+          "falta": "Missing from the portfolio",
+          "sobra": "Portfolio has more",
+          "ignorado": "Ignored"
+        }
+      },
+      "review": {
+        "title": {
+          "negociacao": "Review Negociação",
+          "movimentacao": "Review Movimentação",
+          "posicao": "Review Posição",
+          "nota": "Review the brokerage note"
+        },
+        "text": "Nothing has been saved yet. Untick what you do not want to import.",
+        "new": "New",
+        "check": "To review",
+        "exists": "Already there",
+        "ignored": "Ignored",
+        "rows": "File lines",
+        "selectRow": "Import {name} from {date}",
+        "quantityAt": "{quantity} at {price}",
+        "fees": "fees of {value}",
+        "accountHint": "If you do not choose one, the import creates no entry in any account.",
+        "nothingTitle": "Nothing new in this file",
+        "nothingText": "Everything that can be imported is already in the portfolio.",
+        "submit": "{count, plural, =0 {Nothing ticked} =1 {Import 1 trade} other {Import # trades}}",
+        "importing": "Importing…",
+        "cancel": "Cancel"
+      },
+      "done": {
+        "title": "Portfolio updated",
+        "counts": "{created, plural, =0 {No new trades} =1 {1 new trade} other {# new trades}}, {assets, plural, =0 {no new assets} =1 {1 new asset} other {# new assets}} and {fees, plural, =0 {no fees updated} =1 {1 trade with fees} other {# trades with fees}}.",
+        "portfolio": "See the portfolio",
+        "another": "Import another file"
+      },
+      "errors": {
+        "vazio": "The file is empty.",
+        "tamanho": "The file is larger than 5 MB.",
+        "tipo": "This file is not a real Excel (.xlsx) or PDF file.",
+        "xls_antigo": "This is the old Excel format (.xls). Download it again as .xlsx.",
+        "layout": "We do not recognize this file. Send the B3 Negociação, Movimentação or Posição Excel file, or a SINACOR brokerage note.",
+        "sem_linhas": "The file has no trades.",
+        "muitas_linhas": "The file has more than 2,000 lines. Download a shorter period.",
+        "pdf_sem_texto": "This PDF is an image with no text to read. Download the original note from your broker's site.",
+        "pdf_com_senha": "This PDF has a password. Download or save the note without a password and send it again. We do not need your password.",
+        "readFailed": "We could not read this file. Download it again and retry.",
+        "invalid": "Some lines came in an invalid format. Send the file again.",
+        "onlyBrazil": "B3 import is for families whose main currency is the Brazilian real.",
+        "oversold": "The sale of {ticker} is larger than what was held on that date. Tick its purchases or untick the sale.",
+        "future": "There is a trade with a future date. Check the dates.",
+        "priceFormat": "Check the price paid: use an amount like 32.50.",
+        "classRequired": "Choose the type of each new asset.",
+        "noAccount": "This account is no longer available.",
+        "noQuote": "The account currency has no exchange rate on the date of a trade.",
+        "failed": "We could not finish right now. Nothing was saved. Please try again."
+      }
     }
   },
   "proventos": {
@@ -2640,6 +2784,11 @@
       "invalidAccount": "Choose a valid account.",
       "reviewRows": "Review the transactions and try again.",
       "invalidCategory": "Choose a valid category for each transaction."
+    },
+    "investments": {
+      "title": "Do you invest on the stock exchange?",
+      "text": "The B3 investor area Excel file and PDF brokerage notes are imported from the investments screen.",
+      "link": "Import from B3 or your broker"
     }
   },
   "renda": {
