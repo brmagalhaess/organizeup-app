@@ -692,7 +692,8 @@
       "automatic": "automático",
       "gross": "{amount} brutos",
       "market": "fecha con derecho {date} · fuente: {source}",
-      "remove": "Eliminar dividendo de {name}"
+      "remove": "Eliminar dividendo de {name}",
+      "imported": "importado"
     },
     "goal": {
       "title": "Meta de dividendos",
@@ -789,7 +790,143 @@
       "withheldTooHigh": "El impuesto no puede superar el valor bruto.",
       "goalFormat": "Indica la meta como 1.500,00.",
       "check": "Revisa los datos."
-    }
+    },
+    "importar": {
+      "metaTitle": "Importar proventos",
+      "eyebrow": "Proventos",
+      "title": "Trae tus proventos",
+      "description": "Envía el archivo que descargaste y revisa todo antes de guardar.",
+      "back": "Volver a Proventos",
+      "noPermission": "Tu rol en esta familia no permite importar.",
+      "noInvestments": {
+        "title": "Primero, las inversiones",
+        "text": "Los proventos quedan ligados a los activos de tu cartera. Importa la cartera y vuelve aquí.",
+        "action": "Importar la cartera"
+      },
+      "choose": {
+        "title": "Elige el archivo",
+        "text": "El archivo se lee aquí en tu navegador y no se guarda. Solo el código del activo, el tipo, la fecha y los valores llegan al sistema, nunca tu nombre ni tu CPF.",
+        "file": "Archivo de proventos",
+        "fileHint": "Excel (.xlsx) o CSV, hasta 5 MB.",
+        "reading": "Leyendo {name}…",
+        "checking": "Comparando con tus proventos…",
+        "other": "Elegir otro archivo"
+      },
+      "how": {
+        "title": "Cómo descargar",
+        "text": "Un archivo por vez. Los períodos que se repiten no se duplican.",
+        "label": "Archivos aceptados",
+        "recebidos": {
+          "name": "Proventos recebidos (Excel)",
+          "text": "En la Área do Investidor de B3, abre Proventos, luego Recebidos, elige el período y descarga."
+        },
+        "movimentacao": {
+          "name": "Movimentação (Excel)",
+          "text": "En la Área do Investidor de B3, abre Extratos, luego Movimentação, elige el período y descarga en Excel."
+        },
+        "csv": {
+          "name": "CSV",
+          "text": "Exporta desde tu planilla o corredora, con títulos en la primera línea y columnas de fecha, activo, tipo y valor."
+        }
+      },
+      "columns": {
+        "title": "Dinos qué hay en cada columna",
+        "text": "No reconocimos todos los títulos de este CSV. Elige la columna de cada dato.",
+        "optional": "Opcional.",
+        "none": "No tiene",
+        "unnamed": "Columna {number}",
+        "use": "Usar estas columnas",
+        "cancel": "Cancelar",
+        "fields": {
+          "date": "Fecha del pago",
+          "asset": "Activo",
+          "kind": "Tipo de provento",
+          "value": "Valor recibido",
+          "gross": "Valor bruto",
+          "withheld": "Impuesto retenido"
+        }
+      },
+      "states": {
+        "novo": "Nuevo",
+        "existe": "Ya existe",
+        "conferir": "Por revisar",
+        "ignorado": "Ignorado"
+      },
+      "calculations": {
+        "jcp_do_liquido": "Calculado: el archivo solo trae el neto, así que bruto e impuesto salen del JCP al {rate}.",
+        "jcp_do_bruto": "Calculado: el archivo solo trae el bruto, así que el impuesto sale del JCP al {rate}.",
+        "retido_pela_diferenca": "Calculado: el impuesto es el bruto menos el neto del archivo.",
+        "bruto_pela_soma": "Calculado: el bruto es el neto más el impuesto del archivo."
+      },
+      "doubts": {
+        "sem_ativo": "Este activo no está en la cartera, o está en más de una inversión. Elige abajo o déjalo fuera.",
+        "valor_diferente": "Ya hay un provento automático con otro valor. Si lo marcas, queda con el valor del archivo.",
+        "parecida": "Hay un registro tuyo cerca con otro valor. Si lo marcas, entra uno más.",
+        "imposto_incerto": "No se puede saber el impuesto solo con este archivo. Si lo marcas, entra el valor del archivo, sin impuesto. Revisa tu extracto.",
+        "acima_do_limite": "Por encima de R$ 50 mil al mes de la misma empresa puede haber retención del 10%. Revisa tu extracto.",
+        "excluido": "Ya eliminaste o deshiciste este provento. Márcalo si quieres traerlo de vuelta."
+      },
+      "reasons": {
+        "transferido": "Repite otra línea del extracto.",
+        "reembolso": "El reembolso no entra como provento. Si lo fue, regístralo a mano.",
+        "debito": "Es una salida, no un pago recibido.",
+        "outra_movimentacao": "No es un provento.",
+        "tipo_desconhecido": "Tipo que no reconocemos. Usa dividendo, JCP o rendimento.",
+        "ativo_nao_listado": "Sin código de negociación de B3.",
+        "dados_invalidos": "Fecha o valor en un formato que no reconocemos.",
+        "valores_nao_fecham": "Bruto, impuesto y neto no cuadran entre sí.",
+        "data_futura": "Pago en fecha futura: entra cuando se pague."
+      },
+      "missing": {
+        "title": "Activos fuera de la cartera",
+        "text": "Nada crea una posición por sí solo. Elige una inversión de la cartera o déjalo fuera.",
+        "holdingOf": "Inversión de {ticker}",
+        "leaveOut": "Dejar fuera",
+        "apply": "Comparar con esta elección"
+      },
+      "review": {
+        "title": {
+          "recebidos": "Revisa Proventos recebidos",
+          "movimentacao": "Revisa la Movimentação",
+          "csv": "Revisa el CSV"
+        },
+        "text": "Aún no se guardó nada. Desmarca lo que no quieras. El provento no crea un movimiento en cuenta ni un ingreso.",
+        "new": "Nuevos",
+        "check": "Por revisar",
+        "exists": "Ya existen",
+        "ignored": "Ignorados",
+        "rows": "Líneas del archivo",
+        "selectRow": "Importar {name} del {date}",
+        "netOnly": "{net}",
+        "amounts": "{net} neto · {gross} bruto · {withheld} de impuesto",
+        "nothingTitle": "Nada nuevo en este archivo",
+        "nothingText": "Todo lo que se puede importar ya está en tus proventos.",
+        "submit": "{count, plural, =0 {Nada marcado} one {Importar # provento} other {Importar # proventos}}",
+        "importing": "Importando…",
+        "cancel": "Cancelar"
+      },
+      "done": {
+        "title": "Proventos actualizados",
+        "counts": "{created, plural, one {# provento nuevo} other {# proventos nuevos}}{replaced, plural, =0 {} one { · # cambiado por el valor del archivo} other { · # cambiados por el valor del archivo}}",
+        "list": "Ver proventos",
+        "another": "Importar otro archivo"
+      },
+      "errors": {
+        "vazio": "El archivo está vacío.",
+        "tamanho": "El archivo supera los 5 MB.",
+        "tipo": "Este archivo no es un Excel (.xlsx) o CSV de verdad.",
+        "xls_antigo": "Este es el Excel antiguo (.xls). Descárgalo de nuevo en .xlsx.",
+        "layout": "No reconocemos este archivo. Envía Proventos recebidos o Movimentação de B3, o un CSV con fecha, activo, tipo y valor.",
+        "sem_linhas": "El archivo no tiene ningún provento.",
+        "muitas_linhas": "El archivo supera las 2.000 líneas. Descarga un período más corto.",
+        "colunas": "Faltan columnas en este CSV: necesita fecha, activo, tipo y valor.",
+        "readFailed": "No pudimos leer este archivo. Descárgalo de nuevo e inténtalo otra vez.",
+        "invalid": "Algunas líneas vinieron en un formato inválido. Envía el archivo de nuevo.",
+        "onlyBrazil": "La importación de proventos es para familias con moneda principal en reales.",
+        "failed": "No pudimos terminar ahora. No se guardó nada. Inténtalo de nuevo."
+      }
+    },
+    "importLink": "Importar archivo"
   },
   "metas": {
     "metaTitle": "Metas",
@@ -3125,6 +3262,11 @@
       "title": "¿Inviertes en la bolsa?",
       "text": "El Excel del área del inversor de B3 y la nota de corretaje en PDF se importan desde la pantalla de inversiones.",
       "link": "Importar de B3 o del corredor"
+    },
+    "dividends": {
+      "title": "¿Tienes proventos para traer?",
+      "text": "Excel de la Área do Investidor de B3 o CSV entran por la pantalla de proventos, sin duplicar lo que ya está allí.",
+      "link": "Importar proventos"
     }
   },
   "renda": {

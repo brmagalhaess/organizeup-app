@@ -692,7 +692,8 @@
       "automatic": "automatic",
       "gross": "{amount} gross",
       "market": "cum-dividend date {date} · source: {source}",
-      "remove": "Delete dividend from {name}"
+      "remove": "Delete dividend from {name}",
+      "imported": "imported"
     },
     "goal": {
       "title": "Dividend goal",
@@ -789,7 +790,143 @@
       "withheldTooHigh": "The tax can’t be more than the gross amount.",
       "goalFormat": "Enter the goal like 1,500.00.",
       "check": "Check the information."
-    }
+    },
+    "importar": {
+      "metaTitle": "Import dividends",
+      "eyebrow": "Dividends",
+      "title": "Bring in your dividends",
+      "description": "Send the file you downloaded and review everything before saving.",
+      "back": "Back to Dividends",
+      "noPermission": "Your role in this family does not allow importing.",
+      "noInvestments": {
+        "title": "Investments first",
+        "text": "Dividends are linked to the assets in your portfolio. Import your portfolio and come back.",
+        "action": "Import portfolio"
+      },
+      "choose": {
+        "title": "Choose the file",
+        "text": "The file is read here in your browser and is not stored. Only the asset code, type, date and amounts reach the system, never your name or CPF.",
+        "file": "Dividend file",
+        "fileHint": "Excel (.xlsx) or CSV, up to 5 MB.",
+        "reading": "Reading {name}…",
+        "checking": "Checking against your dividends…",
+        "other": "Choose another file"
+      },
+      "how": {
+        "title": "How to download",
+        "text": "One file at a time. Overlapping periods do not duplicate.",
+        "label": "Accepted files",
+        "recebidos": {
+          "name": "Proventos recebidos (Excel)",
+          "text": "In B3's Área do Investidor, open Proventos, then Recebidos, choose the period and download."
+        },
+        "movimentacao": {
+          "name": "Movimentação (Excel)",
+          "text": "In B3's Área do Investidor, open Extratos, then Movimentação, choose the period and download as Excel."
+        },
+        "csv": {
+          "name": "CSV",
+          "text": "Export from your spreadsheet or broker, with titles on the first row and columns for date, asset, type and amount."
+        }
+      },
+      "columns": {
+        "title": "Tell us what each column holds",
+        "text": "We did not recognize all the titles in this CSV. Choose the column for each piece of information.",
+        "optional": "Optional.",
+        "none": "None",
+        "unnamed": "Column {number}",
+        "use": "Use these columns",
+        "cancel": "Cancel",
+        "fields": {
+          "date": "Payment date",
+          "asset": "Asset",
+          "kind": "Dividend type",
+          "value": "Amount received",
+          "gross": "Gross amount",
+          "withheld": "Tax withheld"
+        }
+      },
+      "states": {
+        "novo": "New",
+        "existe": "Already there",
+        "conferir": "To review",
+        "ignorado": "Ignored"
+      },
+      "calculations": {
+        "jcp_do_liquido": "Calculated: the file only has the net amount, so gross and tax come from JCP at {rate}.",
+        "jcp_do_bruto": "Calculated: the file only has the gross amount, so tax comes from JCP at {rate}.",
+        "retido_pela_diferenca": "Calculated: tax is the file's gross minus net.",
+        "bruto_pela_soma": "Calculated: gross is the file's net plus tax."
+      },
+      "doubts": {
+        "sem_ativo": "This asset is not in your portfolio, or is in more than one investment. Choose below or leave it out.",
+        "valor_diferente": "There is already an automatic dividend with another amount. If you check this, it takes the file's amount.",
+        "parecida": "There is an entry of yours nearby with another amount. If you check this, one more comes in.",
+        "imposto_incerto": "The tax cannot be known from this file alone. If you check this, the file's amount comes in with no tax. Check your statement.",
+        "acima_do_limite": "Above R$ 50 thousand in a month from the same company, 10% may be withheld. Check your statement.",
+        "excluido": "You already deleted or undid this dividend. Check this to bring it back."
+      },
+      "reasons": {
+        "transferido": "Repeats another line of the statement.",
+        "reembolso": "Reimbursements do not come in as dividends. If it was one, add it by hand.",
+        "debito": "This is money out, not a payment received.",
+        "outra_movimentacao": "Not a dividend.",
+        "tipo_desconhecido": "Type we do not recognize. Use dividendo, JCP or rendimento.",
+        "ativo_nao_listado": "No B3 trading code.",
+        "dados_invalidos": "Date or amount in a format we do not recognize.",
+        "valores_nao_fecham": "Gross, tax and net do not add up.",
+        "data_futura": "Payment in the future: it comes in once paid."
+      },
+      "missing": {
+        "title": "Assets outside your portfolio",
+        "text": "Nothing creates a position on its own. Choose an investment from your portfolio or leave it out.",
+        "holdingOf": "Investment for {ticker}",
+        "leaveOut": "Leave out",
+        "apply": "Check with this choice"
+      },
+      "review": {
+        "title": {
+          "recebidos": "Review Proventos recebidos",
+          "movimentacao": "Review Movimentação",
+          "csv": "Review the CSV"
+        },
+        "text": "Nothing has been saved yet. Uncheck what you do not want. A dividend does not create an account entry or income.",
+        "new": "New",
+        "check": "To review",
+        "exists": "Already there",
+        "ignored": "Ignored",
+        "rows": "File lines",
+        "selectRow": "Import {name} from {date}",
+        "netOnly": "{net}",
+        "amounts": "{net} net · {gross} gross · {withheld} tax",
+        "nothingTitle": "Nothing new in this file",
+        "nothingText": "Everything that can be imported is already in your dividends.",
+        "submit": "{count, plural, =0 {Nothing checked} one {Import # dividend} other {Import # dividends}}",
+        "importing": "Importing…",
+        "cancel": "Cancel"
+      },
+      "done": {
+        "title": "Dividends updated",
+        "counts": "{created, plural, one {# new dividend} other {# new dividends}}{replaced, plural, =0 {} one { · # replaced by the file's amount} other { · # replaced by the file's amount}}",
+        "list": "See dividends",
+        "another": "Import another file"
+      },
+      "errors": {
+        "vazio": "The file is empty.",
+        "tamanho": "The file is over 5 MB.",
+        "tipo": "This file is not a real Excel (.xlsx) or CSV.",
+        "xls_antigo": "This is the old Excel format (.xls). Download it again as .xlsx.",
+        "layout": "We do not recognize this file. Send Proventos recebidos or Movimentação from B3, or a CSV with date, asset, type and amount.",
+        "sem_linhas": "The file has no dividends.",
+        "muitas_linhas": "The file has over 2,000 lines. Download a shorter period.",
+        "colunas": "This CSV is missing columns: it needs date, asset, type and amount.",
+        "readFailed": "We could not read this file. Download it again and retry.",
+        "invalid": "Some lines came in an invalid format. Send the file again.",
+        "onlyBrazil": "Dividend import is for families whose main currency is the Brazilian real.",
+        "failed": "We could not finish now. Nothing was saved. Try again."
+      }
+    },
+    "importLink": "Import file"
   },
   "metas": {
     "metaTitle": "Goals",
@@ -3125,6 +3262,11 @@
       "title": "Do you invest on the stock exchange?",
       "text": "The B3 investor area Excel file and PDF brokerage notes are imported from the investments screen.",
       "link": "Import from B3 or your broker"
+    },
+    "dividends": {
+      "title": "Have dividends to bring in?",
+      "text": "Excel from B3's Área do Investidor or a CSV come in through the dividends screen, without duplicating what is already there.",
+      "link": "Import dividends"
     }
   },
   "renda": {

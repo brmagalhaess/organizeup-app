@@ -12,7 +12,7 @@ import {
   investmentTrades,
   listMarketAssets,
   loadStockEvents,
-  sql,
+  lockFamilyImport,
   TRADE_SIDES,
   withHousehold,
   type TenantContext,
@@ -191,10 +191,6 @@ function failed(event: string, error: unknown, message: string) {
   return { ok: false as const, message };
 }
 
-/** Pedidos de uma mesma família entram em fila: dois cliques não veem a carteira "antes" ao mesmo tempo. */
-const lockHousehold = (tx: TenantTx, householdId: string) =>
-  tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${householdId}, 7311))`);
-
 interface NewTrade {
   ticker: string;
   side: TradeInput["side"];
@@ -282,7 +278,7 @@ export async function commitInvestmentImport(input: ImportCommitInput): Promise<
   try {
     const catalog = await loadCatalog();
     return await withHousehold(ctx, async (tx) => {
-      await lockHousehold(tx, ctx.householdId);
+      await lockFamilyImport(tx, ctx.householdId);
       const currency = await householdCurrency(tx);
       if (!brazilRulesApply(currency)) throw new ImportRefused(t("onlyBrazil"));
       const today = todayIn(await householdTimezone(tx, ctx.householdId));

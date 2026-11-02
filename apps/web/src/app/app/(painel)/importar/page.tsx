@@ -92,11 +92,18 @@ export default async function ImportPage() {
     <div className="flex flex-col gap-6">
       <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
       {brazilRulesApply(data.currency) ? (
-        <Card title={t("investments.title")} description={t("investments.text")}>
-          <Link href="/app/investimentos/importar" className={buttonClass("secondary")}>
-            {t("investments.link")}
-          </Link>
-        </Card>
+        <>
+          <Card title={t("investments.title")} description={t("investments.text")}>
+            <Link href="/app/investimentos/importar" className={buttonClass("secondary")}>
+              {t("investments.link")}
+            </Link>
+          </Card>
+          <Card title={t("dividends.title")} description={t("dividends.text")}>
+            <Link href="/app/proventos/importar" className={buttonClass("secondary")}>
+              {t("dividends.link")}
+            </Link>
+          </Card>
+        </>
       ) : null}
       {canWrite(ctx) ? (
         <ImportWizard

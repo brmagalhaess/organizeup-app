@@ -1,6 +1,6 @@
 # ADR-0024 — Importar a carteira da B3 e da corretora
 
-Status: aceito (2026-11-01). Etapa 1 de `docs/specs/conexao-de-contas.md`.
+Status: aceito (2026-11-01). Etapa 1 de `docs/specs/conexao-de-contas.md`. Proventos têm importação própria: ADR-0029.
 
 ## Decisão
 
