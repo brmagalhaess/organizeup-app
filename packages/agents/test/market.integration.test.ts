@@ -863,4 +863,64 @@ describe("job de mercado", () => {
     });
     expect(calls.some((url) => url.includes("ZZZZ3"))).toBe(false);
   });
+
+  it("código com dígito entra no catálogo, na coleta e na carteira, como qualquer outro", async () => {
+    const stocks = [
+      { stock: "B3SA3", name: "B3 S.A.", close: 12, type: "stock", subType: "stock" },
+      { stock: "M1TA34", name: "META BDR", close: 30, type: "bdr", subType: "bdr" },
+    ];
+    const list = (async (input: string | URL | Request) => {
+      if (String(input).includes("bcdata.sgs")) return sgs();
+      if (String(input).includes("quote/list")) return json({ stocks, hasNextPage: false });
+      return json({}, 404);
+    }) as typeof fetch;
+    const catalog = await agents.runMarketData({
+      log: silent,
+      activeDays: 60,
+      fetch: list,
+      pauseMs: 0,
+      catalog: true,
+    });
+    expect(catalog.assets).toBe(2);
+    expect((await db.findMarketAsset("B3SA3"))?.assetClass).toBe("acao");
+    expect((await db.findMarketAsset("M1TA34"))?.assetClass).toBe("etf_bdr");
+
+    const [holding] = await inC((tx) =>
+      tx
+        .insert(investments)
+        .values({ householdId: C.household, name: "B3", ticker: "B3SA3", assetClass: "acao" })
+        .returning({ id: investments.id }),
+    );
+    await inC((tx) =>
+      tx.insert(investmentTrades).values({
+        householdId: C.household,
+        investmentId: holding!.id,
+        side: "compra",
+        occurredOn: "2026-01-05",
+        quantity: "10",
+        unitPrice: "10",
+        fees: "0.00",
+      }),
+    );
+    const { fn, calls } = fakeFetch((ticker) => json(quote(ticker, 40)));
+    await agents.runMarketData({
+      log: silent,
+      token: "token-de-teste",
+      activeDays: 60,
+      fetch: fn,
+      pauseMs: 0,
+    });
+    expect(calls.some((url) => url.includes("quote/B3SA3"))).toBe(true);
+    await run();
+    const [asset] = await inC((tx) =>
+      tx.select().from(investments).where(eq(investments.id, holding!.id)),
+    );
+    expect(asset).toMatchObject({ priceSource: "mercado", currentPrice: "40.00000000" });
+    const paid = await inC((tx) =>
+      tx.select().from(dividends).where(eq(dividends.investmentId, holding!.id)),
+    );
+    expect(paid).toMatchObject([{ source: "agente", paidOn: "2026-12-30", gross: "10.00" }]);
+    // O banco continua recusando o que não é código.
+    await expect(db.saveMarketQuote(quoteRow("CPF123", "1.00000000"))).rejects.toThrow();
+  });
 });

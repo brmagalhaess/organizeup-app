@@ -68,6 +68,23 @@ dia e tudo o que o Mercado achasse depois.
 - **Reaproveitável.** `parseDividendFile` e `planDividendImport` são puros, em `packages/domain`, para o importador
   inteligente chamar. Sem IA aqui.
 
+## Códigos com dígito: depende do fundador
+
+A revisão mostrou que `normalizeTicker` recusava B3SA3 e BDRs como M1TA34: esses ativos ficavam sem cotação, sem provento
+automático e fora do catálogo, como `ticker_invalido`, e a importação os ignorava. A raiz passa a aceitar as formas que a
+B3 usa, listadas uma a uma em `TICKER_ROOTS`, para nome digitado como CPF123 continuar de fora. Todo código só de letras
+na raiz dá o mesmo de antes.
+
+As tabelas de mercado têm `CHECK` no formato antigo, e alargar uma `CHECK` exige `DROP CONSTRAINT`. Isso é exceção à
+regra 3, como a da `0016` (ADR-0015), e **a migração `0041` só pode entrar em `main` com aprovação do fundador**. Nenhuma
+linha é apagada ou alterada. Sem a migração, a mudança de código não pode entrar: o catálogo grava em lote, e um código
+recusado derrubaria a lista inteira. Os dois commits ficam no topo do branch para sair juntos, sem tocar no resto.
+
+Com a mudança, o Mercado passa a consultar esses códigos, e cada um gasta uma chamada do orçamento de
+`BRAPI_MAX_CALLS_PER_DAY`. O catálogo cresce com BDRs que antes eram descartados. Investimento já cadastrado com esses
+códigos sai de `ticker_invalido` e passa a receber cotação, proventos e eventos em ações pela regra normal, inclusive os
+proventos dos últimos 5 anos na primeira rodada.
+
 ## Consequências
 
 - "Rendimento - Transferido" e os iguais de dividendo e JCP são ignorados, porque repetem outra linha do extrato.

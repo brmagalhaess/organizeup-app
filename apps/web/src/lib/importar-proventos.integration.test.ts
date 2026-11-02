@@ -35,7 +35,9 @@ const agents = await import("@organizeup/agents");
 const { commitDividendImport, prepareDividendImport } =
   await import("@/app/app/(painel)/proventos/importar/actions");
 const { deleteDividend } = await import("@/app/app/(painel)/proventos/actions");
-const { loadDividends } = await import("@/lib/investments");
+const { commitInvestmentImport } =
+  await import("@/app/app/(painel)/investimentos/importar/actions");
+const { loadDividends, loadPortfolio } = await import("@/lib/investments");
 const domain = await import("@organizeup/domain");
 
 const { auditLog, dividends, eq, household, householdMember, householdSettings } = db;
@@ -635,6 +637,56 @@ describe("revisão: o servidor não confia", () => {
     for (const paidOn of ["2026-02-31", "2026-04-31", "0000-01-01"]) {
       expect(await refused({ line: 1, paidOn })).toContain("formato inválido");
     }
+  });
+});
+
+describe("revisão: códigos com dígito", () => {
+  it("carteira, Mercado e importação tratam B3SA3 como qualquer ativo", async () => {
+    const trade = {
+      line: 1,
+      ticker: "B3SA3",
+      title: null,
+      side: "compra" as const,
+      date: "2026-01-05",
+      quantity: "100",
+      unitPrice: "10",
+      fees: "0.00",
+      doubt: null,
+    };
+    const imported = await commitInvestmentImport({
+      trades: [trade],
+      positions: [],
+      tickers: {},
+      accountId: "",
+      selected: [1],
+      classes: { B3SA3: "acao" },
+      prices: {},
+      positionDate: null,
+    });
+    expect(imported).toMatchObject({ ok: true, created: 1, assets: 1 });
+    await seedMarket([provento({ ticker: "B3SA3", ratePerShare: "0.5" })]);
+    await asWorker(() =>
+      db.saveMarketQuote({
+        ticker: "B3SA3",
+        price: "12.00000000",
+        changePercent: null,
+        quotedAt: new Date("2026-10-30T21:00:00Z"),
+        source: "brapi.dev",
+        lastStockEventOn: null,
+        lastStockEventNote: null,
+      }),
+    );
+    await mercado();
+    const portfolio = await loadPortfolio(owner);
+    const row = portfolio.rows.find((item) => item.ticker === "B3SA3");
+    expect(row?.quoteState).toBe("automatico");
+    expect(row?.currentPrice).toBe("12.00000000");
+    const paid = (await stored()).filter((item) => item.source === "agente");
+    expect(paid).toMatchObject([{ gross: "50.00" }]);
+
+    const lines: Line[] = [{ line: 1, ticker: "B3SA3" }];
+    expect(await statesOf(lines)).toEqual(["existe"]);
+    await inA((tx) => tx.delete(investments).where(eq(investments.ticker, "B3SA3")));
   });
 });
 

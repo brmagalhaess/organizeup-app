@@ -33,8 +33,10 @@ export const MARKET_RULES = {
   historyYears: 5,
 } as const;
 
-/** Raiz e final do código, sem o F do fracionário. */
-export const TICKER_ROOTS = String.raw`[A-Z]{4}[0-9]{1,2}`;
+// Raiz de quatro caracteres mais um ou dois dígitos. A raiz costuma ser só letras, mas a B3 usa dígito em
+// lugares certos: B3SA3 e M1TA34 na segunda posição, IB5M11 na terceira, 5GTK11 na primeira e B5P211 na segunda
+// e na quarta, só em ETF. Cada forma é listada para não abrir a porta a nome digitado, como CPF123.
+export const TICKER_ROOTS = String.raw`(?:[A-Z]{4}|[A-Z][0-9][A-Z]{2}|[A-Z]{2}[0-9][A-Z]|[0-9][A-Z]{3})[0-9]{1,2}|[A-Z][0-9][A-Z][0-9]11`;
 const TICKER = new RegExp(`^(${TICKER_ROOTS})F?$`);
 
 /**
