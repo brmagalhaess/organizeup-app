@@ -15,7 +15,12 @@ import {
   type DailyAgentsJob,
   type TenantTx,
 } from "@organizeup/db";
-import { todayIn, type Allocation, type FamilyAccess } from "@organizeup/domain";
+import {
+  todayIn,
+  TRIP_INTENTIONS_RUN,
+  type Allocation,
+  type FamilyAccess,
+} from "@organizeup/domain";
 import {
   agentMayRun,
   APOSENTADORIA_AGENT,
@@ -68,13 +73,6 @@ export const dailyAgentsSentinel = (disabled: string[]) =>
 
 /** Famílias com sessão nos últimos N dias recebem a rodada. */
 export const ACTIVE_DAYS = 60;
-
-/**
- * Linha só de contagem em `ops.agent_runs`: `households` são as famílias com intenção de viagem, e
- * `suggestions`, as intenções usadas na rodada. Nunca o nome do destino (ADR-0026). Não é um agente:
- * fora de `DAILY_AGENTS`, e nada a acorda.
- */
-export const TRIP_INTENTIONS_RUN = "viagens_intencoes";
 
 interface Counts {
   households: number;
@@ -256,4 +254,8 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
   log.info({ day, households: ids.length, durationMs }, "agentes diários concluídos");
 }
 
-const codeOf = (err: unknown) => (err as { code?: string }).code;
+/** O Drizzle embrulha o erro do Postgres: o código fica em `cause`. */
+const codeOf = (err: unknown) => {
+  const { code, cause } = err as { code?: string; cause?: { code?: string } };
+  return code ?? cause?.code;
+};

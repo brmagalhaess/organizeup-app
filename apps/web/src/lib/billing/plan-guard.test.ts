@@ -311,7 +311,7 @@ describe("agentes", () => {
     for (const agent of called) expect(listed, agent).toContain(agent);
     // Os dois que não passam por `run`, porque a chamada ao modelo fica fora de transação.
     expect(worker).toContain("agentMayRun(CATEGORIAS_IA_AGENT, access)");
-    expect(listed.filter((agent) => !called.includes(agent))).toEqual(["categorias_ia"]);
+    expect(listed.filter((agent) => !called.includes(agent))).toEqual(["categorias-ia"]);
   });
 
   it("dicas, mercado e parágrafo dos relatórios conferem o plano no próprio portão", () => {

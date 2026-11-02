@@ -2,7 +2,7 @@
 
 Status: aceito (2026-10-31), com a regra de categoria mudada em 2026-11-01 (ver "Categorias sem aceite e
 notificações"). Cotação externa e aviso de preço velho: ver ADR-0017. A parte "sem modelo de IA" foi
-substituída pelo ADR-0018; os agentes diários continuam por regras, com a etapa `categorias_ia` entre eles. O ADR-0019 acrescenta `dividas`, e o ADR-0021, `relatorios`.
+substituída pelo ADR-0018; os agentes diários continuam por regras, com a etapa `categorias-ia` entre eles. O ADR-0019 acrescenta `dividas`, e o ADR-0021, `relatorios`.
 
 Substitui em parte o ADR-0010 (rotina e merge da equipe do Paperclip), o ADR-0013 (o agente de categorias
 passa a aplicar sozinho um caso bem delimitado) e o ADR-0014 (aposentadoria por acumulação deixa de ser o

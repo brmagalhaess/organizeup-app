@@ -114,7 +114,7 @@ leitura e o RLS recusaria gravar a conversa.
 
 Regras e memória não resolvem extrato que caiu em categoria genérica, e isso distorce a projeção de aposentadoria.
 
-- **Etapa dentro da rodada diária, não job próprio.** `categorias_ia` roda família a família, logo depois de
+- **Etapa dentro da rodada diária, não job próprio.** `categorias-ia` roda família a família, logo depois de
   `categorias` e antes da aposentadoria. Uma fila separada não garantiria essa ordem. Acordar `categorias` traz a
   etapa junto; ela tem interruptor próprio no painel. A chamada fica fora de `withHousehold`.
 - **Rota `categorias`:** esforço `low`, saída em `output_config.format`, sem `tools` nem `tool_choice`, porque a API

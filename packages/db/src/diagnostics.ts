@@ -132,7 +132,7 @@ const KNOWN_NAMES = new Set([
   "acao:prepare_import_failed",
   "agente:aposentadoria",
   "agente:categorias",
-  "agente:categorias_ia",
+  "agente:categorias-ia",
   "agente:fuso",
   "agente:dicas",
   "agente:investimentos",

@@ -151,6 +151,14 @@ interface Costed {
   regionEstimate?: { region: DestinationRegion; destinations: number };
 }
 
+/**
+ * Linha só de contagem em `ops.agent_runs`: `households` são as famílias com intenção de viagem, e
+ * `suggestions`, as intenções usadas na rodada. Nunca o nome do destino (ADR-0026). Não é um agente:
+ * fora de `DAILY_AGENTS`, e nada a acorda. Mora aqui porque o worker grava e o painel filtra, e o
+ * cartão do painel roda no navegador.
+ */
+export const TRIP_INTENTIONS_RUN = "viagens-intencoes";
+
 const sumOf = (values: MoneyValue[]) => values.reduce((acc, value) => acc.plus(value), money(0));
 
 /** Custo estimado de um destino para estes viajantes. */

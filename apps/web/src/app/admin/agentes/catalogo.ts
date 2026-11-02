@@ -1,5 +1,6 @@
 // Agentes do produto na central do painel. A lista sai de `info.ts`, mais Mercado e Dicas, que rodam em
 // filas próprias. Agente novo em `info.ts` aparece sozinho; o que só existe em `ops.agent_runs` também.
+import { TRIP_INTENTIONS_RUN } from "@organizeup/domain";
 import { DAILY_AGENTS_INFO } from "./info";
 
 export const MERCADO_AGENT = "mercado";
@@ -18,7 +19,7 @@ export interface ProductAgent {
 const PAPERCLIP_TIMES: Record<string, string> = {
   categorias: "04:00",
   // A etapa de IA anda junto: o Paperclip acorda só `categorias`.
-  categorias_ia: "04:00",
+  "categorias-ia": "04:00",
   investimentos: "04:10",
   dividas: "04:15",
   aposentadoria: "04:20",
@@ -63,11 +64,17 @@ export const PRODUCT_AGENTS: ProductAgent[] = [
 /** Agentes que o worker cobre às 05:30: se faltarem depois disso, algo está errado. */
 export const DAILY_AGENT_IDS: string[] = DAILY_AGENTS_INFO.map((agent) => agent.id);
 
+/** Linhas de `ops.agent_runs` que são contagem, não agente: não têm cartão nem entram no histórico. */
+const COUNT_ONLY_RUNS = new Set<string>([TRIP_INTENTIONS_RUN]);
+
+export const onlyAgents = <Run extends { agent: string }>(runs: Run[]) =>
+  runs.filter((run) => !COUNT_ONLY_RUNS.has(run.agent));
+
 /** A lista conhecida, mais quem só aparece nas rodadas: sem controles, mas com o histórico. */
 export function agentsInView(seen: string[]): ProductAgent[] {
   const known = new Set(PRODUCT_AGENTS.map((agent) => agent.id));
   const others = [...new Set(seen)]
-    .filter((id) => !known.has(id))
+    .filter((id) => !known.has(id) && !COUNT_ONLY_RUNS.has(id))
     .sort()
     .map((id) => ({
       id,

@@ -752,7 +752,7 @@ describe("quem roda", () => {
       [
         "aposentadoria",
         "categorias",
-        "categorias_ia",
+        "categorias-ia",
         "dividas",
         "investimentos",
         "metas",
@@ -766,7 +766,7 @@ describe("quem roda", () => {
 
   it("módulo desligado não roda, IA de categorias inclusive", () => {
     for (const agent of [
-      "categorias_ia",
+      "categorias-ia",
       "investimentos",
       "dividas",
       "aposentadoria",

@@ -495,7 +495,7 @@ export async function runVipNotices(log: Log, now: Date = new Date()): Promise<n
 export const AGENT_MODULE: Record<string, BillingModule | null> = {
   categorias: null,
   relatorios: null,
-  categorias_ia: "assistente",
+  "categorias-ia": "assistente",
   investimentos: "investimentos",
   dividas: "dividas",
   aposentadoria: "aposentadoria",

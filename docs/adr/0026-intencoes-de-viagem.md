@@ -94,9 +94,15 @@ controle, e `audit_log` guarda só o id. O relatório da família leva o nome em
 Tudo sob o módulo Metas, que já cobre Viagens no ADR-0023: tela, actions e `listar_viagens`. `tripIntentions` entra em `MODULE_TABLES` de
 `plan-guard.test.ts`.
 
-`ops.agent_runs` ganha uma linha por dia, `viagens_intencoes`, sem coluna nova: `households` são as famílias com intenção, e `suggestions`,
+`ops.agent_runs` ganha uma linha por dia, `viagens-intencoes`, sem coluna nova: `households` são as famílias com intenção, e `suggestions`,
 as intenções usadas. Coluna nova em `agent_runs` faria a web cair lendo as rodadas com o banco atrasado (o mesmo motivo da `0028`). Não é um
-agente: fica fora de `DAILY_AGENTS` e nada acorda essa linha.
+agente: fica fora de `DAILY_AGENTS`, nada acorda essa linha, e `/admin/agentes` não a mostra.
+
+**Nome com hífen.** O CHECK da `0016` aceita `^[a-z0-9-]{1,40}$`. Com sublinhado, o insert falhava todo dia, só com uma linha de log sem
+código. O mesmo acontecia com o agente de IA de categorias, que por isso passou de `categorias_ia` para `categorias-ia`: sem a linha, a rede
+de segurança das 05:30 repetia essa etapa todo dia, e o painel a dava como faltando. Não há linha antiga no banco, porque nenhuma entrou.
+O que guardava o nome antigo segue valendo: a chave `agente_desligado:categorias_ia` conta como desligado até o painel gravar a nova, e
+`POST /api/ops/agents` ainda aceita o nome de antes. `apps/worker` ganhou integração própria, com a rodada de verdade.
 
 ## Fora do escopo por enquanto
 

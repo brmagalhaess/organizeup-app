@@ -8,7 +8,8 @@
     "build": "node build.mjs",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@organizeup/agents": "workspace:*",

@@ -61,7 +61,7 @@ export const PAPERCLIP_TEAM: TeamAgent[] = [
     name: "Categorias",
     role: "Acorda o agente de categorias e confere o resultado.",
     wake: "Todo dia às 04:00.",
-    slugs: ["categorias", "categorias_ia"],
+    slugs: ["categorias", "categorias-ia"],
   },
   {
     id: "investimentos",

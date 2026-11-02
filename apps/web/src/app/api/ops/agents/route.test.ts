@@ -47,6 +47,12 @@ describe("POST /api/ops/agents", () => {
     expect(fila.queueAgent).toHaveBeenCalledWith("metas");
   });
 
+  it("o nome antigo do agente de IA continua aceito", async () => {
+    const response = await post({ agent: "categorias_ia" });
+    expect(await response.json()).toMatchObject({ queued: true, agent: "categorias-ia" });
+    expect(fila.queueAgent).toHaveBeenCalledWith("categorias-ia");
+  });
+
   it("respeita a manutenção e o interruptor do painel", async () => {
     db.readPlatformFlags.mockResolvedValue({ maintenance: true, disabledAgents: [] });
     expect(await (await post({ agent: "metas" })).json()).toMatchObject({ reason: "manutencao" });

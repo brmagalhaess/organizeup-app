@@ -35,7 +35,7 @@ recebe 422; `@example.com` é permitido. É uma barreira de melhor esforço, nã
 
 ## Acordar um agente diário
 
-`POST /api/ops/agents` com `{"agent":"categorias"}`. Aceita `categorias`, `categorias_ia`, `investimentos`, `aposentadoria`,
+`POST /api/ops/agents` com `{"agent":"categorias"}`. Aceita `categorias`, `categorias-ia`, `investimentos`, `aposentadoria`,
 `viagens`, `metas`, `relatorios`, `mercado` e `dicas`. Só enfileira: o trabalho roda no worker, dentro de cada família, e o resultado
 aparece em `agentRuns`. Resposta: `{queued, agent, day, reason}`, com `reason` nulo ou `manutencao`, `desligado`,
 `ja_rodou` (só mercado) e `ja_pedido` (pedido igual nos últimos 5 minutos).
@@ -43,12 +43,12 @@ aparece em `agentRuns`. Resposta: `{queued, agent, day, reason}`, com `reason` n
 ## Agentes diários do produto (`agentRuns`)
 
 `GET /api/ops/context` devolve `agentRuns`: os últimos 14 dias de `ops.agent_runs`, uma linha por dia e
-agente (`categorias`, `categorias_ia`, `investimentos`, `dividas`, `aposentadoria`, `viagens`, `metas`, `relatorios`,
+agente (`categorias`, `categorias-ia`, `investimentos`, `dividas`, `aposentadoria`, `viagens`, `metas`, `relatorios`,
 `mercado`, `dicas`). O
 worker grava ao terminar cada agente; rodar de novo no mesmo dia substitui as contagens e soma 1 em `runs`. Só
 números, nunca uma família. Nas dicas, repetir no dia sem atender nenhuma família mantém a rodada da madrugada.
 
-A linha `viagens_intencoes` não é um agente: é a contagem das intenções de viagem (ADR-0026). `households` são as famílias com
+A linha `viagens-intencoes` não é um agente: é a contagem das intenções de viagem (ADR-0026). `households` são as famílias com
 intenção cadastrada, e `suggestions`, as intenções que viraram sugestão na rodada. Nunca o nome de um destino.
 
 | Campo         | Significado                                                        |

@@ -6,7 +6,7 @@ export const DAILY_AGENTS_INFO = [
     text: "Pelas regras, arruma sozinho o que está em categoria genérica e junta categorias quase iguais. A família vê em Notificações e pode desfazer.",
   },
   {
-    id: "categorias_ia",
+    id: "categorias-ia",
     name: "Categorias com IA",
     text: "Lê o que ficou em categoria genérica e move sozinho para a certa, ou cria uma nova. Pouca confiança não muda. Só roda com o aceite da família para usar IA.",
   },

@@ -141,6 +141,12 @@ export const FLAG_KEYS = {
 const AGENT_PREFIX = FLAG_KEYS.agentOff("");
 const NOTICE_PREFIX = FLAG_KEYS.notice("");
 
+/**
+ * Nome que o CHECK de `ops.agent_runs` recusava. Quem desligou o agente antes da troca continua com ele
+ * desligado, sem migração; o painel grava a chave nova, que vence a antiga.
+ */
+const RENAMED_AGENTS: Record<string, string> = { categorias_ia: "categorias-ia" };
+
 export interface PlatformNotice {
   id: string;
   text: string;
@@ -191,7 +197,12 @@ export function parsePlatformFlags(rows: FlagRow[]): PlatformFlags {
     } else if (key === FLAG_KEYS.billing) {
       flags.billingEnabled = enabled;
     } else if (key.startsWith(AGENT_PREFIX) && enabled) {
-      flags.disabledAgents.push(key.slice(AGENT_PREFIX.length));
+      const agent = key.slice(AGENT_PREFIX.length);
+      const renamed = RENAMED_AGENTS[agent];
+      if (!renamed) flags.disabledAgents.push(agent);
+      else if (!rows.some((row) => row.key === FLAG_KEYS.agentOff(renamed))) {
+        flags.disabledAgents.push(renamed);
+      }
     } else if (key.startsWith(NOTICE_PREFIX) && enabled && text(value.text)) {
       flags.notices.push({
         id: key.slice(NOTICE_PREFIX.length),

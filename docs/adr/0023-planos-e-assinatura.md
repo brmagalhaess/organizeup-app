@@ -112,7 +112,7 @@ assistente. Com a chave desligada nem lê a assinatura: `livre`, todos como hoje
 | Aposentadoria | `aposentadoria`, `plano`      | `aposentadoria`            | `ver_plano_*`, simular guardar e antecipar |
 | Dívidas       | `dividas`, anexos             | `dividas`                  | `ver_dividas`, `ver_plano_dividas`         |
 | Metas         | `metas`, `viagens`            | `metas`, `viagens`         | `listar_metas`, `listar_viagens`, metas    |
-| Assistente    | conversa, ativar, nível       | `categorias_ia`, dicas     | todas as outras dependem dele              |
+| Assistente    | conversa, ativar, nível       | `categorias-ia`, dicas     | todas as outras dependem dele              |
 
 - **Metas sem Aposentadoria:** metas e viagens dependem da divisão do que sobra, que nascia dentro do agente de aposentadoria.
   `currentAllocation` calcula a mesma coisa sem gravar nada, para o módulo Metas funcionar sozinho.

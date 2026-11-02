@@ -4,6 +4,7 @@ import {
   agentsInView,
   DICAS_AGENT,
   MERCADO_AGENT,
+  onlyAgents,
   PRODUCT_AGENTS,
   runMetrics,
 } from "./catalogo";
@@ -66,6 +67,17 @@ describe("agentes do produto", () => {
     expect(view.filter((agent) => agent.id === "novo")).toEqual([
       expect.objectContaining({ name: "Novo", controls: false }),
     ]);
+  });
+
+  it("linha só de contagem não vira agente, nem no cartão nem no histórico", () => {
+    const ids = agentsInView(["metas", "viagens-intencoes"]).map((agent) => agent.id);
+    expect(ids).not.toContain("viagens-intencoes");
+    const runs = [{ agent: "viagens-intencoes" }, { agent: "metas" }];
+    expect(onlyAgents(runs)).toEqual([{ agent: "metas" }]);
+  });
+
+  it("todo nome cabe no CHECK de ops.agent_runs", () => {
+    for (const { id } of PRODUCT_AGENTS) expect(id).toMatch(/^[a-z0-9-]{1,40}$/);
   });
 
   it("mostra o nome conhecido, ou o id com inicial maiúscula", () => {

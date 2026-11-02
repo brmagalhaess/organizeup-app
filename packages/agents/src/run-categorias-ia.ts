@@ -42,7 +42,7 @@ import {
 } from "./shared";
 import { categoriaSemPistaText } from "./texts";
 
-export const CATEGORIAS_IA_AGENT = "categorias_ia";
+export const CATEGORIAS_IA_AGENT = "categorias-ia";
 
 /** Estabelecimentos por noite: pelo tamanho do histórico, limpa em poucos dias. */
 export const MAX_AI_GROUPS = 80;

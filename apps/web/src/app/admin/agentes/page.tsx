@@ -14,7 +14,7 @@ import { AdminPage } from "../kit";
 import { noteAdminAccess } from "../painel";
 import { recountPlatform, runAgentsNow } from "./actions";
 import { AgentCard, Metrics, type Run } from "./agent-card";
-import { agentName, agentsInView, DICAS_AGENT, MERCADO_AGENT } from "./catalogo";
+import { agentName, agentsInView, DICAS_AGENT, MERCADO_AGENT, onlyAgents } from "./catalogo";
 import { TeamSection } from "./team";
 
 export const metadata: Metadata = { title: "Agentes" };
@@ -27,13 +27,14 @@ export default async function AdminAgentsPage() {
 
   const today = todayIn();
   const days = lastDays(today, STRIP_DAYS);
-  const [runs, flags, workers, discards, activity] = await Promise.all([
+  const [allRuns, flags, workers, discards, activity] = await Promise.all([
     listAgentRuns(STRIP_DAYS),
     platformFlags(),
     listWorkerHeartbeats(),
     listAgentDiscards(days[0]!),
     listTeamActivity(),
   ]);
+  const runs = onlyAgents(allRuns);
   const byDay = new Map<string, Run[]>();
   for (const run of runs) byDay.set(run.day, [...(byDay.get(run.day) ?? []), run]);
   const discardsOf = (agent: string) =>

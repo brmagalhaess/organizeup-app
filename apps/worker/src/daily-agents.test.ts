@@ -28,7 +28,7 @@ vi.mock("@organizeup/agents", () => ({
   runDividasAgent: step("dividas"),
   APOSENTADORIA_AGENT: "aposentadoria",
   CATEGORIAS_AGENT: "categorias",
-  CATEGORIAS_IA_AGENT: "categorias_ia",
+  CATEGORIAS_IA_AGENT: "categorias-ia",
   DIVIDAS_AGENT: "dividas",
   INVESTIMENTOS_AGENT: "investimentos",
   METAS_AGENT: "metas",
@@ -81,16 +81,16 @@ describe("quem roda", () => {
 
   it("as categorias com IA rodam depois das regras e antes da aposentadoria", () => {
     const at = (agent: (typeof DAILY_AGENTS)[number]) => DAILY_AGENTS.indexOf(agent);
-    expect(at("categorias_ia")).toBe(at("categorias") + 1);
-    expect(at("categorias_ia")).toBeLessThan(at("aposentadoria"));
+    expect(at("categorias-ia")).toBe(at("categorias") + 1);
+    expect(at("categorias-ia")).toBeLessThan(at("aposentadoria"));
   });
 
   it("acordar categorias traz a etapa de IA, a menos que ela esteja desligada", async () => {
     expect(await agentsToRun({ agents: ["categorias"] }, [], day, never)).toEqual([
       "categorias",
-      "categorias_ia",
+      "categorias-ia",
     ]);
-    expect(await agentsToRun({ agents: ["categorias"] }, ["categorias_ia"], day, never)).toEqual([
+    expect(await agentsToRun({ agents: ["categorias"] }, ["categorias-ia"], day, never)).toEqual([
       "categorias",
     ]);
   });
@@ -117,18 +117,18 @@ describe("etapa de IA na rodada", () => {
 
   it("roda entre as regras e a aposentadoria e conta o que fez", async () => {
     vi.mocked(categoryReviewer).mockReturnValue(async () => {
-      order.push("categorias_ia");
+      order.push("categorias-ia");
       return { moved: 7 } as never;
     });
     await runDailyAgents(log);
     expect(order.slice(0, 5)).toEqual([
       "categorias",
-      "categorias_ia",
+      "categorias-ia",
       "investimentos",
       "dividas",
       "aposentadoria",
     ]);
-    expect(runOf("categorias_ia")).toMatchObject({ ok: 1, suggestions: 0, applied: 7 });
+    expect(runOf("categorias-ia")).toMatchObject({ ok: 1, suggestions: 0, applied: 7 });
   });
 
   it("falha do modelo conta como falha e o resto da rodada segue, sem texto no log", async () => {
@@ -138,10 +138,10 @@ describe("etapa de IA na rodada", () => {
     });
     await runDailyAgents(log);
     expect(order).toContain("aposentadoria");
-    expect(runOf("categorias_ia")).toMatchObject({ households: 1, failed: 1 });
+    expect(runOf("categorias-ia")).toMatchObject({ households: 1, failed: 1 });
     expect(JSON.stringify(log.error.mock.calls)).not.toContain(secret);
     expect(log.error).toHaveBeenCalledWith(
-      { householdId: "hh-1", agent: "categorias_ia", code: "api-500" },
+      { householdId: "hh-1", agent: "categorias-ia", code: "api-500" },
       expect.any(String),
     );
   });
@@ -162,7 +162,7 @@ describe("etapa de IA na rodada", () => {
     vi.mocked(categoryReviewer).mockReturnValue(null);
     await runDailyAgents(log);
     expect(order).toContain("categorias");
-    expect(runOf("categorias_ia")).toMatchObject({ households: 0, ok: 0 });
+    expect(runOf("categorias-ia")).toMatchObject({ households: 0, ok: 0 });
   });
 });
 
@@ -202,7 +202,7 @@ describe("plano da família (ADR-0023)", () => {
     vi.mocked(recordAgentRun).mockClear();
     await runDailyAgents(log);
     expect(vi.mocked(recordAgentRun).mock.calls.map(([, agent]) => agent)).not.toContain(
-      "viagens_intencoes",
+      "viagens-intencoes",
     );
 
     viagensResult.intentions = { total: 3, used: 1 };
@@ -211,8 +211,18 @@ describe("plano da família (ADR-0023)", () => {
     viagensResult.intentions = { total: 0, used: 0 };
     const line = vi
       .mocked(recordAgentRun)
-      .mock.calls.find(([, agent]) => agent === "viagens_intencoes")!;
+      .mock.calls.find(([, agent]) => agent === "viagens-intencoes")!;
     expect(line[2]).toMatchObject({ households: 1, ok: 1, failed: 0, suggestions: 1, applied: 0 });
+  });
+
+  it("o log mostra o código do Postgres, que o Drizzle guarda em cause", async () => {
+    const wrapped = Object.assign(new Error("Failed query"), { cause: { code: "23514" } });
+    vi.mocked(recordAgentRun).mockRejectedValueOnce(wrapped);
+    await runDailyAgents(log);
+    expect(log.error).toHaveBeenCalledWith(
+      { agent: expect.any(String), code: "23514" },
+      "registro da rodada falhou",
+    );
   });
 
   it("viagens acordado sozinho, sem Aposentadoria, também recebe a divisão", async () => {
