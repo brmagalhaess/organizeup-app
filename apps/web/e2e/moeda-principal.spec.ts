@@ -169,6 +169,14 @@ async function journey(page: Page, label: string) {
       await page.goto(path);
       await axe(page);
       if (shots) await page.screenshot({ path: `${shots}/${label}-${slug}.png`, fullPage: true });
+    } else if (slug === "painel") {
+      // O painel abre o saldo da conta em real, e só isso aparece em real.
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await expect(page.getByRole("main").getByText(/R\$/)).toHaveText([
+        /^Na moeda da conta: R\$\s/,
+      ]);
+      await axe(page);
     } else {
       await screen(page, `${label}-${slug}`, path);
     }

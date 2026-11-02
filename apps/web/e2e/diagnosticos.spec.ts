@@ -11,9 +11,8 @@ const password = "senha-segura-123!";
 
 test.skip(!adminEmail, "Defina E2E_ADMIN_EMAIL e suba o servidor com ADMIN_EMAILS igual.");
 
-/** Só letras: número em segmento de rota vira `[id]`, e o teste precisa de rota própria. */
-const letters = () =>
-  [...randomBytes(8)].map((byte) => String.fromCharCode(97 + (byte % 26))).join("");
+/** Rota que existe: `normalizeRoute` só guarda as conhecidas, e o resto vira `/desconhecida`. */
+const route = "/app/metas/[id]";
 
 async function signInAsAdmin(page: Page) {
   await page.goto("/entrar");
@@ -42,7 +41,6 @@ async function signInAsAdmin(page: Page) {
 test("erro de tela aparece no alerta e no bloco de erros, sem nada pessoal", async ({ page }) => {
   await signInAsAdmin(page);
 
-  const route = `/app/teste-${letters()}/[id]`;
   const sent = await page.request.post("/api/diagnostics", {
     data: { fingerprint: randomBytes(16).toString("hex"), route },
   });
