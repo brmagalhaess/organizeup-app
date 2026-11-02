@@ -1,5 +1,6 @@
 import { captureEvent, describeClientError, normalizeRoute } from "@organizeup/db";
 import { z } from "zod";
+import { clientIp } from "@/lib/client-ip";
 import { findPersonalData } from "@/lib/ops-content";
 import { createRateLimiter } from "@/lib/rate-limit";
 
@@ -21,18 +22,13 @@ const screenErrorSchema = z
   })
   .strict();
 
-const clientIp = (request: Request) =>
-  request.headers.get("cf-connecting-ip") ??
-  request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-  "desconhecido";
-
 /**
  * POST /api/diagnostics → as telas de erro avisam do que só o navegador viu. Público, porque a tela
  * pode ter quebrado junto com a sessão; por isso só aceita impressão digital e rota, e a rota é
  * limpa de novo aqui. Nunca devolve detalhe: quem chama é uma tela que já falhou.
  */
 export async function POST(request: Request) {
-  if (!allowOverall("todos") || !allowByIp(clientIp(request))) {
+  if (!allowOverall("todos") || !allowByIp(clientIp(request.headers) ?? "desconhecido")) {
     return new Response(null, { status: 429 });
   }
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY) {
