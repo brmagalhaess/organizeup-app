@@ -13,13 +13,24 @@ plano principal; estimar custo de destino deixa de estar fora do escopo). A espe
 
 ### Agentes diários dentro do produto
 
-- **Cinco agentes rodam no worker, toda madrugada** (`categorias`, `investimentos`, `aposentadoria`,
-  `viagens`, `metas`), numa fila `daily-agents` com cron às 04:00 (America/Sao_Paulo). Rodam no produto, e não
-  no Paperclip, pelo mesmo motivo do ADR-0013: leem dados pessoais da família.
+- **Decisão original (histórica):** cinco agentes (`categorias`, `investimentos`, `aposentadoria`,
+  `viagens`, `metas`) na fila `daily-agents`, às 04:00 (`America/Sao_Paulo`). Esse horário foi substituído
+  pela rede de segurança descrita abaixo; a lista foi ampliada pelos
+  [ADR-0018](0018-assistente-com-ia.md), [ADR-0019](0019-dividas-arquivos-e-plano-de-saida.md) e
+  [ADR-0021](0021-relatorios-da-familia.md).
+- **Comportamento vigente (reconciliado em 2026-11-02):** o Paperclip acorda os agentes diários.
+  Às 05:30 em `America/Sao_Paulo`, o worker executa quem faltou, com `missingOnly: true`.
+  A mudança está registrada no [commit 988cea2](https://github.com/brmagalhaess/organizeup-v3/commit/988cea2c2974342d002007d8810d537da0f2f66a)
+  e o horário também consta no [ADR-0021](0021-relatorios-da-familia.md#agente-relatorios).
+  A ordem atual em `apps/worker/src/daily-agents.ts` é `categorias`, `categorias-ia`, `investimentos`,
+  `dividas`, `aposentadoria`, `viagens`, `metas` e `relatorios`. A execução e os dados pessoais ficam
+  no produto, dentro do worker, não no Paperclip. Cada agente mantém sua transação por família;
+  chamadas externas ficam fora dela, conforme [ADR-0017](0017-cotacoes-e-proventos.md),
+  [ADR-0018](0018-assistente-com-ia.md) e [ADR-0021](0021-relatorios-da-familia.md).
 - **Uma família por transação**, com `fromJob` e `withHousehold`, um agente por transação, erro de uma família
   não para as outras. O log guarda só o id da família, o nome do agente e o código do erro.
-- **Sem modelo de IA e sem cotação externa.** Tudo é regra em `packages/domain` (ADR-0013 e ADR-0012
-  continuam valendo nisso). As leituras compartilhadas e a lógica de aplicar ficam em `packages/agents`,
+- **Decisão original, substituída pelos ADR-0017 e ADR-0018:** sem modelo de IA e sem cotação externa;
+  tudo por regra em `packages/domain`. As leituras compartilhadas e a lógica de aplicar ficam em `packages/agents`,
   usadas pelo worker e pela web.
 - **Só famílias ativas.** Família ativa é a que tem algum membro com sessão atualizada nos últimos **60 dias**.
   Famílias paradas não geram cálculo nem sugestão.
@@ -85,6 +96,8 @@ Fica fora da exceção o resto da regra 7. A importação continua propondo, e a
 - **Divisão do que sobra**, nesta ordem: até **50%** para completar a reserva; até **70%** do resto para
   dívidas caras; até **70%** do resto para a aposentadoria; o que sobrar vai **metade para metas e metade para
   viagens**. Viagens já confirmadas são descontadas uma vez, na parte das viagens.
+  O [ADR-0027](0027-aporte-fora-de-despesas.md) atualiza essa divisão para considerar o hábito de aporte,
+  as sugestões de aporte e redirecionamento e a preservação dos planos de metas existentes.
 - **Dívida cara** é a que custa mais de **1% ao mês** ou mais que a taxa mensal do rendimento usado. Quitar
   rende mais que investir, e a tela diz isso.
 - **Aposentadoria por renda de proventos** (carteira perpétua): renda alvo = o que a família informou, ou
@@ -151,5 +164,6 @@ previstos no calendário. Retentativa automática e fila morta no pg-boss.
   reforçada, lista fechada de reparos na rotina, no máximo 3 por dia, backup diário e `git revert` pelo SRE.
 - **Estimativas de viagem e aposentadoria são aproximadas.** A tela diz isso em todo lugar e nada é
   recomendação de investimento. A tabela de destinos envelhece; a revisão anual depende do fundador.
-- **Cinco agentes em sequência para todas as famílias ativas** podem demorar quando a base crescer. Hoje cabe
-  na janela da madrugada; um job por família fica para quando for preciso.
+- **Oito etapas na ordem da rodada para todas as famílias ativas** (cinco na decisão original) podem
+  demorar quando a base crescer. Hoje cabe na janela da madrugada; um job por família fica para quando
+  for preciso.
