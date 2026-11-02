@@ -580,14 +580,8 @@ export function DividendImport() {
         assignments={assignments}
         busy={busy}
         message={message}
-        onAssign={(ticker, value) =>
-          setAssignments((all) => {
-            const next = { ...all };
-            if (value) next[ticker] = value;
-            else delete next[ticker];
-            return next;
-          })
-        }
+        // "Deixar de fora" guarda o vazio: o seletor continua na tela, e dá para mudar de ideia.
+        onAssign={(ticker, value) => setAssignments((all) => ({ ...all, [ticker]: value }))}
         onApply={() => prepare(file, assignments)}
         onCommit={commit}
         onCancel={reset}

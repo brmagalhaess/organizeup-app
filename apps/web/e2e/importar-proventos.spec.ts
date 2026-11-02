@@ -142,7 +142,7 @@ test.describe("em português", () => {
     const rows = page.getByRole("list", { name: "Linhas do arquivo" });
     await expect(rows.getByText(/bruto e imposto saem do JCP a 15%/)).toBeVisible();
     await expect(
-      rows.getByText(/R\$ 85,00 líquido · R\$ 100,00 bruto · R\$ 15,00 de imposto/),
+      rows.getByText(/R\$\s85,00 líquido · R\$\s100,00 bruto · R\$\s15,00 de imposto/),
     ).toBeVisible();
     await expect(rows.getByText(/Não dá para saber o imposto/)).toBeVisible();
     await expect(rows.getByText(/Reembolso não entra como provento/)).toBeVisible();
