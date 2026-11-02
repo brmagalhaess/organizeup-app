@@ -8,6 +8,7 @@ import {
   type HouseholdSubscription,
   type TenantContext,
 } from "@organizeup/db";
+import { refundWindowOpen, stripeAlive } from "@organizeup/domain";
 import { isServiceAdmin, platformFlags, requireSession } from "@/lib/session";
 import { stripeKeyMode, stripeUsable } from "./stripe-key";
 
@@ -25,8 +26,28 @@ export type BillingActor =
   | { ok: true; ctx: TenantContext; subscription: HouseholdSubscription | null }
   | { ok: false; code: BillingRefusal };
 
+/**
+ * Quem já paga sempre consegue sair: cancelar e devolver não dependem de `billing_enabled`. A assinatura segue
+ * na Stripe mesmo com a chave desligada, e a devolução que caiu no meio pode já ter encerrado a assinatura.
+ */
+export function canLeave(
+  subscription: Pick<
+    HouseholdSubscription,
+    "stripeSubscriptionId" | "status" | "firstPaidAt" | "refundedAt"
+  > | null,
+  now: Date,
+): boolean {
+  if (!subscription?.stripeSubscriptionId) return false;
+  return stripeAlive(subscription.status) || refundWindowOpen({ ...subscription, now });
+}
+
+/**
+ * `exit`: o pedido é para sair, e não para começar a pagar. Assinar e trocar de plano continuam exigindo a
+ * chave ligada.
+ */
 export async function billingActor(
   env: Record<string, string | undefined> = process.env,
+  { exit = false }: { exit?: boolean } = {},
 ): Promise<BillingActor> {
   const session = await requireSession();
   const ctx = await fromSession(session);
@@ -38,12 +59,17 @@ export async function billingActor(
   if (flags.maintenance) return { ok: false, code: "manutencao" };
 
   const mode = stripeKeyMode(env);
+  const subscription = await readSubscription(ctx);
   // Chave desligada: só o admin, e só em modo de teste. Nenhuma cobrança real antes da liberação.
-  if (!flags.billingEnabled && !(mode === "teste" && isServiceAdmin(session.user))) {
+  if (
+    !flags.billingEnabled &&
+    !(mode === "teste" && isServiceAdmin(session.user)) &&
+    !(exit && canLeave(subscription, new Date()))
+  ) {
     return { ok: false, code: mode === "producao" ? "chave_producao" : "desligado" };
   }
   if (!stripeUsable(env)) {
     return { ok: false, code: mode === "producao" ? "chave_producao" : "sem_chave" };
   }
-  return { ok: true, ctx, subscription: await readSubscription(ctx) };
+  return { ok: true, ctx, subscription };
 }

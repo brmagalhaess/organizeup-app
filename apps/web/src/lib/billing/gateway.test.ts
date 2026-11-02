@@ -19,6 +19,10 @@ const api = vi.hoisted(() => ({
   invoiceStatus: "open",
   latestInvoice: "in_1" as string | null,
   sessions: [] as Array<Record<string, unknown>>,
+  phaseDiscounts: [] as unknown[],
+  phases: [] as Array<{ discounts?: unknown }>,
+  retrieved: [] as unknown[],
+  discounts: [] as unknown[],
 }));
 
 vi.mock("server-only", () => ({}));
@@ -62,8 +66,10 @@ vi.mock("stripe", () => {
       },
     };
     subscriptions = {
-      retrieve: async () => ({
+      retrieve: async (_id: string, params?: unknown) => ({
+        ...(api.retrieved.push(params) ? {} : {}),
         status: api.status,
+        discounts: api.discounts,
         latest_invoice: api.latestInvoice,
         items: { data: [{ id: "si_1", price: { id: "price_a" }, quantity: 1 }] },
       }),
@@ -96,11 +102,22 @@ vi.mock("stripe", () => {
         api.log.push("schedule");
         return {
           id: "sub_sched_2",
-          phases: [{ start_date: 1, end_date: 100, items: [{ price: "price_a", quantity: 1 }] }],
+          phases: [
+            {
+              start_date: 1,
+              end_date: 100,
+              items: [{ price: "price_a", quantity: 1 }],
+              discounts: api.phaseDiscounts,
+            },
+          ],
         };
       },
-      update: async (_id: string, params: { phases: Array<{ items: unknown[] }> }) => {
+      update: async (
+        _id: string,
+        params: { phases: Array<{ items: unknown[]; discounts?: unknown }> },
+      ) => {
         api.log.push(`phases:${JSON.stringify(params.phases.at(-1)?.items)}`);
+        api.phases = params.phases;
         return {};
       },
     };
@@ -127,6 +144,10 @@ beforeEach(() => {
   api.coupons = [];
   api.updates = [];
   api.sessions = [];
+  api.phaseDiscounts = [];
+  api.phases = [];
+  api.retrieved = [];
+  api.discounts = [];
   api.invoiceStatus = "open";
   api.latestInvoice = "in_1";
   api.charges = [
@@ -135,9 +156,9 @@ beforeEach(() => {
 });
 
 describe("desconto VIP", () => {
-  const input = { householdId: "hh-1", subscriptionId: "sub_1" };
+  const input = { subscriptionId: "sub_1" };
 
-  it("cria o cupom uma vez, sem cobrança proporcional, e marca a metadata", async () => {
+  it("cria o cupom uma vez, sem cobrança proporcional", async () => {
     await gateway().setDiscount({ ...input, percent: 30 });
     await gateway().setDiscount({ ...input, percent: 30 });
     expect(api.log.filter((line) => line.startsWith("cupom:"))).toEqual([
@@ -146,20 +167,40 @@ describe("desconto VIP", () => {
     expect(api.updates[0]).toEqual({
       discounts: [{ coupon: "organizeup_vip_30" }],
       proration_behavior: "none",
-      metadata: { household_id: "hh-1", vip_desconto: "30" },
     });
   });
 
-  it("tirar limpa o cupom e a metadata, sem criar nada", async () => {
+  it("tirar limpa o cupom, sem criar nada", async () => {
     await gateway().setDiscount({ ...input, percent: null });
     expect(api.coupons).toEqual([]);
-    expect(api.updates[0]).toMatchObject({
-      discounts: "",
-      metadata: { vip_desconto: "" },
-    });
+    expect(api.updates[0]).toMatchObject({ discounts: "" });
   });
 
-  it("assinar com desconto já leva o cupom e a metadata para a assinatura", async () => {
+  it("lê o desconto em vigor na própria assinatura, com o cupom expandido", async () => {
+    api.discounts = [{ source: { coupon: { percent_off: 15 } } }];
+    expect(await gateway().discountPercent("sub_1")).toBe(15);
+    expect(api.retrieved.at(-1)).toEqual({ expand: ["discounts.source.coupon"] });
+    api.discounts = [];
+    expect(await gateway().discountPercent("sub_1")).toBeNull();
+  });
+
+  it("redução marcada não derruba o desconto: as duas fases levam o cupom de volta", async () => {
+    api.phaseDiscounts = [{ coupon: "organizeup_vip_30", discount: null, promotion_code: null }];
+    await gateway().applyChange({
+      householdId: "hh-1",
+      subscriptionId: "sub_1",
+      scheduleId: null,
+      now: null,
+      later: [{ price: "price_b", quantity: 1 }],
+      prorationDate: null,
+    });
+    expect(api.phases).toHaveLength(2);
+    for (const phase of api.phases) {
+      expect(phase.discounts).toEqual([{ coupon: "organizeup_vip_30" }]);
+    }
+  });
+
+  it("assinar com desconto já leva o cupom", async () => {
     const checkout = {
       householdId: "hh-1",
       customerId: "cus_1",
@@ -172,12 +213,30 @@ describe("desconto VIP", () => {
     await gateway().createCheckout({ ...checkout, discountPercent: 15 });
     expect(api.sessions[0]).toMatchObject({
       discounts: [{ coupon: "organizeup_vip_15" }],
-      subscription_data: { metadata: { household_id: "hh-1", vip_desconto: "15" } },
+      subscription_data: { metadata: { household_id: "hh-1" } },
     });
     await gateway().createCheckout(checkout);
     expect(api.sessions[1]).not.toHaveProperty("discounts");
     expect(api.sessions[1]).toMatchObject({
       subscription_data: { metadata: { household_id: "hh-1" } },
+    });
+  });
+
+  it("assinar durante o VIP adia a primeira cobrança, só no cartão", async () => {
+    const firstChargeAt = new Date("2030-01-10T12:00:00Z");
+    await gateway().createCheckout({
+      householdId: "hh-1",
+      customerId: "cus_1",
+      prices: [{ price: "price_a", quantity: 1 }],
+      cycle: "ano",
+      locale: "pt-BR",
+      successUrl: "https://app.example.com/ok",
+      cancelUrl: "https://app.example.com/nao",
+      firstChargeAt,
+    });
+    expect(api.sessions[0]).toMatchObject({
+      allowed_payment_method_types: ["card"],
+      subscription_data: { trial_end: firstChargeAt.getTime() / 1000 },
     });
   });
 });
