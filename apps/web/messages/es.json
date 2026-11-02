@@ -1919,6 +1919,8 @@
       "confirmedText": "Todo listo: este correo es tuyo y los avisos de la cuenta llegarán a él.",
       "alreadyTitle": "Este correo ya está confirmado",
       "alreadyText": "Este enlace ya se usó y no vale más. No necesitas pedir otro.",
+      "otherTitle": "Enlace recibido",
+      "otherText": "La cuenta abierta en este navegador no cambió. Si el enlace era de otra cuenta, entra en ella para comprobarlo.",
       "expiredTitle": "Este enlace venció",
       "expiredText": "El enlace vale {hours, plural, =1 {1 hora} other {# horas}}. Pide otro para confirmar tu correo.",
       "invalidTitle": "Este enlace no es válido",

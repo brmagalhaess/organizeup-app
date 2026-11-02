@@ -232,6 +232,31 @@ for (const locale of LOCALES) {
   });
 }
 
+test("link de outra conta com a sessão aberta: tela neutra, e a conta aberta não muda", async ({
+  page,
+  browser,
+}, testInfo) => {
+  const texts = ptBR.auth.confirmEmail;
+  const owner = `dona.${unique()}@example.com`;
+  const ownerContext = await browser.newContext({ locale: "pt-BR" });
+  await signUpInPortuguese(await ownerContext.newPage(), owner);
+  await ownerContext.close();
+  await expect.poll(async () => (await confirmations(owner)).length).toBe(1);
+
+  await signUpInPortuguese(page, `aberta.${unique()}@example.com`);
+  await page.goto(linkIn((await confirmations(owner))[0]));
+  await expect(page).toHaveURL(/\/confirmar-email\?estado=outra-conta$/);
+  await expect(page.getByRole("heading", { name: texts.otherTitle })).toBeVisible();
+  await expect(page.getByText(texts.otherText)).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(owner);
+  await expectGoodPage(page);
+  await shot(page, testInfo, "outra-conta");
+
+  await page.getByRole("link", { name: texts.goToPanel }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByRole("region", { name: ptBR.shell.emailNoticeLabel })).toBeVisible();
+});
+
 test("admin reenvia, a pessoa confirma e o painel mostra verificado", async ({
   page,
   browser,

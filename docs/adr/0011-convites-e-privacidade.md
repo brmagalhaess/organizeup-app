@@ -48,9 +48,13 @@ e-mail confirmado para entrar, usar o sistema ou aceitar convite. Só muda quem 
   gancho confere o token, ignora o `callbackURL` da URL, que fica sempre `/confirmar-email`, e leva conta bloqueada a
   `/conta-bloqueada` sem gravar nada. Na manutenção o link não grava, e o mesmo link vale depois.
 - **Link repetido não abre sessão.** O token é um JWT sem registro: vale até vencer, mas depois da primeira vez não faz
-  nada, e a tela diz que o e-mail já está confirmado. A primeira abertura continua entrando na conta, como antes.
+  nada, e a tela diz que o e-mail já está confirmado. A primeira abertura também não entra na conta: o link só confirma
+  (`autoSignInAfterVerification: false`). Quem tem o e-mail encaminhado não entra sem a senha.
+- **Sessão de outra conta aberta.** O link confirma a dona dele, e a tela é neutra (`estado=outra-conta`), decidida no
+  gancho a partir do token já conferido: a mesma se o link já foi usado e se aquela conta está bloqueada, e sem dizer de
+  quem é o e-mail. A conta aberta não muda.
 - **O endereço não decide sozinho.** `/confirmar-email` pode ser digitado: com sessão de e-mail não confirmado nunca
-  mostra sucesso, e sem `estado` nem `error` mostra link inválido.
+  mostra sucesso, e sem `estado` nem `error` mostra link inválido. A tela neutra não afirma nada, e pode ser digitada.
 - **Fechar o aviso** vale até a meia-noite, como os outros avisos do painel. Configurações mostra sempre.
 
 ## Ainda falta

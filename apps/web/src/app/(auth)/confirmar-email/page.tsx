@@ -5,24 +5,11 @@ import { ConfirmEmailButton } from "@/components/confirm-email-button";
 import { buttonClass } from "@/components/styles";
 import { VERIFY_LINK_HOURS } from "@/lib/email-templates";
 import { getSession } from "@/lib/session";
+import { viewFor } from "./view";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth.confirmEmail");
   return { title: t("metaTitle"), robots: { index: false } };
-}
-
-type View = "confirmed" | "already" | "expired" | "invalid" | "maintenance";
-
-/** `verified` é null sem sessão. O endereço pode ser digitado: a sessão desmente o que ele disser. */
-function viewFor(error: unknown, state: unknown, verified: boolean | null): View {
-  if (error === "MAINTENANCE") return "maintenance";
-  if (error) {
-    if (verified) return "already";
-    return error === "TOKEN_EXPIRED" ? "expired" : "invalid";
-  }
-  if (verified === false) return "invalid";
-  if (state === "confirmado") return "confirmed";
-  return state === "ja-confirmado" || verified ? "already" : "invalid";
 }
 
 export default async function ConfirmEmailPage({

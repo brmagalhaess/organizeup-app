@@ -5,6 +5,7 @@ import {
   APIError,
   createAuthMiddleware,
   createEmailVerificationToken,
+  getSessionFromCtx,
 } from "better-auth/api";
 import { verifyJWT } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
@@ -211,6 +212,7 @@ const writesInMaintenance = (path: string) =>
  * Volta do link de confirmação. O Better Auth trata link repetido como sucesso, cai em JSON sem `token` e, em
  * conta bloqueada, confirma e só então falha ao abrir a sessão. Por isso a decisão vem antes dele: o endereço de
  * volta é sempre o nosso, o que vier na URL é ignorado, e o estado sai do token já conferido, nunca do pedido.
+ * Com a sessão de outra conta aberta, a tela é uma só: quem está ali não aprende nada da conta do link.
  */
 async function verifyEmailLanding(ctx: GenericEndpointContext) {
   if ((await readPlatformFlags()).maintenance) {
@@ -222,9 +224,18 @@ async function verifyEmailLanding(ctx: GenericEndpointContext) {
   const found = payload?.email
     ? await ctx.context.internalAdapter.findUserByEmail(payload.email)
     : null;
-  if (found && (await userIsBlocked(found.user.id))) throw ctx.redirect("/conta-bloqueada");
-  const state = found?.user.emailVerified ? "ja-confirmado" : "confirmado";
-  const callbackURL = found ? `${CONFIRM_EMAIL_PATH}?estado=${state}` : CONFIRM_EMAIL_PATH;
+  if (!found) return { context: { query: { ...ctx.query, callbackURL: CONFIRM_EMAIL_PATH } } };
+  const session = await getSessionFromCtx(ctx, { disableRefresh: true });
+  const otherAccount = session !== null && session.user.id !== found.user.id;
+  if (await userIsBlocked(found.user.id)) {
+    throw ctx.redirect(otherAccount ? `${CONFIRM_EMAIL_PATH}?estado=outra-conta` : "/conta-bloqueada");
+  }
+  const state = otherAccount
+    ? "outra-conta"
+    : found.user.emailVerified
+      ? "ja-confirmado"
+      : "confirmado";
+  const callbackURL = `${CONFIRM_EMAIL_PATH}?estado=${state}`;
   return { context: { query: { ...ctx.query, callbackURL } } };
 }
 

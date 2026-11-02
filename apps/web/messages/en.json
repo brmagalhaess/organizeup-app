@@ -1919,6 +1919,8 @@
       "confirmedText": "All set: this email is yours and account notices will reach it.",
       "alreadyTitle": "This email is already confirmed",
       "alreadyText": "This link has already been used and is no longer valid. You do not need another one.",
+      "otherTitle": "Link received",
+      "otherText": "The account open in this browser didn't change. If the link was for another account, sign in to it to check.",
       "expiredTitle": "This link has expired",
       "expiredText": "The link is valid for {hours, plural, =1 {1 hour} other {# hours}}. Ask for another one to confirm your email.",
       "invalidTitle": "This link is not valid",

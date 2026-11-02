@@ -438,6 +438,46 @@ describe("volta do link", () => {
     expect(session?.user.emailVerified).toBe(true);
   });
 
+  describe("com a sessão de outra conta aberta", () => {
+    const sessionOf = async (cookie: string) =>
+      getAuth().api.getSession({ headers: new Headers({ cookie }) });
+    const NEUTRAL = "/confirmar-email?estado=outra-conta";
+
+    it("confirma a dona do link, mostra a tela neutra e não mexe na conta aberta", async () => {
+      const open = await newAccount();
+      const owner = await newAccount();
+      const response = await openLink(linkIn((await captured(owner.email))[0]), open.cookie);
+      expect(landing(response)).toBe(NEUTRAL);
+      expect(response.headers.getSetCookie()).toEqual([]);
+      expect(await isVerified(owner.id)).toBe(true);
+      const session = await sessionOf(open.cookie);
+      expect(session?.user).toMatchObject({ email: open.email, emailVerified: false });
+    });
+
+    it("a tela é a mesma se o link já tinha sido usado: nada se aprende da outra conta", async () => {
+      const open = await newAccount();
+      const owner = await newAccount();
+      const link = linkIn((await captured(owner.email))[0]);
+      await openLink(link);
+      expect(landing(await openLink(link, open.cookie))).toBe(NEUTRAL);
+    });
+
+    it("a tela é a mesma se a outra conta está bloqueada, e ela não é confirmada", async () => {
+      const open = await newAccount();
+      const owner = await newAccount();
+      await db.adminSetUserBlocked({ adminUserId: "user-teste" }, owner.id, true);
+      const response = await openLink(linkIn((await captured(owner.email))[0]), open.cookie);
+      expect(landing(response)).toBe(NEUTRAL);
+      expect(await isVerified(owner.id)).toBe(false);
+    });
+
+    it("link inválido continua inválido", async () => {
+      const open = await newAccount();
+      const response = await openLink(verifyUrl("inventado"), open.cookie);
+      expect(landing(response)).toBe("/confirmar-email?error=INVALID_TOKEN");
+    });
+  });
+
   it("link repetido não abre sessão e diz que já foi usado", async () => {
     const account = await newAccount();
     const link = linkIn((await captured(account.email))[0]);
