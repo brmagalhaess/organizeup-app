@@ -77,8 +77,8 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      spec roda contra `next dev`, com a mesma variável no servidor e no Playwright.
      `E2E_BILLING=1`, com `E2E_WORKER_DATABASE_URL` e `ADMIN_DATABASE_URL`, liga `assinatura.spec.ts`, que liga e desliga
      `billing_enabled`: rode sozinho, com `--workers=1`. Ele não chama a Stripe.
-     `admin-planos.spec.ts` pede `E2E_ADMIN_EMAIL` e `E2E_BILLING=1`, e o servidor com uma `STRIPE_SECRET_KEY=sk_test_` qualquer:
-     nada ali chama a Stripe. `E2E_LIVE_URL` aponta para um segundo servidor, com `sk_live_` falsa, só para conferir o aviso de
+     `admin-planos.spec.ts` pede `E2E_ADMIN_EMAIL` e `E2E_BILLING=1`, e o servidor com uma `STRIPE_SECRET_KEY=sk_test_` e um
+     `STRIPE_WEBHOOK_SECRET` quaisquer: nada ali chama a Stripe. `E2E_LIVE_URL` aponta para um segundo servidor, com `sk_live_` falsa, só para conferir o aviso de
      cobrança real na tela da chave. Sobre rodar junto com outros specs, vale o mesmo `--workers=1`.
 4. **Domínios da web**: `organizeup.crowntech.com.br` (HTTPS, Let's Encrypt) e `organizeup.com.br`
    (preparado, sem HTTPS, ver `cutover-dominio.md`).

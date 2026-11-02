@@ -153,8 +153,7 @@ assistente. Com a chave desligada nem lê a assinatura: `livre`, todos como hoje
   `STRIPE_ALLOW_LIVE=true`, e `billingActor` recusa antes. Evento de produção sem a variável responde 503: a Stripe repete por dias.
 - **Com a chave desligada, só admin e só com chave de teste** assina, para dar para testar antes de liberar.
 - **Só o responsável assina,** pelo papel de verdade: em só leitura o contexto é `viewer`.
-- **Metadata leva só `household_id`,** na assinatura, na sessão e no schedule, mais o percentual do desconto VIP (ADR-0025). Quem
-  digita e-mail e cartão é a pessoa, na Stripe.
+- **Metadata leva só `household_id`,** na assinatura, na sessão e no schedule. Quem digita e-mail e cartão é a pessoa, na Stripe.
 - **Checkout da Stripe para assinar; tela própria para trocar.** `allowed_payment_method_types`: o parâmetro antigo saiu da API.
 - **`planChange` separa o que sobe do que desce.** O que sobe vale agora; o que desce, no fim do ciclo. Quem soma um módulo e tira
   outro recebe o novo já e perde o antigo só depois do que pagou. Vale pelo que libera, não pelo preço: sair da Família completa é
