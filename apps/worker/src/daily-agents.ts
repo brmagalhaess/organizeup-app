@@ -1,6 +1,6 @@
 // Agentes diários do produto (ADR-0015): categorias, categorias com IA (ADR-0018), investimentos,
-// dívidas (ADR-0019), aposentadoria, viagens e metas, para cada família ativa, cada agente na própria
-// transação com RLS, e a chamada ao modelo fora de qualquer transação. A divisão do que sobra passa
+// dívidas (ADR-0019), aposentadoria, viagens, metas e relatórios (ADR-0021), para cada família ativa,
+// cada agente na própria transação com RLS, e a chamada ao modelo fora de qualquer transação. A divisão do que sobra passa
 // em memória do agente de aposentadoria para viagens e metas; se ele falhar, os dois leem o
 // relatório de hoje ou pulam. Logs só com householdId, agente, código do erro e contagens.
 import {
@@ -21,11 +21,13 @@ import {
   DIVIDAS_AGENT,
   INVESTIMENTOS_AGENT,
   METAS_AGENT,
+  RELATORIOS_AGENT,
   runAposentadoriaAgent,
   runCategoriasAgent,
   runDividasAgent,
   runInvestimentosAgent,
   runMetasAgent,
+  runRelatoriosAgent,
   runViagensAgent,
   VIAGENS_AGENT,
   type AgentInput,
@@ -33,6 +35,7 @@ import {
 } from "@organizeup/agents";
 import { categoryReviewer } from "./category-review";
 import { reportAgentFailure } from "./diagnostics";
+import { statementNarrator } from "./statement-narration";
 
 interface Log {
   error: (data: object, message: string) => void;
@@ -42,7 +45,7 @@ interface Log {
 /**
  * Ordem de execução: dívidas vem antes da aposentadoria, que usa a dívida cara; a aposentadoria vem
  * antes de viagens e metas, que usam a divisão dela, e depois das categorias, porque a projeção usa
- * os gastos.
+ * os gastos. Relatórios vêm por último: leem o que todos os outros deixaram.
  */
 export const DAILY_AGENTS = [
   CATEGORIAS_AGENT,
@@ -52,6 +55,7 @@ export const DAILY_AGENTS = [
   APOSENTADORIA_AGENT,
   VIAGENS_AGENT,
   METAS_AGENT,
+  RELATORIOS_AGENT,
 ] as const;
 
 /** Agente cuja execução marca "a rodada de hoje aconteceu": o último ligado, ou nenhum. */
@@ -106,6 +110,8 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
   const counts = new Map<string, Counts>(enabled.map((agent) => [agent, emptyCounts()]));
   const reviewCount = counts.get(CATEGORIAS_IA_AGENT);
   const review = reviewCount ? categoryReviewer(flags) : null;
+  const statementCount = counts.get(RELATORIOS_AGENT);
+  const narrate = statementCount ? statementNarrator(flags) : null;
 
   for (const householdId of ids) {
     let today = day;
@@ -120,10 +126,10 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
     const input: AgentInput = { today, householdId };
     let allocation: Allocation | undefined;
 
-    const run = async (
+    const run = async <R extends Pick<AgentResult, "suggestions" | "applied">>(
       agent: string,
-      fn: (tx: TenantTx) => Promise<AgentResult>,
-    ): Promise<AgentResult | null> => {
+      fn: (tx: TenantTx) => Promise<R>,
+    ): Promise<R | null> => {
       const count = counts.get(agent);
       if (!count) return null;
       count.households += 1;
@@ -173,6 +179,21 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
     const withAllocation: AgentInput = allocation ? { ...input, allocation } : input;
     await run(VIAGENS_AGENT, (tx) => runViagensAgent(tx, withAllocation));
     await run(METAS_AGENT, (tx) => runMetasAgent(tx, withAllocation));
+    const statements = await run(RELATORIOS_AGENT, (tx) => runRelatoriosAgent(tx, input));
+    if (statements && narrate && statementCount) {
+      // Fora de `run`: a chamada ao modelo não pode ficar dentro de uma transação. Falha aqui não
+      // desfaz o relatório, que sai igual, sem o parágrafo.
+      try {
+        await narrate(householdId, day);
+      } catch (err) {
+        statementCount.failed += 1;
+        log.error(
+          { householdId, agent: RELATORIOS_AGENT, code: codeOf(err) },
+          "agente diário falhou",
+        );
+        await reportAgentFailure(RELATORIOS_AGENT, err);
+      }
+    }
   }
 
   const durationMs = Date.now() - startedAt;
