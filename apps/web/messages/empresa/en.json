@@ -132,6 +132,9 @@
   "assinatura.summary.familySaves": "With Complete company you'd pay {amount} less and get all of this and more.",
   "assinatura.summary.backToFamily": "Back to Complete company",
   "assinatura.status.cortesia": "Your company has a courtesy plan: everything available, at no charge.",
+  "assinatura.status.vip": "Your company is VIP: what was unlocked comes at no charge.",
+  "assinatura.vipNote": "Your company is VIP, so there is no plan to subscribe to right now.",
+  "assinatura.failure.vip": "Your company is VIP, at no cost. There is no need to subscribe right now.",
   "assinatura.failure.sem_familia": "Choose a company first.",
   "assinatura.failure.so_responsavel": "Only the company's owner can do this.",
   "viagens.intentions.states.criancas": "We don't suggest this destination: it isn't recommended for trips with anyone under 12."

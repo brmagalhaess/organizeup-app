@@ -2,10 +2,8 @@ import {
   adminHouseholdAssistant,
   adminHouseholdDetail,
   householdAccountType,
-  type PlatformModule,
 } from "@organizeup/db";
 import { todayIn } from "@organizeup/domain";
-import { Check, Minus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -17,17 +15,10 @@ import { formatCount, formatDate, formatDateTime, roleLabel, shortId } from "../
 import { AdminPage, AdminTable, Fact, Facts, type Column } from "../../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../../painel";
 import { deleteFamily, reactivateFamily, suspendFamily } from "../actions";
+import { FamilyProduct } from "./family-product";
 import { OwnerContact } from "./owner-contact";
 
 export const metadata: Metadata = { title: "Família" };
-
-const MODULES: Array<{ id: PlatformModule; label: string }> = [
-  { id: "entries", label: "Lançamentos" },
-  { id: "investments", label: "Investimentos" },
-  { id: "goals", label: "Metas" },
-  { id: "trips", label: "Viagens" },
-  { id: "retirement", label: "Aposentadoria" },
-];
 
 const AUTONOMY: Record<string, string> = {
   sugerir: "Sugerir",
@@ -141,25 +132,6 @@ export default async function AdminFamilyPage({ params }: { params: Promise<{ id
         </div>
 
         <div className="flex min-w-0 flex-col gap-6">
-          <Card title="Módulos usados" description="Só sim ou não, sem nenhum valor.">
-            <ul className="m-0 flex list-none flex-col gap-2 p-0 text-sm">
-              {MODULES.map((item) => {
-                const used = family.modules[item.id];
-                const Icon = used ? Check : Minus;
-                return (
-                  <li key={item.id} className="flex items-center gap-2">
-                    <Icon
-                      className={used ? "size-4 text-success" : "size-4 text-muted"}
-                      aria-hidden="true"
-                    />
-                    <span className="flex-1">{item.label}</span>
-                    <span className="text-muted">{used ? "Usa" : "Não usa"}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-
           <Card title="Assistente com IA" description="Só datas e contagens, sem nenhum texto.">
             {assistant ? (
               <dl className="m-0 flex flex-col gap-3 text-sm">
@@ -185,8 +157,16 @@ export default async function AdminFamilyPage({ params }: { params: Promise<{ id
             )}
           </Card>
 
+          <FamilyProduct id={family.id} />
+
           <Card title="Ações" description="Tudo fica na auditoria.">
             <div className="flex flex-col gap-3">
+              <Link
+                href={`/admin/vip/novo?familia=${family.id}`}
+                className="text-sm font-semibold text-brand-700 underline underline-offset-2"
+              >
+                Marcar como VIP
+              </Link>
               {suspended ? (
                 <ConfirmAction
                   label="Reativar família"

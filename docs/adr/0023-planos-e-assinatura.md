@@ -213,8 +213,7 @@ somar contas conectadas. **Decisão do fundador pendente** antes de abrir a vend
 
 ## Fora do escopo por enquanto
 
-Fase 4 (painel): `adminBillingSummary` já devolve as contagens, sem PII, e nenhuma tela usa ainda. Ligar `billing_enabled`, conceder
-cortesia e VIP, editar preço. Fase 5 (liberação), que depende da seção 7 da especificação. E-mail de cobrança: o aviso de renovação
+Fase 4 (painel): feita no ADR-0025. Fase 5 (liberação), que depende da seção 7 da especificação. E-mail de cobrança: o aviso de renovação
 anual e o de cobrança falha ficam na central de notificações, porque o worker não envia e-mail. A Stripe pode mandar os dela,
 ligados no painel dela.
 

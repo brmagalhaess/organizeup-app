@@ -132,7 +132,8 @@ visível só para o admin. O sistema mostra se a chave da Stripe é de teste ou 
 
 ## 9. Admin
 
-Pedido do fundador: o painel acompanha tudo isso, com mais gerência e controle de usuários VIP.
+Pedido do fundador: o painel acompanha tudo isso, com mais gerência e controle de usuários VIP. Feito no ADR-0025, que diz
+como VIP de pessoa se aplica à família dela e por que preço novo nasce sem preço na Stripe, até o clique explícito.
 
 - **VIP:** marcar família ou pessoa como VIP, com o que ela recebe (tudo liberado ou módulos e limites escolhidos),
   motivo, validade opcional e quem concedeu. Pode ser sem custo ou com desconto. Lista de VIPs com filtro e aviso antes

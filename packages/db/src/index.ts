@@ -39,6 +39,7 @@ export {
   type PlatformNotice,
 } from "./access";
 export * from "./admin";
+export * from "./admin-billing";
 export * from "./billing";
 export {
   dismissIdentityPrompt,

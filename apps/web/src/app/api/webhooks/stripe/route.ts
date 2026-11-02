@@ -3,7 +3,13 @@
 // aqui, por isso nenhuma gravação usa o papel dela, e a web segue sem credencial de escrita no plano.
 import { captureError, recordBillingEvent } from "@organizeup/db";
 import { queueBillingEvents } from "@/app/admin/fila";
-import { normalizeEvent, verifyEvent } from "@/lib/billing/events";
+import {
+  normalizeEvent,
+  subscriptionNeedingDiscount,
+  verifyEvent,
+  withDiscount,
+} from "@/lib/billing/events";
+import { billingGateway } from "@/lib/billing/gateway";
 import { liveAllowed } from "@/lib/billing/stripe-key";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +33,13 @@ export async function POST(request: Request) {
   const normalized = normalizeEvent(event);
   if (normalized) {
     try {
-      const fresh = await recordBillingEvent(normalized);
+      // O evento traz só o id do desconto. Falhar aqui responde 500, e a Stripe repete.
+      const pending = subscriptionNeedingDiscount(event);
+      const fresh = await recordBillingEvent(
+        pending
+          ? withDiscount(normalized, await billingGateway().discountPercent(pending))
+          : normalized,
+      );
       // Falhar aqui só atrasa até a passada do minuto seguinte.
       if (fresh) await queueBillingEvents().catch(() => undefined);
     } catch (error) {

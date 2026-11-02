@@ -5,6 +5,8 @@ import type { BillingEventInput } from "@organizeup/db";
 import Stripe from "stripe";
 
 export const HOUSEHOLD_METADATA = "household_id";
+/** Cupom do VIP: um por percentual. */
+export const vipCouponId = (percent: number) => `organizeup_vip_${percent}`;
 
 /** Eventos que o endpoint precisa assinar na Stripe. A lista está também no runbook. */
 export const STRIPE_EVENTS = [
@@ -36,9 +38,32 @@ const idOf = (value: string | { id: string } | null | undefined) =>
 const lines = (items: Array<{ price: string | { id: string }; quantity?: number | undefined }>) =>
   items.map((item) => ({ price: idOf(item.price) ?? "", quantity: item.quantity ?? 1 }));
 
+const validPercent = (value: number | null | undefined) =>
+  typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 99 ? value : null;
+
+/** Percentual de um cupom, pelo objeto ou pelo nosso id. Outro cupom, sem o objeto: não dá para saber. */
+function couponPercent(coupon: string | Stripe.Coupon | null): number | null {
+  if (coupon && typeof coupon !== "string") return validPercent(coupon.percent_off);
+  const match = /^organizeup_vip_(\d+)$/.exec(coupon ?? "");
+  return validPercent(match ? Number(match[1]) : null);
+}
+
+/**
+ * Desconto em vigor, pelo que a própria Stripe diz da assinatura, e não pelo que pedimos: a fase de um schedule
+ * pode trocar ou tirar o cupom. `null`: sem desconto. `"expandir"`: há desconto, e o evento só traz o id dele.
+ */
+export function discountOfSubscription(
+  discounts: Array<string | Stripe.Discount> | null | undefined,
+): number | null | "expandir" {
+  const first = discounts?.[0];
+  if (!first) return null;
+  return typeof first === "string" ? "expandir" : couponPercent(first.source.coupon);
+}
+
 function subscriptionData(subscription: Stripe.Subscription): BillingEventData {
   const items = subscription.items.data;
   const first = items[0];
+  const discount = discountOfSubscription(subscription.discounts);
   return {
     kind: "subscription",
     subscriptionId: subscription.id,
@@ -49,7 +74,25 @@ function subscriptionData(subscription: Stripe.Subscription): BillingEventData {
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
     canceledAt: iso(subscription.canceled_at),
     scheduleId: idOf(subscription.schedule),
+    discountPercent: discount === "expandir" ? null : discount,
   };
+}
+
+/** Assinatura cujo desconto precisa ser lido na Stripe: o evento traz só o id dele. */
+export function subscriptionNeedingDiscount(event: Stripe.Event): string | null {
+  if (
+    event.type !== "customer.subscription.created" &&
+    event.type !== "customer.subscription.updated"
+  ) {
+    return null;
+  }
+  const subscription = event.data.object;
+  return discountOfSubscription(subscription.discounts) === "expandir" ? subscription.id : null;
+}
+
+/** O evento guardado, com o desconto lido da Stripe. */
+export function withDiscount(event: BillingEventInput, percent: number | null): BillingEventInput {
+  return { ...event, data: { ...event.data, discountPercent: percent } };
 }
 
 function scheduleData(schedule: Stripe.SubscriptionSchedule): BillingEventData {

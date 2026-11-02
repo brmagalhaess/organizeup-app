@@ -16,11 +16,14 @@ const failed = { ok: false, code: "falhou" } as const;
 
 export function SubscriptionPanel({
   canBuy,
+  resumable,
   active,
   cancelling,
   refundable,
 }: {
   canBuy: boolean;
+  /** Falso: a cobrança está desligada. Sair continua valendo; desfazer o cancelamento, não. */
+  resumable: boolean;
   /** Falso: já acabou, e sobrou só concluir a devolução. */
   active: boolean;
   /** Já cancelou: vale até o fim do período. */
@@ -59,7 +62,7 @@ export function SubscriptionPanel({
         <Button variant="secondary" disabled={busy} onClick={portal}>
           {t("manage.portal")}
         </Button>
-        {!active ? null : cancelling ? (
+        {!active || (cancelling && !resumable) ? null : cancelling ? (
           <Button
             variant="secondary"
             disabled={busy}

@@ -20,6 +20,7 @@ const PAPERCLIP_TIMES: Record<string, string> = {
   // A etapa de IA anda junto: o Paperclip acorda só `categorias`.
   categorias_ia: "04:00",
   investimentos: "04:10",
+  dividas: "04:15",
   aposentadoria: "04:20",
   viagens: "04:30",
   metas: "04:40",

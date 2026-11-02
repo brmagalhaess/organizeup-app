@@ -18,5 +18,9 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
+    // Pedido por spec: a suíte inteira não precisa de uma terceira largura.
+    ...(process.env.E2E_375
+      ? [{ name: "375", use: { ...devices["Pixel 7"], viewport: { width: 375, height: 812 } } }]
+      : []),
   ],
 });

@@ -30,7 +30,7 @@ export interface AgentText {
 
 /** Avisos da assinatura. `date`: dia da renovação, no fuso da família. */
 export function billingNoticeText(
-  kind: "assinatura_falhou" | "assinatura_renovacao",
+  kind: "assinatura_falhou" | "assinatura_renovacao" | "vip_vencendo",
   date?: string,
 ): AgentText {
   if (kind === "assinatura_falhou") {
@@ -41,6 +41,13 @@ export function billingNoticeText(
     };
   }
   const day = date ?? "";
+  if (kind === "vip_vencendo") {
+    return {
+      title: "Seu acesso VIP está acabando",
+      body: `Ele vale até ${day.split("-").reverse().join("/")}. Depois volta ao que era antes, sem cobrança. Para continuar usando, assine em Plano e assinatura.`,
+      message: message("vipVencendo", { date: { date: day } }),
+    };
+  }
   return {
     title: "Sua assinatura anual renova em breve",
     body: `A renovação será em ${day.split("-").reverse().join("/")}. Para mudar ou cancelar, abra Plano e assinatura.`,

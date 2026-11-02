@@ -5,6 +5,7 @@ import {
   asc,
   readFamilyAccess,
   readMonthUsage,
+  readSubscription,
   canWrite,
   categories,
   creditCards,
@@ -15,10 +16,11 @@ import {
   withHousehold,
   type TenantContext,
 } from "@organizeup/db";
-import { todayIn, usageLevel } from "@organizeup/domain";
+import { todayIn, usageLevel, vipPartial } from "@organizeup/domain";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { AppShell, type ShellBanner, type ShellNotice } from "@/components/shell/app-shell";
+import { canLeave } from "@/lib/billing/actor";
 import { shouldAskDocument } from "@/lib/identity";
 import { onboardingStatus } from "@/lib/onboarding";
 import { countUnread } from "@/lib/notifications";
@@ -100,6 +102,7 @@ async function billingBanners(ctx: TenantContext): Promise<ShellBanner[]> {
     banners.push({ key: "plano-leitura", text: t("readOnly"), dismissible: false, ...link });
     return banners;
   }
+  if (vipPartial(access)) dismissible("plano-vip-parcial", t("vipPartial"));
   if (access.pastDue) {
     banners.push({ key: "plano-atraso", text: t("pastDue"), dismissible: false, ...link });
   }
@@ -107,7 +110,8 @@ async function billingBanners(ctx: TenantContext): Promise<ShellBanner[]> {
     const days = Math.ceil((access.trialEndsAt.getTime() - Date.now()) / DAY_MS);
     if (days <= TRIAL_NOTICE_DAYS) dismissible("plano-teste", t("trial", { count: days }));
   }
-  if (access.mode !== "assinatura") return banners;
+  // VIP com limites escolhidos também precisa saber que está perto deles.
+  if (access.mode !== "assinatura" && access.mode !== "vip") return banners;
   const usage = await readMonthUsage(ctx);
   if (!usage) return banners;
   const entries = usageLevel(usage.entries, access.entryLimit);
@@ -143,6 +147,8 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     countUnread(ctx),
   ]);
   const flags = await platformFlags();
+  // Chave desligada, com assinatura de pé: quem paga precisa achar a tela para sair.
+  const leaving = !flags.billingEnabled && canLeave(await readSubscription(ctx), new Date());
   const t = await getTranslations("shell");
   const store = await cookies();
   const askEmail = !session.user.emailVerified && !store.has(noticeCookie(EMAIL_KEY));
@@ -200,7 +206,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       notice={status.notice}
       emailNotice={askEmail ? EMAIL_KEY : null}
       banners={[...banners, ...plan]}
-      billing={flags.billingEnabled || isServiceAdmin(session.user)}
+      billing={flags.billingEnabled || isServiceAdmin(session.user) || leaving}
       pendingSuggestions={status.pendingSuggestions}
       unreadNotifications={unreadNotifications}
       assistant={assistant}

@@ -1793,6 +1793,7 @@
     "billing": {
       "link": "Ver planos",
       "readOnly": "Seu teste acabou. Você vê e exporta tudo, e nada foi apagado. Para alterar, assine.",
+      "vipPartial": "Seu acesso VIP inclui parte dos módulos. O resto fica só para consulta.",
       "pastDue": "Não conseguimos cobrar sua assinatura. Confira o cartão para não perder o acesso.",
       "trial": "{count, plural, =0 {Seu teste acaba hoje.} one {Falta # dia para o teste acabar.} other {Faltam # dias para o teste acabar.}}",
       "entries": {
@@ -3789,6 +3790,10 @@
     "assinaturaRenovacao": {
       "title": "Sua assinatura anual renova em breve",
       "body": "A renovação será em {date}. Para mudar ou cancelar, abra Plano e assinatura."
+    },
+    "vipVencendo": {
+      "title": "Seu acesso VIP está acabando",
+      "body": "Ele vale até {date}. Depois volta ao que era antes, sem cobrança. Para continuar usando, assine em Plano e assinatura."
     }
   },
   "sistema": {
@@ -4118,6 +4123,7 @@
     "metaTitle": "Plano e assinatura",
     "title": "Plano e assinatura",
     "description": "Monte o plano da sua família. O valor muda enquanto você escolhe.",
+    "descriptionLeaving": "Acompanhe sua assinatura e cancele quando quiser.",
     "perMonth": "{amount} por mês",
     "perYear": "{amount} por ano",
     "subscribe": "Assinar",
@@ -4126,6 +4132,7 @@
     "saved": "Pedido feito. A tela atualiza em instantes.",
     "waiting": "Recebemos seu pagamento. Estamos ligando o plano, e isso leva menos de um minuto.",
     "ownerOnly": "Só o responsável pela família pode assinar ou trocar o plano.",
+    "vipNote": "Sua família é VIP, e por isso não há plano para assinar agora.",
     "priceNote": "Preços em reais. A assinatura é da família: todas as pessoas usam, sem custo por pessoa.",
     "noCatalog": {
       "title": "Os preços ainda não estão aqui",
@@ -4224,6 +4231,12 @@
       "teste": "Teste grátis até {date}, com tudo liberado.",
       "assinatura": "Assinatura ativa.",
       "leitura": "O teste acabou. Você vê e exporta tudo, mas para alterar precisa assinar. Nada foi apagado.",
+      "vip": "Sua família é VIP: o que foi liberado não tem cobrança.",
+      "vipUntil": "Vale até {date}. Depois volta ao que era antes, sem nenhuma cobrança.",
+      "vipDiscount": "Desconto VIP de {percent}% na assinatura.",
+      "vipSubscribe": "Se assinar agora, a primeira cobrança é só em {date}, quando o VIP acaba. Antes disso, nada é cobrado.",
+      "keptOff": "As novas assinaturas estão pausadas, mas a sua segue ativa. Você pode cancelar ou pedir a devolução aqui.",
+      "discountNote": "Com desconto VIP de {percent}%.",
       "renewsAt": "Próxima cobrança em {date}.",
       "endsAt": "Cancelada. Vale até {date}.",
       "scheduled": "Troca de plano marcada para {date}.",
@@ -4267,7 +4280,8 @@
       "catalogo": "Um dos itens ainda não está à venda.",
       "sem_assinatura": "Não encontramos uma assinatura ativa para isso.",
       "invalido": "Confira o plano e tente de novo.",
-      "em_andamento": "Já há um pagamento em andamento. Se você acabou de pagar, o plano liga em instantes."
+      "em_andamento": "Já há um pagamento em andamento. Se você acabou de pagar, o plano liga em instantes.",
+      "vip": "Sua família é VIP, sem custo. Não é preciso assinar agora."
     },
     "invite": {
       "eyebrow": "Fora do seu plano",

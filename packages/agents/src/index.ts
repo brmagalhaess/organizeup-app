@@ -172,6 +172,7 @@ export {
   MAX_EVENT_ATTEMPTS,
   runBillingEvents,
   runBillingRenewals,
+  runVipNotices,
   SUGGESTION_MODULE,
   type BillingEventData,
   type BillingOutcome,

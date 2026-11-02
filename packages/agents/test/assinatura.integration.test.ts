@@ -115,6 +115,85 @@ afterAll(async () => {
 });
 
 describe("assinatura local", () => {
+  it("VIP sem custo acabando avisa a família uma vez, e só quem depende dele", async () => {
+    const admin = { adminUserId: "admin-aviso" };
+    const grant = (householdId: string, endsAt: Date | null) =>
+      db.adminGrantVip(admin, {
+        householdId,
+        scope: "familia",
+        userId: null,
+        full: true,
+        modules: [],
+        entryLimit: null,
+        messageLimit: null,
+        currencies: [],
+        cost: "sem_custo",
+        discountPercent: null,
+        reason: "parceria",
+        endsAt,
+      });
+    const notices = async (job: TenantContext) =>
+      db.withHousehold(job, (tx) =>
+        tx
+          .select()
+          .from(householdNotifications)
+          .where(eq(householdNotifications.kind, "vip_vencendo")),
+      );
+    const day = 24 * 60 * 60 * 1000;
+
+    const ending = await newFamily();
+    await grant(ending.id, new Date(Date.now() + 5 * day));
+    const later = await newFamily();
+    await grant(later.id, new Date(Date.now() + 60 * day));
+    const forever = await newFamily();
+    await grant(forever.id, null);
+    const paying = await newFamily();
+    await grant(paying.id, new Date(Date.now() + 5 * day));
+    await receive({
+      at: 1,
+      householdId: paying.id,
+      customerId: `cus_vip${families}`,
+      data: subscription({ status: "trialing" }),
+    });
+    await silent();
+
+    await agents.runVipNotices(log);
+    await agents.runVipNotices(log);
+
+    const [sent, ...repeated] = await notices(ending.job);
+    expect(repeated).toEqual([]);
+    expect(sent).toMatchObject({ messageKey: "vipVencendo", href: "/app/assinatura" });
+    expect(await notices(later.job)).toEqual([]);
+    expect(await notices(forever.job)).toEqual([]);
+    expect(await notices(paying.job)).toEqual([]);
+  });
+
+  it("com a chave desligada, nenhum aviso de VIP: ninguém perde acesso", async () => {
+    await setBilling(false);
+    try {
+      const sent = await agents.runVipNotices(log);
+      expect(sent).toBe(0);
+    } finally {
+      await setBilling(true);
+    }
+  });
+
+  it("o desconto VIP entra e sai pelo webhook, e evento antigo sem ele não quebra", async () => {
+    const { id, job } = await newFamily();
+    const customerId = `cus_desc${families}`;
+    await receive({
+      at: 1,
+      householdId: id,
+      customerId,
+      data: subscription({ discountPercent: 30 }),
+    });
+    await silent();
+    expect((await row(job)).discountPercent).toBe(30);
+    await receive({ at: 2, householdId: id, customerId, data: subscription() });
+    await silent();
+    expect((await row(job)).discountPercent).toBeNull();
+  });
+
   it("checkout e assinatura ligam o plano, e o acesso lê da tabela local", async () => {
     const { id, job } = await newFamily();
     await receive({

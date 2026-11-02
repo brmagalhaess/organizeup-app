@@ -2,7 +2,7 @@
 // aqui, com um segredo fictício.
 import Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { STRIPE_EVENTS, normalizeEvent, verifyEvent } from "./events";
+import { STRIPE_EVENTS, normalizeEvent, subscriptionNeedingDiscount, verifyEvent } from "./events";
 import { liveAllowed, stripeKeyMode, stripeUsable } from "./stripe-key";
 
 vi.mock("server-only", () => ({}));
@@ -290,6 +290,42 @@ describe("o que fica do evento", () => {
         items: [{ price: "price_1", quantity: 1 }],
         periodEnd: new Date(1_792_592_000 * 1000).toISOString(),
       },
+    });
+  });
+
+  describe("desconto em vigor", () => {
+    const withDiscounts = (discounts: unknown, metadata = { household_id: "hh-1" }) => {
+      const sample = samples[1]!;
+      const object = { ...sample.data.object, discounts, metadata } as Stripe.Subscription;
+      return { ...sample, data: { object } } as Stripe.Event;
+    };
+    const coupon = (value: unknown) => ({ source: { coupon: value } });
+
+    it("sai da assinatura, e não de metadata nenhuma", () => {
+      expect(normalizeEvent(samples[1]!)?.data).toMatchObject({ discountPercent: null });
+      const stale = withDiscounts([], { household_id: "hh-1", vip_desconto: "30" } as never);
+      expect(normalizeEvent(stale)?.data).toMatchObject({ discountPercent: null });
+    });
+
+    it("lê o percentual do cupom expandido e do nosso id", () => {
+      const expanded = withDiscounts([coupon({ percent_off: 25 })]);
+      expect(normalizeEvent(expanded)?.data).toMatchObject({ discountPercent: 25 });
+      const ours = withDiscounts([coupon("organizeup_vip_30")]);
+      expect(normalizeEvent(ours)?.data).toMatchObject({ discountPercent: 30 });
+    });
+
+    it("cupom de valor fixo ou fora da faixa não vira percentual", () => {
+      for (const value of [{ percent_off: null }, { percent_off: 100 }, { percent_off: 12.5 }]) {
+        expect(normalizeEvent(withDiscounts([coupon(value)]))?.data).toMatchObject({
+          discountPercent: null,
+        });
+      }
+    });
+
+    it("evento com só o id do desconto pede para ler na Stripe", () => {
+      expect(subscriptionNeedingDiscount(withDiscounts(["di_1"]))).toBe("sub_1");
+      expect(subscriptionNeedingDiscount(withDiscounts([]))).toBeNull();
+      expect(subscriptionNeedingDiscount(withDiscounts([coupon("organizeup_vip_30")]))).toBeNull();
     });
   });
 

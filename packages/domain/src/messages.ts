@@ -48,6 +48,7 @@ export const ROW_MESSAGE_KEYS = [
   "relatorioDividasPlano",
   "assinaturaFalhou",
   "assinaturaRenovacao",
+  "vipVencendo",
 ] as const;
 
 /** Frases que entram em outra mensagem: cada chave é um texto só no catálogo. */

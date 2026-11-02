@@ -3,6 +3,8 @@
 //   tsx apps/web/e2e/plano-familia.ts chave on|off
 //   tsx apps/web/e2e/plano-familia.ts plano "<família>" base:50,modulo:metas
 //   tsx apps/web/e2e/plano-familia.ts vencer "<família>"
+//   tsx apps/web/e2e/plano-familia.ts stripe "<família>"
+//   tsx apps/web/e2e/plano-familia.ts desconto "<família>" 30
 import {
   closeAllPools,
   eq,
@@ -48,6 +50,29 @@ if (command === "chave") {
           quantity: 1,
         })),
       })
+      .where(eq(householdSubscriptions.householdId, householdId)),
+  );
+} else if (command === "stripe") {
+  // Como se a assinatura existisse na Stripe, com a primeira cobrança ontem. Nada é chamado lá.
+  const householdId = await familyId(first!);
+  const suffix = householdId.replaceAll("-", "").slice(0, 24);
+  await withWorkerHousehold(householdId, (tx) =>
+    tx
+      .update(householdSubscriptions)
+      .set({
+        stripeCustomerId: `cus_e2e${suffix}`,
+        stripeSubscriptionId: `sub_e2e${suffix}`,
+        firstPaidAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      })
+      .where(eq(householdSubscriptions.householdId, householdId)),
+  );
+} else if (command === "desconto") {
+  // Como o webhook, quando o cupom entra na assinatura.
+  const householdId = await familyId(first!);
+  await withWorkerHousehold(householdId, (tx) =>
+    tx
+      .update(householdSubscriptions)
+      .set({ discountPercent: Number(second) })
       .where(eq(householdSubscriptions.householdId, householdId)),
   );
 } else if (command === "vencer") {

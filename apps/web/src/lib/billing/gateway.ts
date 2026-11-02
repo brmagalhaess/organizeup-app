@@ -4,8 +4,9 @@
 import "server-only";
 import { fromCents, type BillingCycle } from "@organizeup/domain";
 import Stripe from "stripe";
-import { HOUSEHOLD_METADATA } from "./events";
+import { discountOfSubscription, HOUSEHOLD_METADATA, vipCouponId } from "./events";
 import { stripeKeyMode, stripeUsable, StripeKeyRefused } from "./stripe-key";
+import { createCatalogPrice, type CatalogLine } from "./stripe-prices";
 
 export interface PriceLine {
   price: string;
@@ -20,6 +21,10 @@ export interface CheckoutInput {
   locale: string;
   successUrl: string;
   cancelUrl: string;
+  /** Desconto VIP, em %, que já entra na primeira cobrança. */
+  discountPercent?: number | null | undefined;
+  /** Assinou durante o VIP: a primeira cobrança é aqui, e nada é cobrado até lá. */
+  firstChargeAt?: Date | null | undefined;
 }
 
 export interface ChangeInput {
@@ -67,6 +72,14 @@ export interface BillingGateway {
     since: Date;
   }): Promise<RefundOutcome>;
   portalUrl(customerId: string, returnUrl: string): Promise<string>;
+  /** Liga ou tira o desconto VIP da assinatura, sem cobrança proporcional. Null: tira. */
+  setDiscount(input: { subscriptionId: string; percent: number | null }): Promise<void>;
+  /** Percentual em vigor, pela própria assinatura. O webhook usa, porque o evento traz só o id. */
+  discountPercent(subscriptionId: string): Promise<number | null>;
+  /** Tenta de novo a última fatura em aberto. */
+  retryInvoice(subscriptionId: string): Promise<"cobrada" | "nada_em_aberto">;
+  /** Cria o preço de uma linha do catálogo. Devolve o id que vai para `stripe_price_id`. */
+  createPrice(line: CatalogLine): Promise<string>;
 }
 
 const LOCALES: Record<string, Stripe.Checkout.SessionCreateParams.Locale> = {
@@ -98,6 +111,9 @@ export function itemDiff(
 
 const seconds = (date: Date) => Math.floor(date.getTime() / 1000);
 
+const idOf = (value: string | { id?: string } | null) =>
+  typeof value === "string" ? value : (value?.id ?? null);
+
 /** Situações em que a assinatura não cobra mais. */
 const ENDED: readonly string[] = ["canceled", "incomplete_expired"];
 
@@ -127,16 +143,69 @@ class StripeGateway implements BillingGateway {
     return session.status === "complete";
   }
 
+  /** Cupom único por percentual, para sempre: o desconto só acaba por ação explícita no painel. */
+  private async coupon(percent: number): Promise<string> {
+    const id = vipCouponId(percent);
+    try {
+      return (await this.stripe.coupons.retrieve(id)).id;
+    } catch (error) {
+      if ((error as { statusCode?: number }).statusCode !== 404) throw error;
+    }
+    const created = await this.stripe.coupons.create(
+      { id, percent_off: percent, duration: "forever", name: `VIP ${percent}%` },
+      { idempotencyKey: `cupom:${id}` },
+    );
+    return created.id;
+  }
+
+  async setDiscount(input: { subscriptionId: string; percent: number | null }): Promise<void> {
+    const { subscriptionId, percent } = input;
+    await this.stripe.subscriptions.update(subscriptionId, {
+      discounts: percent === null ? "" : [{ coupon: await this.coupon(percent) }],
+      proration_behavior: "none",
+    });
+  }
+
+  async discountPercent(subscriptionId: string): Promise<number | null> {
+    const subscription = await this.stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ["discounts.source.coupon"],
+    });
+    const percent = discountOfSubscription(subscription.discounts);
+    return percent === "expandir" ? null : percent;
+  }
+
+  async retryInvoice(subscriptionId: string): Promise<"cobrada" | "nada_em_aberto"> {
+    const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+    const invoiceId = idOf(subscription.latest_invoice);
+    if (!invoiceId) return "nada_em_aberto";
+    const invoice = await this.stripe.invoices.retrieve(invoiceId);
+    if (invoice.status !== "open") return "nada_em_aberto";
+    await this.stripe.invoices.pay(invoiceId);
+    return "cobrada";
+  }
+
+  createPrice(line: CatalogLine): Promise<string> {
+    return createCatalogPrice(this.stripe, line);
+  }
+
   async createCheckout(input: CheckoutInput): Promise<{ id: string; url: string }> {
+    const percent = input.discountPercent ?? null;
+    const firstChargeAt = input.firstChargeAt ?? null;
     const metadata = { [HOUSEHOLD_METADATA]: input.householdId };
     const session = await this.stripe.checkout.sessions.create({
       mode: "subscription",
       client_reference_id: input.householdId,
       line_items: input.prices,
-      // Boleto só no anual: custa 12% de R$ 29,90 e não aceita reembolso pela Stripe.
-      allowed_payment_method_types: input.cycle === "ano" ? ["card", "boleto"] : ["card"],
+      // Boleto só no anual: custa 12% de R$ 29,90 e não aceita reembolso pela Stripe. Com a primeira
+      // cobrança adiada, só cartão: boleto não fica guardado para cobrar depois.
+      allowed_payment_method_types:
+        input.cycle === "ano" && !firstChargeAt ? ["card", "boleto"] : ["card"],
       metadata,
-      subscription_data: { metadata },
+      ...(percent ? { discounts: [{ coupon: await this.coupon(percent) }] } : {}),
+      subscription_data: {
+        metadata,
+        ...(firstChargeAt ? { trial_end: seconds(firstChargeAt) } : {}),
+      },
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
       customer: input.customerId,
@@ -228,6 +297,12 @@ class StripeGateway implements BillingGateway {
     });
     const phase = schedule.phases[0];
     if (!phase) throw new Error("schedule_sem_fase");
+    // A Stripe troca as fases inteiras: sem reenviar os descontos, o cupom some na hora, e o da fase
+    // seguinte, no fim do ciclo. Desconto só sai por ação explícita.
+    const discounts = phase.discounts.flatMap((row) => {
+      const coupon = idOf(row.coupon);
+      return coupon ? [{ coupon }] : [];
+    });
     await this.stripe.subscriptionSchedules.update(schedule.id, {
       end_behavior: "release",
       metadata: { [HOUSEHOLD_METADATA]: householdId },
@@ -239,11 +314,13 @@ class StripeGateway implements BillingGateway {
             price: typeof item.price === "string" ? item.price : item.price.id,
             quantity: item.quantity ?? 1,
           })),
+          discounts,
         },
         {
           start_date: phase.end_date,
           items: prices,
           proration_behavior: "none",
+          discounts,
         },
       ],
     });

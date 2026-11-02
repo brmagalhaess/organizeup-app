@@ -2,8 +2,12 @@ import { INSIGHTS_CONSENT_VERSION, monthSpend } from "@organizeup/ai";
 import {
   adminAccessList,
   adminAssistantCounts,
+  adminBillingFamilies,
+  adminBillingSummary,
+  adminFamilyAccess,
   adminGrowth,
   adminOverviewCounts,
+  adminVipList,
   knowledgeStatus,
   listAgentRuns,
   listDeployments,
@@ -24,6 +28,7 @@ import { vaultReady } from "@/lib/document-vault";
 import { documentKeyChanged } from "@/lib/identity";
 import { platformFlags, requireAdmin } from "@/lib/session";
 import { buildAlerts } from "./alertas";
+import { billingAttention } from "./cobranca/atencao";
 import { actionLabel, AI_TEST_FAILED, AI_TEST_OK, AUDIT_VISITS } from "./auditoria/labels";
 import { ActivityChart, AdoptionBars, GrowthChart } from "./charts";
 import { formatCount, formatDateTime, formatDay, formatDayShort } from "./format";
@@ -99,6 +104,9 @@ export default async function AdminOverviewPage() {
     market,
     knowledge,
     aiTests,
+    vipList,
+    billingFamilies,
+    billingSummary,
   ] = await Promise.all([
     adminOverviewCounts({ onboardingVersion: ONBOARDING_VERSION }),
     adminGrowth(12),
@@ -115,8 +123,17 @@ export default async function AdminOverviewPage() {
     marketStatus(today),
     knowledgeStatus(),
     adminAccessList({ actions: [AI_TEST_OK, AI_TEST_FAILED], limit: 1 }),
+    adminVipList(),
+    adminBillingFamilies(),
+    adminBillingSummary(),
   ]);
 
+  const attention = billingAttention(
+    billingFamilies.map((family) => ({
+      family,
+      access: adminFamilyAccess(family, new Date()),
+    })),
+  );
   const latest = stats[0] ?? null;
   const disabled = flags.disabledAgents;
   const workerHasAiKey = workerAiKey(workers[0]?.info);
@@ -151,6 +168,13 @@ export default async function AdminOverviewPage() {
     ...(disabled.includes(MERCADO_AGENT) ? {} : { catalogUpdatedAt: market.assetsUpdatedAt }),
     knowledgeOldest: knowledge.oldestReview,
     workerHasAiKey: flags.aiEnabled ? workerHasAiKey : null,
+    billing: {
+      vipEnding: vipList.filter((row) => row.status === "vencendo").length,
+      vipCharged: attention.charged.length,
+      unappliedDiscounts: attention.unapplied.length,
+      leftoverDiscounts: attention.leftover.length,
+      duplicates: billingSummary.events.duplicates,
+    },
   });
   const growthPoints = growth.map((week) => ({
     label: formatDayShort(week.week),
