@@ -7,9 +7,11 @@ import {
   cardBook,
   currentDebtPlan,
   currentDividendPlan,
+  latestStatement,
   loadCommitments,
   loadFiscalTables,
   monthlyPlanView,
+  readStatement,
   reserveInputs,
 } from "@organizeup/agents";
 import {
@@ -61,6 +63,7 @@ import {
   receivedDividends,
   recommendedStrategy,
   spendingByCategory,
+  STATEMENT_KINDS,
   summarizeDividends,
   summarizeMonth,
   summarizePortfolio,
@@ -72,6 +75,7 @@ import {
 } from "@organizeup/domain";
 import { z } from "zod";
 import { personLabels, untrusted } from "../privacy";
+import { statementView } from "../statement-view";
 import { defineTool, monthInput, read } from "./registry";
 
 /** Valor na moeda da conta, em lançamento de conta estrangeira. */
@@ -688,6 +692,38 @@ const relatoriosDoDia = defineTool({
     }),
 });
 
+const verRelatorio = defineTool({
+  name: "ver_relatorio",
+  description:
+    "Relatório pronto da família, por tipo e período: resumo do mês, gastos por categoria, fluxo de caixa, patrimônio, investimentos, proventos, dívidas, metas e viagens, aposentadoria ou anual. Chame quando pedirem um relatório, o fechamento de um mês ou do ano. situacao parcial quer dizer que o período ainda não acabou. O anual só organiza o que a família lançou, não substitui a declaração nem é orientação fiscal.",
+  kind: "leitura",
+  input: z.strictObject({
+    tipo: z.enum(STATEMENT_KINDS),
+    periodo: z
+      .string()
+      .regex(/^\d{4}(-(0[1-9]|1[0-2]))?$/, "Use AAAA-MM, ou AAAA no anual.")
+      .optional()
+      .describe("AAAA-MM, ou AAAA no anual. Sem ele, usa o mais recente."),
+  }),
+  label: ({ tipo }) => `olhei o relatório ${tipo}`,
+  run: (ctx, { tipo, periodo }) =>
+    read(ctx, async (tx) => {
+      const row = periodo
+        ? await readStatement(tx, tipo, periodo)
+        : await latestStatement(tx, tipo);
+      if (!row) return { situacao: "sem_relatorio", tipo, periodo: periodo ?? null };
+      return {
+        tipo: row.kind,
+        periodo: row.period,
+        situacao: row.status,
+        ate: row.data.asOf,
+        atualizado_depois_de_fechar: row.revisedAt !== null,
+        ...statementView(row.data),
+        o_que_mudou: row.whatChanged ? untrusted(row.whatChanged) : null,
+      };
+    }),
+});
+
 const sugestoesPendentes = defineTool({
   name: "sugestoes_pendentes",
   description:
@@ -770,6 +806,7 @@ export const READ_TOOLS = [
   verPlanoDividas,
   verPlanoDoMes,
   verProventos,
+  verRelatorio,
   verRenda,
   verReserva,
 ];

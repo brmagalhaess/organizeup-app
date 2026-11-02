@@ -22,18 +22,22 @@ vi.mock("@organizeup/agents", () => ({
   DIVIDAS_AGENT: "dividas",
   INVESTIMENTOS_AGENT: "investimentos",
   METAS_AGENT: "metas",
+  RELATORIOS_AGENT: "relatorios",
   VIAGENS_AGENT: "viagens",
   runCategoriasAgent: step("categorias"),
   runInvestimentosAgent: step("investimentos"),
   runAposentadoriaAgent: step("aposentadoria", { allocation: {} }),
   runViagensAgent: step("viagens"),
   runMetasAgent: step("metas"),
+  runRelatoriosAgent: step("relatorios"),
 }));
 vi.mock("./category-review", () => ({ categoryReviewer: vi.fn() }));
+vi.mock("./statement-narration", () => ({ statementNarrator: vi.fn() }));
 vi.mock("./diagnostics", () => ({ reportAgentFailure: vi.fn() }));
 
 const { recordAgentRun } = await import("@organizeup/db");
 const { categoryReviewer } = await import("./category-review");
+const { statementNarrator } = await import("./statement-narration");
 const { agentsToRun, DAILY_AGENTS, runDailyAgents } = await import("./daily-agents");
 
 const day = "2026-11-01";
@@ -42,6 +46,12 @@ const never = async () => false;
 describe("ordem da rodada", () => {
   it("dívidas roda antes da aposentadoria, que usa a dívida cara", () => {
     expect(DAILY_AGENTS.indexOf("dividas")).toBeLessThan(DAILY_AGENTS.indexOf("aposentadoria"));
+  });
+});
+
+describe("relatórios", () => {
+  it("rodam depois de todos os outros", () => {
+    expect(DAILY_AGENTS.at(-1)).toBe("relatorios");
   });
 });
 
@@ -120,6 +130,18 @@ describe("etapa de IA na rodada", () => {
       { householdId: "hh-1", agent: "categorias_ia", code: "api-500" },
       expect.any(String),
     );
+  });
+
+  it("o parágrafo vem depois do relatório, e a falha dele não desfaz nada", async () => {
+    vi.mocked(categoryReviewer).mockReturnValue(null);
+    vi.mocked(statementNarrator).mockReturnValue(async () => {
+      order.push("paragrafo");
+      throw Object.assign(new Error("valor da família"), { code: "api-500" });
+    });
+    await runDailyAgents(log);
+    expect(order.slice(-2)).toEqual(["relatorios", "paragrafo"]);
+    expect(runOf("relatorios")).toMatchObject({ households: 1, ok: 1, failed: 1 });
+    expect(JSON.stringify(log.error.mock.calls)).not.toContain("valor da família");
   });
 
   it("sem aceite ou sem chave, as regras rodam sozinhas", async () => {

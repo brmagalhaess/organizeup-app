@@ -23,6 +23,7 @@ const ROUTE_LABELS: Record<string, string> = {
   chat: "Conversa",
   noite: "Dicas da madrugada",
   categorias: "Categorias com IA",
+  relatorios: "Parágrafo dos relatórios",
   teste: "Testar a IA",
 };
 

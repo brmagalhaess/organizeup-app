@@ -3435,6 +3435,112 @@ describe("notificações da família", () => {
   });
 });
 
+describe("relatórios da família (ADR-0021)", () => {
+  const { householdStatements } = db;
+  const data = (kind: "resumo", period: string) => ({
+    version: 1 as const,
+    kind,
+    period,
+    asOf: "2026-10-31",
+    figures: [],
+    sections: [],
+    notes: [],
+  });
+  const row = (household: string, period: string) => ({
+    householdId: household,
+    kind: "resumo" as const,
+    period,
+    status: "fechado" as const,
+    data: data("resumo", period),
+    messageKey: "resumo",
+    messageParams: {},
+  });
+
+  it("outra família não lê, não muda, não apaga e não grava em nome dela", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const ctxB = await ctxFor(B.owner, B.household);
+    await db.withHousehold(owner, (tx) =>
+      tx.insert(householdStatements).values(row(A.household, "2026-10")),
+    );
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(householdStatements)).toHaveLength(0);
+      const changed = await tx
+        .update(householdStatements)
+        .set({ whatChanged: "Forjado" })
+        .returning({ id: householdStatements.id });
+      expect(changed).toHaveLength(0);
+      const removed = await tx.delete(householdStatements).returning({
+        id: householdStatements.id,
+      });
+      expect(removed).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(ctxB, (tx) =>
+        tx.insert(householdStatements).values(row(A.household, "2026-09")),
+      ),
+    ).rejects.toThrow();
+    await db.withHousehold(owner, async (tx) => {
+      const [saved] = await tx.select().from(householdStatements);
+      expect(saved).toMatchObject({ householdId: A.household, whatChanged: null });
+    });
+  });
+
+  it("quem só vê lê, mas não grava nem apaga", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    await db.withHousehold(viewer, async (tx) => {
+      expect(await tx.select().from(householdStatements)).toHaveLength(1);
+      const changed = await tx
+        .update(householdStatements)
+        .set({ whatChanged: "Forjado" })
+        .returning({ id: householdStatements.id });
+      expect(changed).toHaveLength(0);
+      const removed = await tx.delete(householdStatements).returning({
+        id: householdStatements.id,
+      });
+      expect(removed).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        tx.insert(householdStatements).values(row(A.household, "2026-08")),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("um por família, tipo e período, e confere tipo, período e situação", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const ctxB = await ctxFor(B.owner, B.household);
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.insert(householdStatements).values(row(A.household, "2026-10")),
+      ),
+    ).rejects.toThrow();
+    // Outra família pode ter o mesmo período.
+    await db.withHousehold(ctxB, (tx) =>
+      tx.insert(householdStatements).values(row(B.household, "2026-10")),
+    );
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.insert(householdStatements).values(row(A.household, "2026-13")),
+      ),
+    ).rejects.toThrow();
+    for (const bad of [
+      sql`insert into household_statements (household_id, kind, period) values (${A.household}, 'Tipo Livre!', '2026-01')`,
+      sql`insert into household_statements (household_id, kind, period, status) values (${A.household}, 'resumo', '2026-01', 'outro')`,
+    ]) {
+      await expect(db.withHousehold(owner, (tx) => tx.execute(bad))).rejects.toThrow();
+    }
+    await db.withHousehold(ctxB, (tx) => tx.delete(householdStatements));
+  });
+
+  it("entra na exportação só com a própria família", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const exported = await db.withHousehold(owner, (tx) => db.exportHousehold(tx));
+    const rows = exported.household_statements as Array<{ householdId: string }>;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((item) => item.householdId === A.household)).toBe(true);
+  });
+});
+
 describe("memória da família (ADR-0018)", () => {
   const { householdMemories } = db;
   const row = (household: string, content: string) => ({

@@ -35,6 +35,11 @@ export const DAILY_AGENTS_INFO = [
     name: "Metas",
     text: "Recalcula o plano mensal de cada meta, respeitando a prioridade e o orçamento.",
   },
+  {
+    id: "relatorios",
+    name: "Relatórios",
+    text: "Roda por último. Atualiza o mês em andamento, fecha o mês no dia 1 e o ano em janeiro. Com o aceite da família, escreve um parágrafo com IA e confere os números.",
+  },
 ] as const;
 
 export const PAPERCLIP_URL = "https://paperclip.home.crowntech.com.br/ORG";

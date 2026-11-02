@@ -48,6 +48,12 @@ export {
 export { rejectionOf } from "./insights/verify";
 export { SYSTEM_PROMPT } from "./instructions";
 export {
+  MAX_WHAT_CHANGED,
+  runStatementNarration,
+  STATEMENT_ROUTE,
+  type StatementNarrationRun,
+} from "./relatorios";
+export {
   echoContent,
   LIMIT_TEXT,
   REFUSAL_TEXT,

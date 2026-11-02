@@ -103,6 +103,15 @@ export {
 } from "./run-investimentos";
 export { DIVIDAS_AGENT, runDividasAgent } from "./run-dividas";
 export { METAS_AGENT, runMetasAgent } from "./run-metas";
+export { RELATORIOS_AGENT, runRelatoriosAgent, type RelatoriosResult } from "./run-relatorios";
+export {
+  householdCurrency,
+  latestStatement,
+  narrationPeriods,
+  readStatement,
+  statementKinds,
+  statementPeriods,
+} from "./statements";
 export { loadDestinations, runViagensAgent, VIAGENS_AGENT } from "./run-viagens";
 export {
   ASSET_CLASS_LABELS,

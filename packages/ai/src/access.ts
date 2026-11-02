@@ -54,7 +54,7 @@ export async function monthSpend(day: string = serviceDay(), limits: AiLimits = 
 }
 
 /** Tokens que a família gastou no dia. Leitura de cache fica fora: custa um vigésimo. */
-async function familyTokensToday(ctx: TenantContext, day: string): Promise<number> {
+export async function familyTokensToday(ctx: TenantContext, day: string): Promise<number> {
   const [row] = await withHousehold(ctx, (tx) =>
     tx
       .select({
