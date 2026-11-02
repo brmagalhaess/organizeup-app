@@ -47,12 +47,14 @@ import {
   buildPatrimonio,
   buildProventos,
   buildResumo,
+  entryFlow,
   forecastByMonth,
   forecastDividends,
   HISTORICAL_STATEMENT_KINDS,
   incomeBetween,
   incomeByCategory,
   isGenericCategory,
+  isSavings,
   isYearPeriod,
   largestExpenses,
   mergeCategoryTotals,
@@ -237,7 +239,11 @@ const monthsOf = (period: string, thisMonth: string) => {
 const lastDayOf = (period: string) =>
   isYearPeriod(period) ? `${period}-12-31` : monthBounds(period).last;
 
-/** O que a família lançou no mês. Categoria só conta quando foi ela que escolheu uma específica. */
+/**
+ * O que a família lançou no mês. Categoria só conta quando foi ela que escolheu uma específica, e o fluxo
+ * conta sempre: virar aporte ou resgate, ou voltar por Desfazer, muda os números do mês. Troca entre
+ * categorias comuns feita por agente não muda o fluxo, e não reabre.
+ */
 function entryLines(source: Source, month: string): string[] {
   const generic = new Set(
     source.categoryRows.filter((row) => isGenericCategory(row.name)).map((row) => row.id),
@@ -248,11 +254,24 @@ function entryLines(source: Source, month: string): string[] {
     ...source
       .rowsOf(month)
       .map((row) =>
-        ["t", row.id, row.kind, row.amount, row.occurredOn, row.status, chosen(row)].join("|"),
+        [
+          "t",
+          row.id,
+          row.kind,
+          row.amount,
+          row.occurredOn,
+          row.status,
+          chosen(row),
+          entryFlow(row, source.rule),
+        ].join("|"),
       ),
     ...source
       .linesOf(month)
-      .map((line) => ["c", line.purchaseId, line.installment, line.amount].join("|")),
+      .map((line) =>
+        ["c", line.purchaseId, line.installment, line.amount, isSavings(line, source.rule)].join(
+          "|",
+        ),
+      ),
   ];
 }
 

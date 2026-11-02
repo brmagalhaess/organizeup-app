@@ -114,20 +114,33 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
     currency,
   });
 
-  // Falta de sobra não apaga plano (ADR-0027): meta que já tinha plano e não coube fica como está, com um
-  // aviso, e as parcelas abertas ficam. A família decide o que fazer.
+  // Falta de sobra não apaga plano (ADR-0027): meta que já tinha plano, não coube e ainda tem parcela
+  // por vir fica como está, com um aviso. Parcela que já passou sai, e sem nenhuma por vir não há plano a
+  // manter: a meta volta ao caminho normal de quem não tem orçamento.
+  const upcoming = (row: (typeof contributions)[number]) =>
+    row.transactionId === null && row.month >= month;
   const noRoomOf = (plan: GoalPlan) =>
     plan.monthly === null && plan.status !== "concluida" && plan.status !== "pausada";
   const keptIds = new Set(
     plans
-      .filter((plan) => noRoomOf(plan) && byIdOf(goalRows, plan.id)?.planMonthly != null)
+      .filter(
+        (plan) =>
+          noRoomOf(plan) &&
+          byIdOf(goalRows, plan.id)?.planMonthly != null &&
+          contributions.some((row) => row.goalId === plan.id && upcoming(row)),
+      )
       .map((plan) => plan.id),
   );
 
   // Parcelas previstas são recriadas do zero; as confirmadas (com lançamento) ficam intocadas.
   const heldIds = new Set([...heldOf.values()].map((row) => row.id));
   const stale = contributions
-    .filter((row) => row.transactionId === null && !heldIds.has(row.id) && !keptIds.has(row.goalId))
+    .filter(
+      (row) =>
+        row.transactionId === null &&
+        !heldIds.has(row.id) &&
+        !(keptIds.has(row.goalId) && upcoming(row)),
+    )
     .map((row) => row.id);
   if (stale.length > 0)
     await tx.delete(goalContributions).where(inArray(goalContributions.id, stale));

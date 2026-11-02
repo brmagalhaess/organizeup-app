@@ -124,13 +124,37 @@ describe("2. extrato importado", () => {
   ];
   const memory = { history: new Map(), learned: new Map() };
 
-  it.each(["RESGATE CDB", "RES APLIC AUT MAIS", "RESG AUT FUNDO", "RESGATE AUTOMATICO"])(
-    "%s vai para a categoria de aportes, como receita",
-    (description) => {
-      const proposal = categorizeRow({ description, kind: "receita" }, options, memory);
-      expect(proposal).toMatchObject({ categoryId: "ap-r", source: "palavra" });
-    },
-  );
+  it.each([
+    "RESGATE CDB",
+    "RES APLIC AUT MAIS",
+    "RESG AUT FUNDO",
+    "RESGATE POUPANCA",
+    "RESGATE TESOURO DIRETO",
+    "RESGATE LCI",
+    "RESGATE LCA",
+    "RESGATE RDB",
+    "RESGATE PREVIDENCIA",
+    "RESGATE APLICACAO",
+  ])("%s vai para a categoria de aportes, como receita", (description) => {
+    const proposal = categorizeRow({ description, kind: "receita" }, options, memory);
+    expect(proposal).toMatchObject({ categoryId: "ap-r", source: "palavra" });
+  });
+
+  it.each([
+    "RESGATE FGTS",
+    "RESGATE FUNDO DE GARANTIA",
+    "RESGATE PONTOS LIVELO",
+    "RESGATE SEGURO",
+    "RESGATE CONSORCIO",
+    "RESGATE PREMIO",
+    "RESGATE CAPITALIZACAO",
+    "RESGATE AUTOMATICO",
+    "RESGATE",
+  ])("%s não é resgate de aplicação", (description) => {
+    const proposal = categorizeRow({ description, kind: "receita" }, options, memory);
+    expect(proposal.categoryId).not.toBe("ap-r");
+    expect(proposal.newCategory?.name).not.toBe(CONTRIBUTION_CATEGORY);
+  });
 
   it("sem a categoria de receita, propõe criá-la com o nome de sistema", () => {
     const proposal = categorizeRow(
@@ -179,6 +203,8 @@ describe("2. extrato importado", () => {
         row({ id: "manual", importBatchId: null }),
         row({ id: "escolhida", categoryId: "x", categoryName: "Bônus", categorySource: "familia" }),
         row({ id: "salario", description: "SALARIO EMPRESA" }),
+        row({ id: "fgts", description: "RESGATE FGTS" }),
+        row({ id: "pontos", description: "RESGATE PONTOS" }),
         row({ id: "despesa", kind: "despesa", categoryName: "Outras despesas" }),
       ],
       new Set(),

@@ -127,6 +127,7 @@ export {
   IGNORED_DAYS,
   loadDecisions,
   recordAudit,
+  ASSISTANT_AGENT,
   resolveAllocation,
   REVIEW_DAYS,
   STALE_PRICE_DAYS,

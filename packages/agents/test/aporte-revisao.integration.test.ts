@@ -382,7 +382,7 @@ describe("2. resgate de extrato no histórico", () => {
           {
             ...base,
             categoryId: bonus,
-            description: "RESGATE PREMIO",
+            description: "RESGATE LCI",
             importBatchId: "lote-1",
             categorySource: "familia" as const,
           },
@@ -390,8 +390,16 @@ describe("2. resgate de extrato no histórico", () => {
           {
             ...base,
             categoryId: generic,
-            description: "RESGATE MANUAL",
+            description: "RESGATE LCA",
             categorySource: "familia" as const,
+          },
+          // Não é resgate de aplicação: fica.
+          {
+            ...base,
+            categoryId: generic,
+            description: "RESGATE FGTS",
+            importBatchId: "lote-1",
+            categorySource: "revisar" as const,
           },
         ])
         .returning({ id: transactions.id, description: transactions.description });
@@ -420,8 +428,9 @@ describe("2. resgate de extrato no histórico", () => {
       domain.CONTRIBUTION_CATEGORY,
     );
     expect(await categoryNameOf(family, id("RESGATE CDB"))).toBe(domain.CONTRIBUTION_CATEGORY);
-    expect(await categoryNameOf(family, id("RESGATE PREMIO"))).toBe("Bônus");
-    expect(await categoryNameOf(family, id("RESGATE MANUAL"))).toBe("Outras receitas");
+    expect(await categoryNameOf(family, id("RESGATE LCI"))).toBe("Bônus");
+    expect(await categoryNameOf(family, id("RESGATE LCA"))).toBe("Outras receitas");
+    expect(await categoryNameOf(family, id("RESGATE FGTS"))).toBe("Outras receitas");
 
     const notices = await family.in((tx) => tx.select().from(householdNotifications));
     expect(notices.filter((row) => row.kind === "categoria")).toHaveLength(2);
@@ -449,6 +458,183 @@ describe("2. resgate de extrato no histórico", () => {
       ["RES APLIC AUT MAIS", "RESGATE CDB"].map((text) => categoryNameOf(family, id(text))),
     );
     expect(names.filter((name) => name === "Outras receitas")).toHaveLength(1);
+  });
+});
+
+describe("3. Desfazer regenera o mês fechado", () => {
+  it("a reclassificação e o Desfazer mudam o fluxo; troca entre categorias comuns não", async () => {
+    const family = await investingFamily("0.00");
+    const { salaryRow, generic } = await family.in(async (tx) => {
+      const other = await categoryOf(family, tx, "receita", "Outras receitas");
+      await tx.insert(importBatches).values({
+        id: "lote-3",
+        householdId: family.id,
+        accountId: family.main,
+        source: "ofx",
+        rowCount: 1,
+        periodStart: "2026-10-01",
+        periodEnd: "2026-10-31",
+      });
+      await tx.insert(transactions).values({
+        householdId: family.id,
+        accountId: family.main,
+        categoryId: other,
+        kind: "receita",
+        description: "RES APLIC AUT MAIS",
+        amount: "5000.00",
+        occurredOn: "2026-10-12",
+        importBatchId: "lote-3",
+        categorySource: "revisar",
+      });
+      const [row] = await tx
+        .select({ id: transactions.id })
+        .from(transactions)
+        .where(eq(transactions.description, "Prova"))
+        .limit(1);
+      return { salaryRow: row!.id, generic: other };
+    });
+    const night = (today: string) =>
+      family.in(async (tx) => {
+        await agents.runCategoriasAgent(tx, { today, householdId: family.id });
+        await agents.runRelatoriosAgent(tx, { today, householdId: family.id });
+      });
+    const resumo = async () =>
+      (await family.in((tx) => agents.readStatement(tx, "resumo", "2026-10")))!;
+    const received = async () =>
+      (await resumo()).data.figures.find((item) => item.id === "received")?.value;
+
+    await night(TODAY);
+    expect(await received()).toEqual({ money: "10000.00" });
+
+    const [change] = await family.in((tx) =>
+      tx.select().from(householdSuggestions).where(eq(householdSuggestions.status, "aplicada")),
+    );
+    const ctx = db.fromJob({ householdId: family.id });
+    const undone = await family.in((tx) =>
+      agents.undoSuggestion(tx, { ...ctx, userId: family.owner, role: "owner" }, change!.id),
+    );
+    expect(undone.ok).toBe(true);
+    await night("2026-11-03");
+    expect(await received()).toEqual({ money: "15000.00" });
+
+    // Troca entre categorias comuns, feita por agente: o fluxo é o mesmo, e o mês não reabre.
+    const before = await resumo();
+    await family.in(async (tx) => {
+      const other = await categoryOf(family, tx, "receita", "Bônus");
+      await tx
+        .update(transactions)
+        .set({ categoryId: other, categorySource: "agente" })
+        .where(eq(transactions.id, salaryRow));
+    });
+    await night("2026-11-04");
+    expect((await resumo()).generatedAt).toEqual(before.generatedAt);
+    expect(generic).toBeTruthy();
+  });
+});
+
+describe("4. plano mantido só com parcela futura", () => {
+  it("sem parcela futura, volta ao sem orçamento, com sugestão e nota verdadeira", async () => {
+    const family = await investingFamily("0.00");
+    const goalId = await family.in(async (tx) => {
+      const home = await categoryOf(family, tx, "despesa", "Moradia");
+      await tx.insert(transactions).values(
+        MONTHS.map((month) => ({
+          householdId: family.id,
+          accountId: family.main,
+          categoryId: home,
+          kind: "despesa" as const,
+          description: "Obra",
+          amount: "9000.00",
+          occurredOn: `${month}-15`,
+          categorySource: "familia" as const,
+        })),
+      );
+      const [goal] = await tx
+        .insert(goals)
+        .values({
+          householdId: family.id,
+          name: "Reforma",
+          kind: "reforma",
+          targetAmount: "10000.00",
+          saved: "1800.00",
+          status: "juntando",
+          accountId: family.main,
+          desiredMonth: "2027-06",
+          planMonthly: "300.00",
+          planEnd: "2027-01",
+        })
+        .returning();
+      await tx.insert(goalContributions).values(
+        ["2026-11", "2026-12", "2027-01"].map((month) => ({
+          householdId: family.id,
+          goalId: goal!.id,
+          month,
+          amount: "300.00",
+        })),
+      );
+      return goal!.id;
+    });
+    const read = () =>
+      family.in(async (tx) => ({
+        goal: (await tx.select().from(goals).where(eq(goals.id, goalId)))[0]!,
+        open: (
+          await tx.select().from(goalContributions).where(isNull(goalContributions.transactionId))
+        ).map((row) => row.month),
+      }));
+
+    await runAgents(family, "2026-12-20");
+    const during = await read();
+    expect(during.goal.planMonthly).toBe("300.00");
+    expect(during.goal.planNote).toMatch(/^Plano mantido/);
+    // A parcela de novembro já passou: fica só o que ainda vem.
+    expect(during.open.sort()).toEqual(["2026-12", "2027-01"]);
+
+    await runAgents(family, "2027-03-20");
+    const after = await read();
+    expect(after.open).toEqual([]);
+    expect(after.goal).toMatchObject({ planMonthly: null, planEnd: null, desiredMonth: "2027-06" });
+    expect(after.goal.planNote).toMatch(/^Hoje não sobra/);
+    const pending = await pendingOf(family);
+    expect(pending.filter((row) => row.kind === "meta")).toHaveLength(1);
+  });
+});
+
+describe("5. sugestão que nasceu na conversa", () => {
+  it("o agente não sobrescreve, e ela segue pendente com o valor pedido", async () => {
+    const family = await investingFamily("0.00");
+    await family.in((tx) =>
+      tx.insert(householdSuggestions).values({
+        householdId: family.id,
+        agent: "assistente",
+        kind: "aporte_reserva",
+        title: "Reserva",
+        body: "Pedida na conversa",
+        payload: { monthlyAmount: "999.00", previous: null },
+        status: "pendente",
+        appliedBy: "familia",
+        dedupeKey: "aporte_reserva:2026-11",
+      }),
+    );
+    const check = async () => {
+      const [row] = await family.in((tx) =>
+        tx
+          .select()
+          .from(householdSuggestions)
+          .where(eq(householdSuggestions.dedupeKey, "aporte_reserva:2026-11")),
+      );
+      expect(row).toMatchObject({
+        agent: "assistente",
+        body: "Pedida na conversa",
+        status: "pendente",
+        payload: { monthlyAmount: "999.00" },
+      });
+    };
+    await runAgents(family);
+    await check();
+    // A divisão deixa de pedir reserva: nem assim o agente fecha o que a pessoa pediu.
+    await family.in((tx) => tx.update(emergencyFund).set({ contribution: "5000.00" }));
+    await runAgents(family, "2026-11-03");
+    await check();
   });
 });
 

@@ -151,9 +151,13 @@ export const messageColumns = ({ key, params }: Message) => ({
   messageParams: params ?? null,
 });
 
+/** Quem assina o que nasce na conversa com o assistente. */
+export const ASSISTANT_AGENT = "assistente";
+
 /**
  * Grava (ou atualiza) sugestões pendentes pelo índice parcial. Pula as ignoradas há menos de 30
- * dias e as desfeitas. Devolve quantas ficaram na fila.
+ * dias e as desfeitas. A pendente que nasceu na conversa fica como está: a pessoa pediu aquele valor, e
+ * o agente não a toma. Devolve quantas ficaram na fila.
  */
 export async function upsertPending(
   tx: TenantTx,
@@ -187,6 +191,7 @@ export async function upsertPending(
         target: [householdSuggestions.householdId, householdSuggestions.dedupeKey],
         targetWhere: sql`status = 'pendente'`,
         set: { agent, kind: item.kind, title, body, ...message, payload: item.payload },
+        setWhere: sql`household_suggestions.agent <> ${ASSISTANT_AGENT}`,
       })
       .returning({ id: householdSuggestions.id });
     written += rows.length;

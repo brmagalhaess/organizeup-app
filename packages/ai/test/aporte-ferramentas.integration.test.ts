@@ -17,13 +17,16 @@ const db = await import("@organizeup/db");
 const domain = await import("@organizeup/domain");
 const { ALL_TOOLS, executeTool } = await import("../src/tools/index");
 const { loadPrivacyFilter } = await import("../src/privacy");
+const { SYSTEM_PROMPT } = await import("../src/instructions");
 
-const { accounts, cardPurchases, cardStatementPayments, creditCards, household } = db;
+const { accounts, cardPurchases, cardStatementPayments, cashflowPlans, creditCards, household } =
+  db;
 const { householdMember, householdSettings, transactions, user } = db;
 
 const FAMILY = "hh-ia-aporte";
 const OWNER = "user-ia-aporte";
 const MONTH = "2026-10";
+const OPEN = "2026-11";
 
 let ctx: TenantContext;
 const run = async (name: string, input: unknown) => {
@@ -125,6 +128,34 @@ beforeAll(async () => {
       statementMonth: MONTH,
       transactionId: paid!.id,
     });
+    // Novembro: compra no cartão com a fatura aberta, um lançamento previsto e uma previsão recorrente.
+    await tx.insert(cardPurchases).values({
+      householdId: FAMILY,
+      cardId: card!.id,
+      categoryId: market,
+      description: "Super novembro",
+      amount: "1500.00",
+      purchasedOn: `${OPEN}-01`,
+    });
+    await tx.insert(transactions).values({
+      ...base,
+      kind: "despesa",
+      categoryId: market,
+      description: "Feira prevista",
+      status: "previsto",
+      amount: "250.00",
+      occurredOn: `${OPEN}-25`,
+    });
+    await tx.insert(cashflowPlans).values({
+      householdId: FAMILY,
+      accountId: main!.id,
+      categoryId: market,
+      kind: "despesa",
+      description: "Escola",
+      amount: "900.00",
+      dayOfMonth: 28,
+      startMonth: OPEN,
+    });
   });
 });
 
@@ -133,16 +164,69 @@ afterAll(async () => {
 });
 
 describe("listar_lancamentos e resumo_do_mes", () => {
-  it("o pagamento da fatura sai da soma quando as compras estão listadas", async () => {
-    const resumo = await run("resumo_do_mes", { mes: MONTH });
-    const lista = await run("listar_lancamentos", { mes: MONTH });
-    expect(resumo).toMatchObject({ gasto: "520.00", aportado: "600.00" });
-    expect(lista).toMatchObject({ soma_despesas: resumo.gasto, soma_aportes: resumo.aportado });
-    expect(lista.soma_receitas).toBe("9000.00");
+  it.each([
+    ["sem filtro", {}],
+    ["tipo despesa", { tipo: "despesa" }],
+  ])(
+    "%s: o pagamento da fatura sai da soma, e o aporte não volta como despesa",
+    async (_, filter) => {
+      const resumo = await run("resumo_do_mes", { mes: MONTH });
+      const lista = await run("listar_lancamentos", { mes: MONTH, ...filter });
+      expect(resumo).toMatchObject({ gasto: "520.00", aportado: "600.00" });
+      expect(lista.soma_despesas).toBe(resumo.gasto);
+    },
+  );
+
+  it("tipo aporte traz a compra de aporte, e a soma bate", async () => {
+    const lista = await run("listar_lancamentos", { mes: MONTH, tipo: "aporte" });
+    expect(lista.soma_aportes).toBe("600.00");
+    expect(lista.soma_despesas).toBe("0.00");
   });
 
-  it("buscando só a fatura, o pagamento conta: as compras não estão listadas", async () => {
-    const lista = await run("listar_lancamentos", { mes: MONTH, busca: "Fatura" });
-    expect(lista.soma_despesas).toBe("1000.00");
+  it("categoria bate com por_categoria do resumo", async () => {
+    const resumo = (await run("resumo_do_mes", { mes: MONTH })) as unknown as {
+      por_categoria: Array<{ categoria: string; valor: string }>;
+    };
+    const lista = await run("listar_lancamentos", { mes: MONTH, categoria: "Mercado" });
+    expect(lista.soma_despesas).toBe(
+      resumo.por_categoria.find((row) => row.categoria === "Mercado")?.valor,
+    );
+  });
+
+  it("a fatura sozinha não é gasto a mais: o pagamento vem em soma própria", async () => {
+    for (const filter of [{ busca: "Fatura" }, { categoria: "Cartão" }]) {
+      const lista = await run("listar_lancamentos", { mes: MONTH, ...filter });
+      expect(lista).toMatchObject({
+        soma_despesas: "0.00",
+        soma_pagamentos_de_fatura: "1000.00",
+      });
+    }
+  });
+
+  it("quanto gastei: a compra de fatura aberta aparece como já comprada, e a conta vem pronta", async () => {
+    const lista = await run("listar_lancamentos", { mes: OPEN, categoria: "Mercado" });
+    expect(lista).toMatchObject({
+      soma_despesas: "0.00",
+      soma_comprada_fatura_aberta: "1500.00",
+      soma_despesas_com_comprado: "1500.00",
+      soma_prevista_despesas: "2650.00",
+    });
+    const itens = lista.itens as unknown as Array<{ situacao: string; valor: string }>;
+    expect(itens.find((row) => row.valor === "1500.00")?.situacao).toBe("comprado_fatura_aberta");
+    const resumo = await run("resumo_do_mes", { mes: OPEN });
+    expect(resumo).toMatchObject({
+      gasto: "0.00",
+      comprado_em_fatura_aberta: "1500.00",
+      gasto_com_comprado: "1500.00",
+      despesa_prevista: "2650.00",
+    });
+    const tudo = await run("listar_lancamentos", { mes: OPEN });
+    expect(tudo.soma_prevista_despesas).toBe(resumo.despesa_prevista);
+  });
+
+  it("as instruções mandam usar a conta pronta, e seguem sem data nem dado", () => {
+    expect(SYSTEM_PROMPT).toContain("soma_despesas_com_comprado");
+    expect(SYSTEM_PROMPT).toContain("gasto_com_comprado");
+    expect(SYSTEM_PROMPT).not.toMatch(/\d{4}-\d{2}/);
   });
 });

@@ -4,14 +4,12 @@ import {
   ASSET_CLASS_LABELS,
   AUTOMATIC_SUGGESTION_KINDS,
   calendarMonth,
-  cardBook,
   currentDebtPlan,
   currentDividendPlan,
   latestStatement,
   loadCommitments,
   loadFiscalTables,
   loadSavingsRule,
-  systemCategories,
   monthlyPlanView,
   readStatement,
   reserveInputs,
@@ -106,13 +104,19 @@ const MAX_CALENDAR_ITEMS = 60;
 const sum = (values: string[]) =>
   toDbAmount(values.reduce((acc, value) => acc.plus(value), money(0)));
 
+/** A fatura da compra já foi paga? */
+const billPaid = (
+  book: Array<{ card: { id: string }; paid: Set<string> }>,
+  line: { cardId: string; statementMonth: string },
+) => book.find((entry) => entry.card.id === line.cardId)?.paid.has(line.statementMonth) ?? false;
+
 const monthWord = (mes: string | undefined) => (mes ? ` de ${formatYearMonth(mes)}` : " do mês");
 
 const resumoDoMes = defineTool({
   name: "resumo_do_mes",
   module: null,
   description:
-    "Resumo de um mês: recebido, gasto, resultado, aportado, resgatado, o que sobrou depois de aportar, previsto, gasto por categoria (com as compras do cartão abertas) e contas em aberto. Aporte e resgate vêm à parte: não são gasto nem recebimento. Chame quando perguntarem como foi ou está o mês, quanto sobrou, onde foi o dinheiro ou o que falta pagar.",
+    'Resumo de um mês: recebido, gasto, resultado, aportado, resgatado, o que sobrou depois de aportar, previsto, gasto por categoria (com as compras do cartão abertas) e contas em aberto. Aporte e resgate vêm à parte: não são gasto nem recebimento. gasto é o que já saiu da conta; gasto_com_comprado soma o que já foi comprado no cartão com a fatura em aberto, e é o número para "quanto gastei". Chame quando perguntarem como foi ou está o mês, quanto sobrou, onde foi o dinheiro ou o que falta pagar.',
   kind: "leitura",
   input: monthOnly,
   label: ({ mes }) => `olhei o resumo${monthWord(mes)}`,
@@ -129,7 +133,7 @@ const resumoDoMes = defineTool({
         .select({ id: categories.id, name: categories.name })
         .from(categories);
       const names = new Map(categoryRows.map((row) => [row.id, row.name]));
-      const { scheduled, cardLines, cardCategoryId } = await loadCommitments(tx, {
+      const { scheduled, cardLines, cardCategoryId, book } = await loadCommitments(tx, {
         from: month,
         to: month,
       });
@@ -138,6 +142,11 @@ const resumoDoMes = defineTool({
       const lines = cardLines.filter((line) => line.statementMonth === month);
       const split = splitCardSavings(entries, lines, cardCategoryId, rule);
       const summary = summarizeMonth(split, rule);
+      const bought = sum(
+        lines
+          .filter((line) => !isSavings(line, rule) && !billPaid(book, line))
+          .map((line) => line.amount),
+      );
       const named = (row: { categoryId: string; amount: string }) => ({
         categoria: names.get(row.categoryId) ?? "Sem categoria",
         valor: row.amount,
@@ -146,6 +155,8 @@ const resumoDoMes = defineTool({
         mes: month,
         recebido: summary.received,
         gasto: summary.spent,
+        comprado_em_fatura_aberta: bought,
+        gasto_com_comprado: sum([summary.spent, bought]),
         resultado: summary.balance,
         aportado: summary.contributed,
         resgatado: summary.redeemed,
@@ -173,7 +184,7 @@ const listarLancamentos = defineTool({
   name: "listar_lancamentos",
   module: null,
   description:
-    "Lista lançamentos de um mês, inclusive as compras da fatura do cartão, com a soma do que foi encontrado. Aporte e resgate têm tipo e soma próprios: não entram em soma_despesas nem em soma_receitas. As somas contam só o que já aconteceu, e o pagamento da fatura sai delas quando as compras estão na lista, para bater com resumo_do_mes. Chame quando pedirem os gastos de uma categoria, a busca de uma compra ou o detalhe de um mês. A soma devolvida é a única que vale.",
+    "Lista lançamentos de um mês, previstos e compras de cartão, com as somas do que foi encontrado. Use a soma certa para a pergunta. Quanto gastei: soma_despesas_com_comprado, que junta o que já foi pago (soma_despesas) e o que já foi comprado no cartão com a fatura em aberto (soma_comprada_fatura_aberta). Quanto ainda vai sair: soma_prevista_despesas, com as previsões e a fatura em aberto. Quanto paguei de fatura: soma_pagamentos_de_fatura. O pagamento da fatura nunca entra em soma_despesas quando há compras por trás dele, em nenhum filtro, para bater com resumo_do_mes. Aporte e resgate têm tipo e soma próprios: não entram em despesas nem em receitas. Chame quando pedirem os gastos de uma categoria, a busca de uma compra ou o detalhe de um mês. As somas devolvidas são as únicas que valem: não faça conta.",
   kind: "leitura",
   input: z.strictObject({
     mes: monthInput,
@@ -198,18 +209,22 @@ const listarLancamentos = defineTool({
         .from(transactions)
         .where(and(gte(transactions.occurredOn, first), lte(transactions.occurredOn, last)))
         .orderBy(desc(transactions.occurredOn));
+      const planRows = await tx.select().from(cashflowPlans);
       const categoryRows = await tx
         .select({ id: categories.id, name: categories.name })
         .from(categories);
       const names = new Map(categoryRows.map((row) => [row.id, row.name]));
-      const book = await cardBook(tx);
-      const lines = book
-        .flatMap((entry) => entry.lines)
-        .filter((line) => line.statementMonth === month);
+      const { scheduled, cardLines, cardCategoryId, book } = await loadCommitments(tx, {
+        from: month,
+        to: month,
+      });
+      const lines = cardLines.filter((line) => line.statementMonth === month);
       const rule = await loadSavingsRule(tx);
-      const { card: cardCategory } = await systemCategories(tx);
-      const billPaid = (line: (typeof lines)[number]) =>
-        book.find((entry) => entry.card.id === line.cardId)?.paid.has(line.statementMonth) ?? false;
+      const rowOf = new Map(rows.map((row) => [row.id, row]));
+      // A fatura em aberto aparece pelas compras dela, como faturas pagas.
+      const entries = buildMonthEntries(month, planRows, rows, scheduled).filter(
+        (entry) => entry.source !== "fatura",
+      );
 
       const wantedCategory = input.categoria ? normalizeDescription(input.categoria) : null;
       const wantedText = input.busca ? normalizeDescription(input.busca) : null;
@@ -220,19 +235,23 @@ const listarLancamentos = defineTool({
           normalizeDescription(names.get(categoryId) ?? "").includes(wantedCategory));
 
       const found = [
-        ...rows
-          .filter((row) => matches(row.description, row.categoryId, entryFlow(row, rule)))
-          .map((row) => ({
-            data: row.occurredOn,
-            origem: "conta",
-            tipo: entryFlow(row, rule) as string,
-            situacao: row.status as string,
-            pagamento_de_fatura: row.kind === "despesa" && row.categoryId === cardCategory,
-            categoria: names.get(row.categoryId) ?? "Sem categoria",
-            descricao: untrusted(row.description),
-            valor: row.amount,
-            ...originFields(row),
-          })),
+        ...entries
+          .filter((entry) => matches(entry.description, entry.categoryId, entryFlow(entry, rule)))
+          .map((entry) => {
+            const row = entry.source === "lancamento" ? rowOf.get(entry.id) : undefined;
+            return {
+              data: entry.date,
+              origem: entry.source === "lancamento" ? "conta" : entry.source,
+              tipo: entryFlow(entry, rule) as string,
+              situacao: entry.status as string,
+              pagamento_de_fatura:
+                row !== undefined && row.kind === "despesa" && row.categoryId === cardCategoryId,
+              categoria: names.get(entry.categoryId) ?? "Sem categoria",
+              descricao: untrusted(entry.description),
+              valor: entry.amount,
+              ...(row ? originFields(row) : {}),
+            };
+          }),
         ...lines
           .filter((line) =>
             matches(
@@ -245,7 +264,7 @@ const listarLancamentos = defineTool({
             data: line.purchasedOn,
             origem: "cartao",
             tipo: isSavings(line, rule) ? "aporte" : "despesa",
-            situacao: billPaid(line) ? "realizado" : "previsto",
+            situacao: billPaid(book, line) ? "realizado" : "comprado_fatura_aberta",
             pagamento_de_fatura: false,
             categoria: names.get(line.categoryId) ?? "Sem categoria",
             descricao: untrusted(line.description),
@@ -253,23 +272,37 @@ const listarLancamentos = defineTool({
             parcela: line.installments > 1 ? `${line.installment}/${line.installments}` : null,
           })),
       ].sort((a, b) => b.data.localeCompare(a.data));
-      // A fatura paga é o total das compras: com elas na lista, contar as duas somaria duas vezes.
+
+      const total = (list: typeof found, tipo: string) =>
+        sum(list.filter((row) => row.tipo === tipo).map((row) => row.valor));
       const done = found.filter((row) => row.situacao === "realizado");
-      const of = (tipo: string) => done.filter((row) => row.tipo === tipo).map((row) => row.valor);
-      const bills = money(
-        sum(done.filter((row) => row.pagamento_de_fatura).map((row) => row.valor)),
+      const onOpenBill = found.filter((row) => row.situacao === "comprado_fatura_aberta");
+      const planned = found.filter((row) => row.situacao !== "realizado");
+      // A fatura paga é o total das compras dela, encontradas ou não: o abatimento vale antes de qualquer
+      // filtro, senão o aporte que foi na fatura voltaria como despesa. O que passa das compras fica, como
+      // um pagamento importado do banco por quem não lança as compras.
+      const bills = sum(done.filter((row) => row.pagamento_de_fatura).map((row) => row.valor));
+      const purchases = sum(
+        lines.filter((line) => billPaid(book, line)).map((line) => line.amount),
       );
-      const purchases = money(
-        sum(done.filter((row) => row.origem === "cartao").map((row) => row.valor)),
-      );
-      const counted = bills.lt(purchases) ? bills : purchases;
+      const covered = money(bills).lt(purchases) ? bills : purchases;
+      const spent = toDbAmount(money(total(done, "despesa")).minus(covered));
+      const bought = total(onOpenBill, "despesa");
       return {
         mes: month,
         encontrados: found.length,
-        soma_receitas: sum(of("receita")),
-        soma_despesas: toDbAmount(money(sum(of("despesa"))).minus(counted)),
-        soma_aportes: sum(of("aporte")),
-        soma_resgates: sum(of("resgate")),
+        soma_receitas: total(done, "receita"),
+        soma_despesas: spent,
+        soma_comprada_fatura_aberta: bought,
+        soma_despesas_com_comprado: sum([spent, bought]),
+        soma_pagamentos_de_fatura: bills,
+        soma_aportes: total(done, "aporte"),
+        soma_aportes_fatura_aberta: total(onOpenBill, "aporte"),
+        soma_resgates: total(done, "resgate"),
+        soma_prevista_receitas: total(planned, "receita"),
+        soma_prevista_despesas: total(planned, "despesa"),
+        soma_prevista_aportes: total(planned, "aporte"),
+        soma_prevista_resgates: total(planned, "resgate"),
         itens: found.slice(0, input.limite ?? DEFAULT_ROWS),
       };
     }),

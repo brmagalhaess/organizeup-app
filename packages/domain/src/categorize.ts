@@ -31,6 +31,10 @@ export interface KeywordGroup {
   words: readonly string[];
   /** Vale ao criar a categoria. */
   essential?: boolean;
+  /** A palavra só vale com um destes termos na descrição. */
+  requires?: readonly string[];
+  /** A palavra não vale com nenhum destes termos na descrição. */
+  excludes?: readonly string[];
 }
 
 /** Palavras frequentes em extratos. Correspondência por palavras inteiras. Somente leitura. */
@@ -198,6 +202,33 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
       // O outro lado da aplicação: dinheiro que já era da família, não receita (ADR-0027).
       category: CONTRIBUTION_CATEGORY,
       words: ["resgate", "resgates", "resg", "res aplic"],
+      requires: [
+        "cdb",
+        "lci",
+        "lca",
+        "aplicacao",
+        "aplicacoes",
+        "aplic",
+        "fundo",
+        "fundos",
+        "poupanca",
+        "tesouro",
+        "rdb",
+        "previdencia",
+      ],
+      // "Resgate" também é FGTS, pontos e seguro: renda de verdade, ou dinheiro que não veio de aplicação.
+      excludes: [
+        "fgts",
+        "fundo de garantia",
+        "ponto",
+        "pontos",
+        "seguro",
+        "seguros",
+        "consorcio",
+        "premio",
+        "premios",
+        "capitalizacao",
+      ],
     },
   ],
 };
@@ -205,7 +236,12 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
 /** Uma expressão específica prevalece sobre palavras contidas nela; conflitos pedem revisão. */
 function keywordGroup(description: string, kind: StatementKind): KeywordGroup | undefined {
   const name = ` ${normalizeDescription(description)} `;
-  const matches = KEYWORDS[kind].flatMap((group) =>
+  const has = (words: readonly string[]) =>
+    words.some((word) => name.includes(` ${normalizeDescription(word)} `));
+  const allowed = KEYWORDS[kind].filter(
+    (group) => (!group.requires || has(group.requires)) && !(group.excludes && has(group.excludes)),
+  );
+  const matches = allowed.flatMap((group) =>
     group.words.flatMap((word) => {
       const phrase = ` ${normalizeDescription(word)} `;
       const found: { group: KeywordGroup; start: number; end: number }[] = [];

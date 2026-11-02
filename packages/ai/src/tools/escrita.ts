@@ -14,6 +14,7 @@ import {
   parsePayload,
   type AgentText,
   type MetaPayload,
+  ASSISTANT_AGENT,
 } from "@organizeup/agents";
 import {
   and,
@@ -49,7 +50,7 @@ import {
 import { z } from "zod";
 import { amountInput, defineTool, monthInput, read } from "./registry";
 
-export const ASSISTANT_AGENT = "assistente";
+export { ASSISTANT_AGENT };
 /** Alterações que o assistente pode fazer sozinho por dia, em cada família. */
 export const MAX_AUTOMATIC_PER_DAY = 5;
 const MAX_TITLE = 120;

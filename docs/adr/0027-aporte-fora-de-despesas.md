@@ -55,10 +55,13 @@ hábito e o "Aportado" do painel fecham: 3.000 de aporte no cartão aparecem nos
 ### Extrato importado
 
 Aplicação vira aporte pela palavra do extrato, e o resgate da mesma aplicação agora também: `KEYWORDS.receita` manda "resgate", "resg" e
-"res aplic" para a categoria de aportes, como receita. Aplicação e resgate automáticos no mesmo valor dão hábito líquido zero, porque o
+"res aplic" para a categoria de aportes, como receita, só com um termo de aplicação na descrição (CDB, LCI, LCA, aplicação, aplic, fundo,
+poupança, tesouro, RDB, previdência). FGTS, pontos, seguro, consórcio, prêmio e capitalização ficam de fora mesmo com esse termo, e "resgate"
+sozinho não diz de onde veio: vai para revisar. Aplicação e resgate automáticos no mesmo valor dão hábito líquido zero, porque o
 hábito mede aportes menos resgates. No histórico, a revisão diária move só o que veio de importação e ficou em categoria genérica, de
 qualquer data, com notificação e Desfazer, pela exceção de categoria da regra 7. O que a família pôs em categoria específica, ou lançou
-à mão, não muda. O desfeito não volta.
+à mão, não muda. O desfeito não volta. A regra mais larga, que moveria FGTS e pontos, só existiu neste branch e nunca rodou em produção, então
+não há nada a reverter.
 
 ### Operação sem conta
 
@@ -83,7 +86,7 @@ diz a diferença.
   `aporte_reserva`, mais do que ela aceitou. Valor aceito nunca vira sugestão de redução, nem na tela de Aposentadoria: quando ele passa
   do que sobra, um lembrete só informa.
 - **Sugestão que a divisão não pede mais fecha sozinha,** com `closePending`, em aporte de reserva, de investimento e de dívida, e
-  nos dois lembretes. Sem contar como recusa, e sem tocar no que nasceu na conversa com o assistente. O `aporte_divida` do agente de dívidas
+  nos dois lembretes. Sem contar como recusa, e sem tocar no que nasceu na conversa com o assistente: `upsertPending` também não a sobrescreve, mesmo com a mesma chave. O `aporte_divida` do agente de dívidas
   fica enquanto a divisão ainda tiver dinheiro para dívidas.
 - **Aporte para a reserva conta como investimento.** A categoria de aportes não diz para onde o dinheiro foi, então todo aporte nela
   entra no hábito de investir. Quem manda 3.000 por mês para a reserva nessa categoria vê a fatia da aposentadoria subir e a da reserva
@@ -93,7 +96,8 @@ diz a diferença.
   Aposentadoria diz isso em uma frase. Com aporte informado, vale o informado.
 - **Meta com parcela paga não perde plano.** O hábito de meta ocupa o orçamento de metas, então a parcela real não é contada duas vezes
   nem sai do plano. Se ainda assim não couber, por exemplo sem excedente, a meta que tinha plano fica como estava, com as parcelas abertas e
-  um aviso: falta de sobra não apaga plano. `desired_month` só muda por sugestão aceita.
+  um aviso: falta de sobra não apaga plano. Só as parcelas por vir ficam, e a que passou sai. Sem nenhuma por vir, não há o que manter: a meta
+  volta ao caminho normal, com a nota de sem orçamento e a sugestão de ajustar a data. `desired_month` só muda por sugestão aceita.
 - **O que `min(média, mediana)` faz com o hábito**, em 12 meses de movimento, é o que o excedente já faz. Quem começou há pouco ou aporta
   por trimestre fica com zero até virar costume. Nesses casos a divisão reparte como se o aporte não existisse, e o hábito volta a contar
   quando chegar à maioria dos meses. Com menos de 3 meses, zero. Sem histórico, vale a soma das previsões recorrentes.
@@ -126,13 +130,17 @@ diz a diferença.
 - **Mês só com resgate** continua tendo fluxo.
 - **Mais antigo que a janela, ou antes da primeira rodada:** continua como está, com `data.version` 1, e a tela diz que ainda conta
   aportes como despesas. Mês fora dos 12 meses não regenera: a assinatura sairia vazia.
+- **O fluxo entra na assinatura.** A exceção ao "o que um agente faz não reabre" do ADR-0021: um lançamento que vira aporte ou resgate, ou que
+  volta por Desfazer, muda os números, e o mês regenera. Troca entre categorias comuns feita por agente continua sem reabrir.
 - **Só com aporte:** mês assim continua tendo relatório. Sem isso, a regeneração o apagaria.
 
 ### Assistente e dicas
 
 `resumo_do_mes` e `listar_lancamentos` trazem os números à parte, e as instruções dizem para não somar. As somas de `listar_lancamentos`
-contam só o que já aconteceu, e o pagamento de fatura sai delas quando as compras estão na lista: sem filtro, `soma_despesas` é o `gasto` do
-resumo. As dicas da madrugada leem pelas
+separam o que já saiu (`soma_despesas`, igual ao `gasto` do resumo), o que foi comprado com a fatura em aberto (`soma_comprada_fatura_aberta`) e
+o que ainda vai sair (`soma_prevista_despesas`, igual a `despesa_prevista`). Pergunta sobre gasto usa `soma_despesas_com_comprado` ou
+`gasto_com_comprado`, que vêm prontas: o modelo não faz a conta. O pagamento de fatura é abatido pelas compras de faturas pagas do mês, antes de
+qualquer filtro, e vem em `soma_pagamentos_de_fatura`. As dicas da madrugada leem pelas
 ferramentas e herdam. Dica gravada antes da mudança vale por até 7 dias e pode citar o número antigo: foi escrita naquele dia e expira
 sozinha.
 
