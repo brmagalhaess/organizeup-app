@@ -41,6 +41,21 @@ describe("alertas do painel", () => {
     expect(of({ documentRefusalsHigh: true })).toEqual(["recusas"]);
   });
 
+  it("cobrança: família cobrada vem antes do aviso de VIP perto de vencer", () => {
+    const billing = (over: Partial<Parameters<typeof buildAlerts>[0]["billing"]>) =>
+      buildAlerts({
+        ...quiet,
+        billing: { vipEnding: 0, vipCharged: 0, leftoverDiscounts: 0, duplicates: 0, ...over },
+      }).map((alert) => alert.key);
+    expect(billing({})).toEqual([]);
+    expect(billing({ vipEnding: 2, vipCharged: 1, leftoverDiscounts: 1, duplicates: 1 })).toEqual([
+      "cobranca:duplicada",
+      "vip:cobrado",
+      "vip:vencendo",
+      "vip:desconto",
+    ]);
+  });
+
   it("teto de IA: avisa perto e alerta ao bater", () => {
     const at = (spentUsd: number) =>
       buildAlerts({ ...quiet, aiSpend: { spentUsd, budgetUsd: 50, reached: spentUsd >= 50 } }).map(

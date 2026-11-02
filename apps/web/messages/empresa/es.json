@@ -132,6 +132,9 @@
   "assinatura.summary.familySaves": "Con Empresa completa pagarías {amount} menos y tendrías todo esto y más.",
   "assinatura.summary.backToFamily": "Volver a Empresa completa",
   "assinatura.status.cortesia": "Tu empresa tiene cortesía: todo disponible, sin cobro.",
+  "assinatura.status.vip": "Tu empresa es VIP: lo que se liberó no tiene cargo.",
+  "assinatura.vipNote": "Tu empresa es VIP, por eso ahora no hay plan para suscribir.",
+  "assinatura.failure.vip": "Tu empresa es VIP, sin costo. No hace falta suscribirse ahora.",
   "assinatura.failure.sem_familia": "Elige una empresa primero.",
   "assinatura.failure.so_responsavel": "Solo el responsable de la empresa puede hacer esto."
 }

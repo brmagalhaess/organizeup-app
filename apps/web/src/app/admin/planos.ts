@@ -5,9 +5,11 @@ import {
   formatBRL,
   monthlyAmount,
   selectionOfSubscribed,
+  usageLevel,
   type AccessMode,
   type BillingCycle,
   type BillingModule,
+  type UsageLevel,
   type VipReason,
 } from "@organizeup/domain";
 
@@ -147,6 +149,13 @@ export const ERROR_LABELS: Record<string, string> = {
   formato_invalido: "Evento em formato inválido",
   falha: "Falha ao aplicar",
 };
+
+/**
+ * Quão perto do limite, para a lista do painel. Limite zero é não ter o recurso: sem assistente, ou só
+ * leitura. Isso não é estar no limite, e encheria a lista com `0 de 0`.
+ */
+export const nearLimit = (used: number, limit: number | null): UsageLevel =>
+  limit === 0 ? "normal" : usageLevel(used, limit);
 
 /** Fim do dia escolhido, no horário de Brasília: a validade vale o dia inteiro. */
 export const endOfDay = (day: string) => new Date(`${day}T23:59:59-03:00`);

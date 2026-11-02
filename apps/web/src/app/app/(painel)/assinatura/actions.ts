@@ -143,7 +143,7 @@ export async function subscribe(raw: unknown): Promise<PlanReply<{ url: string }
         locale: await getLocale(),
         successUrl: appUrl(`${SCREEN}?assinou=1`),
         cancelUrl: appUrl(SCREEN),
-        discountPercent: access.vip?.discountPercent ?? null,
+        ...(access.vip?.discountPercent ? { discountPercent: access.vip.discountPercent } : {}),
       });
       await saveBillingCheckout(householdId, { sessionId: session.id });
       return { ok: true, url: session.url };

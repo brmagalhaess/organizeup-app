@@ -8,7 +8,6 @@ import {
 import {
   revenueSummary,
   todayIn,
-  usageLevel,
   type RevenueFamily,
   type RevenueTier,
   type UsageLevel,
@@ -23,7 +22,7 @@ import { keyNotice } from "../cobranca/estado";
 import { formatCount, formatDay } from "../format";
 import { AdminPage, AdminTable, Tile, type Column } from "../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../painel";
-import { brl, MODULE_LABELS } from "../planos";
+import { brl, MODULE_LABELS, nearLimit } from "../planos";
 
 export const metadata: Metadata = { title: "Receita e uso" };
 
@@ -99,8 +98,8 @@ export default async function AdminRevenuePage() {
   const near = states.flatMap(({ family, access }) => {
     const used = usageByFamily.get(family.householdId);
     if (!used) return [];
-    const entries = usageLevel(used.entries, access.entryLimit);
-    const messages = usageLevel(used.messages, access.messageLimit);
+    const entries = nearLimit(used.entries, access.entryLimit);
+    const messages = nearLimit(used.messages, access.messageLimit);
     return entries === "normal" && messages === "normal"
       ? []
       : [{ family, access, used, entries, messages }];

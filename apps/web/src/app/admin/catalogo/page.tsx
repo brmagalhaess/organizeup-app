@@ -128,7 +128,8 @@ export default async function AdminCatalogPage() {
                 const name = `${itemLabel(current.item)}, ${CYCLE_LABELS[current.cycle].toLowerCase()}`;
                 const hidden = { item: current.item, cycle: current.cycle };
                 return {
-                  id: current.id,
+                  // Não o id da linha: preço novo troca o id, e o botão perderia a resposta da action.
+                  id: `${current.item}|${current.cycle}`,
                   cells: {
                     item: itemLabel(current.item),
                     cycle: CYCLE_LABELS[current.cycle],
