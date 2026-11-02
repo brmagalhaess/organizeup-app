@@ -26,14 +26,19 @@ const COUNTRY_NAMES = ["pt-BR", "en", "es"].map(
   (locale) => new Intl.DisplayNames([locale], { type: "region" }),
 );
 
-const countryNames = (code: string) =>
-  COUNTRY_NAMES.map((names) => {
+/** Siglas que as pessoas digitam e o nome oficial não traz. */
+const COUNTRY_ALIASES: Record<string, string[]> = { US: ["eua", "usa"], GB: ["uk"] };
+
+const countryNames = (code: string) => [
+  ...COUNTRY_NAMES.map((names) => {
     try {
       return normalizePlace(names.of(code) ?? "");
     } catch {
       return "";
     }
-  });
+  }),
+  ...(COUNTRY_ALIASES[code] ?? []),
+];
 
 /** Busca por cidade ou por país. Menos de duas letras ainda não busca. */
 export function searchDestinations<T extends { name: string; country: string }>(

@@ -59,6 +59,11 @@ describe("searchDestinations", () => {
     expect(ids("United States")).toEqual(["nova-york", "orlando"]);
   });
 
+  it("acha pela sigla que as pessoas digitam", () => {
+    expect(ids("EUA")).toEqual(["nova-york", "orlando"]);
+    expect(ids("USA")).toEqual(["nova-york", "orlando"]);
+  });
+
   it("o código do país não é busca: 'es' não traz tudo que tem país ES", () => {
     expect(ids("PT")).not.toContain("toquio");
     expect(ids("JP")).toEqual([]);
