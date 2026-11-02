@@ -15,12 +15,16 @@ Muda o que a [spec do painel](../specs/painel.md) dizia em "Aporte é movimenta�
   obrigatório: esquecer não compila.
 - **Conta como guardado:** lançamento gerado por operação (`investment_trades.transaction_id`), mesmo que a família troque a categoria
   dele; lançamento na categoria de aportes; parcela de meta, feita ou prevista; lançamento na categoria de metas.
+- **Categoria renomeada segue guardada, seja qual for o nome novo.** "Aportes" renomeada para "Seguro de vida" continua fora de despesas.
+  É o preço de não depender do nome, e a etiqueta "Fora de despesas" aparece na lista de Categorias, então a família vê.
 - **Meta é dinheiro guardado, com o mesmo tratamento.** A parcela não some: vira saldo de meta ou entra numa conta da família.
   Excedente e gasto médio já a tiravam (ADR-0015). Reserva não tem categoria própria: é transferência, que nunca foi receita nem
   despesa, ou aporte lançado na categoria de aportes.
 - **Resgate é o simétrico do aporte.** O dinheiro já era da família, então não é receita. Entra em "Voltou para as contas". A perna
   de entrada de uma parcela de meta com conta de destino cai no mesmo número: é dinheiro que chega numa conta sem ser renda. Por isso o
-  rótulo diz "voltou para as contas", e não "resgate".
+  rótulo diz "voltou para as contas", e não "resgate". Na lista de Lançamentos, essa entrada leva a etiqueta "Resgate".
+- **Venda com lucro é resgate inteira.** O sistema não separa ganho de capital no lançamento: o valor todo vai para "Voltou para as
+  contas", e nada vira receita. É um limite, e o ganho continua visível na tela de Investimentos.
 - **Identificação da categoria sem nome e sem migração.** `categories.position` guarda o modelo que criou a categoria: 90 para metas,
   91 para aportes. Nada no produto muda esse número, e categoria criada pela família fica com 100. Vale em família com a categoria
   renomeada, traduzida ou em outro idioma. Sem o modelo, como a categoria de receita que `recordTradeCash` cria sob demanda, vale o nome
@@ -37,13 +41,23 @@ Muda o que a [spec do painel](../specs/painel.md) dizia em "Aporte é movimenta�
 ### Três números
 
 Receitas, despesas e aportes. Resultado = receitas − despesas. "Sobrou depois de aportar" = resultado − aportes, a fórmula do
-fundador. Resgate fica fora dela e aparece ao lado: quem vende e recompra no mesmo mês vê Aportado e "Voltou para as contas" juntos.
+fundador. Resgate fica fora dela e aparece ao lado: quem vende e recompra no mesmo mês vê Aportado e "Voltou para as contas" juntos, e a
+dica do número diz que resgate não entra nesta conta.
 
 ### Compra de cartão na categoria de aportes
 
 Chega ao mês dentro da fatura. `splitCardSavings` separa a parte dela, só para somar: a lista continua mostrando a fatura inteira. A
 soma não muda. Se a fatura foi paga em outro mês, a compra fica fora de aportes no mês dela, e o pagamento segue despesa. É o mesmo
-limite que `spendingByCategory` sempre teve.
+limite que `spendingByCategory` sempre teve. O hábito lê as mesmas entradas divididas do excedente (`splitMonthEntries`), então excedente,
+hábito e o "Aportado" do painel fecham: 3.000 de aporte no cartão aparecem nos três.
+
+### Extrato importado
+
+Aplicação vira aporte pela palavra do extrato, e o resgate da mesma aplicação agora também: `KEYWORDS.receita` manda "resgate", "resg" e
+"res aplic" para a categoria de aportes, como receita. Aplicação e resgate automáticos no mesmo valor dão hábito líquido zero, porque o
+hábito mede aportes menos resgates. No histórico, a revisão diária move só o que veio de importação e ficou em categoria genérica, de
+qualquer data, com notificação e Desfazer, pela exceção de categoria da regra 7. O que a família pôs em categoria específica, ou lançou
+à mão, não muda. O desfeito não volta.
 
 ### Operação sem conta
 
@@ -55,18 +69,42 @@ diz a diferença.
 - **O excedente não sobe.** `surplusInputs` já tirava aporte e meta da conta, por nome. O excedente continua sendo receitas menos
   despesas, antes dos aportes. Só muda em operação cuja categoria tinha sido renomeada, em que a conta antiga errava para menos.
 - **O risco real era outro: a divisão ignorava o que já é aportado.** Uma família com 4.000 de excedente que já investe 3.000 tinha os
-  3.600 disponíveis divididos como se nada tivesse saído. Agora `investingHabit` mede o hábito (`min(média, mediana)`, aportes menos
-  resgates, como o excedente; um pico não vira compromisso, e meta fica fora) e `suggestAllocation` o recebe.
-- **O aporte real é a fatia da aposentadoria, e não uma fatia a mais.** Ele não sai do excedente antes de dividir: a sugestão seguida
-  mudaria a sugestão do mês seguinte, e metas e viagens oscilariam. Quem segue a sugestão recebe a mesma sugestão. Só o que passa da
-  fatia sai das outras: primeiro metas e viagens, depois dívidas e, por último, a reserva. A soma das fatias é sempre o disponível.
-- **Sugestão só do que falta.** `aporte_investimento` só nasce se a divisão pedir mais do que a família já faz. A tela de Aposentadoria
-  diz quanto já é aportado, e o plano do mês só pede o que passa disso.
-- **Projeção.** Sem aporte informado, a projeção usa `allocation.retirement`, que agora nunca fica abaixo do aporte real. Com aporte
-  informado, vale o informado.
+  3.600 disponíveis divididos como se nada tivesse saído. Agora `savingHabit` mede o hábito de investir (aportes menos resgates) e o de
+  metas (parcelas pagas; a entrada na conta de destino não abate), e `suggestAllocation` recebe os dois.
+- **O hábito é dinheiro que de fato sai, e não passa à frente de ninguém.** A prioridade continua reserva, dívidas caras, aposentadoria,
+  metas e viagens. A divisão reparte só o que resta depois do hábito, nessa ordem, e nunca promete mais do que sobra. As fatias que a ordem
+  pediria são medidas sobre o disponível inteiro: assim quem segue a sugestão recebe a mesma sugestão no mês seguinte, sem oscilar. O que
+  já é feito conta na fatia dele, e a soma das fatias é sempre o disponível.
+- **Reserva ou dívida curtas por causa do hábito** ficam em `reserveShort` e `debtShort`. As notas dizem quanto pedem, quanto cabe e por
+  quê; a tela de Aposentadoria diz em uma frase; o plano do mês não pede para guardar mais; e nasce um lembrete de redirecionar parte
+  do aporte, que só leva à tela. Nada muda sozinho.
+- **Sugestão só sobe.** `aporte_investimento` só nasce se a divisão pedir mais do que a família já faz e do que ela aceitou, e
+  `aporte_reserva`, mais do que ela aceitou. Valor aceito nunca vira sugestão de redução, nem na tela de Aposentadoria: quando ele passa
+  do que sobra, um lembrete só informa.
+- **Sugestão que a divisão não pede mais fecha sozinha,** com `closePending`, em aporte de reserva, de investimento e de dívida, e
+  nos dois lembretes. Sem contar como recusa, e sem tocar no que nasceu na conversa com o assistente. O `aporte_divida` do agente de dívidas
+  fica enquanto a divisão ainda tiver dinheiro para dívidas.
+- **Projeção.** Sem aporte informado, a projeção usa `allocation.retirement`, que nunca fica abaixo do aporte real, e a tela de
+  Aposentadoria diz isso em uma frase. Com aporte informado, vale o informado.
+- **Meta com parcela paga não perde plano.** O hábito de meta ocupa o orçamento de metas, então a parcela real não é contada duas vezes
+  nem sai do plano. Se ainda assim não couber, por exemplo sem excedente, a meta que tinha plano fica como estava, com as parcelas abertas e
+  um aviso: falta de sobra não apaga plano. `desired_month` só muda por sugestão aceita.
+- **O que `min(média, mediana)` faz com o hábito**, em 12 meses de movimento, é o que o excedente já faz. Quem começou há pouco ou aporta
+  por trimestre fica com zero até virar costume. Nesses casos a divisão reparte como se o aporte não existisse, e o hábito volta a contar
+  quando chegar à maioria dos meses. Com menos de 3 meses, zero. Sem histórico, vale a soma das previsões recorrentes.
+
+| Caso                         | Hábito   |
+| ---------------------------- | -------- |
+| 3.000 fixos                  | 3.000,00 |
+| 3.000 e um resgate de 20.000 | 1.333,33 |
+| 3.000 e um resgate de 40.000 | 0,00     |
+| Um aporte único de 50.000    | 0,00     |
+| Começou há três meses        | 0,00     |
+| 6.000 em meses alternados    | 3.000,00 |
+| 9.000 por trimestre          | 0,00     |
+
 - **Reserva.** O alvo vem de categorias essenciais. Aporte nunca entra, mesmo em categoria marcada como essencial, e a média só usa
-  mês com gasto essencial, então mês só com aporte não dilui nada. A fatia mensal da reserva só encolhe quando o aporte real já comeu
-  metas, viagens e dívidas: aí é dinheiro que não existe mais.
+  mês com gasto essencial, então mês só com aporte não dilui nada. O alvo não depende do hábito. A fatia mensal é limitada pelo que resta.
 - **Plano do mês:** `largestCategory` ignora aporte. Antes, um aporte grande virava "corte 10% do seu maior gasto".
 
 ### Relatórios já fechados
@@ -77,14 +115,19 @@ diz a diferença.
   aposentadoria não mudam com a regra e ficam intactos.
 - **O parágrafo "O que mudou" sai,** como em toda regeneração: falava de outros números. `narrated_at` continua marcado, então a
   regeneração não chama o modelo. Um relatório fechado que ainda não tinha parágrafo ganha o único a que já tinha direito.
-- **A posição do fim do ano do anual é preservada.** Ela é uma foto que só existe em janeiro.
+- **A posição do fim do ano do anual é preservada,** em toda regeneração. Ela é uma foto que só existe em janeiro.
+- **A projeção do fluxo fechado fica como era,** com a nota de que ainda conta aportes como despesas. Só existe no fechamento, e refazê-la
+  depois daria outra conta. Perder em silêncio seria pior.
+- **Mês só com resgate** continua tendo fluxo.
 - **Mais antigo que a janela, ou antes da primeira rodada:** continua como está, com `data.version` 1, e a tela diz que ainda conta
   aportes como despesas. Mês fora dos 12 meses não regenera: a assinatura sairia vazia.
 - **Só com aporte:** mês assim continua tendo relatório. Sem isso, a regeneração o apagaria.
 
 ### Assistente e dicas
 
-`resumo_do_mes` e `listar_lancamentos` trazem os números à parte, e as instruções dizem para não somar. As dicas da madrugada leem pelas
+`resumo_do_mes` e `listar_lancamentos` trazem os números à parte, e as instruções dizem para não somar. As somas de `listar_lancamentos`
+contam só o que já aconteceu, e o pagamento de fatura sai delas quando as compras estão na lista: sem filtro, `soma_despesas` é o `gasto` do
+resumo. As dicas da madrugada leem pelas
 ferramentas e herdam. Dica gravada antes da mudança vale por até 7 dias e pode citar o número antigo: foi escrita naquele dia e expira
 sozinha.
 
@@ -101,8 +144,13 @@ compra.
 
 ## Riscos aceitos
 
-- **Metas e viagens podem ir a zero** em família que aporta quase tudo o que sobra. É verdade: esse dinheiro já saiu. O agente de metas
-  passa a dizer que não há espaço, e a família decide.
+- **Reserva e dívida cara podem ficar curtas por causa do hábito.** O produto continua dizendo que elas vêm primeiro, mas o aporte da
+  família já saiu, e prometer esse dinheiro de novo seria mentira. O sistema diz isso, sugere redirecionar e não muda nada sozinho. Enquanto
+  a família não decidir, a reserva cresce mais devagar do que a ordem pede.
+- **Viagens novas podem ir a zero,** e metas ficam só com a parcela real, em família que aporta quase tudo o que sobra. É verdade: esse
+  dinheiro já saiu. Meta sem nada real não ganha plano novo até sobrar.
+- **Hábito que acabou de mudar** demora a aparecer: `min(média, mediana)` protege contra pico, e cobra isso de quem acabou de começar a
+  aportar, que vê uma divisão otimista por alguns meses.
 - **Entre o deploy e a próxima rodada** os relatórios mostram a regra antiga, com o aviso, enquanto o painel já mostra a nova.
 - **`isProtectedCategory` olha o nome.** Categoria de aporte renomeada deixa de ser protegida do agente de categorias, que só mexe em
   categoria genérica e nunca toca escolha específica da família.
@@ -124,19 +172,21 @@ resgate de 1.000 e aporte de US$ 100 a 5,40 (540). Aporte está marcado como ess
 | Sobrou depois de aportar | não havia | 160,00    | 4.000 − 3.840; os 1.160 de antes menos o resgate |
 | Saldo das contas         | igual     | igual     | nenhum lançamento mudou                          |
 
-| Por mês                         | Antes     | Depois    | Por quê                                                                              |
-| ------------------------------- | --------- | --------- | ------------------------------------------------------------------------------------ |
-| Excedente                       | 4.000,00  | 4.000,00  | já vinha sem aporte                                                                  |
-| Gasto médio de 12 meses         | 6.000,00  | 6.000,00  | idem; a renda alvo derivada não muda                                                 |
-| Gasto essencial                 | 8.180,00  | 5.000,00  | esta família marcou aporte como essencial; sem essa marca, é 5.000,00 antes e depois |
-| Alvo da reserva (6 meses)       | 49.080,00 | 30.000,00 | aporte não é custo de viver; o gasto com moradia e mercado segue inteiro             |
-| Disponível (com a folga de 10%) | 3.600,00  | 3.600,00  |                                                                                      |
-| Já aportado por mês             | ignorado  | 2.923,33  | média de 3.000 × 5 e 2.540 líquidos em outubro                                       |
-| Fatia da aposentadoria          | 1.260,00  | 2.923,33  | o aporte real entra primeiro; quem define a projeção é ele                           |
-| Fatia da reserva                | 1.800,00  | 676,67    | só o que sobrou de verdade: 3.600 − 2.923,33                                         |
-| Metas                           | 270,00    | 0,00      | o aporte passou da fatia e consumiu metas                                            |
-| Viagens                         | 270,00    | 0,00      | idem                                                                                 |
-| Sugestão de novo aporte         | 1.260,00  | nenhuma   | a família já faz mais que isso                                                       |
+| Por mês                         | Antes        | Depois    | Por quê                                                                              |
+| ------------------------------- | ------------ | --------- | ------------------------------------------------------------------------------------ |
+| Excedente                       | 4.000,00     | 4.000,00  | já vinha sem aporte                                                                  |
+| Gasto médio de 12 meses         | 6.000,00     | 6.000,00  | idem; a renda alvo derivada não muda                                                 |
+| Gasto essencial                 | 8.180,00     | 5.000,00  | esta família marcou aporte como essencial; sem essa marca, é 5.000,00 antes e depois |
+| Alvo da reserva (6 meses)       | 49.080,00    | 30.000,00 | aporte não é custo de viver; o gasto com moradia e mercado segue inteiro             |
+| Disponível (com a folga de 10%) | 3.600,00     | 3.600,00  |                                                                                      |
+| Já aportado por mês             | ignorado     | 2.923,33  | média de 3.000 × 5 e 2.540 líquidos em outubro                                       |
+| Já pago em metas por mês        | ignorado     | 300,00    | a parcela real da reforma                                                            |
+| Fatia da aposentadoria          | 1.260,00     | 2.923,33  | o aporte real conta na fatia dele; é ele que entra na projeção                       |
+| Fatia da reserva                | 1.800,00     | 376,67    | a reserva vem primeiro no que resta: 3.600 − 2.923,33 − 300                          |
+| Reserva curta                   | não se dizia | 1.423,33  | a ordem pede 1.800; nota e lembrete dizem, e redirecionar é da família               |
+| Metas                           | 270,00       | 300,00    | a parcela real fica, e o plano também                                                |
+| Viagens                         | 270,00       | 0,00      | não resta nada para elas                                                             |
+| Sugestão de novo aporte         | 1.260,00     | nenhuma   | a família já faz mais que isso                                                       |
 
-Antes, a divisão repartia 3.600 sem contar os 2.923,33 que já saíam para investimentos. Depois, o aporte real ocupa a fatia dele, e o que
-ainda é dividido, 676,67, é o que existe.
+Antes, a divisão repartia 3.600 sem contar os 3.223,33 que já saíam. Depois, o que já sai ocupa as fatias dele, e o que ainda é dividido,
+376,67, é o que existe, e vai para a reserva.
