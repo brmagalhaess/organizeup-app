@@ -4,6 +4,7 @@ import { recordAudit } from "@organizeup/agents";
 import {
   eq,
   householdFileConsents,
+  householdFileScopes,
   householdSettings,
   tolerateSchemaLag,
   withHousehold,
@@ -65,17 +66,40 @@ export async function acceptDebtFiles(ctx: TenantContext, version: string): Prom
   return true;
 }
 
-/**
- * O mesmo aceite, numa versão que cobre qualquer arquivo. Vale para as duas leituras: a de dívidas pede
- * uma versão menor (ADR-0030).
- */
-export const acceptImporterFiles = acceptDebtFiles;
+/** Aceite do importador, com escopo próprio: qualquer arquivo não é o mesmo que contrato de dívida (ADR-0030). */
+export async function acceptImporterFiles(ctx: TenantContext, version: string): Promise<boolean> {
+  if (!canUseAssistant(ctx)) return false;
+  await withHousehold(ctx, async (tx) => {
+    await tx
+      .insert(householdFileScopes)
+      .values({
+        householdId: ctx.householdId,
+        scope: "importador",
+        version,
+        acceptedBy: ctx.userId,
+      })
+      .onConflictDoUpdate({
+        target: [householdFileScopes.householdId, householdFileScopes.scope],
+        set: { version, acceptedBy: ctx.userId, acceptedAt: new Date() },
+      });
+    await recordAudit(tx, ctx, "arquivos_aceitar", "household_file_scopes", null, {
+      version,
+      scope: "importador",
+    });
+  });
+  return true;
+}
 
-const revokeDebtFiles = (ctx: TenantContext) =>
-  tolerateSchemaLag(
+const revokeDebtFiles = async (ctx: TenantContext) => {
+  await tolerateSchemaLag(
     () => withHousehold(ctx, (tx) => tx.delete(householdFileConsents).returning()),
     [],
   );
+  await tolerateSchemaLag(
+    () => withHousehold(ctx, (tx) => tx.delete(householdFileScopes).returning()),
+    [],
+  );
+};
 
 /** Desligar o assistente retira também o aceite de arquivos: nada mais vai ao modelo. */
 export async function deactivateAssistant(ctx: TenantContext) {

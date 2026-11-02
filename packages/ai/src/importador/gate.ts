@@ -4,7 +4,7 @@ import {
   aiUsage,
   and,
   gte,
-  householdFileConsents,
+  householdFileScopes,
   lte,
   eq,
   readFamilyAccess,
@@ -87,7 +87,10 @@ export async function importerUsage(ctx: TenantContext, day: string): Promise<Im
 async function hasImporterConsent(ctx: TenantContext): Promise<boolean> {
   return tolerateSchemaLag(async () => {
     const [row] = await withHousehold(ctx, (tx) =>
-      tx.select({ version: householdFileConsents.version }).from(householdFileConsents),
+      tx
+        .select({ version: householdFileScopes.version })
+        .from(householdFileScopes)
+        .where(eq(householdFileScopes.scope, "importador")),
     );
     return row !== undefined && legalVersionAtLeast(row.version, IMPORTER_CONSENT_VERSION);
   }, false);

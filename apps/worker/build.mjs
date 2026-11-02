@@ -4,9 +4,7 @@ import { build } from "esbuild";
 
 await rm("dist", { recursive: true, force: true });
 
-await build({
-  entryPoints: ["src/main.ts"],
-  outfile: "dist/main.js",
+const shared = {
   bundle: true,
   platform: "node",
   format: "esm",
@@ -20,7 +18,15 @@ await build({
   // Só usado em testes/desenvolvimento.
   external: ["embedded-postgres"],
   logLevel: "warning",
+};
+
+await build({ ...shared, entryPoints: ["src/main.ts"], outfile: "dist/main.js" });
+// Processo isolado que abre arquivo enviado pela família: fica ao lado do main.js (ADR-0030).
+await build({
+  ...shared,
+  entryPoints: ["../../packages/ai/src/importador/read-child.ts"],
+  outfile: "dist/smart-read-child.js",
 });
 
 await cp("../../packages/db/migrations", "dist/migrations", { recursive: true });
-console.log("worker: dist/main.js + dist/migrations");
+console.log("worker: dist/main.js + dist/smart-read-child.js + dist/migrations");

@@ -47,7 +47,6 @@ export {
   type ImporterGate,
   type ImporterUsage,
 } from "./importador/gate";
-export { openSmartFile } from "./importador/read-file";
 export {
   IMPORTER_PROMPT,
   IMPORTER_ROUTE,
@@ -55,7 +54,6 @@ export {
   smartBlock,
   smartRequest,
 } from "./importador/reader";
-export { runSmartImport, type SmartImportInput, type SmartImportRun } from "./importador/run";
 export {
   INSIGHTS_CONSENT_VERSION,
   NIGHT_ROUTE,

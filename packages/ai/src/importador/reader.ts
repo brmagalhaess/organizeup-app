@@ -8,7 +8,9 @@ import type Anthropic from "@anthropic-ai/sdk";
 import {
   buildSmartPayload,
   debtTermsClose,
+  maskDocumentsLoose,
   parseDeclaredTotal,
+  plausibleEntryDate,
   safeExcerpt,
   safeText,
   smartNote,
@@ -23,10 +25,11 @@ import {
   SMART_MODEL_MAX_PDF_BYTES,
   CONFIDENCE_LEVELS,
   totalsClose,
+  withSmartFingerprints,
   type Confidence,
-  type SmartContents,
   type SmartField,
   type SmartFileKind,
+  type SmartPayload,
   type SmartProposal,
   type SmartRawFields,
   type SmartReading,
@@ -189,7 +192,7 @@ const rawFields = (item: Item): SmartRawFields => ({
 const MAX_MODEL_TEXT = 1_000;
 
 const PERSONAL_LABEL =
-  /cpf|cnpj|\brg\b|identidade|endere|telefone|celular|e-?mail|nome|fiador|avalista|conjuge|dependente|agencia|conta\b/i;
+  /cpf|cnpj|\brg\b|identidade|endere|telefone|celular|e-?mail|nome|fiador|avalista|conjuge|dependente|agencia|conta\b|benefici|titular|testemunha|mutuari|segurad|consorciad|proponente|contratante|correntista|filiacao|\bmae\b|\bpai\b|herdeir|procurador|representante/i;
 
 function fieldsOf(raw: Array<{ rotulo: string; valor: string }>, privacy: PrivacyFilter) {
   const fields: SmartField[] = [];
@@ -223,16 +226,24 @@ export function sanitizeSmartAnswer(
     notes.push(smartNote("itens_cortados", items.length));
   const proposals: SmartProposal[] = items
     .slice(0, SMART_MAX_ITEMS_PER_FILE)
-    .map((item): SmartProposal => {
+    .map((item, index): SmartProposal => {
       const scrubbed = { ...rawFields(item), description: scrubShort(item.descricao) };
-      const payload = buildSmartPayload(item.destino, scrubbed, today);
+      const built = buildSmartPayload(item.destino, scrubbed, today);
+      // Cada operação tem a própria linha: é ela que liga a proposta à gravação.
+      const dated = built.destination === "operacao" ? { ...built, line: index + 1 } : built;
+      const moved =
+        "date" in dated &&
+        item.data.trim() !== "" &&
+        (dated.date === null || !plausibleEntryDate(dated.date, today));
+      const payload = moved ? ({ ...dated, date: null } as SmartPayload) : dated;
+      if (moved) notes.push(smartNote("data_estranha"));
       const debtOff =
         (payload.destination === "divida" || payload.destination === "consorcio") &&
         !debtTermsClose(payload);
       if (debtOff) notes.push(smartNote("parcelas_nao_fecham"));
       return {
         payload,
-        confidence: debtOff ? "baixa" : item.confianca,
+        confidence: debtOff || moved ? "baixa" : item.confianca,
         excerpt: safeExcerpt(scrubShort(item.trecho)),
       };
     });
@@ -246,9 +257,9 @@ export function sanitizeSmartAnswer(
     docType: answer.tipo,
     issuer: safeText(scrubShort(answer.emissor), 80),
     confidence: closes ? answer.confianca : "baixa",
-    proposals: closes
-      ? proposals
-      : proposals.map((proposal) => ({ ...proposal, confidence: "baixa" })),
+    proposals: withSmartFingerprints(
+      closes ? proposals : proposals.map((proposal) => ({ ...proposal, confidence: "baixa" })),
+    ),
     fields: fieldsOf(answer.campos, privacy),
     notes: [...new Set(notes)],
   };
@@ -288,7 +299,7 @@ function scannedBlock(bytes: Uint8Array, kind: SmartFileKind, pages: number | nu
 
 /** O bloco que vai ao modelo. Texto é limpo antes de cortar, para o corte não partir um CPF. */
 export function smartBlock(
-  contents: SmartContents,
+  contents: { kind: SmartFileKind; text: string | null },
   bytes: Uint8Array,
   pages: number | null,
   privacy: PrivacyFilter,
@@ -303,7 +314,8 @@ export function smartBlock(
   // O filtro roda em texto com folga, não no arquivo inteiro. Sequência enorme sem espaço não é texto de
   // ninguém, e faz a busca de e-mail do filtro ficar quadrática: sai antes, para um arquivo não travar o worker.
   const tamed = raw.slice(0, SMART_MODEL_MAX_CHARS * 2).replace(LONG_RUN, " ");
-  const clean = privacy.scrub(tamed);
+  // Documento partido por coluna ou linha sai aqui; o filtro cuida do resto.
+  const clean = privacy.scrub(maskDocumentsLoose(tamed, "[documento]"));
   const truncated = raw.length > SMART_MODEL_MAX_CHARS || clean.length > SMART_MODEL_MAX_CHARS;
   return {
     truncated,

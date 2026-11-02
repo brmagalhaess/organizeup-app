@@ -71,6 +71,7 @@ export {
   reviewSmartImport,
   saveSmartFile,
   saveSmartReading,
+  smartDatesOf,
   startSmartImport,
   touchSmartImport,
   type SaveSmartFileResult,

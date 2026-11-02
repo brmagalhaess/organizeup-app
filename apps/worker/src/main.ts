@@ -140,7 +140,9 @@ async function main() {
   // Importador inteligente (ADR-0030): por pedido da família, fora do interruptor dos agentes diários.
   await boss.work<SmartImportJob>(
     JOB_QUEUES.smartImport,
-    reportingFailures(JOB_QUEUES.smartImport, ([job]) => runSmartImportJob(log, job?.data ?? {})),
+    reportingFailures(JOB_QUEUES.smartImport, ([job]) =>
+      runSmartImportJob(log, job?.data ?? {}, (next) => boss.send(JOB_QUEUES.smartImport, next)),
+    ),
   );
   await boss.schedule(JOB_QUEUES.smartImport, "50 4 * * *", {}, { tz: "America/Sao_Paulo" });
 

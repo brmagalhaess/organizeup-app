@@ -55,6 +55,7 @@ import {
   SMART_DESTINATION_MODULE,
   SMART_FAMILY_MAX_BYTES,
   SMART_MAX_FILES,
+  SMART_READ_MAX_ATTEMPTS,
   SMART_RETENTION_DAYS,
   SMART_STALE_MS,
   suggestByIssuer,
@@ -140,7 +141,10 @@ async function sha256Of(bytes: Uint8Array): Promise<string> {
 
 export type SaveSmartFileResult =
   | { ok: true; id: string; duplicate: boolean }
-  | { ok: false; code: "somente_leitura" | "lote" | "muitos" | "cota_lote" | "cota" };
+  | {
+      ok: false;
+      code: "somente_leitura" | "lote" | "muitos" | "cota_lote" | "cota" | "em_outro_lote";
+    };
 
 /** Guarda um arquivo já conferido por `checkSmartFile`. A trava segura a cota contra envios juntos. */
 export async function saveSmartFile(
@@ -170,6 +174,20 @@ export async function saveSmartFile(
   const same = present.find((row) => row.sha256 === sha256);
   if (same) return { ok: true, id: same.id, duplicate: true };
   if (present.length >= SMART_MAX_FILES) return { ok: false, code: "muitos" };
+  // Em lote aberto, os dois seriam aprovados como novos. Depois de aprovado, volta como já lançado.
+  const [open] = await tx
+    .select({ id: smartImportFiles.id })
+    .from(smartImportFiles)
+    .innerJoin(smartImports, eq(smartImports.id, smartImportFiles.importId))
+    .where(
+      and(
+        eq(smartImportFiles.sha256, sha256),
+        ne(smartImportFiles.importId, file.importId),
+        ne(smartImports.status, "concluido"),
+      ),
+    )
+    .limit(1);
+  if (open) return { ok: false, code: "em_outro_lote" };
   const inLot = present.reduce((acc, row) => acc + row.sizeBytes, 0);
   if (inLot + file.bytes.length > SMART_BATCH_MAX_BYTES) return { ok: false, code: "cota_lote" };
   const [usage] = await tx
@@ -227,8 +245,9 @@ export async function touchSmartImport(tx: TenantTx, importId: string): Promise<
 }
 
 /**
- * Volta o arquivo para a fila. O que já foi gravado fica; só as propostas pendentes são refeitas. Pedir para
- * ler de novo é pedir a leitura completa, então o lote passa a aceitar IA: quem barra é o portão.
+ * Volta o arquivo que falhou para a fila, com as tentativas zeradas. O que já foi gravado fica; só as propostas
+ * pendentes são refeitas. Pedir para ler de novo é pedir a leitura completa, então o lote passa a aceitar IA:
+ * quem barra é o portão.
  */
 export async function requeueSmartFile(
   tx: TenantTx,
@@ -238,8 +257,8 @@ export async function requeueSmartFile(
   if (!canWrite(ctx)) return null;
   const [file] = await tx
     .update(smartImportFiles)
-    .set({ status: "na_fila", failure: null, updatedAt: new Date() })
-    .where(and(eq(smartImportFiles.id, fileId), ne(smartImportFiles.status, "lendo")))
+    .set({ status: "na_fila", failure: null, readAttempts: 0, updatedAt: new Date() })
+    .where(and(eq(smartImportFiles.id, fileId), eq(smartImportFiles.status, "falhou")))
     .returning({ importId: smartImportFiles.importId });
   if (!file) return null;
   await tx
@@ -262,19 +281,33 @@ export async function startSmartImport(tx: TenantTx, importId: string) {
   return lot ?? null;
 }
 
-/** Próximo arquivo, um por vez. Leitura presa, de worker que caiu, volta a valer depois do prazo. */
+/**
+ * Próximo arquivo, um por vez. Leitura presa, de worker que caiu, volta a valer depois do prazo, até o limite de
+ * tentativas: daí em diante o arquivo é falho, para quem derruba a leitura não entrar em laço.
+ */
 export async function claimSmartFile(tx: TenantTx, importId: string, now = new Date()) {
   const staleBefore = new Date(now.getTime() - SMART_STALE_MS);
+  const stale = and(
+    eq(smartImportFiles.status, "lendo"),
+    lt(smartImportFiles.updatedAt, staleBefore),
+  );
+  await tx
+    .update(smartImportFiles)
+    .set({ status: "falhou", failure: "queda", updatedAt: now })
+    .where(
+      and(
+        eq(smartImportFiles.importId, importId),
+        stale,
+        gte(smartImportFiles.readAttempts, SMART_READ_MAX_ATTEMPTS),
+      ),
+    );
   const [next] = await tx
     .select({ id: smartImportFiles.id })
     .from(smartImportFiles)
     .where(
       and(
         eq(smartImportFiles.importId, importId),
-        or(
-          eq(smartImportFiles.status, "na_fila"),
-          and(eq(smartImportFiles.status, "lendo"), lt(smartImportFiles.updatedAt, staleBefore)),
-        ),
+        or(eq(smartImportFiles.status, "na_fila"), stale),
       ),
     )
     .orderBy(asc(smartImportFiles.position))
@@ -283,7 +316,11 @@ export async function claimSmartFile(tx: TenantTx, importId: string, now = new D
   if (!next) return null;
   const [file] = await tx
     .update(smartImportFiles)
-    .set({ status: "lendo", updatedAt: now })
+    .set({
+      status: "lendo",
+      readAttempts: sql`${smartImportFiles.readAttempts} + 1`,
+      updatedAt: now,
+    })
     .where(eq(smartImportFiles.id, next.id))
     .returning({
       id: smartImportFiles.id,
@@ -381,6 +418,7 @@ export async function saveSmartReading(tx: TenantTx, input: SmartReadingResult):
       truncated,
       fields: reading.fields,
       notes: reading.notes,
+      reviewed: false,
       updatedAt: new Date(),
     })
     .where(eq(smartImportFiles.id, fileId));
@@ -477,8 +515,15 @@ async function knownForecasts(tx: TenantTx, from: string, to: string, rows: Know
 
 type KnownSource = Array<typeof transactions.$inferSelect>;
 
-/** Tudo o que a comparação precisa, só do período dos itens. Lê; nada grava. */
-export async function loadSmartKnown(tx: TenantTx, dates: string[]): Promise<SmartKnown> {
+/**
+ * Tudo o que a comparação precisa, só do período dos itens. Lê; nada grava. `exclude`: o que este mesmo lote já
+ * gravou, que na aprovação não pode contar como duplicado dele mesmo.
+ */
+export async function loadSmartKnown(
+  tx: TenantTx,
+  dates: string[],
+  exclude: ReadonlySet<string> = new Set(),
+): Promise<SmartKnown> {
   const sorted = dates.toSorted();
   const today = new Date().toISOString().slice(0, 10);
   const firstMonth = addMonths(yearMonthOf(sorted[0] ?? today), -1);
@@ -490,7 +535,7 @@ export async function loadSmartKnown(tx: TenantTx, dates: string[]): Promise<Sma
     .from(transactions)
     .where(and(gte(transactions.occurredOn, from), lte(transactions.occurredOn, to)));
   const realized: KnownEntry[] = inRange
-    .filter((row) => row.status === "realizado")
+    .filter((row) => row.status === "realizado" && !exclude.has(row.id))
     .map((row) => ({
       key: `t:${row.id}`,
       description: row.description,
@@ -498,12 +543,15 @@ export async function loadSmartKnown(tx: TenantTx, dates: string[]): Promise<Sma
       date: row.occurredOn,
       kind: row.kind,
       fingerprint: row.importFingerprint,
+      accountId: row.accountId,
     }));
   const purchases = await tx
     .select({
+      id: cardPurchases.id,
       description: cardPurchases.description,
       amount: cardPurchases.amount,
       date: cardPurchases.purchasedOn,
+      cardId: cardPurchases.cardId,
     })
     .from(cardPurchases)
     .where(and(gte(cardPurchases.purchasedOn, from), lte(cardPurchases.purchasedOn, to)));
@@ -526,18 +574,20 @@ export async function loadSmartKnown(tx: TenantTx, dates: string[]): Promise<Sma
     .from(debtInstallments)
     .where(isNull(debtInstallments.transactionId));
   const incomes = await tx
-    .select({ name: incomeSources.name, amount: incomeSources.amount })
+    .select({ id: incomeSources.id, name: incomeSources.name, amount: incomeSources.amount })
     .from(incomeSources);
   const plans = await tx
     .select({
+      id: cashflowPlans.id,
       description: cashflowPlans.description,
       amount: cashflowPlans.amount,
       kind: cashflowPlans.kind,
     })
     .from(cashflowPlans);
-  const goalRows = await tx.select({ name: goals.name }).from(goals);
+  const goalRows = await tx.select({ id: goals.id, name: goals.name }).from(goals);
   const dividendRows = await tx
     .select({
+      id: dividends.id,
       ticker: investments.ticker,
       date: dividends.paidOn,
       gross: dividends.gross,
@@ -548,11 +598,12 @@ export async function loadSmartKnown(tx: TenantTx, dates: string[]): Promise<Sma
     .select({ id: smartImportFiles.id, sha256: smartImportFiles.sha256 })
     .from(smartImportFiles)
     .where(isNotNull(smartImportFiles.attachedAt));
+  const kept = <T extends { id: string }>(rows: T[]) => rows.filter((row) => !exclude.has(row.id));
 
   return {
     realized,
     forecasts: await knownForecasts(tx, firstMonth, lastMonth, inRange),
-    purchases,
+    purchases: kept(purchases),
     holdings: holdings.map((holding) => ({
       id: holding.id,
       name: holding.name,
@@ -561,7 +612,7 @@ export async function loadSmartKnown(tx: TenantTx, dates: string[]): Promise<Sma
       trades: trades.filter((trade) => trade.investmentId === holding.id),
       events: events.filter((event) => event.investmentId === holding.id),
     })),
-    debts: openDebts.map((debt) => {
+    debts: kept(openDebts).map((debt) => {
       const rows = open.filter((row) => row.debtId === debt.id);
       const next = rows.toSorted((a, b) => a.number - b.number)[0];
       return {
@@ -571,69 +622,30 @@ export async function loadSmartKnown(tx: TenantTx, dates: string[]): Promise<Sma
         openInstallments: rows.length,
       };
     }),
-    incomes,
-    plans,
-    goals: goalRows,
-    dividends: dividendRows,
+    incomes: kept(incomes),
+    plans: kept(plans),
+    goals: kept(goalRows),
+    dividends: kept(dividendRows),
     documents: new Map(documents.map((row) => [row.sha256, row.id])),
   };
 }
 
-const datesOf = (payload: SmartPayload): string[] => {
+export const smartDatesOf = (payload: SmartPayload): string[] => {
   if ("date" in payload && payload.date) return [payload.date];
   return [];
 };
 
+const VERDICT_CHUNK = 1_000;
+
 /**
- * Compara tudo do lote, escolhe conta e cartão sugeridos e abre a revisão. `freshFiles`: arquivos lidos agora;
- * só neles a seleção volta ao padrão, para não desfazer o que a pessoa já marcou.
+ * Compara tudo do lote, escolhe conta e cartão sugeridos e abre a revisão. Conta vem antes: a comparação olha a
+ * conta do arquivo. Só nos arquivos ainda não revisados a seleção volta ao padrão, para não desfazer o que a
+ * pessoa já marcou. Uma instrução por pedaço, porque um lote pode ter 50 mil itens.
  */
 export async function reviewSmartImport(
   tx: TenantTx,
   importId: string,
-  freshFiles: ReadonlySet<string>,
 ): Promise<{ items: number; failed: number; files: number }> {
-  const files = await listSmartFiles(tx, importId);
-  const items = await listSmartItems(tx, importId);
-  const pending = items.filter((item) => item.status !== "gravado");
-  const order = new Map(files.map((file) => [file.id, file.position]));
-  const refs: SmartItemRef[] = pending
-    .toSorted((a, b) => order.get(a.fileId)! - order.get(b.fileId)! || a.position - b.position)
-    .map(({ id, fileId, payload }) => ({ id, fileId, payload }));
-  const known = await loadSmartKnown(
-    tx,
-    pending.flatMap((item) => datesOf(item.payload)),
-  );
-  const shaById = new Map(files.map((file) => [file.id, file.sha256]));
-  const verdicts = planSmartDuplicates(refs, known, (id) => shaById.get(id));
-  const access = await accessWithin(tx);
-
-  for (const item of pending) {
-    const verdict = verdicts.get(item.id);
-    const destinationModule = SMART_DESTINATION_MODULE[item.destination];
-    const allowed = destinationModule === null || canUse(access, destinationModule);
-    const duplicate = verdict?.duplicate ?? "novo";
-    await tx
-      .update(smartImportItems)
-      .set({
-        duplicate,
-        duplicateReason: verdict?.reason ?? null,
-        duplicateFileId: verdict?.otherFileId ?? null,
-        ...(freshFiles.has(item.fileId) ? { selected: duplicate === "novo" && allowed } : {}),
-        ...(item.payload.destination === "lancamento"
-          ? {
-              payload: {
-                ...item.payload,
-                matchKey: verdict?.matchKey ?? null,
-                matchMonth: verdict?.matchMonth ?? null,
-              },
-            }
-          : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(smartImportItems.id, item.id));
-  }
-
   const accountRows = await tx
     .select({ id: accounts.id, name: accounts.name })
     .from(accounts)
@@ -642,16 +654,83 @@ export async function reviewSmartImport(
     .select({ id: creditCards.id, name: creditCards.name })
     .from(creditCards)
     .where(eq(creditCards.archived, false));
+  const listed = await listSmartFiles(tx, importId);
+  const files = listed.map((file) => {
+    if (file.reviewed || file.status !== "lido") return file;
+    return {
+      ...file,
+      accountId: file.accountId ?? suggestByIssuer(file.issuer, accountRows),
+      cardId: file.cardId ?? suggestByIssuer(file.issuer, cardRows),
+    };
+  });
   for (const file of files) {
-    if (!freshFiles.has(file.id) || file.status !== "lido") continue;
+    if (file.reviewed || file.status !== "lido") continue;
     await tx
       .update(smartImportFiles)
-      .set({
-        accountId: file.accountId ?? suggestByIssuer(file.issuer, accountRows),
-        cardId: file.cardId ?? suggestByIssuer(file.issuer, cardRows),
-      })
+      .set({ accountId: file.accountId, cardId: file.cardId })
       .where(eq(smartImportFiles.id, file.id));
   }
+  const items = await listSmartItems(tx, importId);
+  const pending = items.filter((item) => item.status !== "gravado");
+  const byId = new Map(files.map((file) => [file.id, file]));
+  const refs: SmartItemRef[] = pending
+    .toSorted(
+      (a, b) =>
+        byId.get(a.fileId)!.position - byId.get(b.fileId)!.position || a.position - b.position,
+    )
+    .map(({ id, fileId, payload }) => ({ id, fileId, payload }));
+  const known = await loadSmartKnown(
+    tx,
+    pending.flatMap((item) => smartDatesOf(item.payload)),
+  );
+  const verdicts = planSmartDuplicates(refs, known, {
+    shaOf: (id) => byId.get(id)?.sha256,
+    scope: (id) => ({
+      accountId: byId.get(id)?.accountId ?? null,
+      cardId: byId.get(id)?.cardId ?? null,
+    }),
+  });
+  const access = await accessWithin(tx);
+  const rows = pending.map((item) => {
+    const verdict = verdicts.get(item.id);
+    const owner = SMART_DESTINATION_MODULE[item.destination];
+    const allowed = owner === null || canUse(access, owner);
+    const duplicate = verdict?.duplicate ?? "novo";
+    return {
+      id: item.id,
+      duplicate,
+      reason: verdict?.reason ?? null,
+      file: verdict?.otherFileId ?? null,
+      selected: byId.get(item.fileId)?.reviewed ? item.selected : duplicate === "novo" && allowed,
+      match_key: verdict?.matchKey ?? null,
+      match_month: verdict?.matchMonth ?? null,
+      settles: verdict?.settlesFileId ?? null,
+    };
+  });
+  for (let at = 0; at < rows.length; at += VERDICT_CHUNK) {
+    const chunk = JSON.stringify(rows.slice(at, at + VERDICT_CHUNK));
+    await tx.execute(sql`
+      update smart_import_items as item
+      set duplicate = verdict.duplicate,
+          duplicate_reason = verdict.reason,
+          duplicate_file_id = verdict.file,
+          selected = verdict.selected,
+          updated_at = now(),
+          payload = case when item.destination = 'lancamento'
+            then item.payload || jsonb_build_object(
+              'matchKey', verdict.match_key,
+              'matchMonth', verdict.match_month,
+              'settlesFileId', verdict.settles)
+            else item.payload end
+      from jsonb_to_recordset(${chunk}::jsonb) as verdict(
+        id text, duplicate text, reason text, file text, selected boolean,
+        match_key text, match_month text, settles text)
+      where item.id = verdict.id`);
+  }
+  await tx
+    .update(smartImportFiles)
+    .set({ reviewed: true })
+    .where(eq(smartImportFiles.importId, importId));
   // Lote com algo aprovado continua aprovado: é o que o livra da limpeza dos 30 dias.
   const approved = items.some((item) => item.status === "gravado");
   await tx

@@ -1,8 +1,10 @@
 // Importador sem banco: o que vai ao modelo, o que volta dele e a abertura do arquivo. Dados fictícios.
+import { deflateRawSync, deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { recognizeSmartFile, SMART_MODEL_MAX_CHARS, type SmartContents } from "@organizeup/domain";
+import { SMART_MODEL_MAX_CHARS, type SmartContents } from "@organizeup/domain";
 import { createPrivacyFilter } from "../src/privacy";
-import { openSmartFile } from "../src/importador/read-file";
+import { assertPdfSize, assertZipSize, sheetsText } from "../src/importador/read-limits";
+import { childEnv, readInChild } from "../src/importador/read-sandbox";
 import {
   IMPORTER_PROMPT,
   sanitizeSmartAnswer,
@@ -81,10 +83,7 @@ describe("instruções", () => {
     const block = smartBlock(
       {
         kind: "txt",
-        text: "Contrato de Mariana Sobrenomex, CPF 529.982.247-25, mariana@example.com",
-        lines: null,
-        sheets: null,
-        year: 2026,
+        text: "Contrato de Mariana Sobrenomex, CPF 529.982.\n247-25, mariana@example.com",
       },
       new Uint8Array(),
       null,
@@ -302,32 +301,172 @@ describe("o que volta do modelo", () => {
   });
 });
 
-describe("abrir o arquivo", () => {
-  it("PDF com texto, em linhas", async () => {
-    const opened = await openSmartFile("pdf", pdfOf("Extrato Exemplo"), 2026);
-    if (typeof opened === "string") throw new Error(opened);
-    expect(opened.pages).toBe(1);
-    expect(opened.contents.lines).toEqual(["Extrato Exemplo"]);
+const zipOf = (name: string, raw: Buffer, declared: number) => {
+  const data = deflateRawSync(raw);
+  const nameBytes = Buffer.from(name);
+  const local = Buffer.alloc(30);
+  local.writeUInt32LE(0x04034b50, 0);
+  local.writeUInt16LE(8, 8);
+  local.writeUInt32LE(data.length, 18);
+  local.writeUInt32LE(declared, 22);
+  local.writeUInt16LE(nameBytes.length, 26);
+  const central = Buffer.alloc(46);
+  central.writeUInt32LE(0x02014b50, 0);
+  central.writeUInt16LE(8, 10);
+  central.writeUInt32LE(data.length, 20);
+  // O diretório mente: diz que cabe em poucos bytes.
+  central.writeUInt32LE(declared, 24);
+  central.writeUInt16LE(nameBytes.length, 28);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(1, 8);
+  end.writeUInt16LE(1, 10);
+  const body = Buffer.concat([local, nameBytes, data]);
+  const directory = Buffer.concat([central, nameBytes]);
+  end.writeUInt32LE(directory.length, 12);
+  end.writeUInt32LE(body.length, 16);
+  return Buffer.concat([body, directory, end]);
+};
+
+describe("bombas", () => {
+  it("zip conta o que infla de verdade, não o que declara", () => {
+    const bomb = zipOf("xl/workbook.xml", Buffer.alloc(80 * 1024 * 1024), 10);
+    expect(bomb.length).toBeLessThan(200_000);
+    expect(() => assertZipSize(bomb)).toThrow();
+    expect(() => assertZipSize(zipOf("a.xml", Buffer.from("ok"), 2))).not.toThrow();
   });
 
-  it("PDF corrompido não derruba: vira falha", async () => {
-    const opened = await openSmartFile(
-      "pdf",
-      new TextEncoder().encode("%PDF-1.7 corrompido"),
-      2026,
-    );
-    expect(opened).toBe("ilegivel");
+  it("PDF conta o que infla", () => {
+    const stream = deflateSync(Buffer.alloc(200 * 1024 * 1024));
+    const pdf = Buffer.concat([
+      Buffer.from("%PDF-1.4\n1 0 obj<</Filter/FlateDecode>>stream\n"),
+      stream,
+      Buffer.from("\nendstream endobj\n%%EOF"),
+    ]);
+    expect(pdf.length).toBeLessThan(400_000);
+    expect(() => assertPdfSize(pdf)).toThrow();
+    expect(() => assertPdfSize(pdfOf("Extrato"))).not.toThrow();
+  });
+
+  it("CPF numérico que perdeu o zero à esquerda não passa", () => {
+    const text = sheetsText([
+      // 012.345.678-90, guardado como número.
+      { name: "a", rows: [[1234567890, "linha", 1500.5, 12345]] },
+    ]);
+    expect(text).toContain("[documento]");
+    expect(text).toContain("1500.5");
+    expect(text).toContain("12345");
+  });
+});
+
+describe("processo isolado", () => {
+  it("o filho não recebe segredo nenhum", () => {
+    process.env.DATABASE_URL = "postgres://segredo";
+    process.env.ANTHROPIC_API_KEY = "segredo";
+    const env = JSON.stringify(childEnv());
+    expect(env).not.toContain("segredo");
+  });
+
+  it("abre PDF com texto, em linhas", async () => {
+    const opened = await readInChild({ kind: "pdf", bytes: pdfOf("Extrato Exemplo"), year: 2026 });
+    expect(opened).toMatchObject({ ok: true, pages: 1, text: "Extrato Exemplo" });
+  });
+
+  it("PDF corrompido vira falha do arquivo", async () => {
+    const bytes = new TextEncoder().encode("%PDF-1.7 corrompido");
+    expect(await readInChild({ kind: "pdf", bytes, year: 2026 })).toEqual({
+      ok: false,
+      failure: "ilegivel",
+    });
   });
 
   it("texto em Windows-1252, como os bancos exportam", async () => {
-    const opened = await openSmartFile("txt", new Uint8Array([0x63, 0xe3, 0x6f]), 2026);
-    if (typeof opened === "string") throw new Error(opened);
-    expect(opened.contents.text).toBe("cão");
+    const opened = await readInChild({
+      kind: "txt",
+      bytes: new Uint8Array([0x63, 0xe3, 0x6f]),
+      year: 2026,
+    });
+    expect(opened).toMatchObject({ ok: true, text: "cão", reading: null });
   });
 
-  it("nota no arquivo aberto passa pelo reconhecedor", async () => {
-    const opened = await openSmartFile("txt", new TextEncoder().encode("nada útil"), 2026);
-    if (typeof opened === "string") throw new Error(opened);
-    expect(recognizeSmartFile(opened.contents)).toBeNull();
+  it("OFX é reconhecido lá dentro", async () => {
+    const bytes = new TextEncoder().encode(
+      "OFXHEADER:100\n<OFX><STMTTRN><DTPOSTED>20261001<TRNAMT>-1.00<FITID>a<MEMO>LOJA</STMTTRN></OFX>",
+    );
+    const opened = await readInChild({ kind: "ofx", bytes, year: 2026 });
+    expect(opened.ok && opened.reading?.docType).toBe("extrato");
+  });
+
+  it("estourou o tempo: mata o filho e responde", async () => {
+    const bytes = new TextEncoder().encode("texto");
+    const started = Date.now();
+    expect(await readInChild({ kind: "txt", bytes, year: 2026, timeoutMs: 5 })).toEqual({
+      ok: false,
+      failure: "demorado",
+    });
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+});
+
+describe("revisão de segurança, no modelo", () => {
+  const trade = (ticker: string) =>
+    item({
+      destino: "operacao",
+      codigo_ativo: ticker,
+      operacao: "compra",
+      data: "2026-10-10",
+      quantidade: "10",
+      preco_unitario: "30.00",
+    });
+
+  it("cada operação ganha a própria linha", () => {
+    const reading = sanitizeSmartAnswer(
+      answer({ itens: [trade("PETR4"), trade("VALE3"), trade("ITUB4")] }),
+      privacy,
+      today,
+    )!;
+    expect(reading.proposals.map((row) => (row.payload as { line: number }).line)).toEqual([
+      1, 2, 3,
+    ]);
+  });
+
+  it("número com expoente, vírgula ou infinito não entra", () => {
+    const reading = sanitizeSmartAnswer(
+      answer({
+        itens: [
+          item({ descricao: "A", valor: "1e400", data: "2026-10-01" }),
+          item({ descricao: "B", valor: "1.234,56", data: "01/10/2026" }),
+        ],
+      }),
+      privacy,
+      today,
+    )!;
+    expect(reading.proposals[0]!.payload).toMatchObject({ amount: null });
+    expect(reading.proposals[1]!.payload).toMatchObject({ amount: null, date: null });
+  });
+
+  it("lançamento com data absurda vai para conferir", () => {
+    const reading = sanitizeSmartAnswer(
+      answer({ itens: [item({ descricao: "A", valor: "10.00", data: "2070-01-01" })] }),
+      privacy,
+      today,
+    )!;
+    expect(reading.proposals[0]).toMatchObject({ confidence: "baixa" });
+    expect(reading.proposals[0]!.payload).toMatchObject({ date: null });
+    expect(reading.notes).toContain("codigo:data_estranha");
+  });
+
+  it("dado pessoal com outros nomes também não vira campo", () => {
+    const reading = sanitizeSmartAnswer(
+      answer({
+        campos: ["Beneficiário", "Titular", "Testemunha", "Mutuário", "Segurado"].map((rotulo) => ({
+          rotulo,
+          valor: "Pessoa Fictícia",
+        })),
+      }),
+      privacy,
+      today,
+    )!;
+    expect(reading.fields).toEqual([]);
   });
 });

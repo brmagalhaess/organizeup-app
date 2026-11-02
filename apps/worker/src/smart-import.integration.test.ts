@@ -1,6 +1,7 @@
 // Job `smart-import` contra um Postgres real, com a conexão do worker (`ou_worker`). Sem chave do modelo: prova
 // as regras, o isolamento de falha e o registro em `ops`, só com contagens. Dados fictícios.
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import type { SmartImportJob } from "@organizeup/db";
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -28,6 +29,17 @@ const ofx = (id: string) => `OFXHEADER:100
 <OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
 <STMTTRN><DTPOSTED>20261001<TRNAMT>-150.00<FITID>${id}<MEMO>MERCADO ${id.toUpperCase()}</STMTTRN>
 </BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+
+/** O que a fila faria: cada job lê um arquivo, e o seguinte entra no fim. */
+async function drain(first: SmartImportJob) {
+  const queue: SmartImportJob[] = [first];
+  let jobs = 0;
+  while (queue.length > 0) {
+    jobs += 1;
+    await runSmartImportJob(log, queue.shift()!, async (next) => queue.push(next));
+  }
+  return jobs;
+}
 
 async function lotOf(files: Array<[string, Uint8Array]>) {
   return db.withHousehold(ctx, async (tx) => {
@@ -73,7 +85,7 @@ describe("worker do importador", () => {
       ["dois.ofx", encode(ofx("dois"))],
       ["contrato.txt", encode("Contrato sem IA disponível")],
     ]);
-    await runSmartImportJob(log, { householdId: FAMILY, importId });
+    expect(await drain({ householdId: FAMILY, importId })).toBe(4);
     const seen = await db.withHousehold(ctx, async (tx) => ({
       files: await agents.listSmartFiles(tx, importId),
       items: await agents.listSmartItems(tx, importId),
@@ -95,11 +107,37 @@ describe("worker do importador", () => {
 
   it("job repetido não lê de novo, e sem lote é a limpeza", async () => {
     const importId = await lotOf([["tres.ofx", encode(ofx("tres"))]]);
-    await runSmartImportJob(log, { householdId: FAMILY, importId });
-    await runSmartImportJob(log, { householdId: FAMILY, importId });
+    await drain({ householdId: FAMILY, importId });
+    await drain({ householdId: FAMILY, importId });
     const items = await db.withHousehold(ctx, (tx) => agents.listSmartItems(tx, importId));
     expect(items).toHaveLength(1);
     await expect(runSmartImportJob(log, {})).resolves.toBeUndefined();
+  });
+
+  it("lote grande não segura outra família: cada job lê um arquivo e vai para o fim", async () => {
+    const big = await lotOf([
+      ["g1.ofx", encode(ofx("g1"))],
+      ["g2.ofx", encode(ofx("g2"))],
+      ["g3.ofx", encode(ofx("g3"))],
+    ]);
+    const small = await lotOf([["p1.ofx", encode(ofx("p1"))]]);
+    const order: string[] = [];
+    const queue: SmartImportJob[] = [
+      { householdId: FAMILY, importId: big },
+      { householdId: FAMILY, importId: small },
+    ];
+    while (queue.length > 0) {
+      const job = queue.shift()!;
+      order.push(job.importId === big ? "grande" : "pequeno");
+      await runSmartImportJob(log, job, async (next) => queue.push(next));
+    }
+    expect(order).toEqual(["grande", "pequeno", "grande", "grande"]);
+  });
+
+  it("família apagada no meio: o job termina, sem repetir", async () => {
+    await expect(
+      runSmartImportJob(log, { householdId: "hh-que-nao-existe", importId: "lote" }),
+    ).resolves.toBeUndefined();
   });
 
   it("nada de texto em `ops`: a rodada só guarda contagens", async () => {

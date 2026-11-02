@@ -17,7 +17,7 @@ process.env.ANTHROPIC_API_KEY = "chave-de-teste";
 const db = await import("@organizeup/db");
 const domain = await import("@organizeup/domain");
 const agents = await import("@organizeup/agents");
-const ai = await import("../src/index");
+const ai = { ...(await import("../src/index")), ...(await import("../src/importador/run")) };
 const { fakeClient, textReply } = await import("./fake-client");
 
 const A = { household: "hh-imp-a", owner: "user-imp-a" };
@@ -167,6 +167,7 @@ beforeEach(async () => {
     await tx.delete(db.smartImports);
     await tx.delete(db.householdNotifications);
     await tx.delete(db.householdFileConsents);
+    await tx.delete(db.householdFileScopes);
   });
   await db.withAdmin("limpa o uso", (admin) => admin.delete(db.aiUsage));
   await ai.deactivateAssistant(owner);
@@ -203,12 +204,17 @@ describe("sem aceite", () => {
     expect((await view(owner, importId)).files[0]).toMatchObject({ failure: "precisa_aceitar" });
   });
 
-  it("aceite de dívidas antigo não cobre o importador", async () => {
+  it("aceite por escopo: dívidas não abre o importador, nem o contrário", async () => {
     await activate();
-    await ai.acceptDebtFiles(owner, ai.FILES_CONSENT_VERSION);
+    await ai.acceptDebtFiles(owner, "2099-01-01.1");
     expect(await ai.importerGate({ ctx: owner, limits, day })).toBe("precisa_aceitar");
+    await db.withHousehold(owner, (tx) => tx.delete(db.householdFileConsents));
     await accept();
     expect(await ai.importerGate({ ctx: owner, limits, day })).toBe("pronto");
+    expect(await ai.debtFileGate({ ctx: owner, limits, day })).toBe("precisa_aceitar");
+    await ai.deactivateAssistant(owner);
+    const left = await db.withHousehold(owner, (tx) => tx.select().from(db.householdFileScopes));
+    expect(left).toEqual([]);
   });
 
   it("a pessoa pode não pedir IA, mesmo com tudo liberado", async () => {
@@ -348,6 +354,12 @@ describe("com aceite", () => {
     const bytes = encode("Contrato repetido");
     const first = await lotOf(owner, [["contrato.txt", bytes]]);
     await ai.runSmartImport({ ctx: owner, client, importId: first, limits, day });
+    await db.withHousehold(owner, (tx) =>
+      tx
+        .update(db.smartImports)
+        .set({ status: "concluido" })
+        .where(db.eq(db.smartImports.id, first)),
+    );
     const second = await lotOf(owner, [["de-novo.txt", bytes]]);
     await ai.runSmartImport({ ctx: owner, client, importId: second, limits, day });
     expect(calls).toHaveLength(1);
@@ -465,6 +477,94 @@ describe("com aceite", () => {
       "issuer",
     ]);
     expect(documents[0]!.fields).toEqual([{ label: "Número do contrato", value: "778" }]);
+  });
+});
+
+describe("revisão de segurança", () => {
+  it("mesmo arquivo em lote aberto é recusado", async () => {
+    const bytes = encode(ofx("sha-aberto"));
+    await lotOf(owner, [["a.ofx", bytes]]);
+    await expect(lotOf(owner, [["b.ofx", bytes]])).rejects.toThrow("em_outro_lote");
+  });
+
+  it("depois de 2 tentativas o arquivo vira falho, sem laço de queda", async () => {
+    const importId = await lotOf(owner, [["a.ofx", encode(ofx("queda"))]]);
+    const later = (minutes: number) => new Date(Date.now() + minutes * 60_000);
+    const claim = (now: Date) =>
+      db.withHousehold(owner, (tx) => agents.claimSmartFile(tx, importId, now));
+    expect(await claim(new Date())).not.toBeNull();
+    expect(await claim(later(1))).toBeNull();
+    expect(await claim(later(10))).not.toBeNull();
+    expect(await claim(later(20))).toBeNull();
+    const { files } = await view(owner, importId);
+    expect(files[0]).toMatchObject({ status: "falhou", failure: "queda", readAttempts: 2 });
+    expect(await claim(later(30))).toBeNull();
+  });
+
+  it("só arquivo falho volta para a fila", async () => {
+    const importId = await lotOf(owner, [["a.ofx", encode(ofx("fila"))]]);
+    await ai.runSmartImport({ ctx: owner, client: null, importId, limits, day });
+    const { files } = await view(owner, importId);
+    expect(
+      await db.withHousehold(owner, (tx) => agents.requeueSmartFile(tx, owner, files[0]!.id)),
+    ).toBeNull();
+  });
+
+  it("uma rodada lê um arquivo e diz que falta; seleção da pessoa sobrevive", async () => {
+    const importId = await lotOf(owner, [
+      ["a.ofx", encode(ofx("r1"))],
+      ["b.ofx", encode(ofx("r2", "-99.00"))],
+    ]);
+    const first = await ai.runSmartImport({
+      ctx: owner,
+      client: null,
+      importId,
+      limits,
+      day,
+      maxFiles: 1,
+    });
+    expect(first).toMatchObject({ files: 1, remaining: true });
+    const second = await ai.runSmartImport({
+      ctx: owner,
+      client: null,
+      importId,
+      limits,
+      day,
+      maxFiles: 1,
+    });
+    expect(second).toMatchObject({ files: 1, remaining: false });
+    const { items, lot } = await view(owner, importId);
+    expect(lot.status).toBe("revisao");
+    expect(items.every((item) => item.selected)).toBe(true);
+  });
+
+  it("família apagada no meio da leitura termina sem erro", async () => {
+    const id = "hh-imp-apagada";
+    const person = "user-imp-apagada";
+    await db.withAdmin("seed da família apagada", async (admin) => {
+      await admin.insert(db.user).values({ id: person, name: "X", email: "x.imp@example.com" });
+      await admin.insert(db.household).values({ id, name: "F", slug: id });
+      await admin
+        .insert(db.householdMember)
+        .values({ id: `m-${id}`, organizationId: id, userId: person, role: "owner" });
+    });
+    const ctx = await ctxOf(person, id);
+    await db.withHousehold(ctx, async (tx) => {
+      await tx.insert(db.householdSettings).values({ householdId: id });
+    });
+    await ai.activateAssistant(ctx, { autonomy: "organizar", version: "2026-11-02.1" });
+    await ai.acceptImporterFiles(ctx, ai.IMPORTER_CONSENT_VERSION);
+    const { client } = fakeClient([
+      async () => {
+        await db.withAdmin("apaga no meio da leitura", (admin) =>
+          admin.delete(db.household).where(db.eq(db.household.id, id)),
+        );
+        return contractReply();
+      },
+    ]);
+    const importId = await lotOf(ctx, [["c.txt", encode("Contrato")]]);
+    const run = await ai.runSmartImport({ ctx, client, importId, limits, day });
+    expect(run).toMatchObject({ remaining: false });
   });
 });
 
