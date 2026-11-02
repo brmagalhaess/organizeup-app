@@ -128,10 +128,7 @@ test("as telas novas passam no axe, sem rolagem lateral, nas duas larguras", asy
   }
 });
 
-test("com a chave desligada, receita é honesta e a Stripe fica fora, com o motivo", async ({
-  page,
-  browser,
-}) => {
+test("com a chave desligada, a receita é honesta", async ({ page }) => {
   plano("chave", "off");
   await signInAsAdmin(page);
 
