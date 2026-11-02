@@ -1231,7 +1231,31 @@ describe("uma assinatura por família", () => {
   });
 
   it("dois cliques ao mesmo tempo: um só chega à Stripe", async () => {
-    const replies = await Promise.all([actions.subscribe(FAMILY), actions.subscribe(FAMILY)]);
+    let markEntered!: () => void;
+    let releaseCheckout!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      markEntered = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      releaseCheckout = resolve;
+    });
+    gateway.createCheckout.mockImplementationOnce(async () => {
+      markEntered();
+      await release;
+      return { id: "cs_concorrente", url: "https://checkout.example.com/sessao" };
+    });
+
+    const first = actions.subscribe(FAMILY);
+    let second: Awaited<ReturnType<typeof actions.subscribe>>;
+    try {
+      // Mantém a primeira chamada na região protegida até a segunda terminar.
+      await entered;
+      second = await actions.subscribe(FAMILY);
+    } finally {
+      releaseCheckout();
+      await first;
+    }
+    const replies = [await first, second];
     expect(replies.filter((reply) => reply.ok)).toHaveLength(1);
     expect(replies.filter((reply) => !reply.ok)).toEqual([{ ok: false, code: "em_andamento" }]);
     expect(gateway.createCheckout).toHaveBeenCalledOnce();
