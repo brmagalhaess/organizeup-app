@@ -4,7 +4,6 @@ import {
   buildMonthEntries,
   spendingByCategory,
   summarizeMonth,
-  type MonthEntry,
   type TransactionInput,
 } from "../src/cashflow";
 import type { CardBookEntry } from "../src/dashboard";
@@ -208,9 +207,7 @@ describe("categorias do mês", () => {
           );
           const summary = summarizeMonth(entries);
           const folded = foldCategories(expenseLines(entries, cardLines, "cartao"), 2);
-          expect(folded.total).toBe(
-            money(summary.spent).plus(summary.plannedExpense).toFixed(2),
-          );
+          expect(folded.total).toBe(money(summary.spent).plus(summary.plannedExpense).toFixed(2));
         },
       ),
     );

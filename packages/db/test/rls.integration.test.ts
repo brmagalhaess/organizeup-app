@@ -4316,6 +4316,46 @@ describe("diagnósticos", () => {
   });
 });
 
+describe("painel por mês", () => {
+  it("primeiro movimento e saldo numa data só enxergam a própria família", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const other = await ctxFor(B.owner, B.household);
+    const accountId = await db.withHousehold(owner, async (tx) => {
+      await db.ensureFinanceDefaults(tx, A.household);
+      const [account] = await tx
+        .insert(db.accounts)
+        .values({ householdId: A.household, name: "Do painel", openingBalance: "10.00" })
+        .returning({ id: db.accounts.id });
+      const [category] = await tx.select({ id: db.categories.id }).from(db.categories).limit(1);
+      await tx.insert(db.transactions).values({
+        householdId: A.household,
+        accountId: account!.id,
+        categoryId: category!.id,
+        kind: "despesa",
+        description: "Lançamento antigo",
+        amount: "3.00",
+        occurredOn: "2001-02-03",
+      });
+      return account!.id;
+    });
+    expect(await db.withHousehold(owner, db.firstMovementDate)).toBe("2001-02-03");
+    expect(await db.withHousehold(other, db.firstMovementDate)).not.toBe("2001-02-03");
+
+    const balanceOn = (ctx: typeof owner, on: string) =>
+      db.withHousehold(ctx, async (tx) => (await db.accountBalances(tx, { on })).accounts);
+    const before = await balanceOn(owner, "2001-02-02");
+    expect(before.find((row) => row.id === accountId)?.balance).toBe("10.00");
+    const after = await balanceOn(owner, "2001-02-03");
+    expect(after.find((row) => row.id === accountId)?.balance).toBe("7.00");
+    const theirs = await balanceOn(other, "2001-02-03");
+    expect(theirs.some((row) => row.id === accountId)).toBe(false);
+    await db.withHousehold(owner, async (tx) => {
+      await tx.delete(db.transactions).where(eq(db.transactions.accountId, accountId));
+      await tx.delete(db.accounts).where(eq(db.accounts.id, accountId));
+    });
+  });
+});
+
 describe("moeda principal (ADR-0020, Fase 6)", () => {
   it("a moeda de uma família não vaza nem é mudada pela outra", async () => {
     const owner = await ctxFor(A.owner, A.household);

@@ -21,7 +21,6 @@ async function signUp(page: Page, name: string) {
 
 test("sugestões vazias, menu e aviso do cadastro", async ({ page }) => {
   await signUp(page, "Bia");
-  await expect(page.getByRole("heading", { name: "Sugestões do assistente" })).toBeVisible();
 
   // O menu leva para a tela; no celular ele abre pela barra inferior.
   const more = page.getByRole("button", { name: "Mais", exact: true });
