@@ -139,6 +139,9 @@ async function vipWithin(tx: TenantTx): Promise<VipState | null> {
     });
 }
 
+/** Concessão aberta da família, para o aviso de que vai acabar. A regra é `vipNoticeDue`. */
+export const readFamilyVip = (ctx: TenantContext) => withHousehold(ctx, vipWithin);
+
 /**
  * O que a família pode agora. Com a chave desligada nem lê a assinatura: todos como hoje. `flags` evita
  * reler as chaves quando quem chama já as tem, como a rodada dos agentes.

@@ -17,7 +17,12 @@ import {
   recordDeployment,
   recordWorkerHeartbeat,
 } from "@organizeup/db";
-import { MERCADO_AGENT, runBillingEvents, runBillingRenewals } from "@organizeup/agents";
+import {
+  MERCADO_AGENT,
+  runBillingEvents,
+  runBillingRenewals,
+  runVipNotices,
+} from "@organizeup/agents";
 import { migrate, migrateOptionsFromEnv } from "@organizeup/db/migrator";
 import { todayIn } from "@organizeup/domain";
 import { dailyAgentsSentinel, runDailyAgents } from "./daily-agents";
@@ -125,6 +130,7 @@ async function main() {
     JOB_QUEUES.billingRenewals,
     reportingFailures(JOB_QUEUES.billingRenewals, async () => {
       log.info({ sent: await runBillingRenewals(log) }, "avisos de renovação anual");
+      log.info({ sent: await runVipNotices(log) }, "avisos de VIP acabando");
     }),
   );
   await boss.schedule(JOB_QUEUES.billingRenewals, "0 9 * * *", null, { tz: "America/Sao_Paulo" });

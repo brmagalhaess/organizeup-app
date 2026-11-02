@@ -12,6 +12,8 @@ import {
   listHouseholdIds,
   pendingBillingEvents,
   priceBook,
+  readFamilyVip,
+  readPlatformFlags,
   readSubscription,
   retryBillingEvent,
   sql,
@@ -25,6 +27,8 @@ import {
 import {
   annualRenewalDue,
   todayIn,
+  vipNoticeDue,
+  willChargeAgain,
   type BillingCycle,
   type BillingModule,
   type FamilyAccess,
@@ -307,7 +311,7 @@ export async function applyBillingEvent(
   }
 }
 
-type BillingNotice = "assinatura_falhou" | "assinatura_renovacao";
+type BillingNotice = "assinatura_falhou" | "assinatura_renovacao" | "vip_vencendo";
 
 const HREF = "/app/assinatura";
 
@@ -454,6 +458,34 @@ export async function runBillingRenewals(log: Log, now: Date = new Date()): Prom
         { householdId, code: (error as { code?: string }).code },
         "aviso de renovação falhou",
       );
+    }
+  }
+  return sent;
+}
+
+/**
+ * Aviso de que o VIP sem custo está acabando, um por data de fim: sem isso a família cai em só leitura de
+ * surpresa. Quem já assinou para depois do VIP não precisa dele. Com a chave desligada, ninguém perde nada.
+ */
+export async function runVipNotices(log: Log, now: Date = new Date()): Promise<number> {
+  const { billingEnabled } = await readPlatformFlags();
+  if (!billingEnabled) return 0;
+  let sent = 0;
+  for (const householdId of await listHouseholdIds()) {
+    try {
+      const ctx = fromJob({ householdId });
+      const vip = await readFamilyVip(ctx);
+      if (!vip?.endsAt || !vipNoticeDue(vip, now)) continue;
+      const row = await readSubscription(ctx);
+      if (row && willChargeAgain(row)) continue;
+      const end = vip.endsAt;
+      const created = await withHousehold(ctx, async (tx) => {
+        const date = todayIn(await householdTimezone(tx, householdId), end);
+        return notify(tx, householdId, "vip_vencendo", `vip-vencendo:${date}`, date);
+      });
+      if (created) sent += 1;
+    } catch (error) {
+      log.error({ householdId, code: (error as { code?: string }).code }, "aviso de VIP falhou");
     }
   }
   return sent;

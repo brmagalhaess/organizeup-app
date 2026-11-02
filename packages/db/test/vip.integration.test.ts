@@ -107,7 +107,10 @@ async function restoreCatalog() {
     const ids = catalogBefore.map((row) => row.id);
     await tx.delete(billingCatalog).where(db.notInArray(billingCatalog.id, ids));
     for (const { id, onSale, stripePriceId } of catalogBefore) {
-      await tx.update(billingCatalog).set({ onSale, stripePriceId }).where(eq(billingCatalog.id, id));
+      await tx
+        .update(billingCatalog)
+        .set({ onSale, stripePriceId })
+        .where(eq(billingCatalog.id, id));
     }
   });
 }
@@ -264,6 +267,37 @@ describe("VIP sem custo com a chave ligada", () => {
 
     await setSub(family.id, { cancelAtPeriodEnd: true });
     expect(await db.adminGrantVip(admin, grant(family.id))).toBe("ok");
+  });
+});
+
+describe("recusa quando a Stripe ainda pode cobrar", () => {
+  it.each(["active", "past_due", "incomplete", "unpaid"])(
+    "%s: nem VIP sem custo, nem cortesia",
+    async (status) => {
+      const family = await newFamily();
+      await setSub(family.id, { courtesy: false, status });
+      expect(await db.adminGrantVip(admin, grant(family.id))).toBe("assinatura_viva");
+      expect(await db.adminSetCourtesy(admin, family.id, null)).toBe("assinatura_viva");
+    },
+  );
+
+  it("validade não reabre VIP sem custo de quem passou a pagar", async () => {
+    const family = await newFamily();
+    await setSub(family.id, { courtesy: false });
+    await db.adminGrantVip(admin, grant(family.id, { endsAt: new Date(Date.now() + DAY) }));
+    await setSub(family.id, { status: "active" });
+    const [row] = await rowsOf(family.id);
+    expect(await db.adminExtendVip(admin, row!.id, null)).toBe("assinatura_viva");
+    expect((await rowsOf(family.id))[0]?.endsAt).not.toBeNull();
+    expect(await logged("vip:validade", family.id)).toEqual([]);
+  });
+
+  it("com desconto a validade muda: a assinatura é o caminho dele", async () => {
+    const family = await newFamily();
+    await setSub(family.id, { courtesy: false, status: "active" });
+    await db.adminGrantVip(admin, grant(family.id, { cost: "desconto", discountPercent: 20 }));
+    const [row] = await rowsOf(family.id);
+    expect(await db.adminExtendVip(admin, row!.id, new Date(Date.now() + DAY))).toBe("ok");
   });
 });
 
@@ -449,6 +483,21 @@ describe("regras do painel", () => {
     expect(await rowsOf(family.id)).toEqual([]);
   });
 
+  it("quem participa da família não opera a Stripe dela, nem remove o VIP dela", async () => {
+    const family = await newFamily();
+    const self = { adminUserId: family.owner };
+    await setSub(family.id, {
+      stripeCustomerId: `cus_self${serial}`,
+      stripeSubscriptionId: `sub_self${serial}`,
+    });
+    expect(await db.adminStripeTarget(self, family.id)).toBe("own_family");
+    expect(await db.adminGrantVip(admin, grant(family.id))).toBe("ok");
+    const [row] = await rowsOf(family.id);
+    expect(await db.adminRevokeVip(self, row!.id)).toBe("own_family");
+    expect((await rowsOf(family.id))[0]?.revokedAt).toBeNull();
+    expect(await logged("vip:remover", family.id)).toEqual([]);
+  });
+
   it("família que não existe", async () => {
     expect(await db.adminGrantVip(admin, grant("hh-nao-existe"))).toBe("not_found");
     expect(await db.adminGrantTrialDays(admin, "hh-nao-existe", 7)).toBe("not_found");
@@ -536,7 +585,12 @@ describe("catálogo", () => {
         .where(eq(billingCatalog.id, old!.id)),
     );
     expect(
-      await db.adminNewPrice(admin, { item: "modulo:metas", cycle: "mes", amount: "8.90" }),
+      await db.adminNewPrice(admin, {
+        item: "modulo:metas",
+        cycle: "mes",
+        amount: "8.90",
+        basedOn: old!.id,
+      }),
     ).toBe("ok");
     const [current] = await onSale("modulo:metas", "mes");
     expect(current).toMatchObject({ amount: "8.90", stripePriceId: null });
@@ -558,7 +612,13 @@ describe("catálogo", () => {
   });
 
   it("não cria preço na Stripe: o id só chega por ação explícita, uma vez", async () => {
-    await db.adminNewPrice(admin, { item: "modulo:dividas", cycle: "ano", amount: "80.00" });
+    const [before] = await onSale("modulo:dividas", "ano");
+    await db.adminNewPrice(admin, {
+      item: "modulo:dividas",
+      cycle: "ano",
+      amount: "80.00",
+      basedOn: before!.id,
+    });
     const [row] = await onSale("modulo:dividas", "ano");
     expect(row?.stripePriceId).toBeNull();
     const line = await db.adminPriceToCreate(row!.id);
@@ -570,17 +630,36 @@ describe("catálogo", () => {
     expect(await db.adminPriceToCreate(row!.id)).toBeNull();
   });
 
-  it("mesmo valor não vira linha nova, e dois preços ao mesmo tempo deixam um à venda", async () => {
-    expect(await db.adminNewPrice(admin, { item: "base:50", cycle: "mes", amount: "9.90" })).toBe(
-      "igual",
-    );
+  it("mesmo valor não vira linha nova", async () => {
+    const [row] = await onSale("base:50", "mes");
+    expect(
+      await db.adminNewPrice(admin, {
+        item: "base:50",
+        cycle: "mes",
+        amount: "9.90",
+        basedOn: row!.id,
+      }),
+    ).toBe("igual");
+  });
+
+  it("três preços ao mesmo tempo: um entra, e os outros ouvem que mudou, sem perda silenciosa", async () => {
+    const [row] = await onSale("base:200", "mes");
+    const asked = ["11.00", "12.00", "13.00"];
     const results = await Promise.all(
-      ["11.00", "12.00", "13.00"].map((amount) =>
-        db.adminNewPrice(admin, { item: "base:200", cycle: "mes", amount }),
+      asked.map((amount) =>
+        db.adminNewPrice(admin, { item: "base:200", cycle: "mes", amount, basedOn: row!.id }),
       ),
     );
-    expect(results).toEqual(["ok", "ok", "ok"]);
-    expect(await onSale("base:200", "mes")).toHaveLength(1);
+    expect(results.filter((result) => result === "ok")).toHaveLength(1);
+    expect(results.filter((result) => result === "mudou")).toHaveLength(2);
+    const sold = await onSale("base:200", "mes");
+    expect(sold).toHaveLength(1);
+    expect(sold[0]?.amount).toBe(asked[results.indexOf("ok")]);
+    const lines = await db.withAdminRead("teste de catálogo", (tx) =>
+      tx.select().from(billingCatalog).where(eq(billingCatalog.item, "base:200")),
+    );
+    // A antiga dos dois ciclos e a nova: nenhuma linha fantasma fora de venda.
+    expect(lines).toHaveLength(3);
   });
 
   it("contas conectadas não vão à venda, nem por preço novo, e não têm anual", async () => {
@@ -588,10 +667,16 @@ describe("catálogo", () => {
     expect(await db.adminSetOnSale(admin, { item, cycle: "mes", onSale: true })).toBe(
       "conexao_inexistente",
     );
-    expect(await db.adminNewPrice(admin, { item, cycle: "ano", amount: "199.00" })).toBe(
+    const [row] = await db.withAdminRead("teste de catálogo", (tx) =>
+      tx.select().from(billingCatalog).where(eq(billingCatalog.item, item)),
+    );
+    const basedOn = row!.id;
+    expect(await db.adminNewPrice(admin, { item, cycle: "ano", amount: "199.00", basedOn })).toBe(
       "sem_anual",
     );
-    expect(await db.adminNewPrice(admin, { item, cycle: "mes", amount: "21.90" })).toBe("ok");
+    expect(await db.adminNewPrice(admin, { item, cycle: "mes", amount: "21.90", basedOn })).toBe(
+      "ok",
+    );
     expect(await onSale(item, "mes")).toEqual([]);
     expect((await db.readBillingCatalog()).map((row) => row.item)).not.toContain(item);
   });
@@ -617,7 +702,7 @@ describe("leituras do painel", () => {
     const row = rows.find((item) => item.householdId === family.id)!;
     expect(row.subscription).toMatchObject({ hasSubscription: true, hasCustomer: true });
     expect(JSON.stringify(rows)).not.toMatch(/cus_vip|sub_vip/);
-    expect(await db.adminStripeTarget(family.id)).toMatchObject({
+    expect(await db.adminStripeTarget(admin, family.id)).toMatchObject({
       customerId: `cus_vip${serial}`,
     });
   });
@@ -697,8 +782,9 @@ describe("leituras do painel", () => {
       statements: 0,
       notifications: 0,
       unread: 0,
-      debts: false,
     });
+    // Uso de módulo por família nomeada não sai daqui: só somado, em `adminProductCounts`.
+    expect(await db.adminFamilyProduct(family.id)).not.toHaveProperty("debts");
     const counts = await db.adminProductCounts();
     expect(JSON.stringify(counts)).not.toMatch(/hh-/);
   });

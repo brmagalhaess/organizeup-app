@@ -199,9 +199,13 @@ export const adminFamilyAccess = (family: AdminFamilyBilling, now: Date): Family
     now,
   });
 
-/** Ids da Stripe de UMA família, para a action chamar o gateway. Nunca vão para a tela. */
-export function adminStripeTarget(householdId: string) {
+/**
+ * Ids da Stripe de UMA família, para a action chamar o gateway. Nunca vão para a tela. Quem participa da
+ * família não age por aqui: usa a tela dela, como qualquer responsável.
+ */
+export function adminStripeTarget(admin: AdminActor, householdId: string) {
   return withAdminRead("painel admin: alvo da Stripe", async (db) => {
+    if (await isMember(db, admin.adminUserId, householdId)) return "own_family" as const;
     const [row] = await db
       .select({
         subscriptionId: householdSubscriptions.stripeSubscriptionId,
@@ -315,15 +319,8 @@ export function adminGrantVip(admin: AdminActor, input: VipGrantInput): Promise<
     if (scope === "pessoa" && !(userId && (await isOwner(tx, userId, householdId)))) {
       return "nao_responsavel";
     }
-    if (input.cost === "sem_custo") {
-      const [sub] = await tx
-        .select({
-          status: householdSubscriptions.status,
-          cancelAtPeriodEnd: householdSubscriptions.cancelAtPeriodEnd,
-        })
-        .from(householdSubscriptions)
-        .where(eq(householdSubscriptions.householdId, householdId));
-      if (sub && willChargeAgain(sub)) return "assinatura_viva";
+    if (input.cost === "sem_custo" && (await stillCharging(tx, householdId))) {
+      return "assinatura_viva";
     }
     const now = new Date();
     await tx
@@ -368,26 +365,11 @@ export function adminGrantVip(admin: AdminActor, input: VipGrantInput): Promise<
 }
 
 /** Remove: a linha fica, com quem e quando. Não mexe em desconto na Stripe: isso é uma ação à parte. */
-export function adminRevokeVip(admin: AdminActor, id: string): Promise<"ok" | "not_found"> {
-  return act("vip:remover", async (tx) => {
-    const [row] = await tx
-      .update(vipGrants)
-      .set({ revokedAt: new Date(), revokedBy: admin.adminUserId })
-      .where(and(eq(vipGrants.id, id), isNull(vipGrants.revokedAt)))
-      .returning({ householdId: vipGrants.householdId, userId: vipGrants.userId });
-    if (!row) return "not_found";
-    await audit(tx, admin, "vip:remover", row);
-    return "ok";
-  });
-}
-
-/** Muda a validade de uma concessão aberta. Null: sem data. */
-export function adminExtendVip(
+export function adminRevokeVip(
   admin: AdminActor,
   id: string,
-  endsAt: Date | null,
 ): Promise<"ok" | "not_found" | "own_family"> {
-  return act("vip:validade", async (tx) => {
+  return act("vip:remover", async (tx) => {
     const [row] = await tx
       .select({ householdId: vipGrants.householdId, userId: vipGrants.userId })
       .from(vipGrants)
@@ -395,6 +377,51 @@ export function adminExtendVip(
       .for("update");
     if (!row) return "not_found";
     if (await isMember(tx, admin.adminUserId, row.householdId)) return "own_family";
+    await tx
+      .update(vipGrants)
+      .set({ revokedAt: new Date(), revokedBy: admin.adminUserId })
+      .where(eq(vipGrants.id, id));
+    await audit(tx, admin, "vip:remover", row);
+    return "ok";
+  });
+}
+
+/** A Stripe segue cobrando esta família? É o que impede dar de graça. */
+async function stillCharging(tx: Reader, householdId: string) {
+  const [sub] = await tx
+    .select({
+      status: householdSubscriptions.status,
+      cancelAtPeriodEnd: householdSubscriptions.cancelAtPeriodEnd,
+    })
+    .from(householdSubscriptions)
+    .where(eq(householdSubscriptions.householdId, householdId));
+  return sub !== undefined && willChargeAgain(sub);
+}
+
+/**
+ * Muda a validade de uma concessão aberta. Null: sem data. Reabrir um VIP sem custo é conceder de novo, então
+ * vale a mesma recusa de `adminGrantVip`: sem isso, a validade daria de graça o que a Stripe segue cobrando.
+ */
+export function adminExtendVip(
+  admin: AdminActor,
+  id: string,
+  endsAt: Date | null,
+): Promise<"ok" | "not_found" | "own_family" | "assinatura_viva"> {
+  return act("vip:validade", async (tx) => {
+    const [row] = await tx
+      .select({
+        householdId: vipGrants.householdId,
+        userId: vipGrants.userId,
+        cost: vipGrants.cost,
+      })
+      .from(vipGrants)
+      .where(and(eq(vipGrants.id, id), isNull(vipGrants.revokedAt)))
+      .for("update");
+    if (!row) return "not_found";
+    if (await isMember(tx, admin.adminUserId, row.householdId)) return "own_family";
+    if (row.cost === "sem_custo" && (await stillCharging(tx, row.householdId))) {
+      return "assinatura_viva";
+    }
     await tx.update(vipGrants).set({ endsAt }).where(eq(vipGrants.id, id));
     await audit(tx, admin, "vip:validade", row);
     return "ok";
@@ -407,10 +434,6 @@ export interface AdminVipRow {
   grant: VipGrant;
   familyName: string;
   status: VipStatus;
-  /** Sem custo, e a Stripe segue cobrando: um webhook chegou depois da concessão. */
-  stillCharged: boolean;
-  /** Desconto em vigor na Stripe. */
-  stripeDiscount: number | null;
 }
 
 function vipStatusOf(row: AdminVipGrant, now: Date): VipStatus {
@@ -431,31 +454,16 @@ export function adminVipList(now: Date = new Date()): Promise<AdminVipRow[]> {
             grant: vipGrants,
             holderActive: holderActive(db),
             familyName: household.name,
-            status: householdSubscriptions.status,
-            cancelAtPeriodEnd: householdSubscriptions.cancelAtPeriodEnd,
-            stripeDiscount: householdSubscriptions.discountPercent,
           })
           .from(vipGrants)
           .innerJoin(household, eq(household.id, vipGrants.householdId))
-          .leftJoin(
-            householdSubscriptions,
-            eq(householdSubscriptions.householdId, vipGrants.householdId),
-          )
           .orderBy(desc(vipGrants.createdAt))
           .limit(500);
-        return rows.map(({ status, cancelAtPeriodEnd, ...row }) => {
-          const vipStatus = vipStatusOf(row, now);
-          return {
-            grant: row.grant,
-            familyName: row.familyName,
-            status: vipStatus,
-            stripeDiscount: row.stripeDiscount,
-            stillCharged:
-              row.grant.cost === "sem_custo" &&
-              (vipStatus === "ativo" || vipStatus === "vencendo") &&
-              willChargeAgain({ status, cancelAtPeriodEnd: cancelAtPeriodEnd ?? false }),
-          };
-        });
+        return rows.map((row) => ({
+          grant: row.grant,
+          familyName: row.familyName,
+          status: vipStatusOf(row, now),
+        }));
       }),
     [],
   );
@@ -511,14 +519,7 @@ export function adminSetCourtesy(
   return act("assinatura:cortesia", async (tx) => {
     if (!(await familyExists(tx, householdId))) return "not_found";
     if (await isMember(tx, admin.adminUserId, householdId)) return "own_family";
-    const [sub] = await tx
-      .select({
-        status: householdSubscriptions.status,
-        cancelAtPeriodEnd: householdSubscriptions.cancelAtPeriodEnd,
-      })
-      .from(householdSubscriptions)
-      .where(eq(householdSubscriptions.householdId, householdId));
-    if (sub && willChargeAgain(sub)) return "assinatura_viva";
+    if (await stillCharging(tx, householdId)) return "assinatura_viva";
     const values = { courtesy: true, courtesyUntil: until, courtesyReason: "painel" };
     await tx
       .insert(householdSubscriptions)
@@ -600,34 +601,45 @@ export function adminCatalog(): Promise<AdminCatalogRow[]> {
 const currentOf = <T extends { onSale: boolean }>(rows: readonly T[]) =>
   rows.find((row) => row.onSale) ?? rows[0];
 
-const catalogRows = (tx: AdminTx, item: string, cycle: BillingCycle) =>
-  tx
+/**
+ * Linhas do item, com a trava pega antes de ler. `FOR UPDATE` sozinho não serve: quem esperou continuaria com a
+ * fotografia de antes, sem ver a linha nova, e gravaria um preço fora de venda sem ninguém saber.
+ */
+async function catalogRows(tx: AdminTx, item: string, cycle: BillingCycle) {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`catalogo:${item}:${cycle}`}, 0))`,
+  );
+  return tx
     .select()
     .from(billingCatalog)
     .where(and(eq(billingCatalog.item, item), eq(billingCatalog.cycle, cycle)))
-    .orderBy(desc(billingCatalog.createdAt))
-    .for("update");
+    .orderBy(desc(billingCatalog.createdAt));
+}
 
 export type CatalogPriceResult =
   | "ok"
   | "not_found"
   | "igual"
   /** Contas conectadas têm cobrança só mensal (spec, seção 1). */
-  | "sem_anual";
+  | "sem_anual"
+  /** O preço mudou depois que a tela abriu: quem chegou depois vê o novo antes de trocar. */
+  | "mudou";
 
 /**
  * Preço novo é linha nova: a antiga sai de venda e fica, porque quem assinou por ela continua nela. A nova nasce
  * sem preço na Stripe, e criar lá é uma ação explícita. Item fora de venda continua fora: mudar preço não põe à venda.
+ * `basedOn` é a linha que a tela mostrava: de dois pedidos ao mesmo tempo, o segundo recebe `mudou`, e não some.
  */
 export function adminNewPrice(
   admin: AdminActor,
-  input: { item: string; cycle: BillingCycle; amount: string },
+  input: { item: string; cycle: BillingCycle; amount: string; basedOn: string },
 ): Promise<CatalogPriceResult> {
-  const { item, cycle, amount } = input;
+  const { item, cycle, amount, basedOn } = input;
   return act("catalogo:preco", async (tx) => {
     if (item === CONNECTED_ITEM && cycle === "ano") return "sem_anual";
     const current = currentOf(await catalogRows(tx, item, cycle));
     if (!current) return "not_found";
+    if (current.id !== basedOn) return "mudou";
     if (money(current.amount).eq(amount)) return "igual";
     await tx.update(billingCatalog).set({ onSale: false }).where(eq(billingCatalog.id, current.id));
     await tx
@@ -849,16 +861,17 @@ export interface AdminFamilyProduct {
   lastStatementAt: Date | null;
   notifications: number;
   unread: number;
-  /** Tem dívida cadastrada: só sim ou não. */
-  debts: boolean;
 }
 
-/** Moeda principal, relatórios e notificações de UMA família: só código, datas e contagens. */
+/**
+ * Moeda principal, relatórios e notificações de UMA família: só código, datas e contagens. Uso de módulo por
+ * família nomeada fica de fora: isso o painel só vê somado (ADR-0025).
+ */
 export function adminFamilyProduct(id: string): Promise<AdminFamilyProduct | null> {
   return tolerateSchemaLag(
     () =>
       withAdminRead("painel admin: telas da família", async (db) => {
-        const [[settings], [reports], [statements], [notifications], debts] = await Promise.all([
+        const [[settings], [reports], [statements], [notifications]] = await Promise.all([
           db
             .select({ currency: householdSettings.mainCurrency })
             .from(householdSettings)
@@ -881,9 +894,6 @@ export function adminFamilyProduct(id: string): Promise<AdminFamilyProduct | nul
             })
             .from(householdNotifications)
             .where(eq(householdNotifications.householdId, id)),
-          db.execute<{ used: boolean }>(
-            sql`select exists(select 1 from debts where household_id = ${id}) as used`,
-          ),
         ]);
         return {
           mainCurrency: settings?.currency ?? "BRL",
@@ -893,7 +903,6 @@ export function adminFamilyProduct(id: string): Promise<AdminFamilyProduct | nul
           lastStatementAt: statements?.at ? new Date(statements.at) : null,
           notifications: notifications?.n ?? 0,
           unread: notifications?.unread ?? 0,
-          debts: debts[0]?.used ?? false,
         };
       }),
     null,
