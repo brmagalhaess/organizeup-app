@@ -14,7 +14,7 @@ import { accounts, canWrite, debtInstallments, debts, eq, withHousehold } from "
 import { audit } from "@/lib/audit";
 import { fieldErrors, parseDebtTerms } from "@/lib/debt-form";
 import { LEGAL_VERSION } from "@/lib/legal";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
 
 export interface DebtFormState {
   ok: boolean;
@@ -33,7 +33,7 @@ const commonSchema = (errors: Messages["dividas"]["errors"]) =>
 
 /** Cria a dívida com seu calendário. Na edição, só nome e conta mudam. */
 export async function saveDebt(_prev: DebtFormState, form: FormData): Promise<DebtFormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("dividas");
   if (!canWrite(ctx)) return { ok: false, message: await readOnly() };
   const [t, locale, { dividas }] = await Promise.all([
     getTranslations("dividas"),
@@ -84,7 +84,7 @@ export async function saveDebt(_prev: DebtFormState, form: FormData): Promise<De
 
 /** Sem parcela paga, apaga. Com histórico, encerra: as parcelas em aberto saem do mês. */
 export async function closeDebt(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("dividas");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
@@ -104,7 +104,7 @@ export async function closeDebt(form: FormData): Promise<void> {
 }
 
 export async function reopenDebt(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("dividas");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
@@ -116,7 +116,7 @@ export async function reopenDebt(form: FormData): Promise<void> {
 
 /** Apaga de verdade o arquivo. A dívida ligada a ele continua. */
 export async function deleteDocument(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("dividas");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, (tx) => deleteDebtDocument(tx, ctx, id));
@@ -125,7 +125,7 @@ export async function deleteDocument(form: FormData): Promise<void> {
 
 /** Aceite de mandar arquivos ao serviço de IA, dado na própria tela de importação. */
 export async function acceptFiles(): Promise<{ ok: boolean; message: string | null }> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("dividas");
   if (!canUseAssistant(ctx)) {
     return {
       ok: false,
@@ -150,7 +150,7 @@ export async function confirmDebtImport(
   _prev: DebtFormState,
   form: FormData,
 ): Promise<DebtFormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("dividas");
   if (!canWrite(ctx)) return { ok: false, message: await readOnly() };
   const [t, locale, { dividas }] = await Promise.all([
     getTranslations("dividas"),

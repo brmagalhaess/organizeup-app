@@ -1360,6 +1360,18 @@
       "sem_permissao": {
         "title": "El asistente es para los adultos de la familia",
         "text": "Solo el responsable o un adulto de la familia puede conversar con él. Pídele a uno de ellos que lo active o que pregunte por ti."
+      },
+      "somente_leitura": {
+        "title": "Tu familia solo está consultando",
+        "text": "La prueba o la suscripción terminó. Suscríbete para volver a conversar."
+      },
+      "sem_modulo": {
+        "title": "El asistente no está en tu plan",
+        "text": "Inclúyelo en Plan y suscripción. Lo demás sigue normal."
+      },
+      "limite_mensagens": {
+        "title": "Se acabaron los mensajes del mes",
+        "text": "La conversación vuelve cuando cambie el mes o al subir de escalón. Lo demás sigue normal."
       }
     },
     "errors": {
@@ -1672,7 +1684,22 @@
       "settings": "Configuración",
       "suggestions": "Sugerencias",
       "trips": "Viajes",
-      "wealth": "Patrimonio"
+      "wealth": "Patrimonio",
+      "subscription": "Plan y suscripción"
+    },
+    "billing": {
+      "link": "Ver planes",
+      "readOnly": "Tu prueba terminó. Ves y exportas todo, y no se borró nada. Para cambiar algo, suscríbete.",
+      "pastDue": "No pudimos cobrar tu suscripción. Revisa la tarjeta para no perder el acceso.",
+      "trial": "{count, plural, =0 {Tu prueba termina hoy.} one {Falta # día para que termine la prueba.} other {Faltan # días para que termine la prueba.}}",
+      "entries": {
+        "aviso": "Ya usaste {used} de {limit} movimientos este mes.",
+        "limite": "Llegaste a los {limit} movimientos del mes. Lo que existe sigue igual; para registrar más, sube de escalón."
+      },
+      "messages": {
+        "aviso": "Ya usaste {used} de {limit} mensajes al asistente este mes.",
+        "limite": "Se acabaron los mensajes del mes. La conversación vuelve cuando cambie el mes o al subir de escalón."
+      }
     }
   },
   "auth": {
@@ -2105,7 +2132,8 @@
       "pending": "Eliminando…",
       "submit": "Eliminar mi cuenta",
       "text": "Esto no se puede deshacer. Se elimina tu cuenta y, si la familia es solo tuya, también todos sus datos. Las copias de seguridad se reemplazan en un máximo de 30 días.",
-      "wrongPassword": "Contraseña incorrecta."
+      "wrongPassword": "Contraseña incorrecta.",
+      "billingFailed": "No pudimos cancelar la suscripción, así que no se borró nada. Inténtalo de nuevo en un momento."
     },
     "noPermission": "Tu papel en esta familia no permite cambios.",
     "currency": {
@@ -2289,7 +2317,10 @@
       "goalEntry": "Este movimiento ahorra dinero para una meta. Para cambiarlo, elimínalo y confírmalo de nuevo.",
       "planNotFound": "Previsión no encontrada.",
       "statementPaid": "El resumen de {month} ya se pagó. Usa una fecha posterior a su cierre.",
-      "noQuote": "Todavía no tenemos la cotización del {currency, select, USD {dólar} EUR {euro} other {real}} de esta fecha. Inténtalo más tarde o usa otra fecha."
+      "noQuote": "Todavía no tenemos la cotización del {currency, select, USD {dólar} EUR {euro} other {real}} de esta fecha. Inténtalo más tarde o usa otra fecha.",
+      "quota": "Llegaste al límite de movimientos del mes. Lo que existe sigue igual; para registrar más, sube de escalón en Plan y suscripción.",
+      "currencyOff": "{currency} no está en tu plan. Esta cuenta queda solo para consulta.",
+      "moduleOff": "Esta cuota es de un módulo fuera de tu plan. Queda guardada hasta que lo vuelvas a activar."
     },
     "confirmNotice": {
       "title": "Todavía sin cotización",
@@ -2390,7 +2421,8 @@
       "enteredFormat": "Escribe cuánto entró en {symbol}, como 500,00.",
       "oddRate": "Revisa los dos importes: la tasa quedó fuera de lo común.",
       "balanceFormat": "Escribe el saldo como 1.250,00.",
-      "currencyLocked": "Esta cuenta ya tiene movimientos y no puede cambiar de moneda. Crea otra cuenta."
+      "currencyLocked": "Esta cuenta ya tiene movimientos y no puede cambiar de moneda. Crea otra cuenta.",
+      "currencyOff": "{currency} no está en tu plan. Inclúyela en Plan y suscripción."
     }
   },
   "cartoes": {
@@ -2753,7 +2785,9 @@
           "manutencao": "El asistente vuelve junto con los cambios. Puedes consultar todo con normalidad.",
           "teto_mensal": "Se alcanzó el límite de uso del servicio este mes, así que se detuvo solo. Tus datos están seguros y el resto de OrganizeUp sigue normal.",
           "teto_diario": "El asistente vuelve mañana, sin que tengas que hacer nada. El resto de OrganizeUp sigue normal.",
-          "sem_permissao": "Solo quien es responsable o adulto en la familia puede conversar con él. Pide a uno de ellos que lo active o pregunte por ti."
+          "sem_permissao": "Solo quien es responsable o adulto en la familia puede conversar con él. Pide a uno de ellos que lo active o pregunte por ti.",
+          "somente_leitura": "La prueba o la suscripción terminó. Suscríbete para volver a leer archivos.",
+          "sem_modulo": "Leer archivos es parte del módulo Deudas."
         }
       },
       "sendTitle": "Enviar archivos",
@@ -2864,7 +2898,10 @@
         "memory": "Memoria de la familia",
         "newCategory": "Categoría nueva",
         "review": "Revisar"
-      }
+      },
+      "room": "{room, plural, =0 {No cabe ninguna línea nueva este mes.} one {Cabe # línea nueva este mes.} other {Caben # líneas nuevas este mes.}}",
+      "overRoom": "{room, plural, =0 {No cabe ninguna} one {Cabe # línea} other {Caben # líneas}} de {count} nuevas. Desmarca lo que sobra: nada se guarda a medias.",
+      "roomLink": "Subir de escalón"
     },
     "done": {
       "title": "Extracto importado",
@@ -2905,7 +2942,9 @@
       "serverFailed": "El servidor falló al revisar este extracto. Inténtalo de nuevo; si se repite, avísanos.",
       "invalidAccount": "Elige una cuenta válida.",
       "reviewRows": "Revisa los movimientos e inténtalo de nuevo.",
-      "invalidCategory": "Elige una categoría válida en cada movimiento."
+      "invalidCategory": "Elige una categoría válida en cada movimiento.",
+      "quota": "{count, plural, =0 {No cabe ninguna línea más este mes.} one {Solo cabe # línea este mes.} other {Solo caben # líneas este mes.}} No se guardó nada. Desmarca líneas o sube de escalón.",
+      "currencyOff": "{currency} no está en tu plan. Esta cuenta queda solo para consulta."
     },
     "investments": {
       "title": "¿Inviertes en la bolsa?",
@@ -3601,6 +3640,14 @@
     "lembreteRendimentoSimples": {
       "title": "Indica el rendimiento anual de la cartera",
       "body": "Sin eso, el asistente no puede calcular cuánto necesitas tener invertido para vivir de los rendimientos."
+    },
+    "assinaturaFalhou": {
+      "title": "No pudimos cobrar tu suscripción",
+      "body": "Revisa la tarjeta en Plan y suscripción. El acceso sigue mientras intentamos de nuevo."
+    },
+    "assinaturaRenovacao": {
+      "title": "Tu suscripción anual se renueva pronto",
+      "body": "Se renueva el {date}. Para cambiar o cancelar, abre Plan y suscripción."
     }
   },
   "sistema": {
@@ -3924,6 +3971,185 @@
       "planoIncompleto": "Faltan datos para cerrar el plan. Complétalos en Jubilación.",
       "anualNaoFiscal": "Solo organiza lo que registró la familia. No sustituye la declaración de impuestos ni es asesoría fiscal: revisa tus documentos oficiales.",
       "posicaoDoDia": "Valores de la cartera según la posición del día en que se generó el informe."
+    }
+  },
+  "assinatura": {
+    "metaTitle": "Plan y suscripción",
+    "title": "Plan y suscripción",
+    "description": "Arma el plan de tu familia. El precio cambia mientras eliges.",
+    "perMonth": "{amount} al mes",
+    "perYear": "{amount} al año",
+    "subscribe": "Suscribirme",
+    "seeChange": "Ver qué cambia",
+    "wait": "Un momento…",
+    "saved": "Pedido enviado. La página se actualiza en instantes.",
+    "waiting": "Recibimos tu pago. Estamos activando el plan, y tarda menos de un minuto.",
+    "ownerOnly": "Solo el responsable de la familia puede suscribirse o cambiar el plan.",
+    "priceNote": "Precios en reales. La suscripción es de la familia: todos la usan, sin costo por persona.",
+    "noCatalog": {
+      "title": "Los precios todavía no están aquí",
+      "text": "Vuelve a intentarlo en un momento. Nada cambia en lo que ya usas."
+    },
+    "cycle": {
+      "title": "Cómo pagar",
+      "mes": "Mensual",
+      "ano": "Anual",
+      "hint": "En el anual pagas 10 meses y tienes 12. Boleto solo en el anual."
+    },
+    "family": {
+      "title": "Familia completa",
+      "text": "Todo lo que hace OrganizeUp, por un solo precio. Aún puedes subir los mensajes y sumar monedas.",
+      "choice": "Familia completa",
+      "includes": "Movimientos sin límite, todos los módulos y 100 mensajes al asistente por mes."
+    },
+    "build": {
+      "title": "O arma el tuyo",
+      "text": "Cuentas, tarjetas, categorías, extracto, calendario, reserva e informes vienen siempre."
+    },
+    "entries": {
+      "label": "Movimientos por mes",
+      "hint": "Cuenta solo lo que registras o importas. Cuotas, facturas, aportes y lo que se repite no cuentan.",
+      "upTo": "Hasta {count}",
+      "unlimited": "Sin límite"
+    },
+    "modules": {
+      "label": "Módulos",
+      "investimentos": {
+        "name": "Inversiones",
+        "text": "Cartera, cotizaciones, dividendos y rebalanceo."
+      },
+      "aposentadoria": {
+        "name": "Jubilación",
+        "text": "Plan por dividendos y Tu plan."
+      },
+      "dividas": {
+        "name": "Deudas",
+        "text": "Agente de deudas, adjuntos e importar archivo."
+      },
+      "metas": {
+        "name": "Metas y viajes",
+        "text": "Metas con cuotas y viajes sugeridos."
+      },
+      "assistente": {
+        "name": "Asistente",
+        "text": "Conversa con el asistente, consejos por pantalla, memoria y categorías con IA."
+      }
+    },
+    "messages": {
+      "label": "Mensajes al asistente por mes",
+      "hint": "Cada pregunta tuya es un mensaje. Los consejos de la madrugada y las categorías con IA no gastan mensajes.",
+      "none": "Sin asistente",
+      "count": "{count} mensajes",
+      "included": "incluidos"
+    },
+    "currencies": {
+      "label": "Monedas adicionales",
+      "text": "Permite crear cuentas en esta moneda. La moneda principal de la familia no cuesta nada.",
+      "BRL": "Real",
+      "USD": "Dólar",
+      "EUR": "Euro"
+    },
+    "summary": {
+      "title": "Tu plan",
+      "familyBadge": "Familia completa",
+      "familySaves": "Con Familia completa pagarías {amount} menos y tendrías todo esto y más.",
+      "backToFamily": "Volver a Familia completa",
+      "released": "Qué incluye",
+      "note": "Sin permanencia. Cancela cuando quieras, y devolvemos todo en los 7 días del primer cobro."
+    },
+    "released": {
+      "base": "Cuentas, tarjetas, categorías, extracto, calendario, reserva e informes",
+      "entries": "Hasta {count} movimientos por mes",
+      "entriesUnlimited": "Movimientos sin límite",
+      "messages": "{count} mensajes al asistente, consejos, memoria y categorías con IA",
+      "currency": "Cuentas en {code}",
+      "connected": "{count, plural, one {# cuenta conectada} other {# cuentas conectadas}}"
+    },
+    "preview": {
+      "title": "Qué cambia",
+      "now": "Hoy: {amount}, la diferencia proporcional hasta el fin del ciclo.",
+      "later": "El {date} sale: {items}. Hasta entonces, todo sigue igual.",
+      "nothing": "nada",
+      "next": "Después: {amount}.",
+      "confirm": "Confirmar",
+      "back": "Volver",
+      "removedNow": "Sale ahora: {items}. Lo que queda del mes se vuelve crédito.",
+      "nextAt": "Próximo cobro el {date}."
+    },
+    "status": {
+      "title": "Situación",
+      "livre": "El cobro todavía no está activo. Todo disponible, como siempre.",
+      "cortesia": "Tu familia tiene cortesía: todo disponible, sin cobro.",
+      "teste": "Prueba gratis hasta el {date}, con todo disponible.",
+      "assinatura": "Suscripción activa.",
+      "leitura": "La prueba terminó. Ves y exportas todo, pero para cambiar algo debes suscribirte. No se borró nada.",
+      "renewsAt": "Próximo cobro el {date}.",
+      "endsAt": "Cancelada. Vale hasta el {date}.",
+      "scheduled": "Cambio de plan programado para el {date}.",
+      "exportHint": "Para descargar tus datos, abre Configuración."
+    },
+    "usage": {
+      "entries": "Movimientos este mes",
+      "messages": "Mensajes este mes",
+      "normal": "Dentro del límite",
+      "aviso": "Cerca del límite",
+      "limite": "Límite alcanzado"
+    },
+    "manage": {
+      "title": "Administrar",
+      "text": "La tarjeta y las facturas están en Stripe, que procesa el pago.",
+      "portal": "Tarjeta y facturas",
+      "cancel": "Cancelar suscripción",
+      "cancelTitle": "¿Cancelar la suscripción?",
+      "cancelText": "Vale hasta el fin del período pagado. Después, tus datos quedan guardados y solo puedes consultarlos.",
+      "cancelConfirm": "Cancelar suscripción",
+      "cancelled": "Cancelada. Sigues usándola hasta el fin del período pagado.",
+      "resume": "Mantener suscripción",
+      "resumed": "Suscripción mantenida."
+    },
+    "refund": {
+      "ask": "Pedir devolución",
+      "title": "¿Pedir la devolución total?",
+      "text": "Estás dentro de los 7 días del primer cobro. Devolvemos todo y la suscripción termina ahora. Tus datos quedan guardados, y solo puedes consultarlos.",
+      "confirm": "Devolver y terminar",
+      "done": "Listo. La devolución fue pedida y la suscripción terminó.",
+      "boleto": "Stripe no devuelve boletos. Habla con soporte para recibirlo por transferencia. Tu suscripción sigue activa hasta entonces."
+    },
+    "failure": {
+      "sem_familia": "Elige una familia primero.",
+      "so_responsavel": "Solo el responsable de la familia puede hacer esto.",
+      "manutencao": "Estamos en mantenimiento. Inténtalo de nuevo pronto.",
+      "desligado": "La suscripción todavía no está abierta.",
+      "sem_chave": "La suscripción todavía no está configurada.",
+      "chave_producao": "El cobro real todavía no fue liberado. No se cobró nada.",
+      "falhou": "No funcionó, y no se cobró nada. Inténtalo de nuevo.",
+      "catalogo": "Uno de los artículos todavía no está a la venta.",
+      "sem_assinatura": "No encontramos una suscripción activa para esto.",
+      "invalido": "Revisa el plan e inténtalo de nuevo.",
+      "em_andamento": "Ya hay un pago en curso. Si acabas de pagar, el plan se activa en instantes."
+    },
+    "invite": {
+      "eyebrow": "Fuera de tu plan",
+      "title": "Este módulo está apagado",
+      "price": "Desde {amount} al mes",
+      "kept": "Si ya lo usaste, tus datos siguen guardados y vuelven al activarlo.",
+      "link": "Ver planes"
+    },
+    "admin": {
+      "title": "Solo para administradores",
+      "text": "Este cuadro y, con el cobro apagado, esta pantalla solo aparecen para quien administra el servicio.",
+      "on": "Cobro activo",
+      "off": "Cobro apagado",
+      "key": {
+        "ausente": "Clave de Stripe: sin configurar",
+        "teste": "Clave de Stripe: prueba",
+        "producao": "Clave de Stripe: producción",
+        "invalida": "Clave de Stripe: no reconocida"
+      }
+    },
+    "connected": {
+      "label": "Cuentas conectadas",
+      "hint": "{amount} al mes, por cuenta. Solo en el plan mensual."
     }
   }
 }

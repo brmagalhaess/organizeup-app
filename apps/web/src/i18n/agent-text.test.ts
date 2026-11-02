@@ -71,6 +71,8 @@ const debtPlan = (over: Record<string, unknown> = {}) => {
 
 /** Uma linha por caminho: juntas, passam por toda chave que os agentes gravam. */
 const SAMPLES: Array<{ title: string; body: string; message: Message }> = [
+  texts.billingNoticeText("assinatura_falhou"),
+  texts.billingNoticeText("assinatura_renovacao", "2026-12-01"),
   texts.aporteReservaText({
     currency: "BRL",
     amount: "300.00",

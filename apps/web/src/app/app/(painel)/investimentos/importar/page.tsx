@@ -1,3 +1,4 @@
+import { moduleInvite } from "@/lib/billing/module-invite";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { accounts, asc, canWrite, householdCurrency, withHousehold } from "@organizeup/db";
@@ -12,6 +13,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function InvestmentImportPage() {
+  const invite = await moduleInvite("investimentos");
+  if (invite) return invite;
   const { ctx } = await requireTenant();
   const t = await getTranslations("investimentos.importar");
   const { accountRows, currency } = await withHousehold(ctx, async (tx) => ({

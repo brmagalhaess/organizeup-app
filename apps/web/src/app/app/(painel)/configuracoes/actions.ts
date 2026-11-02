@@ -10,12 +10,13 @@ import { z } from "zod";
 import type { ActionState } from "@/app/app/actions";
 import { audit } from "@/lib/audit";
 import { getAuth } from "@/lib/auth";
-import { requireSession, requireTenant } from "@/lib/session";
+import { requireOwnData, requireSession } from "@/lib/session";
 
 async function deleteError(error: unknown) {
   const t = await getTranslations("settings.deleteAccount");
   if (!(error instanceof APIError)) return t("failed");
   if (error.body?.message === "FAMILY_HAS_MEMBERS") return t("familyHasMembers");
+  if (error.body?.message === "BILLING_CANCEL_FAILED") return t("billingFailed");
   return error.body?.code === "INVALID_PASSWORD" ? t("wrongPassword") : t("failed");
 }
 
@@ -39,7 +40,7 @@ const memoryId = z.uuid();
 
 /** Apaga de verdade, com as versões antigas da anotação. Só quem pode escrever. */
 export async function removeMemory(id: string): Promise<ActionState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireOwnData();
   const parsed = memoryId.safeParse(id);
   if (!parsed.success || !canWrite(ctx)) return { ok: false, message: await memoryError() };
   try {
@@ -55,7 +56,7 @@ export async function removeMemory(id: string): Promise<ActionState> {
 }
 
 export async function removeAllMemories(): Promise<ActionState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireOwnData();
   if (!canWrite(ctx)) return { ok: false, message: await memoryError() };
   try {
     await withHousehold(ctx, async (tx) => {

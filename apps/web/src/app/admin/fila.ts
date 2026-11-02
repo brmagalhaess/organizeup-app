@@ -64,6 +64,16 @@ export function queueAgent(agent: string) {
   );
 }
 
+/** Evento da Stripe guardado: acorda o worker sem esperar a passada do minuto. */
+export function queueBillingEvents() {
+  return withBoss((boss) =>
+    boss.send(JOB_QUEUES.billingEvents, null, {
+      singletonKey: "billing-events",
+      singletonSeconds: 5,
+    }),
+  );
+}
+
 export function queuePlatformStats() {
   return withBoss((boss) =>
     boss.send(JOB_QUEUES.platformStats, null, {

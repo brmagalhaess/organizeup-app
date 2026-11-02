@@ -1,3 +1,4 @@
+import { moduleInvite } from "@/lib/billing/module-invite";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
@@ -11,6 +12,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RebalancePage() {
+  const invite = await moduleInvite("investimentos");
+  if (invite) return invite;
   const { ctx } = await requireTenant();
   const data = await loadPortfolio(ctx);
   return <RebalanceBoard data={data} writable={canWrite(ctx)} />;

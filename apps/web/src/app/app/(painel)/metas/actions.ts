@@ -21,7 +21,7 @@ import { isYearMonth, money, parseMoney, toDbAmount, todayIn } from "@organizeup
 import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { reportActionFailure } from "@/lib/diagnostics";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
 
 export interface FormState {
   ok: boolean;
@@ -73,7 +73,7 @@ const goalSchema = (t: ErrorTexts, locale: Locale) =>
 
 /** Cria uma meta ou edita a do `id`. Só o que a família informa; o plano é do assistente. */
 export async function saveGoal(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("metas");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await Promise.all([getTranslations("metas.errors"), getLocale()]);
   const parsed = goalSchema(t, locale).safeParse({
@@ -130,7 +130,7 @@ export async function saveGoal(_prev: FormState, form: FormData): Promise<FormSt
 
 /** Apaga a meta e as parcelas previstas. O que já foi confirmado continua nos lançamentos. */
 export async function deleteGoal(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("metas");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
@@ -152,7 +152,7 @@ export async function deleteGoal(form: FormData): Promise<void> {
 
 /** Pausa ou retoma. Pausada não recebe parcelas; o plano volta na próxima conta. */
 export async function setGoalStatus(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("metas");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   const status = form.get("status") === "pausada" ? "pausada" : "planejando";
@@ -170,7 +170,7 @@ export async function setGoalStatus(form: FormData): Promise<void> {
 
 /** Registra o que já foi separado por fora das parcelas. Não mexe em contas. */
 export async function addSavedToGoal(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("metas");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await Promise.all([getTranslations("metas.errors"), getLocale()]);
   const id = String(form.get("id") ?? "");
@@ -210,7 +210,7 @@ function replan(ctx: TenantContext) {
 
 /** Botão "Recalcular agora". */
 export async function replanNow(): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("metas");
   if (!canWrite(ctx)) return blocked();
   await replan(ctx);
   revalidatePath("/app", "layout");

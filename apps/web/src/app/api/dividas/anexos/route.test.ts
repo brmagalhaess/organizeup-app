@@ -4,6 +4,8 @@ const ctx = { householdId: "h1", userId: "u1", role: "owner" as "owner" | "viewe
 const agents = vi.hoisted(() => ({ saveDebtDocument: vi.fn(), loadDebtDocumentFile: vi.fn() }));
 const db = vi.hoisted(() => ({
   canWrite: vi.fn(),
+  readFamilyAccess: vi.fn(),
+  readOnlyContext: vi.fn((value: object) => ({ ...value, role: "viewer" })),
   withHousehold: vi.fn((_ctx: unknown, fn: (tx: unknown) => unknown) => fn({})),
 }));
 vi.mock("@organizeup/agents", () => agents);
@@ -35,7 +37,8 @@ const pdf = () => new File(["%PDF-1.7 contrato"], "contrato.pdf");
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.canWrite.mockReturnValue(true);
+  db.canWrite.mockImplementation((value: { role: string }) => value.role !== "viewer");
+  db.readFamilyAccess.mockResolvedValue({ mode: "livre", modules: ["dividas"] });
   agents.saveDebtDocument.mockResolvedValue({
     ok: true,
     id: "d1",
@@ -125,5 +128,38 @@ describe("GET /api/dividas/anexos/[id]", () => {
   it("arquivo de outra família não existe", async () => {
     agents.loadDebtDocumentFile.mockResolvedValue(null);
     expect((await get("d2")).status).toBe(404);
+  });
+});
+
+describe("módulo desligado (ADR-0023)", () => {
+  const off = { mode: "assinatura", modules: [] };
+
+  it("não envia nem grava", async () => {
+    db.readFamilyAccess.mockResolvedValue(off);
+    expect((await post(pdf())).status).toBe(403);
+    expect(agents.saveDebtDocument).not.toHaveBeenCalled();
+  });
+
+  it("não baixa: o arquivo fica guardado até religar", async () => {
+    db.readFamilyAccess.mockResolvedValue(off);
+    const response = await GET(new Request(`${url}/d1`), {
+      params: Promise.resolve({ id: "d1" }),
+    });
+    expect(response.status).toBe(403);
+    expect(agents.loadDebtDocumentFile).not.toHaveBeenCalled();
+  });
+
+  it("em só leitura ainda baixa, porque a família continua vendo o que é dela", async () => {
+    db.readFamilyAccess.mockResolvedValue({ mode: "leitura", modules: [] });
+    agents.loadDebtDocumentFile.mockResolvedValue({
+      content: new Uint8Array([1]),
+      mediaType: "application/pdf",
+      fileName: "contrato.pdf",
+    });
+    const response = await GET(new Request(`${url}/d1`), {
+      params: Promise.resolve({ id: "d1" }),
+    });
+    expect(response.status).toBe(200);
+    expect((await post(pdf())).status).toBe(403);
   });
 });

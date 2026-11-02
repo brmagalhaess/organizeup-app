@@ -1,5 +1,6 @@
 "use server";
 import {
+  adminCheckDeleteHousehold,
   adminDeleteHousehold,
   adminHouseholdOwner,
   adminSetHouseholdSuspended,
@@ -7,6 +8,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { cancelBeforeDelete } from "@/lib/billing/close-family";
 import { requireAdmin } from "@/lib/session";
 import {
   ADMIN_DB_MISSING,
@@ -112,6 +114,9 @@ export async function reactivateFamily(form: FormData): Promise<AdminResult> {
   return setSuspended(session.user.id, form, false);
 }
 
+const CANCEL_FAILED =
+  "Não foi possível cancelar a assinatura na Stripe. Nada foi apagado. Tente de novo.";
+
 /** O nome digitado é conferido de novo aqui, contra o banco, na mesma transação da exclusão. */
 export async function deleteFamily(form: FormData): Promise<AdminResult> {
   const session = await requireAdmin();
@@ -119,10 +124,23 @@ export async function deleteFamily(form: FormData): Promise<AdminResult> {
   if (!id.success) return failed("Família inválida.");
   const typed = String(form.get("confirm") ?? "");
   const outcome = await runAdminAction("admin_family_delete_failed", async () => {
-    const result = await adminDeleteHousehold({ adminUserId: session.user.id }, id.data, typed);
-    if (result === "not_found") return failed("Família não encontrada.");
-    if (result === "name_mismatch") return failed("O nome digitado não confere.");
-    if (result === "own_family") return failed(OWN_FAMILY);
+    const admin = { adminUserId: session.user.id };
+    const refusal = (result: Awaited<ReturnType<typeof adminDeleteHousehold>>) => {
+      if (result === "not_found") return failed("Família não encontrada.");
+      if (result === "name_mismatch") return failed("O nome digitado não confere.");
+      if (result === "own_family") return failed(OWN_FAMILY);
+      return null;
+    };
+    // Confere antes: cancelar a assinatura e depois recusar deixaria a família sem plano à toa.
+    const checked = refusal(await adminCheckDeleteHousehold(admin, id.data, typed));
+    if (checked) return checked;
+    try {
+      await cancelBeforeDelete([id.data]);
+    } catch {
+      return failed(CANCEL_FAILED);
+    }
+    const deleted = refusal(await adminDeleteHousehold(admin, id.data, typed));
+    if (deleted) return deleted;
     revalidatePath("/admin", "layout");
     return done("Família excluída.");
   });
