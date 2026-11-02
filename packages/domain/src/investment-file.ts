@@ -1,4 +1,4 @@
-// Arquivos da carteira (ADR-0022): tipos e leitura de célula comuns ao Excel da B3 e à nota de corretagem.
+// Arquivos da carteira (ADR-0024): tipos e leitura de célula comuns ao Excel da B3 e à nota de corretagem.
 // Puro. O conteúdo do arquivo é dado não confiável: nada aqui interpreta fórmula ou instrução, só valores.
 import { checkDebtFile } from "./debt-file";
 import { money, type MoneyValue } from "./money";

@@ -1,4 +1,4 @@
-// Excel da Área do Investidor da B3 (ADR-0022). Puro: recebe as abas já lidas e devolve operações.
+// Excel da Área do Investidor da B3 (ADR-0024). Puro: recebe as abas já lidas e devolve operações.
 //
 // Fontes do formato, conferidas em 2026-11-01. Não há arquivo real neste repositório:
 // - Negociação e Movimentação: colunas de `crates/providers/src/b3_extrato.rs` (github.com/4nier-app/patrimonio).

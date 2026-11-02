@@ -1,4 +1,4 @@
-// Compara o que veio do arquivo com a carteira (ADR-0022). Puro: o servidor roda de novo na confirmação,
+// Compara o que veio do arquivo com a carteira (ADR-0024). Puro: o servidor roda de novo na confirmação,
 // dentro da transação, e só grava o que este plano mandar.
 //
 // Identidade: a B3 não dá um número comum à Negociação e à nota, então a chave é a própria operação, por

@@ -1,4 +1,4 @@
-// Importar a carteira (ADR-0022), pelas server actions de verdade, contra um Postgres real com RLS.
+// Importar a carteira (ADR-0024), pelas server actions de verdade, contra um Postgres real com RLS.
 // Prova o que o plano puro não prova sozinho: uma transação só, confirmação que reconfere, papel de
 // visualizador e isolamento entre famílias. Sem tabela nova: `investment_trades` já tem caso no teste de RLS.
 // Dados fictícios.

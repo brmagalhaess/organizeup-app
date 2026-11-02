@@ -1,4 +1,4 @@
-// Nota de corretagem em PDF, padrão SINACOR (ADR-0022). Puro: recebe as linhas de texto do PDF.
+// Nota de corretagem em PDF, padrão SINACOR (ADR-0024). Puro: recebe as linhas de texto do PDF.
 //
 // Fontes do layout, conferidas em 2026-11-01. Não há nota real neste repositório:
 // - Rótulos das seções e taxas: `correpy/parsers/brokerage_notes/b3_parser/b3_parser.py`

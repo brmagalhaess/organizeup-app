@@ -43,7 +43,7 @@ import { reportActionFailure } from "@/lib/diagnostics";
 import { requireTenant } from "@/lib/session";
 import { MissingQuote, recordTradeCash } from "@/lib/trade-cash";
 
-// O arquivo fica no navegador (ADR-0006, ADR-0022). Aqui só chegam as linhas já lidas, e nada confia nelas:
+// O arquivo fica no navegador (ADR-0006, ADR-0024). Aqui só chegam as linhas já lidas, e nada confia nelas:
 // o formato é validado e a comparação com a carteira roda de novo, dentro da transação.
 const MAX_LINES = 2000;
 /** `investment_trades.quantity` e `unit_price` são numeric(20,8). */
