@@ -47,7 +47,8 @@ async function createSpace(page: Page, label: string, name: string, button: stri
   await expect(page).toHaveURL(/\/app\/novo-household$/);
   await page.getByLabel(label).fill(name);
   await page.getByRole("button", { name: button }).click();
-  await expect(page).toHaveURL(/\/app$/);
+  // Em `next dev`, o painel às vezes passa de 5 s depois de um tempo parado.
+  await expect(page).toHaveURL(/\/app$/, { timeout: 60_000 });
 }
 
 async function signUpCompany(page: Page, cpf = newCpf()) {
