@@ -52,7 +52,10 @@ const upload2 = (page: Page, name: string, content: string) =>
     .then(() => upload(page, name, content));
 
 const total = (page: Page, label: string) =>
-  page.locator("dl > div").filter({ hasText: label }).locator("dd");
+  page
+    .locator("dl > div")
+    .filter({ has: page.locator("dt").getByText(label, { exact: true }) })
+    .locator("dd");
 
 test("importa OFX, baixa a previsão, não duplica e pode desfazer", async ({ page }) => {
   await signUp(page, "Iris");
@@ -94,8 +97,8 @@ test("importa OFX, baixa a previsão, não duplica e pode desfazer", async ({ pa
   await expect(page.getByText("2 novos lançamentos e 1 previsão baixada.")).toBeVisible();
 
   await page.goto("/app/lancamentos");
-  await expect(total(page, "Entrou")).toContainText("5.000,00");
-  await expect(total(page, "Saiu")).toContainText("1.700,00");
+  await expect(total(page, "Receitas")).toContainText("5.000,00");
+  await expect(total(page, "Despesas")).toContainText("1.700,00");
   await expect(page.getByRole("row").filter({ hasText: "Aluguel do apartamento" })).toHaveCount(1);
   await expect(page.getByRole("row").filter({ hasText: "Aluguel do apartamento" })).toContainText(
     "Pago",
@@ -114,7 +117,7 @@ test("importa OFX, baixa a previsão, não duplica e pode desfazer", async ({ pa
   await expect(page.getByRole("list", { name: "Importações" })).toHaveCount(0);
 
   await page.goto("/app/lancamentos");
-  await expect(total(page, "Entrou")).toContainText("0,00");
+  await expect(total(page, "Receitas")).toContainText("0,00");
   await expect(page.getByRole("row").filter({ hasText: "Aluguel do apartamento" })).toContainText(
     "Previsto",
   );

@@ -22,7 +22,10 @@ async function signUp(page: Page, name: string) {
 }
 
 const total = (page: Page, label: string) =>
-  page.locator("dl > div").filter({ hasText: label }).locator("dd");
+  page
+    .locator("dl > div")
+    .filter({ has: page.locator("dt").getByText(label, { exact: true }) })
+    .locator("dd");
 
 /** O salário, sem a linha do 13º, que pode cair no mesmo dia. */
 const salaryRow = (page: Page) =>
@@ -80,13 +83,13 @@ test("simula, cadastra CLT e a renda entra no mês pelo líquido", async ({ page
   await page.goto(`/app/lancamentos?m=${next}`);
   const row = salaryRow(page);
   await expect(row).toContainText("4.973,39");
-  await expect(total(page, "Entrou")).toContainText("0,00");
+  await expect(total(page, "Receitas")).toContainText("0,00");
 
   // Baixa pelo mesmo botão de sempre, e apagar devolve a previsão.
   await page.goto(`/app/lancamentos?m=${current}`);
   const entry = salaryRow(page);
   await entry.getByRole("button", { name: "Receber" }).locator("visible=true").click();
-  await expect(total(page, "Entrou")).toContainText("4.973,39");
+  await expect(total(page, "Receitas")).toContainText("4.973,39");
   await expect(entry).toContainText("Recebido");
 
   await entry
@@ -94,7 +97,7 @@ test("simula, cadastra CLT e a renda entra no mês pelo líquido", async ({ page
     .locator("visible=true")
     .click();
   await page.getByRole("dialog").getByRole("button", { name: "Excluir" }).click();
-  await expect(total(page, "Entrou")).toContainText("0,00");
+  await expect(total(page, "Receitas")).toContainText("0,00");
   await expect(salaryRow(page)).toContainText("Receber");
 
   const other = await browser.newContext();

@@ -116,7 +116,11 @@ test.describe("conta cheia", () => {
     await expect(total(page, "Receitas")).toContainText("9.200,00");
     await expect(total(page, "Despesas")).toContainText("a mais que no mês anterior");
     await expect(total(page, "Saldo no fim do mês")).toContainText(/R\$\s[\d.]+,\d{2}/);
-    await expect(page.getByText(/dinheiro guardado, não consumo/)).toBeVisible();
+    await expect(total(page, "Aportado")).toContainText("1.000,00");
+    await expect(total(page, "Sobrou depois de aportar")).toContainText("Resultado menos aportes");
+    await expect(page.getByRole("list", { name: "Aportes" })).toContainText(
+      "Aportes e investimentos",
+    );
     await expect(page.getByRole("heading", { name: "Por categoria" })).toBeVisible();
     await expect(page.getByRole("list", { name: "Despesas" })).toContainText("Moradia");
     await expect(page.getByRole("list", { name: "Despesas" })).toContainText("Outras");
@@ -148,8 +152,8 @@ test.describe("conta cheia", () => {
       await total(page, "Receitas").first().locator("span").first().innerText()
     ).trim();
     await page.goto(`/app/lancamentos?m=${previous}`);
-    await expect(total(page, "Saiu")).toContainText(spent);
-    await expect(total(page, "Entrou")).toContainText(received);
+    await expect(total(page, "Despesas")).toContainText(spent);
+    await expect(total(page, "Receitas")).toContainText(received);
 
     // Seta para trás e para a frente, e o botão de voltar do navegador.
     await page.goto(`/app?mes=${previous}`);

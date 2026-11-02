@@ -85,9 +85,12 @@ async function journey(page: Page, label: string) {
   const row = page.getByRole("row").filter({ hasText: "Hotel em Lisboa" });
   await expect(row).toContainText("US$ 100,00");
   await expect(row).toContainText(/≈ R\$\s[\d.]+,\d{2}/);
-  await expect(page.locator("dl > div").filter({ hasText: "Saiu" }).locator("dd")).toContainText(
-    /R\$\s[\d.]+,\d{2}/,
-  );
+  await expect(
+    page
+      .locator("dl > div")
+      .filter({ has: page.locator("dt").getByText("Despesas", { exact: true }) })
+      .locator("dd"),
+  ).toContainText(/R\$\s[\d.]+,\d{2}/);
   await row.scrollIntoViewIfNeeded();
   await expect(row.getByText("US$ 100,00")).toBeInViewport();
   if (shots) await page.screenshot({ path: `${shots}/${label}-lista.png` });

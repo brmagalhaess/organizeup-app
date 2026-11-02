@@ -1,4 +1,4 @@
-﻿// Relatórios da família: abrir, trocar período, comparar e baixar PDF e CSV, em computador e em 375 px, e
+// Relatórios da família: abrir, trocar período, comparar e baixar PDF e CSV, em computador e em 375 px, e
 // em inglês. Precisa de E2E_WORKER_DATABASE_URL e ADMIN_DATABASE_URL, do mesmo banco do servidor: quem
 // grava é o agente de verdade, por e2e/relatorios.ts. Com E2E_SHOTS_DIR, grava as telas e os PDFs.
 import AxeBuilder from "@axe-core/playwright";
@@ -108,7 +108,7 @@ test("abre, troca o período, compara e baixa, sem dado de outra família", asyn
   await expect(page.getByLabel("Mês", { exact: true })).toHaveValue(monthBack(0));
   await expect(page.getByText("Relatório parcial.")).toBeVisible();
   await expect(page.getByText(/O período ainda não acabou/)).toBeVisible();
-  await expect(page.getByText(/Entraram R\$\s8\.000,00/)).toBeVisible();
+  await expect(page.getByText(/Receitas de R\$\s8\.000,00/)).toBeVisible();
   await expectAccessible(page);
   await shot(page, "relatorios-parcial", info.project.name);
 
@@ -118,7 +118,7 @@ test("abre, troca o período, compara e baixa, sem dado de outra família", asyn
   await expect(page).toHaveURL(new RegExp(`periodo=${closed}`));
   await expect(page.getByText("Relatório parcial.")).toBeHidden();
   await expect(page.getByText("Fechado", { exact: true })).toBeVisible();
-  await expect(page.getByText(/saíram R\$\s3\.234,50/)).toBeVisible();
+  await expect(page.getByText(/despesas de R\$\s3\.234,50/)).toBeVisible();
   await expect(page.getByLabel("Comparar com")).toHaveValue(monthBack(2));
   await expect(page.getByText("A diferença é o primeiro período menos o segundo.")).toBeVisible();
   await expectAccessible(page);
@@ -223,7 +223,7 @@ test("em inglês, na tela e nos arquivos", async ({ page }, info) => {
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
   await expect(page.getByText("Partial report.")).toBeVisible();
-  await expect(page.getByText(/R\$8,000\.00 came in/)).toBeVisible();
+  await expect(page.getByText(/Income of R\$8,000\.00/)).toBeVisible();
   await expectAccessible(page);
   await shot(page, "reports-en", info.project.name);
 

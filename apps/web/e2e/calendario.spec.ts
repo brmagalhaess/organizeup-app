@@ -22,7 +22,10 @@ async function signUp(page: Page, name: string) {
 }
 
 const total = (page: Page, label: string) =>
-  page.locator("dl > div").filter({ hasText: label }).locator("dd");
+  page
+    .locator("dl > div")
+    .filter({ has: page.locator("dt").getByText(label, { exact: true }) })
+    .locator("dd");
 
 const today = () =>
   new Date().toLocaleDateString("pt-BR", {
@@ -53,8 +56,8 @@ test("mostra vencimentos, marca evento, filtra e paga pelo dia", async ({ page, 
   await expect(entry).toBeHidden();
 
   await page.goto("/app/calendario");
-  await expect(total(page, "Sai")).toContainText("1.500,00");
-  await expect(total(page, "Sai")).toContainText(/A pagar R\$\s1\.500,00/);
+  await expect(total(page, "Despesas")).toContainText("1.500,00");
+  await expect(total(page, "Despesas")).toContainText(/A pagar R\$\s1\.500,00/);
   await expect(total(page, "Menor saldo")).toContainText("1.500,00");
   await expect(total(page, "Saldo final previsto")).toContainText("1.500,00");
   await expect(page.getByText(/seu saldo fica negativo/)).toBeVisible();
@@ -93,7 +96,7 @@ test("mostra vencimentos, marca evento, filtra e paga pelo dia", async ({ page, 
   // Pagar pelo dia atualiza o mês sem sair da tela.
   await items.getByRole("button", { name: "Pagar" }).click();
   await expect(items).toContainText("Pago");
-  await expect(total(page, "Sai")).toContainText(/A pagar R\$\s0,00/);
+  await expect(total(page, "Despesas")).toContainText(/A pagar R\$\s0,00/);
   await expect(page.getByText(/seu saldo fica negativo/)).toBeVisible();
 
   const a11yDay = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
@@ -129,7 +132,7 @@ test("mostra vencimentos, marca evento, filtra e paga pelo dia", async ({ page, 
   const page2 = await other.newPage();
   await signUp(page2, "Sol");
   await page2.goto("/app/calendario");
-  await expect(total(page2, "Sai")).toContainText("0,00");
+  await expect(total(page2, "Despesas")).toContainText("0,00");
   await expect(page2.getByText(/seu saldo fica negativo/)).toHaveCount(0);
   await expect(page2.getByText(/Nada marcado neste mês/)).toBeVisible();
   await other.close();

@@ -49,7 +49,10 @@ async function addEntry(
 }
 
 const total = (page: Page, label: string) =>
-  page.locator("dl > div").filter({ hasText: label }).locator("dd");
+  page
+    .locator("dl > div")
+    .filter({ has: page.locator("dt").getByText(label, { exact: true }) })
+    .locator("dd");
 
 test("lança receitas e despesas, confirma previsão e mantém famílias separadas", async ({
   page,
@@ -69,9 +72,9 @@ test("lança receitas e despesas, confirma previsão e mantém famílias separad
     open: true,
   });
 
-  await expect(total(page, "Entrou")).toContainText("5.000,00");
-  await expect(total(page, "Saiu")).toContainText("1.234,56");
-  await expect(total(page, "Sobrou até agora")).toContainText("3.765,44");
+  await expect(total(page, "Receitas")).toContainText("5.000,00");
+  await expect(total(page, "Despesas")).toContainText("1.234,56");
+  await expect(total(page, "Resultado")).toContainText("3.765,44");
   await expect(total(page, "Previsão para o fim do mês")).toContainText("2.265,44");
 
   const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
@@ -88,11 +91,11 @@ test("lança receitas e despesas, confirma previsão e mantém famílias separad
   await editor.getByLabel("Valor (R$)").fill("1.000,00");
   await editor.getByRole("button", { name: "Salvar alterações" }).click();
   await expect(editor).toBeHidden();
-  await expect(total(page, "Saiu")).toContainText("1.000,00");
+  await expect(total(page, "Despesas")).toContainText("1.000,00");
 
   const rent = page.getByRole("row").filter({ hasText: "Aluguel confidencial" });
   await rent.getByRole("button", { name: "Pagar" }).click();
-  await expect(total(page, "Saiu")).toContainText("2.500,00");
+  await expect(total(page, "Despesas")).toContainText("2.500,00");
   await expect(rent.getByRole("button", { name: /^Excluir/ })).toBeVisible();
 
   // A previsão continua no mês seguinte, ainda não paga.
