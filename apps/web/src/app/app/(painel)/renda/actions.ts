@@ -8,6 +8,7 @@ import {
   canWrite,
   categories,
   eq,
+  householdCurrency,
   householdTimezone,
   INCOME_KINDS,
   incomeReceipts,
@@ -17,6 +18,7 @@ import {
 } from "@organizeup/db";
 import {
   addMonths,
+  brazilRulesApply,
   firstIncomeMonth,
   parseMoney,
   toDbAmount,
@@ -104,6 +106,8 @@ export async function saveIncome(_prev: IncomeFormState, form: FormData): Promis
   }
   const data = parsed.data;
   const clt = data.kind === "clt";
+  if (clt && !brazilRulesApply(await withHousehold(ctx, householdCurrency)))
+    return { ok: false, message: null, fieldErrors: { kind: t("errors.kindNotHere") } };
   const values = {
     name: data.name,
     kind: data.kind,

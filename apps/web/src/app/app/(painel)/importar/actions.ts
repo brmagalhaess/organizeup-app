@@ -16,6 +16,7 @@ import {
   eq,
   fxSeries,
   gte,
+  householdCurrency,
   householdReports,
   IMPORT_SOURCES,
   importBatches,
@@ -31,15 +32,17 @@ import {
   buildMonthEntries,
   CARD_CATEGORY,
   categorizeRow,
+  crossQuoteOn,
   entryFromTyped,
+  entryOrigin,
   fitsAmount,
+  FX_CURRENCIES,
   importReport,
   isForeign,
   memoryKey,
   merchantKey,
   monthBounds,
   normalizeDescription,
-  quoteOn,
   reconcileRows,
   todayIn,
   withFingerprints,
@@ -47,6 +50,8 @@ import {
   type CategoryProposal,
   type Currency,
   type EntryMoney,
+  type FxCurrency,
+  type FxQuote,
   type KnownEntry,
   type ReconciledRow,
 } from "@organizeup/domain";
@@ -111,7 +116,7 @@ async function converterTexts() {
 
 /**
  * Converte as linhas do arquivo, que estão na moeda da conta, pela cotação da data de cada uma. Devolve
- * a mensagem quando alguma não dá: sem cotação nessa data, ou valor que não cabe em reais.
+ * a mensagem quando alguma não dá: sem cotação nessa data, ou valor que não cabe na moeda principal.
  */
 async function rowConverter(
   tx: TenantTx,
@@ -120,9 +125,16 @@ async function rowConverter(
   texts: Awaited<ReturnType<typeof converterTexts>>,
 ): Promise<((row: { date: string; amount: string }) => EntryMoney) | string> {
   const dates = rows.map((row) => row.date).sort();
-  const series = isForeign(currency) ? await fxSeries(tx, currency, dates[0]!, dates.at(-1)!) : [];
+  const main = await householdCurrency(tx);
+  const series: Partial<Record<FxCurrency, FxQuote[]>> = {};
+  if (isForeign(currency, main)) {
+    for (const code of FX_CURRENCIES) {
+      if (code === currency || code === main)
+        series[code] = await fxSeries(tx, code, dates[0]!, dates.at(-1)!);
+    }
+  }
   const convert = (row: { date: string; amount: string }) =>
-    entryFromTyped(row.amount, currency, isForeign(currency) ? quoteOn(series, row.date) : null);
+    entryFromTyped(row.amount, currency, crossQuoteOn(series, currency, main, row.date), main);
   for (const row of rows) {
     const entry = convert(row);
     if (!entry) return texts.noQuote(currency, row.date);
@@ -182,7 +194,7 @@ export async function prepareImport(
         key: `t:${t.id}`,
         description: t.description,
         // O arquivo está na moeda da conta: é assim que a linha se compara com o que já existe.
-        amount: t.originalAmount ?? t.amount,
+        amount: entryOrigin(t)?.amount ?? t.amount,
         date: t.occurredOn,
         kind: t.kind,
         fingerprint: t.importFingerprint,

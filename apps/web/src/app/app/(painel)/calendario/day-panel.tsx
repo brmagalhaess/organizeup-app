@@ -17,13 +17,14 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
-import { formatAmount, formatWeekdayName } from "@/i18n/format";
+import { formatWeekdayName } from "@/i18n/format";
 import type { loadCalendar } from "@/lib/calendar-data";
 import { systemTextOf } from "@/i18n/system-text";
 import { PlanLink } from "../lancamentos/plan-link";
 import { deleteEvent, saveEvent, type EventFormState } from "./actions";
 import { isOverdue, itemHref, typeOf, type CalendarFilter } from "./calendar-model";
 import { TYPE_ICON, TYPE_TEXT } from "./item-types";
+import { useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadCalendar>>;
 
@@ -65,7 +66,7 @@ function DayItem({ item, data, writable }: { item: CalendarItem; data: Data; wri
   const t = useTranslations("calendario");
   const tConfirm = useTranslations("dashboard.confirm");
   const system = systemTextOf(useTranslations("sistema"));
-  const locale = useLocale();
+  const moneyText = useMoney();
   const type = typeOf(item, data.types);
   // O fechamento do cartão chega pronto do agente, como "Fecha <nome>".
   const title =
@@ -96,7 +97,7 @@ function DayItem({ item, data, writable }: { item: CalendarItem; data: Data; wri
         {item.type === "lancamento" ? (
           <p className={cx("text-sm font-semibold tabular-nums", amountClass(item.kind))}>
             {item.kind === "receita" ? "+ " : "− "}
-            {formatAmount(item.amount, locale)}
+            {moneyText(item.amount)}
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-1.5">
@@ -184,6 +185,7 @@ export function DayPanel({
 }) {
   const t = useTranslations("calendario");
   const locale = useLocale();
+  const moneyText = useMoney();
   const { openNew } = useEntryDialog();
   const [creating, setCreating] = useState<number | null>(null);
   const close = () => setCreating(null);
@@ -205,7 +207,7 @@ export function DayPanel({
         <p className="mt-3 rounded-xl bg-card-soft p-3 text-sm">
           <span className="text-muted">{t("day.balance")} </span>
           <span className={cx("font-semibold tabular-nums", negative && "text-danger")}>
-            {formatAmount(balance, locale)}
+            {moneyText(balance)}
           </span>
         </p>
       ) : null}

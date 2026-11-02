@@ -4210,6 +4210,192 @@ describe("diagnósticos", () => {
   });
 });
 
+describe("moeda principal (ADR-0020, Fase 6)", () => {
+  it("a moeda de uma família não vaza nem é mudada pela outra", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const other = await ctxFor(B.owner, B.household);
+    await db.withHousehold(owner, (tx) =>
+      tx
+        .update(householdSettings)
+        .set({ mainCurrency: "USD" })
+        .where(eq(householdSettings.householdId, A.household)),
+    );
+    expect(await db.withHousehold(owner, db.householdCurrency)).toBe("USD");
+    expect(await db.withHousehold(other, db.householdCurrency)).toBe("BRL");
+    const changed = await db.withHousehold(other, (tx) =>
+      tx
+        .update(householdSettings)
+        .set({ mainCurrency: "EUR" })
+        .where(eq(householdSettings.householdId, A.household))
+        .returning({ id: householdSettings.householdId }),
+    );
+    expect(changed).toEqual([]);
+    await db.withHousehold(owner, (tx) =>
+      tx
+        .update(householdSettings)
+        .set({ mainCurrency: "BRL" })
+        .where(eq(householdSettings.householdId, A.household)),
+    );
+  });
+
+  it("quem só vê não muda a moeda", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    const changed = await db.withHousehold(viewer, (tx) =>
+      tx
+        .update(householdSettings)
+        .set({ mainCurrency: "USD" })
+        .where(eq(householdSettings.householdId, A.household))
+        .returning({ id: householdSettings.householdId }),
+    );
+    expect(changed).toEqual([]);
+  });
+
+  it("a moeda só aceita a lista, e a coluna antiga segue em real", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.execute(sql`update household_settings set main_currency = 'JPY'`),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.execute(sql`update household_settings set currency = 'USD'`),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("lançamento guarda a origem em real com o par completo, e nunca as duas origens", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const insert = (values: Record<string, string>) =>
+      db.withHousehold(owner, async (tx) => {
+        const [account] = await tx
+          .insert(db.accounts)
+          .values({ householdId: A.household, name: "Conta da origem", currency: "BRL" })
+          .returning({ id: db.accounts.id });
+        const [category] = await tx.select({ id: db.categories.id }).from(db.categories).limit(1);
+        await tx.insert(db.transactions).values({
+          householdId: A.household,
+          accountId: account!.id,
+          categoryId: category!.id,
+          kind: "despesa",
+          description: "Origem",
+          amount: "10.00",
+          occurredOn: "2026-10-30",
+          ...values,
+        });
+      });
+    await expect(insert({ brlAmount: "54.21" })).rejects.toThrow();
+    await expect(insert({ brlRate: "0.18446100" })).rejects.toThrow();
+    await expect(
+      insert({
+        brlAmount: "54.21",
+        brlRate: "0.18446100",
+        originalAmount: "9.00",
+        originalCurrency: "EUR",
+        fxRate: "1.11000000",
+      }),
+    ).rejects.toThrow();
+    await expect(insert({ brlAmount: "54.21", brlRate: "0.18446100" })).resolves.toBeUndefined();
+    await db.withHousehold(owner, (tx) =>
+      tx.delete(db.transactions).where(eq(db.transactions.description, "Origem")),
+    );
+  });
+
+  it("cada tipo de movimento trava a moeda, e só da própria família", async () => {
+    const id = "hh-trava";
+    const owner = "user-trava";
+    await db.withAdmin("seed da trava de moeda", async (admin) => {
+      await admin.insert(user).values({ id: owner, name: "Tê", email: "te@example.com" });
+      await admin.insert(household).values({ id, name: "Trava", slug: "familia-trava" });
+      await admin
+        .insert(householdMember)
+        .values({ id: "m-trava", organizationId: id, userId: owner, role: "owner" });
+    });
+    const ctx = await ctxFor(owner, id);
+    const { from, to, category, card } = await db.withHousehold(ctx, async (tx) => {
+      const [first, second] = await tx
+        .insert(db.accounts)
+        .values([
+          { householdId: id, name: "Uma" },
+          { householdId: id, name: "Outra" },
+        ])
+        .returning({ id: db.accounts.id });
+      const [kind] = await tx
+        .insert(db.categories)
+        .values({ householdId: id, name: "Uma", kind: "despesa" })
+        .returning({ id: db.categories.id });
+      const [plastic] = await tx
+        .insert(db.creditCards)
+        .values({
+          householdId: id,
+          name: "Um",
+          closingDay: 25,
+          dueDay: 5,
+          payingAccountId: first!.id,
+        })
+        .returning({ id: db.creditCards.id });
+      return { from: first!.id, to: second!.id, category: kind!.id, card: plastic!.id };
+    });
+
+    // Conta, categoria e cartão não são movimento, nem o que outra família já lançou.
+    expect(await db.withHousehold(ctx, db.householdHasMovement)).toBe(false);
+
+    const common = { householdId: id };
+    const movements: Array<
+      (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => Promise<unknown>
+    > = [
+      (tx) =>
+        tx.insert(db.transactions).values({
+          ...common,
+          accountId: from,
+          categoryId: category,
+          kind: "despesa",
+          description: "Um",
+          amount: "1.00",
+          occurredOn: "2026-10-30",
+        }),
+      (tx) =>
+        tx.insert(db.cardPurchases).values({
+          ...common,
+          cardId: card,
+          categoryId: category,
+          description: "Um",
+          amount: "1.00",
+          purchasedOn: "2026-10-30",
+        }),
+      (tx) =>
+        tx.insert(db.debts).values({
+          ...common,
+          accountId: from,
+          name: "Uma",
+          system: "price",
+          originalBalance: "1.00",
+        }),
+      (tx) => tx.insert(db.investments).values({ ...common, name: "Um", assetClass: "exterior" }),
+      (tx) =>
+        tx.insert(db.goals).values({ ...common, name: "Uma", kind: "outro", targetAmount: "1.00" }),
+      (tx) =>
+        tx.insert(db.accountTransfers).values({
+          ...common,
+          fromAccountId: from,
+          toAccountId: to,
+          amount: "1.00",
+          occurredOn: "2026-10-30",
+        }),
+    ];
+    for (const movement of movements) {
+      // O erro desfaz a transação: cada tipo é conferido sozinho.
+      await expect(
+        db.withHousehold(ctx, async (tx) => {
+          await movement(tx);
+          throw new Error(`movimento: ${await db.householdHasMovement(tx)}`);
+        }),
+      ).rejects.toThrow("movimento: true");
+    }
+    expect(await db.withHousehold(ctx, db.householdHasMovement)).toBe(false);
+  });
+});
+
 describe("ops", () => {
   it("registra e lista deploys sem tenant", async () => {
     await db.recordDeployment({ service: "web", commit: "abc1234", hostname: "test" });

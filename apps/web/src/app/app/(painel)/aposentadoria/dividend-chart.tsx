@@ -1,7 +1,7 @@
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { money, percentOf, toDbAmount } from "@organizeup/domain";
 import { cx } from "@/components/styles";
-import { formatAmount } from "@/i18n/format";
+import { useMoney } from "@/i18n/money";
 
 interface Point {
   year: number;
@@ -23,7 +23,7 @@ export function DividendChart({
   required: string;
 }) {
   const t = useTranslations("aposentadoria.dividendChart");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const top = points.reduce(
     (acc, point) => (money(point.value).gt(acc) ? money(point.value) : acc),
     money(required),
@@ -33,18 +33,18 @@ export function DividendChart({
   const first = points[0]!;
   const last = points[points.length - 1]!;
   const summary = t("summary", {
-    first: formatAmount(first.value, locale),
+    first: moneyText(first.value),
     firstYear: first.year,
-    last: formatAmount(last.value, locale),
+    last: moneyText(last.value),
     lastYear: last.year,
-    income: formatAmount(last.income, locale),
-    required: formatAmount(required, locale),
+    income: moneyText(last.income),
+    required: moneyText(required),
   });
   return (
     <div>
       <div role="img" aria-label={summary} className="grid grid-cols-[4rem_minmax(0,1fr)] gap-2">
         <div className="flex h-40 flex-col justify-between text-right text-xs tabular-nums text-muted">
-          <span>{formatAmount(max, locale, "compact")}</span>
+          <span>{moneyText(max, "compact")}</span>
           <span>{t("zero")}</span>
         </div>
         <div>
@@ -73,10 +73,10 @@ export function DividendChart({
                 >
                   <span className="mb-1 block font-semibold">{point.year}</span>
                   <span className="block font-medium tabular-nums text-ink">
-                    {formatAmount(point.value, locale)}
+                    {moneyText(point.value)}
                   </span>
                   <span className="block tabular-nums text-muted">
-                    {t("incomePerMonth", { amount: formatAmount(point.income, locale) })}
+                    {t("incomePerMonth", { amount: moneyText(point.income) })}
                   </span>
                 </span>
               </div>
@@ -106,8 +106,8 @@ export function DividendChart({
           {points.map((point) => (
             <tr key={point.year}>
               <th scope="row">{point.year}</th>
-              <td>{formatAmount(point.value, locale)}</td>
-              <td>{formatAmount(point.income, locale)}</td>
+              <td>{moneyText(point.value)}</td>
+              <td>{moneyText(point.income)}</td>
             </tr>
           ))}
         </tbody>

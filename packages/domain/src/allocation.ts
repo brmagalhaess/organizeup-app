@@ -1,7 +1,7 @@
 // Divisão do excedente (ADR-0015). Puro e estimativa: dado o que sobra por mês, sugere quanto vai
 // para reserva, dívidas caras, aposentadoria, metas e viagens, nesta ordem. A família decide; o
 // agente só grava sugestões e dados derivados. Percentuais fixos documentados no ADR.
-import { formatBRL, money, toCents, toDbAmount, type MoneyValue } from "./money";
+import { formatMoney, money, toCents, toDbAmount, type Currency, type MoneyValue } from "./money";
 import { monthlyRate } from "./retirement";
 
 export const ALLOCATION_RULES = {
@@ -32,6 +32,8 @@ export interface AllocationInput {
   confirmedTripsMonthly: string;
   /** Meses de histórico, só para o texto da nota. */
   surplusMonths?: number;
+  /** Moeda principal da família, para as notas. Sem ela, real. */
+  currency?: Currency;
 }
 
 export interface Allocation {
@@ -67,6 +69,7 @@ const positive = (value: MoneyValue) => (value.gt(0) ? value : money(0));
  * viagens. Cada passo arredonda em centavos, para a soma das partes fechar exatamente no disponível.
  */
 export function suggestAllocation(input: AllocationInput): Allocation {
+  const { currency } = input;
   const notes: string[] = [];
   const available = positive(toCents(input.available));
   const zero = "0.00";
@@ -91,7 +94,8 @@ export function suggestAllocation(input: AllocationInput): Allocation {
     min(positive(money(input.reserveMissing)), available.times(ALLOCATION_RULES.reserveShare)),
   );
   let rest = available.minus(reserve);
-  if (reserve.gt(0)) notes.push(`Primeiro a reserva de emergência: ${formatBRL(reserve)} por mês.`);
+  if (reserve.gt(0))
+    notes.push(`Primeiro a reserva de emergência: ${formatMoney(reserve, currency)} por mês.`);
 
   // 2. Dívidas caras.
   const debt = toCents(
@@ -100,7 +104,7 @@ export function suggestAllocation(input: AllocationInput): Allocation {
   rest = rest.minus(debt);
   if (debt.gt(0)) {
     notes.push(
-      `Quitar as dívidas caras rende mais que investir: ${formatBRL(debt)} por mês para elas.`,
+      `Quitar as dívidas caras rende mais que investir: ${formatMoney(debt, currency)} por mês para elas.`,
     );
   }
 
@@ -113,8 +117,8 @@ export function suggestAllocation(input: AllocationInput): Allocation {
     retirement = toCents(min(required, rest.times(ALLOCATION_RULES.retirementShare)));
     if (retirement.lt(required)) {
       notes.push(
-        `Para a aposentadoria cabem ${formatBRL(retirement)} por mês, menos que os ` +
-          `${formatBRL(required)} necessários; a projeção mostra em que ano fecha com este valor.`,
+        `Para a aposentadoria cabem ${formatMoney(retirement, currency)} por mês, menos que os ` +
+          `${formatMoney(required, currency)} necessários; a projeção mostra em que ano fecha com este valor.`,
       );
     }
   }
@@ -128,7 +132,7 @@ export function suggestAllocation(input: AllocationInput): Allocation {
   const shortfall = positive(confirmed.minus(tripsHalf));
   if (shortfall.gt(0)) {
     notes.push(
-      `As viagens confirmadas pedem ${formatBRL(shortfall)} por mês a mais do que sobra para viagens.`,
+      `As viagens confirmadas pedem ${formatMoney(shortfall, currency)} por mês a mais do que sobra para viagens.`,
     );
   }
 

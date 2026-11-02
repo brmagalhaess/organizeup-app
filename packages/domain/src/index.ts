@@ -1,6 +1,7 @@
 export * from "./money";
 export * from "./messages";
 export * from "./fx";
+export * from "./brazil-rules";
 export * from "./rebalance";
 export * from "./monthly-plan";
 export * from "./dates";

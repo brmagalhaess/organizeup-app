@@ -12,6 +12,7 @@ import {
   goalContributions,
   goals,
   incomeReceipts,
+  householdCurrency,
   incomeSources,
   inArray,
   type TenantTx,
@@ -25,6 +26,7 @@ import {
   incomeKey,
   linesTotal,
   occurrenceDate,
+  plainIncomes,
   purchaseLines,
   statementDueDate,
   type IncomePart,
@@ -39,7 +41,7 @@ export async function scheduledIncome(
   from: YearMonth,
   to: YearMonth,
 ): Promise<ScheduledEntry[]> {
-  const sources = await tx.select().from(incomeSources);
+  const sources = plainIncomes(await tx.select().from(incomeSources), await householdCurrency(tx));
   if (sources.length === 0) return [];
   const tables = await loadFiscalTables(tx);
   const receipts = await tx.select().from(incomeReceipts);

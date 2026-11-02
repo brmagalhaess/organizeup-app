@@ -17,12 +17,12 @@ export const AUTOMATIC_SUGGESTION_KINDS = [
 export const AI_CATEGORY_REASON =
   "O assistente reconheceu o estabelecimento pela descrição do extrato";
 
-/** Valor em reais no formato do banco, maior que zero. */
+/** Valor na moeda principal, no formato do banco, maior que zero. */
 export const amountSchema = z
   .string()
   .regex(/^\d+\.\d{2}$/, "Valor no formato 1234.56.")
   .refine((value) => value !== "0.00", "Valor maior que zero.");
-/** Valor em reais no formato do banco, zero permitido. */
+/** Valor na moeda principal, no formato do banco, zero permitido. */
 export const nonNegativeAmountSchema = z
   .string()
   .regex(/^\d+\.\d{2}$/, "Valor no formato 1234.56.");

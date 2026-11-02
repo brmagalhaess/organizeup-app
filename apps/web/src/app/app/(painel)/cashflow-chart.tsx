@@ -3,13 +3,15 @@ import { axisCeiling, money, percentOf, type MonthPoint } from "@organizeup/doma
 import { useLocale, useTranslations } from "next-intl";
 import { cx } from "@/components/styles";
 import { EmptyState } from "@/components/ui";
-import { formatAmount, formatMonthAbbr, formatMonthYear } from "@/i18n/format";
+import { formatMonthAbbr, formatMonthYear } from "@/i18n/format";
+import { useMoney } from "@/i18n/money";
 
 /** Barras de entradas e saídas por mês. Um eixo só; a tabela atende leitores de tela. */
 export function CashflowChart({ series }: { series: MonthPoint[] }) {
   const t = useTranslations("dashboard.cashflow");
   const locale = useLocale();
-  const amount = (value: string) => formatAmount(value, locale);
+  const moneyText = useMoney();
+  const amount = (value: string) => moneyText(value);
   const monthName = (month: string) => formatMonthYear(month, locale);
   const ceiling = axisCeiling(series.flatMap((p) => [p.received, p.spent]));
   if (money(ceiling).isZero()) return <EmptyState title={t("emptyTitle")} text={t("emptyText")} />;
@@ -32,7 +34,7 @@ export function CashflowChart({ series }: { series: MonthPoint[] }) {
         <div className="flex h-52 flex-col justify-between text-right text-xs tabular-nums text-muted">
           {ticks.map((tick) => (
             <span key={tick} className="-translate-y-1/2 first:translate-y-0 last:translate-y-0">
-              {formatAmount(tick, locale, "compact")}
+              {moneyText(tick, "compact")}
             </span>
           ))}
         </div>

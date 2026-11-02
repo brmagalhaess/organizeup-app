@@ -19,7 +19,7 @@ import {
   StatTile,
   submitKeeping,
 } from "@/components/ui";
-import { formatAmount, formatMonthYear, toFieldValue } from "@/i18n/format";
+import { formatMonthYear, toFieldValue } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import type { loadGoals } from "@/lib/goals";
 import { systemTextOf } from "@/i18n/system-text";
@@ -32,6 +32,7 @@ import {
   setGoalStatus,
   type FormState,
 } from "./actions";
+import { useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadGoals>>;
 type Goal = Data["goals"][number];
@@ -177,6 +178,7 @@ function GoalBadge({ goal }: { goal: Goal }) {
 function PlanText({ goal }: { goal: Goal }) {
   const t = useTranslations("metas.plan");
   const locale = useLocale();
+  const moneyText = useMoney();
   if (!goal.active) return null;
   if (!goal.planned) return <p className="mt-2 text-sm text-muted">{t("pending")}</p>;
   const note = goal.planNote;
@@ -192,7 +194,7 @@ function PlanText({ goal }: { goal: Goal }) {
       {goal.planStart && goal.planEnd ? (
         <p className="mt-2 text-sm">
           {t.rich("monthly", {
-            amount: formatAmount(goal.planMonthly, locale),
+            amount: moneyText(goal.planMonthly),
             start: formatMonthYear(goal.planStart, locale),
             end: formatMonthYear(goal.planEnd, locale),
             strong: (chunks) => <strong className="tabular-nums">{chunks}</strong>,
@@ -219,6 +221,7 @@ function GoalCard({
 }) {
   const t = useTranslations("metas");
   const locale = useLocale();
+  const moneyText = useMoney();
   const paused = goal.status === "pausada";
   const name = goal.name;
   const kind = t(`kinds.${goal.kind}`);
@@ -245,9 +248,9 @@ function GoalCard({
     >
       <GoalBadge goal={goal} />
       <div className="mt-2 flex items-baseline justify-between gap-3 text-sm">
-        <span className="font-medium tabular-nums">{formatAmount(goal.targetAmount, locale)}</span>
+        <span className="font-medium tabular-nums">{moneyText(goal.targetAmount)}</span>
         <span className="tabular-nums text-muted">
-          {t("card.saved", { amount: formatAmount(goal.saved, locale) })}
+          {t("card.saved", { amount: moneyText(goal.saved) })}
         </span>
       </div>
       <div
@@ -271,9 +274,7 @@ function GoalCard({
             <li key={row.key} className="flex items-center gap-3 py-1.5 text-sm">
               <span className="min-w-0 flex-1 first-letter:uppercase">
                 {formatMonthYear(row.month, locale)}
-                <span className="block font-medium tabular-nums">
-                  {formatAmount(row.amount, locale)}
-                </span>
+                <span className="block font-medium tabular-nums">{moneyText(row.amount)}</span>
               </span>
               {writable ? (
                 <ConfirmEntryButton
@@ -352,6 +353,7 @@ export function GoalsBoard({
 }) {
   const t = useTranslations("metas");
   const locale = useLocale();
+  const moneyText = useMoney();
   const [sheet, setSheet] = useState<Open | null>(null);
   const [removing, setRemoving] = useState<Goal | null>(null);
   const close = () => setSheet(null);
@@ -393,7 +395,7 @@ export function GoalsBoard({
           <dl className="m-0 grid grid-cols-2 gap-4">
             <StatTile
               label={t("stats.monthly")}
-              value={formatAmount(data.nextMonthTotal, locale)}
+              value={moneyText(data.nextMonthTotal)}
               hint={
                 data.nextMonth
                   ? t("stats.monthlyHint", { month: formatMonthYear(data.nextMonth, locale) })

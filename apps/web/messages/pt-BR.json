@@ -9,7 +9,7 @@
       "yearTarget": "Com o que você guarda hoje, a carteira fecha em {year}, e o seu alvo é {target}."
     },
     "yearsEarlier": "{years, plural, =1 {1 ano mais cedo} other {# anos mais cedo}}",
-    "disclaimer": "Estimativas em reais de hoje, sem garantia de rendimento. Conteúdo educativo, não é recomendação de investimento.",
+    "disclaimer": "Estimativas em ¤¤ de hoje, sem garantia de rendimento. Conteúdo educativo, não é recomendação de investimento.",
     "actions": {
       "completar": {
         "title": "Complete o seu plano de aposentadoria",
@@ -62,7 +62,7 @@
     "essential": {
       "sheetTitle": "Gasto essencial",
       "intro": "É o que sua família precisa para viver um mês: moradia, mercado, contas e transporte.",
-      "label": "Gasto essencial por mês (R$)",
+      "label": "Gasto essencial por mês (¤)",
       "hint": "Opcional. Em branco, calculamos pelos lançamentos em categorias essenciais.",
       "submit": "Salvar gasto essencial"
     },
@@ -102,7 +102,7 @@
       "forecast": "Guardando <b>{amount}</b> por mês, você chega em <b>{date}</b>, daqui a {count, plural, =1 {# mês} other {# meses}}."
     },
     "contribution": {
-      "label": "Quanto consigo guardar por mês (R$)",
+      "label": "Quanto consigo guardar por mês (¤)",
       "hint": "Seu plano sugere {amount} por mês.",
       "saveLabel": "Salvar quanto guardar por mês"
     },
@@ -189,7 +189,7 @@
       "name": "Nome do bem",
       "namePlaceholder": "Ex.: Apartamento",
       "kind": "Tipo",
-      "value": "Valor hoje (R$)",
+      "value": "Valor hoje (¤)",
       "valueHint": "Quanto você venderia.",
       "valuedOn": "Data do valor",
       "linkedDebt": "Dívida ligada a este bem",
@@ -278,7 +278,7 @@
       "type": "Tipo",
       "date": "Data",
       "quantity": "Quantidade",
-      "fees": "Taxas (R$)",
+      "fees": "Taxas (¤)",
       "pricePlaceholder": "32,50",
       "amountPlaceholder": "1.000,00",
       "zeroPlaceholder": "0,00"
@@ -298,7 +298,8 @@
         },
         "renda_fixa": {
           "label": "Renda fixa",
-          "hint": "CDB, Tesouro, LCI, LCA"
+          "hint": "CDB, Tesouro, LCI, LCA",
+          "hintAnywhere": "Títulos, depósitos e fundos de renda fixa"
         },
         "outro": {
           "label": "Outro",
@@ -316,7 +317,7 @@
         "exterior": "Exterior",
         "outro": "Outro"
       },
-      "pricePaid": "Preço pago (R$)",
+      "pricePaid": "Preço pago (¤)",
       "purchaseDate": "Data da compra",
       "feesHint": "Opcional.",
       "total": "Total da compra: {total}",
@@ -332,11 +333,12 @@
       "manual": "Preencher à mão",
       "namePlaceholderFixed": "Ex.: Tesouro Selic 2031",
       "namePlaceholderOther": "Ex.: Previdência da empresa",
-      "amount": "Valor aplicado (R$)",
-      "currentValue": "Valor hoje (R$)",
+      "amount": "Valor aplicado (¤)",
+      "currentValue": "Valor hoje (¤)",
       "currentValueHint": "Opcional. Sem ele, usamos o valor aplicado.",
       "currentValuePlaceholder": "1.050,00",
-      "submit": "Adicionar à carteira"
+      "submit": "Adicionar à carteira",
+      "namePlaceholderFixedAnywhere": "Ex.: Título público 2031"
     },
     "trade": {
       "operation": "Operação",
@@ -344,8 +346,8 @@
       "sell": "Venda",
       "deposit": "Aplicação",
       "redeem": "Resgate",
-      "price": "Preço (R$)",
-      "amount": "Valor (R$)",
+      "price": "Preço (¤)",
+      "amount": "Valor (¤)",
       "feesHint": "Opcional. Entram no preço médio.",
       "submit": "Salvar operação"
     },
@@ -365,7 +367,8 @@
       "empty": {
         "title": "Sua carteira começa aqui",
         "text": "Cadastre ações, fundos, renda fixa ou previdência. O valor entra no seu patrimônio. Se já tiver esse dinheiro em uma conta de investimento no sistema, use só um dos dois.",
-        "action": "Adicionar investimento"
+        "action": "Adicionar investimento",
+        "textAnywhere": "Cadastre investimentos no exterior, fundos, renda fixa ou previdência. O valor entra no seu patrimônio. Se já tiver esse dinheiro em uma conta de investimento no sistema, use só um dos dois."
       },
       "stats": {
         "cost": "Custo",
@@ -415,16 +418,18 @@
         "namePlaceholder": "Ex.: Tesouro Selic 2031",
         "class": "Classe",
         "codeHint": "Ex.: PETR4, HGLG11. Em ações, fundos imobiliários, ETFs e BDRs, é o que traz o preço e os proventos sozinhos.",
-        "submit": "Salvar investimento"
+        "submit": "Salvar investimento",
+        "namePlaceholderAnywhere": "Ex.: Título público 2031"
       },
       "valueForm": {
-        "price": "Preço de hoje (R$)",
-        "total": "Valor total hoje (R$)",
+        "price": "Preço de hoje (¤)",
+        "total": "Valor total hoje (¤)",
         "hintAuto": "Vale até a próxima cotação automática.",
         "hintUnit": "Preço de uma unidade.",
         "hintStatement": "Como aparece no extrato.",
         "submit": "Salvar valor"
-      }
+      },
+      "disclaimerAnywhere": "O valor de cada investimento é informado por você, sem cotação automática. O OrganizeUp organiza e compara, e não recomenda compra ou venda de investimentos."
     },
     "trades": {
       "title": "Lançamentos",
@@ -469,7 +474,7 @@
       "next": {
         "title": "Se você aportar agora",
         "description": "Mostra como aproximar a carteira das suas metas, sem vender nada.",
-        "amount": "Valor do aporte (R$)",
+        "amount": "Valor do aporte (¤)",
         "noneBelow": "Nenhuma classe com meta está abaixo do alvo.",
         "split": "Divisão do aporte",
         "leftover": "Sobram {amount}: as classes já ficam na meta."
@@ -509,7 +514,8 @@
       "valueFormat": "Informe o valor como 32,50.",
       "percentFormat": "Use percentuais como 30 ou 12,5.",
       "percentMax": "Cada classe vai até 100%.",
-      "percentSum": "A soma das metas passa de 100%."
+      "percentSum": "A soma das metas passa de 100%.",
+      "classNotAllowed": "Esta classe só vale para família em real."
     }
   },
   "proventos": {
@@ -532,8 +538,8 @@
       "investment": "Investimento",
       "kind": "Tipo",
       "paidOn": "Data do pagamento",
-      "gross": "Valor bruto (R$)",
-      "withheld": "Imposto retido (R$)",
+      "gross": "Valor bruto (¤)",
+      "withheld": "Imposto retido (¤)",
       "withheldHint": "Como aparece no extrato.",
       "amountPlaceholder": "0,00",
       "save": "Salvar provento"
@@ -546,7 +552,7 @@
     },
     "goal": {
       "title": "Meta de proventos",
-      "label": "Meta de renda por mês (R$)",
+      "label": "Meta de renda por mês (¤)",
       "hint": "Deixe vazio para tirar a meta.",
       "placeholder": "1.500,00",
       "save": "Salvar meta"
@@ -622,7 +628,7 @@
       "confirm": "Excluir"
     },
     "chart": {
-      "zero": "R$ 0",
+      "zero": "¤ 0",
       "caption": "Proventos líquidos por mês",
       "month": "Mês",
       "net": "Valor líquido"
@@ -680,7 +686,7 @@
       "name": "Nome da meta",
       "namePlaceholder": "Ex.: Trocar de carro",
       "kind": "Tipo",
-      "amount": "Valor (R$)",
+      "amount": "Valor (¤)",
       "amountPlaceholder": "0,00",
       "desiredMonth": "Quando quer ter conquistado",
       "optional": "Opcional.",
@@ -700,7 +706,7 @@
       "save": "Salvar meta"
     },
     "saved": {
-      "amount": "Quanto você separou (R$)",
+      "amount": "Quanto você separou (¤)",
       "hint": "Soma ao que já estava guardado.",
       "note": "Isto não mexe nas suas contas. É só o controle da meta.",
       "save": "Registrar valor"
@@ -767,13 +773,13 @@
       "disclaimer": "Estimativa. Proventos passados não garantem proventos futuros; nada aqui é recomendação de investimento.",
       "formTitle": "Seu plano",
       "formDescription": "O que ficar vazio o assistente calcula para você.",
-      "targetIncome": "Renda que você quer por mês (R$)",
+      "targetIncome": "Renda que você quer por mês (¤)",
       "targetIncomeHint": "Vazio: usamos seu gasto médio.",
       "targetIncomePlaceholder": "8.000,00",
       "expectedYield": "Rendimento anual da carteira (%)",
-      "expectedYieldHint": "Quanto a carteira paga em proventos por ano. Ex.: R$ 100 mil que pagam R$ 6 mil = 6%.",
+      "expectedYieldHint": "Quanto a carteira paga em proventos por ano. Ex.: ¤ 100 mil que pagam ¤ 6 mil = 6%.",
       "expectedYieldPlaceholder": "6,00",
-      "contribution": "Quanto guardar por mês (R$)",
+      "contribution": "Quanto guardar por mês (¤)",
       "contributionHint": "Vazio: usamos o valor sugerido.",
       "contributionPlaceholder": "1.000,00",
       "advanced": "Ajustes avançados",
@@ -836,11 +842,12 @@
       "planAction": "Completar cadastro",
       "yieldTitle": "Informe o rendimento anual da carteira ou registre proventos",
       "yieldText": "Sem isso não dá para calcular quanto precisa ter investido.",
-      "yieldAction": "Registrar proventos"
+      "yieldAction": "Registrar proventos",
+      "yieldTitleAnywhere": "Informe o rendimento anual da carteira"
     },
     "dividendChart": {
       "summary": "Carteira projetada de {first} em {firstYear} para {last} em {lastYear}, pagando {income} por mês. Quanto precisa ter investido: {required}.",
-      "zero": "R$ 0",
+      "zero": "¤ 0",
       "incomePerMonth": "{amount} por mês",
       "note": "Carteira no começo de cada ano. A linha tracejada é quanto precisa ter investido; a parte clara é a partir de {year}.",
       "caption": "Carteira projetada e renda mensal por ano",
@@ -887,16 +894,16 @@
       "targetAge": "Parar aos",
       "lifeExpectancy": "Planejar até os",
       "lifeExpectancyHint": "Até que idade o dinheiro deve durar.",
-      "targetIncome": "Renda desejada por mês (R$)",
+      "targetIncome": "Renda desejada por mês (¤)",
       "targetIncomeHint": "Em dinheiro de hoje.",
       "targetIncomePlaceholder": "8.000,00",
-      "otherIncome": "INSS e outras rendas por mês (R$)",
+      "otherIncome": "INSS e outras rendas por mês (¤)",
       "otherIncomeHint": "Veja a estimativa do INSS no site ou app Meu INSS.",
       "amountPlaceholder": "0,00",
-      "saved": "Já guardado (R$)",
+      "saved": "Já guardado (¤)",
       "savedHint": "Vazio usa a sua carteira de investimentos: {amount}.",
       "savedPlaceholder": "Usar a carteira",
-      "contribution": "Quanto você guarda por mês (R$)",
+      "contribution": "Quanto você guarda por mês (¤)",
       "returnBefore": "Retorno até parar (%)",
       "returnAfter": "Retorno depois (%)",
       "returnHint": "Ao ano, acima da inflação.",
@@ -905,7 +912,7 @@
       "save": "Salvar cenário"
     },
     "retirementChart": {
-      "zero": "R$ 0",
+      "zero": "¤ 0",
       "barLabel": "Aos {age} anos: {amount}",
       "barTitle": "Aos {age} anos",
       "note": "Idade. A parte clara é depois de parar de trabalhar.",
@@ -983,14 +990,14 @@
     },
     "cost": {
       "kind": "Tipo",
-      "amount": "Valor (R$)",
+      "amount": "Valor (¤)",
       "amountHint": "Uma estimativa já ajuda. Você ajusta depois.",
       "amountPlaceholder": "0,00",
       "perPerson": "Este valor é por pessoa",
       "save": "Salvar custo"
     },
     "saved": {
-      "amount": "Quanto você separou (R$)",
+      "amount": "Quanto você separou (¤)",
       "hint": "Soma ao que já estava guardado.",
       "note": "Isto não mexe nas suas contas. É só o controle da viagem.",
       "save": "Registrar valor"
@@ -1237,7 +1244,7 @@
       "suggestions": {
         "month": "Como foi este mês?",
         "upcoming": "O que vence nos próximos dias?",
-        "saveMore": "E se eu guardar mais R$ 500 por mês?"
+        "saveMore": "E se eu guardar mais ¤ 500 por mês?"
       }
     },
     "threads": {
@@ -1839,7 +1846,18 @@
       "text": "Isso não pode ser desfeito. Sua conta é apagada e, se a família for só sua, todos os dados dela também. As cópias de segurança são substituídas em até 30 dias.",
       "wrongPassword": "Senha incorreta."
     },
-    "noPermission": "Seu papel nesta família não permite alterações."
+    "noPermission": "Seu papel nesta família não permite alterações.",
+    "currency": {
+      "title": "Moeda principal",
+      "description": "Em que moeda a família vê os totais.",
+      "label": "Moeda principal",
+      "hint": "Fora do real, as regras brasileiras (INSS, CLT, IR) ficam desligadas.",
+      "lockedHint": "A família já tem movimentos, então a moeda não muda mais.",
+      "locked": "A família já tem movimentos, e a moeda não muda mais.",
+      "invalid": "Escolha uma das moedas da lista.",
+      "save": "Salvar moeda",
+      "saved": "Moeda principal salva."
+    }
   },
   "notificacoes": {
     "metaTitle": "Notificações",
@@ -2001,8 +2019,8 @@
       "cardExpensesOnly": "Cartão recebe apenas despesas.",
       "invalidCard": "Escolha um cartão válido.",
       "invalidAccount": "Escolha uma conta válida.",
-      "overLimit": "Este valor passa do limite em reais.",
-      "noRepeat": "Conta em dólar ou euro ainda não aceita conta que se repete. Lance mês a mês ou use uma conta em reais.",
+      "overLimit": "Este valor passa do limite em ¤¤.",
+      "noRepeat": "Conta em ¤¤¤ ainda não aceita conta que se repete. Lance mês a mês ou use uma conta em ¤¤.",
       "notFound": "Lançamento não encontrado.",
       "recurringMonth": "Lançamento de conta recorrente precisa continuar no mesmo mês.",
       "goalEntry": "Este lançamento guarda dinheiro para uma meta. Para mudar, exclua e confirme de novo.",
@@ -2037,8 +2055,8 @@
     "fx": {
       "converted": "Convertido pela cotação de {date}.",
       "missing": "Ainda sem cotação de {names}: essas contas ficam fora da soma.",
-      "noBalanceInReais": "Ainda sem cotação para mostrar em reais",
-      "balanceNote": "O saldo em {currency, select, USD {dólar} EUR {euro} other {real}} só muda com lançamentos; em reais, varia com a cotação."
+      "noBalanceInReais": "Ainda sem cotação para mostrar em ¤¤",
+      "balanceNote": "O saldo em {currency, select, USD {dólar} EUR {euro} other {real}} só muda com lançamentos; em ¤¤, varia com a cotação."
     },
     "actions": {
       "edit": "Editar {name}",
@@ -2061,7 +2079,7 @@
       "type": "Tipo",
       "currency": "Moeda",
       "currencyLocked": "Esta conta já tem movimento, então a moeda fica como está.",
-      "currencyHint": "Lançamentos e saldo ficam nesta moeda. Os totais do app seguem em reais.",
+      "currencyHint": "Lançamentos e saldo ficam nesta moeda. Os totais do app seguem em ¤¤.",
       "openingBalance": "Saldo inicial ({symbol})",
       "openingBalanceHint": "Quanto havia na conta antes dos lançamentos daqui. Eles somam e subtraem deste valor.",
       "save": "Salvar conta"
@@ -2147,7 +2165,7 @@
       "closingDayHint": "Último dia de compras da fatura.",
       "dueDay": "Dia do vencimento",
       "dueDayHint": "Quando a fatura deve ser paga.",
-      "limit": "Limite (R$)",
+      "limit": "Limite (¤)",
       "limitHint": "Opcional. Mostra quanto ainda está disponível.",
       "payingAccount": "Conta que paga a fatura",
       "save": "Salvar cartão"
@@ -2274,8 +2292,8 @@
       "systemPrice": "Fixas, com juros calculados aqui",
       "systemSac": "Diminuem a cada mês",
       "systemManual": "Eu informo o valor da parcela",
-      "installmentAmount": "Valor da parcela (R$)",
-      "balance": "Saldo devedor hoje (R$)",
+      "installmentAmount": "Valor da parcela (¤)",
+      "balance": "Saldo devedor hoje (¤)",
       "balanceHint": "Quanto falta pagar, sem contar juros futuros.",
       "monthlyRate": "Juros ao mês (%)",
       "rateOptional": "Opcional. Só ajuda a sugerir a ordem.",
@@ -2406,7 +2424,7 @@
     "payoff": {
       "title": "Qual dívida pagar primeiro",
       "description": "Estimativa com o que você tem hoje. Quando uma dívida acaba, a parcela dela reforça a próxima.",
-      "extra": "Quanto a mais por mês (R$)",
+      "extra": "Quanto a mais por mês (¤)",
       "extraHint": "Além das parcelas.",
       "extraError": "Informe um valor como 300,00.",
       "avalanche": "Maiores juros primeiro",
@@ -2530,7 +2548,7 @@
       "account": "Conta do extrato",
       "file": "Arquivo",
       "fileHint": "OFX, CSV, Excel (.xlsx) ou PDF, até 5 MB.",
-      "foreign": "Os valores do arquivo são lidos em {currency, select, USD {dólar} EUR {euro} other {real}} e convertidos para reais pela cotação da data de cada linha.",
+      "foreign": "Os valores do arquivo são lidos em {currency, select, USD {dólar} EUR {euro} other {real}} e convertidos para ¤¤ pela cotação da data de cada linha.",
       "other": "Escolher outro arquivo",
       "reading": "Lendo {name}…",
       "checking": "Conferindo com seus lançamentos…"
@@ -2615,7 +2633,7 @@
       "readFailed": "Não conseguimos ler este arquivo. Baixe o extrato em OFX ou CSV.",
       "ofxEmpty": "Não encontramos lançamentos neste arquivo OFX.",
       "noQuote": "Ainda não temos a cotação do {currency, select, USD {dólar} EUR {euro} other {real}} para {date}. Importe um período mais recente.",
-      "overLimit": "Um dos valores do arquivo passa do limite em reais.",
+      "overLimit": "Um dos valores do arquivo passa do limite em ¤¤.",
       "unreadable": "Não conseguimos ler os lançamentos deste arquivo.",
       "serverFailed": "O servidor falhou ao conferir este extrato. Tente de novo; se repetir, nos avise.",
       "invalidAccount": "Escolha uma conta válida.",
@@ -2647,7 +2665,8 @@
     "empty": {
       "title": "Nenhuma renda cadastrada",
       "text": "Cadastre salário, aposentadoria, aluguel ou outra entrada. Na CLT, calculamos INSS, imposto, 13º e férias.",
-      "action": "Cadastrar renda"
+      "action": "Cadastrar renda",
+      "textSimple": "Cadastre salário, aposentadoria, aluguel ou outra entrada, com o valor que cai na conta."
     },
     "slip": {
       "gross": "Salário bruto",
@@ -2675,12 +2694,12 @@
     "simulator": {
       "title": "Simulador de salário",
       "text": "Veja quanto de um salário CLT sobra depois dos descontos.",
-      "gross": "Salário bruto (R$)",
+      "gross": "Salário bruto (¤)",
       "invalid": "Confira os valores, como 4.500,00.",
       "dependents": "Dependentes",
-      "pension": "Pensão (R$)",
+      "pension": "Pensão (¤)",
       "pensionHint": "Alimentícia, por decisão judicial ou acordo.",
-      "otherDiscounts": "Outros descontos (R$)",
+      "otherDiscounts": "Outros descontos (¤)",
       "otherDiscountsHint": "Plano de saúde, vale e outros.",
       "prompt": "Digite o salário bruto para ver o resultado.",
       "register": "Cadastrar esta renda"
@@ -2691,14 +2710,14 @@
       "source": "De onde vem",
       "companyExample": "Ex.: Empresa Exemplo",
       "sourceExample": "Ex.: Aluguel da sala",
-      "gross": "Salário bruto (R$)",
-      "net": "Valor que cai na conta (R$)",
+      "gross": "Salário bruto (¤)",
+      "net": "Valor que cai na conta (¤)",
       "payDay": "Dia do pagamento",
       "dependents": "Dependentes",
       "vacationMonth": "Mês das férias",
       "notSure": "Ainda não sei",
-      "pension": "Pensão (R$)",
-      "otherDiscounts": "Outros descontos (R$)",
+      "pension": "Pensão (¤)",
+      "otherDiscounts": "Outros descontos (¤)",
       "account": "Conta que recebe",
       "category": "Categoria",
       "person": "De quem é",
@@ -2737,7 +2756,8 @@
       "category": "Escolha a categoria.",
       "invalidAccount": "Escolha uma conta válida.",
       "incomeCategory": "Escolha uma categoria de receita.",
-      "invalidPerson": "Escolha uma pessoa válida."
+      "invalidPerson": "Escolha uma pessoa válida.",
+      "kindNotHere": "Fora do Brasil, esta renda não existe. Escolha outro tipo."
     }
   },
   "calendario": {
@@ -2924,7 +2944,9 @@
       "openFailed": "Família criada, mas não foi possível abri-la. Entre novamente.",
       "setupFailed": "Não foi possível concluir a configuração.",
       "ownerOnly": "Somente o responsável pode configurar.",
-      "invalid": "Dados inválidos."
+      "invalid": "Dados inválidos.",
+      "currency": "Moeda principal",
+      "currencyHint": "Depois que a família tiver movimentos, ela não muda. Fora do real, as regras brasileiras (INSS, CLT, IR) ficam desligadas."
     },
     "choose": {
       "metaTitle": "Escolher família",
@@ -2990,7 +3012,7 @@
       "income": "Renda que você quer por mês",
       "incomeHint": "Vazio: usamos seu gasto médio",
       "yield": "Rendimento anual da carteira (%)",
-      "yieldHint": "Quanto a carteira paga em proventos por ano. Ex.: R$ 100 mil que pagam R$ 6 mil = 6%.",
+      "yieldHint": "Quanto a carteira paga em proventos por ano. Ex.: ¤ 100 mil que pagam ¤ 6 mil = 6%.",
       "pensionHint": "Se não sabe, pule; dá para preencher depois em Família"
     },
     "trips": {
@@ -3001,7 +3023,7 @@
       "optional": "Opcional. Sem uma meta em mente? Deixe em branco e conclua.",
       "name": "Nome da meta",
       "kind": "Tipo",
-      "amount": "Quanto custa (R$)",
+      "amount": "Quanto custa (¤)",
       "month": "Quando quer ter conquistado",
       "account": "De onde sai",
       "accountHint": "A conta de onde o dinheiro sai todo mês.",
@@ -3030,7 +3052,7 @@
       "inss": "Contribui para o INSS?",
       "yes": "Sim",
       "no": "Não",
-      "pension": "Benefício mensal esperado (R$)",
+      "pension": "Benefício mensal esperado (¤)",
       "day": "Dia",
       "month": "Mês",
       "year": "Ano",
@@ -3301,7 +3323,12 @@
       "relDividasComece": "Comece por ‘{name}’.",
       "relDividasSemExtra": "Hoje não sobra valor extra para as dívidas.",
       "relDividasMudou": "A quitação mudou de {from} para {to}.",
-      "relDividasAtencao": "{count, plural, =1 {1 ponto de atenção} other {# pontos de atenção}}."
+      "relDividasAtencao": "{count, plural, =1 {1 ponto de atenção} other {# pontos de atenção}}.",
+      "relViagensForaDoBrasil": "A tabela de destinos é em reais e para quem sai do Brasil: sem sugestões de viagem nesta moeda."
+    },
+    "lembreteRendimentoSimples": {
+      "title": "Informe o rendimento anual da carteira",
+      "body": "Sem isso o assistente não consegue calcular quanto precisa ter investido para viver dos rendimentos."
     }
   },
   "sistema": {

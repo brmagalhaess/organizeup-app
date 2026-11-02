@@ -2,7 +2,8 @@
 import { useLocale, useTranslations } from "next-intl";
 import { money, percentOf, toDbAmount } from "@organizeup/domain";
 import { cx } from "@/components/styles";
-import { formatAmount, formatMonthAbbr, formatMonthYear } from "@/i18n/format";
+import { formatMonthAbbr, formatMonthYear } from "@/i18n/format";
+import { useMoney } from "@/i18n/money";
 
 interface Point {
   month: string;
@@ -13,6 +14,7 @@ interface Point {
 export function DividendsChart({ points }: { points: Point[] }) {
   const t = useTranslations("proventos.chart");
   const locale = useLocale();
+  const moneyText = useMoney();
   const top = points.reduce(
     (acc, point) => (money(point.net).gt(acc) ? money(point.net) : acc),
     money(0),
@@ -22,7 +24,7 @@ export function DividendsChart({ points }: { points: Point[] }) {
     <div>
       <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-2">
         <div className="flex h-44 flex-col justify-between text-right text-xs tabular-nums text-muted">
-          <span>{formatAmount(max, locale, "compact")}</span>
+          <span>{moneyText(max, "compact")}</span>
           <span>{t("zero")}</span>
         </div>
         <div>
@@ -31,7 +33,7 @@ export function DividendsChart({ points }: { points: Point[] }) {
               <button
                 key={point.month}
                 type="button"
-                aria-label={`${formatMonthYear(point.month, locale)}: ${formatAmount(point.net, locale)}`}
+                aria-label={`${formatMonthYear(point.month, locale)}: ${moneyText(point.net)}`}
                 className="group relative flex h-full min-w-0 flex-1 items-end justify-center rounded-t-lg hover:bg-brand-50/60"
               >
                 <span
@@ -52,9 +54,7 @@ export function DividendsChart({ points }: { points: Point[] }) {
                   <span className="mb-1 block font-semibold first-letter:uppercase">
                     {formatMonthYear(point.month, locale)}
                   </span>
-                  <span className="font-medium tabular-nums text-ink">
-                    {formatAmount(point.net, locale)}
-                  </span>
+                  <span className="font-medium tabular-nums text-ink">{moneyText(point.net)}</span>
                 </span>
               </button>
             ))}
@@ -83,7 +83,7 @@ export function DividendsChart({ points }: { points: Point[] }) {
           {points.map((point) => (
             <tr key={point.month}>
               <th scope="row">{formatMonthYear(point.month, locale)}</th>
-              <td>{formatAmount(point.net, locale)}</td>
+              <td>{moneyText(point.net)}</td>
             </tr>
           ))}
         </tbody>

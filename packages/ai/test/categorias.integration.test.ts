@@ -403,7 +403,8 @@ describe("categoria genérica muda sem aceite", () => {
     await inFamily(family, (tx) =>
       tx
         .update(householdSuggestions)
-        .set({ decidedAt: new Date(Date.now() - 31 * 86_400_000) })
+        // 32, e não 31: a partir das 21h em Brasília, o instante já é do dia seguinte em UTC.
+        .set({ decidedAt: new Date(Date.now() - 32 * 86_400_000) })
         .where(eq(householdSuggestions.dedupeKey, "categoria:despesa:loja atomo:sem_pista")),
     );
     const later = fakeClient([reply({ categoria: "Compras", confianca: "media" })]);

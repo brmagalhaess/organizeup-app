@@ -2,6 +2,7 @@
 // (a abertura da primeira tela dispara requisições simultâneas). Rode dentro de withHousehold.
 import { normalizeDescription } from "@organizeup/domain";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { householdCurrency } from "./fx";
 import { accounts, categories, categoryTemplates, type EntryKind } from "./schema";
 import type { TenantTx } from "./tenant";
 
@@ -60,7 +61,12 @@ export async function ensureFinanceDefaults(tx: TenantTx, householdId: string): 
 
   const [account] = await tx.select({ id: accounts.id }).from(accounts).limit(1);
   if (!account) {
-    await tx.insert(accounts).values({ householdId, name: "Conta principal", type: "corrente" });
+    await tx.insert(accounts).values({
+      householdId,
+      name: "Conta principal",
+      type: "corrente",
+      currency: await householdCurrency(tx),
+    });
   }
   const [category] = await tx.select({ id: categories.id }).from(categories).limit(1);
   if (!category) {

@@ -26,6 +26,7 @@ import {
   eq,
   goals,
   gte,
+  householdCurrency,
   householdReports,
   householdSuggestions,
   incomeSources,
@@ -46,6 +47,7 @@ import {
 import {
   buildMonthEntries,
   debtPlanHeadline,
+  entryOrigin,
   formatYearMonth,
   isExpensiveDebt,
   money,
@@ -54,6 +56,7 @@ import {
   netDividend,
   normalizeDescription,
   pendingEntries,
+  plainIncomes,
   planTrip,
   receivedDividends,
   recommendedStrategy,
@@ -70,6 +73,12 @@ import {
 import { z } from "zod";
 import { personLabels, untrusted } from "../privacy";
 import { defineTool, monthInput, read } from "./registry";
+
+/** Valor na moeda da conta, em lançamento de conta estrangeira. */
+const originFields = (row: Parameters<typeof entryOrigin>[0]) => {
+  const origin = entryOrigin(row);
+  return origin ? { valor_na_moeda_da_conta: origin.amount, moeda: origin.currency } : {};
+};
 
 const noInput = z.strictObject({});
 const monthOnly = z.strictObject({ mes: monthInput });
@@ -194,9 +203,7 @@ const listarLancamentos = defineTool({
             categoria: names.get(row.categoryId) ?? "Sem categoria",
             descricao: untrusted(row.description),
             valor: row.amount,
-            ...(row.originalAmount
-              ? { valor_na_moeda_da_conta: row.originalAmount, moeda: row.originalCurrency }
-              : {}),
+            ...originFields(row),
           })),
         ...lines
           .filter((line) => matches(line.description, line.categoryId, "despesa"))
@@ -259,11 +266,14 @@ const verRenda = defineTool({
   run: (ctx) =>
     read(ctx, async (tx, today) => {
       const month = yearMonthOf(today);
-      const sources = await tx
-        .select()
-        .from(incomeSources)
-        .where(or(isNull(incomeSources.endMonth), gte(incomeSources.endMonth, month)))
-        .orderBy(asc(incomeSources.createdAt));
+      const sources = plainIncomes(
+        await tx
+          .select()
+          .from(incomeSources)
+          .where(or(isNull(incomeSources.endMonth), gte(incomeSources.endMonth, month)))
+          .orderBy(asc(incomeSources.createdAt)),
+        await householdCurrency(tx),
+      );
       const personRows = await tx
         .select({ id: people.id, relation: people.relation })
         .from(people)
@@ -371,7 +381,7 @@ const verPlanoDividas = defineTool({
       const best = recommendedStrategy(plan);
       return {
         situacao: "ok",
-        resumo: debtPlanHeadline(plan),
+        resumo: debtPlanHeadline(plan, await householdCurrency(tx)),
         saldo_total: plan.totalBalance,
         valor_extra_mensal: plan.extra,
         estrategia_recomendada: plan.recommended,

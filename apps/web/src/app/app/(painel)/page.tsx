@@ -2,6 +2,7 @@ import { AlertCircle, ArrowRight, Clock } from "lucide-react";
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
+import { getMoney } from "@/i18n/money-server";
 import Link from "next/link";
 import { canWrite } from "@organizeup/db";
 import { money, percentChange, percentOf, toDbAmount, yearMonthOf } from "@organizeup/domain";
@@ -9,13 +10,7 @@ import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { amountClass, buttonClass, confirmAction, cx } from "@/components/styles";
 import { Badge, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
-import {
-  formatAmount,
-  formatDayMonth,
-  formatLongDate,
-  formatMonthYear,
-  formatPercent,
-} from "@/i18n/format";
+import { formatDayMonth, formatLongDate, formatMonthYear, formatPercent } from "@/i18n/format";
 import { loadOverview } from "@/lib/finance-data";
 import { requireTenant } from "@/lib/session";
 import { loadTopSuggestions } from "@/lib/suggestions";
@@ -52,16 +47,17 @@ export default async function OverviewPage() {
     loadNetWorth(ctx, { record: false }),
     loadTopSuggestions(ctx),
   ]);
-  const [t, tSystem, locale] = await Promise.all([
+  const [t, tSystem, locale, moneyText] = await Promise.all([
     getTranslations("dashboard"),
     getTranslations("sistema"),
     getLocale(),
+    getMoney(),
   ]);
   const system = systemTextOf(tSystem);
   const writable = canWrite(ctx);
   const firstName = session.user.name.split(" ")[0] ?? "";
   const date = formatLongDate(data.today, locale);
-  const amount = (value: string) => formatAmount(value, locale);
+  const amount = (value: string) => moneyText(value);
 
   /** Compara com o mês anterior em texto, sem depender de cor. */
   const comparison = (current: string, previous: string) => {

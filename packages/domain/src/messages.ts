@@ -2,6 +2,8 @@
 // regras gravam a chave e os valores crus, e a tela formata no idioma de quem lê. Sem I/O e sem texto:
 // o texto de cada chave fica em `apps/web/messages/{pt-BR,en,es}.json`, no grupo `agentes`.
 
+import type { Currency } from "./money";
+
 /** Linhas gravadas: cada chave tem `title` e `body` no catálogo. */
 export const ROW_MESSAGE_KEYS = [
   "aporteReserva",
@@ -9,6 +11,7 @@ export const ROW_MESSAGE_KEYS = [
   "aporteDividaPlano",
   "aporteInvestimento",
   "lembreteRendimento",
+  "lembreteRendimentoSimples",
   "lembreteAno",
   "lembretePlano",
   "categoriaMovida",
@@ -118,6 +121,7 @@ export const SENTENCE_MESSAGE_KEYS = [
   "frases.relViagensSemPedido",
   "frases.relViagensSemDivisao",
   "frases.relViagensSemPessoas",
+  "frases.relViagensForaDoBrasil",
   "frases.relViagensNenhuma",
   "frases.relViagensSugeridas",
   "frases.relViagensPedem",
@@ -140,13 +144,13 @@ export type MessageKey = RowMessageKey | SentenceMessageKey;
 
 /**
  * Valor de uma mensagem. Texto e número vão como estão: nome digitado pela família não é traduzido.
- * Os demais dizem à tela como formatar: dinheiro em reais, mês `AAAA-MM`, data `AAAA-MM-DD`, percentual
+ * Os demais dizem à tela como formatar: dinheiro com a moeda (sem ela, real), mês `AAAA-MM`, data `AAAA-MM-DD`, percentual
  * de 0 a 100, quantidade de cotas, número do mês, nome de categoria e frases dentro da frase.
  */
 export type MessageValue =
   | string
   | number
-  | { money: string }
+  | { money: string; currency?: Currency }
   | { month: string }
   | { date: string }
   | { percent: number }
@@ -163,6 +167,10 @@ export interface Message<K extends MessageKey = MessageKey> {
   key: K;
   params?: MessageParams;
 }
+
+/** Dinheiro cru de uma mensagem. A moeda só vai fora do real: linha em real continua igual. */
+export const moneyValue = (value: string, currency: Currency = "BRL"): MessageValue =>
+  currency === "BRL" ? { money: value } : { money: value, currency };
 
 /** Mensagem de uma chave conhecida: chave errada não compila. */
 export const message = <K extends MessageKey>(key: K, params?: MessageParams): Message<K> =>

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Fraunces, Inter } from "next/font/google";
+import { FamilyCurrencyProvider } from "@/i18n/money";
+import { familyCurrency } from "@/i18n/money-server";
 import { IntlProvider } from "@/i18n/provider";
 import "./globals.css";
 
@@ -23,12 +25,16 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+  const [locale, messages, currency] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    familyCurrency(),
+  ]);
   return (
     <html lang={locale} className={`${inter.variable} ${fraunces.variable}`}>
       <body className="min-h-dvh font-sans antialiased">
         <IntlProvider locale={locale} messages={messages}>
-          {children}
+          <FamilyCurrencyProvider currency={currency}>{children}</FamilyCurrencyProvider>
         </IntlProvider>
       </body>
     </html>

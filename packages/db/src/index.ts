@@ -45,10 +45,13 @@ export { SYSTEM_TEMPLATES, ensureCategory, ensureFinanceDefaults } from "./finan
 export {
   accountCurrency,
   accountsWithMovement,
+  fxQuoteIn,
   fxRateOn,
   fxSeries,
+  householdCurrency,
+  householdHasMovement,
   latestFxRates,
-  reaisEntry,
+  mainEntry,
 } from "./fx";
 export {
   accountBalances,

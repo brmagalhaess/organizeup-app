@@ -7,6 +7,7 @@ import {
   eq,
   goalContributions,
   goals,
+  householdCurrency,
   inArray,
   type TenantTx,
 } from "@organizeup/db";
@@ -52,6 +53,7 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
   const month = yearMonthOf(today);
   const day = Number(today.slice(8, 10));
   await ensureFinanceDefaults(tx, householdId);
+  const currency = await householdCurrency(tx);
 
   const goalRows = await tx.select().from(goals).orderBy(asc(goals.createdAt));
   const finish = async (
@@ -108,6 +110,7 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
     planDayPassed: false,
     budget: allocation.goalsBudget,
     goals: inputs,
+    currency,
   });
 
   // Parcelas previstas são recriadas do zero; as confirmadas (com lançamento) ficam intocadas.
@@ -153,7 +156,7 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
           .onConflictDoNothing();
       }
       if (goal.planMonthly !== null && goal.planMonthly !== plan.monthly) {
-        const adjusted = metaNotaParcelaText(goal.planMonthly, plan.monthly);
+        const adjusted = metaNotaParcelaText(goal.planMonthly, plan.monthly, currency);
         notes.push(adjusted.text);
         noteMessages.push(adjusted.message);
       }
@@ -194,6 +197,7 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
           desiredMonth: goal.desiredMonth,
           plan,
           extraMonthly: payload.extraMonthly,
+          currency,
         }),
         payload,
         dedupeKey: DEDUPE.meta(goal.id, month),
@@ -213,6 +217,7 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
     {
       day: today,
       kind: "plano",
+      currency,
       goals: goalRows.length,
       budget: allocation.goalsBudget,
       planned,

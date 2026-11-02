@@ -14,6 +14,7 @@ import {
   fiscalParameters,
   goalContributions,
   gte,
+  householdCurrency,
   householdSettings,
   incomeSources,
   investments,
@@ -29,6 +30,7 @@ import {
 import {
   addMonths,
   ageFromBirth,
+  brazilRulesApply,
   buildMonthEntries,
   CONTRIBUTION_CATEGORY,
   DEFAULT_RESERVE_MONTHS,
@@ -43,6 +45,7 @@ import {
   monthlySeries,
   monthlySurplus,
   monthsBetween,
+  plainIncomes,
   monthsToReserve,
   normalizeDescription,
   purchaseLines,
@@ -93,7 +96,7 @@ export interface ReserveData {
   /** Aporte mensal planejado (emergency_fund.contribution). */
   contribution: string | null;
   baseline: EssentialBaseline;
-  /** Soma das contas marcadas como reserva, em reais. */
+  /** Soma das contas marcadas como reserva, na moeda principal. */
   saved: string;
   /** Cotação usada na soma; null se só há real. */
   fx: FxTotalNote | null;
@@ -178,9 +181,7 @@ export async function reserveInputs(
 
   const baseline = essentialBaseline(closedTotals, currentTotal, fund?.monthlyAmount ?? null);
   const targetMonths = fund?.targetMonths ?? DEFAULT_RESERVE_MONTHS;
-  const reserved = worth.accounts.filter(
-    (account) => !account.archived && marked.has(account.id),
-  );
+  const reserved = worth.accounts.filter((account) => !account.archived && marked.has(account.id));
   const saved = sum(reserved.map((account) => account.balance));
   const status = reserveStatus(saved, baseline.monthly, targetMonths);
   const contribution = fund?.contribution ?? null;
@@ -192,7 +193,7 @@ export async function reserveInputs(
     contribution,
     baseline,
     saved,
-    fx: fxNoteOf(reserved, worth.rates),
+    fx: fxNoteOf(reserved, worth.rates, worth.main),
     status,
     monthsLeft: contribution ? monthsToReserve(status.missing, contribution) : null,
   };
@@ -258,7 +259,7 @@ export async function surplusInputs(tx: TenantTx, input: { today: string }): Pro
             .dividedBy(withData.length),
         );
 
-  const sources = await tx.select().from(incomeSources);
+  const sources = plainIncomes(await tx.select().from(incomeSources), await householdCurrency(tx));
   const tables = sources.length > 0 ? await loadFiscalTables(tx) : [];
   const active = sources.filter(
     (source) =>
@@ -333,8 +334,15 @@ export async function dividendPlanInputs(
     }
   }
 
+  // INSS e pensão só entram com as regras brasileiras: fora delas, carteira e renda alvo.
+  const currency = settings?.mainCurrency ?? "BRL";
   const pensions: PensionInput[] = adults
-    .filter((person) => person.expectedPension !== null && money(person.expectedPension).gt(0))
+    .filter(
+      (person) =>
+        brazilRulesApply(currency) &&
+        person.expectedPension !== null &&
+        money(person.expectedPension).gt(0),
+    )
     .map((person) => ({
       amount: toDbAmount(person.expectedPension!),
       ageAtTarget:
@@ -398,6 +406,7 @@ export async function dividendPlanInputs(
       expectedYield: plan?.expectedYield ?? null,
       dividendGrowth: plan?.dividendGrowth ?? "0",
       contribution: plan?.monthlyContribution ?? "0.00",
+      currency,
     },
     plan: plan ?? null,
     targetYearBasis,

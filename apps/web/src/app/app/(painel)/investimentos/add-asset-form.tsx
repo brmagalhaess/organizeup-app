@@ -5,11 +5,12 @@ import { useActionState, useEffect, useState } from "react";
 import { money, parseMoney } from "@organizeup/domain";
 import { cx } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select, submitKeeping } from "@/components/ui";
-import { formatAmount, toFieldValue } from "@/i18n/format";
+import { toFieldValue, type MoneyText } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 
 import { AccountField } from "./account-field";
 import { addAsset, type FormState } from "./actions";
+import { useBrazilRules, useMoney } from "@/i18n/money";
 
 interface Asset {
   ticker: string;
@@ -30,10 +31,10 @@ const SEARCH_DELAY_MS = 200;
 /** Preço do catálogo no campo, sempre com duas casas: "32,50" em português, "32.50" em inglês. */
 const toInput = (value: string, locale: Locale) => toFieldValue(money(value).toFixed(2), locale);
 
-function totalOf(quantity: string, price: string, locale: Locale): string | null {
+function totalOf(quantity: string, price: string, locale: Locale, moneyText: MoneyText) {
   try {
     const total = parseMoney(quantity, locale).times(parseMoney(price, locale));
-    return total.gt(0) ? formatAmount(total.toFixed(2), locale) : null;
+    return total.gt(0) ? moneyText(total.toFixed(2)) : null;
   } catch {
     return null;
   }
@@ -69,7 +70,7 @@ function TradeFields({ today, price }: { today: string; price: string }) {
   const locale = useLocale();
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState(price);
-  const total = totalOf(quantity, unit, locale);
+  const total = totalOf(quantity, unit, locale, useMoney());
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
@@ -112,6 +113,7 @@ function TradeFields({ today, price }: { today: string; price: string }) {
 function ExchangeFields({ today }: { today: string }) {
   const t = useTranslations("investimentos");
   const locale = useLocale();
+  const moneyText = useMoney();
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Asset | null>(null);
   const [manual, setManual] = useState(false);
@@ -128,7 +130,7 @@ function ExchangeFields({ today }: { today: string }) {
             <p className="m-0 text-muted">
               {t(`add.stockClasses.${picked.assetClass}`)}
               {picked.close
-                ? ` · ${t("add.today", { price: formatAmount(money(picked.close).toFixed(2), locale) })}`
+                ? ` · ${t("add.today", { price: moneyText(money(picked.close).toFixed(2)) })}`
                 : ""}
             </p>
           </div>
@@ -196,7 +198,7 @@ function ExchangeFields({ today }: { today: string }) {
                 </span>
                 {asset.close ? (
                   <span className="shrink-0 tabular-nums text-muted">
-                    {formatAmount(money(asset.close).toFixed(2), locale)}
+                    {moneyText(money(asset.close).toFixed(2))}
                   </span>
                 ) : null}
               </button>
@@ -222,6 +224,7 @@ function ExchangeFields({ today }: { today: string }) {
 
 function ManualFields({ kind, today }: { kind: Exclude<Kind, "bolsa">; today: string }) {
   const t = useTranslations("investimentos");
+  const brazil = useBrazilRules();
   return (
     <>
       <Field label={t("form.name")}>
@@ -230,7 +233,11 @@ function ManualFields({ kind, today }: { kind: Exclude<Kind, "bolsa">; today: st
           required
           maxLength={80}
           placeholder={t(
-            kind === "renda_fixa" ? "add.namePlaceholderFixed" : "add.namePlaceholderOther",
+            kind === "outro"
+              ? "add.namePlaceholderOther"
+              : brazil
+                ? "add.namePlaceholderFixed"
+                : "add.namePlaceholderFixedAnywhere",
           )}
         />
       </Field>
@@ -284,7 +291,9 @@ export function AddAssetForm({
   const t = useTranslations("investimentos");
   const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(addAsset, initial);
-  const [kind, setKind] = useState<Kind>("bolsa");
+  const brazil = useBrazilRules();
+  const kinds = brazil ? KINDS : KINDS.filter((option) => option !== "bolsa");
+  const [kind, setKind] = useState<Kind>(kinds[0]!);
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
@@ -292,8 +301,8 @@ export function AddAssetForm({
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
         <legend className="mb-1 text-sm font-semibold">{t("add.kindLegend")}</legend>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {KINDS.map((option) => (
+        <div className={cx("grid gap-2", brazil ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+          {kinds.map((option) => (
             <label
               key={option}
               className={cx(
@@ -310,7 +319,11 @@ export function AddAssetForm({
                 className="sr-only"
               />
               <span className="font-medium">{t(`add.kinds.${option}.label`)}</span>
-              <span className="text-xs text-muted">{t(`add.kinds.${option}.hint`)}</span>
+              <span className="text-xs text-muted">
+                {brazil || option !== "renda_fixa"
+                  ? t(`add.kinds.${option}.hint`)
+                  : t("add.kinds.renda_fixa.hintAnywhere")}
+              </span>
             </label>
           ))}
         </div>

@@ -14,11 +14,12 @@ import {
   StatTile,
   submitKeeping,
 } from "@/components/ui";
-import { formatAmount, formatPercent, toFieldValue } from "@/i18n/format";
+import { formatPercent, toFieldValue } from "@/i18n/format";
 import type { loadDividendPlan } from "@/lib/planning";
 import { acceptSavingAmounts, saveRetirementPlan, type FormState } from "./actions";
 import { DividendChart } from "./dividend-chart";
 import { percentValue } from "./stored-number";
+import { useBrazilRules, useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadDividendPlan>>;
 
@@ -27,7 +28,7 @@ const initial: FormState = { ok: false, message: null };
 function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) {
   const t = useTranslations("aposentadoria.saving");
   const tPlan = useTranslations("aposentadoria.plan");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const { suggested, surplus, contribution } = data;
   const [state, action, pending] = useActionState(acceptSavingAmounts, initial);
   const none = money(suggested.total).isZero();
@@ -36,19 +37,19 @@ function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) 
       <div>
         <p className="text-lg font-semibold sm:text-2xl">
           {t.rich("title", {
-            amount: formatAmount(suggested.total, locale),
+            amount: moneyText(suggested.total),
             value: (chunks) => <span className="tabular-nums">{chunks}</span>,
           })}
         </p>
         <p className="mt-1 text-sm tabular-nums">
           {t("split", {
-            reserve: formatAmount(suggested.reserve, locale),
-            investment: formatAmount(suggested.investment, locale),
+            reserve: moneyText(suggested.reserve),
+            investment: moneyText(suggested.investment),
           })}
         </p>
       </div>
       {money(suggested.debt).gt(0) ? (
-        <p className="text-sm">{t("debt", { amount: formatAmount(suggested.debt, locale) })}</p>
+        <p className="text-sm">{t("debt", { amount: moneyText(suggested.debt) })}</p>
       ) : null}
       <p className="text-xs text-muted">
         {surplus.basis === "previsto"
@@ -62,9 +63,7 @@ function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) 
       ) : (
         <>
           {data.form.monthlyContribution !== null ? (
-            <p className="text-sm">
-              {t("current", { amount: formatAmount(contribution, locale) })}
-            </p>
+            <p className="text-sm">{t("current", { amount: moneyText(contribution) })}</p>
           ) : null}
           {writable ? (
             <form onSubmit={submitKeeping(action)} className="flex flex-col gap-2 sm:items-start">
@@ -85,8 +84,9 @@ function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) 
 function PlanFacts({ data, targetYear }: { data: Data; targetYear: number }) {
   const t = useTranslations("aposentadoria.facts");
   const locale = useLocale();
+  const moneyText = useMoney();
   const { plan, contribution } = data;
-  const amount = (value: string) => formatAmount(value, locale);
+  const amount = (value: string) => moneyText(value);
   const closes = plan.yearWithContribution;
   const others = money(plan.otherBase).gt(0);
 
@@ -192,6 +192,7 @@ function PlanFacts({ data, targetYear }: { data: Data; targetYear: number }) {
 }
 
 function MissingData({ data }: { data: Data }) {
+  const brazil = useBrazilRules();
   const t = useTranslations("aposentadoria.missing");
   const { plan, targetYear } = data;
   const noIncome = plan.status === "sem_dados";
@@ -210,12 +211,14 @@ function MissingData({ data }: { data: Data }) {
       ) : null}
       {plan.status === "sem_yield" ? (
         <EmptyState
-          title={t("yieldTitle")}
+          title={t(brazil ? "yieldTitle" : "yieldTitleAnywhere")}
           text={t("yieldText")}
           action={
-            <Link href="/app/proventos" className={buttonClass("secondary", true)}>
-              {t("yieldAction")}
-            </Link>
+            brazil ? (
+              <Link href="/app/proventos" className={buttonClass("secondary", true)}>
+                {t("yieldAction")}
+              </Link>
+            ) : null
           }
         />
       ) : null}

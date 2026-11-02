@@ -19,10 +19,11 @@ import {
   Input,
   Select,
 } from "@/components/ui";
-import { formatAmount, formatDate, toAmountInput } from "@/i18n/format";
+import { formatDate, toAmountInput } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { systemTextOf } from "@/i18n/system-text";
 import { createTransfer, deleteTransfer, type SimpleFormState } from "./actions";
+import { useMoney } from "@/i18n/money";
 
 export interface TransferRow {
   id: string;
@@ -145,6 +146,7 @@ export function TransferList({ rows, writable }: { rows: TransferRow[]; writable
   const t = useTranslations("contas.transfer");
   const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
+  const moneyText = useMoney();
   const [removing, setRemoving] = useState<TransferRow | null>(null);
   if (rows.length === 0) return null;
   return (
@@ -164,11 +166,11 @@ export function TransferList({ rows, writable }: { rows: TransferRow[]; writable
               </p>
             </div>
             <p className="m-0 whitespace-nowrap text-right font-medium tabular-nums">
-              {formatAmount(row.amount, locale, "full", row.fromCurrency)}
+              {moneyText(row.amount, "full", row.fromCurrency)}
               {row.toAmount ? (
                 <span className="block text-xs font-normal text-muted">
                   {t("received", {
-                    value: formatAmount(row.toAmount, locale, "full", row.toCurrency),
+                    value: moneyText(row.toAmount, "full", row.toCurrency),
                   })}
                 </span>
               ) : null}

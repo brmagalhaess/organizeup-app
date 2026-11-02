@@ -6,9 +6,10 @@ import { addMonths } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import { PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
-import { formatAmount, formatMonthYear } from "@/i18n/format";
+import { formatMonthYear } from "@/i18n/format";
 import { loadMonth } from "@/lib/finance-data";
 import { requireTenant } from "@/lib/session";
+import { getMoney } from "@/i18n/money-server";
 import { EntriesTable } from "./entries-table";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,7 +25,11 @@ export default async function EntriesPage({
   const { ctx } = await requireTenant();
   const { m } = await searchParams;
   const data = await loadMonth(ctx, m);
-  const [t, locale] = await Promise.all([getTranslations("lancamentos"), getLocale()]);
+  const [t, moneyText, locale] = await Promise.all([
+    getTranslations("lancamentos"),
+    getMoney(),
+    getLocale(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -60,17 +65,13 @@ export default async function EntriesPage({
         <StatTile
           label={t("stats.received")}
           tone="receita"
-          value={formatAmount(data.summary.received, locale)}
+          value={moneyText(data.summary.received)}
         />
-        <StatTile
-          label={t("stats.spent")}
-          tone="despesa"
-          value={formatAmount(data.summary.spent, locale)}
-        />
-        <StatTile label={t("stats.balance")} value={formatAmount(data.summary.balance, locale)} />
+        <StatTile label={t("stats.spent")} tone="despesa" value={moneyText(data.summary.spent)} />
+        <StatTile label={t("stats.balance")} value={moneyText(data.summary.balance)} />
         <StatTile
           label={t("stats.forecast")}
-          value={formatAmount(data.summary.projectedBalance, locale)}
+          value={moneyText(data.summary.projectedBalance)}
           hint={t("stats.forecastHint")}
         />
       </dl>

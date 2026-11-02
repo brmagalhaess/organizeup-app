@@ -3,6 +3,7 @@
 // globais. Consulta cada ticker uma vez. Logs só com contagens e código de erro.
 import {
   addMarketCalls,
+  householdCurrency,
   inArray,
   investments,
   lastMarketFxDate,
@@ -21,6 +22,7 @@ import {
   withWorkerHousehold,
 } from "@organizeup/db";
 import {
+  brazilRulesApply,
   FX_CURRENCIES,
   MARKET_RULES,
   normalizeTicker,
@@ -106,11 +108,13 @@ async function collectTickers(
   let failed = 0;
   for (const householdId of ids) {
     try {
-      const rows = await withWorkerHousehold(householdId, (tx) =>
-        tx
-          .select({ ticker: investments.ticker, assetClass: investments.assetClass })
-          .from(investments)
-          .where(inArray(investments.assetClass, [...PRICED_CLASSES])),
+      const rows = await withWorkerHousehold(householdId, async (tx) =>
+        brazilRulesApply(await householdCurrency(tx))
+          ? tx
+              .select({ ticker: investments.ticker, assetClass: investments.assetClass })
+              .from(investments)
+              .where(inArray(investments.assetClass, [...PRICED_CLASSES]))
+          : [],
       );
       for (const row of rows) {
         const ticker = normalizeTicker(row.ticker);

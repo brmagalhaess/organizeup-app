@@ -3,7 +3,7 @@ import { History, Pencil, Plus, Tag, Trash2, TrendingUp } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useState, type ReactNode } from "react";
-import { isUnitPriced, money, stockEventKind } from "@organizeup/domain";
+import { brazilRulesApply, isUnitPriced, money, stockEventKind } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import {
   Badge,
@@ -21,7 +21,7 @@ import {
   StatTile,
   submitKeeping,
 } from "@/components/ui";
-import { formatAmount, formatDate } from "@/i18n/format";
+import { formatDate } from "@/i18n/format";
 import type { PendingItem } from "@/lib/suggestions";
 import {
   DecisionButtons,
@@ -31,7 +31,7 @@ import {
 import { AddAssetForm } from "./add-asset-form";
 import { deleteInvestment, saveInvestment, updateValue } from "./actions";
 import {
-  ASSET_CLASSES,
+  classesFor,
   initial,
   percentText,
   quantityText,
@@ -41,6 +41,7 @@ import {
   type Row,
 } from "./shared";
 import { TradeForm } from "./trade-form";
+import { useBrazilRules, useFamilyCurrency, useMoney } from "@/i18n/money";
 
 const daysSince = (date: string, today: string) =>
   Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86_400_000);
@@ -90,6 +91,9 @@ function InvestmentForm({ row, onDone }: { row: Row | null; onDone: () => void }
   const t = useTranslations("investimentos");
   const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(saveInvestment, initial);
+  const currency = useFamilyCurrency();
+  const brazil = brazilRulesApply(currency);
+  const classes = classesFor(currency);
   useCloseOnSuccess(state, onDone);
   return (
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
@@ -99,22 +103,28 @@ function InvestmentForm({ row, onDone }: { row: Row | null; onDone: () => void }
           name="name"
           required
           maxLength={80}
-          placeholder={t("portfolio.investmentForm.namePlaceholder")}
+          placeholder={t(
+            brazil
+              ? "portfolio.investmentForm.namePlaceholder"
+              : "portfolio.investmentForm.namePlaceholderAnywhere",
+          )}
           defaultValue={row?.name}
         />
       </Field>
       <Field label={t("portfolio.investmentForm.class")}>
-        <Select name="assetClass" defaultValue={row?.assetClass ?? "acao"}>
-          {ASSET_CLASSES.map((value) => (
+        <Select name="assetClass" defaultValue={row?.assetClass ?? classes[0]}>
+          {classes.map((value) => (
             <option key={value} value={value}>
               {t(`classes.${value}`)}
             </option>
           ))}
         </Select>
       </Field>
-      <Field label={t("form.code")} hint={t("portfolio.investmentForm.codeHint")}>
-        <Input name="ticker" maxLength={12} defaultValue={row?.ticker ?? ""} />
-      </Field>
+      {brazil ? (
+        <Field label={t("form.code")} hint={t("portfolio.investmentForm.codeHint")}>
+          <Input name="ticker" maxLength={12} defaultValue={row?.ticker ?? ""} />
+        </Field>
+      ) : null}
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
         {pending ? tCommon("saving") : t("portfolio.investmentForm.submit")}
@@ -204,8 +214,10 @@ export function PortfolioBoard({
   writable: boolean;
   insights: ReactNode;
 }) {
+  const brazil = useBrazilRules();
   const t = useTranslations("investimentos");
   const locale = useLocale();
+  const moneyText = useMoney();
   const [sheet, setSheet] = useState<Sheet_ | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
   const close = () => setSheet(null);
@@ -221,7 +233,7 @@ export function PortfolioBoard({
     <>
       <PageHeader
         eyebrow={t("eyebrow")}
-        title={formatAmount(summary.total, locale)}
+        title={moneyText(summary.total)}
         description={t("portfolio.description")}
         actions={
           writable ? (
@@ -240,7 +252,7 @@ export function PortfolioBoard({
         <Card>
           <EmptyState
             title={t("portfolio.empty.title")}
-            text={t("portfolio.empty.text")}
+            text={t(brazil ? "portfolio.empty.text" : "portfolio.empty.textAnywhere")}
             action={
               writable ? (
                 <Button variant="secondary" small onClick={() => open("new")}>
@@ -255,12 +267,12 @@ export function PortfolioBoard({
           <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatTile
               label={t("portfolio.stats.cost")}
-              value={formatAmount(summary.cost, locale)}
+              value={moneyText(summary.cost)}
               hint={t("portfolio.stats.costHint")}
             />
             <StatTile
               label={t("portfolio.stats.gain")}
-              value={formatAmount(summary.gain, locale)}
+              value={moneyText(summary.gain)}
               hint={
                 summary.gainPercent === null
                   ? undefined
@@ -271,12 +283,12 @@ export function PortfolioBoard({
             />
             <StatTile
               label={t("portfolio.stats.realized")}
-              value={formatAmount(summary.realized, locale)}
+              value={moneyText(summary.realized)}
               hint={t("portfolio.stats.realizedHint")}
             />
             <StatTile
               label={t("portfolio.stats.dividends")}
-              value={formatAmount(data.dividends12, locale)}
+              value={moneyText(data.dividends12)}
               hint={t("portfolio.stats.dividendsHint")}
             />
           </dl>
@@ -317,7 +329,7 @@ export function PortfolioBoard({
                             {unit && money(row.position.quantity).gt(0)
                               ? ` · ${t("portfolio.position", {
                                   quantity: quantityText(row.position.quantity, locale),
-                                  price: formatAmount(row.position.averagePrice, locale),
+                                  price: moneyText(row.position.averagePrice),
                                 })}`
                               : ""}
                           </p>
@@ -347,7 +359,7 @@ export function PortfolioBoard({
                         </div>
                         <div className="text-right text-sm">
                           <p className="whitespace-nowrap font-medium tabular-nums">
-                            {formatAmount(row.value, locale)}
+                            {moneyText(row.value)}
                           </p>
                           {!row.estimated && row.gainPercent !== null ? (
                             <p className="whitespace-nowrap text-xs tabular-nums text-muted">
@@ -413,13 +425,15 @@ export function PortfolioBoard({
       )}
 
       <p className="text-xs text-muted">
-        {t.rich("portfolio.disclaimer", {
-          link: (chunks) => (
-            <Link href="/app/proventos" className="font-semibold text-brand-700 underline">
-              {chunks}
-            </Link>
-          ),
-        })}
+        {brazil
+          ? t.rich("portfolio.disclaimer", {
+              link: (chunks) => (
+                <Link href="/app/proventos" className="font-semibold text-brand-700 underline">
+                  {chunks}
+                </Link>
+              ),
+            })
+          : t("portfolio.disclaimerAnywhere")}
       </p>
 
       <Sheet

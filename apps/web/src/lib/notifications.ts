@@ -4,6 +4,7 @@ import {
   and,
   desc,
   eq,
+  householdCurrency,
   householdNotifications,
   householdSuggestions,
   isNotNull,
@@ -92,10 +93,11 @@ export async function loadNotifications(
           .where(filterOf(filter))
           .orderBy(desc(householdNotifications.createdAt), desc(householdNotifications.id))
           .limit(MAX_ITEMS);
+        const currency = await householdCurrency(tx);
         return rows.map((row): NotificationItem => {
           const parsed = categoryNotificationSchema.safeParse(row.data);
           // Linha de antes das chaves ainda tem `data`, de onde sai a mesma mensagem.
-          const message = parsed.success ? notificationText(parsed.data).message : null;
+          const message = parsed.success ? notificationText(parsed.data, currency).message : null;
           const text = agentText(
             {
               title: row.title,

@@ -22,7 +22,6 @@ import {
   submitKeeping,
 } from "@/components/ui";
 import {
-  formatAmount,
   formatDate,
   formatMonthYear,
   formatPercent,
@@ -33,6 +32,7 @@ import type { loadDividends } from "@/lib/investments";
 import { addDividend, deleteDividend, saveGoal, type FormState } from "./actions";
 import { DividendsChart } from "./dividends-chart";
 import type { loadDividendOutlook } from "./outlook";
+import { useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadDividends>>;
 type Row = Data["rows"][number];
@@ -105,6 +105,7 @@ function DividendLine({
 }) {
   const t = useTranslations("proventos");
   const locale = useLocale();
+  const moneyText = useMoney();
   return (
     <li className="flex items-center gap-3 py-2 text-sm">
       <div className="min-w-0 flex-1">
@@ -116,7 +117,7 @@ function DividendLine({
         <p className="text-xs text-muted">
           {formatDate(row.paidOn, locale)}
           {money(row.withheld).gt(0)
-            ? ` · ${t("line.gross", { amount: formatAmount(row.gross, locale) })}`
+            ? ` · ${t("line.gross", { amount: moneyText(row.gross) })}`
             : ""}
           {row.market
             ? ` · ${t("line.market", {
@@ -127,7 +128,7 @@ function DividendLine({
         </p>
       </div>
       <span className="whitespace-nowrap font-medium tabular-nums">
-        {formatAmount(netDividend(row), locale)}
+        {moneyText(netDividend(row))}
       </span>
       {writable ? (
         <IconButton label={t("line.remove", { name: row.label })} onClick={() => onRemove(row)}>
@@ -166,6 +167,7 @@ function GoalForm({ data, onDone }: { data: Data; onDone: () => void }) {
 function OutlookTiles({ outlook }: { outlook: Outlook }) {
   const t = useTranslations("proventos.outlook");
   const locale = useLocale();
+  const moneyText = useMoney();
   return (
     <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-3">
       <StatTile
@@ -179,12 +181,12 @@ function OutlookTiles({ outlook }: { outlook: Outlook }) {
       />
       <StatTile
         label={t("currentIncome")}
-        value={formatAmount(outlook.currentIncome, locale)}
+        value={moneyText(outlook.currentIncome)}
         hint={t("currentIncomeHint")}
       />
       <StatTile
         label={t("target")}
-        value={outlook.targetIncome ? formatAmount(outlook.targetIncome, locale) : t("noData")}
+        value={outlook.targetIncome ? moneyText(outlook.targetIncome) : t("noData")}
         hint={
           outlook.targetIncome
             ? t(`targetHint.${outlook.targetBasis}`, {
@@ -206,6 +208,7 @@ function OutlookTiles({ outlook }: { outlook: Outlook }) {
 function ForecastCard({ months }: { months: Outlook["forecast"] }) {
   const t = useTranslations("proventos.forecast");
   const locale = useLocale();
+  const moneyText = useMoney();
   return (
     <Card title={t("title")} description={t("description")}>
       {months.length === 0 ? (
@@ -230,7 +233,7 @@ function ForecastCard({ months }: { months: Outlook["forecast"] }) {
                   {formatMonthYear(row.month, locale)}
                 </td>
                 <td className="py-1.5 text-right font-medium tabular-nums">
-                  {formatAmount(row.amount, locale)}
+                  {moneyText(row.amount)}
                 </td>
               </tr>
             ))}
@@ -254,6 +257,7 @@ export function DividendsBoard({
 }) {
   const t = useTranslations("proventos");
   const locale = useLocale();
+  const moneyText = useMoney();
   const [sheet, setSheet] = useState<{ type: "new" | "goal"; nonce: number } | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
   const close = () => setSheet(null);
@@ -265,7 +269,7 @@ export function DividendsBoard({
     <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow={t("eyebrow")}
-        title={formatAmount(summary.last12, locale)}
+        title={moneyText(summary.last12)}
         description={t("description")}
         actions={
           canAdd ? (
@@ -295,18 +299,18 @@ export function DividendsBoard({
           <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatTile
               label={t("stats.average")}
-              value={formatAmount(summary.monthlyAverage, locale)}
+              value={moneyText(summary.monthlyAverage)}
               hint={t("stats.last12Months")}
             />
-            <StatTile label={t("stats.thisYear")} value={formatAmount(summary.thisYear, locale)} />
+            <StatTile label={t("stats.thisYear")} value={moneyText(summary.thisYear)} />
             <StatTile
               label={t("stats.withheld")}
-              value={formatAmount(summary.withheld12, locale)}
+              value={moneyText(summary.withheld12)}
               hint={t("stats.last12Months")}
             />
             <StatTile
               label={t("stats.goal")}
-              value={data.goal ? formatAmount(data.goal, locale) : t("stats.noGoal")}
+              value={data.goal ? moneyText(data.goal) : t("stats.noGoal")}
               hint={
                 summary.goalPercent === null
                   ? undefined
@@ -339,7 +343,7 @@ export function DividendsBoard({
             <Card
               title={t("upcoming.title")}
               description={t("upcoming.description", {
-                amount: formatAmount(data.upcomingNet, locale),
+                amount: moneyText(data.upcomingNet),
               })}
             >
               <ul
@@ -389,7 +393,7 @@ export function DividendsBoard({
                     >
                       <span className="min-w-0 truncate font-medium">{item.label}</span>
                       <span className="whitespace-nowrap tabular-nums">
-                        {formatAmount(item.net, locale)}
+                        {moneyText(item.net)}
                         {item.yieldOnCost !== null
                           ? ` · ${formatPercentExact(item.yieldOnCost, locale)}`
                           : ""}

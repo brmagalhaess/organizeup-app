@@ -10,8 +10,8 @@ import {
   type PayoffResult,
   type PayoffStrategy,
 } from "./debt";
-import { message, type Message } from "./messages";
-import { formatBRL, money, toDbAmount } from "./money";
+import { message, moneyValue, type Message } from "./messages";
+import { formatMoney, money, toDbAmount, type Currency } from "./money";
 
 /** Juro ao mês a partir do qual vale procurar portabilidade ou renegociar. Decisão no ADR-0019. */
 export const HIGH_DEBT_MONTHLY_RATE = "2.50";
@@ -205,19 +205,24 @@ export function planDebtPayoff(input: DebtPlanInput): DebtPlan | null {
 export const recommendedStrategy = (plan: DebtPlan) => plan[plan.recommended];
 
 /** A frase de cima da tela e do relatório do dia. */
-export function debtPlanHeadline(plan: DebtPlan): string {
+export function debtPlanHeadline(plan: DebtPlan, currency: Currency = "BRL"): string {
   const best = recommendedStrategy(plan);
   if (best.payoffMonth === null) return "Com o que você paga hoje, as dívidas não terminam";
   const when = `Quite tudo em ${formatYearMonth(best.payoffMonth)}`;
-  return money(best.saved).isZero() ? when : `${when} e economize ${formatBRL(best.saved)}`;
+  return money(best.saved).isZero()
+    ? when
+    : `${when} e economize ${formatMoney(best.saved, currency)}`;
 }
 
 /** A mesma frase, por chave. */
-export function debtPlanHeadlineMessage(plan: DebtPlan): Message {
+export function debtPlanHeadlineMessage(plan: DebtPlan, currency: Currency = "BRL"): Message {
   const best = recommendedStrategy(plan);
   if (best.payoffMonth === null) return message("frases.relDividasNaoTerminam");
   const month = { month: best.payoffMonth };
   return money(best.saved).isZero()
     ? message("frases.relDividasQuite", { month })
-    : message("frases.relDividasQuiteEconomize", { month, saved: { money: best.saved } });
+    : message("frases.relDividasQuiteEconomize", {
+        month,
+        saved: moneyValue(best.saved, currency),
+      });
 }

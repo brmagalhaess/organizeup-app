@@ -72,29 +72,54 @@ const debtPlan = (over: Record<string, unknown> = {}) => {
 /** Uma linha por caminho: juntas, passam por toda chave que os agentes gravam. */
 const SAMPLES: Array<{ title: string; body: string; message: Message }> = [
   texts.aporteReservaText({
+    currency: "BRL",
     amount: "300.00",
     missing: "1500.00",
     targetMonths: 6,
     months: 5,
   }),
-  texts.aporteDividaText({ amount: "200.00", debt: "Cartão loja", monthlyRate: "4.5" }),
-  texts.aporteDividaPlanoText({ amount: "200.00", debt: "Cartão loja", strategy: "avalanche" }),
-  texts.aporteDividaPlanoText({ amount: "200.00", debt: "Cartão loja", strategy: "snowball" }),
-  texts.aporteInvestimentoText("400.00", { kind: "incompleto" }),
-  texts.aporteInvestimentoText("400.00", { kind: "fecha", targetYear: 2045 }),
-  texts.aporteInvestimentoText("400.00", {
-    kind: "falta",
-    targetYear: 2045,
-    required: "900.00",
-    year: 2052,
+  texts.aporteDividaText({
+    currency: "BRL",
+    amount: "200.00",
+    debt: "Cartão loja",
+    monthlyRate: "4.5",
   }),
-  texts.aporteInvestimentoText("400.00", {
-    kind: "falta",
-    targetYear: 2045,
-    required: null,
-    year: null,
+  texts.aporteDividaPlanoText({
+    currency: "BRL",
+    amount: "200.00",
+    debt: "Cartão loja",
+    strategy: "avalanche",
   }),
+  texts.aporteDividaPlanoText({
+    currency: "BRL",
+    amount: "200.00",
+    debt: "Cartão loja",
+    strategy: "snowball",
+  }),
+  texts.aporteInvestimentoText("400.00", { kind: "incompleto" }, "BRL"),
+  texts.aporteInvestimentoText("400.00", { kind: "fecha", targetYear: 2045 }, "BRL"),
+  texts.aporteInvestimentoText(
+    "400.00",
+    {
+      kind: "falta",
+      targetYear: 2045,
+      required: "900.00",
+      year: 2052,
+    },
+    "BRL",
+  ),
+  texts.aporteInvestimentoText(
+    "400.00",
+    {
+      kind: "falta",
+      targetYear: 2045,
+      required: null,
+      year: null,
+    },
+    "BRL",
+  ),
   texts.reminderText("sem_yield"),
+  texts.reminderText("sem_yield_simples"),
   texts.reminderText("sem_ano"),
   texts.reminderText("outro"),
   texts.categoriaMovidaText({
@@ -152,6 +177,7 @@ const SAMPLES: Array<{ title: string; body: string; message: Message }> = [
   }),
   texts.proventosConferirText(["PETR4", "VALE3"]),
   texts.mercadoDiaText({
+    currency: "BRL",
     prices: 2,
     labels: ["PETR4", "VALE3"],
     created: 1,
@@ -161,6 +187,7 @@ const SAMPLES: Array<{ title: string; body: string; message: Message }> = [
     removed: 3,
   }),
   texts.mercadoDiaText({
+    currency: "BRL",
     prices: 9,
     labels: ["A", "B", "C", "D", "E", "F", "G", "H", "I"],
     created: 0,
@@ -170,12 +197,14 @@ const SAMPLES: Array<{ title: string; body: string; message: Message }> = [
     removed: 0,
   }),
   texts.metaText({
+    currency: "BRL",
     name: "Carro",
     desiredMonth: "2027-06",
     plan: { monthly: "500.00", end: "2028-01", note: "", noteMessages: [] },
     extraMonthly: "120.00",
   }),
   texts.metaText({
+    currency: "BRL",
     name: "Carro",
     desiredMonth: "2027-06",
     plan: {
@@ -192,17 +221,18 @@ const SAMPLES: Array<{ title: string; body: string; message: Message }> = [
     extraMonthly: null,
   }),
   texts.metaText({
+    currency: "BRL",
     name: "Carro",
     desiredMonth: null,
     plan: { monthly: null, end: null, note: "", noteMessages: [] },
     extraMonthly: null,
   }),
-  texts.viagemText(trip, 2),
-  texts.viagemText({ ...trip, fits: false, confidence: "baixa" }, 1),
-  texts.assistenteAporteText({ reserve: true, amount: "150.00" }),
-  texts.assistenteAporteText({ reserve: false, amount: "150.00" }),
+  texts.viagemText(trip, 2, "BRL"),
+  texts.viagemText({ ...trip, fits: false, confidence: "baixa" }, 1, "BRL"),
+  texts.assistenteAporteText({ currency: "BRL", reserve: true, amount: "150.00" }),
+  texts.assistenteAporteText({ currency: "BRL", reserve: false, amount: "150.00" }),
   texts.assistenteDataMetaText({ name: "Carro", month: "2027-06" }),
-  texts.assistenteMetaText({ name: "Carro", amount: "20000.00" }),
+  texts.assistenteMetaText({ currency: "BRL", name: "Carro", amount: "20000.00" }),
   texts.assistenteLembreteText("Check the fund", "Review it on Friday."),
 ].map((item) => ({ title: item.title, body: item.body, message: item.message }));
 
@@ -215,6 +245,7 @@ const report = ({ title, summary, message }: texts.ReportText) => ({
 const REPORTS = [
   report(
     texts.investimentosReportText({
+      currency: "BRL",
       day: "2026-10-31",
       empty: true,
       total: "0.00",
@@ -232,6 +263,7 @@ const REPORTS = [
   ),
   report(
     texts.investimentosReportText({
+      currency: "BRL",
       day: "2026-10-31",
       empty: false,
       total: "50000.00",
@@ -249,6 +281,7 @@ const REPORTS = [
   ),
   report(
     texts.investimentosReportText({
+      currency: "BRL",
       day: "2026-10-31",
       empty: false,
       total: "50000.00",
@@ -266,6 +299,7 @@ const REPORTS = [
   ),
   report(
     texts.aposentadoriaReportText({
+      currency: "BRL",
       day: "2026-10-31",
       surplus: "1000.00",
       available: "900.00",
@@ -280,6 +314,7 @@ const REPORTS = [
   ),
   report(
     texts.aposentadoriaReportText({
+      currency: "BRL",
       day: "2026-10-31",
       surplus: "1000.00",
       available: "900.00",
@@ -299,6 +334,7 @@ const REPORTS = [
     texts.viagensReportText({
       day: "2026-10-31",
       kind: "sugestoes",
+      currency: "BRL",
       count: 0,
       fits: 0,
       budget: "300.00",
@@ -309,6 +345,7 @@ const REPORTS = [
     texts.viagensReportText({
       day: "2026-10-31",
       kind: "sugestoes",
+      currency: "BRL",
       count: 2,
       fits: 1,
       budget: "300.00",
@@ -321,6 +358,7 @@ const REPORTS = [
     texts.metasReportText({
       day: "2026-10-31",
       kind: "plano",
+      currency: "BRL",
       goals: 3,
       budget: "400.00",
       planned: 2,
@@ -328,10 +366,15 @@ const REPORTS = [
       noRoom: 1,
     }),
   ),
+  report(texts.viagensReportText({ day: "2026-10-31", kind: "fora_do_brasil" })),
   report(texts.dividasVaziasReportText("2026-10-31")),
-  report(texts.dividasReportText("2026-10-31", debtPlan(), debtPlan({ payoffMonth: "2028-05" }))),
-  report(texts.dividasReportText("2026-10-31", debtPlan({ saved: "0.00", focus: null }), null)),
-  report(texts.dividasReportText("2026-10-31", debtPlan({ payoffMonth: null }), null)),
+  report(
+    texts.dividasReportText("2026-10-31", debtPlan(), debtPlan({ payoffMonth: "2028-05" }), "BRL"),
+  ),
+  report(
+    texts.dividasReportText("2026-10-31", debtPlan({ saved: "0.00", focus: null }), null, "BRL"),
+  ),
+  report(texts.dividasReportText("2026-10-31", debtPlan({ payoffMonth: null }), null, "BRL")),
 ];
 
 const imported = importReport(
@@ -353,23 +396,59 @@ const reviewed = dailyCategoryReport({
 });
 
 const NOTIFICATIONS = [
-  texts.notificationText({
-    type: "alteracao",
-    merchant: "MERCADO X",
-    count: 2,
-    total: "80.00",
-    fromNames: ["Outras despesas"],
-    toName: "Mercado",
-  }),
-  texts.notificationText({
-    type: "fusao",
-    count: 0,
-    total: "0.00",
-    fromNames: ["Mercadinho"],
-    toName: "Mercado",
-  }),
-  texts.notificationText({ type: "resumo", changes: 3, count: 7, total: "120.00" }),
+  texts.notificationText(
+    {
+      type: "alteracao",
+      merchant: "MERCADO X",
+      count: 2,
+      total: "80.00",
+      fromNames: ["Outras despesas"],
+      toName: "Mercado",
+    },
+    "BRL",
+  ),
+  texts.notificationText(
+    {
+      type: "fusao",
+      count: 0,
+      total: "0.00",
+      fromNames: ["Mercadinho"],
+      toName: "Mercado",
+    },
+    "BRL",
+  ),
+  texts.notificationText({ type: "resumo", changes: 3, count: 7, total: "120.00" }, "BRL"),
 ];
+
+describe("família fora do real", () => {
+  const row = texts.aporteReservaText({
+    currency: "USD",
+    amount: "300.00",
+    missing: "1500.00",
+    targetMonths: 6,
+    months: 5,
+  });
+
+  it("o texto de reserva sai na moeda da família", () => {
+    expect(row.title).toContain("US$");
+    expect(`${row.title}${row.body}`).not.toContain("R$");
+  });
+
+  it("os valores crus levam a moeda, e a tela formata em qualquer idioma", () => {
+    expect(row.message.params?.["amount"]).toEqual({ money: "300.00", currency: "USD" });
+    const shown = agentText(
+      {
+        title: row.title,
+        body: row.body,
+        messageKey: row.message.key,
+        messageParams: row.message.params ?? null,
+      },
+      "en",
+    );
+    expect(shown.title).toContain("$300.00");
+    expect(shown.body).toContain("$1,500.00");
+  });
+});
 
 /** Toda frase dentro de uma mensagem. */
 function keysOf(message: Message): string[] {
@@ -411,7 +490,7 @@ const FROM_DOMAIN: Message[] = [
   { key: "frases.relImportacaoDesfeita" },
   { key: "frases.motivo", params: { reason: "Motivo" } },
   texts.metaNotaContaText().message,
-  texts.metaNotaParcelaText("100.00", "120.00").message,
+  texts.metaNotaParcelaText("100.00", "120.00", "BRL").message,
   texts.metaNotaMessage([{ key: "frases.notaConquistada" }]),
   debtPlanHeadlineMessage(debtPlan({ payoffMonth: null })),
 ];
@@ -495,6 +574,7 @@ describe("texto por chave", () => {
   it("a mesma linha sai diferente para duas pessoas da mesma família", () => {
     const row = stored(
       texts.aporteReservaText({
+        currency: "BRL",
         amount: "1234.50",
         missing: "1500.00",
         targetMonths: 6,
@@ -539,7 +619,12 @@ describe("texto por chave", () => {
     expect(agentText(quantity, "en").body).toContain("reverse split of 10:1");
     expect(agentText(quantity, "es").body).toContain("de 100 a 10,5");
     const rate = stored(
-      texts.aporteDividaText({ amount: "200.00", debt: "Loja", monthlyRate: "4.5" }),
+      texts.aporteDividaText({
+        currency: "BRL",
+        amount: "200.00",
+        debt: "Loja",
+        monthlyRate: "4.5",
+      }),
     );
     expect(agentText(rate, "en").body).toContain("costs 4.5% a month");
   });
@@ -604,7 +689,7 @@ describe("linha sem chave", () => {
 describe("nota do plano da meta", () => {
   const note = texts.metaNotaMessage([
     { key: "frases.notaConquistada" },
-    texts.metaNotaParcelaText("100.00", "120.00").message,
+    texts.metaNotaParcelaText("100.00", "120.00", "BRL").message,
   ]);
 
   it("sai no idioma de quem lê", () => {

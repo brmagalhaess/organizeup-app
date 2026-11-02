@@ -114,7 +114,7 @@ export async function loadTransfers(ctx: TenantContext) {
 }
 
 /**
- * Saldo atual de cada conta (`accountBalances`): `nativeBalance` na moeda dela e `balance` em reais.
+ * Saldo atual de cada conta (`accountBalances`): `nativeBalance` na moeda dela e `balance` na moeda principal.
  */
 export async function loadAccountBalances(ctx: TenantContext) {
   return withHousehold(ctx, (tx) => accountBalances(tx));

@@ -2,8 +2,8 @@
 // distribui parcelas por prioridade e prazo. O que a família informou (valor, data, prioridade) só
 // muda por sugestão aceita; o plano (início, fim, parcela) é dado derivado, recalculado todo dia.
 import { addMonths, formatYearMonth, yearMonthOf, type YearMonth } from "./cashflow";
-import { message, type Message } from "./messages";
-import { formatBRL, money, toCents, toDbAmount, type MoneyValue } from "./money";
+import { message, moneyValue, type Message } from "./messages";
+import { formatMoney, money, toCents, toDbAmount, type Currency, type MoneyValue } from "./money";
 import { monthsBetween } from "./trip";
 import Decimal from "decimal.js";
 
@@ -62,6 +62,8 @@ export interface PlanGoalsInput {
   /** `allocation.goalsBudget`. */
   budget: string;
   goals: GoalInput[];
+  /** Moeda principal da família, para as notas. Sem ela, real. */
+  currency?: Currency;
 }
 
 interface Release {
@@ -108,6 +110,7 @@ function planOne(
   missing: MoneyValue,
   desiredMonth: YearMonth | null,
   confirmed: Set<YearMonth>,
+  currency: Currency | undefined,
 ): Core | { note: string; noteMessages: Message[] } {
   // Ninguém guarda mais do que falta: a parcela é no máximo o que falta.
   let monthly = cap.gt(missing) ? missing : cap;
@@ -133,8 +136,10 @@ function planOne(
     monthly.lt(missing.times(GOAL_RULES.minMonthlyPercent).dividedBy(100))
   ) {
     return {
-      note: `Com ${formatBRL(monthly)} por mês levaria mais de 10 anos; reduza o valor, adie a data ou aumente o que guarda.`,
-      noteMessages: [message("frases.notaLonga", { amount: { money: toDbAmount(monthly) } })],
+      note: `Com ${formatMoney(monthly, currency)} por mês levaria mais de 10 anos; reduza o valor, adie a data ou aumente o que guarda.`,
+      noteMessages: [
+        message("frases.notaLonga", { amount: moneyValue(toDbAmount(monthly), currency) }),
+      ],
     };
   }
   const contributions = installments(start, count, monthly, missing, confirmed);
@@ -223,7 +228,7 @@ export function planGoals(input: PlanGoalsInput): GoalPlan[] {
       cap = release.monthly;
     }
 
-    const core = planOne(start, cap, missing, goal.desiredMonth, confirmed);
+    const core = planOne(start, cap, missing, goal.desiredMonth, confirmed, input.currency);
     if (!("monthly" in core)) {
       if (release) releases.push(release);
       plans.push(

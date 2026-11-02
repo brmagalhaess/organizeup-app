@@ -2,7 +2,14 @@
 // anota o que a família disse na conversa: não é dado financeiro informado nem derivado (regra 7), por
 // isso grava direto, e a família vê e apaga em Configurações. Número nunca entra aqui: número vem das
 // ferramentas, e uma anotação velha não pode competir com o saldo de hoje.
-import { householdMemories, inArray, MEMORY_KINDS, searchKnowledge } from "@organizeup/db";
+import {
+  householdCurrency,
+  householdMemories,
+  inArray,
+  MEMORY_KINDS,
+  searchKnowledge,
+} from "@organizeup/db";
+import { brazilRulesApply } from "@organizeup/domain";
 import { z } from "zod";
 import { INSTRUCTION } from "../insights/verify";
 import {
@@ -23,6 +30,9 @@ const MONEY =
 
 export const mentionsMoney = (text: string) => MONEY.test(text);
 
+const OUTSIDE_BRAZIL =
+  "Esta base é do Brasil, e a moeda principal da família é outra: diga que a regra é brasileira e pode não valer para ela.";
+
 const buscarConhecimento = defineTool({
   name: "buscar_conhecimento",
   description:
@@ -32,7 +42,7 @@ const buscarConhecimento = defineTool({
     pergunta: z.string().min(2).max(300).describe("O que procurar, em português."),
   }),
   label: () => "olhei as regras oficiais",
-  run: async (_ctx, { pergunta }) => {
+  run: async (ctx, { pergunta }) => {
     const rows = await searchKnowledge(pergunta);
     if (rows.length === 0) {
       return {
@@ -40,7 +50,9 @@ const buscarConhecimento = defineTool({
         aviso: "Não há trecho conferido sobre isso. Diga que não tem uma fonte para citar.",
       };
     }
+    const brazil = brazilRulesApply(await read(ctx, (tx) => householdCurrency(tx)));
     return {
+      ...(brazil ? {} : { aviso: OUTSIDE_BRAZIL }),
       encontrados: rows.length,
       trechos: rows.map((row) => ({
         titulo: row.title,

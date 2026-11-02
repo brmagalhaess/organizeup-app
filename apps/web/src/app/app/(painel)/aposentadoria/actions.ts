@@ -9,6 +9,7 @@ import {
   desc,
   emergencyFund,
   eq,
+  householdCurrency,
   householdSuggestions,
   people,
   retirementPlan,
@@ -17,7 +18,7 @@ import {
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
-import { money, parseMoney, toDbAmount } from "@organizeup/domain";
+import { brazilRulesApply, money, parseMoney, toDbAmount } from "@organizeup/domain";
 import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
@@ -91,7 +92,10 @@ export async function saveScenario(_prev: FormState, form: FormData): Promise<Fo
     targetAge: form.get("targetAge"),
     lifeExpectancy: form.get("lifeExpectancy"),
     targetIncome: form.get("targetIncome") ?? "",
-    otherIncome: form.get("otherIncome") || "0",
+    // INSS e outras rendas só existem com as regras brasileiras: fora delas, carteira e renda alvo.
+    otherIncome: brazilRulesApply(await withHousehold(ctx, householdCurrency))
+      ? form.get("otherIncome") || "0"
+      : "0",
     monthlyContribution: form.get("monthlyContribution") || "0",
     saved: form.get("saved") ?? "",
     returnBefore: form.get("returnBefore") ?? "",

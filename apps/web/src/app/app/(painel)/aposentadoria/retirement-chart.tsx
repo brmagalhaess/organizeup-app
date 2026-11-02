@@ -1,8 +1,8 @@
 "use client";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { money, percentOf, toDbAmount } from "@organizeup/domain";
 import { cx } from "@/components/styles";
-import { formatAmount } from "@/i18n/format";
+import { useMoney } from "@/i18n/money";
 
 interface Point {
   age: number;
@@ -12,7 +12,7 @@ interface Point {
 /** Patrimônio por idade: sobe até parar e desce depois. Uma série; a tabela serve leitor de tela. */
 export function RetirementChart({ points, targetAge }: { points: Point[]; targetAge: number }) {
   const t = useTranslations("aposentadoria.retirementChart");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const top = points.reduce(
     (acc, point) => (money(point.value).gt(acc) ? money(point.value) : acc),
     money(0),
@@ -23,7 +23,7 @@ export function RetirementChart({ points, targetAge }: { points: Point[]; target
     <div>
       <div className="grid grid-cols-[4rem_minmax(0,1fr)] gap-2">
         <div className="flex h-40 flex-col justify-between text-right text-xs tabular-nums text-muted">
-          <span>{formatAmount(max, locale, "compact")}</span>
+          <span>{moneyText(max, "compact")}</span>
           <span>{t("zero")}</span>
         </div>
         <div>
@@ -34,7 +34,7 @@ export function RetirementChart({ points, targetAge }: { points: Point[]; target
                 type="button"
                 aria-label={t("barLabel", {
                   age: point.age,
-                  amount: formatAmount(point.value, locale),
+                  amount: moneyText(point.value),
                 })}
                 className="group relative flex h-full min-w-0 flex-1 items-end justify-center rounded-t hover:bg-brand-50/60"
               >
@@ -60,7 +60,7 @@ export function RetirementChart({ points, targetAge }: { points: Point[]; target
                     {t("barTitle", { age: point.age })}
                   </span>
                   <span className="font-medium tabular-nums text-ink">
-                    {formatAmount(point.value, locale)}
+                    {moneyText(point.value)}
                   </span>
                 </span>
               </button>
@@ -89,7 +89,7 @@ export function RetirementChart({ points, targetAge }: { points: Point[]; target
           {points.map((point) => (
             <tr key={point.age}>
               <th scope="row">{point.age}</th>
-              <td>{formatAmount(point.value, locale)}</td>
+              <td>{moneyText(point.value)}</td>
             </tr>
           ))}
         </tbody>

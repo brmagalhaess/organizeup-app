@@ -15,6 +15,7 @@ import { useActionState, useEffect, useState } from "react";
 import {
   CURRENCIES,
   currencySymbol,
+  convertMoney,
   isForeign,
   type Currency,
   type FxRates,
@@ -29,10 +30,11 @@ import {
   Select,
   Sheet,
 } from "@/components/ui";
-import { formatAmount, toAmountInput } from "@/i18n/format";
+import { toAmountInput } from "@/i18n/format";
 import { systemTextOf } from "@/i18n/system-text";
 import { saveAccount, setAccountArchived, type SimpleFormState } from "./actions";
 import { TransferForm, TransferList, type TransferRow } from "./transfers";
+import { useFamilyCurrency, useMoney } from "@/i18n/money";
 
 const TYPES = {
   corrente: Landmark,
@@ -49,7 +51,7 @@ export interface AccountRow {
   openingBalance: string;
   /** Na moeda da conta. */
   nativeBalance: string;
-  /** Em reais, pela última cotação. */
+  /** Na moeda principal, pela última cotação. */
   balance: string;
   archived: boolean;
 }
@@ -71,7 +73,8 @@ function AccountForm({
   const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
   const [state, action, pending] = useActionState(saveAccount, initial);
-  const [currency, setCurrency] = useState<Currency>(account?.currency ?? "BRL");
+  const main = useFamilyCurrency();
+  const [currency, setCurrency] = useState<Currency>(account?.currency ?? main);
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
@@ -150,7 +153,8 @@ export function AccountsBoard({
 }) {
   const t = useTranslations("contas");
   const system = systemTextOf(useTranslations("sistema"));
-  const locale = useLocale();
+  const moneyText = useMoney();
+  const main = useFamilyCurrency();
   const [moving, setMoving] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ nonce: number; account: AccountRow | null } | null>(
     null,
@@ -212,13 +216,13 @@ export function AccountsBoard({
               </div>
               <div>
                 <p className="text-2xl font-semibold tabular-nums tracking-tight">
-                  {formatAmount(account.nativeBalance, locale, "full", account.currency)}
+                  {moneyText(account.nativeBalance, "full", account.currency)}
                 </p>
-                {isForeign(account.currency) ? (
+                {isForeign(account.currency, main) ? (
                   <>
                     <p className="m-0 text-sm tabular-nums text-muted">
-                      {rates[account.currency]
-                        ? `≈ ${formatAmount(account.balance, locale)}`
+                      {convertMoney(account.nativeBalance, account.currency, main, rates)
+                        ? `≈ ${moneyText(account.balance)}`
                         : t("fx.noBalanceInReais")}
                     </p>
                     <p className="m-0 mt-1 text-xs text-muted">

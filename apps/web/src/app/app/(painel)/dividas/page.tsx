@@ -4,11 +4,12 @@ import { canWrite } from "@organizeup/db";
 import { todayIn, yearMonthOf } from "@organizeup/domain";
 import { PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
-import { formatAmount, formatMonthAbbr } from "@/i18n/format";
+import { formatMonthAbbr } from "@/i18n/format";
 import { loadDebtFiles, loadDebtPlan, loadDebts } from "@/lib/commitments";
 import { requireTenant } from "@/lib/session";
 import { DebtPlanCard, DebtPlanError } from "./debt-plan-card";
 import { DebtsBoard } from "./debts-board";
+import { getMoney } from "@/i18n/money-server";
 import { PayoffPlanner } from "./payoff-planner";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,7 +26,11 @@ export default async function DebtsPage() {
   ]);
   const open = data.debts.filter((debt) => !debt.archived && debt.next);
   const lastDue = data.summary.lastDue;
-  const [t, locale] = await Promise.all([getTranslations("dividas"), getLocale()]);
+  const [t, moneyText, locale] = await Promise.all([
+    getTranslations("dividas"),
+    getMoney(),
+    getLocale(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,14 +40,11 @@ export default async function DebtsPage() {
       {plan?.plan ? <DebtPlanCard plan={plan.plan} /> : null}
       {open.length > 0 ? (
         <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
-          <StatTile label={t("stats.balance")} value={formatAmount(data.summary.balance, locale)} />
-          <StatTile
-            label={t("stats.thisMonth")}
-            value={formatAmount(data.summary.thisMonth, locale)}
-          />
+          <StatTile label={t("stats.balance")} value={moneyText(data.summary.balance)} />
+          <StatTile label={t("stats.thisMonth")} value={moneyText(data.summary.thisMonth)} />
           <StatTile
             label={t("stats.interestLeft")}
-            value={formatAmount(data.summary.interestLeft, locale)}
+            value={moneyText(data.summary.interestLeft)}
             {...(open.some((debt) => debt.system === "manual")
               ? { hint: t("stats.interestHint") }
               : {})}

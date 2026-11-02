@@ -2,7 +2,7 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useActionState, useEffect, useState } from "react";
-import { money } from "@organizeup/domain";
+import { money, type MoneyInput } from "@organizeup/domain";
 import {
   Button,
   Card,
@@ -16,11 +16,12 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
-import { formatAmount, formatPercent, toFieldValue } from "@/i18n/format";
+import { formatPercent, toFieldValue } from "@/i18n/format";
 import type { loadRetirement } from "@/lib/planning";
 import { deleteScenario, saveScenario, type FormState } from "./actions";
 import { RetirementChart } from "./retirement-chart";
 import { percentValue } from "./stored-number";
+import { useBrazilRules, useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadRetirement>>;
 type Scenario = Data["scenarios"][number];
@@ -36,8 +37,10 @@ function ScenarioForm({
   data: Data;
   onDone: () => void;
 }) {
+  const brazil = useBrazilRules();
   const t = useTranslations("aposentadoria.scenarioForm");
   const locale = useLocale();
+  const moneyText = useMoney();
   const [state, action, pending] = useActionState(saveScenario, initial);
   const [personId, setPersonId] = useState(scenario?.personId ?? data.people[0]?.id ?? "");
   useEffect(() => {
@@ -101,18 +104,17 @@ function ScenarioForm({
           defaultValue={toFieldValue(scenario?.targetIncome, locale)}
         />
       </Field>
-      <Field label={t("otherIncome")} hint={t("otherIncomeHint")}>
-        <Input
-          name="otherIncome"
-          inputMode="decimal"
-          placeholder={t("amountPlaceholder")}
-          defaultValue={toFieldValue(scenario?.otherIncome, locale)}
-        />
-      </Field>
-      <Field
-        label={t("saved")}
-        hint={t("savedHint", { amount: formatAmount(data.portfolio, locale) })}
-      >
+      {brazil ? (
+        <Field label={t("otherIncome")} hint={t("otherIncomeHint")}>
+          <Input
+            name="otherIncome"
+            inputMode="decimal"
+            placeholder={t("amountPlaceholder")}
+            defaultValue={toFieldValue(scenario?.otherIncome, locale)}
+          />
+        </Field>
+      ) : null}
+      <Field label={t("saved")} hint={t("savedHint", { amount: moneyText(data.portfolio) })}>
         <Input
           name="saved"
           inputMode="decimal"
@@ -177,7 +179,8 @@ function ScenarioCard({
 }) {
   const t = useTranslations("aposentadoria.scenario");
   const locale = useLocale();
-  const amount = (value: Parameters<typeof formatAmount>[0]) => formatAmount(value, locale);
+  const moneyText = useMoney();
+  const amount = (value: MoneyInput) => moneyText(value);
   const { result } = scenario;
   const required = result.requiredContribution;
   const extra = required === null ? null : money(required).minus(scenario.monthlyContribution);

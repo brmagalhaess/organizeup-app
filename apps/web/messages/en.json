@@ -9,7 +9,7 @@
       "yearTarget": "With what you save today, your portfolio reaches the goal in {year}, and your target is {target}."
     },
     "yearsEarlier": "{years, plural, =1 {1 year sooner} other {# years sooner}}",
-    "disclaimer": "Estimates in today’s reais, with no guaranteed return. Educational content, not an investment recommendation.",
+    "disclaimer": "Estimates in today’s ¤¤, with no guaranteed return. Educational content, not an investment recommendation.",
     "actions": {
       "completar": {
         "title": "Complete your retirement plan",
@@ -62,7 +62,7 @@
     "essential": {
       "sheetTitle": "Essential expenses",
       "intro": "This is what your family needs to live for a month: housing, groceries, bills and transportation.",
-      "label": "Essential expenses per month (R$)",
+      "label": "Essential expenses per month (¤)",
       "hint": "Optional. If left blank, we calculate it from transactions in essential categories.",
       "submit": "Save essential expenses"
     },
@@ -102,7 +102,7 @@
       "forecast": "Saving <b>{amount}</b> per month, you’ll get there in <b>{date}</b>, {count, plural, =1 {# month} other {# months}} from now."
     },
     "contribution": {
-      "label": "How much I can save per month (R$)",
+      "label": "How much I can save per month (¤)",
       "hint": "Your plan suggests {amount} per month.",
       "saveLabel": "Save how much to set aside per month"
     },
@@ -189,7 +189,7 @@
       "name": "Asset name",
       "namePlaceholder": "E.g., Apartment",
       "kind": "Type",
-      "value": "Value today (R$)",
+      "value": "Value today (¤)",
       "valueHint": "What you could sell it for.",
       "valuedOn": "Value date",
       "linkedDebt": "Debt linked to this asset",
@@ -278,7 +278,7 @@
       "type": "Type",
       "date": "Date",
       "quantity": "Quantity",
-      "fees": "Fees (R$)",
+      "fees": "Fees (¤)",
       "pricePlaceholder": "32.50",
       "amountPlaceholder": "1,000.00",
       "zeroPlaceholder": "0.00"
@@ -298,7 +298,8 @@
         },
         "renda_fixa": {
           "label": "Fixed income",
-          "hint": "CDB (bank deposit), Tesouro (Brazilian government bonds), LCI, LCA"
+          "hint": "CDB (bank deposit), Tesouro (Brazilian government bonds), LCI, LCA",
+          "hintAnywhere": "Bonds, deposits and fixed income funds"
         },
         "outro": {
           "label": "Other",
@@ -316,7 +317,7 @@
         "exterior": "International",
         "outro": "Other"
       },
-      "pricePaid": "Price paid (R$)",
+      "pricePaid": "Price paid (¤)",
       "purchaseDate": "Purchase date",
       "feesHint": "Optional.",
       "total": "Purchase total: {total}",
@@ -332,11 +333,12 @@
       "manual": "Fill in by hand",
       "namePlaceholderFixed": "E.g. Tesouro Selic 2031",
       "namePlaceholderOther": "E.g. Company pension",
-      "amount": "Amount invested (R$)",
-      "currentValue": "Value today (R$)",
+      "amount": "Amount invested (¤)",
+      "currentValue": "Value today (¤)",
       "currentValueHint": "Optional. Without it, we use the amount invested.",
       "currentValuePlaceholder": "1,050.00",
-      "submit": "Add to portfolio"
+      "submit": "Add to portfolio",
+      "namePlaceholderFixedAnywhere": "E.g. Government bond 2031"
     },
     "trade": {
       "operation": "Operation",
@@ -344,8 +346,8 @@
       "sell": "Sell",
       "deposit": "Deposit",
       "redeem": "Withdrawal",
-      "price": "Price (R$)",
-      "amount": "Amount (R$)",
+      "price": "Price (¤)",
+      "amount": "Amount (¤)",
       "feesHint": "Optional. They count toward the average price.",
       "submit": "Save trade"
     },
@@ -365,7 +367,8 @@
       "empty": {
         "title": "Your portfolio starts here",
         "text": "Add stocks, funds, fixed income or private pensions. The value goes into your net worth. If you already keep this money in an investment account in the system, use only one of the two.",
-        "action": "Add investment"
+        "action": "Add investment",
+        "textAnywhere": "Add foreign investments, funds, fixed income or private pensions. The value goes into your net worth. If you already keep this money in an investment account in the system, use only one of the two."
       },
       "stats": {
         "cost": "Cost",
@@ -415,16 +418,18 @@
         "namePlaceholder": "E.g. Tesouro Selic 2031",
         "class": "Class",
         "codeHint": "E.g. PETR4, HGLG11. For stocks, real estate funds, ETFs and BDRs, this is what brings in the price and dividends on their own.",
-        "submit": "Save investment"
+        "submit": "Save investment",
+        "namePlaceholderAnywhere": "E.g. Government bond 2031"
       },
       "valueForm": {
-        "price": "Today’s price (R$)",
-        "total": "Total value today (R$)",
+        "price": "Today’s price (¤)",
+        "total": "Total value today (¤)",
         "hintAuto": "Valid until the next automatic quote.",
         "hintUnit": "Price of one unit.",
         "hintStatement": "As shown on the statement.",
         "submit": "Save value"
-      }
+      },
+      "disclaimerAnywhere": "You enter the value of each investment, with no automatic prices. OrganizeUp organizes and compares, and does not recommend buying or selling investments."
     },
     "trades": {
       "title": "Transactions",
@@ -469,7 +474,7 @@
       "next": {
         "title": "If you contribute now",
         "description": "Shows how to bring your portfolio closer to your targets without selling anything.",
-        "amount": "Contribution amount (R$)",
+        "amount": "Contribution amount (¤)",
         "noneBelow": "No class with a target is below it.",
         "split": "Contribution split",
         "leftover": "{amount} left over: the classes are already on target."
@@ -509,7 +514,8 @@
       "valueFormat": "Enter the value like 32.50.",
       "percentFormat": "Use percentages like 30 or 12.5.",
       "percentMax": "Each class goes up to 100%.",
-      "percentSum": "The targets add up to more than 100%."
+      "percentSum": "The targets add up to more than 100%.",
+      "classNotAllowed": "This class is only available to families in reais."
     }
   },
   "proventos": {
@@ -532,8 +538,8 @@
       "investment": "Investment",
       "kind": "Type",
       "paidOn": "Payment date",
-      "gross": "Gross amount (R$)",
-      "withheld": "Tax withheld (R$)",
+      "gross": "Gross amount (¤)",
+      "withheld": "Tax withheld (¤)",
       "withheldHint": "As shown on your statement.",
       "amountPlaceholder": "0.00",
       "save": "Save dividend"
@@ -546,7 +552,7 @@
     },
     "goal": {
       "title": "Dividend goal",
-      "label": "Monthly income goal (R$)",
+      "label": "Monthly income goal (¤)",
       "hint": "Leave blank to remove the goal.",
       "placeholder": "1,500.00",
       "save": "Save goal"
@@ -622,7 +628,7 @@
       "confirm": "Delete"
     },
     "chart": {
-      "zero": "R$0",
+      "zero": "¤0",
       "caption": "Net dividends by month",
       "month": "Month",
       "net": "Net amount"
@@ -680,7 +686,7 @@
       "name": "Goal name",
       "namePlaceholder": "E.g., Get a new car",
       "kind": "Type",
-      "amount": "Amount (R$)",
+      "amount": "Amount (¤)",
       "amountPlaceholder": "0.00",
       "desiredMonth": "When you want to reach it",
       "optional": "Optional.",
@@ -700,7 +706,7 @@
       "save": "Save goal"
     },
     "saved": {
-      "amount": "How much you set aside (R$)",
+      "amount": "How much you set aside (¤)",
       "hint": "Adds to what was already saved.",
       "note": "This doesn’t touch your accounts. It only tracks the goal.",
       "save": "Record amount"
@@ -767,13 +773,13 @@
       "disclaimer": "Estimate. Past dividends don’t guarantee future dividends; nothing here is investment advice.",
       "formTitle": "Your plan",
       "formDescription": "The assistant calculates anything you leave blank.",
-      "targetIncome": "Monthly income you want (R$)",
+      "targetIncome": "Monthly income you want (¤)",
       "targetIncomeHint": "Blank: we use your average spending.",
       "targetIncomePlaceholder": "8,000.00",
       "expectedYield": "Annual portfolio yield (%)",
-      "expectedYieldHint": "How much the portfolio pays in dividends per year. E.g.: R$100K paying R$6K = 6%.",
+      "expectedYieldHint": "How much the portfolio pays in dividends per year. E.g.: ¤100K paying ¤6K = 6%.",
       "expectedYieldPlaceholder": "6.00",
-      "contribution": "How much to save per month (R$)",
+      "contribution": "How much to save per month (¤)",
       "contributionHint": "Blank: we use the suggested amount.",
       "contributionPlaceholder": "1,000.00",
       "advanced": "Advanced settings",
@@ -836,11 +842,12 @@
       "planAction": "Complete your profile",
       "yieldTitle": "Enter the annual portfolio yield or record dividends",
       "yieldText": "Without it, we can’t calculate how much you need invested.",
-      "yieldAction": "Record dividends"
+      "yieldAction": "Record dividends",
+      "yieldTitleAnywhere": "Enter the annual portfolio yield"
     },
     "dividendChart": {
       "summary": "Projected portfolio from {first} in {firstYear} to {last} in {lastYear}, paying {income} a month. How much you need invested: {required}.",
-      "zero": "R$0",
+      "zero": "¤0",
       "incomePerMonth": "{amount} a month",
       "note": "Portfolio at the start of each year. The dashed line is how much you need invested; the light part starts in {year}.",
       "caption": "Projected portfolio and monthly income by year",
@@ -887,16 +894,16 @@
       "targetAge": "Stop at age",
       "lifeExpectancy": "Plan until age",
       "lifeExpectancyHint": "The age the money should last until.",
-      "targetIncome": "Desired monthly income (R$)",
+      "targetIncome": "Desired monthly income (¤)",
       "targetIncomeHint": "In today’s money.",
       "targetIncomePlaceholder": "8,000.00",
-      "otherIncome": "INSS and other monthly income (R$)",
+      "otherIncome": "INSS and other monthly income (¤)",
       "otherIncomeHint": "INSS is Brazilian social security. See your estimate on the Meu INSS website or app.",
       "amountPlaceholder": "0.00",
-      "saved": "Already saved (R$)",
+      "saved": "Already saved (¤)",
       "savedHint": "Blank uses your investment portfolio: {amount}.",
       "savedPlaceholder": "Use the portfolio",
-      "contribution": "How much you save per month (R$)",
+      "contribution": "How much you save per month (¤)",
       "returnBefore": "Return until stopping (%)",
       "returnAfter": "Return after (%)",
       "returnHint": "Per year, above inflation.",
@@ -905,7 +912,7 @@
       "save": "Save scenario"
     },
     "retirementChart": {
-      "zero": "R$0",
+      "zero": "¤0",
       "barLabel": "At age {age}: {amount}",
       "barTitle": "At age {age}",
       "note": "Age. The light part is after you stop working.",
@@ -983,14 +990,14 @@
     },
     "cost": {
       "kind": "Type",
-      "amount": "Amount (R$)",
+      "amount": "Amount (¤)",
       "amountHint": "An estimate is enough. You can adjust it later.",
       "amountPlaceholder": "0.00",
       "perPerson": "This amount is per person",
       "save": "Save cost"
     },
     "saved": {
-      "amount": "How much you set aside (R$)",
+      "amount": "How much you set aside (¤)",
       "hint": "Adds to what was already saved.",
       "note": "This doesn’t touch your accounts. It only tracks the trip.",
       "save": "Record amount"
@@ -1237,7 +1244,7 @@
       "suggestions": {
         "month": "How did this month go?",
         "upcoming": "What’s due in the next few days?",
-        "saveMore": "What if I save R$500 more a month?"
+        "saveMore": "What if I save ¤500 more a month?"
       }
     },
     "threads": {
@@ -1839,7 +1846,18 @@
       "text": "This can't be undone. Your account is deleted and, if the family is yours alone, all of its data too. Backups are replaced within 30 days.",
       "wrongPassword": "Incorrect password."
     },
-    "noPermission": "Your role in this family doesn't allow changes."
+    "noPermission": "Your role in this family doesn't allow changes.",
+    "currency": {
+      "title": "Main currency",
+      "description": "The currency your family sees totals in.",
+      "label": "Main currency",
+      "hint": "Outside the real, Brazilian rules (INSS, CLT, income tax) are turned off.",
+      "lockedHint": "Your family already has activity, so the currency can no longer change.",
+      "locked": "Your family already has activity, and the currency can no longer change.",
+      "invalid": "Choose one of the currencies on the list.",
+      "save": "Save currency",
+      "saved": "Main currency saved."
+    }
   },
   "notificacoes": {
     "metaTitle": "Notifications",
@@ -2001,8 +2019,8 @@
       "cardExpensesOnly": "Credit cards only accept expenses.",
       "invalidCard": "Choose a valid card.",
       "invalidAccount": "Choose a valid account.",
-      "overLimit": "This amount exceeds the limit in reais.",
-      "noRepeat": "Dollar and euro accounts don't support repeating bills yet. Add it month by month or use an account in reais.",
+      "overLimit": "This amount exceeds the limit in ¤¤.",
+      "noRepeat": "¤¤¤ accounts don't support repeating bills yet. Add it month by month or use an account in ¤¤.",
       "notFound": "Transaction not found.",
       "recurringMonth": "A recurring bill's transaction must stay in the same month.",
       "goalEntry": "This transaction saves money for a goal. To change it, delete it and confirm it again.",
@@ -2037,8 +2055,8 @@
     "fx": {
       "converted": "Converted at the exchange rate of {date}.",
       "missing": "No exchange rate yet for {names}: those accounts are left out of the total.",
-      "noBalanceInReais": "No exchange rate yet to show this in reais",
-      "balanceNote": "The balance in {currency, select, USD {US dollars} EUR {euros} other {reais}} only changes with transactions; in reais, it moves with the exchange rate."
+      "noBalanceInReais": "No exchange rate yet to show this in ¤¤",
+      "balanceNote": "The balance in {currency, select, USD {US dollars} EUR {euros} other {reais}} only changes with transactions; in ¤¤, it moves with the exchange rate."
     },
     "actions": {
       "edit": "Edit {name}",
@@ -2061,7 +2079,7 @@
       "type": "Type",
       "currency": "Currency",
       "currencyLocked": "This account already has activity, so its currency stays as it is.",
-      "currencyHint": "Transactions and balance stay in this currency. App totals remain in reais.",
+      "currencyHint": "Transactions and balance stay in this currency. App totals remain in ¤¤.",
       "openingBalance": "Opening balance ({symbol})",
       "openingBalanceHint": "How much was in the account before the transactions here. They add to and subtract from this amount.",
       "save": "Save account"
@@ -2147,7 +2165,7 @@
       "closingDayHint": "Last day of purchases on the statement.",
       "dueDay": "Due day",
       "dueDayHint": "When the statement must be paid.",
-      "limit": "Limit (R$)",
+      "limit": "Limit (¤)",
       "limitHint": "Optional. Shows how much is still available.",
       "payingAccount": "Account that pays the statement",
       "save": "Save card"
@@ -2274,8 +2292,8 @@
       "systemPrice": "Fixed, with interest calculated here",
       "systemSac": "Decrease every month",
       "systemManual": "I'll enter the installment amount",
-      "installmentAmount": "Installment amount (R$)",
-      "balance": "Balance owed today (R$)",
+      "installmentAmount": "Installment amount (¤)",
+      "balance": "Balance owed today (¤)",
       "balanceHint": "How much is left to pay, not counting future interest.",
       "monthlyRate": "Monthly interest (%)",
       "rateOptional": "Optional. It only helps suggest the order.",
@@ -2406,7 +2424,7 @@
     "payoff": {
       "title": "Which debt to pay first",
       "description": "Estimate based on what you have today. When one debt ends, its installment goes toward the next.",
-      "extra": "How much extra per month (R$)",
+      "extra": "How much extra per month (¤)",
       "extraHint": "On top of the installments.",
       "extraError": "Enter an amount like 300.00.",
       "avalanche": "Highest interest first",
@@ -2530,7 +2548,7 @@
       "account": "Statement account",
       "file": "File",
       "fileHint": "OFX, CSV, Excel (.xlsx) or PDF, up to 5 MB.",
-      "foreign": "File amounts are read in {currency, select, USD {US dollars} EUR {euros} other {reais}} and converted to reais at the exchange rate of each line's date.",
+      "foreign": "File amounts are read in {currency, select, USD {US dollars} EUR {euros} other {reais}} and converted to ¤¤ at the exchange rate of each line's date.",
       "other": "Choose another file",
       "reading": "Reading {name}…",
       "checking": "Checking against your transactions…"
@@ -2615,7 +2633,7 @@
       "readFailed": "We couldn't read this file. Download the statement as OFX or CSV.",
       "ofxEmpty": "We found no transactions in this OFX file.",
       "noQuote": "We don't have the {currency, select, USD {US dollar} EUR {euro} other {real}} exchange rate for {date} yet. Import a more recent period.",
-      "overLimit": "One of the file's amounts exceeds the limit in reais.",
+      "overLimit": "One of the file's amounts exceeds the limit in ¤¤.",
       "unreadable": "We couldn't read the transactions in this file.",
       "serverFailed": "The server failed while checking this statement. Try again; if it happens again, let us know.",
       "invalidAccount": "Choose a valid account.",
@@ -2647,7 +2665,8 @@
     "empty": {
       "title": "No income yet",
       "text": "Add your salary, retirement, rent or other income. For CLT jobs, we calculate INSS, tax, 13th salary and vacation.",
-      "action": "Add income"
+      "action": "Add income",
+      "textSimple": "Add your salary, retirement, rent or other income, with the amount that reaches your account."
     },
     "slip": {
       "gross": "Gross salary",
@@ -2675,12 +2694,12 @@
     "simulator": {
       "title": "Salary simulator",
       "text": "See how much of a CLT salary is left after deductions.",
-      "gross": "Gross salary (R$)",
+      "gross": "Gross salary (¤)",
       "invalid": "Check the amounts, like 4,500.00.",
       "dependents": "Dependents",
-      "pension": "Alimony (R$)",
+      "pension": "Alimony (¤)",
       "pensionHint": "By court order or agreement.",
-      "otherDiscounts": "Other deductions (R$)",
+      "otherDiscounts": "Other deductions (¤)",
       "otherDiscountsHint": "Health plan, vouchers and others.",
       "prompt": "Enter the gross salary to see the result.",
       "register": "Add this income"
@@ -2691,14 +2710,14 @@
       "source": "Where it comes from",
       "companyExample": "E.g.: Example Inc.",
       "sourceExample": "E.g.: Office rent",
-      "gross": "Gross salary (R$)",
-      "net": "Amount that reaches the account (R$)",
+      "gross": "Gross salary (¤)",
+      "net": "Amount that reaches the account (¤)",
       "payDay": "Pay day",
       "dependents": "Dependents",
       "vacationMonth": "Vacation month",
       "notSure": "Not sure yet",
-      "pension": "Alimony (R$)",
-      "otherDiscounts": "Other deductions (R$)",
+      "pension": "Alimony (¤)",
+      "otherDiscounts": "Other deductions (¤)",
       "account": "Receiving account",
       "category": "Category",
       "person": "Whose income",
@@ -2737,7 +2756,8 @@
       "category": "Choose a category.",
       "invalidAccount": "Choose a valid account.",
       "incomeCategory": "Choose an income category.",
-      "invalidPerson": "Choose a valid person."
+      "invalidPerson": "Choose a valid person.",
+      "kindNotHere": "This income type only exists in Brazil. Choose another one."
     }
   },
   "calendario": {
@@ -2924,7 +2944,9 @@
       "openFailed": "Family created, but we couldn't open it. Sign in again.",
       "setupFailed": "We couldn't finish the setup.",
       "ownerOnly": "Only the person in charge can set this up.",
-      "invalid": "Invalid details."
+      "invalid": "Invalid details.",
+      "currency": "Main currency",
+      "currencyHint": "It can't change once the family has activity. Outside the real, Brazilian rules (INSS, CLT, income tax) are turned off."
     },
     "choose": {
       "metaTitle": "Choose family",
@@ -2990,7 +3012,7 @@
       "income": "Monthly income you want",
       "incomeHint": "Blank: we use your average spending",
       "yield": "Annual portfolio yield (%)",
-      "yieldHint": "How much the portfolio pays in dividends per year. E.g.: R$100k paying R$6k = 6%.",
+      "yieldHint": "How much the portfolio pays in dividends per year. E.g.: ¤100k paying ¤6k = 6%.",
       "pensionHint": "If you don't know, skip it; you can fill it in later in Family"
     },
     "trips": {
@@ -3001,7 +3023,7 @@
       "optional": "Optional. No goal in mind? Leave it blank and finish.",
       "name": "Goal name",
       "kind": "Type",
-      "amount": "How much it costs (R$)",
+      "amount": "How much it costs (¤)",
       "month": "When you want to achieve it",
       "account": "Where it comes from",
       "accountHint": "The account the money comes out of each month.",
@@ -3030,7 +3052,7 @@
       "inss": "Contributes to INSS?",
       "yes": "Yes",
       "no": "No",
-      "pension": "Expected monthly benefit (R$)",
+      "pension": "Expected monthly benefit (¤)",
       "day": "Day",
       "month": "Month",
       "year": "Year",
@@ -3301,7 +3323,12 @@
       "relDividasComece": "Start with ‘{name}’.",
       "relDividasSemExtra": "There's nothing extra for debts today.",
       "relDividasMudou": "The payoff date moved from {from} to {to}.",
-      "relDividasAtencao": "{count, plural, one {# point to watch} other {# points to watch}}."
+      "relDividasAtencao": "{count, plural, one {# point to watch} other {# points to watch}}.",
+      "relViagensForaDoBrasil": "The destination table is in reais and for trips from Brazil, so there are no trip suggestions in this currency."
+    },
+    "lembreteRendimentoSimples": {
+      "title": "Enter the annual portfolio yield",
+      "body": "Without it, the assistant can't calculate how much you need invested to live on the income."
     }
   },
   "sistema": {

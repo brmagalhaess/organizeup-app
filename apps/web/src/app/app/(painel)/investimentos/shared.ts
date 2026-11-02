@@ -1,6 +1,6 @@
 // Partes comuns das três telas de investimentos.
 import { useEffect } from "react";
-import { money } from "@organizeup/domain";
+import { investmentClassAllowed, money, type Currency } from "@organizeup/domain";
 import { formatNumber, formatPercentExact, toInputValue } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import type { loadPortfolio } from "@/lib/investments";
@@ -22,6 +22,10 @@ export const ASSET_CLASSES = [
   "outro",
 ] as const;
 export type AssetClass = (typeof ASSET_CLASSES)[number];
+
+/** Classes que a família pode usar, na ordem das telas. */
+export const classesFor = (currency: Currency) =>
+  ASSET_CLASSES.filter((value) => investmentClassAllowed(value, currency));
 
 export const initial: FormState = { ok: false, message: null };
 export const quantityText = (value: string, locale: Locale) =>

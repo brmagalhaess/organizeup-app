@@ -10,8 +10,9 @@ import {
   eq,
   goalContributions,
   goals,
+  householdCurrency,
   incomeReceipts,
-  reaisEntry,
+  mainEntry,
   transactions,
   type TenantContext,
   type TenantTx,
@@ -25,8 +26,8 @@ import {
   purchaseLines,
   statementDueDate,
   toDbAmount,
+  type Currency,
   type EntryMoney,
-  type FxCurrency,
 } from "@organizeup/domain";
 import { audit } from "./audit";
 import {
@@ -46,36 +47,37 @@ export interface ImportMark {
 /** Falta a cotação de uma conta estrangeira nesta data. Sai antes de qualquer gravação. */
 class MissingQuote extends Error {
   constructor(
-    readonly currency: FxCurrency,
+    readonly currency: Currency,
     readonly date: string,
   ) {
     super("sem_cotacao");
   }
 }
 
-/** Compromisso em reais na conta. Null só se a conta não existir mais. */
+/** Compromisso na moeda principal, lançado na conta. Null só se a conta não existir mais. */
 async function commitmentEntry(
   tx: TenantTx,
   accountId: string,
-  reais: string,
+  value: string,
   date: string,
 ): Promise<EntryMoney | null> {
-  const entry = await reaisEntry(tx, accountId, reais, date);
+  const entry = await mainEntry(tx, accountId, value, date);
   if (entry) return entry;
   const currency = await accountCurrency(tx, accountId);
-  if (currency && isForeign(currency)) throw new MissingQuote(currency, date);
+  if (currency && isForeign(currency, await householdCurrency(tx)))
+    throw new MissingQuote(currency, date);
   return null;
 }
 
 /** Confirmou, não havia o que confirmar, ou faltou a cotação: aí a pessoa precisa de um aviso. */
 export type ConfirmOutcome =
   | { done: boolean; missingQuote?: undefined }
-  | { done: false; missingQuote: { currency: FxCurrency; date: string } };
+  | { done: false; missingQuote: { currency: Currency; date: string } };
 
 /**
  * Marca como pago ou recebido. `key` é `t:<lançamento>`, `p:<previsão>` (com `month`),
  * `d:<parcela>`, `f:<cartão>:<mês>`, `r:<renda>:<mês>:<parte>` ou `g:<meta>:<mês>`. Compromissos são
- * em reais: pagos com conta estrangeira, convertem pela data, e sem cotação nada é confirmado.
+ * na moeda principal: pagos com conta estrangeira, convertem pela data, e sem cotação nada é confirmado.
  */
 export async function confirmCommitment(
   tx: TenantTx,
@@ -242,7 +244,7 @@ async function confirmByKey(
       status: "realizado" as const,
       createdBy: ctx.userId,
     };
-    // `amount` fica igual nos dois lados, em reais: é por ele que `goalEntryLink` acha a receita espelho.
+    // `amount` fica igual nos dois lados, na moeda principal: é por ele que `goalEntryLink` acha a receita espelho.
     const entry = await commitmentEntry(tx, accountId, contribution.amount, occurredOn);
     const mirror = goal.destinationAccountId
       ? await commitmentEntry(tx, goal.destinationAccountId, contribution.amount, occurredOn)

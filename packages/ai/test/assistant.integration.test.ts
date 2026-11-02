@@ -904,6 +904,41 @@ describe("loop da conversa", () => {
   });
 });
 
+const setCurrency = (mainCurrency: "BRL" | "USD") =>
+  db.withHousehold(ownerCtx, (tx) => tx.update(db.householdSettings).set({ mainCurrency }));
+
+describe("moeda principal fora do real", () => {
+  it("a conversa recebe a moeda pelo contexto do turno, sem mudar o prefixo de cache", async () => {
+    const real = fakeClient([textReply("Certo.")]);
+    await turn({ client: real.client }).run();
+    await setCurrency("USD");
+    try {
+      const usd = fakeClient([textReply("Certo.")]);
+      await turn({ client: usd.client }).run();
+      const prefix = (params: (typeof real.calls)[number]) =>
+        JSON.stringify([params.model, params.tools, params.system, params.output_config]);
+      expect(prefix(usd.calls[0]!)).toBe(prefix(real.calls[0]!));
+      expect(JSON.stringify(usd.calls[0]!.messages)).toContain("Moeda principal da família");
+      expect(JSON.stringify(real.calls[0]!.messages)).not.toContain("Moeda principal da família");
+    } finally {
+      await setCurrency("BRL");
+    }
+  });
+
+  it("buscar_conhecimento avisa que a base é do Brasil", async () => {
+    const pergunta = "qual o limite do FGC?";
+    const brazil = await runTool(ownerCtx, "buscar_conhecimento", { pergunta });
+    expect(JSON.stringify(brazil)).not.toContain("Esta base é do Brasil");
+    await setCurrency("USD");
+    try {
+      const outside = await runTool(ownerCtx, "buscar_conhecimento", { pergunta });
+      expect(JSON.stringify(outside)).toContain("Esta base é do Brasil");
+    } finally {
+      await setCurrency("BRL");
+    }
+  });
+});
+
 describe("rotina da madrugada", () => {
   const night = "2026-09-15";
   const good = {
@@ -954,6 +989,30 @@ describe("rotina da madrugada", () => {
     });
     expect(second.gate).toBe("ja_rodou");
     expect(again.calls).toHaveLength(0);
+  });
+
+  it("com moeda fora do real, a dica recebe a moeda e o aviso, e valor em dólar passa", async () => {
+    await accept();
+    await setCurrency("USD");
+    const { client, calls } = fakeClient([
+      reply({ especialistas: ["metas"] }),
+      modelMessage([toolCall("listar_metas", {})], "tool_use"),
+      reply({
+        dicas: [
+          { ...good, texto: "A meta ainda pede US$ 600,00." },
+          { ...good, titulo: "Inventado", texto: "Guarde US$ 98.765,43 agora." },
+        ],
+      }),
+    ]);
+    try {
+      const run = await ai.runNightlyInsights({ ctx: ownerCtx, client, day: "2026-09-21", limits });
+      expect(run).toMatchObject({ created: 1, discarded: 1 });
+      expect(JSON.stringify(calls[1]!.messages)).toContain("Moeda principal da família: dólar");
+      expect(JSON.stringify(calls[1]!.messages)).toContain("INSS, FGTS, CLT");
+      expect(JSON.stringify(calls[1]!.system)).not.toContain("Moeda principal da família");
+    } finally {
+      await setCurrency("BRL");
+    }
   });
 
   it("escreve no idioma de quem definiu o aceite, pelo contexto do turno", async () => {

@@ -9,6 +9,7 @@ import {
   ensureCategory,
   eq,
   findMarketAsset,
+  householdCurrency,
   householdTimezone,
   inArray,
   INVESTMENT_CLASSES,
@@ -16,7 +17,7 @@ import {
   investmentTargets,
   investmentTrades,
   loadStockEvents,
-  reaisEntry,
+  mainEntry,
   TRADE_SIDES,
   transactions,
   withHousehold,
@@ -24,7 +25,9 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import {
+  brazilRulesApply,
   CONTRIBUTION_CATEGORY,
+  investmentClassAllowed,
   isUnitPriced,
   money,
   parseMoney,
@@ -105,6 +108,10 @@ export async function saveInvestment(_prev: FormState, form: FormData): Promise<
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? t("check") };
   const { id, ...values } = parsed.data;
+  const currency = await withHousehold(ctx, householdCurrency);
+  if (!investmentClassAllowed(values.assetClass, currency))
+    return { ok: false, message: t("classNotAllowed") };
+  if (!brazilRulesApply(currency)) values.ticker = null;
   try {
     await withHousehold(ctx, async (tx) => {
       if (id) {
@@ -147,8 +154,8 @@ async function recordTradeCash(
     .from(accounts)
     .where(eq(accounts.id, accountId));
   if (!account) throw new RangeError("conta");
-  // A carteira é em reais; numa conta estrangeira, o lançamento converte pela data da operação.
-  const entry = await reaisEntry(tx, accountId, toDbAmount(total), trade.occurredOn);
+  // A carteira é na moeda principal; numa conta estrangeira, o lançamento converte pela data da operação.
+  const entry = await mainEntry(tx, accountId, toDbAmount(total), trade.occurredOn);
   if (!entry) throw new MissingQuote();
   const kind = side === "compra" ? "despesa" : "receita";
   const category = await ensureCategory(tx, ctx.householdId, kind, CONTRIBUTION_CATEGORY, false);
@@ -196,7 +203,10 @@ export async function addAsset(_prev: FormState, form: FormData): Promise<FormSt
     occurredOn: form.get("occurredOn") ?? "",
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? t("check") };
-  const { ticker, occurredOn } = parsed.data;
+  const { occurredOn } = parsed.data;
+  const currency = await withHousehold(ctx, householdCurrency);
+  const brazil = brazilRulesApply(currency);
+  const ticker = brazil ? parsed.data.ticker : "";
   const accountId = String(form.get("accountId") ?? "");
   const catalog = ticker ? await findMarketAsset(ticker) : null;
   const name = catalog?.name.slice(0, 80) ?? parsed.data.name;
@@ -205,6 +215,8 @@ export async function addAsset(_prev: FormState, form: FormData): Promise<FormSt
   if (!fees.success) return { ok: false, message: fees.error.issues[0]?.message ?? t("check") };
   if (!name) return { ok: false, message: t("nameRequired") };
   if (!assetClass) return { ok: false, message: t("typeRequired") };
+  if (!investmentClassAllowed(assetClass, currency))
+    return { ok: false, message: t("classNotAllowed") };
 
   let quantity: string;
   let unitPrice: string;
