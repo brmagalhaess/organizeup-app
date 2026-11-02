@@ -33,4 +33,5 @@ export * from "./surplus";
 export * from "./allocation";
 export * from "./dividend-retirement";
 export * from "./goal";
+export * from "./trip-places";
 export * from "./trip-suggest";

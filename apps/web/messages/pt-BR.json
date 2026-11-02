@@ -1280,7 +1280,7 @@
       },
       "form": {
         "search": "Destino",
-        "searchHint": "Procure na nossa tabela. Se não achar, escreva o nome.",
+        "searchHint": "Procure por cidade ou país. Se não achar, escreva o nome.",
         "searchPlaceholder": "Ex.: Lisboa",
         "found": "Destinos encontrados",
         "notFound": "Nada encontrado na tabela.",

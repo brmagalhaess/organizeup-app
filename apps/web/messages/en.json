@@ -1280,7 +1280,7 @@
       },
       "form": {
         "search": "Destination",
-        "searchHint": "Search our table. If you can't find it, type the name.",
+        "searchHint": "Search by city or country. If you can't find it, type the name.",
         "searchPlaceholder": "E.g. Lisbon",
         "found": "Destinations found",
         "notFound": "Nothing found in the table.",

@@ -23,7 +23,13 @@ import {
   withHousehold,
   type TenantTx,
 } from "@organizeup/db";
-import { money, parseMoney, toDbAmount } from "@organizeup/domain";
+import {
+  destinationNamed,
+  money,
+  normalizePlace,
+  parseMoney,
+  toDbAmount,
+} from "@organizeup/domain";
 import type { Locale } from "@/i18n/locales";
 import { getBrazilRules } from "@/i18n/money-server";
 import { audit } from "@/lib/audit";
@@ -243,7 +249,8 @@ const optionalNumber = (min: number, max: number, message: string) =>
 /** Texto livre vira uma linha só: a família escreve um lugar, não um parágrafo. */
 const oneLine = (value: string) =>
   value
-    .replace(/[\p{Cc}\p{Cf}]+/gu, " ")
+    .replace(/\p{Cf}+/gu, "")
+    .replace(/\p{Cc}+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -263,11 +270,8 @@ const intentionSchema = (t: ErrorTexts) =>
       days: optionalNumber(1, 60, t("intentionDays")),
     })
     .superRefine((value, ctx) => {
-      if (value.destinationId) return;
-      if (!value.customName)
+      if (!value.destinationId && !value.customName)
         ctx.addIssue({ code: "custom", message: t("intentionDestination"), path: ["customName"] });
-      else if (!value.customRegion)
-        ctx.addIssue({ code: "custom", message: t("intentionRegion"), path: ["customRegion"] });
     });
 
 /**
@@ -282,6 +286,22 @@ const dropPendingOf = (tx: TenantTx, intentionId: string) =>
         eq(householdSuggestions.kind, "viagem"),
         eq(householdSuggestions.status, "pendente"),
         sql`${householdSuggestions.payload}->>'intentionId' = ${intentionId}`,
+      ),
+    );
+
+/**
+ * O destino virou intenção: a sugestão genérica dele sai. Aceitar criaria a viagem sem as escolhas da
+ * família, e o agente volta a sugerir o lugar pela intenção.
+ */
+const dropGenericOf = (tx: TenantTx, destinationId: string) =>
+  tx
+    .delete(householdSuggestions)
+    .where(
+      and(
+        eq(householdSuggestions.kind, "viagem"),
+        eq(householdSuggestions.status, "pendente"),
+        sql`${householdSuggestions.payload}->>'destinationId' = ${destinationId}`,
+        sql`${householdSuggestions.payload}->>'intentionId' is null`,
       ),
     );
 
@@ -300,26 +320,37 @@ export async function saveIntention(_prev: FormState, form: FormData): Promise<F
     days: form.get("days") ?? "",
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? t("check") };
-  const { id, destinationId, customName, customRegion, preferredMonth, days } = parsed.data;
-  const place = destinationId
-    ? { destinationId, customName: null, customRegion: null }
-    : { destinationId: null, customName, customRegion: customRegion || null };
+  const { id, customName, customRegion, preferredMonth, days } = parsed.data;
 
   const failure = await withHousehold(ctx, async (tx) => {
-    if (destinationId) {
-      const [known] = await tx
-        .select({ id: tripDestinationTemplates.id })
-        .from(tripDestinationTemplates)
-        .where(eq(tripDestinationTemplates.id, destinationId));
-      if (!known) return t("intentionDestination");
+    const catalog = await tx
+      .select({ id: tripDestinationTemplates.id, name: tripDestinationTemplates.name })
+      .from(tripDestinationTemplates);
+    // Nome igual ao de um destino da tabela é esse destino: senão a recusa e a conta dele não valeriam.
+    const destinationId = parsed.data.destinationId || destinationNamed(customName, catalog)?.id;
+    if (destinationId && !catalog.some((row) => row.id === destinationId)) {
+      return t("intentionDestination");
     }
-    const same = destinationId
-      ? eq(tripIntentions.destinationId, destinationId)
-      : sql`lower(trim(${tripIntentions.customName})) = lower(trim(${customName}))`;
-    const [repeated] = await tx
-      .select({ id: tripIntentions.id })
+    if (!destinationId && !customRegion) return t("intentionRegion");
+    const place = destinationId
+      ? { destinationId, customName: null, customRegion: null }
+      : { destinationId: null, customName, customRegion: customRegion || null };
+
+    const name = normalizePlace(customName);
+    const placeOf = (row: { destinationId: string | null; customName: string | null }) =>
+      row.destinationId ?? destinationNamed(row.customName ?? "", catalog)?.id;
+    const others = await tx
+      .select({
+        destinationId: tripIntentions.destinationId,
+        customName: tripIntentions.customName,
+      })
       .from(tripIntentions)
-      .where(id ? and(same, ne(tripIntentions.id, id)) : same);
+      .where(id ? ne(tripIntentions.id, id) : undefined);
+    const repeated = others.some((row) =>
+      destinationId
+        ? placeOf(row) === destinationId
+        : row.customName !== null && normalizePlace(row.customName) === name,
+    );
     if (repeated) return t("intentionRepeated");
 
     if (!id) {
@@ -329,6 +360,7 @@ export async function saveIntention(_prev: FormState, form: FormData): Promise<F
         .onConflictDoNothing()
         .returning({ id: tripIntentions.id });
       if (!created) return t("intentionRepeated");
+      if (destinationId) await dropGenericOf(tx, destinationId);
       await audit(tx, ctx, "create", "trip_intentions", created.id);
       return null;
     }
@@ -339,6 +371,7 @@ export async function saveIntention(_prev: FormState, form: FormData): Promise<F
       .returning({ id: tripIntentions.id });
     if (!updated) return t("intentionNotFound");
     await dropPendingOf(tx, id);
+    if (destinationId) await dropGenericOf(tx, destinationId);
     await audit(tx, ctx, "update", "trip_intentions", id);
     return null;
   });

@@ -120,9 +120,9 @@ for (const [lang, copy] of Object.entries(COPY)) {
       await expect(main.getByRole("heading", { level: 2, name: copy.block })).toBeVisible();
       await look(page, shot("vazio"));
 
-      // Do catálogo, com mês preferido.
+      // Do catálogo, achado pelo país, com mês preferido.
       await main.getByRole("button", { name: copy.add }).click();
-      await page.getByLabel(copy.search).fill("lisb");
+      await page.getByLabel(copy.search).fill("portugal");
       await page.getByRole("button", { name: /Lisboa/ }).click();
       await page.getByLabel(copy.month).selectOption({ label: copy.monthValue });
       await look(page, shot("formulario"));

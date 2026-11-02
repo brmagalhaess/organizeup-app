@@ -5,7 +5,7 @@ import { Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState, type ReactNode } from "react";
-import { money } from "@organizeup/domain";
+import { money, normalizePlace, searchDestinations } from "@organizeup/domain";
 import {
   Badge,
   Button,
@@ -42,12 +42,6 @@ const REGIONS = [
   "asia_oceania",
 ] as const;
 
-const MAX_RESULTS = 6;
-
-/** Sem acento e sem maiúscula: "florianopolis" acha Florianópolis. */
-const searchable = (text: string) =>
-  text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
-
 /** Estimativa em reais inteiros: o centavo daria uma precisão que a tabela não tem. */
 const whole = (value: string, moneyText: (value: string) => string) =>
   moneyText(money(value).toDecimalPlaces(0).toFixed(2)).replace(/[.,]00(?=\D*$)/, "");
@@ -68,14 +62,8 @@ function DestinationField({
   const [customName, setCustomName] = useState<string | null>(
     item && !item.destinationId ? item.name : null,
   );
-  const term = searchable(query);
-  const found = useMemo(
-    () =>
-      term.length < 2
-        ? []
-        : catalog.filter((row) => searchable(row.name).includes(term)).slice(0, MAX_RESULTS),
-    [catalog, term],
-  );
+  const term = normalizePlace(query);
+  const found = useMemo(() => searchDestinations(catalog, term), [catalog, term]);
 
   if (picked) {
     return (

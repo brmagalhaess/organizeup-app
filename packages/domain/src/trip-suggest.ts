@@ -7,6 +7,7 @@ import { addMonths, formatYearMonth, yearMonthOf, type YearMonth } from "./cashf
 import { message, moneyValue, type Message } from "./messages";
 import { formatMoney, money, toCents, toDbAmount, type Currency, type MoneyValue } from "./money";
 import { monthsBetween } from "./trip";
+import { destinationNamed } from "./trip-places";
 
 export const TRIP_RULES = {
   /** Criança (menos de 12 anos) come e se locomove por 70% de um adulto; passagem inteira. */
@@ -297,6 +298,26 @@ export function regionEstimate(
   };
 }
 
+/**
+ * O destino da tabela que esta intenção quer dizer. Pelo nome também: nome livre gravado antes de a tela
+ * resolver o catálogo sozinha não pode passar por lugar novo.
+ */
+function catalogOf(intention: TripIntention, destinations: DestinationTemplate[]) {
+  return (
+    destinations.find((row) => row.id === intention.destinationId) ??
+    (intention.customName ? destinationNamed(intention.customName, destinations) : undefined)
+  );
+}
+
+/** A família já decidiu: nada a sugerir. Null: a intenção segue aberta. */
+function decisionOf(intention: TripIntention, currentYear: number) {
+  if (intention.fulfilled) return { status: "atendida" as const };
+  if (intention.refusedYear !== null && intention.refusedYear >= currentYear) {
+    return { status: "recusada" as const, untilYear: intention.refusedYear };
+  }
+  return null;
+}
+
 /** Custo da intenção, com o catálogo ou com a região. Null: não há como estimar. */
 function costIntention(
   intention: TripIntention,
@@ -304,7 +325,7 @@ function costIntention(
   hasChild: boolean,
 ): Costed | "criancas" | null {
   const days = intention.days ?? input.tripDays;
-  const known = input.destinations.find((row) => row.id === intention.destinationId);
+  const known = catalogOf(intention, input.destinations);
   if (known) {
     if (hasChild && !known.kidsFriendly) return "criancas";
     return { ...costOf(known, input.travelers, days), intention };
@@ -392,18 +413,24 @@ export function planTrips(input: TripSuggestInput): TripSuggestionPlan {
     (traveler) => traveler.ageYears !== null && traveler.ageYears < TRIP_RULES.childAge,
   );
 
+  // A decisão vale para o lugar: duas linhas do mesmo destino só existem de antes da tela resolver o nome.
+  const decidedPlaces = new Map<string, NonNullable<ReturnType<typeof decisionOf>>>();
+  for (const intention of intentions) {
+    const place = catalogOf(intention, input.destinations)?.id;
+    const decision = decisionOf(intention, currentYear);
+    if (place && decision && decidedPlaces.get(place)?.status !== "atendida") {
+      decidedPlaces.set(place, decision);
+    }
+  }
+
   const outcomes = new Map<string, IntentionOutcome>();
   const wanted: Costed[] = [];
   for (const intention of intentions) {
     const intentionId = intention.id;
-    if (intention.fulfilled) {
-      outcomes.set(intentionId, { intentionId, status: "atendida" });
-    } else if (intention.refusedYear !== null && intention.refusedYear >= currentYear) {
-      outcomes.set(intentionId, {
-        intentionId,
-        status: "recusada",
-        untilYear: intention.refusedYear,
-      });
+    const place = catalogOf(intention, input.destinations)?.id;
+    const decision = decisionOf(intention, currentYear) ?? (place && decidedPlaces.get(place));
+    if (decision) {
+      outcomes.set(intentionId, { intentionId, ...decision });
     } else {
       const costed = costIntention(intention, input, hasChild);
       if (costed === "criancas") outcomes.set(intentionId, { intentionId, status: "criancas" });
@@ -434,7 +461,14 @@ export function planTrips(input: TripSuggestInput): TripSuggestionPlan {
 
   const chosen: Costed[] = [];
   const regions = new Set<DestinationRegion>();
-  const intentionPool = wanted.filter((costed) => costed.total.lte(perTrip)).sort(byPriceDesc);
+  const fittingIntentions = wanted.filter((costed) => costed.total.lte(perTrip)).sort(byPriceDesc);
+  const places = new Set<string>();
+  const intentionPool = fittingIntentions.filter((costed) => {
+    const fresh = !places.has(costed.destination.id);
+    places.add(costed.destination.id);
+    return fresh;
+  });
+  const repeated = fittingIntentions.filter((costed) => !intentionPool.includes(costed));
   for (const costed of wanted.filter((item) => !item.total.lte(perTrip))) {
     const { id } = costed.intention!;
     outcomes.set(id, {
@@ -446,13 +480,15 @@ export function planTrips(input: TripSuggestInput): TripSuggestionPlan {
     });
   }
   pickInto(chosen, regions, intentionPool, count);
-  for (const costed of intentionPool) {
+  for (const costed of [...intentionPool, ...repeated]) {
     const { id } = costed.intention!;
     outcomes.set(id, { intentionId: id, status: "sem_vaga", total: toDbAmount(costed.total) });
   }
 
   // Destino que já é intenção não volta pelo catálogo, nem recusado, nem atendido.
-  const claimed = new Set(intentions.map((intention) => intention.destinationId));
+  const claimed = new Set(
+    intentions.map((intention) => catalogOf(intention, input.destinations)?.id),
+  );
   const options = solo
     ? []
     : input.destinations

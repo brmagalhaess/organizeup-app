@@ -562,6 +562,132 @@ describe("decisões da família", () => {
   });
 });
 
+describe("nome livre igual a destino do catálogo", () => {
+  const inEurope = { customRegion: "europa" as const };
+
+  it("vale como o destino do catálogo: custo, confiança e nome da tabela", () => {
+    for (const customName of ["lisboa", " LISBOA ", "Lisbôa"]) {
+      const result = planTrips({
+        ...base,
+        tripsBudgetMonthly: "4000.00",
+        intentions: [intention({ id: "i1", customName, ...inEurope })],
+      });
+      const [suggestion] = result.suggestions.filter((item) => item.intentionId === "i1");
+      expect(suggestion, customName).toMatchObject({
+        destinationId: "lisboa",
+        name: "lisboa",
+        confidence: "media",
+      });
+      expect(suggestion!.regionEstimate).toBeUndefined();
+    }
+  });
+
+  it("com duas vagas, o mesmo lugar não sai duas vezes", () => {
+    const names = planTrips({
+      ...base,
+      tripsBudgetMonthly: "6000.00",
+      destinations: [lisboa, roma],
+      intentions: [intention({ id: "i1", customName: "Lisboa", ...inEurope })],
+    }).suggestions.map((item) => item.destinationId);
+    expect(names).toEqual(expect.arrayContaining(["lisboa", "roma"]));
+    expect(names).toHaveLength(2);
+  });
+
+  it("recusada não volta pelo catálogo", () => {
+    const result = planTrips({
+      ...base,
+      tripsBudgetMonthly: "4000.00",
+      destinations: [lisboa, roma],
+      intentions: [
+        intention({ id: "i1", customName: "LISBOA", ...inEurope, refusedYear: 2027 }),
+      ],
+    });
+    expect(result.intentions[0]).toMatchObject({ status: "recusada" });
+    expect(result.suggestions.map((item) => item.destinationId)).toEqual(["roma"]);
+  });
+
+  it("atendida não volta pelo catálogo", () => {
+    const result = planTrips({
+      ...base,
+      destinations: [lisboa, roma],
+      tripsBudgetMonthly: "4000.00",
+      intentions: [intention({ id: "i1", customName: "Lisboa", ...inEurope, fulfilled: true })],
+    });
+    expect(result.suggestions.map((item) => item.destinationId)).toEqual(["roma"]);
+  });
+
+  it("não indicado para crianças vale também para o nome livre", () => {
+    const [outcome] = planTrips({
+      ...base,
+      travelers: withKids(1),
+      destinations: [{ ...lisboa, kidsFriendly: false }, roma],
+      intentions: [intention({ id: "i1", customName: "Lisboa", ...inEurope })],
+    }).intentions;
+    expect(outcome).toMatchObject({ status: "criancas" });
+  });
+
+  it("duas linhas do mesmo lugar viram uma sugestão só", () => {
+    const result = planTrips({
+      ...base,
+      tripsBudgetMonthly: "6000.00",
+      destinations: [lisboa, roma],
+      intentions: [
+        intention({ id: "i1", destinationId: "lisboa" }),
+        intention({ id: "i2", customName: "Lisboa", ...inEurope }),
+      ],
+    });
+    expect(result.suggestions.filter((item) => item.destinationId === "lisboa")).toHaveLength(1);
+    expect(result.intentions.map((outcome) => outcome.status).toSorted()).toEqual([
+      "sem_vaga",
+      "sugerida",
+    ]);
+  });
+
+  it("a recusa de uma linha segura a outra do mesmo lugar", () => {
+    const result = planTrips({
+      ...base,
+      tripsBudgetMonthly: "6000.00",
+      destinations: [lisboa, roma],
+      intentions: [
+        intention({ id: "i1", destinationId: "lisboa", refusedYear: 2027 }),
+        intention({ id: "i2", customName: "Lisboa", ...inEurope }),
+      ],
+    });
+    expect(result.suggestions.map((item) => item.destinationId)).toEqual(["roma"]);
+    expect(result.intentions[1]).toEqual({
+      intentionId: "i2",
+      status: "recusada",
+      untilYear: 2027,
+    });
+  });
+
+  it("a linha atendida segura a outra do mesmo lugar", () => {
+    const result = planTrips({
+      ...base,
+      tripsBudgetMonthly: "6000.00",
+      destinations: [lisboa, roma],
+      intentions: [
+        intention({ id: "i1", customName: "Lisboa", ...inEurope }),
+        intention({ id: "i2", destinationId: "lisboa", fulfilled: true }),
+      ],
+    });
+    expect(result.suggestions.map((item) => item.destinationId)).toEqual(["roma"]);
+    expect(result.intentions[0]).toEqual({ intentionId: "i1", status: "atendida" });
+  });
+
+  it("nome de verdade fora do catálogo segue a conta da região", () => {
+    const { suggestions } = planTrips({
+      ...base,
+      tripsBudgetMonthly: "4000.00",
+      intentions: [intention({ id: "i1", customName: "Praga", ...inEurope })],
+    });
+    expect(suggestions.find((item) => item.intentionId === "i1")).toMatchObject({
+      destinationId: "intencao:i1",
+      confidence: "baixa",
+    });
+  });
+});
+
 describe("sem viagens por ano", () => {
   const solo = { ...base, tripsPerYear: 0 };
 

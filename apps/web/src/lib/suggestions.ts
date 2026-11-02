@@ -347,6 +347,8 @@ export async function loadTripSuggestions(ctx: TenantContext): Promise<TripSugge
 export interface CatalogDestination {
   id: string;
   name: string;
+  /** Código ISO: a busca acha pelo nome do país. */
+  country: string;
   region: DestinationRegion;
 }
 
@@ -401,6 +403,7 @@ export async function loadTripIntentionItems(ctx: TenantContext): Promise<TripIn
           .select({
             id: tripDestinationTemplates.id,
             name: tripDestinationTemplates.name,
+            country: tripDestinationTemplates.country,
             region: tripDestinationTemplates.region,
           })
           .from(tripDestinationTemplates)
