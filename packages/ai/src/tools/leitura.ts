@@ -13,6 +13,7 @@ import {
   monthlyPlanView,
   readStatement,
   reserveInputs,
+  AGENT_MODULE,
 } from "@organizeup/agents";
 import {
   and,
@@ -45,9 +46,12 @@ import {
   tripCosts,
   tripPeople,
   trips,
+  readFamilyAccess,
 } from "@organizeup/db";
 import {
   buildMonthEntries,
+  canUse,
+  type BillingModule,
   debtPlanHeadline,
   entryOrigin,
   formatYearMonth,
@@ -98,6 +102,7 @@ const monthWord = (mes: string | undefined) => (mes ? ` de ${formatYearMonth(mes
 
 const resumoDoMes = defineTool({
   name: "resumo_do_mes",
+  module: null,
   description:
     "Resumo de um mês: recebido, gasto, saldo, previsto, gasto por categoria (com as compras do cartão abertas) e contas em aberto. Chame quando perguntarem como foi ou está o mês, quanto sobrou, onde foi o dinheiro ou o que falta pagar.",
   kind: "leitura",
@@ -153,6 +158,7 @@ const resumoDoMes = defineTool({
 
 const listarLancamentos = defineTool({
   name: "listar_lancamentos",
+  module: null,
   description:
     "Lista lançamentos de um mês, inclusive as compras da fatura do cartão, com a soma do que foi encontrado. Chame quando pedirem os gastos de uma categoria, a busca de uma compra ou o detalhe de um mês. A soma devolvida é a única que vale.",
   kind: "leitura",
@@ -234,6 +240,7 @@ const listarLancamentos = defineTool({
 
 const listarCategorias = defineTool({
   name: "listar_categorias",
+  module: null,
   description:
     "Lista as categorias da família, com tipo e se contam como gasto essencial. Chame antes de filtrar por categoria quando não souber o nome.",
   kind: "leitura",
@@ -262,6 +269,7 @@ const listarCategorias = defineTool({
 
 const verRenda = defineTool({
   name: "ver_renda",
+  module: null,
   description:
     "Fontes de renda ativas, com o líquido mensal calculado, de quem é cada uma e o dia de pagamento. Chame quando perguntarem quanto a família ganha ou de onde vem a renda.",
   kind: "leitura",
@@ -302,6 +310,7 @@ const verRenda = defineTool({
 
 const verReserva = defineTool({
   name: "ver_reserva",
+  module: null,
   description:
     "Reserva de emergência: gasto essencial de referência, alvo, quanto está guardado, quanto falta, aporte planejado e em quantos meses completa. Chame quando falarem de reserva ou imprevistos.",
   kind: "leitura",
@@ -328,6 +337,7 @@ const verReserva = defineTool({
 
 const verDividas = defineTool({
   name: "ver_dividas",
+  module: "dividas",
   description:
     "Dívidas ativas: taxa, saldo, juros que faltam, parcelas e próximo vencimento, e quais são caras (vale mais quitar do que investir). Chame quando falarem de dívida, empréstimo ou financiamento.",
   kind: "leitura",
@@ -373,6 +383,7 @@ const strategyView = (item: DebtPlanStrategy) => ({
 
 const verPlanoDividas = defineTool({
   name: "ver_plano_dividas",
+  module: "dividas",
   description:
     "Plano de saída das dívidas: quando tudo termina, quanto economiza, qual estratégia sai mais barata, qual dívida atacar, quanto pagar a mais neste mês e os pontos de atenção (juro acima do rendimento, parcela antes da renda, portabilidade ou renegociação, dado faltando). Chame quando perguntarem como sair das dívidas, qual pagar primeiro ou se vale quitar antes.",
   kind: "leitura",
@@ -412,6 +423,7 @@ const verPlanoDividas = defineTool({
 
 const verCarteira = defineTool({
   name: "ver_carteira",
+  module: "investimentos",
   description:
     "Carteira de investimentos: total, custo, ganho, divisão por classe comparada às metas da família e posição de cada ativo. Chame quando falarem de investimentos. Nunca use isto para indicar compra ou venda de um ativo.",
   kind: "leitura",
@@ -461,6 +473,7 @@ const verCarteira = defineTool({
 
 const verProventos = defineTool({
   name: "ver_proventos",
+  module: "investimentos",
   description:
     "Proventos recebidos nos últimos 12 meses, por mês e por ativo, média mensal, meta da família e o que está a receber. Chame quando falarem de dividendos, rendimentos ou renda da carteira.",
   kind: "leitura",
@@ -506,6 +519,7 @@ const verProventos = defineTool({
 
 const verPlanoAposentadoria = defineTool({
   name: "ver_plano_aposentadoria",
+  module: "aposentadoria",
   description:
     "Plano de viver dos rendimentos da carteira: ano alvo, renda alvo, quanto a carteira já paga, carteira necessária, aporte que fecha o plano e a divisão sugerida do que sobra por mês. Chame quando falarem de aposentadoria, independência financeira ou quanto guardar.",
   kind: "leitura",
@@ -551,6 +565,7 @@ const verPlanoAposentadoria = defineTool({
 
 const listarMetas = defineTool({
   name: "listar_metas",
+  module: "metas",
   description:
     "Metas da família: alvo, guardado, quanto falta, parcela mensal do plano, quando termina e se está no prazo. Chame quando falarem de metas ou objetivos.",
   kind: "leitura",
@@ -582,6 +597,7 @@ const listarMetas = defineTool({
 
 const listarViagens = defineTool({
   name: "listar_viagens",
+  module: "metas",
   description:
     "Viagens marcadas: destino, datas, quem vai, custo total, quanto falta e quanto guardar por mês. Chame quando falarem de viagem ou férias.",
   kind: "leitura",
@@ -622,6 +638,7 @@ const listarViagens = defineTool({
 
 const verCalendario = defineTool({
   name: "ver_calendario",
+  module: null,
   description:
     "Calendário de um mês: contas e recebimentos por dia, compromissos, fechamentos de fatura, menor saldo previsto e saldo no fim do mês. Chame quando perguntarem o que vence, quando o dinheiro aperta ou como termina o mês.",
   kind: "leitura",
@@ -653,13 +670,20 @@ const verCalendario = defineTool({
 
 const relatoriosDoDia = defineTool({
   name: "relatorios_do_dia",
+  module: null,
   description:
     "Relatórios mais recentes das revisões automáticas do sistema (categorias, investimentos, dívidas, aposentadoria, viagens e metas). Chame quando perguntarem o que mudou ou o que há de novo.",
   kind: "leitura",
   input: noInput,
   label: () => "olhei os relatórios de hoje",
-  run: (ctx) =>
-    read(ctx, async (tx) => {
+  run: async (ctx) => {
+    const access = await readFamilyAccess(ctx);
+    // Relatório antigo de módulo desligado fica guardado, mas o assistente não fala dele.
+    const open = (kind: string) => {
+      const module = AGENT_MODULE[kind];
+      return !module || canUse(access, module);
+    };
+    return read(ctx, async (tx) => {
       const rows = await tx
         .select({
           kind: householdReports.kind,
@@ -680,20 +704,31 @@ const relatoriosDoDia = defineTool({
         .orderBy(desc(debtPlanReports.day))
         .limit(1);
       return {
-        relatorios: [...(debtPlan ? [{ kind: "dividas", ...debtPlan }] : []), ...rows].map(
-          (row) => ({
+        relatorios: [...(debtPlan ? [{ kind: "dividas", ...debtPlan }] : []), ...rows]
+          .filter((row) => open(row.kind))
+          .map((row) => ({
             tipo: row.kind,
             periodo: row.period,
             titulo: untrusted(row.title),
             resumo: untrusted(row.summary, 1000),
-          }),
-        ),
+          })),
       };
-    }),
+    });
+  },
 });
+
+/** Relatório que mostra dado de um módulo. Fora da lista: Base. */
+const STATEMENT_MODULE: Partial<Record<(typeof STATEMENT_KINDS)[number], BillingModule>> = {
+  investimentos: "investimentos",
+  proventos: "investimentos",
+  dividas: "dividas",
+  metas: "metas",
+  aposentadoria: "aposentadoria",
+};
 
 const verRelatorio = defineTool({
   name: "ver_relatorio",
+  module: null,
   description:
     "Relatório pronto da família, por tipo e período: resumo do mês, gastos por categoria, fluxo de caixa, patrimônio, investimentos, proventos, dívidas, metas e viagens, aposentadoria ou anual. Chame quando pedirem um relatório, o fechamento de um mês ou do ano. situacao parcial quer dizer que o período ainda não acabou. O anual só organiza o que a família lançou, não substitui a declaração nem é orientação fiscal.",
   kind: "leitura",
@@ -706,8 +741,13 @@ const verRelatorio = defineTool({
       .describe("AAAA-MM, ou AAAA no anual. Sem ele, usa o mais recente."),
   }),
   label: ({ tipo }) => `olhei o relatório ${tipo}`,
-  run: (ctx, { tipo, periodo }) =>
-    read(ctx, async (tx) => {
+  run: async (ctx, { tipo, periodo }) => {
+    // Relatórios são da Base, mas o de um módulo desligado fica guardado até religar.
+    const module = STATEMENT_MODULE[tipo];
+    if (module && !canUse(await readFamilyAccess(ctx), module)) {
+      return { situacao: "fora_do_plano", tipo };
+    }
+    return read(ctx, async (tx) => {
       const row = periodo
         ? await readStatement(tx, tipo, periodo)
         : await latestStatement(tx, tipo);
@@ -721,11 +761,13 @@ const verRelatorio = defineTool({
         ...statementView(row.data),
         o_que_mudou: row.whatChanged ? untrusted(row.whatChanged) : null,
       };
-    }),
+    });
+  },
 });
 
 const sugestoesPendentes = defineTool({
   name: "sugestoes_pendentes",
+  module: null,
   description:
     "Sugestões que estão esperando a decisão da família na tela Sugestões. Chame quando perguntarem o que há para decidir ou o que fazer agora.",
   kind: "leitura",
@@ -768,6 +810,7 @@ const PLAN_ACTION_MEANING: Record<PlanActionKind, string> = {
 
 const verPlanoDoMes = defineTool({
   name: "ver_plano_do_mes",
+  module: "aposentadoria",
   description:
     "As três ações que mais aproximam a família da aposentadoria neste mês, com quanto cada uma antecipa em anos. Chame quando perguntarem por onde começar ou o que fazer primeiro.",
   kind: "leitura",

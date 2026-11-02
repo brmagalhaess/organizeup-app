@@ -4,20 +4,24 @@
 // em memória do agente de aposentadoria para viagens e metas; se ele falhar, os dois leem o
 // relatório de hoje ou pulam. Logs só com householdId, agente, código do erro e contagens.
 import {
+  fromJob,
   hasAgentRunToday,
   householdTimezone,
   listActiveHouseholdIds,
+  readFamilyAccess,
   readPlatformFlags,
   recordAgentRun,
   withWorkerHousehold,
   type DailyAgentsJob,
   type TenantTx,
 } from "@organizeup/db";
-import { todayIn, type Allocation } from "@organizeup/domain";
+import { todayIn, type Allocation, type FamilyAccess } from "@organizeup/domain";
 import {
+  agentMayRun,
   APOSENTADORIA_AGENT,
   CATEGORIAS_AGENT,
   CATEGORIAS_IA_AGENT,
+  currentAllocation,
   DIVIDAS_AGENT,
   INVESTIMENTOS_AGENT,
   METAS_AGENT,
@@ -126,12 +130,22 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
     const input: AgentInput = { today, householdId };
     let allocation: Allocation | undefined;
 
+    // Agente de módulo desligado não roda, e em só leitura nenhum roda (ADR-0023).
+    let access: FamilyAccess;
+    try {
+      access = await readFamilyAccess(fromJob({ householdId }), flags);
+    } catch (err) {
+      log.error({ householdId, code: codeOf(err) }, "agentes diários: plano da família falhou");
+      await reportAgentFailure("plano", err);
+      continue;
+    }
+
     const run = async <R extends Pick<AgentResult, "suggestions" | "applied">>(
       agent: string,
       fn: (tx: TenantTx) => Promise<R>,
     ): Promise<R | null> => {
       const count = counts.get(agent);
-      if (!count) return null;
+      if (!count || !agentMayRun(agent, access)) return null;
       count.households += 1;
       try {
         const result = await withWorkerHousehold(householdId, fn);
@@ -149,7 +163,7 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
     };
 
     await run(CATEGORIAS_AGENT, (tx) => runCategoriasAgent(tx, input));
-    if (review && reviewCount) {
+    if (review && reviewCount && agentMayRun(CATEGORIAS_IA_AGENT, access)) {
       // Fora de `run`: a chamada ao modelo não pode ficar dentro de uma transação.
       try {
         const result = await review(householdId, day);
@@ -176,6 +190,19 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
       return result;
     });
     if (!retirement) allocation = undefined;
+    // Metas e viagens precisam da divisão mesmo em quem não tem Aposentadoria: só leitura, sem relatório.
+    // Vale para quem foi acordado: o Paperclip chama viagens e metas separados.
+    const planning =
+      (agentMayRun(METAS_AGENT, access) && counts.has(METAS_AGENT)) ||
+      (agentMayRun(VIAGENS_AGENT, access) && counts.has(VIAGENS_AGENT));
+    if (!allocation && planning && !agentMayRun(APOSENTADORIA_AGENT, access)) {
+      try {
+        allocation = await withWorkerHousehold(householdId, (tx) => currentAllocation(tx, today));
+      } catch (err) {
+        log.error({ householdId, code: codeOf(err) }, "agentes diários: divisão falhou");
+        await reportAgentFailure("divisao", err);
+      }
+    }
     const withAllocation: AgentInput = allocation ? { ...input, allocation } : input;
     await run(VIAGENS_AGENT, (tx) => runViagensAgent(tx, withAllocation));
     await run(METAS_AGENT, (tx) => runMetasAgent(tx, withAllocation));

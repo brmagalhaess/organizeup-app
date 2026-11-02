@@ -108,12 +108,8 @@ async function confirmedTripsMonthly(tx: TenantTx, today: string): Promise<strin
   );
 }
 
-export async function runAposentadoriaAgent(
-  tx: TenantTx,
-  input: AgentInput,
-): Promise<AposentadoriaResult> {
-  const { today, householdId } = input;
-  const month = yearMonthOf(today);
+/** Só lê: a divisão do que sobra, que também serve a quem tem Metas e não tem Aposentadoria. */
+async function allocationContext(tx: TenantTx, today: string) {
   const currency = await householdCurrency(tx);
 
   const surplus = await surplusInputs(tx, { today });
@@ -145,6 +141,21 @@ export async function runAposentadoriaAgent(
     surplusMonths: surplus.result.months,
     currency,
   });
+  return { currency, surplus, reserve, planData, first, expensive, available, allocation };
+}
+
+/** A divisão de hoje, sem gravar nada. Metas e viagens precisam dela mesmo sem o módulo de aposentadoria. */
+export const currentAllocation = async (tx: TenantTx, today: string): Promise<Allocation> =>
+  (await allocationContext(tx, today)).allocation;
+
+export async function runAposentadoriaAgent(
+  tx: TenantTx,
+  input: AgentInput,
+): Promise<AposentadoriaResult> {
+  const { today, householdId } = input;
+  const month = yearMonthOf(today);
+  const { currency, surplus, reserve, planData, first, expensive, available, allocation } =
+    await allocationContext(tx, today);
   // Depois com o aporte real: o informado pela família, senão o que a divisão sugere.
   const contribution = planData.plan?.monthlyContribution ?? allocation.retirement;
   const plan = planDividendRetirement({ ...planData.input, contribution });
