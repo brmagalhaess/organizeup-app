@@ -37,6 +37,7 @@ import type { AssistantState } from "@organizeup/ai";
 import { skipDocument, skipOnboarding } from "@/app/app/(inicio)/completar/actions";
 import { dismissNotice } from "@/app/app/(painel)/sugestoes/actions";
 import { AssistantPanel } from "@/components/assistant/assistant-panel";
+import { ConfirmEmailButton } from "@/components/confirm-email-button";
 import { cx } from "@/components/styles";
 import { Button, IconButton, Sheet } from "@/components/ui";
 import { DEFAULT_LOCALE } from "@/i18n/locales";
@@ -332,6 +333,25 @@ function NoticeBanner({ notice }: { notice: ShellNotice }) {
   );
 }
 
+/** Discreto de propósito: confirmar o e-mail não é obrigatório. Fechar não tira a opção de Configurações. */
+function EmailBanner({ noticeKey }: { noticeKey: string }) {
+  const t = useTranslations("shell");
+  return (
+    <section role="region" aria-label={t("emailNoticeLabel")} className="bg-card-soft text-ink">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 text-sm sm:px-6 lg:px-10 2xl:px-14">
+        <p className="min-w-0 flex-1 basis-60">{t("emailNotice")}</p>
+        <ConfirmEmailButton />
+        <form action={dismissNotice}>
+          <input type="hidden" name="key" value={noticeKey} />
+          <IconButton type="submit" label={t("closeNotice")} className="text-ink">
+            <X className="size-4" aria-hidden="true" />
+          </IconButton>
+        </form>
+      </div>
+    </section>
+  );
+}
+
 function ServiceBanner({ banner }: { banner: ShellBanner }) {
   const t = useTranslations("shell");
   return (
@@ -367,6 +387,7 @@ export function AppShell({
   categories,
   cards,
   notice = null,
+  emailNotice = null,
   banners = [],
   billing = false,
   pendingSuggestions,
@@ -382,6 +403,8 @@ export function AppShell({
   categories: EntryOptions["categories"];
   cards: EntryOptions["cards"];
   notice?: ShellNotice | null;
+  /** Chave do aviso de confirmar o e-mail, quando ele aparece. */
+  emailNotice?: string | null;
   banners?: ShellBanner[];
   billing?: boolean;
   pendingSuggestions: number;
@@ -427,6 +450,7 @@ export function AppShell({
             <ServiceBanner key={banner.key} banner={banner} />
           ))}
           {notice ? <NoticeBanner notice={notice} /> : null}
+          {emailNotice ? <EmailBanner noticeKey={emailNotice} /> : null}
           <main
             lang={isTranslated(pathname) ? undefined : DEFAULT_LOCALE}
             className="flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8 2xl:px-14"

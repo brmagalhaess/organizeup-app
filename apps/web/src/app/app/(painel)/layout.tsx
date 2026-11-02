@@ -27,6 +27,7 @@ import { countPending, noticeCookie, tolerateSchemaLag } from "@/lib/suggestions
 
 const ONBOARDING_KEY = "onboarding";
 const DOCUMENT_KEY = "documento";
+const EMAIL_KEY = "confirmar-email";
 
 /** Aviso e contagem do menu. Sem a migração ainda aplicada, o painel abre sem os dois. */
 async function shellStatus(ctx: TenantContext, writable: boolean) {
@@ -143,6 +144,8 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   ]);
   const flags = await platformFlags();
   const t = await getTranslations("shell");
+  const store = await cookies();
+  const askEmail = !session.user.emailVerified && !store.has(noticeCookie(EMAIL_KEY));
   const data = await withHousehold(ctx, async (tx) => {
     if (writable) await ensureFinanceDefaults(tx, ctx.householdId);
     const [family] = await tx
@@ -195,6 +198,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       categories={data.categories}
       cards={data.cards}
       notice={status.notice}
+      emailNotice={askEmail ? EMAIL_KEY : null}
       banners={[...banners, ...plan]}
       billing={flags.billingEnabled || isServiceAdmin(session.user)}
       pendingSuggestions={status.pendingSuggestions}

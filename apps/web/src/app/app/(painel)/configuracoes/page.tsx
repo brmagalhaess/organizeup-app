@@ -13,9 +13,10 @@ import {
   withHousehold,
 } from "@organizeup/db";
 import { AssistantSettings } from "@/components/assistant/assistant-settings";
+import { ConfirmEmailButton } from "@/components/confirm-email-button";
 import { buttonClass } from "@/components/styles";
 import { LocaleSelect } from "@/components/locale-select";
-import { Card, PageHeader } from "@/components/ui";
+import { Badge, Card, PageHeader } from "@/components/ui";
 import { formatInstant } from "@/i18n/format";
 import { identityView } from "@/lib/identity";
 import { requireOwnData, requireTenant } from "@/lib/session";
@@ -113,7 +114,17 @@ export default async function SettingsPage() {
             </div>
             <div>
               <dt className="text-muted">{t("account.email")}</dt>
-              <dd className="m-0 font-medium">{session.user.email}</dd>
+              <dd className="m-0 break-all font-medium">{session.user.email}</dd>
+              <dd className="m-0 mt-1.5 flex flex-col items-start gap-2">
+                {session.user.emailVerified ? (
+                  <Badge tone="success">{t("account.emailConfirmed")}</Badge>
+                ) : (
+                  <>
+                    <Badge tone="warning">{t("account.emailNotConfirmed")}</Badge>
+                    <ConfirmEmailButton />
+                  </>
+                )}
+              </dd>
             </div>
             <div>
               <dt className="text-muted">{t("account.role")}</dt>
