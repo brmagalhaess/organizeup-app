@@ -42,8 +42,17 @@ const shot = async (page: Page, name: string) => {
 };
 
 async function expectClean(page: Page) {
+  // Botão que acabou de ligar ainda sobe de `opacity-60` para 1: medir no meio da transição dá contraste falso.
+  await page.evaluate(async () => {
+    const finite = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
+    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
   const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
-  expect(a11y.violations.map((violation) => violation.id)).toEqual([]);
+  expect(
+    a11y.violations.map(({ id, nodes }) => `${id}: ${nodes.map((node) => node.target).join(" ")}`),
+  ).toEqual([]);
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
@@ -62,8 +71,11 @@ async function open(page: Page) {
   await expect(page.locator('input[type="file"]')).toBeEnabled();
 }
 
-/** O Next deixa um `role=alert` vazio na página para anunciar rotas. */
-const problem = (page: Page) => page.getByRole("alert").filter({ hasText: /\S/ });
+/**
+ * Só o conteúdo da tela. O Next deixa fora do `main` um `role=alert` que anuncia rotas, e ele ganha texto depois
+ * de navegar por link. Dentro do `main`, dois alertas com texto ainda reprovam o teste.
+ */
+const problem = (page: Page) => page.getByRole("main").getByRole("alert").filter({ hasText: /\S/ });
 
 test.beforeEach(async ({ page }, info) => {
   if (info.project.name === "mobile") await page.setViewportSize({ width: 375, height: 812 });
