@@ -93,6 +93,8 @@ export const FLAG_KEYS = {
   signupClosed: "cadastro_fechado",
   /** Assistente com IA. Linha ausente: ligado. `enabled = false`: desligado pelo painel. */
   ai: "ai",
+  /** Cobrança. Desligada: todos têm acesso como hoje, e a tela de planos só aparece para admin. */
+  billing: "billing_enabled",
   agentOff: (agent: string) => `agente_desligado:${agent}`,
   notice: (id: string) => `aviso:${id}`,
 } as const;
@@ -114,6 +116,7 @@ export interface PlatformFlags {
   maintenanceMessage: string | null;
   signupClosed: boolean;
   aiEnabled: boolean;
+  billingEnabled: boolean;
   disabledAgents: string[];
   notices: PlatformNotice[];
 }
@@ -123,6 +126,7 @@ export const NO_FLAGS: PlatformFlags = {
   maintenanceMessage: null,
   signupClosed: false,
   aiEnabled: true,
+  billingEnabled: false,
   disabledAgents: [],
   notices: [],
 };
@@ -145,6 +149,8 @@ export function parsePlatformFlags(rows: FlagRow[]): PlatformFlags {
       flags.signupClosed = enabled;
     } else if (key === FLAG_KEYS.ai) {
       flags.aiEnabled = enabled;
+    } else if (key === FLAG_KEYS.billing) {
+      flags.billingEnabled = enabled;
     } else if (key.startsWith(AGENT_PREFIX) && enabled) {
       flags.disabledAgents.push(key.slice(AGENT_PREFIX.length));
     } else if (key.startsWith(NOTICE_PREFIX) && enabled && text(value.text)) {
