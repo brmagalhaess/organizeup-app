@@ -901,8 +901,14 @@ export function adminAssistantCounts(input: {
     () =>
       withAdminRead("painel admin: adoção do assistente", async (db) => {
         const consented = sql`${householdSettings.aiConsentAt} is not null`;
-        // Mesma ordem da comparação de strings do portão das dicas, sem depender do idioma do banco.
-        const current = sql`${householdSettings.aiConsentVersion} collate "C" >= ${insightsConsentVersion}`;
+        // Mesma ordem de `legalVersionAtLeast`, do portão das dicas: data e depois número, nunca texto.
+        const version = householdSettings.aiConsentVersion;
+        const [minimumDate, minimumNumber = "0"] = insightsConsentVersion.split(".");
+        const current = sql`case when ${version} ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}([.][0-9]+)?$' then
+          (split_part(${version}, '.', 1) collate "C",
+           coalesce(nullif(split_part(${version}, '.', 2), ''), '0')::bigint)
+          >= (${minimumDate}::text collate "C", ${minimumNumber}::bigint)
+          else false end`;
         const [[settings], [memories]] = await Promise.all([
           db
             .select({

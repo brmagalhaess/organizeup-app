@@ -1,5 +1,6 @@
 export * from "./money";
 export * from "./documents";
+export * from "./legal-version";
 export * from "./messages";
 export * from "./fx";
 export * from "./brazil-rules";

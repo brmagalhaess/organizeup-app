@@ -20,7 +20,12 @@ import {
   type InsightScreen,
   type TenantContext,
 } from "@organizeup/db";
-import { normalizeDescription, type AccountType, type Currency } from "@organizeup/domain";
+import {
+  legalVersionAtLeast,
+  normalizeDescription,
+  type AccountType,
+  type Currency,
+} from "@organizeup/domain";
 import { z } from "zod";
 import {
   aiLimits,
@@ -153,7 +158,9 @@ export async function nightGate(
   if ((await monthSpend(day, limits)).reached) return "teto_mensal";
   const settings = await readAssistantSettings(ctx);
   const version = settings?.consentVersion ?? "";
-  if (!settings?.consentAt || version < INSIGHTS_CONSENT_VERSION) return "sem_aceite";
+  if (!settings?.consentAt || !legalVersionAtLeast(version, INSIGHTS_CONSENT_VERSION)) {
+    return "sem_aceite";
+  }
   return "pronto";
 }
 

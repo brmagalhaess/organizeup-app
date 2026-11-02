@@ -2626,6 +2626,18 @@ describe("ops dos agentes diários e do painel do serviço", () => {
     const later = await db.adminAssistantCounts({ insightsConsentVersion: "2099-01-01" });
     expect(later.insightsOn).toBe(0);
 
+    // Versão compara por data e número: `.10` vem depois de `.3`, ao contrário do texto.
+    await db.withAdmin("versão do aceite no painel", (conn) =>
+      conn
+        .update(householdSettings)
+        .set({ aiConsentVersion: "2026-11-01.10" })
+        .where(db.isNotNull(householdSettings.aiConsentAt)),
+    );
+    const tenth = await db.adminAssistantCounts({ insightsConsentVersion: "2026-11-01.3" });
+    expect(tenth.insightsOn).toBeGreaterThanOrEqual(1);
+    const eleventh = await db.adminAssistantCounts({ insightsConsentVersion: "2026-11-01.11" });
+    expect(eleventh.insightsOn).toBe(0);
+
     // Os blocos seguintes contam linhas destas tabelas, e B segue sem household_settings.
     await db.withAdmin("limpa o assistente do painel", async (conn) => {
       await conn.delete(db.aiUsage);
@@ -4172,6 +4184,109 @@ describe("documento da conta", () => {
     } finally {
       await raw.end();
     }
+  });
+});
+
+describe("reserva de documento", () => {
+  it("recusa documento já gravado, sem revelar a linha, e só PF disputa o CPF", async () => {
+    await db.withAdmin("seed da reserva", (admin) =>
+      admin.insert(user).values([
+        { id: "user-reserva-pf", name: "Pf", email: "reserva.pf@example.com" },
+        { id: "user-reserva-pj", name: "Pj", email: "reserva.pj@example.com" },
+      ]),
+    );
+    const base = {
+      inBrazil: true,
+      cnpjEncrypted: null,
+      cnpjHash: null,
+      companyNameEncrypted: null,
+    };
+    const pf = { ...base, personType: "pf" as const };
+    await db.saveUserIdentity("user-reserva-pf", {
+      ...pf,
+      cpfEncrypted: "cifrado",
+      cpfHash: "reserva-pf",
+    });
+    await db.saveUserIdentity("user-reserva-pj", {
+      ...base,
+      personType: "pj",
+      cpfEncrypted: "cifrado",
+      cpfHash: "reserva-responsavel",
+      cnpjEncrypted: "cifrado",
+      cnpjHash: "reserva-cnpj",
+      companyNameEncrypted: "cifrado",
+    });
+    expect(await db.reserveIdentityDocument("cpf", "reserva-pf")).toBe(false);
+    expect(await db.reserveIdentityDocument("cnpj", "reserva-cnpj")).toBe(false);
+    expect(await db.reserveIdentityDocument("cpf", "reserva-responsavel")).toBe(true);
+    await db.releaseIdentityDocument("reserva-responsavel");
+  });
+
+  it("dois cadastros ao mesmo tempo: só o primeiro reserva, até liberar", async () => {
+    const hash = "reserva-disputada";
+    const results = await Promise.all([
+      db.reserveIdentityDocument("cpf", hash),
+      db.reserveIdentityDocument("cpf", hash),
+    ]);
+    expect(results.sort()).toEqual([false, true]);
+    expect(await db.reserveIdentityDocument("cpf", hash)).toBe(false);
+    await db.releaseIdentityDocument(hash);
+    expect(await db.reserveIdentityDocument("cpf", hash)).toBe(true);
+    await db.releaseIdentityDocument(hash);
+  });
+
+  it("cadastro que morre no meio libera sozinho", async () => {
+    const hash = "reserva-vencida";
+    expect(await db.reserveIdentityDocument("cpf", hash)).toBe(true);
+    const owner = postgres(urls.owner, { max: 1, onnotice: () => {} });
+    try {
+      await owner`update identity_reservations set expires_at = now() - interval '1 second'
+                  where hash = ${hash}`;
+    } finally {
+      await owner.end();
+    }
+    expect(await db.reserveIdentityDocument("cpf", hash)).toBe(true);
+    await db.releaseIdentityDocument(hash);
+  });
+
+  it("a web só chama as funções, sem ler a tabela, e o worker nem isso", async () => {
+    const app = postgres(urls.app, { max: 1 });
+    const worker = postgres(urls.worker, { max: 1 });
+    try {
+      await expect(app`select * from identity_reservations`).rejects.toMatchObject({
+        code: "42501",
+      });
+      await expect(worker`select reserve_identity_document('cpf', 'x')`).rejects.toMatchObject({
+        code: "42501",
+      });
+      await expect(worker`select identity_key_mismatch('x')`).rejects.toMatchObject({
+        code: "42501",
+      });
+    } finally {
+      await app.end();
+      await worker.end();
+    }
+  });
+
+  it("acusa documento cifrado com outra chave", async () => {
+    await db.withAdmin("seed da chave", (admin) =>
+      admin.insert(user).values({ id: "user-chave", name: "Ch", email: "chave@example.com" }),
+    );
+    expect(
+      await db.saveUserIdentity("user-chave", {
+        inBrazil: true,
+        personType: "pf",
+        cpfEncrypted: "v1.kid-antiga.iv.tag.dado",
+        cpfHash: "hash-chave",
+        cnpjEncrypted: null,
+        cnpjHash: null,
+        companyNameEncrypted: null,
+      }),
+    ).toBe("ok");
+    expect(await db.identityKeyMismatch("kid-nova")).toBe(true);
+    await db.withAdmin("limpeza da chave", (admin) =>
+      admin.delete(user).where(eq(user.id, "user-chave")),
+    );
   });
 });
 

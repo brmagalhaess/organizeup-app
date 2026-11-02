@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Suspense } from "react";
 import { canUseAssistant, INSIGHTS_CONSENT_VERSION } from "@organizeup/ai";
+import { legalVersionAtLeast } from "@organizeup/domain";
 import {
   canWrite,
   eq,
@@ -93,7 +94,9 @@ export default async function SettingsPage() {
             acceptedOn={settings?.aiConsentAt ? formatInstant(settings.aiConsentAt, locale) : null}
             autonomy={settings?.aiAutonomy ?? "organizar"}
             canManage={canUseAssistant(ctx)}
-            needsInsightsConsent={(settings?.aiConsentVersion ?? "") < INSIGHTS_CONSENT_VERSION}
+            needsInsightsConsent={
+              !legalVersionAtLeast(settings?.aiConsentVersion, INSIGHTS_CONSENT_VERSION)
+            }
           />
         </Card>
         <Card title={t("memories.title")} description={t("memories.description")}>
