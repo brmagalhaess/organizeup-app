@@ -153,7 +153,8 @@ assistente. Com a chave desligada nem lê a assinatura: `livre`, todos como hoje
   `STRIPE_ALLOW_LIVE=true`, e `billingActor` recusa antes. Evento de produção sem a variável responde 503: a Stripe repete por dias.
 - **Com a chave desligada, só admin e só com chave de teste** assina, para dar para testar antes de liberar.
 - **Só o responsável assina,** pelo papel de verdade: em só leitura o contexto é `viewer`.
-- **Metadata leva só `household_id`,** na assinatura, na sessão e no schedule. Quem digita e-mail e cartão é a pessoa, na Stripe.
+- **Metadata leva só `household_id`,** na assinatura, na sessão e no schedule, mais o percentual do desconto VIP (ADR-0025). Quem
+  digita e-mail e cartão é a pessoa, na Stripe.
 - **Checkout da Stripe para assinar; tela própria para trocar.** `allowed_payment_method_types`: o parâmetro antigo saiu da API.
 - **`planChange` separa o que sobe do que desce.** O que sobe vale agora; o que desce, no fim do ciclo. Quem soma um módulo e tira
   outro recebe o novo já e perde o antigo só depois do que pagou. Vale pelo que libera, não pelo preço: sair da Família completa é
@@ -213,8 +214,7 @@ somar contas conectadas. **Decisão do fundador pendente** antes de abrir a vend
 
 ## Fora do escopo por enquanto
 
-Fase 4 (painel): `adminBillingSummary` já devolve as contagens, sem PII, e nenhuma tela usa ainda. Ligar `billing_enabled`, conceder
-cortesia e VIP, editar preço. Fase 5 (liberação), que depende da seção 7 da especificação. E-mail de cobrança: o aviso de renovação
+Fase 4 (painel): feita no ADR-0025. Fase 5 (liberação), que depende da seção 7 da especificação. E-mail de cobrança: o aviso de renovação
 anual e o de cobrança falha ficam na central de notificações, porque o worker não envia e-mail. A Stripe pode mandar os dela,
 ligados no painel dela.
 
