@@ -632,6 +632,138 @@ describe("revisão", () => {
   });
 });
 
+// Achados da reconferência. Cada caso falhava antes da correção.
+describe("reconferência", () => {
+  const at = (date: string) => vi.setSystemTime(new Date(`${date}T12:00:00-03:00`));
+  const keysIn = async (from: string, to: string) =>
+    (await inFamily((tx) => agents.scheduledIncome(tx, from, to))).map((entry) =>
+      entry.key.split(":").slice(2).join(":"),
+    );
+  const lancamentos = () => inFamily((tx) => tx.select().from(transactions));
+  const confirm = (key: string, month: string) =>
+    inFamily((tx) => confirmCommitment(tx, ctx, key, month));
+
+  beforeEach(() => at("2026-01-02"));
+
+  it("N1: renda cadastrada sem mês ganha o mês escolhido", async () => {
+    await saveIncome(initial, base());
+    const [source] = await sources();
+    at("2026-05-10");
+    const saved = await saveIncome(initial, base({ id: source!.id, periodMonth: "7" }));
+    expect(saved.ok).toBe(true);
+    expect(await plans()).toHaveLength(1);
+    expect(await keysIn("2026-07", "2026-07")).toContain("2026-07:ferias");
+    const view = (await loadIncome(ctx)).sources[0]!;
+    expect(view.yearView?.vacations).toHaveLength(1);
+    expect(view.vacationMonth).toBeNull();
+  });
+
+  it("N1: renda que passou de PJ para CLT ganha o mês escolhido", async () => {
+    await saveIncome(initial, base({ kind: "pj_autonomo", periodMonth: "0" }));
+    const [source] = await sources();
+    expect(source).toMatchObject({ vacationMonth: null, isGross: false });
+    at("2026-05-10");
+    await saveIncome(initial, base({ id: source!.id, periodMonth: "7" }));
+    expect((await sources())[0]?.isGross).toBe(true);
+    expect(await keysIn("2026-07", "2026-07")).toContain("2026-07:ferias");
+  });
+
+  it("N2: 13º recebido de uma vez não conta em dobro em duas parcelas", async () => {
+    await saveIncome(initial, base({ thirteenthMode: "integral", singleMonth: "6" }));
+    const [source] = await sources();
+    at("2026-11-02");
+    await confirm(`r:${source!.id}:2026-06:13-2`, "2026-06");
+    await saveIncome(
+      initial,
+      base({ id: source!.id, firstMonth: "11", secondMonth: "12", singleMonth: "6" }),
+    );
+    expect((await keysIn("2026-11", "2026-12")).filter((key) => key.includes("13-"))).toEqual([]);
+    expect(await confirm(`r:${source!.id}:2026-11:13-1`, "2026-11")).toEqual({ done: false });
+    expect(await lancamentos()).toHaveLength(1);
+    const again = await saveIncome(
+      initial,
+      base({
+        id: source!.id,
+        firstMonth: "7",
+        firstReceived: "on",
+        registerFirst: "on",
+        singleMonth: "6",
+      }),
+    );
+    expect(again.ok).toBe(true);
+    expect(await lancamentos()).toHaveLength(1);
+  });
+
+  it("N2: a marca sem lançamento fica na troca para duas parcelas", async () => {
+    await saveIncome(initial, base({ thirteenthMode: "integral", singleMonth: "6" }));
+    const [source] = await sources();
+    at("2026-11-02");
+    await saveIncome(
+      initial,
+      base({
+        id: source!.id,
+        thirteenthMode: "integral",
+        singleMonth: "6",
+        singleReceived: "on",
+      }),
+    );
+    await saveIncome(
+      initial,
+      base({ id: source!.id, firstMonth: "11", secondMonth: "12", singleMonth: "6" }),
+    );
+    expect((await plans())[0]).toMatchObject({
+      thirteenthMode: "parcelas",
+      thirteenthSingleReceived: true,
+    });
+    expect((await keysIn("2026-06", "2026-12")).filter((key) => key.includes("13-"))).toEqual([]);
+  });
+
+  it("N5: data de início forjada vira erro geral", async () => {
+    const saved = await saveIncome(initial, base({ jobStartedOn: "2026-13-45" }));
+    expect(saved.message).toBe("Confira os dados e tente de novo.");
+    expect(await sources()).toEqual([]);
+  });
+
+  it("N5: registrar forjado no ano seguinte não cria lançamento", async () => {
+    await saveIncome(initial, base());
+    const [source] = await sources();
+    at("2026-11-02");
+    await saveIncome(
+      initial,
+      base({
+        id: source!.id,
+        planYear: "2027",
+        firstMonth: "7",
+        firstReceived: "on",
+        registerFirst: "on",
+      }),
+    );
+    expect(await lancamentos()).toEqual([]);
+    expect((await plans())[0]?.thirteenthFirstReceived).toBe(false);
+  });
+
+  it("decisão: tirar período com baixa deixa a baixa sem período, e o cartão avisa", async () => {
+    await saveIncome(
+      initial,
+      base({
+        periodMonth: ["10", "11"],
+        periodDay: ["", ""],
+        periodDays: ["15", "15"],
+        periodReceived: ["", ""],
+      }),
+    );
+    const [source] = await sources();
+    at("2026-10-10");
+    await confirm(`r:${source!.id}:2026-10:ferias`, "2026-10");
+    await saveIncome(
+      initial,
+      base({ id: source!.id, periodMonth: "11", periodDay: "", periodDays: "15" }),
+    );
+    expect((await loadIncome(ctx)).sources[0]?.orphanMonths).toEqual(["2026-10"]);
+    expect(await lancamentos()).toHaveLength(1);
+  });
+});
+
 describe("banco atrasado", () => {
   it("sem as tabelas da 0040, a renda segue de pé", async () => {
     vi.setSystemTime(new Date("2026-11-02T12:00:00-03:00"));

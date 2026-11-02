@@ -13,6 +13,7 @@ import {
   isPayroll,
   monthIncome,
   openIncomeEntries,
+  orphanVacationMonths,
   receivedInYear,
   splitByDays,
   thirteenthPlan,
@@ -933,6 +934,71 @@ describe("revisão", () => {
       date: "2026-01-08",
       withVacation: true,
     });
+  });
+});
+
+// Achados da reconferência. Cada caso falhava antes da correção.
+describe("reconferência", () => {
+  const receipt = (month: string, part: string) => ({ incomeSourceId: "s1", month, part });
+
+  it("N2: baixa da 2ª quita o 13º: a 1ª fecha na previsão", () => {
+    const input = source({ plans: [plan({ firstMonth: 11, secondMonth: 12 })] });
+    const receipts = [receipt("2026-06", "13-2")];
+    const open = openIncomeEntries(incomeBetween([input], tables, "2026-11", "2026-12"), receipts, [
+      input,
+    ]);
+    expect(open.filter((e) => e.key.includes(":13-"))).toEqual([]);
+    expect(receivedInYear(receipts, input, 2026)).toEqual(expect.arrayContaining(["13-1", "13-2"]));
+    expect(receivedInYear(receipts, input, 2027)).toEqual([]);
+  });
+
+  it("N2: marca de tudo de uma vez segue quitando em duas parcelas", () => {
+    const input = source({ plans: [plan({ singleReceived: true })] });
+    const all = incomeBetween([input], tables, "2026-01", "2026-12");
+    expect(all.filter((e) => e.key.includes(":13-"))).toEqual([]);
+    expect(thirteenthPlan(input, tables, 2026)).toMatchObject({
+      first: { received: true },
+      second: { received: true },
+    });
+  });
+
+  it("N3: casa pelo mês preferindo igual número de dias", () => {
+    const moved = carryVacationKeys(
+      plan({ periods: [period(10, null, 20), period(11, null, 10)] }),
+      plan({ periods: [period(11, null, 20), period(12, null, 10)] }),
+      new Set(["10"]),
+    );
+    expect(moved.periods).toEqual([
+      { ...period(11, null, 20), keyMonth: 10 },
+      period(12, null, 10),
+    ]);
+    const sameMonth = carryVacationKeys(
+      plan({
+        periods: [{ ...period(7, 3, 14), keyMonth: 5 }, period(7, 20, 5)],
+      }),
+      plan({ periods: [period(7, 22, 5), period(7, 3, 14)] }),
+      new Set(["05"]),
+    );
+    expect(sameMonth.periods).toEqual([period(7, 22, 5), { ...period(7, 3, 14), keyMonth: 5 }]);
+  });
+
+  it("decisão: baixa de período que saiu fica sem período, e a tela sabe", () => {
+    const input = source({ plans: [plan({ periods: [period(11, null, 15)] })] });
+    const receipts = [receipt("2026-10", "ferias")];
+    expect(orphanVacationMonths(receipts, input, 2026)).toEqual(["2026-10"]);
+    const moved = source({
+      plans: [plan({ periods: [{ ...period(12, null, 15), keyMonth: 10 }] })],
+    });
+    expect(orphanVacationMonths(receipts, moved, 2026)).toEqual([]);
+    // Quem nunca escolheu: a baixa é do único período, não fica solta.
+    expect(orphanVacationMonths(receipts, source({ vacationMonth: 12 }), 2026)).toEqual([]);
+  });
+
+  it("N5: data de início que não existe é erro, nunca exceção", () => {
+    for (const jobStartedOn of ["2026-13-45", "2026-02-30", "abc"])
+      expect(validateIncomePlan(plan({ jobStartedOn })).map((i) => i.code)).toEqual([
+        "bad_job_date",
+      ]);
   });
 });
 

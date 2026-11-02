@@ -268,6 +268,9 @@ test("férias vendidas: abono com a conta certa e limite de 10 dias", async ({ p
   await sheet.getByLabel("Ano destas escolhas").selectOption(String(startYear));
   await sheet.getByLabel("Mês das férias").selectOption(String(startMonth));
   await sheet.getByLabel("Começa no dia").fill("6");
+  // Apagar os dias não derruba a tela.
+  await sheet.getByLabel("Dias", { exact: true }).fill("");
+  await expect(sheet.getByText("Confira o mês e os dias de cada período.")).toBeVisible();
   await sheet.getByLabel("Dias", { exact: true }).fill("20");
   await expect(result(sheet)).toContainText("Faltam 10 dias");
   await sheet.getByRole("checkbox", { name: "Vender dias de férias" }).check();
@@ -387,6 +390,78 @@ test("a escolha de um ano segue no seguinte, e o formulário diz de onde veio", 
   await expect(edit.getByRole("checkbox", { name: /Já recebi a primeira/ })).toHaveCount(0);
   await result(edit).scrollIntoViewIfNeeded();
   await shot(edit, "ano-herdado", info.project.name);
+});
+
+test("renda sem mês de férias: escolher pelo botão do cartão fica salvo", async ({
+  page,
+}, info) => {
+  await narrow(page, info.project.name);
+  await signUp(page, "Rute");
+  const sheet = await openNew(page, "Empresa Sem Mes");
+  await saveForm(sheet);
+
+  await page.getByRole("button", { name: "Ajustar 13º e férias" }).click();
+  const edit = form(page, "Editar renda");
+  await edit.getByLabel("Ano destas escolhas").selectOption(String(today().year + 1));
+  await edit.getByLabel("Mês das férias").selectOption("7");
+  await saveForm(edit);
+  await expect(page.getByRole("region", { name: "Férias" }).last()).toContainText("julho");
+
+  // É o pedido central: ao recarregar, o mês continua escolhido.
+  await page.reload();
+  await page.getByRole("button", { name: "Ajustar 13º e férias" }).click();
+  const again = form(page, "Editar renda");
+  await again.getByLabel("Ano destas escolhas").selectOption(String(today().year + 1));
+  await expect(again.getByLabel("Mês das férias")).toHaveValue("7");
+});
+
+test("13º recebido de uma vez não volta em duas parcelas", async ({ page }, info) => {
+  const { year, month } = today();
+  test.skip(month === 1, "Em janeiro nenhum mês deste ano passou.");
+  await narrow(page, info.project.name);
+  await signUp(page, "Duda");
+  const sheet = await openNew(page, "Empresa Quitada");
+  await sheet.getByRole("radio", { name: "Tudo de uma vez" }).check();
+  await sheet.getByLabel("Mês do pagamento").selectOption(String(month - 1));
+  await saveForm(sheet);
+
+  await page.getByRole("button", { name: "Ajustar 13º e férias" }).click();
+  const edit = form(page, "Editar renda");
+  await edit.getByRole("radio", { name: "Em duas parcelas" }).check();
+  await expect(edit.getByText(/já está quitado/)).toBeVisible();
+  await expect(edit.getByRole("checkbox", { name: /Já recebi a primeira/ })).toHaveCount(0);
+  await result(edit).scrollIntoViewIfNeeded();
+  await shot(edit, "quitado", info.project.name);
+  await saveForm(edit);
+  await page.goto(`/app/lancamentos?m=${ym(year, 12)}`);
+  await expect(page.getByRole("row").filter({ hasText: /parcela/ })).toHaveCount(0);
+});
+
+test("tirar período com baixa avisa que a baixa fica sem período", async ({ page }, info) => {
+  const { year, month } = today();
+  test.skip(month === 12, "Precisa de um mês por vir neste ano.");
+  await narrow(page, info.project.name);
+  await signUp(page, "Iris");
+  const sheet = await openNew(page, "Empresa Baixa");
+  await sheet.getByLabel("Mês das férias").selectOption(String(month + 1));
+  await saveForm(sheet);
+
+  await page.goto(`/app/lancamentos?m=${ym(year, month + 1)}`);
+  await row(page, "Férias · Empresa Baixa")
+    .getByRole("button", { name: "Receber" })
+    .locator("visible=true")
+    .click();
+  await expect(row(page, "Férias · Empresa Baixa")).toContainText("Recebido");
+
+  await page.goto("/app/renda");
+  await page.getByRole("button", { name: "Ajustar 13º e férias" }).click();
+  const edit = form(page, "Editar renda");
+  await edit.getByLabel("Mês das férias").selectOption("0");
+  await expect(edit.getByText(/fica sem período/)).toBeVisible();
+  await edit.getByText(/fica sem período/).scrollIntoViewIfNeeded();
+  await shot(edit, "baixa-sem-periodo", info.project.name);
+  await saveForm(edit);
+  await expect(page.getByText(/fica sem período/).first()).toBeVisible();
 });
 
 test("em inglês: formulário e resultado traduzidos", async ({ page }, info) => {

@@ -1,6 +1,13 @@
 // Campos do formulário de 13º e férias para o plano do domínio. A mesma função serve à conta ao vivo no
 // navegador e à gravação no servidor: o que a tela mostra é o que fica salvo.
-import type { IncomeYearPlan, ThirteenthMode } from "@organizeup/domain";
+import {
+  carryVacationKeys,
+  orphanVacationMonths,
+  receivedInYear,
+  type IncomeSourceInput,
+  type IncomeYearPlan,
+  type ThirteenthMode,
+} from "@organizeup/domain";
 
 export interface PeriodFields {
   month: string;
@@ -47,10 +54,48 @@ export function planFromFields(fields: PlanFields, year: number): IncomeYearPlan
     // A marca da 1ª não se perde em "tudo de uma vez": o valor sai desse pagamento.
     firstReceived: fields.firstReceived,
     firstAmount: fields.firstAmount,
-    singleReceived: integral && fields.singleReceived,
+    // A marca do pagamento único também não se perde: o 13º já está quitado.
+    singleReceived: fields.singleReceived,
     jobStartedOn: fields.jobStartedOn.trim() || null,
     soldDays: hasVacation && fields.sell ? whole(fields.soldDays) : 0,
     periods,
+  };
+}
+
+type ReceiptRow = { incomeSourceId: string; month: string; part: string };
+
+/** Meses das baixas de férias do ano, de "01" a "12". */
+export const vacationReceiptMonths = (receipts: ReceiptRow[], year: number) =>
+  new Set(
+    receipts
+      .filter((row) => row.part.startsWith("ferias") && row.month.startsWith(`${year}-`))
+      .map((row) => row.month.slice(5)),
+  );
+
+/**
+ * Baixas como vão ficar depois de salvar: leva a baixa do período movido e casa pelo mês da chave, com
+ * a mesma regra do servidor. Assim a prévia não diz "Recebida" em outro período.
+ */
+export function previewReceipts(
+  sourceId: string,
+  saved: IncomeYearPlan,
+  built: IncomeYearPlan,
+  receipts: ReceiptRow[],
+) {
+  const mine = receipts.filter((row) => row.incomeSourceId === sourceId);
+  const plan = carryVacationKeys(saved, built, vacationReceiptMonths(mine, built.year));
+  const source = {
+    id: sourceId,
+    kind: "clt",
+    isGross: true,
+    vacationMonth: null,
+    payDay: 1,
+    plans: [plan],
+  } as unknown as IncomeSourceInput;
+  return {
+    plan,
+    parts: receivedInYear(mine, source, built.year),
+    orphans: orphanVacationMonths(mine, source, built.year),
   };
 }
 

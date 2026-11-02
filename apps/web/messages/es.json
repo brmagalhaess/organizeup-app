@@ -3316,7 +3316,9 @@
       "singleReceived": "Ya lo recibí",
       "singleRegistered": "El aguinaldo ya está en Movimientos.",
       "integralAdvance": "Ya descontamos {value} de la 1.ª cuota recibida.",
-      "secondCovered": "La 1.ª cuota ya cubre todo el aguinaldo neto, de {value}: no queda nada por recibir."
+      "secondCovered": "La 1.ª cuota ya cubre todo el aguinaldo neto, de {value}: no queda nada por recibir.",
+      "quitNote": "El aguinaldo de este año ya está saldado: nada vuelve a la previsión.",
+      "orphanReceipt": "Las vacaciones de {month} ya tienen un movimiento. Sin ese período, el movimiento sigue en Movimientos y queda sin período aquí."
     },
     "planErrors": {
       "too_many_periods": "Divídelas en hasta 3 períodos.",

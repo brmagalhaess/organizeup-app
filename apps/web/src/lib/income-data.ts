@@ -32,6 +32,7 @@ import {
   isPayroll,
   money,
   monthlyNet,
+  orphanVacationMonths,
   plainIncomes,
   receivedInYear,
   toDbAmount,
@@ -147,6 +148,8 @@ export async function loadIncome(ctx: TenantContext) {
           : null,
         receivedParts: receivedInYear(receipts, source, year),
         receivedNext: receivedInYear(receipts, source, year + 1),
+        orphanMonths: orphanVacationMonths(receipts, source, year),
+        receipts: receipts.filter((row) => row.incomeSourceId === source.id),
       };
     });
     const sum = (values: string[]) =>

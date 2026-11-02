@@ -45,7 +45,7 @@ import { audit } from "@/lib/audit";
 import { confirmCommitment } from "@/lib/confirm-entry";
 import { incomePlanStoreReady } from "@/lib/income-data";
 import { requireTenant } from "@/lib/session";
-import { planFromFields, samePlan, type PeriodFields } from "./plan-fields";
+import { planFromFields, samePlan, vacationReceiptMonths, type PeriodFields } from "./plan-fields";
 
 export interface IncomeFormState {
   ok: boolean;
@@ -231,7 +231,7 @@ export async function saveIncome(_prev: IncomeFormState, form: FormData): Promis
   const typed = planFieldsOf(form, firstAmount, year);
   if (clt) {
     const issues = validateIncomePlan(typed);
-    if (issues.some((issue) => issue.code === "bad_month"))
+    if (issues.some((issue) => issue.code === "bad_month" || issue.code === "bad_job_date"))
       return { ok: false, message: t("errors.invalid") };
     const fieldErrors: Record<string, string> = {};
     for (const issue of issues)
@@ -282,7 +282,12 @@ export async function saveIncome(_prev: IncomeFormState, form: FormData): Promis
     if (data.id && !existing) return refuse(t("errors.invalid"));
 
     const onFile = data.id ? ((await incomePlansBySource(tx)).get(data.id) ?? []) : [];
-    const current = planForYear(onFile, year, existing?.vacationMonth ?? values.vacationMonth);
+    // Renda que já existe sem mês tem padrão sem mês: o mês digitado é escolha nova, e precisa gravar.
+    const current = planForYear(
+      onFile,
+      year,
+      existing ? existing.vacationMonth : values.vacationMonth,
+    );
     const receipts = data.id
       ? (await incomeReceiptRows(tx)).filter(
           (row) => row.incomeSourceId === data.id && row.month.startsWith(`${year}-`),
@@ -291,22 +296,24 @@ export async function saveIncome(_prev: IncomeFormState, form: FormData): Promis
     const hasReceipt = (part: string) => receipts.some((row) => row.part === part);
     const single = typed.thirteenthMode === "integral";
     const part = single ? "13-2" : "13-1";
-    const already = hasReceipt(part);
+    const months = vacationReceiptMonths(receipts, year);
+    // Com a baixa no banco, a marca sobra; a marca nunca fica à frente da data do pagamento.
+    const settled = carryVacationKeys(current, settleReceived(typed, data.payDay, today), months);
+    // A tela não desmarca, no modo em que a marca não aparece: trocar de modo não a perde.
+    const quit = hasReceipt("13-2");
+    const plan = {
+      ...settled,
+      firstReceived:
+        (settled.firstReceived || (single && current.firstReceived)) &&
+        !hasReceipt("13-1") &&
+        !quit,
+      firstAmount: settled.firstAmount ?? (single ? current.firstAmount : null),
+      singleReceived: (settled.singleReceived || (!single && current.singleReceived)) && !quit,
+    };
     const wantsEntry =
       clt &&
       form.get("registerFirst") === "on" &&
-      (single ? typed.singleReceived : typed.firstReceived) &&
-      !already;
-    const months = new Set(
-      receipts.filter((row) => row.part.startsWith("ferias")).map((row) => row.month.slice(5)),
-    );
-    // Com a baixa no banco, a marca sobra; a marca nunca fica à frente da data do pagamento.
-    const settled = carryVacationKeys(current, settleReceived(typed, data.payDay, today), months);
-    const plan = {
-      ...settled,
-      firstReceived: settled.firstReceived && !hasReceipt("13-1"),
-      singleReceived: settled.singleReceived && !hasReceipt("13-2"),
-    };
+      (single ? plan.singleReceived : plan.firstReceived);
     // Sem nada novo não nasce linha: quem não escolheu fica no padrão de sempre.
     const planChanged = clt && (wantsEntry || !samePlan(plan, current));
     if (planChanged && !(await incomePlanStoreReady(tx))) return refuse(t("errors.planLater"));
@@ -338,7 +345,7 @@ export async function saveIncome(_prev: IncomeFormState, form: FormData): Promis
     const unmarked = {
       ...plan,
       firstReceived: single && plan.firstReceived,
-      singleReceived: false,
+      singleReceived: !single && plan.singleReceived,
     };
     await writeIncomePlan(tx, ctx.householdId, sourceId, wantsEntry ? unmarked : plan);
     await audit(tx, ctx, "update", "income_year_plans", sourceId);

@@ -51,6 +51,9 @@ Em "Tudo de uma vez" com mês que já passou, aparece "Já recebi", com a mesma 
 com ou sem lançamento, o valor sai deste pagamento, e o resultado diz quanto. Quando a 1ª cobre todo o líquido, o resultado e o cartão dizem "A 1ª
 parcela já cobre todo o 13º líquido, de {valor}: não há mais nada a receber."
 
+Baixa da 2ª parcela ou do pagamento único quita o 13º do ano. Se a pessoa recebeu de uma vez e troca para "Em duas parcelas", com ou sem lançamento, a marca fica,
+nada volta para a previsão, e a tela diz "O 13º deste ano já está quitado: nada volta para a previsão."
+
 ### Seção "Férias"
 
 Uma linha por período, com até 3. A primeira linha sempre aparece.
@@ -66,13 +69,16 @@ Uma linha por período, com até 3. A primeira linha sempre aparece.
 | Vender dias de férias | Caixa  | Com mês                              | Desligada     | Abono de até 10 dias, pago junto do 1º período                         |
 | Quantos dias          | Número | Com "Vender dias de férias"          | 10            | De 1 a 10. Dias de férias mais dias vendidos: até 30                   |
 
+Ao tirar um período que tem baixa, o formulário e o cartão avisam: "As férias de {mês} já têm lançamento. Sem esse período, o lançamento continua em Lançamentos e fica
+sem período aqui." A baixa não passa para outro período.
+
 ### Mensagens do formulário
 
 - Períodos: "Divida em até 3 períodos.", "Cada período precisa de pelo menos 5 dias.", "Um dos períodos precisa de pelo menos 14 dias.",
   "Os períodos se sobrepõem. Confira o dia de início.", "Este mês não tem esse dia."
 - Soma: "Férias e dias vendidos somam mais de 30 dias.", "Dá para vender até 10 dias, um terço das férias.", "Informe quantos dias, de 1 a 10."
 - 13º: "A 1ª parcela precisa vir antes da 2ª.", "Informe a data de início em um dia que existe." e a validação de valor de sempre.
-- Dado que a tela não manda (mês fora da lista, renda que não existe): "Confira os dados e tente de novo."
+- Dado que a tela não manda (mês fora da lista, data de início que não existe, renda que não existe): "Confira os dados e tente de novo."
 
 ### Resultado ao vivo: "Quanto e quando entra"
 

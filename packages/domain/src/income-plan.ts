@@ -224,9 +224,11 @@ export interface PlanIssue {
   index?: number;
 }
 
-const isRealDate = (value: string) =>
-  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-  new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+function isRealDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
 
 /** Limites da CLT, arts. 134 e 143, e a ordem das parcelas. Vazio quando está tudo certo. */
 export function validateIncomePlan(plan: IncomeYearPlan): PlanIssue[] {
@@ -302,35 +304,39 @@ export function settleReceived(
 }
 
 /**
- * Leva a baixa junto quando um período recebido muda de mês. O mês igual casa primeiro. O que sobrou de
- * um lado e do outro é período movido, e o novo fica com o mês da baixa. Período que só saiu não passa
- * a baixa para ninguém: sem período sobrando, nenhum outro herda. `receivedMonths` traz "01" a "12".
+ * Leva a baixa junto quando um período recebido muda de mês. Casa, nesta ordem: mesmo mês e mesmos
+ * dias; período recebido com período novo de mesmos dias, que é o mesmo período movido; mesmo mês; e o
+ * que sobrou recebido com o que sobrou novo. Período que só saiu não passa a baixa para ninguém: sem
+ * período sobrando, nenhum outro herda. `receivedMonths` traz "01" a "12".
  */
 export function carryVacationKeys(
   previous: IncomeYearPlan,
   next: IncomeYearPlan,
   receivedMonths: ReadonlySet<string>,
 ): IncomeYearPlan {
-  const pool = previous.periods.map((period) => ({
+  let pool = previous.periods.map((period) => ({
     month: period.month,
+    days: period.days,
     key: period.keyMonth ?? period.month,
   }));
+  type Old = (typeof pool)[number];
+  const hasReceipt = (old: Old) => receivedMonths.has(String(old.key).padStart(2, "0"));
   const periods = next.periods.map(({ keyMonth: _ignored, ...period }): VacationPeriod => period);
-  const free: number[] = [];
-  periods.forEach((period, index) => {
-    const found = pool.findIndex((old) => old.month === period.month);
-    if (found < 0) {
-      free.push(index);
-      return;
-    }
-    const [old] = pool.splice(found, 1);
-    if (old!.key !== period.month) period.keyMonth = old!.key;
-  });
-  const received = pool.filter((old) => receivedMonths.has(String(old.key).padStart(2, "0")));
-  for (const index of free) {
-    const old = received.shift();
-    if (old) periods[index]!.keyMonth = old.key;
-  }
+  let free = periods.map((_, index) => index);
+  const pair = (fits: (old: Old, period: VacationPeriod) => boolean) => {
+    free = free.filter((index) => {
+      const period = periods[index]!;
+      const old = pool.find((row) => fits(row, period));
+      if (!old) return true;
+      pool = pool.filter((row) => row !== old);
+      if (old.key !== period.month) period.keyMonth = old.key;
+      return false;
+    });
+  };
+  pair((old, period) => old.month === period.month && old.days === period.days);
+  pair((old, period) => hasReceipt(old) && old.days === period.days);
+  pair((old, period) => old.month === period.month);
+  pair((old) => hasReceipt(old));
   return { ...next, periods };
 }
 

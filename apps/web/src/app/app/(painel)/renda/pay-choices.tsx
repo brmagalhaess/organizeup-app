@@ -26,7 +26,7 @@ import { Button, Field, IconButton, Input, Select } from "@/components/ui";
 import { formatDayMonth, formatMonthYear, monthNames, toAmountInput } from "@/i18n/format";
 import { useMoney } from "@/i18n/money";
 import type { loadIncome } from "@/lib/income-data";
-import { planFromFields, type PeriodFields } from "./plan-fields";
+import { planFromFields, previewReceipts, type PeriodFields } from "./plan-fields";
 
 type Data = Awaited<ReturnType<typeof loadIncome>>;
 type Source = Data["sources"][number];
@@ -262,12 +262,9 @@ function YearChoices({
     [source, year],
   );
   const isThisYear = year === data.year;
-  const receivedParts = useMemo(
-    () => (isThisYear ? source?.receivedParts : source?.receivedNext) ?? [],
-    [isThisYear, source],
-  );
-  const firstOnFile = receivedParts.includes("13-1");
-  const singleOnFile = receivedParts.includes("13-2");
+  const savedParts = (isThisYear ? source?.receivedParts : source?.receivedNext) ?? [];
+  const firstOnFile = savedParts.includes("13-1");
+  const singleOnFile = savedParts.includes("13-2");
   const integralSaved = saved.thirteenthMode === "integral";
 
   const [mode, setMode] = useState<ThirteenthMode>(saved.thirteenthMode);
@@ -325,7 +322,9 @@ function YearChoices({
     const firstReceived = firstMark ?? (saved.firstReceived || moved);
     const singleDate = thirteenthDate(`${year}-${singleMonth.padStart(2, "0")}`, live.payDay);
     const singleMoved =
-      (!integralSaved || singleMonth !== String(saved.secondMonth)) && singleDate < data.today;
+      mode === "integral" &&
+      (!integralSaved || singleMonth !== String(saved.secondMonth)) &&
+      singleDate < data.today;
     const singleReceived = singleMark ?? (saved.singleReceived || singleMoved);
     return {
       periods,
@@ -390,6 +389,16 @@ function YearChoices({
     ]);
   const soldError = errors.soldDays ?? messageOf(["sold_over", "days_over", "bad_sold"]);
 
+  // Com campo inválido não há datas para casar: a validação avisa, e a tela não pode quebrar.
+  const valid = issues.length === 0;
+  const baixas = useMemo(
+    () =>
+      valid
+        ? previewReceipts(source?.id ?? "previa", saved, plan.built, source?.receipts ?? [])
+        : { plan: plan.built, parts: [], orphans: [] },
+    [valid, source, saved, plan.built],
+  );
+
   const view = useMemo(() => {
     if (!live.amount || issues.length > 0) return null;
     const preview: IncomeSourceInput = {
@@ -407,11 +416,11 @@ function YearChoices({
       endMonth: null,
       categoryId: "",
       accountId: "",
-      plans: [plan.built],
+      plans: [baixas.plan],
       firstPaid: source?.firstPaid ?? {},
     };
     return incomeYearView(preview, data.tables, year);
-  }, [live, issues.length, plan.built, data.tables, year, source]);
+  }, [live, issues.length, baixas.plan, data.tables, year, source]);
 
   const lines = view
     ? resultLines(
@@ -429,9 +438,10 @@ function YearChoices({
           advance: (value) => t("integralAdvance", { value: moneyText(value) }),
           covered: (value) => t("secondCovered", { value: moneyText(value) }),
         },
-        receivedParts,
+        baixas.parts,
       )
     : [];
+  const quit = singleOnFile || plan.singleReceived;
 
   return (
     <>
@@ -478,7 +488,14 @@ function YearChoices({
                 onChange={setWithVacation}
               />
             ) : null}
-            {firstOnFile ? (
+            {quit ? (
+              <>
+                <p role="status" className="rounded-xl bg-brand-50 p-3 text-sm text-muted">
+                  {t("quitNote")}
+                </p>
+                <input type="hidden" name="firstAmount" value={firstAmount} />
+              </>
+            ) : firstOnFile ? (
               <>
                 <p className="rounded-xl bg-brand-50 p-3 text-sm text-muted">
                   {t("firstRegistered")}
@@ -673,6 +690,15 @@ function YearChoices({
             {vacationError}
           </p>
         ) : null}
+        {baixas.orphans.map((month) => (
+          <p
+            key={month}
+            role="status"
+            className="rounded-xl bg-warning-soft p-3 text-sm text-warning"
+          >
+            {t("orphanReceipt", { month: formatMonthYear(month, locale) })}
+          </p>
+        ))}
         {hasPeriod ? (
           <>
             <Check name="sell" label={t("sell")} checked={sell} onChange={setSell} />

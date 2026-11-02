@@ -100,9 +100,12 @@ Não há fonte nova. A previsão segue pelo valor sem a redução, o menor, e a 
 
 - A chave exata vale para todos.
 - **13º é um por ano:** baixa de `13-1` ou `13-2` em qualquer mês do ano fecha aquela parte, com ou sem escolha salva. `confirmByKey` recusa pela mesma regra, então não se recebe duas vezes.
+- **Baixa de `13-2` quita o 13º:** fecha também a `13-1`, na previsão e em `confirmByKey`, porque quem recebeu de uma vez e troca para duas parcelas contaria em dobro. A marca sem lançamento (`thirteenth_single_received`)
+  vale do mesmo jeito e fica na troca, com aviso na tela. Quem lançou só a 2ª parcela e nunca lançou a 1ª também fica sem a previsão da 1ª.
 - **Férias casam pelo mês da chave, nunca pela posição:** período novo antes do recebido não troca qual foi pago, e previsão nunca some sem baixa real.
-- **Ao salvar, a baixa acompanha o período movido** (`carryVacationKeys`). Mês igual casa primeiro. O que sobrou dos dois lados é período movido. Período que só saiu não passa a baixa a ninguém: com
-  outubro recebido e novembro aberto, tirar outubro deixa novembro em aberto; mudar outubro para dezembro deixa dezembro recebido.
+- **Ao salvar, a baixa acompanha o período movido** (`carryVacationKeys`). Casa, nesta ordem: mesmo mês e mesmos dias; período recebido com período novo de mesmos dias; mesmo mês; o que sobrou recebido com o que sobrou
+  novo. Período que só saiu não passa a baixa a ninguém: com outubro recebido e novembro aberto, tirar outubro deixa novembro em aberto, e o formulário e o cartão avisam que a baixa ficou sem período. Mudar outubro para
+  dezembro deixa dezembro recebido. A prévia usa a mesma regra.
 - Sem linha do próprio ano e com um período só, a baixa de férias de outro mês é dele mesmo (ver "Quem não escolhe nada"). Com vários períodos herdados, baixa sem período não fecha nenhum.
 
 ### Telas

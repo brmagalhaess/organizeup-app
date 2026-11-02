@@ -3316,7 +3316,9 @@
       "singleReceived": "I already received it",
       "singleRegistered": "The 13th salary is already in Transactions.",
       "integralAdvance": "We already took off {value} for the 1st installment you received.",
-      "secondCovered": "The 1st installment already covers the whole net 13th salary of {value}: there's nothing left to receive."
+      "secondCovered": "The 1st installment already covers the whole net 13th salary of {value}: there's nothing left to receive.",
+      "quitNote": "This year's 13th salary is already paid in full: nothing goes back to the forecast.",
+      "orphanReceipt": "The {month} vacation already has a transaction. Without that period, the transaction stays in Transactions but has no period here."
     },
     "planErrors": {
       "too_many_periods": "Split it into up to 3 periods.",

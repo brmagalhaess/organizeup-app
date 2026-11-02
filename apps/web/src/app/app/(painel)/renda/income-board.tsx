@@ -643,6 +643,7 @@ function SourceCard({
   onStop: () => void;
 }) {
   const t = useTranslations("renda");
+  const locale = useLocale();
   const moneyText = useMoney();
   const { name } = source;
   const person = data.people.find((p) => p.id === source.personId)?.name;
@@ -683,6 +684,15 @@ function SourceCard({
           {source.yearView.vacations.length === 0 ? (
             <p className="text-xs text-muted">{t("extra.noVacation")}</p>
           ) : null}
+          {source.orphanMonths.map((month) => (
+            <p
+              key={month}
+              role="status"
+              className="rounded-xl bg-warning-soft p-3 text-sm text-warning"
+            >
+              {t("choices.orphanReceipt", { month: formatMonthYear(month, locale) })}
+            </p>
+          ))}
           {source.nextYearView ? (
             <YearPay
               view={source.nextYearView}

@@ -607,10 +607,16 @@ export function thirteenthPlan(
       month: yearMonthOf(firstDate),
       date: firstDate,
       amount: advance,
-      received: plan.firstReceived,
+      // O 13º marcado como recebido de uma vez quita as duas parcelas.
+      received: plan.firstReceived || plan.singleReceived,
       withVacation: vacation !== undefined,
     },
-    second: { month: secondMonth, date: secondDate, amount: left(advance), received: false },
+    second: {
+      month: secondMonth,
+      date: secondDate,
+      amount: left(advance),
+      received: plan.singleReceived,
+    },
   };
 }
 
@@ -775,37 +781,52 @@ export function incomeBetween(
 
 type ReceiptRow = { incomeSourceId: string; month: string; part: string };
 
+interface VacationMatch {
+  /** Partes com baixa. */
+  done: Set<string>;
+  /** Meses de baixas sem período: o lançamento existe, e o período saiu. */
+  orphans: string[];
+}
+
 /**
  * Períodos de férias do ano com baixa. A baixa casa pelo mês da chave, nunca pela posição: período
  * novo antes do recebido, ou período recebido que saiu, não tiram a previsão de outro. Sem linha do
  * próprio ano e com um período só, a baixa do ano é dele mesmo em outro mês: quem nunca escolheu é a
  * única diferença para a conta anterior ao ADR-0028, que previa pagar as férias de novo.
  */
-function vacationsWithReceipt(
+function matchVacations(
   source: IncomeSourceInput,
   receipts: ReceiptRow[],
   year: number,
-): Set<string> {
+): VacationMatch {
   const plan = planForYear(source.plans, year, source.vacationMonth);
   const events = vacationEvents(plan, source.payDay, year);
   const done = new Set<string>();
-  let orphan = false;
+  const orphans: string[] = [];
   for (const receipt of receipts) {
     if (receipt.incomeSourceId !== source.id || !receipt.part.startsWith("ferias")) continue;
     if (!receipt.month.startsWith(`${year}-`)) continue;
     const open = events.filter((e) => e.keyMonth === receipt.month && !done.has(e.part));
     const match = open.find((e) => e.part === receipt.part) ?? open[0];
     if (match) done.add(match.part);
-    else orphan = true;
+    else orphans.push(receipt.month);
   }
   const ownRow = source.plans?.some((row) => row.year === year) ?? false;
-  if (orphan && !ownRow && events.length === 1) done.add(events[0]!.part);
-  return done;
+  if (orphans.length > 0 && !ownRow && events.length === 1)
+    return { done: done.add(events[0]!.part), orphans: [] };
+  return { done, orphans };
 }
+
+/** Meses com baixa de férias que ficou sem período, para a tela avisar. */
+export const orphanVacationMonths = (
+  receipts: ReceiptRow[],
+  source: IncomeSourceInput,
+  year: number,
+): string[] => matchVacations(source, receipts, year).orphans;
 
 const THIRTEENTH_PARTS: readonly string[] = ["13-1", "13-2"];
 
-/** Partes de 13º e férias já recebidas com lançamento naquele ano. */
+/** Partes de 13º e férias já recebidas com lançamento naquele ano. Baixa da 2ª parte quita o 13º. */
 export function receivedInYear(
   receipts: ReceiptRow[],
   source: IncomeSourceInput,
@@ -819,13 +840,14 @@ export function receivedInYear(
         row.month.startsWith(`${year}-`),
     )
     .map((row) => row.part);
-  return [...new Set(thirteenth), ...vacationsWithReceipt(source, receipts, year)];
+  const quit = thirteenth.includes("13-2") ? ["13-1"] : [];
+  return [...new Set([...thirteenth, ...quit]), ...matchVacations(source, receipts, year).done];
 }
 
 /**
  * O que continua em aberto depois do que já foi recebido. A chave exata vale para todos. 13º é um por
- * ano, seja qual for o mês da baixa; férias seguem `vacationsWithReceipt`. Previsão nunca some sem
- * baixa real.
+ * ano, seja qual for o mês da baixa; férias seguem `matchVacations`. Previsão nunca some sem baixa
+ * real.
  */
 export function openIncomeEntries(
   entries: ScheduledEntry[],

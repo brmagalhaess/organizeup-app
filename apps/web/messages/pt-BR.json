@@ -3316,7 +3316,9 @@
       "singleReceived": "Já recebi",
       "singleRegistered": "O 13º já está em Lançamentos.",
       "integralAdvance": "Já descontamos {value} da 1ª parcela recebida.",
-      "secondCovered": "A 1ª parcela já cobre todo o 13º líquido, de {value}: não há mais nada a receber."
+      "secondCovered": "A 1ª parcela já cobre todo o 13º líquido, de {value}: não há mais nada a receber.",
+      "quitNote": "O 13º deste ano já está quitado: nada volta para a previsão.",
+      "orphanReceipt": "As férias de {month} já têm lançamento. Sem esse período, o lançamento continua em Lançamentos e fica sem período aqui."
     },
     "planErrors": {
       "too_many_periods": "Divida em até 3 períodos.",
