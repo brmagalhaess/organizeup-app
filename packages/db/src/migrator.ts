@@ -135,6 +135,9 @@ async function applyGrants(sql: postgres.Sql) {
     REVOKE INSERT, UPDATE, DELETE ON public.household_subscriptions FROM ${app};
     REVOKE DELETE ON public.household_subscriptions FROM ${worker};
     REVOKE DELETE ON public.household_usage FROM ${app}, ${worker};
+    -- VIP (ADR-0025): a família e o worker só leem. Só o painel grava, e nem ele apaga: remover é marcar.
+    REVOKE INSERT, UPDATE, DELETE ON public.vip_grants FROM ${app}, ${worker};
+    REVOKE DELETE ON public.vip_grants FROM ${admin};
 
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.
     GRANT SELECT ON ALL TABLES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
