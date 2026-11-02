@@ -18,7 +18,7 @@ import {
 import { money, parseMoney, toDbAmount } from "@organizeup/domain";
 import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
 
 export interface FormState {
   ok: boolean;
@@ -71,7 +71,7 @@ const TRIP_ERRORS = new Map<string, "who" | "familyPeople">([
 
 /** Cria uma viagem ou edita a do `id`. A data vai junto para o calendário. */
 export async function saveTrip(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("metas");
   if (!canWrite(ctx)) return blocked();
   const t = await getTranslations("viagens.errors");
   const parsed = tripSchema(t).safeParse({
@@ -130,7 +130,7 @@ export async function saveTrip(_prev: FormState, form: FormData): Promise<FormSt
 }
 
 export async function deleteTrip(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("metas");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
@@ -156,7 +156,7 @@ const costSchema = (t: ErrorTexts, locale: Locale) =>
   });
 
 export async function addCost(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("metas");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await Promise.all([getTranslations("viagens.errors"), getLocale()]);
   const parsed = costSchema(t, locale).safeParse({
@@ -185,7 +185,7 @@ export async function addCost(_prev: FormState, form: FormData): Promise<FormSta
 }
 
 export async function deleteCost(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("metas");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
@@ -200,7 +200,7 @@ export async function deleteCost(form: FormData): Promise<void> {
 
 /** Registra o que já foi separado. Não mexe em contas. */
 export async function addSaved(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("metas");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await Promise.all([getTranslations("viagens.errors"), getLocale()]);
   const id = String(form.get("id") ?? "");

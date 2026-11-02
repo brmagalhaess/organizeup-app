@@ -120,5 +120,18 @@
   "relatorios.notas.anualNaoFiscal": "Só organiza o que a empresa lançou. Não substitui a declaração de imposto de renda nem é orientação fiscal: confira nos seus documentos oficiais.",
   "investimentos.importar.errors.onlyBrazil": "A importação da B3 vale para contas com moeda principal em reais.",
   "investimentos.importar.onlyBrazil": "A importação da B3 vale para contas com moeda principal em reais.",
-  "investimentos.importar.noPermission": "Seu papel nesta empresa não permite importar."
+  "investimentos.importar.noPermission": "Seu papel nesta empresa não permite importar.",
+  "assistente.states.somente_leitura.title": "Sua empresa está só consultando",
+  "assinatura.description": "Monte o plano da sua empresa. O valor muda enquanto você escolhe.",
+  "assinatura.ownerOnly": "Só o responsável pela empresa pode assinar ou trocar o plano.",
+  "assinatura.priceNote": "Preços em reais. A assinatura é da empresa: todos os sócios usam, sem custo por pessoa.",
+  "assinatura.family.title": "Empresa completa",
+  "assinatura.family.choice": "Empresa completa",
+  "assinatura.currencies.text": "Libera criar conta nesta moeda. A moeda principal da empresa não custa nada.",
+  "assinatura.summary.familyBadge": "Empresa completa",
+  "assinatura.summary.familySaves": "Com a Empresa completa você pagaria {amount} a menos e teria tudo isso e mais.",
+  "assinatura.summary.backToFamily": "Voltar para a Empresa completa",
+  "assinatura.status.cortesia": "Sua empresa tem cortesia: tudo liberado, sem cobrança.",
+  "assinatura.failure.sem_familia": "Escolha uma empresa antes.",
+  "assinatura.failure.so_responsavel": "Só o responsável pela empresa pode fazer isso."
 }

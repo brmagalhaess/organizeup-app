@@ -1,3 +1,4 @@
+import { moduleInvite } from "@/lib/billing/module-invite";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
@@ -18,6 +19,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function DebtsPage() {
+  const invite = await moduleInvite("dividas");
+  if (invite) return invite;
   const { ctx } = await requireTenant();
   const [data, plan, files] = await Promise.all([
     loadDebts(ctx),

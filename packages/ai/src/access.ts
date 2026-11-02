@@ -7,6 +7,8 @@ import {
   and,
   eq,
   householdSettings,
+  readFamilyAccess,
+  readMonthUsage,
   readPlatformFlags,
   sql,
   tolerateSchemaLag,
@@ -16,7 +18,7 @@ import {
   type PlatformFlags,
   type TenantContext,
 } from "@organizeup/db";
-import { todayIn, yearMonthOf } from "@organizeup/domain";
+import { canUse, todayIn, yearMonthOf, type BillingModule } from "@organizeup/domain";
 import { assistantConfigured } from "./client";
 import { isAssistantLocale, type AssistantLocale } from "./instructions";
 
@@ -77,7 +79,13 @@ export type AssistantState =
   | "teto_diario"
   /** Só `owner` e `adult` conversam e ativam. */
   | "sem_permissao"
-  | "precisa_ativar";
+  | "precisa_ativar"
+  /** Teste ou assinatura acabaram: a família só lê (ADR-0023). */
+  | "somente_leitura"
+  /** O plano da família não tem este recurso. */
+  | "sem_modulo"
+  /** As mensagens do mês acabaram. O resto segue normal. */
+  | "limite_mensagens";
 
 export interface AssistantSettings {
   consentAt: Date | null;
@@ -133,20 +141,34 @@ export interface AccessInput {
   limits?: AiLimits;
   day?: string;
   env?: Record<string, string | undefined>;
+  /** Quem libera o modelo aqui. Ler arquivo de dívida é do módulo de dívidas, não do assistente. */
+  module?: BillingModule;
+  /**
+   * Dentro da conversa a mensagem já foi gasta: conferir de novo pararia a pergunta que usou a última
+   * vaga. Dicas e categorias com IA não passam por aqui.
+   */
+  skipMessageLimit?: boolean;
 }
 
 /** Estado do assistente para esta pessoa. `pronto` é a única saída que libera o modelo. */
 export async function assistantState(input: AccessInput): Promise<AssistantState> {
   const { ctx, day = serviceDay(), limits = aiLimits(), env = process.env } = input;
+  const { module = "assistente", skipMessageLimit = false } = input;
   if (!assistantConfigured(env)) return "sem_chave";
   const flags = input.flags ?? (await readPlatformFlags());
   if (!flags.aiEnabled) return "desligado";
   if (flags.maintenance) return "manutencao";
+  const access = await readFamilyAccess(ctx, flags);
+  if (access.mode === "leitura") return "somente_leitura";
+  if (!canUse(access, module)) return "sem_modulo";
   if ((await monthSpend(day, limits)).reached) return "teto_mensal";
   if (!canUseAssistant(ctx)) return "sem_permissao";
   const settings = await readAssistantSettings(ctx);
   if (!settings) return "desligado";
   if (!settings.consentAt) return "precisa_ativar";
   const tokens = await tolerateSchemaLag(() => familyTokensToday(ctx, day), 0);
-  return tokens >= limits.familyDailyTokens ? "teto_diario" : "pronto";
+  if (tokens >= limits.familyDailyTokens) return "teto_diario";
+  if (module !== "assistente" || skipMessageLimit || access.messageLimit === null) return "pronto";
+  const usage = await readMonthUsage(ctx);
+  return usage && usage.messages >= access.messageLimit ? "limite_mensagens" : "pronto";
 }

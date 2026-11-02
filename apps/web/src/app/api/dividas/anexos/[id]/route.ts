@@ -2,7 +2,7 @@
 // Sempre como anexo e com tipo fixo, para o navegador nunca abrir nem interpretar o que foi enviado.
 import { loadDebtDocumentFile } from "@organizeup/agents";
 import { withHousehold } from "@organizeup/db";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,8 @@ function disposition(name: string): string {
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { ctx } = await requireTenant();
+  const { ctx, allowed } = await requireModule("dividas");
+  if (!allowed) return new Response(null, { status: 403 });
   const { id } = await params;
   const file = await withHousehold(ctx, (tx) => loadDebtDocumentFile(tx, id));
   if (!file) return new Response(null, { status: 404 });

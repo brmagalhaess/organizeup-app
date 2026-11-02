@@ -9,6 +9,12 @@ import {
   accountCurrency,
   and,
   canWrite,
+  countEntries,
+  currencyFrozen,
+  lockEntryQuota,
+  markEntries,
+  readFamilyAccess,
+  usageMonthOf,
   cashflowPlans,
   categories,
   categoryMemory,
@@ -31,6 +37,7 @@ import {
 import {
   addMonths,
   buildMonthEntries,
+  quotaLeft,
   CARD_CATEGORY,
   categorizeRow,
   crossQuoteOn,
@@ -144,10 +151,20 @@ async function rowConverter(
   return (row) => convert(row)!;
 }
 
+/** Quantas linhas ainda cabem no mês. Null: sem limite. */
+export type ImportRoom = number | null;
+
+/** O arquivo passou do que cabia entre a conferência e a gravação: desfaz a transação inteira. */
+class ImportOverLimit extends Error {
+  constructor(readonly room: number) {
+    super("limite_de_lancamentos");
+  }
+}
+
 /** Compara o extrato com o que já existe. Não grava nada. */
 export async function prepareImport(
   input: z.input<typeof prepareSchema>,
-): Promise<{ ok: true; rows: PreparedRow[] } | { ok: false; message: string }> {
+): Promise<{ ok: true; rows: PreparedRow[]; room: ImportRoom } | { ok: false; message: string }> {
   const { ctx } = await requireTenant();
   if (!canWrite(ctx)) return { ok: false, message: await readOnly() };
   const t = await getTranslations("importar.errors");
@@ -163,9 +180,16 @@ export async function prepareImport(
   const from = monthBounds(firstMonth).first;
   const to = monthBounds(lastMonth).last;
 
+  const { entryLimit } = await readFamilyAccess(ctx);
+  let room: ImportRoom = null;
   const prepared = await withHousehold(ctx, async (tx) => {
     const currency = await accountCurrency(tx, accountId);
     if (!currency) return null;
+    if (await currencyFrozen(tx, currency)) return t("currencyOff", { currency });
+    if (entryLimit !== null) {
+      const month = await usageMonthOf(tx, ctx.householdId);
+      room = quotaLeft(await countEntries(tx, month), entryLimit);
+    }
     const converted = await rowConverter(tx, currency, rows, texts);
     if (typeof converted === "string") return converted;
 
@@ -247,7 +271,7 @@ export async function prepareImport(
   if (prepared === "falhou") return { ok: false, message: t("serverFailed") };
   if (!prepared) return { ok: false, message: t("invalidAccount") };
   if (typeof prepared === "string") return { ok: false, message: prepared };
-  return { ok: true, rows: prepared };
+  return { ok: true, rows: prepared, room };
 }
 
 /** Grava as linhas escolhidas. Reenviar o mesmo arquivo não duplica. */
@@ -264,10 +288,16 @@ export async function commitImport(
   if (!parsed.success) return { ok: false, message: t("reviewRows") };
   const { accountId, source } = parsed.data;
   const dates = parsed.data.rows.map((row) => row.date).sort();
+  const { entryLimit, mode } = await readFamilyAccess(ctx);
 
   const result = await withHousehold(ctx, async (tx) => {
     const currency = await accountCurrency(tx, accountId);
     if (!currency) return t("invalidAccount");
+    if (await currencyFrozen(tx, currency)) return t("currencyOff", { currency });
+    // Chave desligada não marca nada: a coluna pode ainda nem existir.
+    const usageMonth = mode === "livre" ? null : await usageMonthOf(tx, ctx.householdId);
+    // Segura as outras gravações da família até o fim: duas importações no limite não passam juntas.
+    if (entryLimit !== null) await lockEntryQuota(tx, ctx.householdId);
     const converted = await rowConverter(tx, currency, parsed.data.rows, texts);
     if (typeof converted === "string") return converted;
     const categoryRows = await tx
@@ -364,6 +394,18 @@ export async function commitImport(
             )
             .onConflictDoNothing()
             .returning({ id: transactions.id });
+    // Conta depois de gravar, porque linha repetida não entra. Passou: nada fica, nem pela metade.
+    await markEntries(
+      tx,
+      usageMonth,
+      inserted.map((row) => row.id),
+    );
+    if (entryLimit !== null && usageMonth) {
+      const used = await countEntries(tx, usageMonth);
+      if (used > entryLimit) {
+        throw new ImportOverLimit(quotaLeft(used - inserted.length, entryLimit));
+      }
+    }
 
     const total = settled + inserted.length;
     if (total === 0) {
@@ -448,6 +490,9 @@ export async function commitImport(
         categoriesCreated: created.length,
       },
     };
+  }).catch((error: unknown) => {
+    if (error instanceof ImportOverLimit) return t("quota", { count: error.room });
+    throw error;
   });
   if (typeof result === "string") return { ok: false, message: result };
   // As contagens são para a equipe de agentes: falhar aqui não pode estragar a importação.

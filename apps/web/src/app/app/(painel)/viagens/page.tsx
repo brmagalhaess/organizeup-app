@@ -1,3 +1,4 @@
+import { moduleInvite } from "@/lib/billing/module-invite";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
@@ -13,6 +14,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function TripsPage() {
+  const invite = await moduleInvite("metas");
+  if (invite) return invite;
   const { ctx } = await requireTenant();
   const [data, suggestions] = await Promise.all([loadTrips(ctx), loadTripSuggestions(ctx)]);
   return (

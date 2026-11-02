@@ -3,6 +3,8 @@ import {
   accounts,
   activeNotices,
   asc,
+  readFamilyAccess,
+  readMonthUsage,
   canWrite,
   categories,
   creditCards,
@@ -13,14 +15,14 @@ import {
   withHousehold,
   type TenantContext,
 } from "@organizeup/db";
-import { todayIn } from "@organizeup/domain";
+import { todayIn, usageLevel } from "@organizeup/domain";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { AppShell, type ShellBanner, type ShellNotice } from "@/components/shell/app-shell";
 import { shouldAskDocument } from "@/lib/identity";
 import { onboardingStatus } from "@/lib/onboarding";
 import { countUnread } from "@/lib/notifications";
-import { platformFlags, requireTenant } from "@/lib/session";
+import { isServiceAdmin, platformFlags, requireTenant } from "@/lib/session";
 import { countPending, noticeCookie, tolerateSchemaLag } from "@/lib/suggestions";
 
 const ONBOARDING_KEY = "onboarding";
@@ -76,6 +78,50 @@ async function platformBanners(): Promise<ShellBanner[]> {
   return banners;
 }
 
+const TRIAL_NOTICE_DAYS = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Avisos do plano. Nada aqui bloqueia: é só o que a família precisa saber, com o caminho para resolver. */
+async function billingBanners(ctx: TenantContext): Promise<ShellBanner[]> {
+  const flags = await platformFlags();
+  if (!flags.billingEnabled) return [];
+  const t = await getTranslations("shell.billing");
+  const access = await readFamilyAccess(ctx, flags);
+  const link = { href: "/app/assinatura", linkLabel: t("link") };
+  const store = await cookies();
+  const banners: ShellBanner[] = [];
+  const dismissible = (key: string, text: string) => {
+    if (!store.has(noticeCookie(key))) {
+      banners.push({ key, text, dismissible: true, ...link });
+    }
+  };
+  if (access.mode === "leitura") {
+    banners.push({ key: "plano-leitura", text: t("readOnly"), dismissible: false, ...link });
+    return banners;
+  }
+  if (access.pastDue) {
+    banners.push({ key: "plano-atraso", text: t("pastDue"), dismissible: false, ...link });
+  }
+  if (access.trialEndsAt) {
+    const days = Math.ceil((access.trialEndsAt.getTime() - Date.now()) / DAY_MS);
+    if (days <= TRIAL_NOTICE_DAYS) dismissible("plano-teste", t("trial", { count: days }));
+  }
+  if (access.mode !== "assinatura") return banners;
+  const usage = await readMonthUsage(ctx);
+  if (!usage) return banners;
+  const entries = usageLevel(usage.entries, access.entryLimit);
+  if (entries !== "normal") {
+    const values = { used: usage.entries, limit: access.entryLimit ?? 0 };
+    dismissible(`plano-lanc-${entries}`, t(`entries.${entries}`, values));
+  }
+  const messages = usageLevel(usage.messages, access.messageLimit);
+  if (messages !== "normal" && access.messageLimit) {
+    const values = { used: usage.messages, limit: access.messageLimit };
+    dismissible(`plano-msg-${messages}`, t(`messages.${messages}`, values));
+  }
+  return banners;
+}
+
 /** O botão do assistente nunca pode derrubar o painel. Conferência de verdade: runChatTurn. */
 async function assistantStatus(ctx: TenantContext): Promise<AssistantState> {
   try {
@@ -88,12 +134,14 @@ async function assistantStatus(ctx: TenantContext): Promise<AssistantState> {
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const { session, ctx } = await requireTenant();
   const writable = canWrite(ctx);
-  const [status, banners, assistant, unreadNotifications] = await Promise.all([
+  const [status, banners, plan, assistant, unreadNotifications] = await Promise.all([
     shellStatus(ctx, writable),
     platformBanners(),
+    billingBanners(ctx).catch(() => []),
     assistantStatus(ctx),
     countUnread(ctx),
   ]);
+  const flags = await platformFlags();
   const t = await getTranslations("shell");
   const data = await withHousehold(ctx, async (tx) => {
     if (writable) await ensureFinanceDefaults(tx, ctx.householdId);
@@ -147,7 +195,8 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       categories={data.categories}
       cards={data.cards}
       notice={status.notice}
-      banners={banners}
+      banners={[...banners, ...plan]}
+      billing={flags.billingEnabled || isServiceAdmin(session.user)}
       pendingSuggestions={status.pendingSuggestions}
       unreadNotifications={unreadNotifications}
       assistant={assistant}

@@ -15,11 +15,12 @@ import {
   markHouseholdAsCompany,
   people,
   PERSON_RELATIONS,
+  readFamilyAccess,
   retirementPlan,
   withHousehold,
   type TenantContext,
 } from "@organizeup/db";
-import { isYearMonth, parseIdentity } from "@organizeup/domain";
+import { canUse, isYearMonth, parseIdentity } from "@organizeup/domain";
 import { knownText } from "@/i18n/known-text";
 import { audit } from "@/lib/audit";
 import { storeOwnDocument } from "@/lib/identity";
@@ -191,16 +192,20 @@ export async function saveRetirementStep(
     return { ok: false, message: null, fieldErrors: errors };
 
   const { retirementYear, targetIncome, expectedYield } = plan.data;
+  // O cadastro não para quem não tem o módulo: só o plano de aposentadoria fica de fora.
+  const withPlan = canUse(await readFamilyAccess(ctx), "aposentadoria");
   await withHousehold(ctx, async (tx) => {
     await patchSettings(tx, ctx, { retirementYear });
-    await tx
-      .insert(retirementPlan)
-      .values({ householdId: ctx.householdId, targetIncome, expectedYield })
-      .onConflictDoUpdate({
-        target: retirementPlan.householdId,
-        set: { targetIncome, expectedYield, updatedAt: new Date() },
-      });
-    await audit(tx, ctx, "update", "retirement_plan", ctx.householdId);
+    if (withPlan) {
+      await tx
+        .insert(retirementPlan)
+        .values({ householdId: ctx.householdId, targetIncome, expectedYield })
+        .onConflictDoUpdate({
+          target: retirementPlan.householdId,
+          set: { targetIncome, expectedYield, updatedAt: new Date() },
+        });
+      await audit(tx, ctx, "update", "retirement_plan", ctx.householdId);
+    }
     for (const { id, data } of adults) {
       const updated = await tx
         .update(people)
@@ -268,7 +273,10 @@ export async function finishOnboarding(
   if (!canWrite(ctx)) return blocked();
   const fieldErrors = await errorTexts();
   const [t, locale] = await Promise.all([getTranslations("familiaOnboarding"), getLocale()]);
-  const hasGoal = text(form, "goalName").trim() !== "" || text(form, "goalAmount").trim() !== "";
+  // Sem o módulo, o cadastro termina igual, sem criar a meta.
+  const hasGoal =
+    (text(form, "goalName").trim() !== "" || text(form, "goalAmount").trim() !== "") &&
+    canUse(await readFamilyAccess(ctx), "metas");
   const goal = hasGoal
     ? goalSchema(locale).safeParse({
         goalName: text(form, "goalName"),

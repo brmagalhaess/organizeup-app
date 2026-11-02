@@ -120,5 +120,18 @@
   "relatorios.notas.anualNaoFiscal": "This only organizes what your company recorded. It does not replace your income tax return and is not tax advice: check your official documents.",
   "investimentos.importar.errors.onlyBrazil": "B3 import is for accounts whose main currency is the Brazilian real.",
   "investimentos.importar.onlyBrazil": "B3 import is for accounts whose main currency is the Brazilian real.",
-  "investimentos.importar.noPermission": "Your role in this company does not allow importing."
+  "investimentos.importar.noPermission": "Your role in this company does not allow importing.",
+  "assistente.states.somente_leitura.title": "Your company is in view-only mode",
+  "assinatura.description": "Build your company's plan. The price changes as you choose.",
+  "assinatura.ownerOnly": "Only the company's owner can subscribe or change the plan.",
+  "assinatura.priceNote": "Prices in Brazilian reais. The subscription is for the company: all partners use it, with no per-person fee.",
+  "assinatura.family.title": "Complete company",
+  "assinatura.family.choice": "Complete company",
+  "assinatura.currencies.text": "Lets you create accounts in this currency. Your company's main currency is free.",
+  "assinatura.summary.familyBadge": "Complete company",
+  "assinatura.summary.familySaves": "With Complete company you'd pay {amount} less and get all of this and more.",
+  "assinatura.summary.backToFamily": "Back to Complete company",
+  "assinatura.status.cortesia": "Your company has a courtesy plan: everything available, at no charge.",
+  "assinatura.failure.sem_familia": "Choose a company first.",
+  "assinatura.failure.so_responsavel": "Only the company's owner can do this."
 }

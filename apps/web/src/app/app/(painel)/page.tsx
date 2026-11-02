@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { getBrazilRules, getMoney } from "@/i18n/money-server";
 import Link from "next/link";
-import { canWrite } from "@organizeup/db";
+import { canWrite, readFamilyAccess } from "@organizeup/db";
 import {
   comparableTotals,
   foldCategories,
@@ -14,6 +14,7 @@ import {
   percentChange,
   toDbAmount,
   yearMonthOf,
+  canView,
 } from "@organizeup/domain";
 import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { amountClass, buttonClass, confirmAction, cx } from "@/components/styles";
@@ -159,12 +160,13 @@ export default async function OverviewPage({
   const { mes } = await searchParams;
   const data = await loadOverview(ctx, mes);
   const { month, current, phase, previous } = data.period;
-  const [reserve, wealth, suggestions, investing, brazilRules] = await Promise.all([
+  const [reserve, wealth, suggestions, investing, brazilRules, access] = await Promise.all([
     loadReserve(ctx),
     loadNetWorth(ctx, { record: false }),
     loadTopSuggestions(ctx),
     loadMonthInvestments(ctx, month),
     getBrazilRules(),
+    readFamilyAccess(ctx),
   ]);
   const [t, tSystem, locale, moneyText] = await Promise.all([
     getTranslations("dashboard"),
@@ -225,8 +227,10 @@ export default async function OverviewPage({
 
   const anything = hasAnything(summary);
   const moved = hasMovement(summary);
-  const showInvesting = investing.hasInvestments;
-  const showDividends = brazilRules && investing.hasDividends;
+  // Sem o módulo, o painel mostra o convite no lugar dos números: os dados ficam guardados.
+  const investingOpen = canView(access, "investimentos");
+  const showInvesting = investingOpen && investing.hasInvestments;
+  const showDividends = investingOpen && brazilRules && investing.hasDividends;
   const cardTotal = toDbAmount(
     data.cards.reduce((acc, card) => acc.plus(card.statement), money(0)),
   );

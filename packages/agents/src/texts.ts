@@ -28,6 +28,26 @@ export interface AgentText {
   message: Message;
 }
 
+/** Avisos da assinatura. `date`: dia da renovação, no fuso da família. */
+export function billingNoticeText(
+  kind: "assinatura_falhou" | "assinatura_renovacao",
+  date?: string,
+): AgentText {
+  if (kind === "assinatura_falhou") {
+    return {
+      title: "Não conseguimos cobrar sua assinatura",
+      body: "Confira o cartão em Plano e assinatura. O acesso continua enquanto tentamos de novo.",
+      message: message("assinaturaFalhou"),
+    };
+  }
+  const day = date ?? "";
+  return {
+    title: "Sua assinatura anual renova em breve",
+    body: `A renovação será em ${day.split("-").reverse().join("/")}. Para mudar ou cancelar, abra Plano e assinatura.`,
+    message: message("assinaturaRenovacao", { date: { date: day } }),
+  };
+}
+
 export interface ReportText {
   title: string;
   summary: string;

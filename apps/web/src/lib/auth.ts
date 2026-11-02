@@ -25,6 +25,7 @@ import {
 import { authDb, betterAuthSchema } from "@organizeup/db/auth-db";
 import { parseIdentity, parseInviteeIdentity } from "@organizeup/domain";
 import { isLocale, LOCALE_COOKIE, negotiateLocale, type Locale } from "@/i18n/locales";
+import { cancelBeforeDelete } from "./billing/close-family";
 import { clientIp, withClientIp } from "./client-ip";
 import { noteRefusal, refusalsBlocked } from "./document-refusals";
 import { sendEmailInBackground } from "./email";
@@ -47,7 +48,7 @@ import { ac, roles } from "./permissions";
  * Antes de apagar a conta: famílias só da pessoa somem junto, em cascata.
  * Família com mais gente bloqueia, para ninguém perder o acesso sem aviso.
  */
-async function closeOwnHouseholds(userId: string) {
+export async function closeOwnHouseholds(userId: string) {
   const db = authDb();
   const owned = await db
     .select({ id: householdMember.organizationId })
@@ -61,7 +62,19 @@ async function closeOwnHouseholds(userId: string) {
     .where(and(inArray(householdMember.organizationId, ids), ne(householdMember.userId, userId)))
     .limit(1);
   if (others.length > 0) throw new APIError("BAD_REQUEST", { message: "FAMILY_HAS_MEMBERS" });
+  await stopBilling(ids);
   await db.delete(household).where(inArray(household.id, ids));
+}
+
+/** Nada é apagado com a cobrança de pé: sem cancelar na Stripe, a exclusão é recusada (ADR-0023). */
+async function stopBilling(householdIds: string[]) {
+  try {
+    await cancelBeforeDelete(householdIds);
+  } catch (error) {
+    const { name, code } = error as { name?: string; code?: string };
+    console.error(JSON.stringify({ level: "error", msg: "billing_cancel_failed", name, code }));
+    throw new APIError("BAD_REQUEST", { message: "BILLING_CANCEL_FAILED" });
+  }
 }
 
 /** Com o cadastro fechado, só entra quem tem convite ainda válido para o e-mail informado. */
@@ -287,6 +300,9 @@ function createAuth() {
         creatorRole: "owner",
         allowUserToCreateOrganization: true,
         organizationLimit: 5,
+        organizationHooks: {
+          beforeDeleteOrganization: ({ organization }) => stopBilling([organization.id]),
+        },
         membershipLimit: 12,
         // Continua desligado mesmo com e-mail: quem chega pelo convite aceita logo depois de criar a
         // conta, ainda sem confirmar, e as contas antigas nunca receberam confirmação. O id

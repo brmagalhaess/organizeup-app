@@ -1,3 +1,4 @@
+import { moduleInvite } from "@/lib/billing/module-invite";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
@@ -15,6 +16,8 @@ export default async function InvestmentTradesPage({
 }: {
   searchParams: Promise<{ ativo?: string }>;
 }) {
+  const invite = await moduleInvite("investimentos");
+  if (invite) return invite;
   const { ctx } = await requireTenant();
   const { ativo } = await searchParams;
   const data = await loadPortfolio(ctx);

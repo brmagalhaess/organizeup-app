@@ -18,7 +18,7 @@ import { LocaleSelect } from "@/components/locale-select";
 import { Card, PageHeader } from "@/components/ui";
 import { formatInstant } from "@/i18n/format";
 import { identityView } from "@/lib/identity";
-import { requireTenant } from "@/lib/session";
+import { requireOwnData, requireTenant } from "@/lib/session";
 import { DeleteAccount } from "./delete-account";
 import { IdentityCard } from "./identity-card";
 import { MemoriesBlock } from "./memories";
@@ -37,7 +37,8 @@ function LoadingMemories() {
 }
 
 export default async function SettingsPage() {
-  const { session, ctx } = await requireTenant();
+  const { session, ctx, role: memberRole } = await requireTenant();
+  const { ctx: ownCtx } = await requireOwnData();
   const { settings, locked } = await withHousehold(ctx, async (tx) => {
     const [row] = await tx
       .select()
@@ -51,9 +52,9 @@ export default async function SettingsPage() {
     getLocale(),
     identityView(session.user.id),
   ]);
-  const role = ["owner", "adult", "child", "viewer"].includes(ctx.role)
-    ? t(`roles.${ctx.role as "owner"}`)
-    : ctx.role;
+  const role = ["owner", "adult", "child", "viewer"].includes(memberRole)
+    ? t(`roles.${memberRole as "owner"}`)
+    : memberRole;
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("title")} description={t("description")} />
@@ -93,7 +94,7 @@ export default async function SettingsPage() {
             active={Boolean(settings?.aiConsentAt)}
             acceptedOn={settings?.aiConsentAt ? formatInstant(settings.aiConsentAt, locale) : null}
             autonomy={settings?.aiAutonomy ?? "organizar"}
-            canManage={canUseAssistant(ctx)}
+            canManage={canUseAssistant(ownCtx)}
             needsInsightsConsent={
               !legalVersionAtLeast(settings?.aiConsentVersion, INSIGHTS_CONSENT_VERSION)
             }
@@ -101,7 +102,7 @@ export default async function SettingsPage() {
         </Card>
         <Card title={t("memories.title")} description={t("memories.description")}>
           <Suspense fallback={<LoadingMemories />}>
-            <MemoriesBlock ctx={ctx} />
+            <MemoriesBlock ctx={ownCtx} />
           </Suspense>
         </Card>
         <Card title={t("account.title")}>
@@ -127,7 +128,7 @@ export default async function SettingsPage() {
         <IdentityCard view={identity} />
         <Card title={t("data.title")} description={t("data.description")}>
           <div className="flex flex-wrap gap-2">
-            {ctx.role === "owner" ? (
+            {memberRole === "owner" ? (
               <a href="/app/exportar" download className={buttonClass("secondary", true)}>
                 {t("data.download")}
               </a>

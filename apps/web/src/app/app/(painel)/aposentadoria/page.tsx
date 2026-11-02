@@ -1,3 +1,4 @@
+import { moduleInvite } from "@/lib/billing/module-invite";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
@@ -14,6 +15,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RetirementPage() {
+  const invite = await moduleInvite("aposentadoria");
+  if (invite) return invite;
   const { ctx } = await requireTenant();
   const [data, dividendPlan, t] = await Promise.all([
     loadRetirement(ctx),

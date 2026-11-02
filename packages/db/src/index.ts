@@ -36,6 +36,7 @@ export {
   type PlatformNotice,
 } from "./access";
 export * from "./admin";
+export * from "./billing";
 export {
   dismissIdentityPrompt,
   identityKeyMismatch,

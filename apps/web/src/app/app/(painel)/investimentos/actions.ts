@@ -33,7 +33,7 @@ import {
 } from "@organizeup/domain";
 import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
 import { MissingQuote, recordTradeCash } from "@/lib/trade-cash";
 
 export interface FormState {
@@ -89,7 +89,7 @@ function refresh() {
 
 /** Cria um investimento ou edita o do `id`. */
 export async function saveInvestment(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return blocked();
   const t = await getTranslations("investimentos.errors");
   const parsed = investmentSchema(t).safeParse({
@@ -143,7 +143,7 @@ const assetSchema = (t: Errors) =>
  * nome, tipo e preço de hoje vêm de lá. Código que a família já tem vira uma compra a mais.
  */
 export async function addAsset(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await texts();
   const parsed = assetSchema(t).safeParse({
@@ -245,7 +245,7 @@ export async function addAsset(_prev: FormState, form: FormData): Promise<FormSt
 }
 
 export async function deleteInvestment(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
@@ -275,7 +275,7 @@ const tradeSchema = (t: Errors, locale: Locale) =>
 
 /** Com preço unitário vem quantidade e preço; nas demais classes, só o valor. */
 export async function addTrade(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await texts();
   const parsed = tradeSchema(t, locale).safeParse({
@@ -364,7 +364,7 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
 }
 
 export async function deleteTrade(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
@@ -384,7 +384,7 @@ export async function deleteTrade(form: FormData): Promise<void> {
 
 /** Atualiza o preço ou, sem preço unitário, o valor total de hoje. */
 export async function updateValue(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await texts();
   const id = String(form.get("id") ?? "");
@@ -418,7 +418,7 @@ export async function updateValue(_prev: FormState, form: FormData): Promise<For
 
 /** Grava a meta de cada classe. Campo vazio tira a classe das metas. */
 export async function saveTargets(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await texts();
   const targets: Array<{ assetClass: (typeof INVESTMENT_CLASSES)[number]; percent: string }> = [];

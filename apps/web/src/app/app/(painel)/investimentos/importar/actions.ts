@@ -40,7 +40,7 @@ import {
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
 import { reportActionFailure } from "@/lib/diagnostics";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
 import { MissingQuote, recordTradeCash } from "@/lib/trade-cash";
 
 // O arquivo fica no navegador (ADR-0006, ADR-0024). Aqui só chegam as linhas já lidas, e nada confia nelas:
@@ -157,7 +157,7 @@ const needsAsset = (row: PlannedTrade) => row.state === "novo" || row.state === 
 
 /** Confere a linha com a carteira de agora. Só lê, e o resultado é a prévia. */
 export async function prepareInvestmentImport(input: ImportFileInput): Promise<PrepareResult> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return { ok: false, message: await blocked() };
   const t = await texts();
   const parsed = fileSchema.safeParse(input);
@@ -272,7 +272,7 @@ async function createAssets(
 
 /** Tudo numa transação: se uma linha falhar, nem ativo novo fica para trás. */
 export async function commitInvestmentImport(input: ImportCommitInput): Promise<CommitResult> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return { ok: false, message: await blocked() };
   const [t, locale] = await Promise.all([texts(), getLocale()]);
   const parsed = commitSchema.safeParse(input);

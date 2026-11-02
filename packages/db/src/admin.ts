@@ -25,6 +25,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
+import { PAID_MODULES } from "@organizeup/domain";
 import { adminPool, adminReadPool, type Db } from "./client";
 import { FLAG_KEYS, tolerateSchemaLag } from "./access";
 import { recordAdminAccess } from "./ops";
@@ -33,6 +34,7 @@ import {
   adminAccess,
   aiUsage,
   auditLog,
+  billingEvents,
   featureFlags,
   household,
   householdAccess,
@@ -41,6 +43,7 @@ import {
   householdMember,
   householdMemories,
   householdSettings,
+  householdSubscriptions,
   session,
   user,
   userAccess,
@@ -385,7 +388,7 @@ export async function adminHouseholdOwner(
   });
 }
 
-const isMemberOf = async (tx: AdminTx, userId: string, householdId: string) => {
+const isMemberOf = async (tx: Pick<Db, "select">, userId: string, householdId: string) => {
   const [row] = await tx
     .select({ id: householdMember.id })
     .from(householdMember)
@@ -395,6 +398,34 @@ const isMemberOf = async (tx: AdminTx, userId: string, householdId: string) => {
 };
 
 export type HouseholdActionResult = "ok" | "not_found" | "own_family";
+
+type Reader = Pick<Db, "select">;
+
+async function householdDeleteCheck(
+  db: Reader,
+  admin: AdminActor,
+  householdId: string,
+  typedName: string,
+): Promise<HouseholdActionResult | "name_mismatch"> {
+  const [row] = await db
+    .select({ name: household.name })
+    .from(household)
+    .where(eq(household.id, householdId));
+  if (!row) return "not_found";
+  if (row.name !== typedName.trim()) return "name_mismatch";
+  return (await isMemberOf(db, admin.adminUserId, householdId)) ? "own_family" : "ok";
+}
+
+/** Confere sem apagar: a web precisa cancelar a cobrança antes, e fora de transação (ADR-0023). */
+export function adminCheckDeleteHousehold(
+  admin: AdminActor,
+  householdId: string,
+  typedName: string,
+): Promise<HouseholdActionResult | "name_mismatch"> {
+  return withAdminRead("painel admin: conferir exclusão de família", (db) =>
+    householdDeleteCheck(db, admin, householdId, typedName),
+  );
+}
 
 /**
  * Suspende ou reativa uma família. Suspender encerra as sessões dos membros, para o bloqueio valer
@@ -442,13 +473,8 @@ export async function adminDeleteHousehold(
 ): Promise<HouseholdActionResult | "name_mismatch"> {
   const entry = { action: "familia:excluir", targetHouseholdId: householdId };
   return adminAct(admin, entry, async (tx) => {
-    const [row] = await tx
-      .select({ name: household.name })
-      .from(household)
-      .where(eq(household.id, householdId));
-    if (!row) return "not_found";
-    if (row.name !== typedName.trim()) return "name_mismatch";
-    if (await isMemberOf(tx, admin.adminUserId, householdId)) return "own_family";
+    const check = await householdDeleteCheck(tx, admin, householdId, typedName);
+    if (check !== "ok") return check;
     await tx.delete(household).where(eq(household.id, householdId));
     return "ok";
   });
@@ -696,6 +722,37 @@ export async function adminPasswordResetTarget(
   });
 }
 
+async function userDeleteCheck(
+  db: Reader,
+  admin: AdminActor,
+  userId: string,
+): Promise<{ result: UserActionResult | "family_has_members"; households: string[] }> {
+  if (userId === admin.adminUserId) return { result: "self", households: [] };
+  const [row] = await db.select({ id: user.id }).from(user).where(eq(user.id, userId));
+  if (!row) return { result: "not_found", households: [] };
+  const owned = await db
+    .select({ id: householdMember.organizationId })
+    .from(householdMember)
+    .where(and(eq(householdMember.userId, userId), eq(householdMember.role, "owner")));
+  const households = owned.map((family) => family.id);
+  if (households.length === 0) return { result: "ok", households };
+  const [other] = await db
+    .select({ id: householdMember.id })
+    .from(householdMember)
+    .where(
+      and(inArray(householdMember.organizationId, households), ne(householdMember.userId, userId)),
+    )
+    .limit(1);
+  return { result: other ? "family_has_members" : "ok", households };
+}
+
+/** Confere sem apagar, e diz quais famílias iriam junto: a web cancela a cobrança delas antes. */
+export function adminCheckDeleteUser(admin: AdminActor, userId: string) {
+  return withAdminRead("painel admin: conferir exclusão de conta", (db) =>
+    userDeleteCheck(db, admin, userId),
+  );
+}
+
 /**
  * Exclui a conta com a mesma regra de "apagar minha conta": famílias só da pessoa somem junto; família
  * com mais gente impede, para ninguém perder o acesso sem aviso.
@@ -706,25 +763,9 @@ export async function adminDeleteUser(
 ): Promise<UserActionResult | "family_has_members"> {
   const entry = { action: "usuario:excluir", targetUserId: userId };
   return adminAct(admin, entry, async (tx) => {
-    if (userId === admin.adminUserId) return "self";
-    const [row] = await tx.select({ id: user.id }).from(user).where(eq(user.id, userId));
-    if (!row) return "not_found";
-    const owned = await tx
-      .select({ id: householdMember.organizationId })
-      .from(householdMember)
-      .where(and(eq(householdMember.userId, userId), eq(householdMember.role, "owner")));
-    const ids = owned.map((family) => family.id);
-    if (ids.length > 0) {
-      const [other] = await tx
-        .select({ id: householdMember.id })
-        .from(householdMember)
-        .where(
-          and(inArray(householdMember.organizationId, ids), ne(householdMember.userId, userId)),
-        )
-        .limit(1);
-      if (other) return "family_has_members";
-      await tx.delete(household).where(inArray(household.id, ids));
-    }
+    const { result, households } = await userDeleteCheck(tx, admin, userId);
+    if (result !== "ok") return result;
+    if (households.length > 0) await tx.delete(household).where(inArray(household.id, households));
     await tx.delete(user).where(eq(user.id, userId));
     return "ok";
   });
@@ -819,6 +860,102 @@ export async function adminAccessList(input: {
       .orderBy(desc(adminAccess.at), desc(adminAccess.id))
       .limit(limit)
       .offset(offset),
+  );
+}
+
+// ---------- Assinaturas ----------
+
+export interface AdminBillingSummary {
+  courtesy: number;
+  trial: number;
+  /** Teste ou assinatura acabaram: a família só lê. */
+  readOnly: number;
+  active: number;
+  pastDue: number;
+  /** Ativas que não renovam. */
+  cancelling: number;
+  monthly: number;
+  annual: number;
+  familyPlan: number;
+  /** Assinantes ativos por módulo, contando a Família completa. */
+  modules: Record<string, number>;
+  events: { pending: number; failed: number; duplicates: number; lastAt: Date | null };
+}
+
+const NO_BILLING: AdminBillingSummary = {
+  courtesy: 0,
+  trial: 0,
+  readOnly: 0,
+  active: 0,
+  pastDue: 0,
+  cancelling: 0,
+  monthly: 0,
+  annual: 0,
+  familyPlan: 0,
+  modules: {},
+  events: { pending: 0, failed: 0, duplicates: 0, lastAt: null },
+};
+
+/**
+ * Resumo para a Fase 4 do painel. Só contagens: nada identifica uma família, e nenhuma coluna de id da
+ * Stripe é devolvida. Os estados seguem `resolveAccess`.
+ */
+export function adminBillingSummary(now: Date = new Date()): Promise<AdminBillingSummary> {
+  return tolerateSchemaLag(
+    () =>
+      withAdminRead("painel admin: resumo de assinaturas", async (db) => {
+        const subs = householdSubscriptions;
+        const at = sql`${now.toISOString()}::timestamptz`;
+        const paying = sql`coalesce(${subs.status} in ('active', 'trialing', 'past_due'), false)`;
+        const courtesy = sql`(${subs.courtesy} and coalesce(${subs.courtesyUntil} > ${at}, true))`;
+        const billed = sql`not ${courtesy} and ${paying}`;
+        const unpaid = sql`not ${courtesy} and not ${paying}`;
+        const hasFamily = sql`${subs.items} @> '[{"item":"familia"}]'`;
+        const [[totals], modules, [events]] = await Promise.all([
+          db
+            .select({
+              courtesy: sql<number>`count(*) filter (where ${courtesy})::int`,
+              trial: sql<number>`count(*) filter (where ${unpaid} and ${subs.trialEndsAt} > ${at})::int`,
+              readOnly: sql<number>`count(*) filter (where ${unpaid} and coalesce(${subs.trialEndsAt} <= ${at}, true))::int`,
+              active: sql<number>`count(*) filter (where ${billed})::int`,
+              pastDue: sql<number>`count(*) filter (where ${billed} and ${subs.status} = 'past_due')::int`,
+              cancelling: sql<number>`count(*) filter (where ${billed} and ${subs.cancelAtPeriodEnd})::int`,
+              monthly: sql<number>`count(*) filter (where ${billed} and ${subs.cycle} = 'mes')::int`,
+              annual: sql<number>`count(*) filter (where ${billed} and ${subs.cycle} = 'ano')::int`,
+              familyPlan: sql<number>`count(*) filter (where ${billed} and ${hasFamily})::int`,
+            })
+            .from(subs),
+          db.execute<{ module: string; n: number }>(sql`
+            select split_part(entry->>'item', ':', 2) as module, count(*)::int as n
+            from ${subs} cross join lateral jsonb_array_elements(${subs.items}) as entry
+            where ${billed} and entry->>'item' like 'modulo:%'
+            group by 1`),
+          db
+            .select({
+              pending: sql<number>`count(*) filter (where ${billingEvents.processedAt} is null)::int`,
+              failed: sql<number>`count(*) filter (where ${billingEvents.errorCode} is not null)::int`,
+              duplicates: sql<number>`count(*) filter (where ${billingEvents.errorCode} = 'assinatura_duplicada')::int`,
+              lastAt: sql<Date | null>`max(${billingEvents.stripeAt})`,
+            })
+            .from(billingEvents),
+        ]);
+        const counted = new Map(modules.map((row) => [row.module, row.n]));
+        const family = totals?.familyPlan ?? 0;
+        return {
+          ...NO_BILLING,
+          ...totals,
+          modules: Object.fromEntries(
+            PAID_MODULES.map((module) => [module, (counted.get(module) ?? 0) + family]),
+          ),
+          events: {
+            pending: events?.pending ?? 0,
+            failed: events?.failed ?? 0,
+            duplicates: events?.duplicates ?? 0,
+            lastAt: toDate(events?.lastAt),
+          },
+        };
+      }),
+    NO_BILLING,
   );
 }
 

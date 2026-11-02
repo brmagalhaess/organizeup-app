@@ -4,7 +4,7 @@ import { createModelClient, readDebtDocument } from "@organizeup/ai";
 import { canWrite } from "@organizeup/db";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { sameSite } from "@/lib/same-site";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ const allow = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!sameSite(request)) return new Response(null, { status: 403 });
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("dividas");
   if (!canWrite(ctx)) return new Response(null, { status: 403 });
   if (!allow(ctx.householdId)) return new Response(null, { status: 429 });
   const { id } = await params;

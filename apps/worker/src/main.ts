@@ -17,7 +17,7 @@ import {
   recordDeployment,
   recordWorkerHeartbeat,
 } from "@organizeup/db";
-import { MERCADO_AGENT } from "@organizeup/agents";
+import { MERCADO_AGENT, runBillingEvents, runBillingRenewals } from "@organizeup/agents";
 import { migrate, migrateOptionsFromEnv } from "@organizeup/db/migrator";
 import { todayIn } from "@organizeup/domain";
 import { dailyAgentsSentinel, runDailyAgents } from "./daily-agents";
@@ -108,6 +108,26 @@ async function main() {
   );
   await boss.schedule(JOB_QUEUES.platformStats, "15 3 * * *", null, { tz: "America/Sao_Paulo" });
   await boss.send(JOB_QUEUES.platformStats, null);
+
+  // Stripe (ADR-0023): a web guarda o evento e avisa a fila; o minuto a minuto pega o que o aviso perdeu.
+  // Fora do interruptor dos agentes: assinatura não pode parar junto com eles.
+  await boss.work(
+    JOB_QUEUES.billingEvents,
+    reportingFailures(JOB_QUEUES.billingEvents, async () => {
+      const result = await runBillingEvents(log);
+      if (result.applied + result.waiting + result.closed + result.duplicates > 0) {
+        log.info(result, "eventos da Stripe aplicados");
+      }
+    }),
+  );
+  await boss.schedule(JOB_QUEUES.billingEvents, "* * * * *", null, { tz: "America/Sao_Paulo" });
+  await boss.work(
+    JOB_QUEUES.billingRenewals,
+    reportingFailures(JOB_QUEUES.billingRenewals, async () => {
+      log.info({ sent: await runBillingRenewals(log) }, "avisos de renovação anual");
+    }),
+  );
+  await boss.schedule(JOB_QUEUES.billingRenewals, "0 9 * * *", null, { tz: "America/Sao_Paulo" });
 
   // Agentes diários do produto (ADR-0015): acordados pelo Paperclip, às 05:30 se faltou algum e no
   // boot, se ainda não rodaram hoje.

@@ -9,6 +9,9 @@ export const UNAVAILABLE_STATES = [
   "teto_mensal",
   "teto_diario",
   "sem_permissao",
+  "somente_leitura",
+  "sem_modulo",
+  "limite_mensagens",
 ] as const satisfies readonly AssistantState[];
 
 export type UnavailableState = (typeof UNAVAILABLE_STATES)[number];

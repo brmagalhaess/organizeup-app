@@ -33,7 +33,9 @@ import {
   householdInsights,
   householdMemories,
   householdNotifications,
+  householdSubscriptions,
   householdSuggestions,
+  householdUsage,
   importBatches,
   incomeReceipts,
   incomeSources,
@@ -50,6 +52,7 @@ import {
   tripPeople,
   trips,
 } from "./schema";
+import { isSchemaLag } from "./access";
 import type { TenantTx } from "./tenant";
 
 const HOUSEHOLD_TABLES = {
@@ -101,6 +104,12 @@ const HOUSEHOLD_TABLES = {
   audit_log: auditLog,
 };
 
+/** Tabelas da migração 0036. Sem elas ainda, exportar segue: cada uma lê no próprio savepoint. */
+const LATE_TABLES = {
+  household_subscriptions: householdSubscriptions,
+  household_usage: householdUsage,
+};
+
 /** Arquivo inteiro deixaria a exportação gigante: vão os metadados, e a tela baixa cada um. */
 export const DEBT_DOCUMENT_EXPORT_NOTE =
   "O conteúdo do arquivo não entra na exportação. Baixe cada arquivo na tela de Dívidas.";
@@ -113,6 +122,14 @@ export async function exportHousehold(tx: TenantTx): Promise<Record<string, unkn
   const out: Record<string, unknown[]> = {};
   for (const [name, table] of Object.entries(HOUSEHOLD_TABLES)) {
     out[name] = await tx.select().from(table as typeof people);
+  }
+  for (const [name, table] of Object.entries(LATE_TABLES)) {
+    out[name] = await tx
+      .transaction((step) => step.select().from(table as typeof householdUsage))
+      .catch((error: unknown) => {
+        if (isSchemaLag(error)) return [];
+        throw error;
+      });
   }
   const documents = await tx.select(debtDocumentMeta).from(debtDocuments);
   out.debt_documents = documents.map((row) => ({ ...row, content: DEBT_DOCUMENT_EXPORT_NOTE }));

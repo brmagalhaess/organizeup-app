@@ -1,5 +1,6 @@
 "use server";
 import {
+  adminCheckDeleteUser,
   adminDeleteUser,
   adminEndUserSessions,
   adminPasswordResetTarget,
@@ -10,6 +11,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { cancelBeforeDelete } from "@/lib/billing/close-family";
 import { getAuth } from "@/lib/auth";
 import { openedIdentity } from "@/lib/identity";
 import { requireAdmin } from "@/lib/session";
@@ -185,12 +187,27 @@ export async function deleteUser(form: FormData): Promise<AdminResult> {
     return failed("Digite EXCLUIR para confirmar.");
   }
   const outcome = await runAdminAction("admin_user_delete_failed", async () => {
-    const result = await adminDeleteUser({ adminUserId: session.user.id }, id.data);
-    if (result === "not_found") return failed("Conta não encontrada.");
-    if (result === "self") return failed(SELF);
-    if (result === "family_has_members") {
-      return failed("Esta conta é responsável por uma família com mais pessoas.");
+    const admin = { adminUserId: session.user.id };
+    const refusal = (result: Awaited<ReturnType<typeof adminDeleteUser>>) => {
+      if (result === "not_found") return failed("Conta não encontrada.");
+      if (result === "self") return failed(SELF);
+      if (result === "family_has_members") {
+        return failed("Esta conta é responsável por uma família com mais pessoas.");
+      }
+      return null;
+    };
+    const { result: check, households } = await adminCheckDeleteUser(admin, id.data);
+    const checked = refusal(check);
+    if (checked) return checked;
+    try {
+      await cancelBeforeDelete(households);
+    } catch {
+      return failed(
+        "Não foi possível cancelar a assinatura na Stripe. Nada foi apagado. Tente de novo.",
+      );
     }
+    const deleted = refusal(await adminDeleteUser(admin, id.data));
+    if (deleted) return deleted;
     revalidatePath("/admin", "layout");
     return done("Conta excluída.");
   });

@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   accountCurrency,
   canWrite,
+  currencyFrozen,
   cardPurchases,
   cardStatementPayments,
   cashflowPlans,
@@ -16,6 +17,10 @@ import {
   fxQuoteIn,
   householdCurrency,
   inArray,
+  markCardPurchase,
+  markEntries,
+  readFamilyAccess,
+  takeEntries,
   transactions,
   withHousehold,
 } from "@organizeup/db";
@@ -110,6 +115,7 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
   }
   const data = parsed.data;
   const id = data.key.slice(2);
+  const access = await readFamilyAccess(ctx);
 
   const failure = await withHousehold(ctx, async (tx) => {
     const [category] = await tx
@@ -144,6 +150,9 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
         return t("errors.statementPaid", {
           month: formatMonthYear(blocked.statementMonth, locale),
         });
+      // Uma compra é um lançamento, com ou sem parcelas.
+      const quota = await takeEntries(tx, access, ctx.householdId, 1);
+      if (!quota.ok) return t("errors.quota");
       const [created] = await tx
         .insert(cardPurchases)
         .values({
@@ -157,12 +166,15 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
           createdBy: ctx.userId,
         })
         .returning({ id: cardPurchases.id });
+      await markCardPurchase(tx, quota.month, created!.id);
       await audit(tx, ctx, "create", "card_purchases", created!.id);
       return null;
     }
 
     const currency = await accountCurrency(tx, data.accountId);
     if (!currency) return t("errors.invalidAccount");
+    // Moeda adicional cancelada: a conta fica, só leitura.
+    if (await currencyFrozen(tx, currency)) return t("errors.currencyOff", { currency });
     const main = await householdCurrency(tx);
     const foreign = isForeign(currency, main);
     // O valor digitado está na moeda da conta; `amount` guarda sempre a moeda principal.
@@ -228,6 +240,11 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
     if (data.repeat && foreign) return noRepeat;
     const entry = await inAccount();
     if (typeof entry === "string") return entry;
+    // Previsão não conta, mas o que já aconteceu, sim, mesmo marcado para repetir. Confere antes de
+    // gravar a previsão: no limite, nada entra.
+    const happens = !data.repeat || data.done;
+    const quota = happens ? await takeEntries(tx, access, ctx.householdId, 1) : null;
+    if (quota && !quota.ok) return t("errors.quota");
 
     let planId: string | null = null;
     if (data.repeat) {
@@ -244,7 +261,7 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
       await audit(tx, ctx, "create", "cashflow_plans", planId);
     }
     // Recorrente ainda não acontecido fica só como previsão calculada, sem lançamento.
-    if (!data.repeat || data.done) {
+    if (happens) {
       const [created] = await tx
         .insert(transactions)
         .values({
@@ -258,6 +275,7 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
           createdBy: ctx.userId,
         })
         .returning({ id: transactions.id });
+      await markEntries(tx, quota?.month ?? null, [created!.id]);
       await audit(tx, ctx, "create", "transactions", created!.id);
     }
     return null;
@@ -274,10 +292,15 @@ export async function confirmEntryNotice(form: FormData): Promise<string | null>
   if (!canWrite(ctx)) return null;
   const key = String(form.get("key") ?? "");
   const month = String(form.get("month") ?? "");
-  const { missingQuote } = await withHousehold(ctx, (tx) => confirmCommitment(tx, ctx, key, month));
+  const { missingQuote, frozenCurrency, moduleOff } = await withHousehold(ctx, (tx) =>
+    confirmCommitment(tx, ctx, key, month),
+  );
   revalidatePath("/app", "layout");
-  if (!missingQuote) return null;
+  if (!missingQuote && !frozenCurrency && !moduleOff) return null;
   const [t, locale] = await Promise.all([getTranslations("lancamentos"), getLocale()]);
+  if (moduleOff) return t("errors.moduleOff");
+  if (frozenCurrency) return t("errors.currencyOff", { currency: frozenCurrency });
+  if (!missingQuote) return null;
   return t("confirmNotice.text", {
     currency: missingQuote.currency,
     date: formatDate(missingQuote.date, locale),

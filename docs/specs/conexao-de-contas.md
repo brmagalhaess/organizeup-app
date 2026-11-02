@@ -62,7 +62,8 @@ que apps de mensagem não abram antes dele.
   conexão é um consentimento num banco. Acima do volume incluso, o excedente é por requisição, cada leitura de saldo,
   transação ou investimento, sem preço público. A página não define "conexão ativa".
 - **Preço decidido pelo fundador em 2026-11-01: R$ 19,90 por mês, por conta conectada**, escolhido no campo que a pessoa
-  aumenta ao montar o plano. O valor é mensal porque o custo da Pluggy é mensal: cobrança única daria prejuízo.
+  aumenta ao montar o plano ([planos-e-assinatura.md](planos-e-assinatura.md), item `contas_conectadas`, fora de venda até
+  esta conexão existir). O valor é mensal porque o custo da Pluggy é mensal: cobrança única daria prejuízo.
 - Com esse preço, o mínimo se paga com 126 conexões, e 500 conexões rendem R$ 9.950 por mês, antes de taxas, impostos e
   auditor. Acima de 500 a margem depende do preço negociado.
 - Contar por conexão no banco, a mesma unidade da Pluggy. Falta confirmar se conta e cartão do mesmo banco vêm na mesma

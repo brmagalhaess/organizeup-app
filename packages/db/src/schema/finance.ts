@@ -1311,7 +1311,11 @@ export const householdSuggestions = pgTable(
 );
 
 /** Tipos conhecidos. O banco confere só o formato: acrescentar outro não pede migração. */
-export const NOTIFICATION_KINDS = ["categoria"] as const;
+export const NOTIFICATION_KINDS = [
+  "categoria",
+  "assinatura_falhou",
+  "assinatura_renovacao",
+] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**

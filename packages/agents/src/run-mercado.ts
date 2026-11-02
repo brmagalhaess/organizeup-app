@@ -3,11 +3,14 @@
 // globais. Consulta cada ticker uma vez. Logs só com contagens e código de erro.
 import {
   addMarketCalls,
+  fromJob,
   householdCurrency,
   inArray,
   investments,
   lastMarketFxDate,
   listActiveHouseholdIds,
+  readFamilyAccess,
+  readPlatformFlags,
   listMarketTickers,
   marketCallsOn,
   MARKET_INDEX_CODES,
@@ -23,6 +26,7 @@ import {
 } from "@organizeup/db";
 import {
   brazilRulesApply,
+  canUse,
   FX_CURRENCIES,
   MARKET_RULES,
   normalizeTicker,
@@ -106,8 +110,12 @@ async function collectTickers(
 ): Promise<{ tickers: Map<string, boolean>; failed: number }> {
   const tickers = new Map<string, boolean>();
   let failed = 0;
+  const flags = await readPlatformFlags();
   for (const householdId of ids) {
     try {
+      // Família sem o módulo não pede cotação: os dados ficam guardados e voltam ao religar.
+      const access = await readFamilyAccess(fromJob({ householdId }), flags);
+      if (!canUse(access, "investimentos")) continue;
       const rows = await withWorkerHousehold(householdId, async (tx) =>
         brazilRulesApply(await householdCurrency(tx))
           ? tx

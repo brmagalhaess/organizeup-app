@@ -133,6 +133,12 @@ async function applyGrants(sql: postgres.Sql) {
     REVOKE ALL ON public.user_identity FROM ${worker};
     -- Reserva de documento: só pelas funções da 0037, nem a web lê a tabela.
     REVOKE ALL ON public.identity_reservations FROM ${app}, ${worker}, ${admin};
+    -- Planos (ADR-0023): catálogo só o painel grava. A assinatura é espelho da Stripe: só o worker grava,
+    -- a família nunca escreve no próprio plano, e ninguém da aplicação apaga. Cascata vem do dono.
+    REVOKE INSERT, UPDATE, DELETE ON public.billing_catalog FROM ${app}, ${worker};
+    REVOKE INSERT, UPDATE, DELETE ON public.household_subscriptions FROM ${app};
+    REVOKE DELETE ON public.household_subscriptions FROM ${worker};
+    REVOKE DELETE ON public.household_usage FROM ${app}, ${worker};
 
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.
     GRANT SELECT ON ALL TABLES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
@@ -144,6 +150,10 @@ async function applyGrants(sql: postgres.Sql) {
     GRANT INSERT ON ops.admin_access TO ${app};
     -- Uso de IA: a web conversa e o worker roda a madrugada (ADR-0018).
     GRANT INSERT, UPDATE ON ops.ai_stats TO ${app}, ${worker};
+    -- Stripe: a web só guarda o evento recebido, e o worker marca o que aplicou (ADR-0023).
+    GRANT INSERT ON ops.billing_events TO ${app};
+    GRANT UPDATE ON ops.billing_events TO ${worker};
+    GRANT INSERT, UPDATE ON ops.billing_checkouts TO ${app};
     -- Diagnósticos: web e worker registram e a Ops API marca resolvido; ninguém apaga.
     GRANT INSERT, UPDATE ON ops.diagnostics TO ${app}, ${worker};
     -- ops.feature_flags: só ou_admin grava (GRANT ALL abaixo); web e worker só leem.

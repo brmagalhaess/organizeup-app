@@ -120,5 +120,18 @@
   "relatorios.notas.anualNaoFiscal": "Solo organiza lo que registró la empresa. No sustituye la declaración de impuestos ni es asesoría fiscal: revisa tus documentos oficiales.",
   "investimentos.importar.errors.onlyBrazil": "La importación de B3 es para cuentas con moneda principal en reales.",
   "investimentos.importar.onlyBrazil": "La importación de B3 es para cuentas con moneda principal en reales.",
-  "investimentos.importar.noPermission": "Tu papel en esta empresa no permite importar."
+  "investimentos.importar.noPermission": "Tu papel en esta empresa no permite importar.",
+  "assistente.states.somente_leitura.title": "Tu empresa solo está consultando",
+  "assinatura.description": "Arma el plan de tu empresa. El precio cambia mientras eliges.",
+  "assinatura.ownerOnly": "Solo el responsable de la empresa puede suscribirse o cambiar el plan.",
+  "assinatura.priceNote": "Precios en reales. La suscripción es de la empresa: todos los socios la usan, sin costo por persona.",
+  "assinatura.family.title": "Empresa completa",
+  "assinatura.family.choice": "Empresa completa",
+  "assinatura.currencies.text": "Permite crear cuentas en esta moneda. La moneda principal de la empresa no cuesta nada.",
+  "assinatura.summary.familyBadge": "Empresa completa",
+  "assinatura.summary.familySaves": "Con Empresa completa pagarías {amount} menos y tendrías todo esto y más.",
+  "assinatura.summary.backToFamily": "Volver a Empresa completa",
+  "assinatura.status.cortesia": "Tu empresa tiene cortesía: todo disponible, sin cobro.",
+  "assinatura.failure.sem_familia": "Elige una empresa primero.",
+  "assinatura.failure.so_responsavel": "Solo el responsable de la empresa puede hacer esto."
 }

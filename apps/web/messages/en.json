@@ -1364,6 +1364,18 @@
       "sem_permissao": {
         "title": "The assistant is for the adults in the family",
         "text": "Only the person in charge or an adult in the family can chat with it. Ask one of them to turn it on or to ask for you."
+      },
+      "somente_leitura": {
+        "title": "Your family is in view-only mode",
+        "text": "The trial or subscription ended. Subscribe to chat again."
+      },
+      "sem_modulo": {
+        "title": "The assistant isn't in your plan",
+        "text": "Add it in Plan and subscription. Everything else keeps working."
+      },
+      "limite_mensagens": {
+        "title": "This month's messages ran out",
+        "text": "Chat comes back when the month turns or when you move up a tier. Everything else keeps working."
       }
     },
     "errors": {
@@ -1676,7 +1688,22 @@
       "settings": "Settings",
       "suggestions": "Suggestions",
       "trips": "Trips",
-      "wealth": "Net worth"
+      "wealth": "Net worth",
+      "subscription": "Plan and subscription"
+    },
+    "billing": {
+      "link": "See plans",
+      "readOnly": "Your trial ended. You can view and export everything, and nothing was deleted. Subscribe to make changes.",
+      "pastDue": "We couldn't charge your subscription. Check your card so you don't lose access.",
+      "trial": "{count, plural, =0 {Your trial ends today.} one {# day left in your trial.} other {# days left in your trial.}}",
+      "entries": {
+        "aviso": "You've used {used} of {limit} entries this month.",
+        "limite": "You reached the {limit} entries for this month. What exists stays the same; to add more, move up a tier."
+      },
+      "messages": {
+        "aviso": "You've used {used} of {limit} assistant messages this month.",
+        "limite": "This month's messages ran out. Chat comes back when the month turns or when you move up a tier."
+      }
     },
     "documentNotice": "Your document is still missing. It takes a minute.",
     "documentLink": "Add it now"
@@ -2111,7 +2138,8 @@
       "pending": "Deleting…",
       "submit": "Delete my account",
       "text": "This can't be undone. Your account is deleted and, if the family is yours alone, all of its data too. Backups are replaced within 30 days.",
-      "wrongPassword": "Incorrect password."
+      "wrongPassword": "Incorrect password.",
+      "billingFailed": "We couldn't cancel the subscription, so nothing was deleted. Try again shortly."
     },
     "noPermission": "Your role in this family doesn't allow changes.",
     "currency": {
@@ -2295,7 +2323,10 @@
       "goalEntry": "This transaction saves money for a goal. To change it, delete it and confirm it again.",
       "planNotFound": "Forecast not found.",
       "statementPaid": "The {month} statement has already been paid. Use a date after its closing date.",
-      "noQuote": "We don't have the {currency, select, USD {US dollar} EUR {euro} other {real}} exchange rate for this date yet. Try again later or use another date."
+      "noQuote": "We don't have the {currency, select, USD {US dollar} EUR {euro} other {real}} exchange rate for this date yet. Try again later or use another date.",
+      "quota": "You reached this month's entry limit. What exists stays the same; to add more, move up a tier in Plan and subscription.",
+      "currencyOff": "{currency} isn't in your plan. This account is view-only.",
+      "moduleOff": "This installment belongs to a module outside your plan. It stays saved until you turn it back on."
     },
     "confirmNotice": {
       "title": "No exchange rate yet",
@@ -2396,7 +2427,8 @@
       "enteredFormat": "Enter how much was received in {symbol}, like 500.00.",
       "oddRate": "Check both amounts: the exchange rate looks unusual.",
       "balanceFormat": "Enter the balance like 1,250.00.",
-      "currencyLocked": "This account already has activity and can't change currency. Create another account."
+      "currencyLocked": "This account already has activity and can't change currency. Create another account.",
+      "currencyOff": "{currency} isn't in your plan. Add it in Plan and subscription."
     }
   },
   "cartoes": {
@@ -2759,7 +2791,9 @@
           "manutencao": "The assistant comes back along with changes. You can view everything as usual.",
           "teto_mensal": "The service's usage limit for this month was reached, so it paused on its own. Your data is safe and the rest of OrganizeUp works as usual.",
           "teto_diario": "The assistant is back tomorrow, with nothing for you to do. The rest of OrganizeUp works as usual.",
-          "sem_permissao": "Only the person in charge or adults in the family can talk to it. Ask one of them to turn it on or ask for you."
+          "sem_permissao": "Only the person in charge or adults in the family can talk to it. Ask one of them to turn it on or ask for you.",
+          "somente_leitura": "The trial or subscription ended. Subscribe to read files again.",
+          "sem_modulo": "Reading files is part of the Debts module."
         }
       },
       "sendTitle": "Send files",
@@ -2870,7 +2904,10 @@
         "memory": "Family memory",
         "newCategory": "New category",
         "review": "Review"
-      }
+      },
+      "room": "{room, plural, =0 {No more new rows fit this month.} one {# new row fits this month.} other {# new rows fit this month.}}",
+      "overRoom": "{room, plural, =0 {None fit} one {# row fits} other {# rows fit}} out of {count} new ones. Unselect the rest: nothing is saved halfway.",
+      "roomLink": "Move up a tier"
     },
     "done": {
       "title": "Statement imported",
@@ -2911,7 +2948,9 @@
       "serverFailed": "The server failed while checking this statement. Try again; if it happens again, let us know.",
       "invalidAccount": "Choose a valid account.",
       "reviewRows": "Review the transactions and try again.",
-      "invalidCategory": "Choose a valid category for each transaction."
+      "invalidCategory": "Choose a valid category for each transaction.",
+      "quota": "{count, plural, =0 {No more rows fit this month.} one {Only # row fits this month.} other {Only # rows fit this month.}} Nothing was saved. Unselect rows or move up a tier.",
+      "currencyOff": "{currency} isn't in your plan. This account is view-only."
     },
     "investments": {
       "title": "Do you invest on the stock exchange?",
@@ -3607,6 +3646,14 @@
     "lembreteRendimentoSimples": {
       "title": "Enter the annual portfolio yield",
       "body": "Without it, the assistant can't calculate how much you need invested to live on the income."
+    },
+    "assinaturaFalhou": {
+      "title": "We couldn't charge your subscription",
+      "body": "Check your card in Plan and subscription. Access continues while we try again."
+    },
+    "assinaturaRenovacao": {
+      "title": "Your yearly subscription renews soon",
+      "body": "It renews on {date}. To change or cancel, open Plan and subscription."
     }
   },
   "sistema": {
@@ -3930,6 +3977,185 @@
       "planoIncompleto": "Some data is missing to close the plan. Fill it in under Retirement.",
       "anualNaoFiscal": "This only organizes what your family recorded. It does not replace your income tax return and is not tax advice: check your official documents.",
       "posicaoDoDia": "Portfolio values are as of the day the report was generated."
+    }
+  },
+  "assinatura": {
+    "metaTitle": "Plan and subscription",
+    "title": "Plan and subscription",
+    "description": "Build your family's plan. The price changes as you choose.",
+    "perMonth": "{amount} a month",
+    "perYear": "{amount} a year",
+    "subscribe": "Subscribe",
+    "seeChange": "See what changes",
+    "wait": "One moment…",
+    "saved": "Request sent. This page updates shortly.",
+    "waiting": "We got your payment. We're turning your plan on, which takes less than a minute.",
+    "ownerOnly": "Only the family's owner can subscribe or change the plan.",
+    "priceNote": "Prices in Brazilian reais. The subscription is for the family: everyone uses it, with no per-person fee.",
+    "noCatalog": {
+      "title": "Prices aren't available yet",
+      "text": "Try again in a moment. Nothing changes in what you already use."
+    },
+    "cycle": {
+      "title": "How to pay",
+      "mes": "Monthly",
+      "ano": "Yearly",
+      "hint": "With yearly you pay for 10 months and get 12. Boleto is yearly only."
+    },
+    "family": {
+      "title": "Complete family",
+      "text": "Everything OrganizeUp does, for one price. You can still raise the messages and add currencies.",
+      "choice": "Complete family",
+      "includes": "Unlimited entries, every module and 100 assistant messages a month."
+    },
+    "build": {
+      "title": "Or build your own",
+      "text": "Accounts, cards, categories, statements, calendar, emergency fund and reports always come along."
+    },
+    "entries": {
+      "label": "Entries per month",
+      "hint": "Only what you enter or import counts. Installments, card bills, contributions and repeating items don't.",
+      "upTo": "Up to {count}",
+      "unlimited": "Unlimited"
+    },
+    "modules": {
+      "label": "Modules",
+      "investimentos": {
+        "name": "Investments",
+        "text": "Portfolio, quotes, dividends and rebalancing."
+      },
+      "aposentadoria": {
+        "name": "Retirement",
+        "text": "Dividend income plan and Your plan."
+      },
+      "dividas": {
+        "name": "Debts",
+        "text": "Debt agent, attachments and file import."
+      },
+      "metas": {
+        "name": "Goals and trips",
+        "text": "Goals with installments and suggested trips."
+      },
+      "assistente": {
+        "name": "Assistant",
+        "text": "Chat with the assistant, tips on each screen, memory and AI categories."
+      }
+    },
+    "messages": {
+      "label": "Assistant messages per month",
+      "hint": "Each question you ask is one message. Overnight tips and AI categories don't use messages.",
+      "none": "No assistant",
+      "count": "{count} messages",
+      "included": "included"
+    },
+    "currencies": {
+      "label": "Extra currencies",
+      "text": "Lets you create accounts in this currency. Your family's main currency is free.",
+      "BRL": "Real",
+      "USD": "Dollar",
+      "EUR": "Euro"
+    },
+    "summary": {
+      "title": "Your plan",
+      "familyBadge": "Complete family",
+      "familySaves": "With Complete family you'd pay {amount} less and get all of this and more.",
+      "backToFamily": "Back to Complete family",
+      "released": "What you get",
+      "note": "No lock-in. Cancel anytime, and we refund everything within 7 days of the first charge."
+    },
+    "released": {
+      "base": "Accounts, cards, categories, statements, calendar, emergency fund and reports",
+      "entries": "Up to {count} entries a month",
+      "entriesUnlimited": "Unlimited entries",
+      "messages": "{count} assistant messages, tips, memory and AI categories",
+      "currency": "Accounts in {code}",
+      "connected": "{count, plural, one {# connected account} other {# connected accounts}}"
+    },
+    "preview": {
+      "title": "What changes",
+      "now": "Today: {amount}, the prorated difference until the end of the cycle.",
+      "later": "On {date} this goes away: {items}. Until then, everything stays as it is.",
+      "nothing": "nothing",
+      "next": "After that: {amount}.",
+      "confirm": "Confirm",
+      "back": "Back",
+      "removedNow": "Leaving now: {items}. What's left of the month becomes credit.",
+      "nextAt": "Next charge on {date}."
+    },
+    "status": {
+      "title": "Status",
+      "livre": "Billing isn't on yet. Everything is available, as always.",
+      "cortesia": "Your family has a courtesy plan: everything available, at no charge.",
+      "teste": "Free trial until {date}, with everything available.",
+      "assinatura": "Active subscription.",
+      "leitura": "The trial ended. You can view and export everything, but changes need a subscription. Nothing was deleted.",
+      "renewsAt": "Next charge on {date}.",
+      "endsAt": "Canceled. Active until {date}.",
+      "scheduled": "Plan change scheduled for {date}.",
+      "exportHint": "To download your data, open Settings."
+    },
+    "usage": {
+      "entries": "Entries this month",
+      "messages": "Messages this month",
+      "normal": "Within the limit",
+      "aviso": "Near the limit",
+      "limite": "Limit reached"
+    },
+    "manage": {
+      "title": "Manage",
+      "text": "Your card and invoices are at Stripe, which processes the payment.",
+      "portal": "Card and invoices",
+      "cancel": "Cancel subscription",
+      "cancelTitle": "Cancel the subscription?",
+      "cancelText": "It stays active until the end of the paid period. After that your data is kept and you can only view it.",
+      "cancelConfirm": "Cancel subscription",
+      "cancelled": "Canceled. You can keep using it until the end of the paid period.",
+      "resume": "Keep subscription",
+      "resumed": "Subscription kept."
+    },
+    "refund": {
+      "ask": "Ask for a refund",
+      "title": "Ask for a full refund?",
+      "text": "You're within 7 days of the first charge. We refund everything and the subscription ends now. Your data is kept, and you can only view it.",
+      "confirm": "Refund and end",
+      "done": "Done. The refund was requested and the subscription ended.",
+      "boleto": "Stripe can't refund a boleto. Contact support to get it by bank transfer. Your subscription stays active until then."
+    },
+    "failure": {
+      "sem_familia": "Choose a family first.",
+      "so_responsavel": "Only the family's owner can do this.",
+      "manutencao": "We're under maintenance. Try again soon.",
+      "desligado": "Subscriptions aren't open yet.",
+      "sem_chave": "Subscriptions aren't set up yet.",
+      "chave_producao": "Real billing hasn't been released yet. Nothing was charged.",
+      "falhou": "That didn't work, and nothing was charged. Try again.",
+      "catalogo": "One of the items isn't on sale yet.",
+      "sem_assinatura": "We couldn't find an active subscription for this.",
+      "invalido": "Check the plan and try again.",
+      "em_andamento": "A payment is already in progress. If you just paid, your plan turns on shortly."
+    },
+    "invite": {
+      "eyebrow": "Not in your plan",
+      "title": "This module is off",
+      "price": "From {amount} a month",
+      "kept": "If you've used it, your data is kept and comes back when you turn it on.",
+      "link": "See plans"
+    },
+    "admin": {
+      "title": "Administrators only",
+      "text": "This box and, with billing off, this page only show up for people who run the service.",
+      "on": "Billing on",
+      "off": "Billing off",
+      "key": {
+        "ausente": "Stripe key: not set",
+        "teste": "Stripe key: test",
+        "producao": "Stripe key: live",
+        "invalida": "Stripe key: not recognized"
+      }
+    },
+    "connected": {
+      "label": "Connected accounts",
+      "hint": "{amount} a month, per account. Monthly plans only."
     }
   },
   "identity": {

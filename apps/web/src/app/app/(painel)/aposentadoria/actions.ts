@@ -21,7 +21,7 @@ import {
 import { brazilRulesApply, money, parseMoney, toDbAmount } from "@organizeup/domain";
 import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
-import { requireTenant } from "@/lib/session";
+import { requireModule } from "@/lib/billing/plan-gate";
 
 export interface FormState {
   ok: boolean;
@@ -81,7 +81,7 @@ const scenarioSchema = (t: Errors, locale: Locale) =>
 
 /** Cria um cenário ou edita o do `id`. */
 export async function saveScenario(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("aposentadoria");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await Promise.all([getTranslations("aposentadoria.errors"), getLocale()]);
   const parsed = scenarioSchema(t, locale).safeParse({
@@ -139,7 +139,7 @@ export async function saveScenario(_prev: FormState, form: FormData): Promise<Fo
 }
 
 export async function deleteScenario(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("aposentadoria");
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
   await withHousehold(ctx, async (tx) => {
@@ -172,7 +172,7 @@ const planSchema = (t: Errors, locale: Locale) =>
 
 /** Grava o que a família informou no plano de viver dos rendimentos. */
 export async function saveRetirementPlan(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("aposentadoria");
   if (!canWrite(ctx)) return blocked();
   const [t, locale] = await Promise.all([getTranslations("aposentadoria.errors"), getLocale()]);
   const parsed = planSchema(t, locale).safeParse({
@@ -225,7 +225,7 @@ const shownAmount = z.string().regex(/^\d+\.\d{2}$/);
 
 /** "Aceitar este valor": grava quanto guardar por mês na reserva e nos investimentos. */
 export async function acceptSavingAmounts(_prev: FormState, form: FormData): Promise<FormState> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireModule("aposentadoria");
   if (!canWrite(ctx)) return blocked();
   const reserve = shownAmount.safeParse(form.get("reserve"));
   const investment = shownAmount.safeParse(form.get("investment"));

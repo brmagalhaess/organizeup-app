@@ -4871,6 +4871,165 @@ describe("moeda principal (ADR-0020, Fase 6)", () => {
   });
 });
 
+describe("planos e assinatura (ADR-0023)", () => {
+  const { householdSubscriptions, householdUsage, billingCatalog } = db;
+
+  const asWorker = async (householdId: string, run: (tx: postgres.TransactionSql) => unknown) => {
+    const raw = postgres(urls.worker, { max: 1, onnotice: () => {} });
+    try {
+      return await raw.begin(async (tx) => {
+        await tx`select set_config('app.household_id', ${householdId}, true), set_config('app.role', 'system', true)`;
+        return run(tx);
+      });
+    } finally {
+      await raw.end();
+    }
+  };
+
+  it("cada família vê só a própria assinatura e o próprio uso", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const other = await ctxFor(B.owner, B.household);
+    await db.withHousehold(owner, (tx) =>
+      tx.insert(householdUsage).values({ householdId: A.household, month: "2026-11", messages: 3 }),
+    );
+    const mine = await db.withHousehold(owner, (tx) => tx.select().from(householdSubscriptions));
+    expect(mine.map((row) => row.householdId)).toEqual([A.household]);
+    const theirs = await db.withHousehold(other, (tx) => tx.select().from(householdSubscriptions));
+    expect(theirs.map((row) => row.householdId)).toEqual([B.household]);
+    expect(await db.withHousehold(other, (tx) => tx.select().from(householdUsage))).toEqual([]);
+    const changed = await db.withHousehold(other, (tx) =>
+      tx
+        .update(householdUsage)
+        .set({ messages: 0 })
+        .where(eq(householdUsage.householdId, A.household))
+        .returning({ month: householdUsage.month }),
+    );
+    expect(changed).toEqual([]);
+    await expect(
+      db.withHousehold(other, (tx) =>
+        tx.insert(householdUsage).values({ householdId: A.household, month: "2026-10" }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("nem o responsável grava o próprio plano: só o worker, e só na família do contexto", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx
+          .update(householdSubscriptions)
+          .set({ courtesy: true })
+          .where(eq(householdSubscriptions.householdId, A.household)),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.insert(householdSubscriptions).values({ householdId: A.household, courtesy: true }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx
+          .delete(householdSubscriptions)
+          .where(eq(householdSubscriptions.householdId, A.household)),
+      ),
+    ).rejects.toThrow();
+
+    await asWorker(
+      A.household,
+      (tx) =>
+        tx`update household_subscriptions set status = 'active' where household_id = ${A.household}`,
+    );
+    const updated = await asWorker(
+      A.household,
+      (tx) =>
+        tx`update household_subscriptions set status = 'canceled' where household_id = ${B.household} returning household_id`,
+    );
+    expect(updated).toHaveLength(0);
+    await expect(
+      asWorker(A.household, (tx) => tx`delete from household_subscriptions`),
+    ).rejects.toThrow();
+    await asWorker(
+      A.household,
+      (tx) =>
+        tx`update household_subscriptions set status = null where household_id = ${A.household}`,
+    );
+  });
+
+  it("role de worker fora do papel de sistema não grava assinatura", async () => {
+    const raw = postgres(urls.worker, { max: 1, onnotice: () => {} });
+    try {
+      const rows = await raw.begin(async (tx) => {
+        await tx`select set_config('app.household_id', ${A.household}, true), set_config('app.role', 'owner', true)`;
+        return tx`update household_subscriptions set status = 'active' returning household_id`;
+      });
+      expect(rows).toHaveLength(0);
+    } finally {
+      await raw.end();
+    }
+  });
+
+  it("quem só vê não gasta uso", async () => {
+    const viewer = await ctxFor(A.viewer, A.household);
+    await expect(
+      db.withHousehold(viewer, (tx) => db.takeMessage(tx, A.household, "2026-09", null)),
+    ).rejects.toThrow();
+  });
+
+  it("catálogo: todos leem; só o painel grava", async () => {
+    for (const url of [urls.app, urls.worker]) {
+      const raw = postgres(url, { max: 1, onnotice: () => {} });
+      try {
+        const rows = await raw`select item from billing_catalog`;
+        expect(rows.length).toBeGreaterThan(0);
+        await expect(raw`update billing_catalog set amount = 1`).rejects.toThrow();
+        await expect(raw`delete from billing_catalog`).rejects.toThrow();
+      } finally {
+        await raw.end();
+      }
+    }
+    const rows = await db.withAdminRead("teste", (admin) =>
+      admin.select({ item: billingCatalog.item }).from(billingCatalog),
+    );
+    expect(rows).toHaveLength(31);
+  });
+
+  it("ops.billing_events: a web só insere, o worker só marca, ninguém apaga, sem coluna de pessoa", async () => {
+    const id = `evt_rls${Date.now()}`;
+    const event = {
+      id,
+      type: "invoice.paid",
+      stripeAt: new Date(),
+      livemode: false,
+      householdId: A.household,
+      customerId: null,
+      data: {},
+    };
+    expect(await db.recordBillingEvent(event)).toBe(true);
+    expect(await db.recordBillingEvent(event)).toBe(false);
+
+    const app = postgres(urls.app, { max: 1, onnotice: () => {} });
+    const worker = postgres(urls.worker, { max: 1, onnotice: () => {} });
+    try {
+      await expect(app`update ops.billing_events set attempts = 9`).rejects.toThrow();
+      await expect(app`delete from ops.billing_events`).rejects.toThrow();
+      await worker`update ops.billing_events set attempts = 1 where id = ${id}`;
+      await expect(worker`delete from ops.billing_events`).rejects.toThrow();
+      await expect(
+        worker`insert into ops.billing_events (id, type, stripe_at, livemode) values ('evt_x', 'a', now(), false)`,
+      ).rejects.toThrow();
+      const columns = await app`
+        select column_name from information_schema.columns
+        where table_schema = 'ops' and table_name = 'billing_events'`;
+      const names = columns.map((row) => row.column_name as string).join(" ");
+      expect(names).not.toMatch(/email|name|address|phone|cpf/);
+    } finally {
+      await app.end();
+      await worker.end();
+    }
+  });
+});
+
 describe("ops", () => {
   it("registra e lista deploys sem tenant", async () => {
     await db.recordDeployment({ service: "web", commit: "abc1234", hostname: "test" });

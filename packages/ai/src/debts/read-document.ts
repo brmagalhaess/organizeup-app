@@ -229,7 +229,7 @@ export async function debtFileGate(input: {
   limits?: AiLimits;
   day?: string;
 }): Promise<FileGate> {
-  const state = await assistantState(input);
+  const state = await assistantState({ ...input, module: "dividas" });
   if (state !== "pronto") return state;
   return (await hasFileConsent(input.ctx)) ? "pronto" : "precisa_aceitar";
 }

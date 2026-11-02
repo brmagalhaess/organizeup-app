@@ -71,6 +71,7 @@ describe.each(LOCALES)("catálogo da empresa em %s", (locale) => {
       role: "adult",
       expires: "1/1",
       date: "1/1",
+      amount: "1,00",
     };
     for (const key of Object.keys(companyTexts[locale])) {
       if (companyTexts[locale][key]!.includes("<link>")) continue;

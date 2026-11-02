@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  accountCurrencyFrozen,
   accounts,
   ensureCategory,
   eq,
@@ -33,7 +34,8 @@ export async function recordTradeCash(
     .select({ id: accounts.id })
     .from(accounts)
     .where(eq(accounts.id, accountId));
-  if (!account) throw new RangeError("conta");
+  // Moeda adicional cancelada: a conta fica só leitura (ADR-0023).
+  if (!account || (await accountCurrencyFrozen(tx, accountId))) throw new RangeError("conta");
   // A carteira é na moeda principal; numa conta estrangeira, o lançamento converte pela data da operação.
   const entry = await mainEntry(tx, accountId, toDbAmount(total), trade.occurredOn);
   if (!entry) throw new MissingQuote();

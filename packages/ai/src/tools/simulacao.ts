@@ -34,6 +34,7 @@ const NOTE = "Estimativa em reais de hoje, sem garantia de rendimento. Nada foi 
 
 const simularGuardarMais = defineTool({
   name: "simular_guardar_mais",
+  module: "aposentadoria",
   description:
     'Simula guardar um valor a mais por mês para a aposentadoria e compara com o plano de hoje. Chame em perguntas como "e se eu guardar mais 500?". Não grava nada.',
   kind: "simulacao",
@@ -66,6 +67,7 @@ const simularGuardarMais = defineTool({
 
 const simularAnteciparAposentadoria = defineTool({
   name: "simular_antecipar_aposentadoria",
+  module: "aposentadoria",
   description:
     'Simula parar de trabalhar alguns anos antes e mostra o aporte mensal que isso exige. Chame em perguntas como "e se eu me aposentar 5 anos antes?". Não grava nada.',
   kind: "simulacao",
@@ -102,6 +104,7 @@ const simularAnteciparAposentadoria = defineTool({
 
 const simularMeta = defineTool({
   name: "simular_meta",
+  module: "metas",
   description:
     'Calcula em quantos meses uma meta fecha guardando um valor por mês. Chame em perguntas como "em quanto tempo fecho a meta do carro?". Sem aporte informado, usa a parcela do plano da meta. Não grava nada.',
   kind: "simulacao",

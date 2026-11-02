@@ -1,6 +1,7 @@
 "use client";
 import {
   ArrowLeftRight,
+  BadgeCheck,
   BadgeDollarSign,
   CalendarDays,
   ChartColumn,
@@ -65,10 +66,13 @@ export interface ShellBanner {
   key: string;
   text: string;
   dismissible: boolean;
+  href?: string;
+  linkLabel?: string;
 }
 
 const SUGGESTIONS_HREF = "/app/sugestoes";
 const DIVIDENDS_HREF = "/app/proventos";
+const BILLING_HREF = "/app/assinatura";
 
 /** Telas já traduzidas. As outras seguem em português e avisam isso ao leitor de tela. */
 const TRANSLATED_SCREENS = new Set([
@@ -85,6 +89,7 @@ const TRANSLATED_SCREENS = new Set([
   "/app/renda",
   "/app/calendario",
   "/app/sugestoes",
+  "/app/assinatura",
 ]);
 const TRANSLATED_AREAS = [
   "/app/plano",
@@ -136,19 +141,20 @@ const groups: Array<{ title: keyof Messages["shell"]["groups"]; items: NavItem[]
     title: "family",
     items: [
       { href: "/app/familia", label: "people", icon: Users },
+      { href: BILLING_HREF, label: "subscription", icon: BadgeCheck },
       { href: "/app/configuracoes", label: "settings", icon: Settings },
     ],
   },
 ];
 
 /** Proventos são da B3, com IR e JCP: fora das regras brasileiras, o menu não oferece. */
-const groupsFor = (brazil: boolean) =>
-  brazil
-    ? groups
-    : groups.map((group) => ({
-        ...group,
-        items: group.items.filter((item) => item.href !== DIVIDENDS_HREF),
-      }));
+const groupsFor = (brazil: boolean, billing: boolean) =>
+  groups.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => (brazil || item.href !== DIVIDENDS_HREF) && (billing || item.href !== BILLING_HREF),
+    ),
+  }));
 
 function initials(name: string) {
   return name
@@ -161,9 +167,12 @@ function initials(name: string) {
 
 function Navigation({
   pendingSuggestions,
+  billing,
   onNavigate,
 }: {
   pendingSuggestions: number;
+  /** Com a chave da cobrança desligada, a tela de planos só aparece para o admin. */
+  billing: boolean;
   onNavigate?: () => void;
 }) {
   const t = useTranslations("shell");
@@ -171,7 +180,7 @@ function Navigation({
   const brazil = useBrazilRules();
   return (
     <nav aria-label={t("modules")} className="flex flex-col gap-6">
-      {groupsFor(brazil).map((group) => (
+      {groupsFor(brazil, billing).map((group) => (
         <div key={group.title}>
           <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/70">
             {t(`groups.${group.title}`)}
@@ -330,6 +339,11 @@ function ServiceBanner({ banner }: { banner: ShellBanner }) {
       <div className="flex items-center gap-3 px-4 py-2 text-sm sm:px-6 lg:px-10 2xl:px-14">
         <Megaphone className="size-4 shrink-0" aria-hidden="true" />
         <p className="min-w-0 flex-1">{banner.text}</p>
+        {banner.href ? (
+          <Link href={banner.href} className="shrink-0 font-semibold underline">
+            {banner.linkLabel}
+          </Link>
+        ) : null}
         {banner.dismissible ? (
           <form action={dismissNotice}>
             <input type="hidden" name="key" value={banner.key} />
@@ -354,6 +368,7 @@ export function AppShell({
   cards,
   notice = null,
   banners = [],
+  billing = false,
   pendingSuggestions,
   unreadNotifications,
   assistant,
@@ -368,6 +383,7 @@ export function AppShell({
   cards: EntryOptions["cards"];
   notice?: ShellNotice | null;
   banners?: ShellBanner[];
+  billing?: boolean;
   pendingSuggestions: number;
   unreadNotifications: number;
   assistant: AssistantState;
@@ -392,7 +408,7 @@ export function AppShell({
           </div>
           <QuickAdd className="w-full" />
           <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-color:rgb(255_255_255/0.3)_transparent] [scrollbar-width:thin]">
-            <Navigation pendingSuggestions={pendingSuggestions} />
+            <Navigation billing={billing} pendingSuggestions={pendingSuggestions} />
           </div>
           <UserFooter userName={userName} familyName={familyName} />
         </aside>
@@ -425,6 +441,7 @@ export function AppShell({
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title={t("menu")}>
         <div className="-m-5 flex min-h-full flex-col gap-6 bg-pine p-5">
           <Navigation
+            billing={billing}
             pendingSuggestions={pendingSuggestions}
             onNavigate={() => setMenuOpen(false)}
           />

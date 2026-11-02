@@ -221,9 +221,16 @@ export function openedIdentity(userId: string, sealed: AdminSealedIdentity) {
 export const EXPORT_NOTICE =
   "CPF e CNPJ saem mascarados, de propósito: este arquivo pode ser copiado e encaminhado. Aparece só o documento de quem baixou. O completo fica cifrado e, para consultá-lo ou corrigi-lo, fale com o suporte.";
 
-/** O que entra no arquivo de dados: só da conta de quem baixou, mascarado e com o aviso. */
+/**
+ * O que entra no arquivo de dados: só da conta de quem baixou, mascarado e com o aviso. Falhar aqui não
+ * derruba a exportação: o bloco sai sem documento.
+ */
 export async function identityForExport(userId: string) {
-  const view = await identityView(userId);
+  const row = await readUserIdentity(userId).catch((error: unknown) => {
+    logIdentity("document_read_failed", error);
+    return null;
+  });
+  const view = viewOf(userId, row);
   return {
     aviso: EXPORT_NOTICE,
     tipo: view.personType,
