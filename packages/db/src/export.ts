@@ -36,6 +36,7 @@ import {
   householdSubscriptions,
   householdSuggestions,
   householdUsage,
+  vipGrants,
   importBatches,
   incomeReceipts,
   incomeSources,
@@ -104,10 +105,11 @@ const HOUSEHOLD_TABLES = {
   audit_log: auditLog,
 };
 
-/** Tabelas da migração 0036. Sem elas ainda, exportar segue: cada uma lê no próprio savepoint. */
+/** Tabelas das migrações 0036 e 0038. Sem elas ainda, exportar segue: cada uma lê no próprio savepoint. */
 const LATE_TABLES = {
   household_subscriptions: householdSubscriptions,
   household_usage: householdUsage,
+  vip_grants: vipGrants,
 };
 
 /** Arquivo inteiro deixaria a exportação gigante: vão os metadados, e a tela baixa cada um. */

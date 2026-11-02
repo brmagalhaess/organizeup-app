@@ -52,6 +52,8 @@ export const billingEventData = z.discriminatedUnion("kind", [
     cancelAtPeriodEnd: z.boolean(),
     canceledAt: z.iso.datetime().nullable(),
     scheduleId: z.string().nullable(),
+    /** Desconto VIP em vigor. Evento guardado antes dele vem sem o campo, e isso é sem desconto. */
+    discountPercent: z.number().int().min(1).max(99).nullable().optional(),
   }),
   z.object({
     kind: z.literal("schedule"),
@@ -226,6 +228,7 @@ export async function applyBillingEvent(
         currentPeriodEnd: toDate(data.periodEnd),
         cancelAtPeriodEnd: data.cancelAtPeriodEnd,
         canceledAt: toDate(data.canceledAt),
+        discountPercent: data.discountPercent ?? null,
         lastEventAt: stripeAt,
         // Assinatura sem schedule só limpa a troca marcada se for mais nova que o evento do schedule.
         ...(data.scheduleId

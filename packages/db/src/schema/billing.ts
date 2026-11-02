@@ -1,6 +1,13 @@
 // Planos e assinatura (ADR-0023). O catálogo é global; a assinatura é espelho do que a Stripe diz, e
 // só o worker grava nela; o uso do mês é da família.
-import type { BillingCycle, SubscribedItem } from "@organizeup/domain";
+import type {
+  BillingCycle,
+  BillingModule,
+  Currency,
+  SubscribedItem,
+  VipCost,
+  VipScope,
+} from "@organizeup/domain";
 import { sql } from "drizzle-orm";
 import {
   boolean,
@@ -13,7 +20,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { household } from "./auth";
+import { household, user } from "./auth";
 import { opsSchema } from "./ops";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
@@ -58,8 +65,35 @@ export const householdSubscriptions = pgTable("household_subscriptions", {
   refundedAt: ts("refunded_at"),
   paymentFailedAt: ts("payment_failed_at"),
   lastEventAt: ts("last_event_at"),
+  /** Desconto em vigor na Stripe, pela metadata da assinatura (ADR-0025). */
+  discountPercent: integer("discount_percent"),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** Concessões VIP (ADR-0025). A família lê; só o painel grava, e remover é marcar. */
+export const vipGrants = pgTable("vip_grants", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  householdId: text("household_id")
+    .notNull()
+    .references(() => household.id, { onDelete: "cascade" }),
+  scope: text("scope").$type<VipScope>().notNull(),
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  fullAccess: boolean("full_access").notNull().default(true),
+  modules: jsonb("modules").$type<BillingModule[]>().notNull().default([]),
+  entryLimit: integer("entry_limit"),
+  messageLimit: integer("message_limit"),
+  currencies: jsonb("currencies").$type<Currency[]>().notNull().default([]),
+  cost: text("cost").$type<VipCost>().notNull(),
+  discountPercent: integer("discount_percent"),
+  reason: text("reason").notNull(),
+  endsAt: ts("ends_at"),
+  grantedBy: text("granted_by").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  revokedAt: ts("revoked_at"),
+  revokedBy: text("revoked_by"),
 });
 
 export const householdUsage = pgTable(

@@ -4665,6 +4665,52 @@ describe("planos e assinatura (ADR-0023)", () => {
     expect(rows).toHaveLength(31);
   });
 
+  it("VIP (ADR-0025): cada família lê só a própria concessão, e nenhuma grava", async () => {
+    const { vipGrants } = db;
+    await db.adminGrantVip(
+      { adminUserId: "admin-rls" },
+      {
+        householdId: A.household,
+        scope: "familia",
+        userId: null,
+        full: true,
+        modules: [],
+        entryLimit: null,
+        messageLimit: null,
+        currencies: [],
+        cost: "sem_custo",
+        discountPercent: null,
+        reason: "parceria",
+        endsAt: null,
+      },
+    );
+    const owner = await ctxFor(A.owner, A.household);
+    const other = await ctxFor(B.owner, B.household);
+    const mine = await db.withHousehold(owner, (tx) => tx.select().from(vipGrants));
+    expect(mine.map((row) => row.householdId)).toEqual([A.household]);
+    expect(await db.withHousehold(other, (tx) => tx.select().from(vipGrants))).toEqual([]);
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx
+          .update(vipGrants)
+          .set({ endsAt: new Date(0) })
+          .where(eq(vipGrants.id, mine[0]!.id)),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(other, (tx) =>
+        tx.insert(vipGrants).values({
+          householdId: B.household,
+          scope: "familia",
+          cost: "sem_custo",
+          reason: "parceria",
+          grantedBy: B.owner,
+        }),
+      ),
+    ).rejects.toThrow();
+    await db.adminRevokeVip({ adminUserId: "admin-rls" }, mine[0]!.id);
+  });
+
   it("ops.billing_events: a web só insere, o worker só marca, ninguém apaga, sem coluna de pessoa", async () => {
     const id = `evt_rls${Date.now()}`;
     const event = {

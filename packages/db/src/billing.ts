@@ -10,9 +10,10 @@ import {
   type Currency,
   type FamilyAccess,
   type SubscriptionState,
+  type VipState,
 } from "@organizeup/domain";
 import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
-import { readPlatformFlags, tolerateSchemaLag, type PlatformFlags } from "./access";
+import { isSchemaLag, readPlatformFlags, tolerateSchemaLag, type PlatformFlags } from "./access";
 import { appPool } from "./client";
 import { accountCurrency, householdCurrency } from "./fx";
 import {
@@ -20,9 +21,11 @@ import {
   billingCheckouts,
   billingEvents,
   cardPurchaseUsage,
+  householdMember,
   householdSubscriptions,
   householdUsage,
   transactionUsage,
+  vipGrants,
 } from "./schema";
 import { fromJob, withHousehold, type TenantContext, type TenantTx } from "./tenant";
 import { householdTimezone } from "./wealth";
@@ -78,7 +81,9 @@ export async function readSubscription(ctx: TenantContext): Promise<HouseholdSub
   }, null);
 }
 
-export const subscriptionState = (row: HouseholdSubscription): SubscriptionState => ({
+export const subscriptionState = (
+  row: Pick<HouseholdSubscription, keyof SubscriptionState>,
+): SubscriptionState => ({
   courtesy: row.courtesy,
   courtesyUntil: row.courtesyUntil,
   trialEndsAt: row.trialEndsAt,
@@ -87,6 +92,52 @@ export const subscriptionState = (row: HouseholdSubscription): SubscriptionState
   cancelAtPeriodEnd: row.cancelAtPeriodEnd,
   currentPeriodEnd: row.currentPeriodEnd,
 });
+
+export type VipGrant = typeof vipGrants.$inferSelect;
+
+/** A linha, no formato de `resolveAccess`. Quem decide se vale é ele, nunca quem leu. */
+export const vipState = (row: VipGrant, holderActive: boolean): VipState => ({
+  cost: row.cost,
+  discountPercent: row.discountPercent,
+  full: row.fullAccess,
+  modules: row.modules,
+  entryLimit: row.entryLimit,
+  messageLimit: row.messageLimit,
+  currencies: row.currencies,
+  endsAt: row.endsAt,
+  revokedAt: row.revokedAt,
+  holderActive,
+});
+
+/**
+ * Concessão aberta da família, dentro de um savepoint: sem a tabela ainda, ninguém tem VIP, e a transação
+ * de quem chamou continua. VIP de pessoa só vale enquanto ela é responsável por aquela família.
+ */
+async function vipWithin(tx: TenantTx): Promise<VipState | null> {
+  return tx
+    .transaction(async (step) => {
+      const [row] = await step.select().from(vipGrants).where(isNull(vipGrants.revokedAt));
+      if (!row) return null;
+      if (row.scope === "familia") return vipState(row, true);
+      if (!row.userId) return vipState(row, false);
+      const [owner] = await step
+        .select({ id: householdMember.id })
+        .from(householdMember)
+        .where(
+          and(
+            eq(householdMember.organizationId, row.householdId),
+            eq(householdMember.userId, row.userId),
+            eq(householdMember.role, "owner"),
+          ),
+        )
+        .limit(1);
+      return vipState(row, Boolean(owner));
+    })
+    .catch((error: unknown) => {
+      if (isSchemaLag(error)) return null;
+      throw error;
+    });
+}
 
 /**
  * O que a família pode agora. Com a chave desligada nem lê a assinatura: todos como hoje. `flags` evita
@@ -99,10 +150,11 @@ export async function readFamilyAccess(
 ): Promise<FamilyAccess> {
   const { billingEnabled } = flags ?? (await readPlatformFlags());
   if (!billingEnabled) return resolveAccess({ billingEnabled, subscription: null, now });
-  const row = await readSubscription(ctx);
+  const [row, vip] = await Promise.all([readSubscription(ctx), withHousehold(ctx, vipWithin)]);
   return resolveAccess({
     billingEnabled,
     subscription: row ? subscriptionState(row) : null,
+    vip,
     now,
   });
 }
@@ -200,6 +252,7 @@ export async function accessWithin(tx: TenantTx): Promise<FamilyAccess> {
   return resolveAccess({
     billingEnabled,
     subscription: row ? subscriptionState(row) : null,
+    vip: await vipWithin(tx),
     now,
   });
 }
