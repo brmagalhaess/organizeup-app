@@ -48,6 +48,10 @@ import {
   people,
   retirementPlan,
   retirementScenarios,
+  smartImportFileMeta,
+  smartImportFiles,
+  smartImportItems,
+  smartImports,
   transactions,
   tripCosts,
   tripPeople,
@@ -106,17 +110,22 @@ const HOUSEHOLD_TABLES = {
   audit_log: auditLog,
 };
 
-/** Tabelas das migrações 0036, 0038 e 0039. Sem elas ainda, exportar segue: cada uma lê no próprio savepoint. */
+/** Tabelas das migrações 0036, 0038, 0039 e 0042. Sem elas ainda, exportar segue: cada uma lê no próprio savepoint. */
 const LATE_TABLES = {
   household_subscriptions: householdSubscriptions,
   household_usage: householdUsage,
   vip_grants: vipGrants,
   trip_intentions: tripIntentions,
+  smart_imports: smartImports,
+  smart_import_items: smartImportItems,
 };
 
 /** Arquivo inteiro deixaria a exportação gigante: vão os metadados, e a tela baixa cada um. */
 export const DEBT_DOCUMENT_EXPORT_NOTE =
   "O conteúdo do arquivo não entra na exportação. Baixe cada arquivo na tela de Dívidas.";
+
+export const SMART_FILE_EXPORT_NOTE =
+  "O conteúdo do arquivo não entra na exportação. Baixe cada arquivo em Importar arquivos.";
 
 /**
  * Tudo o que a RLS deixa o contexto ler. A auditoria só aparece para o responsável, e as conversas
@@ -137,5 +146,15 @@ export async function exportHousehold(tx: TenantTx): Promise<Record<string, unkn
   }
   const documents = await tx.select(debtDocumentMeta).from(debtDocuments);
   out.debt_documents = documents.map((row) => ({ ...row, content: DEBT_DOCUMENT_EXPORT_NOTE }));
+  // Como nos anexos de dívida: metadados e o que foi lido, sem o arquivo.
+  out.smart_import_files = await tx
+    .transaction(async (step) => {
+      const files = await step.select(smartImportFileMeta).from(smartImportFiles);
+      return files.map((row) => ({ ...row, content: SMART_FILE_EXPORT_NOTE }));
+    })
+    .catch((error: unknown) => {
+      if (isSchemaLag(error)) return [];
+      throw error;
+    });
   return out;
 }

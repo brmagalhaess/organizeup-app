@@ -3220,6 +3220,136 @@ describe("transferência entre contas", () => {
   });
 });
 
+describe("importador (ADR-0030)", () => {
+  const { smartImports, smartImportFiles, smartImportItems } = db;
+  const content = Buffer.from("%PDF-1.7 conteúdo fictício");
+  const lot = async (user: string, household: string, sha: string) => {
+    const ctx = await ctxFor(user, household);
+    return db.withHousehold(ctx, async (tx) => {
+      const [row] = await tx
+        .insert(smartImports)
+        .values({ householdId: household, status: "revisao" })
+        .returning({ id: smartImports.id });
+      const [file] = await tx
+        .insert(smartImportFiles)
+        .values({
+          householdId: household,
+          importId: row!.id,
+          position: 0,
+          fileName: "contrato.pdf",
+          mediaType: "application/pdf",
+          sizeBytes: content.length,
+          content,
+          sha256: sha.repeat(64),
+        })
+        .returning({ id: smartImportFiles.id });
+      const [item] = await tx
+        .insert(smartImportItems)
+        .values({
+          householdId: household,
+          importId: row!.id,
+          fileId: file!.id,
+          position: 0,
+          destination: "documento",
+          confidence: "alta",
+          payload: { destination: "documento", title: null },
+        })
+        .returning({ id: smartImportItems.id });
+      return { ctx, id: row!.id, fileId: file!.id, itemId: item!.id };
+    });
+  };
+
+  it("outra família não lê, não muda e não apaga", async () => {
+    const mine = await lot(A.owner, A.household, "1");
+    const theirs = await lot(B.owner, B.household, "2");
+    await db.withHousehold(theirs.ctx, async (tx) => {
+      expect(await tx.select().from(smartImports).where(eq(smartImports.id, mine.id))).toEqual([]);
+      expect(
+        await tx.select().from(smartImportFiles).where(eq(smartImportFiles.id, mine.fileId)),
+      ).toEqual([]);
+      expect(
+        await tx
+          .update(smartImportItems)
+          .set({ selected: true })
+          .where(eq(smartImportItems.id, mine.itemId))
+          .returning(),
+      ).toEqual([]);
+      expect(await tx.delete(smartImports).where(eq(smartImports.id, mine.id)).returning()).toEqual(
+        [],
+      );
+    });
+  });
+
+  it("não forja linha de outra família, nem liga item a arquivo alheio", async () => {
+    const mine = await lot(A.owner, A.household, "3");
+    const theirs = await lot(B.owner, B.household, "4");
+    await expect(
+      db.withHousehold(theirs.ctx, (tx) =>
+        tx.insert(smartImports).values({ householdId: A.household }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.withHousehold(theirs.ctx, (tx) =>
+        tx.insert(smartImportItems).values({
+          householdId: B.household,
+          importId: theirs.id,
+          fileId: mine.fileId,
+          position: 9,
+          destination: "documento",
+          confidence: "alta",
+          payload: { destination: "documento", title: null },
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("visualizador lê e não grava", async () => {
+    const mine = await lot(A.owner, A.household, "5");
+    const viewer = await ctxFor(A.viewer, A.household);
+    await db.withHousehold(viewer, async (tx) => {
+      expect(await tx.select().from(smartImports).where(eq(smartImports.id, mine.id))).toHaveLength(
+        1,
+      );
+      expect(
+        await tx
+          .update(smartImportItems)
+          .set({ selected: true })
+          .where(eq(smartImportItems.id, mine.itemId))
+          .returning(),
+      ).toEqual([]);
+    });
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        tx.insert(smartImports).values({ householdId: A.household }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("o painel do serviço não lê arquivo nem rascunho, e a cascata da família continua", async () => {
+    await expect(
+      db.withAdmin("teste do grant", (admin) => admin.select().from(smartImportFiles)),
+    ).rejects.toThrow();
+    const family = "hh-importador-apaga";
+    const person = "user-importador-apaga";
+    await db.withAdmin("seed do grant", async (admin) => {
+      await admin.insert(db.user).values({ id: person, name: "T", email: `${person}@example.com` });
+      await admin.insert(db.household).values({ id: family, name: "F", slug: family });
+      await admin
+        .insert(db.householdMember)
+        .values({ id: `m-${family}`, organizationId: family, userId: person, role: "owner" });
+    });
+    const { ctx, fileId } = await lot(person, family, "6");
+    await db.withAdmin("apaga a família", (admin) =>
+      admin.delete(db.household).where(eq(db.household.id, family)),
+    );
+    expect(ctx.householdId).toBe(family);
+    const worker = await db.withWorkerHousehold(family, (tx) =>
+      tx.select().from(smartImportFiles).where(eq(smartImportFiles.id, fileId)),
+    );
+    expect(worker).toEqual([]);
+  });
+});
+
 describe("arquivos de dívida (ADR-0019)", () => {
   const { accounts, debtDocumentMeta, debtDocuments, debtPlanReports, debts } = db;
   const { householdFileConsents } = db;
@@ -4481,7 +4611,8 @@ describe("exportação e exclusão da família", () => {
   it("a exportação cobre toda tabela com household_id", async () => {
     const owner = await ctxFor(A.owner, A.household);
     const exported = await db.withHousehold(owner, (tx) => db.exportHousehold(tx));
-    const raw = postgres(urls.admin, { max: 1 });
+    // Pelo dono: `information_schema` esconde do painel as tabelas que ele não lê (ADR-0030).
+    const raw = postgres(urls.owner, { max: 1 });
     try {
       const rows = await raw<{ table_name: string }[]>`
         select table_name from information_schema.columns

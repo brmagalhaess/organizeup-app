@@ -14,6 +14,8 @@ export const JOB_QUEUES = {
   billingEvents: "billing-events",
   /** Aviso de renovação anual, 30 dias antes. */
   billingRenewals: "billing-renewals",
+  /** Importador inteligente: lê um lote por pedido da família e limpa os vencidos (ADR-0030). */
+  smartImport: "smart-import",
 } as const;
 
 export type JobQueue = (typeof JOB_QUEUES)[keyof typeof JOB_QUEUES];
@@ -29,5 +31,13 @@ export interface DailyAgentsJob {
   agents?: string[];
   missingOnly?: boolean;
 }
+
+/** Sem `importId`: a limpeza diária dos lotes vencidos. */
+export interface SmartImportJob {
+  householdId?: string;
+  importId?: string;
+}
+
+export const smartImportKey = (importId: string) => `smart-import:${importId}`;
 
 export const PGBOSS_SCHEMA = "pgboss";

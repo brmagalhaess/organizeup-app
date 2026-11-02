@@ -58,7 +58,7 @@ export {
   type ModuleUsage,
   type PlatformModule,
 } from "./platform";
-export { DEBT_DOCUMENT_EXPORT_NOTE, exportHousehold } from "./export";
+export { DEBT_DOCUMENT_EXPORT_NOTE, exportHousehold, SMART_FILE_EXPORT_NOTE } from "./export";
 export { SYSTEM_TEMPLATES, ensureCategory, ensureFinanceDefaults } from "./finance";
 export {
   accountCurrency,
@@ -165,8 +165,10 @@ export {
   dailyAgentsKey,
   JOB_QUEUES,
   PGBOSS_SCHEMA,
+  smartImportKey,
   type DailyAgentsJob,
   type JobQueue,
+  type SmartImportJob,
 } from "./jobs";
 export { closeAllPools } from "./client";
 // Operadores de consulta reexportados para que apps usem a MESMA instância do drizzle-orm.

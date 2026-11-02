@@ -48,6 +48,7 @@ export const ROW_MESSAGE_KEYS = [
   "relatorioMetasPlano",
   "relatorioDividas",
   "relatorioDividasPlano",
+  "importadorPronto",
   "assinaturaFalhou",
   "assinaturaRenovacao",
   "vipVencendo",
