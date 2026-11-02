@@ -80,7 +80,7 @@ Fica fora da exceção o resto da regra 7. A importação continua propondo, e a
 
 - **Excedente**: só meses fechados com lançamento; `min(média, mediana)` com 6 meses ou mais; mediana com 3 a
   5; abaixo de 3 usa a previsão (renda líquida típica menos despesas recorrentes). O que a família guarda em
-  metas e aportes não conta como gasto.
+  metas e aportes não conta como gasto. O que a família já aporta por mês conta na divisão (ADR-0027).
 - **Folga de 10%** sobre o excedente antes de dividir.
 - **Divisão do que sobra**, nesta ordem: até **50%** para completar a reserva; até **70%** do resto para
   dívidas caras; até **70%** do resto para a aposentadoria; o que sobrar vai **metade para metas e metade para

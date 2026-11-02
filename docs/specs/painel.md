@@ -20,19 +20,19 @@ sempre (`summarizeMonth`, `spendingByCategory`, `incomeByCategory`, `summarizePo
 1. **Cabeçalho:** saudação, data de hoje, cidade e "Ver lançamentos".
 2. **Seletor de mês.**
 3. **Aviso do mês**, quando precisa: mês atual sem movimento, com link para o anterior; mês passado sem nada; mês futuro.
-4. **Resumo.** Campos: receitas, despesas, resultado (receitas menos despesas) e saldo.
+4. **Resumo.** Campos: receitas, despesas, resultado (receitas menos despesas) e saldo. Com aporte ou resgate no mês, mais uma faixa:
+   Aportado, Sobrou depois de aportar (resultado menos aportes) e Voltou para as contas.
    - Receitas e despesas mostram o realizado. A dica traz a comparação com o mês anterior, em texto, e o que está em aberto.
    - Mês futuro mostra o previsto, e o rótulo diz isso.
    - Saldo: mês passado, saldo no último dia, com a cotação daquele dia. Mês atual, saldo de hoje e a previsão para o fim do mês.
      Mês futuro, saldo de hoje mais os previstos do mês atual até o escolhido.
-   - Abaixo, em uma linha cada: quanto das despesas é aporte ou meta, quanto das receitas é resgate ou meta, e quanto do cartão
-     está na fatura do mês.
+   - Abaixo, em uma linha: quanto do cartão está na fatura do mês.
 5. **Primeiros passos**, enquanto faltar algo. Na conta nova vêm antes de tudo.
 6. **Dicas e sugestões**, quando houver.
 7. **Evolução e próximos vencimentos.** Doze meses até o escolhido, receitas e despesas no mesmo eixo, feito cheio e previsto
    claro, mês escolhido destacado. Cada mês é um link para ele. Tooltip e tabela para leitor de tela. Próximos vencimentos
    segue a data de hoje, com os 4 mais próximos, 3 no celular; fora do mês atual, o texto diz isso.
-8. **Por categoria.** Despesas e receitas, as maiores 6 e "Outras". Valor, percentual e barra com feito e previsto. Cada linha abre
+8. **Por categoria.** Despesas, receitas e, quando houver, aportes, as maiores 6 e "Outras". Valor, percentual e barra com feito e previsto. Cada linha abre
    `/app/lancamentos` filtrado. Despesa abre o cartão compra a compra, como no relatório de categorias, e soma feito e previsto.
 9. **Por conta.** Cada conta com receitas, despesas e saldo. Conta arquivada só aparece se teve movimento no mês. Cada cartão com
    a fatura do mês, a situação dela e o que já está nas faturas seguintes. A fatura paga entra nas despesas da conta que paga: a
@@ -47,10 +47,10 @@ sempre (`summarizeMonth`, `spendingByCategory`, `incomeByCategory`, `summarizePo
 
 ## Regras da conta
 
-- **Mesmos números.** Receitas e despesas são `summarizeMonth` sobre `buildMonthEntries`, com as previsões, faturas, parcelas, metas
+- **Mesmos números.** Os números do mês são `summarizeMonth` sobre `buildMonthEntries`, com as previsões, faturas, parcelas, metas
   e rendas, como em `/app/lancamentos` e no relatório de Resumo.
-- **Aporte é movimentação.** Como nos relatórios, aporte, resgate e parcela de meta ficam nos totais do mês, na categoria deles. A
-  tela diz quanto é isso: não é consumo.
+- **Aporte não é despesa, e resgate não é receita (ADR-0027).** Aporte, resgate e parcela de meta têm números próprios, com a mesma
+  definição em todas as telas. O saldo das contas não muda.
 - **Transferência** não é receita nem despesa. Só mexe no saldo das duas contas.
 - **Cartão.** Compra vira despesa quando a fatura é paga. Fatura aberta é despesa prevista, na data de vencimento.
 - **Moeda estrangeira.** `amount` já está na moeda principal, com a cotação congelada no lançamento. O saldo de mês passado converte

@@ -3,7 +3,7 @@
 Status: aceito (2026-11-01). Pedido do fundador.
 
 Soma ao ADR-0015 (o agente `relatorios` entra na rodada diária, por último), ao ADR-0018 (rota nova `relatorios`) e ao
-ADR-0020 (chave e valores, moeda da família).
+ADR-0020 (chave e valores, moeda da família). Aporte e resgate fora de despesas e receitas, e a regra na assinatura: ver ADR-0027.
 
 ## Decisão
 
