@@ -2,7 +2,7 @@
 // Os schemas valem nas duas pontas: o agente grava e `applySuggestion` revalida antes de aplicar
 // (regra 7 reescrita, ADR-0015). Dinheiro sempre como string "1234.56".
 import { z } from "zod";
-import type { SuggestionKind } from "@organizeup/db";
+import { DESTINATION_REGIONS, type SuggestionKind } from "@organizeup/db";
 
 /**
  * Tipos que o agente resolve sozinho, sem pergunta. Linha pendente deles é anterior à decisão de
@@ -113,6 +113,17 @@ export const viagemPayloadSchema = z.object({
   fits: z.boolean(),
   confidence: z.enum(["baixa", "media"]),
   source: z.string().max(600),
+  /** Veio de uma intenção da família (ADR-0026): aceitar marca como atendida. */
+  intentionId: z.string().min(1).optional(),
+  /** Destino fora do catálogo: custo pela mediana da região. */
+  regionEstimate: z
+    .object({
+      region: z.enum(DESTINATION_REGIONS),
+      destinations: z.number().int().min(1),
+    })
+    .optional(),
+  /** Não coube no mês preferido, que seria `from`. */
+  postponed: z.object({ from: yearMonthSchema, reason: z.enum(["tempo", "ocupado"]) }).optional(),
   /** Preenchidos ao aplicar, para desfazer. */
   tripId: z.string().optional(),
   eventId: z.string().optional(),
@@ -242,6 +253,7 @@ export function parsePayload<K extends SuggestionKind>(
 }
 
 export const MARKET_DEDUPE_PREFIX = "mercado:";
+export const INTENTION_DEDUPE_PREFIX = "viagem:intencao:";
 export const STOCK_EVENT_DEDUPE_PREFIX = "investimento:acoes:";
 
 /** Chaves de dedupe: uma pendente por chave (índice parcial `household_suggestions_pending_dedupe`). */
@@ -257,6 +269,9 @@ export const DEDUPE = {
   aporteDivida: (debtId: string, month: string) => `aporte_divida:${debtId}:${month}`,
   aporteInvestimento: (month: string) => `aporte_investimento:${month}`,
   viagem: (destinationId: string, year: number | string) => `viagem:${destinationId}:${year}`,
+  /** Sugestão de uma intenção, com o ano da viagem. A recusa vale até o fim desse ano. */
+  viagemIntencao: (intentionId: string, year: number | string) =>
+    `${INTENTION_DEDUPE_PREFIX}${intentionId}:${year}`,
   meta: (goalId: string, month: string) => `meta:${goalId}:${month}`,
   metaNova: (name: string) => `meta:nova:${name}`,
   investimentoPreco: (investmentId: string, month: string) =>

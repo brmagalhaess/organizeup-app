@@ -2,7 +2,9 @@ import "server-only";
 import {
   AUTOMATIC_SUGGESTION_KINDS,
   linkPayloadSchema,
+  loadIntentionDecisions,
   viagemPayloadSchema,
+  type ReportViagens,
   type ViagemPayload,
 } from "@organizeup/agents";
 import {
@@ -11,18 +13,30 @@ import {
   desc,
   eq,
   gte,
+  householdReports,
   householdSettings,
   householdSuggestions,
+  inArray,
   notInArray,
   people,
   sql,
   tolerateSchemaLag,
+  tripDestinationTemplates,
+  tripIntentions,
+  trips,
   withHousehold,
+  type DestinationRegion,
   type SuggestionKind,
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
-import { ageFromBirth, DEFAULT_TIMEZONE, todayIn, TRIP_RULES } from "@organizeup/domain";
+import {
+  ageFromBirth,
+  DEFAULT_TIMEZONE,
+  todayIn,
+  TRIP_RULES,
+  type IntentionOutcome,
+} from "@organizeup/domain";
 import { agentText } from "@/i18n/agent-text";
 import type { Locale } from "@/i18n/locales";
 import { resolveLocale } from "@/i18n/resolve";
@@ -53,6 +67,8 @@ export interface PendingItem {
   translated: boolean;
   /** Tela relacionada, nos avisos que só apontam para outro lugar. */
   href: string | null;
+  /** Veio de uma intenção de viagem: recusar vale o ano, não 30 dias. */
+  fromIntention: boolean;
 }
 
 export interface AutomaticItem {
@@ -138,6 +154,7 @@ const toItem = (row: PendingRow, locale: Locale): PendingItem => ({
   kind: row.kind,
   ...agentText(row, locale),
   href: hrefOf(row),
+  fromIntention: row.kind === "viagem" && "intentionId" in row.payload,
 });
 
 function bulkOf(rows: PendingRow[]): SuggestionBulk | null {
@@ -321,6 +338,150 @@ export async function loadTripSuggestions(ctx: TenantContext): Promise<TripSugge
           adults: going.size - children,
           children,
           items,
+        };
+      }),
+    null,
+  );
+}
+
+export interface CatalogDestination {
+  id: string;
+  name: string;
+  region: DestinationRegion;
+}
+
+/** Só o que a tela mostra: as outras saídas do agente viram a própria situação. */
+type AgentReason = Extract<
+  IntentionOutcome,
+  { status: "nao_cabe" | "sem_vaga" | "uma_por_ano" | "criancas" | "sem_estimativa" }
+>;
+
+export type IntentionState =
+  | { status: "aguardando" }
+  | { status: "sugerida"; month: string }
+  | { status: "recusada"; untilYear: number }
+  | { status: "atendida"; trip: { destination: string; startOn: string } | null }
+  | AgentReason;
+
+export interface TripIntentionItem {
+  id: string;
+  destinationId: string | null;
+  /** Nome do catálogo, ou o que a família digitou. */
+  name: string;
+  region: DestinationRegion | null;
+  customRegion: DestinationRegion | null;
+  preferredMonth: number | null;
+  days: number | null;
+  state: IntentionState;
+}
+
+export interface TripIntentions {
+  items: TripIntentionItem[];
+  catalog: CatalogDestination[];
+}
+
+const AGENT_REASONS = new Set([
+  "nao_cabe",
+  "sem_vaga",
+  "uma_por_ano",
+  "criancas",
+  "sem_estimativa",
+]);
+
+/** O bloco "Quero conhecer". Null enquanto a migração não chegou: a tela de Viagens segue sem ele. */
+export async function loadTripIntentionItems(ctx: TenantContext): Promise<TripIntentions | null> {
+  return tolerateSchemaLag<TripIntentions | null>(
+    () =>
+      withHousehold(ctx, async (tx) => {
+        const rows = await tx
+          .select()
+          .from(tripIntentions)
+          .orderBy(asc(tripIntentions.createdAt), asc(tripIntentions.id));
+        const catalog = await tx
+          .select({
+            id: tripDestinationTemplates.id,
+            name: tripDestinationTemplates.name,
+            region: tripDestinationTemplates.region,
+          })
+          .from(tripDestinationTemplates)
+          .orderBy(asc(tripDestinationTemplates.position), asc(tripDestinationTemplates.id));
+        if (rows.length === 0) return { items: [], catalog };
+
+        const [settings] = await tx
+          .select({ timezone: householdSettings.timezone })
+          .from(householdSettings);
+        const year = Number(todayIn(settings?.timezone).slice(0, 4));
+        const { refused } = await loadIntentionDecisions(tx);
+        const pendingRows = await tx
+          .select({ payload: householdSuggestions.payload })
+          .from(householdSuggestions)
+          .where(
+            and(
+              eq(householdSuggestions.status, "pendente"),
+              eq(householdSuggestions.kind, "viagem"),
+            ),
+          );
+        const pending = new Map(
+          pendingRows.flatMap((row) => {
+            const parsed = viagemPayloadSchema.safeParse(row.payload);
+            return parsed.success && parsed.data.intentionId
+              ? [[parsed.data.intentionId, parsed.data.month] as const]
+              : [];
+          }),
+        );
+        const [report] = await tx
+          .select({ data: householdReports.data })
+          .from(householdReports)
+          .where(eq(householdReports.kind, "viagens"))
+          .orderBy(desc(householdReports.period))
+          .limit(1);
+        const outcomes = (report?.data as ReportViagens | undefined)?.intentions?.outcomes ?? [];
+        const tripIds = rows.flatMap((row) => row.fulfilledTripId ?? []);
+        const tripRows =
+          tripIds.length > 0
+            ? await tx
+                .select({ id: trips.id, destination: trips.destination, startOn: trips.startOn })
+                .from(trips)
+                .where(inArray(trips.id, tripIds))
+            : [];
+
+        const stateOf = (row: (typeof rows)[number]): IntentionState => {
+          if (row.fulfilledAt) {
+            const trip = tripRows.find((item) => item.id === row.fulfilledTripId);
+            return {
+              status: "atendida",
+              trip: trip ? { destination: trip.destination, startOn: trip.startOn } : null,
+            };
+          }
+          const month = pending.get(row.id);
+          if (month) return { status: "sugerida", month };
+          const untilYear = refused.get(row.id);
+          if (untilYear !== undefined && untilYear >= year)
+            return { status: "recusada", untilYear };
+          // Editada depois da rodada: o motivo guardado é da versão antiga.
+          const outcome = outcomes.find(
+            (item) => item.intentionId === row.id && item.updatedAt === row.updatedAt.toISOString(),
+          );
+          return outcome && AGENT_REASONS.has(outcome.status)
+            ? (outcome as AgentReason)
+            : { status: "aguardando" };
+        };
+
+        return {
+          catalog,
+          items: rows.map((row) => {
+            const known = catalog.find((item) => item.id === row.destinationId);
+            return {
+              id: row.id,
+              destinationId: row.destinationId,
+              name: known?.name ?? row.customName ?? "",
+              region: known?.region ?? row.customRegion,
+              customRegion: row.customRegion,
+              preferredMonth: row.preferredMonth,
+              days: row.days,
+              state: stateOf(row),
+            };
+          }),
         };
       }),
     null,

@@ -133,5 +133,6 @@
   "assinatura.summary.backToFamily": "Back to Complete company",
   "assinatura.status.cortesia": "Your company has a courtesy plan: everything available, at no charge.",
   "assinatura.failure.sem_familia": "Choose a company first.",
-  "assinatura.failure.so_responsavel": "Only the company's owner can do this."
+  "assinatura.failure.so_responsavel": "Only the company's owner can do this.",
+  "viagens.intentions.states.criancas": "We don't suggest this destination: it isn't recommended for trips with anyone under 12."
 }

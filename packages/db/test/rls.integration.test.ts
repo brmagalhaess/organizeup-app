@@ -1723,6 +1723,133 @@ describe("isolamento de aposentadoria e viagens", () => {
   });
 });
 
+describe("isolamento das intenções de viagem", () => {
+  const { tripIntentions, trips } = db;
+  const place = (householdId: string, customName: string) => ({
+    householdId,
+    customName,
+    customRegion: "europa" as const,
+  });
+  let intentionB = "";
+  let tripB = "";
+
+  beforeAll(async () => {
+    await db.withHousehold(await ctxFor(A.owner, A.household), (tx) =>
+      tx.insert(tripIntentions).values(place(A.household, "Lugar A")),
+    );
+    await db.withHousehold(await ctxFor(B.owner, B.household), async (tx) => {
+      const [row] = await tx
+        .insert(tripIntentions)
+        .values(place(B.household, "Lugar B"))
+        .returning({ id: tripIntentions.id });
+      intentionB = row!.id;
+      const [trip] = await tx
+        .insert(trips)
+        .values({ householdId: B.household, destination: "Lugar B", startOn: "2027-03-01" })
+        .returning({ id: trips.id });
+      tripB = trip!.id;
+    });
+  });
+
+  it("não lê intenção de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    const rows = await db.withHousehold(ctx, (tx) => tx.select().from(tripIntentions));
+    expect(rows.map((row) => row.householdId)).toEqual([A.household]);
+  });
+
+  it("não cria, altera nem apaga intenção de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      const changed = await tx
+        .update(tripIntentions)
+        .set({ days: 3 })
+        .where(eq(tripIntentions.id, intentionB))
+        .returning({ id: tripIntentions.id });
+      const removed = await tx
+        .delete(tripIntentions)
+        .where(eq(tripIntentions.id, intentionB))
+        .returning({ id: tripIntentions.id });
+      expect(changed).toHaveLength(0);
+      expect(removed).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(tripIntentions).values(place(B.household, "Invadido")),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("FK composta impede apontar para a viagem de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(tripIntentions).values({
+          ...place(A.household, "Outro lugar"),
+          fulfilledAt: new Date(),
+          fulfilledTripId: tripB,
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não grava", async () => {
+    const ctx = await ctxFor(A.viewer, A.household);
+    const rows = await db.withHousehold(ctx, (tx) => tx.select().from(tripIntentions));
+    expect(rows).toHaveLength(1);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(tripIntentions).values(place(A.household, "Sem permissão")),
+      ),
+    ).rejects.toThrow();
+    const changed = await db.withHousehold(ctx, (tx) =>
+      tx.update(tripIntentions).set({ days: 2 }).returning({ id: tripIntentions.id }),
+    );
+    expect(changed).toHaveLength(0);
+  });
+
+  it("destino do catálogo ou nome com região: nunca os dois, nunca nenhum", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    const attempts = [
+      { householdId: A.household },
+      { householdId: A.household, customName: "Sem região" },
+      { householdId: A.household, customRegion: "europa" as const },
+      { ...place(A.household, "Os dois"), destinationId: "lisboa" },
+      { householdId: A.household, destinationId: "lugar-que-nao-existe" },
+      { ...place(A.household, "Mês errado"), preferredMonth: 13 },
+      { ...place(A.household, "Dias demais"), days: 61 },
+    ];
+    for (const values of attempts) {
+      await expect(
+        db.withHousehold(ctx, (tx) => tx.insert(tripIntentions).values(values)),
+      ).rejects.toThrow();
+    }
+  });
+
+  it("o mesmo lugar entra uma vez só, sem diferenciar maiúscula", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(tripIntentions).values(place(A.household, "  lugar a ")),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("apagar a viagem mantém a intenção atendida, sem o vínculo", async () => {
+    const ctx = await ctxFor(B.owner, B.household);
+    await db.withHousehold(ctx, async (tx) => {
+      await tx
+        .update(tripIntentions)
+        .set({ fulfilledAt: new Date(), fulfilledTripId: tripB })
+        .where(eq(tripIntentions.id, intentionB));
+      await tx.delete(trips).where(eq(trips.id, tripB));
+      const [row] = await tx.select().from(tripIntentions).where(eq(tripIntentions.id, intentionB));
+      expect(row!.fulfilledTripId).toBeNull();
+      expect(row!.fulfilledAt).not.toBeNull();
+      expect(row!.householdId).toBe(B.household);
+    });
+  });
+});
+
 describe("isolamento de metas, sugestões e plano por proventos", () => {
   const {
     accounts,
@@ -4400,6 +4527,9 @@ describe("exportação e exclusão da família", () => {
         occurredOn: "2026-10-01",
       });
       await tx.insert(people).values({ householdId: id, name: "Cida", relation: "titular" });
+      await tx
+        .insert(db.tripIntentions)
+        .values({ householdId: id, customName: "Praga", customRegion: "europa" });
     });
 
     const raw = postgres(urls.app, { max: 1 });

@@ -38,19 +38,30 @@ function SuggestionCard({
   actions: SuggestionActions;
 }) {
   const t = useTranslations("viagens.suggestions");
+  const tRegions = useTranslations("viagens.regions");
   const locale = useLocale();
   const moneyText = useMoney();
   const perPerson =
     item.perPerson ?? money(item.total).dividedBy(Math.max(1, item.personIds.length)).toString();
   const when = monthLabel(item.month, today, locale);
   const monthly = rounded(item.monthlyToSave, moneyText);
+  const confidence = t(`confidence.${item.confidence}`);
   return (
     <li className="rounded-xl border border-line p-4">
       <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
         {item.name}
+        {item.intentionId ? <Badge tone="success">{t("fromIntention")}</Badge> : null}
         {item.fits ? null : <Badge tone="warning">{t("overBudget")}</Badge>}
       </h3>
       <p className="mt-1 text-sm text-muted">{t("when", { when, days: item.days })}</p>
+      {item.postponed ? (
+        <p className="mt-1 text-sm">
+          {t(item.postponed.reason === "tempo" ? "postponedTime" : "postponedBusy", {
+            from: monthLabel(item.postponed.from, today, locale),
+            to: when,
+          })}
+        </p>
+      ) : null}
       <p className="mt-2 text-sm font-medium">
         {t("about", {
           total: rounded(item.total, moneyText),
@@ -66,13 +77,20 @@ function SuggestionCard({
           : t("tooMuch", { amount: monthly })}
       </p>
       <p className="mt-2 text-xs text-muted">
-        {t("source", { source: item.source, confidence: t(`confidence.${item.confidence}`) })}
+        {item.regionEstimate
+          ? t("sourceRegion", {
+              region: tRegions(item.regionEstimate.region),
+              count: item.regionEstimate.destinations,
+              confidence,
+            })
+          : t("source", { source: item.source, confidence })}
       </p>
       {writable ? (
         <DecisionButtons
           id={item.id}
           title={t("itemTitle", { name: item.name, when })}
           acceptLabel={t("accept")}
+          fromIntention={Boolean(item.intentionId)}
           actions={actions}
         />
       ) : null}

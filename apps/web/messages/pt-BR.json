@@ -1194,7 +1194,11 @@
         "media": "confiança média"
       },
       "accept": "Adicionar às minhas viagens",
-      "itemTitle": "{name} em {when}"
+      "itemTitle": "{name} em {when}",
+      "fromIntention": "Você quer conhecer",
+      "postponedTime": "Em {from} não daria tempo de guardar, então ficou para {to}.",
+      "postponedBusy": "Em {from} já há outra viagem, então ficou para {to}.",
+      "sourceRegion": "Estimativa pela região {region}: mediana de {count, plural, =1 {# destino} other {# destinos}} da nossa tabela ({confidence})"
     },
     "errors": {
       "date": "Informe a data.",
@@ -1207,7 +1211,102 @@
       "costKind": "Escolha o tipo de custo.",
       "costAmount": "Informe o valor como 1.500,00.",
       "savedAmount": "Informe o valor como 500,00.",
-      "check": "Verifique."
+      "check": "Verifique.",
+      "intentionDestination": "Escolha um destino ou escreva o nome do lugar.",
+      "intentionNameLong": "Use até 80 caracteres no nome.",
+      "intentionRegion": "Escolha a região do lugar.",
+      "intentionMonth": "Escolha um mês da lista.",
+      "intentionDays": "Informe de 1 a 60 dias.",
+      "intentionRepeated": "Este lugar já está na sua lista.",
+      "intentionNotFound": "Lugar não encontrado.",
+      "intentionForeign": "O assistente não usa esta lista nesta moeda."
+    },
+    "regions": {
+      "brasil_perto": "Brasil, perto de casa",
+      "brasil": "Brasil",
+      "america_sul": "América do Sul",
+      "america_norte": "América do Norte",
+      "europa": "Europa",
+      "asia_oceania": "Ásia e Oceania"
+    },
+    "intentions": {
+      "title": "Quero conhecer",
+      "description": "Lugares que vocês querem visitar. Quando couber no orçamento, o assistente sugere estes antes de outros destinos.",
+      "add": "Adicionar lugar",
+      "listLabel": "Lugares que você quer conhecer",
+      "foreign": "O assistente não usa esta lista nesta moeda: a tabela de custos é em reais e para quem sai do Brasil. Nenhuma sugestão sai daqui.",
+      "empty": {
+        "title": "Tem algum lugar em mente?",
+        "text": "Anote aqui os destinos que você quer conhecer. Nada entra no calendário sem você aceitar."
+      },
+      "meta": {
+        "month": "Em {month}",
+        "anyMonth": "Qualquer mês",
+        "days": "{days, plural, =1 {# dia} other {# dias}}",
+        "defaultDays": "Duração de sempre",
+        "region": "Fora da tabela · {region}"
+      },
+      "states": {
+        "aguardando": "O assistente olha este lugar na próxima madrugada.",
+        "sugerida": "Sugerido para {month}. Decida no cartão de sugestão, aqui em Viagens.",
+        "recusada": "Você recusou a sugestão. O assistente não sugere este lugar de novo antes de {year}.",
+        "atendida": "Viagem marcada para {date}.",
+        "atendidaSemViagem": "A viagem criada foi excluída. Use Refazer para voltar a receber sugestões.",
+        "naoCabe": "Ainda não cabe: cerca de {total}. Guarde {extra} a mais por mês.",
+        "naoCabeMes": "Ainda não cabe: cerca de {total}. Guarde {extra} a mais por mês, ou use o orçamento de hoje só nela: o valor fecha em {month}.",
+        "semVaga": "Cabe no orçamento (cerca de {total}), mas as viagens por ano já foram para outros lugares. Aumente em <link>Configurações › Plano</link>.",
+        "umaPorAno": "Sem viagens por ano definidas, o assistente faz uma sugestão por ano, e a deste ano já saiu. Mude em <link>Configurações › Plano</link>.",
+        "criancas": "Não sugerimos este destino: ele não é indicado para quem viaja com crianças.",
+        "semEstimativa": "Ainda não temos destinos dessa região para estimar o custo. Tente outra região."
+      },
+      "badges": {
+        "aguardando": "Na fila",
+        "sugerida": "Sugerido",
+        "recusada": "Recusado",
+        "atendida": "Atendida",
+        "naoCabe": "Ainda não cabe",
+        "semVaga": "Sem vaga",
+        "umaPorAno": "Próximo ano",
+        "criancas": "Não sugerido",
+        "semEstimativa": "Sem estimativa"
+      },
+      "edit": "Editar {name}",
+      "remove": "Remover {name}",
+      "redo": "Refazer",
+      "redoAria": "Refazer {name}",
+      "sheets": {
+        "new": "Novo lugar",
+        "edit": "Editar lugar"
+      },
+      "form": {
+        "search": "Destino",
+        "searchHint": "Procure na nossa tabela. Se não achar, escreva o nome.",
+        "searchPlaceholder": "Ex.: Lisboa",
+        "found": "Destinos encontrados",
+        "notFound": "Nada encontrado na tabela.",
+        "useCustom": "Não está na lista",
+        "change": "Trocar",
+        "fromCatalog": "Procurar na tabela",
+        "customName": "Nome do lugar",
+        "customHint": "Sem o lugar na tabela, estimamos o custo pela região.",
+        "region": "Região",
+        "regionChoose": "Escolha a região",
+        "month": "Mês preferido",
+        "monthAny": "Sem preferência",
+        "days": "Dias",
+        "daysHint": "Opcional. Vazio: usamos a duração das suas viagens.",
+        "save": "Salvar lugar"
+      },
+      "removeSheet": {
+        "title": "Remover lugar",
+        "text": "\"{name}\" sai da lista. Viagens já marcadas continuam.",
+        "confirm": "Remover"
+      },
+      "redoSheet": {
+        "title": "Refazer este lugar",
+        "text": "\"{name}\" volta para a fila do assistente. A viagem criada continua em Viagens.",
+        "confirm": "Refazer"
+      }
     }
   },
   "pessoas": {
@@ -3220,7 +3319,8 @@
       "later": "Agora não",
       "labeled": "{action}: {name}",
       "laterHint": "Voltamos a sugerir daqui a 30 dias",
-      "failed": "Não foi possível concluir agora. Atualize a página e tente de novo."
+      "failed": "Não foi possível concluir agora. Atualize a página e tente de novo.",
+      "laterHintIntention": "O lugar fica na sua lista, e não sugerimos de novo neste ano"
     },
     "errors": {
       "notFound": "Sugestão não encontrada.",
@@ -3270,7 +3370,8 @@
       "tripPeopleInvalid": "Escolha pessoas da família.",
       "tripFailed": "Não foi possível criar a viagem.",
       "tripCreated": "Viagem para {name} criada. Ajuste datas e custos em Viagens.",
-      "goalCreated": "Meta {name} criada. Ajuste os detalhes em Metas."
+      "goalCreated": "Meta {name} criada. Ajuste os detalhes em Metas.",
+      "dismissedIntention": "Tudo bem. O lugar continua na sua lista, e não sugerimos de novo neste ano."
     }
   },
   "familiaOnboarding": {
@@ -3670,7 +3771,12 @@
       "relDividasSemExtra": "Hoje não sobra valor extra para as dívidas.",
       "relDividasMudou": "A quitação mudou de {from} para {to}.",
       "relDividasAtencao": "{count, plural, =1 {1 ponto de atenção} other {# pontos de atenção}}.",
-      "relViagensForaDoBrasil": "A tabela de destinos é em reais e para quem sai do Brasil: sem sugestões de viagem nesta moeda."
+      "relViagensForaDoBrasil": "A tabela de destinos é em reais e para quem sai do Brasil: sem sugestões de viagem nesta moeda.",
+      "viagemFonteRegiao": "Valores aproximados pela nossa tabela de custos (confiança {confidence, select, baixa {baixa} other {media}}). Confira passagens e hospedagem antes de fechar. Fonte: mediana de {count, plural, =1 {1 destino} other {# destinos}} da região na nossa tabela.",
+      "viagemEstimativaRegiao": "Custo estimado pela região {region, select, brasil_perto {Brasil, perto de casa} brasil {Brasil} america_sul {América do Sul} america_norte {América do Norte} europa {Europa} other {Ásia e Oceania}}: este destino não está na nossa tabela.",
+      "viagemMesSemTempo": "Em {from} não daria tempo de guardar, então ficou para {to}.",
+      "viagemMesOcupado": "Em {from} já há outra viagem, então ficou para {to}.",
+      "relViagensIntencoes": "{count, plural, =1 {1 intenção usada} other {# intenções usadas}}."
     },
     "lembreteRendimentoSimples": {
       "title": "Informe o rendimento anual da carteira",

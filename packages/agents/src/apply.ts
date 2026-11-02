@@ -19,6 +19,7 @@ import {
   investments,
   investmentStockEvents,
   retirementPlan,
+  tripIntentions,
   trips,
   type TenantContext,
   type TenantTx,
@@ -27,6 +28,7 @@ import { transactions } from "@organizeup/db";
 import { daysInMonth } from "@organizeup/domain";
 import {
   DEDUPE,
+  INTENTION_DEDUPE_PREFIX,
   parsePayload,
   type MarketChanges,
   type StockEventChange,
@@ -45,6 +47,7 @@ export const APPLY_REPLIES = {
   debtExtra: "Combinado: o pagamento extra você registra na tela de dívidas.",
   noted: "Anotado.",
   dismissed: "Tudo bem. Voltamos a sugerir daqui a 30 dias, se ainda fizer sentido.",
+  dismissedIntention: "Tudo bem. O lugar continua na sua lista, e não sugerimos de novo neste ano.",
   onlyApplied: "Só dá para desfazer o que foi aplicado.",
   incomplete: "Não foi possível desfazer: os dados desta sugestão estão incompletos.",
   undone: "Desfeito.",
@@ -209,9 +212,12 @@ export async function dismissSuggestion(
   if (row.status !== "pendente") return failed("decided");
   await decide(tx, ctx, id, "ignorada");
   await recordAudit(tx, ctx, "dismiss", "household_suggestions", id, { kind: row.kind });
+  // Recusa de intenção vale o ano da viagem, não os 30 dias (ADR-0026).
   return {
     ok: true,
-    ...reply("dismissed"),
+    ...reply(
+      row.dedupeKey.startsWith(INTENTION_DEDUPE_PREFIX) ? "dismissedIntention" : "dismissed",
+    ),
   };
 }
 
@@ -251,7 +257,7 @@ export async function undoSuggestion(
       );
       break;
     case "viagem":
-      outcome = await undoViagem(tx, payload as SuggestionPayload["viagem"]);
+      outcome = await undoViagem(tx, ctx, payload as SuggestionPayload["viagem"]);
       break;
     case "meta":
       outcome = await undoMeta(tx, payload as SuggestionPayload["meta"]);
@@ -611,6 +617,14 @@ async function applyViagem(
         perPerson: false,
       })),
     });
+    if (payload.intentionId) {
+      // Aceitar é da família: a intenção só muda aqui (regra 7).
+      await tx
+        .update(tripIntentions)
+        .set({ fulfilledAt: new Date(), fulfilledTripId: created.tripId })
+        .where(eq(tripIntentions.id, payload.intentionId));
+      await recordAudit(tx, ctx, "update", "trip_intentions", payload.intentionId);
+    }
     return {
       ...reply("tripCreated", { name: payload.name }),
       payload: { ...payload, tripId: created.tripId, eventId: created.eventId },
@@ -626,9 +640,17 @@ async function applyViagem(
 
 async function undoViagem(
   tx: TenantTx,
+  ctx: TenantContext,
   payload: SuggestionPayload["viagem"],
 ): Promise<Said | Refused> {
   if (!payload.tripId) return refused("notAssistantTrip");
+  if (payload.intentionId) {
+    await tx
+      .update(tripIntentions)
+      .set({ fulfilledAt: null, fulfilledTripId: null })
+      .where(eq(tripIntentions.id, payload.intentionId));
+    await recordAudit(tx, ctx, "update", "trip_intentions", payload.intentionId);
+  }
   const [removed] = await tx
     .delete(trips)
     .where(eq(trips.id, payload.tripId))

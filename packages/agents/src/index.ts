@@ -112,7 +112,16 @@ export {
   statementKinds,
   statementPeriods,
 } from "./statements";
-export { loadDestinations, runViagensAgent, VIAGENS_AGENT } from "./run-viagens";
+export {
+  loadDestinations,
+  loadIntentionDecisions,
+  loadTripIntentions,
+  runViagensAgent,
+  VIAGENS_AGENT,
+  type IntentionDecisions,
+  type TripIntentionRow,
+  type ViagensResult,
+} from "./run-viagens";
 export {
   ASSET_CLASS_LABELS,
   IGNORED_DAYS,

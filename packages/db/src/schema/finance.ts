@@ -1393,3 +1393,39 @@ export const tripDestinationTemplates = pgTable("trip_destination_templates", {
   confidence: text("confidence", { enum: DESTINATION_CONFIDENCES }).notNull(),
   position: smallint("position").notNull().default(0),
 });
+
+/**
+ * Lugar que a família quer conhecer (migração 0039; ADR-0026). Dado informado: o agente lê e nunca
+ * muda. Destino do catálogo, ou nome livre com região. `fulfilledAt` só nasce do aceite da família.
+ * Sem coluna de intenção em outra tabela: quem lê tolera a tabela ainda não existir.
+ */
+export const tripIntentions = pgTable(
+  "trip_intentions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    destinationId: text("destination_id").references(() => tripDestinationTemplates.id),
+    customName: text("custom_name"),
+    customRegion: text("custom_region", { enum: DESTINATION_REGIONS }),
+    /** Mês do ano (1 a 12), sem ano. */
+    preferredMonth: smallint("preferred_month"),
+    days: smallint("days"),
+    fulfilledAt: ts("fulfilled_at"),
+    fulfilledTripId: text("fulfilled_trip_id"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    index("trip_intentions_household_id_idx").on(t.householdId),
+    // Na migração é SET NULL só de fulfilled_trip_id, para não apagar household_id.
+    foreignKey({
+      columns: [t.householdId, t.fulfilledTripId],
+      foreignColumns: [trips.householdId, trips.id],
+    }),
+  ],
+);

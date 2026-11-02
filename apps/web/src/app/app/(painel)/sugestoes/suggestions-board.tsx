@@ -47,6 +47,7 @@ function PendingCard({
         <DecisionButtons
           id={item.id}
           title={item.title}
+          fromIntention={item.fromIntention}
           actions={actions}
           {...(item.kind === "viagem" ? { acceptLabel: t("addTrip") } : {})}
         />

@@ -1,16 +1,22 @@
 // Agente diário de viagens (ADR-0015). Com `trips_per_year > 0`, sugere destinos que cabem no
-// orçamento de viagens da divisão do dia. Só sugere: nada entra no calendário sem a família aceitar.
+// orçamento de viagens da divisão do dia, com as intenções da família na frente (ADR-0026). Só sugere:
+// nada entra no calendário sem a família aceitar, e a intenção nunca é alterada aqui.
 import {
   and,
+  asc,
   eq,
   gte,
   householdCurrency,
   householdSettings,
   householdSuggestions,
   inArray,
+  like,
+  ne,
   people,
   sql,
+  tolerateSchemaLag,
   tripDestinationTemplates,
+  tripIntentions,
   trips,
   type TenantTx,
 } from "@organizeup/db";
@@ -19,14 +25,16 @@ import {
   ageFromBirth,
   brazilRulesApply,
   money,
-  suggestTrips,
+  planTrips,
   yearMonthOf,
   type DestinationTemplate,
+  type IntentionOutcome,
+  type TripIntention,
   type TripSuggestion,
   type TripTraveler,
 } from "@organizeup/domain";
 import type { ReportViagens } from "./reports";
-import { DEDUPE, type ViagemPayload } from "./suggestions";
+import { DEDUPE, INTENTION_DEDUPE_PREFIX, type ViagemPayload } from "./suggestions";
 import {
   loadDecisions,
   resolveAllocation,
@@ -65,7 +73,75 @@ export async function loadDestinations(tx: TenantTx): Promise<DestinationTemplat
     }));
 }
 
-export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<AgentResult> {
+export type TripIntentionRow = typeof tripIntentions.$inferSelect;
+
+/** Intenções, das mais antigas para as novas. Banco atrasado: nenhuma, sem derrubar a transação. */
+export const loadTripIntentions = (tx: TenantTx): Promise<TripIntentionRow[]> =>
+  tolerateSchemaLag(
+    () =>
+      tx.transaction((step) =>
+        step
+          .select()
+          .from(tripIntentions)
+          .orderBy(asc(tripIntentions.createdAt), asc(tripIntentions.id)),
+      ),
+    [],
+  );
+
+export interface IntentionDecisions {
+  /** Por intenção, o ano da viagem recusada ou desfeita mais adiante. */
+  refused: Map<string, number>;
+  /** Anos civis em que saiu sugestão de intenção que a família já decidiu. */
+  decidedIn: Set<number>;
+}
+
+const INTENTION_KEY = new RegExp(`^${INTENTION_DEDUPE_PREFIX}(.+):(\\d{4})$`);
+
+/** O que a família decidiu sobre as sugestões de intenção. Recusa não expira em 30 dias: vale o ano. */
+export async function loadIntentionDecisions(tx: TenantTx): Promise<IntentionDecisions> {
+  const rows = await tx
+    .select({
+      dedupeKey: householdSuggestions.dedupeKey,
+      status: householdSuggestions.status,
+      createdAt: householdSuggestions.createdAt,
+    })
+    .from(householdSuggestions)
+    .where(
+      and(
+        eq(householdSuggestions.agent, VIAGENS_AGENT),
+        like(householdSuggestions.dedupeKey, `${INTENTION_DEDUPE_PREFIX}%`),
+        ne(householdSuggestions.status, "pendente"),
+      ),
+    );
+  const refused = new Map<string, number>();
+  const decidedIn = new Set<number>();
+  for (const row of rows) {
+    decidedIn.add(row.createdAt.getUTCFullYear());
+    const match = INTENTION_KEY.exec(row.dedupeKey);
+    if (!match || row.status === "aplicada") continue;
+    const [, id, year] = match as unknown as [string, string, string];
+    refused.set(id, Math.max(refused.get(id) ?? 0, Number(year)));
+  }
+  return { refused, decidedIn };
+}
+
+const toIntention = (row: TripIntentionRow, decisions: IntentionDecisions): TripIntention => ({
+  id: row.id,
+  destinationId: row.destinationId,
+  customName: row.customName,
+  customRegion: row.customRegion,
+  preferredMonth: row.preferredMonth,
+  days: row.days,
+  fulfilled: row.fulfilledAt !== null,
+  refusedYear: decisions.refused.get(row.id) ?? null,
+});
+
+export type ViagensResult = AgentResult & {
+  /** Contagens para o `ops`: quantas famílias têm intenção e quantas viraram sugestão hoje. */
+  intentions: { total: number; used: number };
+};
+
+export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<ViagensResult> {
   const { today, householdId } = input;
   const month = yearMonthOf(today);
   const [settings] = await tx.select().from(householdSettings);
@@ -78,16 +154,46 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
   const horizon = `${addMonths(month, 12)}-01`;
   const confirmedNext12 = future.filter((trip) => trip.startOn < horizon).length;
 
+  const currentYear = Number(today.slice(0, 4));
+  const intentionRows = await loadTripIntentions(tx);
+  const intentionDecisions: IntentionDecisions =
+    intentionRows.length > 0
+      ? await loadIntentionDecisions(tx)
+      : { refused: new Map(), decidedIn: new Set() };
+  const intentions = intentionRows.map((row) => toIntention(row, intentionDecisions));
+  const open = intentions.filter(
+    (item) => !item.fulfilled && (item.refusedYear ?? 0) < currentYear,
+  );
+
   const finish = async (
     budgetMonthly: string,
     items: TripSuggestion[],
     text: ViagensReportInput,
     suggestions: number,
+    outcomes: IntentionOutcome[] = [],
   ) => {
-    const data: ReportViagens = { budgetMonthly, suggestions: items, confirmedNext12 };
+    const used = outcomes.filter((outcome) => outcome.status === "sugerida").length;
+    const versions = new Map(intentionRows.map((row) => [row.id, row.updatedAt.toISOString()]));
+    const data: ReportViagens = {
+      budgetMonthly,
+      suggestions: items,
+      confirmedNext12,
+      ...(intentionRows.length > 0
+        ? {
+            intentions: {
+              total: intentionRows.length,
+              used,
+              outcomes: outcomes.map((outcome) => ({
+                ...outcome,
+                updatedAt: versions.get(outcome.intentionId)!,
+              })),
+            },
+          }
+        : {}),
+    };
     const report = { ...viagensReportText(text), data };
     await saveDailyReport(tx, householdId, VIAGENS_AGENT, "viagens", today, report);
-    return { suggestions, applied: 0, report };
+    return { suggestions, applied: 0, report, intentions: { total: intentionRows.length, used } };
   };
 
   // A tabela de destinos está em reais, para quem sai do Brasil.
@@ -95,7 +201,8 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
   if (!brazilRulesApply(currency)) {
     return finish("0.00", [], { day: today, kind: "fora_do_brasil" }, 0);
   }
-  if (tripsPerYear <= 0) {
+  // Quem pediu zero viagens não recebe catálogo, mas a intenção cadastrada não fica ignorada.
+  if (tripsPerYear <= 0 && open.length === 0) {
     return finish("0.00", [], { day: today, kind: "sem_pedido" }, 0);
   }
   const allocation = await resolveAllocation(tx, input);
@@ -118,7 +225,7 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
     return finish(allocation.tripsBudget, [], { day: today, kind: "sem_pessoas" }, 0);
   }
 
-  const items = suggestTrips({
+  const plan = planTrips({
     today,
     tripsPerYear,
     tripDays: settings?.tripDays ?? null,
@@ -128,11 +235,19 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
     existingTripMonths: future.map((trip) => yearMonthOf(trip.startOn)),
     weddingMonth: settings?.weddingMonth ?? null,
     currency,
-  }).slice(0, tripsPerYear);
+    intentions,
+    intentionUsedThisYear: intentionDecisions.decidedIn.has(currentYear),
+  });
+  const items = plan.suggestions;
 
   // Sugestões de viagem são dado derivado: as pendentes que saíram da lista de hoje vão embora,
   // para nunca haver mais pendentes do que viagens por ano.
-  const keys = items.map((item) => DEDUPE.viagem(item.destinationId, item.month.slice(0, 4)));
+  const keys = items.map((item) => {
+    const year = item.month.slice(0, 4);
+    return item.intentionId
+      ? DEDUPE.viagemIntencao(item.intentionId, year)
+      : DEDUPE.viagem(item.destinationId, year);
+  });
   await tx
     .delete(householdSuggestions)
     .where(
@@ -157,6 +272,9 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
       fits: item.fits,
       confidence: item.confidence,
       source: item.source,
+      ...(item.intentionId ? { intentionId: item.intentionId } : {}),
+      ...(item.regionEstimate ? { regionEstimate: item.regionEstimate } : {}),
+      ...(item.postponed ? { postponed: item.postponed } : {}),
     };
     return {
       kind: "viagem",
@@ -168,18 +286,23 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
   const decisions = await loadDecisions(tx, today, VIAGENS_AGENT);
   const suggestions = await upsertPending(tx, householdId, VIAGENS_AGENT, decisions, pending);
 
+  const used = items.filter((item) => item.intentionId).length;
   return finish(
     allocation.tripsBudget,
     items,
-    {
-      day: today,
-      kind: "sugestoes",
-      count: items.length,
-      fits: items.filter((item) => item.fits).length,
-      budget: allocation.tripsBudget,
-      shortfall: money(allocation.shortfall).gt(0) ? allocation.shortfall : null,
-      currency,
-    },
+    tripsPerYear <= 0 && items.length === 0
+      ? { day: today, kind: "sem_pedido" }
+      : {
+          day: today,
+          kind: "sugestoes",
+          count: items.length,
+          fits: items.filter((item) => item.fits).length,
+          budget: allocation.tripsBudget,
+          shortfall: money(allocation.shortfall).gt(0) ? allocation.shortfall : null,
+          currency,
+          ...(used > 0 ? { intentions: used } : {}),
+        },
     suggestions,
+    plan.intentions,
   );
 }

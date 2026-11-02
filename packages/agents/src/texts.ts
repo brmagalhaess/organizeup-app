@@ -565,6 +565,7 @@ export function viagemText(item: TripSuggestion, travelers: number, currency: Cu
     `Valores aproximados pela nossa tabela de custos (confiança ${item.confidence}). Confira ` +
       `passagens e hospedagem antes de fechar. Fonte: ${item.source}`,
   ].filter(Boolean);
+  const { regionEstimate } = item;
   return {
     title: `Que tal ${item.name} em ${formatYearMonth(item.month)}?`,
     body: parts.join(" "),
@@ -592,7 +593,12 @@ export function viagemText(item: TripSuggestion, travelers: number, currency: Cu
             })
           : message("frases.viagemPede", { amount: reais(item.monthlyToSave, currency) }),
         ...item.noteMessages,
-        message("frases.viagemFonte", { confidence: item.confidence, source: item.source }),
+        regionEstimate
+          ? message("frases.viagemFonteRegiao", {
+              confidence: item.confidence,
+              count: regionEstimate.destinations,
+            })
+          : message("frases.viagemFonte", { confidence: item.confidence, source: item.source }),
       ]),
     }),
   };
@@ -853,6 +859,8 @@ export type ViagensReportInput =
       budget: string;
       shortfall: string | null;
       currency: Currency;
+      /** Sugestões que vieram de intenções da família. */
+      intentions?: number;
     };
 
 export function viagensReportText(input: ViagensReportInput): ReportText {
@@ -879,7 +887,7 @@ export function viagensReportText(input: ViagensReportInput): ReportText {
     }[input.kind];
     return fixedReport(title, text, "relatorioViagens", day, sentence);
   }
-  const { count, fits, budget, shortfall, currency } = input;
+  const { count, fits, budget, shortfall, currency, intentions = 0 } = input;
   if (count === 0)
     return fixedReport(
       title,
@@ -897,7 +905,8 @@ export function viagensReportText(input: ViagensReportInput): ReportText {
       (notAll ? "; nem todas cabem no orçamento de hoje." : ".") +
       (shortfall
         ? ` As viagens já marcadas pedem ${moneyText(shortfall, currency)} a mais por mês.`
-        : ""),
+        : "") +
+      (intentions > 0 ? ` ${plural(intentions, "intenção usada", "intenções usadas")}.` : ""),
     message: message("relatorioViagens", {
       day: stamp(day),
       parts: sentences([
@@ -909,6 +918,7 @@ export function viagensReportText(input: ViagensReportInput): ReportText {
         ...(shortfall
           ? [message("frases.relViagensPedem", { amount: reais(shortfall, currency) })]
           : []),
+        ...(intentions > 0 ? [message("frases.relViagensIntencoes", { count: intentions })] : []),
       ]),
     }),
   };

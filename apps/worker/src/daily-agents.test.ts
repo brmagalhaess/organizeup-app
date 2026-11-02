@@ -7,6 +7,8 @@ const step = vi.hoisted(() => (name: string, extra: object = {}) => async () => 
   return { ...result, ...extra };
 });
 
+const viagensResult = vi.hoisted(() => ({ intentions: { total: 0, used: 0 } }));
+
 vi.mock("@organizeup/db", () => ({
   fromJob: vi.fn((job: object) => job),
   hasAgentRunToday: vi.fn(),
@@ -35,7 +37,10 @@ vi.mock("@organizeup/agents", () => ({
   runCategoriasAgent: step("categorias"),
   runInvestimentosAgent: step("investimentos"),
   runAposentadoriaAgent: step("aposentadoria", { allocation: {} }),
-  runViagensAgent: step("viagens"),
+  runViagensAgent: vi.fn(async () => {
+    order.push("viagens");
+    return { suggestions: 0, applied: 0, intentions: viagensResult.intentions };
+  }),
   runMetasAgent: step("metas"),
   runRelatoriosAgent: step("relatorios"),
 }));
@@ -191,6 +196,23 @@ describe("plano da família (ADR-0023)", () => {
     expect(order).not.toContain("aposentadoria");
     expect(order.indexOf("divisao")).toBeGreaterThan(-1);
     expect(order.indexOf("divisao")).toBeLessThan(order.indexOf("metas"));
+  });
+
+  it("intenções de viagem vão ao ops só como contagem, e só quando existem", async () => {
+    vi.mocked(recordAgentRun).mockClear();
+    await runDailyAgents(log);
+    expect(vi.mocked(recordAgentRun).mock.calls.map(([, agent]) => agent)).not.toContain(
+      "viagens_intencoes",
+    );
+
+    viagensResult.intentions = { total: 3, used: 1 };
+    vi.mocked(recordAgentRun).mockClear();
+    await runDailyAgents(log);
+    viagensResult.intentions = { total: 0, used: 0 };
+    const line = vi
+      .mocked(recordAgentRun)
+      .mock.calls.find(([, agent]) => agent === "viagens_intencoes")!;
+    expect(line[2]).toMatchObject({ households: 1, ok: 1, failed: 0, suggestions: 1, applied: 0 });
   });
 
   it("viagens acordado sozinho, sem Aposentadoria, também recebe a divisão", async () => {

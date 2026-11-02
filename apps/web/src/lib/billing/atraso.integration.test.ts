@@ -82,14 +82,16 @@ vi.mock("next-intl/server", async () => {
 const db = await import("@organizeup/db");
 const domain = await import("@organizeup/domain");
 const ai = await import("@organizeup/ai");
+const agents = await import("@organizeup/agents");
 const { requireTenant } = await import("@/lib/session");
 const { saveEntry, confirmEntryNotice } = await import("@/app/app/(painel)/lancamentos/actions");
 const { commitImport, prepareImport } = await import("@/app/app/(painel)/importar/actions");
 const { GET: exportData } = await import("@/app/app/exportar/route");
 const { loadMonth, loadOverview } = await import("@/lib/finance-data");
+const { loadTripIntentionItems } = await import("@/lib/suggestions");
 const { fakeClient, textReply } = await import("../../../../../packages/ai/test/fake-client");
 const { accounts, categories, creditCards, household, householdMember, householdSettings } = db;
-const { cardPurchases, cashflowPlans, transactions, user } = db;
+const { cardPurchases, cashflowPlans, transactions, trips, user } = db;
 
 const family = "hh-atraso";
 const person = "user-atraso";
@@ -240,6 +242,19 @@ describe("web nova em banco na 0035", () => {
     };
     expect(body.tables.transactions.length).toBeGreaterThan(0);
     expect(body.tables.household_subscriptions).toEqual([]);
+  });
+
+  it("Viagens segue sem o bloco de intenções, e o agente segue sem elas", async () => {
+    expect(await loadTripIntentionItems(ctx)).toBeNull();
+    const body = JSON.parse(await (await exportData()).text()) as {
+      tables: { trip_intentions: unknown[] };
+    };
+    expect(body.tables.trip_intentions).toEqual([]);
+    // O savepoint segura o erro: a transação continua viva para o resto da rodada.
+    await db.withHousehold(ctx, async (tx) => {
+      expect(await agents.loadTripIntentions(tx)).toEqual([]);
+      expect(await tx.select().from(trips)).toEqual([]);
+    });
   });
 
   it("conversar com o assistente funciona, sem contar mensagem", async () => {

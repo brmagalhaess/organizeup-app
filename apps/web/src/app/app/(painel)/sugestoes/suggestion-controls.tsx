@@ -46,11 +46,14 @@ export function DecisionButtons({
   id,
   title,
   acceptLabel,
+  fromIntention = false,
   actions,
 }: {
   id: string;
   title: string;
   acceptLabel?: string;
+  /** Recusar uma intenção vale o ano, não 30 dias. */
+  fromIntention?: boolean;
   actions: SuggestionActions;
 }) {
   const t = useTranslations("sugestoes.decision");
@@ -78,7 +81,7 @@ export function DecisionButtons({
         {t("later")}
       </Button>
       <span id={hintId} className="text-xs text-muted">
-        {t("laterHint")}
+        {t(fromIntention ? "laterHintIntention" : "laterHint")}
       </span>
     </div>
   );

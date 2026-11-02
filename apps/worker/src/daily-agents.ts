@@ -69,6 +69,13 @@ export const dailyAgentsSentinel = (disabled: string[]) =>
 /** Famílias com sessão nos últimos N dias recebem a rodada. */
 export const ACTIVE_DAYS = 60;
 
+/**
+ * Linha só de contagem em `ops.agent_runs`: `households` são as famílias com intenção de viagem, e
+ * `suggestions`, as intenções usadas na rodada. Nunca o nome do destino (ADR-0026). Não é um agente:
+ * fora de `DAILY_AGENTS`, e nada a acorda.
+ */
+export const TRIP_INTENTIONS_RUN = "viagens_intencoes";
+
 interface Counts {
   households: number;
   ok: number;
@@ -115,6 +122,7 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
   const reviewCount = counts.get(CATEGORIAS_IA_AGENT);
   const review = reviewCount ? categoryReviewer(flags) : null;
   const statementCount = counts.get(RELATORIOS_AGENT);
+  const intentionsCount = emptyCounts();
   const narrate = statementCount ? statementNarrator(flags) : null;
 
   for (const householdId of ids) {
@@ -204,7 +212,12 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
       }
     }
     const withAllocation: AgentInput = allocation ? { ...input, allocation } : input;
-    await run(VIAGENS_AGENT, (tx) => runViagensAgent(tx, withAllocation));
+    const viagens = await run(VIAGENS_AGENT, (tx) => runViagensAgent(tx, withAllocation));
+    if (viagens && viagens.intentions.total > 0) {
+      intentionsCount.households += 1;
+      intentionsCount.ok += 1;
+      intentionsCount.suggestions += viagens.intentions.used;
+    }
     await run(METAS_AGENT, (tx) => runMetasAgent(tx, withAllocation));
     const statements = await run(RELATORIOS_AGENT, (tx) => runRelatoriosAgent(tx, input));
     if (statements && narrate && statementCount) {
@@ -224,6 +237,13 @@ export async function runDailyAgents(log: Log, job: DailyAgentsJob = {}): Promis
   }
 
   const durationMs = Date.now() - startedAt;
+  if (intentionsCount.households > 0) {
+    try {
+      await recordAgentRun(day, TRIP_INTENTIONS_RUN, { ...intentionsCount, durationMs });
+    } catch (err) {
+      log.error({ agent: TRIP_INTENTIONS_RUN, code: codeOf(err) }, "registro da rodada falhou");
+    }
+  }
   for (const agent of enabled) {
     const count = counts.get(agent)!;
     try {

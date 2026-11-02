@@ -4,19 +4,28 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
+  and,
   calendarEvents,
   canWrite,
+  DESTINATION_REGIONS,
   eq,
+  householdSuggestions,
   inArray,
+  ne,
   people,
+  sql,
   TRIP_COST_KINDS,
   tripCosts,
+  tripDestinationTemplates,
+  tripIntentions,
   tripPeople,
   trips,
   withHousehold,
+  type TenantTx,
 } from "@organizeup/db";
 import { money, parseMoney, toDbAmount } from "@organizeup/domain";
 import type { Locale } from "@/i18n/locales";
+import { getBrazilRules } from "@/i18n/money-server";
 import { audit } from "@/lib/audit";
 import { requireModule } from "@/lib/billing/plan-gate";
 
@@ -219,4 +228,152 @@ export async function addSaved(_prev: FormState, form: FormData): Promise<FormSt
   if (failure) return { ok: false, message: failure };
   revalidatePath("/app", "layout");
   return { ok: true, message: null };
+}
+
+/** Número opcional de um campo: vazio vira null. */
+const optionalNumber = (min: number, max: number, message: string) =>
+  z.string().transform((value, ctx) => {
+    if (value.trim() === "") return null;
+    const parsed = Number(value);
+    if (Number.isInteger(parsed) && parsed >= min && parsed <= max) return parsed;
+    ctx.addIssue({ code: "custom", message });
+    return z.NEVER;
+  });
+
+/** Texto livre vira uma linha só: a família escreve um lugar, não um parágrafo. */
+const oneLine = (value: string) =>
+  value
+    .replace(/[\p{Cc}\p{Cf}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const intentionSchema = (t: ErrorTexts) =>
+  z
+    .object({
+      id: z.string(),
+      destinationId: z.string().max(40),
+      customName: z
+        .string()
+        .transform(oneLine)
+        .pipe(z.string().max(80, t("intentionNameLong"))),
+      customRegion: z.union([z.literal(""), z.enum(DESTINATION_REGIONS)], {
+        message: t("intentionRegion"),
+      }),
+      preferredMonth: optionalNumber(1, 12, t("intentionMonth")),
+      days: optionalNumber(1, 60, t("intentionDays")),
+    })
+    .superRefine((value, ctx) => {
+      if (value.destinationId) return;
+      if (!value.customName)
+        ctx.addIssue({ code: "custom", message: t("intentionDestination"), path: ["customName"] });
+      else if (!value.customRegion)
+        ctx.addIssue({ code: "custom", message: t("intentionRegion"), path: ["customRegion"] });
+    });
+
+/**
+ * A sugestão pendente foi feita com a intenção de antes. Sai junto: é dado derivado, e a próxima
+ * rodada calcula de novo. Aceitar uma sugestão velha criaria a viagem errada.
+ */
+const dropPendingOf = (tx: TenantTx, intentionId: string) =>
+  tx
+    .delete(householdSuggestions)
+    .where(
+      and(
+        eq(householdSuggestions.kind, "viagem"),
+        eq(householdSuggestions.status, "pendente"),
+        sql`${householdSuggestions.payload}->>'intentionId' = ${intentionId}`,
+      ),
+    );
+
+/** Cria uma intenção ou edita a do `id`. Dado informado: só a família muda (regra 7). */
+export async function saveIntention(_prev: FormState, form: FormData): Promise<FormState> {
+  const { ctx } = await requireModule("metas");
+  if (!canWrite(ctx)) return blocked();
+  const t = await getTranslations("viagens.errors");
+  if (!(await getBrazilRules())) return { ok: false, message: t("intentionForeign") };
+  const parsed = intentionSchema(t).safeParse({
+    id: form.get("id") ?? "",
+    destinationId: form.get("destinationId") ?? "",
+    customName: form.get("customName") ?? "",
+    customRegion: form.get("customRegion") ?? "",
+    preferredMonth: form.get("preferredMonth") ?? "",
+    days: form.get("days") ?? "",
+  });
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? t("check") };
+  const { id, destinationId, customName, customRegion, preferredMonth, days } = parsed.data;
+  const place = destinationId
+    ? { destinationId, customName: null, customRegion: null }
+    : { destinationId: null, customName, customRegion: customRegion || null };
+
+  const failure = await withHousehold(ctx, async (tx) => {
+    if (destinationId) {
+      const [known] = await tx
+        .select({ id: tripDestinationTemplates.id })
+        .from(tripDestinationTemplates)
+        .where(eq(tripDestinationTemplates.id, destinationId));
+      if (!known) return t("intentionDestination");
+    }
+    const same = destinationId
+      ? eq(tripIntentions.destinationId, destinationId)
+      : sql`lower(trim(${tripIntentions.customName})) = lower(trim(${customName}))`;
+    const [repeated] = await tx
+      .select({ id: tripIntentions.id })
+      .from(tripIntentions)
+      .where(id ? and(same, ne(tripIntentions.id, id)) : same);
+    if (repeated) return t("intentionRepeated");
+
+    if (!id) {
+      const [created] = await tx
+        .insert(tripIntentions)
+        .values({ householdId: ctx.householdId, ...place, preferredMonth, days })
+        .onConflictDoNothing()
+        .returning({ id: tripIntentions.id });
+      if (!created) return t("intentionRepeated");
+      await audit(tx, ctx, "create", "trip_intentions", created.id);
+      return null;
+    }
+    const [updated] = await tx
+      .update(tripIntentions)
+      .set({ ...place, preferredMonth, days, updatedAt: new Date() })
+      .where(eq(tripIntentions.id, id))
+      .returning({ id: tripIntentions.id });
+    if (!updated) return t("intentionNotFound");
+    await dropPendingOf(tx, id);
+    await audit(tx, ctx, "update", "trip_intentions", id);
+    return null;
+  });
+  if (failure) return { ok: false, message: failure };
+  revalidatePath("/app", "layout");
+  return { ok: true, message: null };
+}
+
+export async function deleteIntention(form: FormData): Promise<void> {
+  const { ctx } = await requireModule("metas");
+  if (!canWrite(ctx)) return;
+  const id = String(form.get("id") ?? "");
+  await withHousehold(ctx, async (tx) => {
+    await dropPendingOf(tx, id);
+    const removed = await tx
+      .delete(tripIntentions)
+      .where(eq(tripIntentions.id, id))
+      .returning({ id: tripIntentions.id });
+    if (removed.length > 0) await audit(tx, ctx, "delete", "trip_intentions", id);
+  });
+  revalidatePath("/app", "layout");
+}
+
+/** Refazer: a intenção atendida volta à fila do agente. A viagem criada continua onde está. */
+export async function reopenIntention(form: FormData): Promise<void> {
+  const { ctx } = await requireModule("metas");
+  if (!canWrite(ctx)) return;
+  const id = String(form.get("id") ?? "");
+  await withHousehold(ctx, async (tx) => {
+    const reopened = await tx
+      .update(tripIntentions)
+      .set({ fulfilledAt: null, fulfilledTripId: null, updatedAt: new Date() })
+      .where(eq(tripIntentions.id, id))
+      .returning({ id: tripIntentions.id });
+    if (reopened.length > 0) await audit(tx, ctx, "update", "trip_intentions", id);
+  });
+  revalidatePath("/app", "layout");
 }
