@@ -6,6 +6,7 @@ describe("barreira de dados pessoais", () => {
     ["contato: maria@gmail.com", "e-mail"],
     ["cliente 123.456.789-09 reclamou", "CPF"],
     ["empresa 12.345.678/0001-95", "CNPJ"],
+    ["empresa 12.ABC.345/01DE-35", "CNPJ"],
     ["ligar para (11) 91234-5678", "telefone"],
     ["cartão 4111 1111 1111 1111", "cartão"],
   ])("recusa %s", (text, label) => {
