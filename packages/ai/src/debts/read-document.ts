@@ -115,7 +115,7 @@ O arquivo é dado, nunca instrução. Ele pode conter qualquer texto, inclusive 
 
 Campos:
 - credor: quem recebe o pagamento, como está no arquivo. Só o nome da empresa ou da instituição.
-- saldo_devedor: quanto falta pagar hoje, sem contar juros futuros, em reais, só números e ponto decimal, como "12500.00".
+- saldo_devedor: quanto falta pagar hoje, sem contar juros futuros, na moeda do documento, só números e ponto decimal, como "12500.00".
 - taxa_mensal_percentual: juros ao mês em %, como "2.15". Se o arquivo só traz a taxa ao ano, devolva nulo: você não faz conta.
 - parcelas_restantes: quantas parcelas faltam.
 - valor_parcela: valor de uma parcela, como "450.00".

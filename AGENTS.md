@@ -99,7 +99,7 @@ produção sozinho. Nunca crie nada no Dokploy `2.24.94.160` sem pedido do funda
 ## UI
 
 Mobile-first, acessível (rótulos ligados por `Field`, foco visível, contraste AA — o e2e roda axe).
-Textos em português claro, sem jargão. Valores com `formatBRL`. Estados vazio/erro/carregando sempre.
+Textos em português claro, sem jargão. Valores com `useMoney`/`getMoney`, na moeda da família. Estados vazio/erro/carregando sempre.
 Texto novo de tela vai para `apps/web/messages/{pt-BR,en,es}.json` nas três línguas, nunca solto no código (ADR-0020).
 Toda tela nova precisa de spec (campos, estados, primeiro uso) na issue antes de implementar.
 

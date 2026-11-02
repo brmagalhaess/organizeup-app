@@ -127,7 +127,10 @@ export async function householdHasMovement(tx: TenantTx): Promise<boolean> {
       or exists (select 1 from debts)
       or exists (select 1 from investments)
       or exists (select 1 from goals)
-      or exists (select 1 from account_transfers) as found`);
+      or exists (select 1 from account_transfers)
+      or exists (select 1 from cashflow_plans)
+      or exists (select 1 from income_sources)
+      or exists (select 1 from assets) as found`);
   return Boolean(rows[0]?.found);
 }
 
