@@ -35,14 +35,15 @@ recebe 422; `@example.com` é permitido. É uma barreira de melhor esforço, nã
 
 ## Acordar um agente diário
 
-`POST /api/ops/agents` com `{"agent":"categorias"}`. Aceita `categorias`, `categorias-ia`, `investimentos`, `aposentadoria`,
-`viagens`, `metas`, `relatorios`, `mercado` e `dicas`. Só enfileira: o trabalho roda no worker, dentro de cada família, e o resultado
+`POST /api/ops/agents` com `{"agent":"categorias"}`. Aceita `categorias`, `categorias-ia`, `investimentos`, `dividas`,
+`aposentadoria`, `viagens`, `metas`, `relatorios`, `mercado` e `dicas`. O alias `categorias_ia` é aceito e
+normalizado para `categorias-ia` na resposta. Só enfileira: o trabalho roda no worker, dentro de cada família, e o resultado
 aparece em `agentRuns`. Resposta: `{queued, agent, day, reason}`, com `reason` nulo ou `manutencao`, `desligado`,
 `ja_rodou` (só mercado) e `ja_pedido` (pedido igual nos últimos 5 minutos).
 
 ## Agentes diários do produto (`agentRuns`)
 
-`GET /api/ops/context` devolve `agentRuns`: os últimos 14 dias de `ops.agent_runs`, uma linha por dia e
+`GET /api/ops/context` devolve `agentRuns`: os últimos 14 dias com execução registrada, uma linha por dia e
 agente (`categorias`, `categorias-ia`, `investimentos`, `dividas`, `aposentadoria`, `viagens`, `metas`, `relatorios`,
 `mercado`, `dicas`). O
 worker grava ao terminar cada agente; rodar de novo no mesmo dia substitui as contagens e soma 1 em `runs`. Só
@@ -64,7 +65,7 @@ intenção cadastrada, e `suggestions`, as intenções que viraram sugestão na 
 | `durationMs`  | Duração da última execução, em milissegundos                       |
 
 Quem lê: Tech Lead na rotina das 06:00 (abre reparo se `failed > 0`) e SRE às 07:30. `failed > 0` ou dia sem
-linha depois das 06:00 é tarefa. O painel `/admin/agentes` mostra os mesmos 14 dias para o responsável.
+linha depois das 06:00 é tarefa. O painel `/admin/agentes` mostra os mesmos 14 dias com execução registrada para o responsável.
 
 Em `mercado`, `ok` conta cotações gravadas, `failed` conta consultas que falharam e `applied` soma proventos,
 eventos em ações e índices. Em `dicas`, `ok` conta famílias atendidas e `suggestions` conta dicas criadas. O que o
