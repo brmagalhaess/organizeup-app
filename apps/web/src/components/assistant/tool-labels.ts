@@ -8,6 +8,7 @@ const FIXED = {
   "criei um lembrete": "reminder",
   "olhei suas categorias": "categories",
   "olhei sua renda": "income",
+  "olhei seus documentos": "documents",
   "olhei sua reserva": "reserve",
   "olhei suas dívidas": "debts",
   "olhei seu plano para sair das dívidas": "debtPlan",

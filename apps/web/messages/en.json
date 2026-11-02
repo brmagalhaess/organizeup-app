@@ -1549,7 +1549,8 @@
       "entriesCurrent": "looked at this month’s transactions",
       "entriesMonth": "looked at your transactions for {month}",
       "calendarCurrent": "looked at this month’s calendar",
-      "calendarMonth": "looked at your calendar for {month}"
+      "calendarMonth": "looked at your calendar for {month}",
+      "documents": "looked at your documents"
     }
   },
   "landing": {
@@ -2164,7 +2165,8 @@
       "label": "Note about contributions",
       "text": "Contributions and redemptions now appear apart from expenses and income: saving money is not spending. Your account balances have not changed.",
       "action": "Got it"
-    }
+    },
+    "importFiles": "Import files"
   },
   "settings": {
     "metaTitle": "Settings",
@@ -3125,6 +3127,11 @@
       "title": "Do you invest on the stock exchange?",
       "text": "The B3 investor area Excel file and PDF brokerage notes are imported from the investments screen.",
       "link": "Import from B3 or your broker"
+    },
+    "smart": {
+      "title": "Import files",
+      "text": "Send up to 10 files of any kind. The agent says what each one is, where each item belongs and what is already recorded.",
+      "link": "Import files"
     }
   },
   "renda": {
@@ -3846,6 +3853,10 @@
     "lembreteValorAcima": {
       "title": "Your plan amount is above what is left today",
       "body": "You accepted saving {accepted} a month, and {fits} fits today. Nothing changes on its own: the accepted amount still stands."
+    },
+    "importadorPronto": {
+      "title": "Your files are ready to review",
+      "body": "We read {files, plural, one {# file} other {# files}} and found {items, plural, one {# item} other {# items}}. Nothing was saved: review and approve.{failed, plural, =0 {} one { # file could not be read.} other { # files could not be read.}}"
     }
   },
   "sistema": {
@@ -4419,6 +4430,245 @@
       "abroad": "You said you live outside Brazil.",
       "hidden": "Stored",
       "fix": "To correct it, contact OrganizeUp support."
+    }
+  },
+  "importador": {
+    "metaTitle": "Import files",
+    "eyebrow": "Import files",
+    "title": "Bring your files, the agent sorts them",
+    "description": "Statements, card bills, invoices, loan contracts, consortium contracts, brokerage notes and whatever else the family has. The agent says what each one is, where each item belongs and what is already recorded. Nothing is saved without your approval.",
+    "noPermission": "Your role in this family can view, but not import or approve.",
+    "updating": "We are updating the system. Try again in a few minutes.",
+    "privacy": {
+      "title": "What happens to the files",
+      "text": "Our rules read them first, without AI. Only what they cannot understand goes to the AI service, outside Brazil, and only with your authorization: the text of the file, with CPF, CNPJ, e-mail and family names replaced. A scanned file or photo goes as it is, with everything in it, including other people's data. Files stay stored in your family, and what is not approved is deleted after 30 days.",
+      "quota": "This month: {used} of {limit} files read with AI."
+    },
+    "gate": {
+      "accept": "I authorize the AI service to read these files, including outside Brazil, as explained above and in the Privacy Policy.",
+      "useAi": "Use AI for what the rules cannot understand",
+      "sem_chave": "AI reading is not available right now. The rules keep working.",
+      "desligado": "AI reading is turned off right now. The rules keep working.",
+      "manutencao": "We are under maintenance. Try again in a few minutes.",
+      "somente_leitura": "Your family is in read-only mode.",
+      "sem_modulo": "AI reading is part of the Assistant. The rules keep working without it.",
+      "teto_mensal": "The AI usage limit was reached this month. The rules keep working.",
+      "teto_diario": "The family reached today's AI limit. The rules keep working.",
+      "sem_permissao": "Only an adult in the family can use AI reading.",
+      "precisa_ativar": "To read what the rules cannot understand, turn on the assistant. The rules work without it.",
+      "precisa_aceitar": "You still need to authorize the AI service to read these files.",
+      "limite_arquivos": "The family reached the limit of files read with AI this month.",
+      "limite_tokens": "The family reached the AI reading limit this month."
+    },
+    "upload": {
+      "title": "Send files",
+      "text": "After sending, you can leave this screen. We will let you know when it is done.",
+      "label": "Files to import",
+      "hint": "Up to {count} files: PDF, XML, Excel (.xlsx), CSV, OFX, TXT, PNG or JPG. Each up to 10 MB.",
+      "listLabel": "Files sent",
+      "sending": "Sending…",
+      "start": "Start reading",
+      "starting": "Starting…",
+      "repeated": "already in this batch",
+      "failed": "Could not send. Try again.",
+      "readOnly": "Your role in this family cannot import.",
+      "tooMany": "Too many uploads in a row. Wait a moment.",
+      "noFile": "Choose a file.",
+      "updating": "We are updating the system. Try again in a few minutes.",
+      "somente_leitura": "Your role in this family cannot import.",
+      "vazio": "The file is empty.",
+      "tamanho": "The file is over 10 MB.",
+      "tipo": "This file is not a real PDF, XML, Excel, CSV, OFX, TXT, PNG or JPG.",
+      "xml_inseguro": "This XML uses features we do not accept, for safety.",
+      "lote": "This upload has already started. Begin a new one.",
+      "muitos": "Up to 10 files at a time.",
+      "cota_lote": "This upload went over 40 MB. Send the rest in another one.",
+      "cota": "The family reached the 100 MB file limit. Delete an old batch to send more."
+    },
+    "empty": {
+      "title": "No files imported yet",
+      "text": "Send your files, check what the agent found and approve. Only what you approve enters the system."
+    },
+    "list": {
+      "title": "Uploads",
+      "files": "{count, plural, one {# file} other {# files}}",
+      "open": "Open",
+      "delete": "Delete",
+      "deleteTitle": "Delete this upload?",
+      "deleteText": "The files, what was read and what was waiting for approval go away. What you already approved stays in the system.",
+      "deleteConfirm": "Delete upload"
+    },
+    "status": {
+      "enviando": "Sending",
+      "na_fila": "Queued",
+      "lendo": "Reading",
+      "revisao": "To review",
+      "concluido": "Approved"
+    },
+    "fileStatus": {
+      "na_fila": "Queued",
+      "lendo": "Reading",
+      "lido": "Read",
+      "falhou": "Not read"
+    },
+    "progress": {
+      "reading": "Reading: {done} of {total}",
+      "label": "Files read",
+      "leave": "You can leave this screen. You will get a notification when it is done."
+    },
+    "review": {
+      "metaTitle": "Review files",
+      "title": "Check what the agent found",
+      "description": "Edit, unselect and approve all or part of it. Nothing has been saved yet.",
+      "back": "Back",
+      "notStarted": "This upload has not started",
+      "notStartedText": "Go back and send the files again.",
+      "totalNew": "New",
+      "totalSeen": "Already recorded",
+      "totalMaybe": "Possible duplicates",
+      "totalBlocked": "Cannot be saved",
+      "totalIn": "Coming in (selected)",
+      "totalOut": "Going out (selected)",
+      "nothingSaved": "Only what is selected enters the system when you approve.",
+      "approve": "{count, plural, one {Approve # item} other {Approve # items}}",
+      "selectAll": "Select all",
+      "selectNone": "Unselect all",
+      "report": "{saved, plural, one {# item saved} other {# items saved}}, {existed} already {existed, plural, one {existed} other {existed}}, {failed} failed.",
+      "quota": "{count, plural, =0 {No more entries fit this month.} one {Only # entry fits this month.} other {Only # entries fit this month.}} Unselect the rest or upgrade: nothing was saved.",
+      "nada": "There is nothing selected to approve.",
+      "somente_leitura": "Your role in this family can view, but not approve."
+    },
+    "file": {
+      "download": "Download",
+      "retry": "Read again",
+      "truncated": "File too large: only the beginning was read with AI. Check whether something is missing, or split the file.",
+      "notes": "What was not understood",
+      "account": "Account for this file",
+      "card": "Card for this file",
+      "choose": "Choose"
+    },
+    "item": {
+      "select": "Include {name}",
+      "untitled": "No description",
+      "saved": "Saved",
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "source": "Where it came from",
+      "missing": "Missing: {fields}",
+      "moduleOff": "This kind of item belongs to a module your plan does not have. It stays here but is not saved. See Plan and subscription."
+    },
+    "duplicate": {
+      "novo": "New",
+      "possivel": "Possible duplicate",
+      "ja_lancado": "Already recorded",
+      "inFile": "Also appears in {name}."
+    },
+    "confidence": {
+      "alta": "High confidence",
+      "media": "Medium confidence",
+      "baixa": "Low confidence"
+    },
+    "method": {
+      "regras": "Read by rules",
+      "modelo": "Read with AI"
+    },
+    "docType": {
+      "extrato": "Bank statement",
+      "fatura": "Card bill",
+      "nota_fiscal": "Invoice",
+      "contrato_emprestimo": "Loan contract",
+      "consorcio": "Consortium",
+      "financiamento": "Financing",
+      "holerite": "Pay slip",
+      "informe_rendimentos": "Income statement",
+      "nota_corretagem": "Brokerage note",
+      "negociacao_b3": "B3 file",
+      "proventos": "Dividends",
+      "apolice": "Insurance policy",
+      "boleto": "Payment slip",
+      "outro": "Other document"
+    },
+    "destination": {
+      "lancamento": "Entries",
+      "compra_cartao": "Card purchases",
+      "operacao": "Investment trades",
+      "provento": "Dividends",
+      "divida": "Debts",
+      "consorcio": "Consortiums",
+      "renda": "Income",
+      "previsao": "Forecasts",
+      "meta": "Goals",
+      "documento": "Documents"
+    },
+    "field": {
+      "description": "Description",
+      "date": "Date",
+      "amount": "Amount",
+      "kind": "Type",
+      "despesa": "Expense",
+      "receita": "Income",
+      "compra": "Buy",
+      "venda": "Sell",
+      "installments": "Installments",
+      "installmentAmount": "Installment amount",
+      "rate": "Monthly interest (%)",
+      "day": "Day of the month",
+      "ticker": "Asset code",
+      "quantity": "Quantity",
+      "unitPrice": "Unit price",
+      "fees": "Fees",
+      "side": "Trade",
+      "category": "Category",
+      "chooseCategory": "Choose a category",
+      "newCategory": "Create: {name}",
+      "account": "account",
+      "card": "card",
+      "name": "name",
+      "system": "amortization system",
+      "firstDueDate": "next installment date"
+    },
+    "note": {
+      "linhas_ignoradas": "{count, plural, one {# line was left out} other {# lines were left out}}.",
+      "posicao": "The B3 Position file has no date or price paid. To check the portfolio, use Investments > Import.",
+      "itens_cortados": "The file had {count} items, and only the first ones came in.",
+      "total_nao_fecha": "The sum of the items does not match the document total.",
+      "parcelas_nao_fecham": "Installment times quantity does not cover the balance. Check both.",
+      "texto_suspeito": "The file has an odd passage, which was ignored."
+    },
+    "failure": {
+      "tipo": "We do not recognize this type of file.",
+      "senha": "This PDF has a password. Remove it and send again.",
+      "ilegivel": "The file is corrupted or does not open.",
+      "sem_texto": "We found no text in this file.",
+      "muito_grande": "Too large to read with AI: scans up to 20 pages and 5 MB, images up to 3.75 MB.",
+      "nao_entendi": "The agent could not understand this file.",
+      "indisponivel": "AI reading did not respond. Try again.",
+      "precisa_ia": "The rules did not understand this file, and AI reading was not requested.",
+      "erro_interno": "Something went wrong here. Try again.",
+      "modulo_desligado": "Module not in your plan",
+      "falta_dado": "Missing data to save",
+      "categoria_invalida": "Invalid category",
+      "conta_invalida": "Invalid account",
+      "cartao_invalido": "Invalid card",
+      "moeda_cancelada": "Additional currency canceled",
+      "sem_cotacao": "No exchange rate on this date",
+      "valor_grande": "Amount over the limit",
+      "cota": "Monthly entry limit",
+      "fatura_paga": "That bill has already been paid",
+      "sem_ativo": "Asset is not in the portfolio",
+      "so_brasil": "Only for families in reais",
+      "ativo_sem_tipo": "Add the asset in Investments and try again",
+      "data_futura": "Date in the future",
+      "venda_maior_que_posicao": "Sale larger than the position",
+      "sem_codigo": "Asset code is missing",
+      "classe_sem_cotacao": "Asset without a quote"
+    },
+    "errors": {
+      "noPermission": "Your role in this family does not allow this.",
+      "notStarted": "Could not start. Send the files again.",
+      "notFound": "We could not find that item. Refresh the screen.",
+      "invalid": "Check the data and try again."
     }
   }
 }

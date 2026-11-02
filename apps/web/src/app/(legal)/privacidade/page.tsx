@@ -48,6 +48,13 @@ export default function PrivacyPage() {
           família.
         </li>
         <li>
+          <strong>Arquivos importados:</strong> os arquivos que você enviar em Importar arquivos, de
+          qualquer tipo, com o nome do arquivo, o que foi lido em cada um e o que estava para
+          aprovar. Podem trazer nome, CPF, endereço e dados de outras pessoas, como fiadores,
+          dependentes e quem aparece em um contrato. Ficam no nosso banco de dados, separados por
+          família, até 100 MB por família.
+        </li>
+        <li>
           <strong>Gerado pelo sistema:</strong> plano de cada meta, projeção de aposentadoria,
           destinos de viagem sugeridos, plano para sair das dívidas e os relatórios e sugestões do
           assistente.
@@ -86,6 +93,12 @@ export default function PrivacyPage() {
         <li>
           Ler os arquivos de dívidas com inteligência artificial, se a família autorizar na própria
           tela de importação. A base também é o seu consentimento (art. 7º, I).
+        </li>
+        <li>
+          Guardar e ler os arquivos que você enviar em Importar arquivos, para mostrar o que achamos
+          neles e gravar o que você aprovar. As regras sem inteligência artificial fazem parte do
+          serviço que você contratou (art. 7º, V). A leitura com inteligência artificial depende do
+          seu consentimento (art. 7º, I).
         </li>
         <li>Manter o sistema seguro e prevenir fraude e acesso indevido (art. 7º, IX).</li>
         <li>Cumprir obrigações legais (art. 7º, II).</li>
@@ -206,6 +219,49 @@ export default function PrivacyPage() {
         </li>
       </ul>
 
+      <h2>Importar arquivos</h2>
+      <p>
+        Nesta tela, ao contrário do importador de extrato, o arquivo vai para o nosso servidor, para
+        ser lido mesmo depois que você sair da tela. Primeiro nossas regras tentam entender o
+        arquivo, sem inteligência artificial e sem nada sair para terceiros. Só o que elas não
+        entenderem pode ir ao modelo, e só com o assistente ativo e o aceite na própria tela.
+      </p>
+      <ul>
+        <li>
+          <strong>O que vai:</strong> o texto do arquivo, depois de trocarmos CPF, CNPJ, e-mail e os
+          nomes conhecidos da família. O texto pode conter dados de outras pessoas, como fiadores,
+          dependentes, vendedores e testemunhas, porque só conhecemos os nomes da sua família. O
+          nome do arquivo não vai.
+        </li>
+        <li>
+          <strong>Digitalização e foto:</strong> não têm texto para trocar, então vão como estão,
+          com o nome, o CPF, o endereço e tudo o que estiver visível, seus e de outras pessoas.
+          Mande só o que você pode compartilhar.
+        </li>
+        <li>
+          <strong>Para quem:</strong> a Anthropic, PBC, nas mesmas condições descritas acima, com
+          transferência internacional para os Estados Unidos (LGPD, art. 33) feita com o seu
+          consentimento específico. Este aceite é mais amplo que o da leitura de dívidas e precisa
+          ser dado de novo.
+        </li>
+        <li>
+          <strong>Para quê:</strong> só para dizer o que é o arquivo e propor onde cada item entra.
+          Nada vai para o cadastro antes da sua aprovação, e dado de outra pessoa não vira cadastro
+          de pessoa. Os campos dos documentos que você aprovar, sem CPF nem CNPJ, ficam disponíveis
+          para o assistente; o arquivo inteiro, não.
+        </li>
+        <li>
+          <strong>Por quanto tempo:</strong> envio em que nada foi aprovado é apagado em 30 dias.
+          Envio com algo aprovado fica guardado até você apagar. Apagar o envio leva os arquivos e o
+          que foi lido, e não mexe no que você já aprovou. Apagar a família apaga tudo.
+        </li>
+        <li>
+          <strong>Exportação:</strong> o arquivo de dados da família traz o que foi lido e as
+          propostas, com nome, tipo e tamanho de cada arquivo, sem o conteúdo. Para ter o documento,
+          baixe na tela de Importar arquivos.
+        </li>
+      </ul>
+
       <h2>Quem vê seus dados</h2>
       <p>
         Dentro do sistema, cada família tem seus dados separados, e só quem foi convidado para ela
@@ -274,6 +330,7 @@ export default function PrivacyPage() {
         <li>Baixar os dados da família: Configurações, opção disponível para o responsável.</li>
         <li>Apagar as anotações do assistente: Configurações.</li>
         <li>Baixar ou apagar os arquivos de dívidas: tela de Dívidas.</li>
+        <li>Baixar ou apagar os arquivos importados: tela de Importar arquivos.</li>
         <li>Apagar a conta: Configurações.</li>
       </ul>
       <p>Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).</p>

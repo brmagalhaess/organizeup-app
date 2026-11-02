@@ -5,6 +5,7 @@ import { DAILY_AGENTS_INFO } from "./info";
 
 export const MERCADO_AGENT = "mercado";
 export const DICAS_AGENT = "dicas";
+export const IMPORTADOR_CARD = "importador";
 
 export interface ProductAgent {
   id: string;
@@ -14,6 +15,8 @@ export interface ProductAgent {
   wake: string;
   /** Tem interruptor e botão. Falso só para quem apareceu nas rodadas sem estar na lista. */
   controls: boolean;
+  /** Roda por pedido da família: tem interruptor, e o botão de rodar não faria nada. */
+  onDemand?: boolean;
 }
 
 const PAPERCLIP_TIMES: Record<string, string> = {
@@ -58,6 +61,14 @@ export const PRODUCT_AGENTS: ProductAgent[] = [
     text: "Com IA, escreve as dicas de cada tela para as famílias que autorizaram e confere os números antes de mostrar.",
     wake: "O worker roda às 05:45, depois dos outros agentes.",
     controls: true,
+  },
+  {
+    id: IMPORTADOR_CARD,
+    name: "Importador",
+    text: "Lê os arquivos que a família envia, identifica cada um, propõe onde cada item entra e aponta duplicidade. Nada grava sem aprovação. Desligado, só as regras leem: a IA não é chamada.",
+    wake: "Roda quando uma família envia arquivos, um por vez. Não entra na rodada da madrugada.",
+    controls: true,
+    onDemand: true,
   },
 ];
 
@@ -120,6 +131,13 @@ export function runMetrics(agent: string, run: RunCounts, discarded = 0) {
       ...shared,
       { label: "Criadas", value: run.suggestions },
       { label: "Descartadas", value: discarded },
+    ];
+  }
+  if (agent === IMPORTADOR_CARD) {
+    return [
+      ...shared,
+      { label: "Lidos com IA", value: run.suggestions },
+      { label: "Lidos por regras", value: run.applied },
     ];
   }
   return [

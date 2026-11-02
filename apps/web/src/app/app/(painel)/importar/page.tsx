@@ -91,6 +91,13 @@ export default async function ImportPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
+      {canWrite(ctx) ? (
+        <Card title={t("smart.title")} description={t("smart.text")}>
+          <Link href="/app/importar/arquivos" className={buttonClass()}>
+            {t("smart.link")}
+          </Link>
+        </Card>
+      ) : null}
       {brazilRulesApply(data.currency) ? (
         <Card title={t("investments.title")} description={t("investments.text")}>
           <Link href="/app/investimentos/importar" className={buttonClass("secondary")}>

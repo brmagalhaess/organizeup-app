@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, Clock, Info } from "lucide-react";
+import { AlertCircle, ArrowRight, Clock, Info, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -253,13 +253,21 @@ export default async function OverviewPage({
       title={t("greeting", { name: firstName })}
       description={data.place ? t("todayAt", { date, place: data.place }) : t("today", { date })}
       actions={
-        <Link
-          href={phase === "atual" ? "/app/lancamentos" : `/app/lancamentos?m=${month}`}
-          className={buttonClass("secondary")}
-        >
-          {t("viewEntries")}
-          <ArrowRight className="size-4" aria-hidden="true" />
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {writable ? (
+            <Link href="/app/importar/arquivos" className={buttonClass("secondary")}>
+              <Upload className="size-4" aria-hidden="true" />
+              {t("importFiles")}
+            </Link>
+          ) : null}
+          <Link
+            href={phase === "atual" ? "/app/lancamentos" : `/app/lancamentos?m=${month}`}
+            className={buttonClass("secondary")}
+          >
+            {t("viewEntries")}
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Link>
+        </div>
       }
     />
   );

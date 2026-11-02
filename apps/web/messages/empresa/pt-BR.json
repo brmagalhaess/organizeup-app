@@ -137,5 +137,19 @@
   "assinatura.failure.vip": "Sua empresa é VIP, sem custo. Não é preciso assinar agora.",
   "assinatura.failure.sem_familia": "Escolha uma empresa antes.",
   "assinatura.failure.so_responsavel": "Só o responsável pela empresa pode fazer isso.",
-  "viagens.intentions.states.criancas": "Não sugerimos este destino: ele não é indicado para quem viaja com menores de 12 anos."
+  "viagens.intentions.states.criancas": "Não sugerimos este destino: ele não é indicado para quem viaja com menores de 12 anos.",
+  "importador.noPermission": "Seu papel nesta empresa permite ver, mas não importar nem aprovar.",
+  "importador.description": "Extrato, fatura, nota fiscal, contrato de empréstimo, consórcio, nota de corretagem e o que mais a empresa tiver. O agente diz o que é cada um, onde cada item entra e o que já está lançado. Nada é gravado sem a sua aprovação.",
+  "importador.privacy.text": "Primeiro leem as nossas regras, sem IA. Só o que elas não entenderem vai ao serviço de IA, fora do Brasil, e só com a sua autorização: o texto do arquivo, trocando CPF, CNPJ, e-mail e nomes dos sócios. Arquivo digitalizado ou foto vai como está, com tudo o que tiver nele, inclusive dados de outras pessoas. Os arquivos ficam guardados na sua empresa, e o que não for aprovado é apagado em 30 dias.",
+  "importador.gate.somente_leitura": "Sua empresa está em modo só leitura.",
+  "importador.gate.teto_diario": "A empresa chegou ao limite de IA de hoje. As regras continuam funcionando.",
+  "importador.gate.sem_permissao": "Só um sócio pode usar a leitura com IA.",
+  "importador.gate.limite_arquivos": "A empresa chegou ao limite de arquivos lidos com IA neste mês.",
+  "importador.gate.limite_tokens": "A empresa chegou ao limite de leitura com IA neste mês.",
+  "importador.upload.readOnly": "Seu papel nesta empresa não permite importar.",
+  "importador.upload.somente_leitura": "Seu papel nesta empresa não permite importar.",
+  "importador.upload.cota": "A empresa chegou ao limite de 100 MB de arquivos. Apague um lote antigo para enviar.",
+  "importador.review.somente_leitura": "Seu papel nesta empresa permite ver, mas não aprovar.",
+  "importador.errors.noPermission": "Seu papel nesta empresa não permite isto.",
+  "importador.failure.so_brasil": "Só para empresas em real"
 }

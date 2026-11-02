@@ -1549,7 +1549,8 @@
       "entriesCurrent": "olhei seus lançamentos do mês",
       "entriesMonth": "olhei seus lançamentos de {month}",
       "calendarCurrent": "olhei seu calendário do mês",
-      "calendarMonth": "olhei seu calendário de {month}"
+      "calendarMonth": "olhei seu calendário de {month}",
+      "documents": "olhei seus documentos"
     }
   },
   "landing": {
@@ -2164,7 +2165,8 @@
       "label": "Aviso sobre aportes",
       "text": "Aportes e resgates agora aparecem separados de despesas e receitas: guardar dinheiro não é gasto. O saldo das contas não mudou.",
       "action": "Entendi"
-    }
+    },
+    "importFiles": "Importar arquivos"
   },
   "settings": {
     "metaTitle": "Configurações",
@@ -3125,6 +3127,11 @@
       "title": "Tem investimentos na bolsa?",
       "text": "Excel da Área do Investidor da B3 e nota de corretagem em PDF entram pela tela de investimentos.",
       "link": "Importar da B3 ou da corretora"
+    },
+    "smart": {
+      "title": "Importar arquivos",
+      "text": "Envie até 10 arquivos de qualquer tipo. O agente diz o que é cada um, onde cada item entra e o que já está lançado.",
+      "link": "Importar arquivos"
     }
   },
   "renda": {
@@ -3846,6 +3853,10 @@
     "lembreteValorAcima": {
       "title": "O valor do seu plano está acima do que sobra hoje",
       "body": "Foi aceito guardar {accepted} por mês, e hoje cabem {fits}. Nada muda sozinho: o valor aceito continua valendo."
+    },
+    "importadorPronto": {
+      "title": "Seus arquivos estão prontos para conferir",
+      "body": "Lemos {files, plural, one {# arquivo} other {# arquivos}} e achamos {items, plural, one {# item} other {# itens}}. Nada foi gravado: confira e aprove.{failed, plural, =0 {} one { # arquivo não foi lido.} other { # arquivos não foram lidos.}}"
     }
   },
   "sistema": {
@@ -4419,6 +4430,245 @@
       "abroad": "Você informou que mora fora do Brasil.",
       "hidden": "Guardado",
       "fix": "Para corrigir, fale com o suporte do OrganizeUp."
+    }
+  },
+  "importador": {
+    "metaTitle": "Importar arquivos",
+    "eyebrow": "Importar arquivos",
+    "title": "Traga seus arquivos, o agente organiza",
+    "description": "Extrato, fatura, nota fiscal, contrato de empréstimo, consórcio, nota de corretagem e o que mais a família tiver. O agente diz o que é cada um, onde cada item entra e o que já está lançado. Nada é gravado sem a sua aprovação.",
+    "noPermission": "Seu papel nesta família permite ver, mas não importar nem aprovar.",
+    "updating": "Estamos atualizando o sistema. Tente de novo em alguns minutos.",
+    "privacy": {
+      "title": "O que acontece com os arquivos",
+      "text": "Primeiro leem as nossas regras, sem IA. Só o que elas não entenderem vai ao serviço de IA, fora do Brasil, e só com a sua autorização: o texto do arquivo, trocando CPF, CNPJ, e-mail e nomes da família. Arquivo digitalizado ou foto vai como está, com tudo o que tiver nele, inclusive dados de outras pessoas. Os arquivos ficam guardados na sua família, e o que não for aprovado é apagado em 30 dias.",
+      "quota": "Neste mês: {used} de {limit} arquivos lidos com IA."
+    },
+    "gate": {
+      "accept": "Autorizo a leitura destes arquivos pelo serviço de IA, inclusive fora do Brasil, como explicado acima e na Política de Privacidade.",
+      "useAi": "Usar IA no que as regras não entenderem",
+      "sem_chave": "A leitura com IA não está disponível agora. As regras continuam funcionando.",
+      "desligado": "A leitura com IA está desligada agora. As regras continuam funcionando.",
+      "manutencao": "Estamos em manutenção. Tente de novo em alguns minutos.",
+      "somente_leitura": "Sua família está em modo só leitura.",
+      "sem_modulo": "A leitura com IA faz parte do Assistente. As regras continuam funcionando sem ele.",
+      "teto_mensal": "O limite de uso da IA foi atingido neste mês. As regras continuam funcionando.",
+      "teto_diario": "A família chegou ao limite de IA de hoje. As regras continuam funcionando.",
+      "sem_permissao": "Só um adulto da família pode usar a leitura com IA.",
+      "precisa_ativar": "Para ler o que as regras não entenderem, ative o assistente. As regras funcionam sem ele.",
+      "precisa_aceitar": "Falta autorizar a leitura destes arquivos pelo serviço de IA.",
+      "limite_arquivos": "A família chegou ao limite de arquivos lidos com IA neste mês.",
+      "limite_tokens": "A família chegou ao limite de leitura com IA neste mês."
+    },
+    "upload": {
+      "title": "Enviar arquivos",
+      "text": "Depois de enviar, você pode sair desta tela. Avisamos quando terminar.",
+      "label": "Arquivos para importar",
+      "hint": "Até {count} arquivos: PDF, XML, Excel (.xlsx), CSV, OFX, TXT, PNG ou JPG. Cada um com até 10 MB.",
+      "listLabel": "Arquivos enviados",
+      "sending": "Enviando…",
+      "start": "Começar a leitura",
+      "starting": "Começando…",
+      "repeated": "já estava neste lote",
+      "failed": "Não foi possível enviar. Tente de novo.",
+      "readOnly": "Seu papel nesta família não permite importar.",
+      "tooMany": "Muitos envios seguidos. Aguarde um instante.",
+      "noFile": "Escolha um arquivo.",
+      "updating": "Estamos atualizando o sistema. Tente de novo em alguns minutos.",
+      "somente_leitura": "Seu papel nesta família não permite importar.",
+      "vazio": "O arquivo está vazio.",
+      "tamanho": "O arquivo passa de 10 MB.",
+      "tipo": "Este arquivo não é um PDF, XML, Excel, CSV, OFX, TXT, PNG ou JPG de verdade.",
+      "xml_inseguro": "Este XML usa recursos que não aceitamos, por segurança.",
+      "lote": "Este envio já começou. Comece um novo.",
+      "muitos": "São até 10 arquivos por vez.",
+      "cota_lote": "O envio passou de 40 MB. Mande o resto em outro.",
+      "cota": "A família chegou ao limite de 100 MB de arquivos. Apague um lote antigo para enviar."
+    },
+    "empty": {
+      "title": "Nenhum arquivo importado ainda",
+      "text": "Envie seus arquivos, confira o que o agente achou e aprove. Só o que você aprovar entra no sistema."
+    },
+    "list": {
+      "title": "Envios",
+      "files": "{count, plural, one {# arquivo} other {# arquivos}}",
+      "open": "Abrir",
+      "delete": "Apagar",
+      "deleteTitle": "Apagar este envio?",
+      "deleteText": "Os arquivos, o que foi lido e o que estava para aprovar somem. O que você já aprovou continua no sistema.",
+      "deleteConfirm": "Apagar envio"
+    },
+    "status": {
+      "enviando": "Enviando",
+      "na_fila": "Na fila",
+      "lendo": "Lendo",
+      "revisao": "Para conferir",
+      "concluido": "Aprovado"
+    },
+    "fileStatus": {
+      "na_fila": "Na fila",
+      "lendo": "Lendo",
+      "lido": "Lido",
+      "falhou": "Não foi lido"
+    },
+    "progress": {
+      "reading": "Lendo: {done} de {total}",
+      "label": "Arquivos lidos",
+      "leave": "Pode sair desta tela. Você recebe uma notificação quando terminar."
+    },
+    "review": {
+      "metaTitle": "Conferir arquivos",
+      "title": "Confira o que o agente achou",
+      "description": "Edite, desmarque e aprove tudo ou só uma parte. Nada foi gravado ainda.",
+      "back": "Voltar",
+      "notStarted": "Este envio ainda não começou",
+      "notStartedText": "Volte e envie os arquivos de novo.",
+      "totalNew": "Novos",
+      "totalSeen": "Já lançados",
+      "totalMaybe": "Possíveis duplicados",
+      "totalBlocked": "Não dá para gravar",
+      "totalIn": "Entra (marcados)",
+      "totalOut": "Sai (marcados)",
+      "nothingSaved": "Só o que estiver marcado entra no sistema quando você aprovar.",
+      "approve": "{count, plural, one {Aprovar # item} other {Aprovar # itens}}",
+      "selectAll": "Marcar todos",
+      "selectNone": "Desmarcar todos",
+      "report": "{saved, plural, one {# item gravado} other {# itens gravados}}, {existed} já {existed, plural, one {existia} other {existiam}}, {failed, plural, one {# falhou} other {# falharam}}.",
+      "quota": "{count, plural, =0 {Não cabe mais nenhum lançamento neste mês.} one {Só cabe # lançamento neste mês.} other {Só cabem # lançamentos neste mês.}} Desmarque o resto ou suba de plano: nada foi gravado.",
+      "nada": "Não há nada marcado para aprovar.",
+      "somente_leitura": "Seu papel nesta família permite ver, mas não aprovar."
+    },
+    "file": {
+      "download": "Baixar",
+      "retry": "Ler de novo",
+      "truncated": "Arquivo muito grande: só o começo foi lido com IA. Confira se faltou algo ou divida o arquivo.",
+      "notes": "O que não foi entendido",
+      "account": "Conta deste arquivo",
+      "card": "Cartão deste arquivo",
+      "choose": "Escolha"
+    },
+    "item": {
+      "select": "Incluir {name}",
+      "untitled": "Sem descrição",
+      "saved": "Gravado",
+      "edit": "Editar",
+      "save": "Salvar",
+      "cancel": "Cancelar",
+      "source": "De onde veio",
+      "missing": "Falta: {fields}",
+      "moduleOff": "Este tipo de item faz parte de um módulo que seu plano não tem. Ele fica aqui, mas não grava. Veja em Plano e assinatura."
+    },
+    "duplicate": {
+      "novo": "Novo",
+      "possivel": "Possível duplicado",
+      "ja_lancado": "Já lançado",
+      "inFile": "Também aparece em {name}."
+    },
+    "confidence": {
+      "alta": "Confiança alta",
+      "media": "Confiança média",
+      "baixa": "Confiança baixa"
+    },
+    "method": {
+      "regras": "Lido por regras",
+      "modelo": "Lido com IA"
+    },
+    "docType": {
+      "extrato": "Extrato",
+      "fatura": "Fatura de cartão",
+      "nota_fiscal": "Nota fiscal",
+      "contrato_emprestimo": "Contrato de empréstimo",
+      "consorcio": "Consórcio",
+      "financiamento": "Financiamento",
+      "holerite": "Holerite",
+      "informe_rendimentos": "Informe de rendimentos",
+      "nota_corretagem": "Nota de corretagem",
+      "negociacao_b3": "Arquivo da B3",
+      "proventos": "Proventos",
+      "apolice": "Apólice",
+      "boleto": "Boleto",
+      "outro": "Outro documento"
+    },
+    "destination": {
+      "lancamento": "Lançamentos",
+      "compra_cartao": "Compras de cartão",
+      "operacao": "Operações de investimento",
+      "provento": "Proventos",
+      "divida": "Dívidas",
+      "consorcio": "Consórcios",
+      "renda": "Renda",
+      "previsao": "Previsões",
+      "meta": "Metas",
+      "documento": "Documentos"
+    },
+    "field": {
+      "description": "Descrição",
+      "date": "Data",
+      "amount": "Valor",
+      "kind": "Tipo",
+      "despesa": "Despesa",
+      "receita": "Receita",
+      "compra": "Compra",
+      "venda": "Venda",
+      "installments": "Parcelas",
+      "installmentAmount": "Valor da parcela",
+      "rate": "Juros ao mês (%)",
+      "day": "Dia do mês",
+      "ticker": "Código do ativo",
+      "quantity": "Quantidade",
+      "unitPrice": "Preço unitário",
+      "fees": "Taxas",
+      "side": "Operação",
+      "category": "Categoria",
+      "chooseCategory": "Escolha uma categoria",
+      "newCategory": "Criar: {name}",
+      "account": "conta",
+      "card": "cartão",
+      "name": "nome",
+      "system": "sistema de amortização",
+      "firstDueDate": "data da próxima parcela"
+    },
+    "note": {
+      "linhas_ignoradas": "{count, plural, one {# linha ficou de fora} other {# linhas ficaram de fora}}.",
+      "posicao": "A Posição da B3 não traz data nem preço pago. Para conferir a carteira, use Investimentos > Importar.",
+      "itens_cortados": "O arquivo tinha {count} itens, e entraram só os primeiros.",
+      "total_nao_fecha": "A soma dos itens não fecha com o total do documento.",
+      "parcelas_nao_fecham": "Parcela vezes quantidade não cobre o saldo. Confira os dois.",
+      "texto_suspeito": "O arquivo tem um trecho estranho, que foi ignorado."
+    },
+    "failure": {
+      "tipo": "Não reconhecemos este tipo de arquivo.",
+      "senha": "Este PDF tem senha. Tire a senha e envie de novo.",
+      "ilegivel": "O arquivo está corrompido ou não abre.",
+      "sem_texto": "Não achamos texto neste arquivo.",
+      "muito_grande": "Grande demais para ler com IA: digitalização até 20 páginas e 5 MB, imagem até 3,75 MB.",
+      "nao_entendi": "O agente não conseguiu entender este arquivo.",
+      "indisponivel": "A leitura com IA não respondeu. Tente de novo.",
+      "precisa_ia": "As regras não entenderam este arquivo, e a leitura com IA não foi pedida.",
+      "erro_interno": "Algo deu errado aqui. Tente de novo.",
+      "modulo_desligado": "Módulo fora do plano",
+      "falta_dado": "Falta dado para gravar",
+      "categoria_invalida": "Categoria inválida",
+      "conta_invalida": "Conta inválida",
+      "cartao_invalido": "Cartão inválido",
+      "moeda_cancelada": "Moeda adicional cancelada",
+      "sem_cotacao": "Sem cotação nesta data",
+      "valor_grande": "Valor acima do limite",
+      "cota": "Limite de lançamentos do mês",
+      "fatura_paga": "Essa fatura já foi paga",
+      "sem_ativo": "Ativo que não está na carteira",
+      "so_brasil": "Só para famílias em real",
+      "ativo_sem_tipo": "Cadastre o ativo em Investimentos e tente de novo",
+      "data_futura": "Data no futuro",
+      "venda_maior_que_posicao": "Venda maior que a posição",
+      "sem_codigo": "Falta o código do ativo",
+      "classe_sem_cotacao": "Ativo sem cotação"
+    },
+    "errors": {
+      "noPermission": "Seu papel nesta família não permite isto.",
+      "notStarted": "Não foi possível começar. Envie os arquivos de novo.",
+      "notFound": "Não achamos esse item. Atualize a tela.",
+      "invalid": "Confira os dados e tente de novo."
     }
   }
 }

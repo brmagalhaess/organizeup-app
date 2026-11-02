@@ -56,6 +56,9 @@ const ROUTES: Record<string, BillingModule | null> = {
   "dividas/anexos/[id]/route.ts": "dividas",
   "dividas/anexos/route.ts": "dividas",
   "health/route.ts": null,
+  // Base: cada item confere o módulo do destino na aprovação, ver BASE_WRITERS.
+  "importador/arquivos/[id]/route.ts": null,
+  "importador/route.ts": null,
   "mcp/ops/route.ts": null,
   "ops/agents/route.ts": null,
   "ops/context/route.ts": null,
@@ -88,6 +91,7 @@ const TOOLS: Record<string, BillingModule | null> = {
   ver_calendario: null,
   ver_carteira: "investimentos",
   ver_dividas: "dividas",
+  ver_documentos: null,
   ver_plano_aposentadoria: "aposentadoria",
   ver_plano_dividas: "dividas",
   ver_plano_do_mes: "aposentadoria",
@@ -109,6 +113,8 @@ const MODULE_TABLES =
 const BASE_WRITERS: Record<string, string> = {
   // Baixa de parcela: `confirmCommitment` recusa `d:` e `g:` com o módulo desligado.
   "lib/confirm-entry.ts": "moduleOff",
+  // Importador: item de módulo desligado aparece, e a aprovação recusa por aqui.
+  "lib/importador/commit.ts": "SMART_DESTINATION_MODULE[item.destination]",
   // Cadastro complementar: pula o que é de módulo desligado.
   "app/app/(inicio)/completar/actions.ts": 'canUse(await readFamilyAccess(ctx), "aposentadoria")',
 };

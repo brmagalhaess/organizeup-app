@@ -137,5 +137,19 @@
   "assinatura.failure.vip": "Tu empresa es VIP, sin costo. No hace falta suscribirse ahora.",
   "assinatura.failure.sem_familia": "Elige una empresa primero.",
   "assinatura.failure.so_responsavel": "Solo el responsable de la empresa puede hacer esto.",
-  "viagens.intentions.states.criancas": "No sugerimos este destino: no está indicado para viajar con menores de 12 años."
+  "viagens.intentions.states.criancas": "No sugerimos este destino: no está indicado para viajar con menores de 12 años.",
+  "importador.noPermission": "Tu rol en esta empresa permite ver, pero no importar ni aprobar.",
+  "importador.description": "Extractos, resúmenes de tarjeta, facturas, contratos de préstamo, consorcios, notas de corretaje y todo lo que tenga la empresa. El agente dice qué es cada uno, dónde entra cada ítem y qué ya está registrado. Nada se graba sin tu aprobación.",
+  "importador.privacy.text": "Primero leen nuestras reglas, sin IA. Solo lo que no entiendan va al servicio de IA, fuera de Brasil, y solo con tu autorización: el texto del archivo, reemplazando CPF, CNPJ, correo y nombres de los socios. Un archivo digitalizado o una foto va como está, con todo lo que tenga, incluidos datos de otras personas. Los archivos quedan guardados en tu empresa, y lo que no se apruebe se borra en 30 días.",
+  "importador.gate.somente_leitura": "Tu empresa está en modo solo lectura.",
+  "importador.gate.teto_diario": "La empresa alcanzó el límite de IA de hoy. Las reglas siguen funcionando.",
+  "importador.gate.sem_permissao": "Solo un socio puede usar la lectura con IA.",
+  "importador.gate.limite_arquivos": "La empresa alcanzó el límite de archivos leídos con IA este mes.",
+  "importador.gate.limite_tokens": "La empresa alcanzó el límite de lectura con IA este mes.",
+  "importador.upload.readOnly": "Tu rol en esta empresa no permite importar.",
+  "importador.upload.somente_leitura": "Tu rol en esta empresa no permite importar.",
+  "importador.upload.cota": "La empresa alcanzó el límite de 100 MB de archivos. Borra un lote antiguo para enviar.",
+  "importador.review.somente_leitura": "Tu rol en esta empresa permite ver, pero no aprobar.",
+  "importador.errors.noPermission": "Tu rol en esta empresa no permite esto.",
+  "importador.failure.so_brasil": "Solo para empresas en reales"
 }

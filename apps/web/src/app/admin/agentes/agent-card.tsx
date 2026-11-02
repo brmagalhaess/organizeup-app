@@ -104,7 +104,7 @@ export function AgentCard({
           return { day, title: dayTitle(day, run, discards.get(day) ?? 0), status: statusOf(run) };
         })}
       />
-      {agent.controls && canRun ? (
+      {agent.controls && !agent.onDemand && canRun ? (
         <div className="self-start">
           <RunAction
             label="Rodar agora"

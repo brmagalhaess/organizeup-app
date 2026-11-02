@@ -1,0 +1,64 @@
+// Recebe um arquivo do importador (ADR-0030), um por pedido, para a tela mostrar o resultado de cada um. Rota, e
+// não server action, porque o limite das actions é de 3 MB. Tipo e tamanho valem pelo conteúdo, conferidos
+// aqui. Sem `importId`, abre o lote. Módulo: Base, porque o que pesa é a aprovação, item a item.
+import { createSmartImport, saveSmartFile } from "@organizeup/agents";
+import { canWrite, tolerateSchemaLag, withHousehold } from "@organizeup/db";
+import { checkSmartFile, SMART_FILE_MAX_BYTES } from "@organizeup/domain";
+import { getTranslations } from "next-intl/server";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { sameSite } from "@/lib/same-site";
+import { requireTenant } from "@/lib/session";
+
+export const dynamic = "force-dynamic";
+
+const allow = createRateLimiter({ limit: 40, windowMs: 60_000 });
+/** Folga para o envelope do formulário em volta do arquivo. */
+const FORM_OVERHEAD = 64 * 1024;
+
+const refuse = (code: string, message: string, status: number) =>
+  Response.json({ ok: false, code, message }, { status });
+
+export async function POST(request: Request) {
+  if (!sameSite(request)) return new Response(null, { status: 403 });
+  const { ctx } = await requireTenant();
+  const t = await getTranslations("importador.upload");
+  if (!canWrite(ctx)) return refuse("somente_leitura", t("readOnly"), 403);
+  if (!allow(ctx.householdId)) return refuse("muitos_pedidos", t("tooMany"), 429);
+
+  const declared = Number(request.headers.get("content-length") ?? 0);
+  if (declared > SMART_FILE_MAX_BYTES + FORM_OVERHEAD) {
+    return refuse("tamanho", t("tamanho"), 413);
+  }
+  const form = await request.formData().catch(() => null);
+  const file = form?.get("file");
+  if (!(file instanceof File)) return refuse("sem_arquivo", t("noFile"), 400);
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const checked = checkSmartFile(bytes, file.name);
+  if (!checked.ok) {
+    return refuse(checked.code, t(checked.code), checked.code === "tamanho" ? 413 : 415);
+  }
+
+  const given = form?.get("importId");
+  const saved = await tolerateSchemaLag(
+    () =>
+      withHousehold(ctx, async (tx) => {
+        const importId =
+          typeof given === "string" && given ? given : await createSmartImport(tx, ctx);
+        if (!importId) return { ok: false as const, code: "somente_leitura" as const };
+        const result = await saveSmartFile(tx, ctx, {
+          importId,
+          fileName: checked.fileName,
+          mediaType: checked.mediaType,
+          bytes,
+        });
+        return { ...result, importId };
+      }),
+    null,
+  );
+  if (!saved) return refuse("atualizando", t("updating"), 503);
+  if (!saved.ok) {
+    return refuse(saved.code, t(saved.code), saved.code === "somente_leitura" ? 403 : 413);
+  }
+  return Response.json(saved);
+}

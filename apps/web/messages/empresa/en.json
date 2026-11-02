@@ -137,5 +137,19 @@
   "assinatura.failure.vip": "Your company is VIP, at no cost. There is no need to subscribe right now.",
   "assinatura.failure.sem_familia": "Choose a company first.",
   "assinatura.failure.so_responsavel": "Only the company's owner can do this.",
-  "viagens.intentions.states.criancas": "We don't suggest this destination: it isn't recommended for trips with anyone under 12."
+  "viagens.intentions.states.criancas": "We don't suggest this destination: it isn't recommended for trips with anyone under 12.",
+  "importador.noPermission": "Your role in this company can view, but not import or approve.",
+  "importador.description": "Statements, card bills, invoices, loan contracts, consortium contracts, brokerage notes and whatever else the company has. The agent says what each one is, where each item belongs and what is already recorded. Nothing is saved without your approval.",
+  "importador.privacy.text": "Our rules read them first, without AI. Only what they cannot understand goes to the AI service, outside Brazil, and only with your authorization: the text of the file, with CPF, CNPJ, e-mail and partner names replaced. A scanned file or photo goes as it is, with everything in it, including other people's data. Files stay stored in your company, and what is not approved is deleted after 30 days.",
+  "importador.gate.somente_leitura": "Your company is in read-only mode.",
+  "importador.gate.teto_diario": "The company reached today's AI limit. The rules keep working.",
+  "importador.gate.sem_permissao": "Only a partner can use AI reading.",
+  "importador.gate.limite_arquivos": "The company reached the limit of files read with AI this month.",
+  "importador.gate.limite_tokens": "The company reached the AI reading limit this month.",
+  "importador.upload.readOnly": "Your role in this company cannot import.",
+  "importador.upload.somente_leitura": "Your role in this company cannot import.",
+  "importador.upload.cota": "The company reached the 100 MB file limit. Delete an old batch to send more.",
+  "importador.review.somente_leitura": "Your role in this company can view, but not approve.",
+  "importador.errors.noPermission": "Your role in this company does not allow this.",
+  "importador.failure.so_brasil": "Only for companies in reais"
 }
