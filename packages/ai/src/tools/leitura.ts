@@ -7,6 +7,7 @@ import {
   currentDebtPlan,
   currentDividendPlan,
   latestStatement,
+  listAttachedDocuments,
   loadCommitments,
   loadFiscalTables,
   loadSavingsRule,
@@ -332,6 +333,30 @@ const listarCategorias = defineTool({
           nome: row.name,
           tipo: row.kind,
           essencial: row.essential,
+        })),
+      };
+    }),
+});
+
+const verDocumentos = defineTool({
+  name: "ver_documentos",
+  module: null,
+  description:
+    "Documentos que a família guardou pelo importador, como contratos, apólices e informes: tipo, emissor e os campos extraídos. O arquivo em si nunca vem. Chame quando perguntarem sobre um contrato ou documento enviado.",
+  kind: "leitura",
+  input: noInput,
+  label: () => "olhei seus documentos",
+  run: (ctx) =>
+    read(ctx, async (tx) => {
+      const rows = await listAttachedDocuments(tx);
+      return {
+        documentos: rows.map((row) => ({
+          tipo: row.docType,
+          emissor: untrusted(row.issuer),
+          campos: row.fields.map((field) => ({
+            campo: untrusted(field.label),
+            valor: untrusted(field.value),
+          })),
         })),
       };
     }),
@@ -926,6 +951,7 @@ const verPlanoDoMes = defineTool({
 });
 
 export const READ_TOOLS = [
+  verDocumentos,
   listarCategorias,
   listarLancamentos,
   listarMetas,

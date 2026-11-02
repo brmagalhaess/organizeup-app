@@ -55,6 +55,26 @@ export function billingNoticeText(
   };
 }
 
+/** Aviso de que o lote foi lido: itens para conferir e arquivos que falharam. */
+export function smartImportReadyText(counts: {
+  files: number;
+  items: number;
+  failed: number;
+}): AgentText {
+  const { files, items, failed } = counts;
+  const lost =
+    failed === 0
+      ? ""
+      : failed === 1
+        ? " 1 arquivo não foi lido."
+        : ` ${failed} arquivos não foram lidos.`;
+  return {
+    title: "Seus arquivos estão prontos para conferir",
+    body: `Lemos ${plural(files, "arquivo", "arquivos")} e achamos ${plural(items, "item", "itens")}. Nada foi gravado: confira e aprove.${lost}`,
+    message: message("importadorPronto", { files, items, failed }),
+  };
+}
+
 export interface ReportText {
   title: string;
   summary: string;

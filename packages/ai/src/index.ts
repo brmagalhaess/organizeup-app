@@ -25,6 +25,7 @@ export { CATEGORY_ROUTE, runCategoryReview, type CategoryReviewRun } from "./cat
 export { checkModel, type ModelCheck } from "./check";
 export {
   acceptDebtFiles,
+  acceptImporterFiles,
   activateAssistant,
   deactivateAssistant,
   setAssistantAutonomy,
@@ -39,6 +40,22 @@ export {
   type DebtReadResult,
   type ReadDebtDocumentInput,
 } from "./debts/read-document";
+export {
+  IMPORTER_CONSENT_VERSION,
+  importerGate,
+  importerUsage,
+  type ImporterGate,
+  type ImporterUsage,
+} from "./importador/gate";
+export { openSmartFile } from "./importador/read-file";
+export {
+  IMPORTER_PROMPT,
+  IMPORTER_ROUTE,
+  sanitizeSmartAnswer,
+  smartBlock,
+  smartRequest,
+} from "./importador/reader";
+export { runSmartImport, type SmartImportInput, type SmartImportRun } from "./importador/run";
 export {
   INSIGHTS_CONSENT_VERSION,
   NIGHT_ROUTE,

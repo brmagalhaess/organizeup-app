@@ -16,6 +16,7 @@
     "@organizeup/agents": "workspace:*",
     "@organizeup/db": "workspace:*",
     "@organizeup/domain": "workspace:*",
+    "pdfjs-dist": "6.4.299",
     "read-excel-file": "9.3.14",
     "zod": "4.6.7"
   },

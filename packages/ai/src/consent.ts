@@ -65,6 +65,12 @@ export async function acceptDebtFiles(ctx: TenantContext, version: string): Prom
   return true;
 }
 
+/**
+ * O mesmo aceite, numa versão que cobre qualquer arquivo. Vale para as duas leituras: a de dívidas pede
+ * uma versão menor (ADR-0030).
+ */
+export const acceptImporterFiles = acceptDebtFiles;
+
 const revokeDebtFiles = (ctx: TenantContext) =>
   tolerateSchemaLag(
     () => withHousehold(ctx, (tx) => tx.delete(householdFileConsents).returning()),

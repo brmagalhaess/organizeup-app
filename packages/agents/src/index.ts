@@ -50,6 +50,34 @@ export {
   type NewDebt,
   type SaveDebtDocumentResult,
 } from "./debt-documents";
+export {
+  claimSmartFile,
+  createSmartImport,
+  deleteSmartImport,
+  failSmartFile,
+  IMPORTADOR_AGENT,
+  listAttachedDocuments,
+  listSmartFiles,
+  listSmartFilesOf,
+  listSmartImports,
+  listSmartItems,
+  loadSmartFileContent,
+  loadSmartKnown,
+  notifySmartImport,
+  priorSmartReading,
+  purgeSmartImports,
+  queueSmartImport,
+  requeueSmartFile,
+  reviewSmartImport,
+  saveSmartFile,
+  saveSmartReading,
+  startSmartImport,
+  touchSmartImport,
+  type SaveSmartFileResult,
+  type SmartFileMeta,
+  type SmartImportRow,
+  type SmartItemRow,
+} from "./smart-import";
 export { monthlyPlanView } from "./plan-view";
 export { currentDividendPlan } from "./retirement-view";
 export {

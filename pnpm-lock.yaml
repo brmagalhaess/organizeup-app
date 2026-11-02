@@ -179,6 +179,9 @@ importers:
       '@organizeup/domain':
         specifier: workspace:*
         version: link:../domain
+      pdfjs-dist:
+        specifier: 6.4.299
+        version: 6.4.299
       read-excel-file:
         specifier: 9.3.14
         version: 9.3.14

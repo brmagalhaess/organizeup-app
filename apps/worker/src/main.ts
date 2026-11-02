@@ -16,6 +16,7 @@ import {
   readPlatformFlags,
   recordDeployment,
   recordWorkerHeartbeat,
+  type SmartImportJob,
 } from "@organizeup/db";
 import {
   MERCADO_AGENT,
@@ -30,6 +31,7 @@ import { reportingFailures, reportJobFailure } from "./diagnostics";
 import { MARKET_SCHEDULES, maxCallsPerDay, runMarketDataJob } from "./market-data";
 import { runInsightsJob } from "./insights";
 import { snapshotNetWorth } from "./net-worth";
+import { runSmartImportJob } from "./smart-import";
 
 process.env.OU_PROCESS ??= "organizeup-worker";
 
@@ -134,6 +136,13 @@ async function main() {
     }),
   );
   await boss.schedule(JOB_QUEUES.billingRenewals, "0 9 * * *", null, { tz: "America/Sao_Paulo" });
+
+  // Importador inteligente (ADR-0030): por pedido da família, fora do interruptor dos agentes diários.
+  await boss.work<SmartImportJob>(
+    JOB_QUEUES.smartImport,
+    reportingFailures(JOB_QUEUES.smartImport, ([job]) => runSmartImportJob(log, job?.data ?? {})),
+  );
+  await boss.schedule(JOB_QUEUES.smartImport, "50 4 * * *", {}, { tz: "America/Sao_Paulo" });
 
   // Agentes diários do produto (ADR-0015): acordados pelo Paperclip, às 05:30 se faltou algum e no
   // boot, se ainda não rodaram hoje.
