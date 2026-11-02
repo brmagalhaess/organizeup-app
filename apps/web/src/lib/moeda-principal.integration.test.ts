@@ -344,7 +344,7 @@ describe("família em dólar", () => {
       });
       return row!.id;
     });
-    await confirmEntry(form({ key: `f:${card}:2026-10`, month: "2026-10" }));
+    await confirmEntry(form({ key: `f:${card}:2026-11`, month: "2026-11" }));
     expect(await lastEntry(family.id, "Fatura Visa")).toMatchObject({
       amount: "100.00",
       brlAmount: "542.12",
@@ -400,18 +400,18 @@ describe("família em dólar", () => {
           targetAmount: "1000.00",
           accountId: family.real.id,
           destinationAccountId: family.main.id,
-          planDay: 28,
+          planDay: 5,
         })
         .returning({ id: db.goals.id });
       await tx.insert(db.goalContributions).values({
         householdId: family.id,
         goalId: row!.id,
-        month: "2026-10",
+        month: "2026-11",
         amount: "100.00",
       });
       return row!.id;
     });
-    await confirmEntry(form({ key: `g:${goal}:2026-10`, month: "2026-10" }));
+    await confirmEntry(form({ key: `g:${goal}:2026-11`, month: "2026-11" }));
     const rows = await inFamily(family.id, (tx) => tx.select().from(transactions));
     expect(rows.find((row) => row.kind === "despesa")).toMatchObject({
       amount: "100.00",
