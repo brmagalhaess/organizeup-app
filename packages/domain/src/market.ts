@@ -166,6 +166,52 @@ export interface ProventoPlan {
 
 const dayNumber = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
 
+/** Distância em dias entre duas datas. */
+export const daysApart = (a: string, b: string) => Math.abs(dayNumber(a) - dayNumber(b));
+
+/** Marca da linha que veio de arquivo, no próprio `id` (ADR-0029). */
+const IMPORTED_DIVIDEND_PREFIX = "importado-";
+
+export const importedDividendId = (uuid: string) => `${IMPORTED_DIVIDEND_PREFIX}${uuid}`;
+
+export const isImportedDividend = (id: string) => id.startsWith(IMPORTED_DIVIDEND_PREFIX);
+
+/** A B3 e a fonte de mercado podem chamar de jeitos diferentes o pagamento de um FII. JCP é à parte. */
+export const sameProventoKind = (a: DividendKind, b: DividendKind) =>
+  a === b || (a !== "jcp" && b !== "jcp");
+
+/**
+ * Cada linha importada responde por um provento só: o do mesmo tipo mais perto da data e, no empate, o de
+ * valor mais próximo. O resto a fonte cria, ao contrário do que vale para o lançamento à mão (ADR-0029).
+ */
+function claimedByImports(input: ReconcileInput, taken: ReadonlySet<string>): Set<string> {
+  const claimed = new Set<string>();
+  const imported = input.existing
+    .filter((row) => row.marketDividendId === null && isImportedDividend(row.id))
+    .toSorted((a, b) => a.paidOn.localeCompare(b.paidOn) || a.id.localeCompare(b.id));
+  const valueOf = (event: MarketProvento) =>
+    money(entitledQuantity(input.trades, event.comDate, input.stockEvents)).times(
+      event.ratePerShare,
+    );
+  for (const row of imported) {
+    const near = input.events
+      .filter(
+        (event) =>
+          !taken.has(event.id) &&
+          !claimed.has(event.id) &&
+          sameProventoKind(event.kind, row.kind) &&
+          daysApart(event.payDate, row.paidOn) <= MARKET_RULES.familyMatchDays,
+      )
+      .toSorted(
+        (a, b) =>
+          daysApart(a.payDate, row.paidOn) - daysApart(b.payDate, row.paidOn) ||
+          valueOf(a).minus(row.gross).abs().comparedTo(valueOf(b).minus(row.gross).abs()),
+      );
+    if (near[0]) claimed.add(near[0].id);
+  }
+  return claimed;
+}
+
 /** Decide o que criar, corrigir e tirar para um investimento. Rodar de novo sobre o resultado não muda nada. */
 export function reconcileProventos(input: ReconcileInput): ProventoPlan {
   const plan: ProventoPlan = {
@@ -175,12 +221,20 @@ export function reconcileProventos(input: ReconcileInput): ProventoPlan {
     skippedFamily: 0,
     skippedTax: 0,
   };
-  const family = input.existing.filter((row) => row.marketDividendId === null);
-  const automatic = new Map(
-    input.existing.flatMap((row) =>
-      row.marketDividendId === null ? [] : [[row.marketDividendId, row] as const],
-    ),
+  const family = input.existing.filter(
+    (row) => row.marketDividendId === null && !isImportedDividend(row.id),
   );
+  const linked = input.existing.flatMap((row) =>
+    row.marketDividendId === null ? [] : [{ ...row, marketDividendId: row.marketDividendId }],
+  );
+  const automatic = new Map(
+    linked.filter((row) => row.source === "agente").map((row) => [row.marketDividendId, row]),
+  );
+  // Linha automática que a família trocou pelo valor do arquivo: o provento já tem resposta (ADR-0029).
+  const answered = new Set(
+    linked.filter((row) => row.source !== "agente").map((row) => row.marketDividendId),
+  );
+  const claimed = claimedByImports(input, new Set(linked.map((row) => row.marketDividendId)));
 
   for (const event of input.events) {
     if (input.blocked.has(event.id)) continue;
@@ -190,10 +244,10 @@ export function reconcileProventos(input: ReconcileInput): ProventoPlan {
       if (current) plan.remove.push(current);
       continue;
     }
-    const recorded = family.some(
-      (row) =>
-        Math.abs(dayNumber(row.paidOn) - dayNumber(event.payDate)) <= MARKET_RULES.familyMatchDays,
-    );
+    const recorded =
+      answered.has(event.id) ||
+      claimed.has(event.id) ||
+      family.some((row) => daysApart(row.paidOn, event.payDate) <= MARKET_RULES.familyMatchDays);
     if (!current && recorded) {
       plan.skippedFamily += 1;
       continue;

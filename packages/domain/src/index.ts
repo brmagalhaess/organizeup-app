@@ -28,6 +28,8 @@ export * from "./investment-file";
 export * from "./b3-spreadsheet";
 export * from "./brokerage-note";
 export * from "./investment-import";
+export * from "./dividend-file";
+export * from "./dividend-import";
 export * from "./retirement";
 export * from "./trip";
 export * from "./surplus";

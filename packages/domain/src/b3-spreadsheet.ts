@@ -34,7 +34,7 @@ export interface WorkbookSheet {
 
 type Columns<K extends string> = Record<K, number>;
 
-interface Layout<R extends string, O extends string> {
+export interface Layout<R extends string, O extends string> {
   required: Record<R, string[]>;
   optional: Record<O, string[]>;
 }
@@ -104,7 +104,10 @@ function columnsIn<R extends string, O extends string>(
 }
 
 /** Procura o cabeçalho nas primeiras linhas, qualquer que seja a ordem das colunas. */
-function locate<R extends string, O extends string>(rows: SheetCell[][], layout: Layout<R, O>) {
+export function locateLayout<R extends string, O extends string>(
+  rows: SheetCell[][],
+  layout: Layout<R, O>,
+) {
   for (let index = 0; index < Math.min(HEADER_SEARCH_ROWS, rows.length); index += 1) {
     const columns = columnsIn(rows[index]!, layout);
     if (columns) return { header: index, columns };
@@ -114,12 +117,12 @@ function locate<R extends string, O extends string>(rows: SheetCell[][], layout:
 
 const isBlank = (cell: SheetCell) =>
   cell === null || cell === undefined || (typeof cell === "string" && cell.trim() === "");
-const blankRow = (row: SheetCell[]) => row.every(isBlank);
+export const blankRow = (row: SheetCell[]) => row.every(isBlank);
 
 const FOOTER_MAX_CELLS = 3;
 
 /** Rodapé com soma: começa em "Total" e quase não tem células. Um fundo chamado Total passa. */
-function isFooter(row: SheetCell[]): boolean {
+export function isFooter(row: SheetCell[]): boolean {
   const filled = row.filter((cell) => !isBlank(cell));
   const [first] = filled;
   return (
@@ -213,9 +216,9 @@ function parseNegociacao(rows: SheetCell[][], found: NonNullable<ReturnType<type
   return out;
 }
 
-const locateNeg = (rows: SheetCell[][]) => locate(rows, NEGOCIACAO);
-const locateMov = (rows: SheetCell[][]) => locate(rows, MOVIMENTACAO);
-const locatePos = (rows: SheetCell[][]) => locate(rows, POSICAO);
+const locateNeg = (rows: SheetCell[][]) => locateLayout(rows, NEGOCIACAO);
+const locateMov = (rows: SheetCell[][]) => locateLayout(rows, MOVIMENTACAO);
+const locatePos = (rows: SheetCell[][]) => locateLayout(rows, POSICAO);
 
 const TRADE_MOVEMENT = "transferencia liquidacao";
 const EARNINGS = /^(rendimento|dividendo|juros sobre capital|reembolso)/;
@@ -246,7 +249,7 @@ export function tradeDateOfSettlement(settledOn: string): string {
 }
 
 /** "ABCD3 - ABCD SA" vira o código e o nome. */
-function splitProduct(cell: SheetCell) {
+export function splitProduct(cell: SheetCell) {
   const text = cleanFileText(cell, 120);
   const [code = "", ...rest] = text.split(" - ");
   return { text, code: code.trim(), name: rest.join(" - ").trim() || null };
