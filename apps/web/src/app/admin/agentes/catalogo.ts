@@ -23,10 +23,13 @@ const PAPERCLIP_TIMES: Record<string, string> = {
   aposentadoria: "04:20",
   viagens: "04:30",
   metas: "04:40",
+  relatorios: "05:40",
 };
 
 const dailyWake = (id: string) => {
   const time = PAPERCLIP_TIMES[id];
+  // O último da rodada entra na rede de segurança; o Paperclip vem depois só para conferir.
+  if (id === "relatorios") return `O worker roda às 05:30. O Paperclip confere às ${time}.`;
   return time
     ? `O Paperclip acorda às ${time}. Se faltar, o worker roda às 05:30.`
     : "O worker roda às 05:30.";

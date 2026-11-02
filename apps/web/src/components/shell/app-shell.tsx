@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   BadgeDollarSign,
   CalendarDays,
+  ChartColumn,
   Compass,
   CreditCard,
   Gem,
@@ -93,6 +94,7 @@ const TRANSLATED_AREAS = [
   "/app/aposentadoria",
   "/app/viagens",
   "/app/familia",
+  "/app/relatorios",
 ];
 const isTranslated = (pathname: string) =>
   TRANSLATED_SCREENS.has(pathname) ||
@@ -107,6 +109,7 @@ const groups: Array<{ title: keyof Messages["shell"]["groups"]; items: NavItem[]
       { href: SUGGESTIONS_HREF, label: "suggestions", icon: Sparkles },
       { href: "/app/lancamentos", label: "entries", icon: ArrowLeftRight },
       { href: "/app/calendario", label: "calendar", icon: CalendarDays },
+      { href: "/app/relatorios", label: "reports", icon: ChartColumn },
       { href: "/app/renda", label: "income", icon: BadgeDollarSign },
       { href: "/app/importar", label: "import", icon: Upload },
       { href: "/app/contas", label: "accounts", icon: Landmark },
