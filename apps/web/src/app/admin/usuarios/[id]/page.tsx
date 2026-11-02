@@ -8,7 +8,14 @@ import { ConfirmAction } from "../../admin-actions";
 import { formatDate, formatDateTime, roleLabel, shortId } from "../../format";
 import { AdminPage, Fact, Facts } from "../../kit";
 import { ADMIN_DB_MISSING, hasAdminDatabase, noteAdminAccess } from "../../painel";
-import { blockUser, deleteUser, endUserSessions, sendPasswordReset, unblockUser } from "../actions";
+import {
+  blockUser,
+  deleteUser,
+  endUserSessions,
+  resendUserConfirmation,
+  sendPasswordReset,
+  unblockUser,
+} from "../actions";
 import { UserContact } from "./user-contact";
 import { UserDocument } from "./user-document";
 
@@ -124,6 +131,16 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
                 text="A pessoa recebe por e-mail um link para criar uma senha nova. A senha atual continua valendo até ela trocar."
                 confirmLabel="Enviar"
               />
+              {account.emailVerified || blocked ? null : (
+                <ConfirmAction
+                  label="Reenviar confirmação"
+                  action={resendUserConfirmation}
+                  hidden={hidden}
+                  title="Reenviar confirmação"
+                  text="A pessoa recebe por e-mail um link para confirmar o endereço. Vale o mesmo limite dos pedidos dela: 1 envio por minuto e 5 por hora."
+                  confirmLabel="Enviar"
+                />
+              )}
               <ConfirmAction
                 label="Encerrar sessões"
                 action={endUserSessions}

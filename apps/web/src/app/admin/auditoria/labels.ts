@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
   "usuario:bloquear": "Bloqueou um usuário",
   "usuario:desbloquear": "Desbloqueou um usuário",
   "usuario:redefinir_senha": "Pediu redefinição de senha",
+  "usuario:reenviar_confirmacao": "Pediu reenvio da confirmação de e-mail",
   "usuario:excluir": "Excluiu um usuário",
   "agentes:ver": "Abriu os agentes",
   "agentes:rodar": "Pediu para rodar os agentes",

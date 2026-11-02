@@ -1,6 +1,7 @@
 "use server";
 import {
   adminCheckDeleteUser,
+  adminConfirmationTarget,
   adminDeleteUser,
   adminEndUserSessions,
   adminPasswordResetTarget,
@@ -12,7 +13,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { cancelBeforeDelete } from "@/lib/billing/close-family";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
 import { getAuth } from "@/lib/auth";
+import { sendConfirmation, type ConfirmationOutcome } from "@/lib/email-confirmation";
 import { openedIdentity } from "@/lib/identity";
 import { requireAdmin } from "@/lib/session";
 import {
@@ -176,6 +179,40 @@ export async function sendPasswordReset(form: FormData): Promise<AdminResult> {
       throw error;
     }
     return done("Pedido enviado. A pessoa recebe o link por e-mail.");
+  });
+}
+
+function confirmationReply(outcome: ConfirmationOutcome): AdminResult {
+  switch (outcome.status) {
+    case "enviado":
+      return done("Confirmação enviada. A pessoa recebe o link por e-mail.");
+    case "confirmado":
+      return failed("Esta conta já confirmou o e-mail.");
+    case "bloqueada":
+      return failed("Conta bloqueada: nada foi enviado.");
+    case "manutencao":
+      return failed("Modo manutenção ligado: nada foi enviado.");
+    case "desligado":
+      return failed("O envio de e-mail está desligado neste servidor: nada foi enviado.");
+    case "aguarde":
+      return failed(`Limite de envios desta conta. Tente de novo em ${outcome.seconds} s.`);
+    case "falhou":
+      return failed("O e-mail não saiu. Tente de novo.");
+  }
+}
+
+/** Mesmo envio e mesmo limite do botão da pessoa. O link vai só para ela: a tela nunca vê o token. */
+export async function resendUserConfirmation(form: FormData): Promise<AdminResult> {
+  const session = await requireAdmin();
+  const id = targetId.safeParse(form.get("id"));
+  if (!id.success) return failed("Conta inválida.");
+  return runAdminAction("admin_user_confirmation_failed", async () => {
+    const target = await adminConfirmationTarget({ adminUserId: session.user.id }, id.data);
+    if (target === "not_found") return failed("Conta não encontrada.");
+    if (target === "self") return failed(SELF);
+    const outcome = await sendConfirmation(target, DEFAULT_LOCALE);
+    revalidatePath("/admin", "layout");
+    return confirmationReply(outcome);
   });
 }
 
