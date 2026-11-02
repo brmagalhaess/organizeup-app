@@ -287,17 +287,23 @@ describe("gastos por categoria", () => {
           },
         ),
         (rows, lines) => {
+          // A fatura paga é a soma das compras, exata.
+          const bill = lines.reduce((acc, line) => acc.plus(line.amount), money(0));
           const entries = buildMonthEntries(
             "2026-10",
             [],
             [
               ...transactionsOf(rows),
-              ...transactionsOf(rows).map((row) => ({
-                ...row,
-                id: `f${row.id}`,
-                categoryId: "cartao",
-                kind: "despesa" as const,
-              })),
+              ...(bill.isZero()
+                ? []
+                : transactionsOf([
+                    {
+                      kind: "despesa",
+                      amount: toDbAmount(bill),
+                      category: "cartao" as "mercado",
+                      status: "realizado",
+                    },
+                  ]).map((row) => ({ ...row, id: "fatura" }))),
             ],
           );
           const byCategory = spendingByCategory(entries, lines, "cartao");

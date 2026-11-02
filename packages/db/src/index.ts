@@ -47,6 +47,7 @@ export {
   accountsWithMovement,
   fxQuoteIn,
   fxRateOn,
+  fxRatesOn,
   fxSeries,
   householdCurrency,
   householdHasMovement,
@@ -55,6 +56,7 @@ export {
 } from "./fx";
 export {
   accountBalances,
+  firstMovementDate,
   householdTimezone,
   listActiveHouseholdIds,
   listHouseholdIds,

@@ -6,7 +6,7 @@ import { and, asc, eq, gte, isNull, sql } from "drizzle-orm";
 import { balanceInMain, fxNoteOf, isForeign, toDbAmount } from "@organizeup/domain";
 import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
-import { householdCurrency, latestFxRates } from "./fx";
+import { fxRatesOn, householdCurrency, latestFxRates } from "./fx";
 import {
   accounts,
   assets,
@@ -46,8 +46,13 @@ export async function loadStockEvents(tx: TenantTx) {
  * saldo inicial, lançamentos realizados pelo valor original e transferências. `balance` está sempre na
  * moeda principal da família, pela última cotação, porque é o que telas e agentes somam. Sem cotação,
  * fica em zero e `fx` diz qual moeda faltou. Em conta na moeda principal, os dois são iguais e `fx` é null.
+ * Com `on`, é o saldo no fim daquele dia, pela cotação daquele dia: o saldo de um mês que passou não
+ * muda com o câmbio de hoje.
  */
-export async function accountBalances(tx: TenantTx) {
+export async function accountBalances(tx: TenantTx, options: { on?: string } = {}) {
+  const { on } = options;
+  const untilEntry = on ? sql`and t.occurred_on <= ${on}::date` : sql``;
+  const untilTransfer = on ? sql`and f.occurred_on <= ${on}::date` : sql``;
   const rows = await tx
     .select({
       id: accounts.id,
@@ -60,18 +65,19 @@ export async function accountBalances(tx: TenantTx) {
         select sum(case when t.kind = 'receita' then coalesce(t.original_amount, t.brl_amount, t.amount)
                         else -coalesce(t.original_amount, t.brl_amount, t.amount) end)
         from transactions t
-        where t.account_id = accounts.id and t.status = 'realizado'
+        where t.account_id = accounts.id and t.status = 'realizado' ${untilEntry}
       ), 0) + coalesce((
         select sum(case when f.to_account_id = accounts.id then coalesce(f.to_amount, f.amount)
                         else -f.amount end)
         from account_transfers f
-        where accounts.id in (f.from_account_id, f.to_account_id)
+        where accounts.id in (f.from_account_id, f.to_account_id) ${untilTransfer}
       ), 0))::text`,
     })
     .from(accounts)
     .orderBy(accounts.createdAt);
   const main = await householdCurrency(tx);
-  const rates = rows.some((row) => isForeign(row.currency, main)) ? await latestFxRates(tx) : {};
+  const foreign = rows.some((row) => isForeign(row.currency, main));
+  const rates = !foreign ? {} : on ? await fxRatesOn(tx, on) : await latestFxRates(tx);
   return {
     accounts: rows.map((row) => ({
       ...row,
@@ -82,6 +88,19 @@ export async function accountBalances(tx: TenantTx) {
     rates,
     fx: fxNoteOf(rows, rates, main),
   };
+}
+
+/** Data do movimento mais antigo da família, ou null: é onde começa a lista de meses do painel. */
+export async function firstMovementDate(tx: TenantTx): Promise<string | null> {
+  const rows = await tx.execute<{ first: string | null }>(sql`
+    select min(day)::text as first from (
+      select min(occurred_on) as day from transactions
+      union all select min(purchased_on) from card_purchases
+      union all select min(occurred_on) from investment_trades
+      union all select min(paid_on) from dividends
+      union all select min(occurred_on) from account_transfers
+    ) as firsts`);
+  return rows[0]?.first ?? null;
 }
 
 /** Tudo que entra na conta do patrimônio líquido. */
