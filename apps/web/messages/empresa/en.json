@@ -117,5 +117,8 @@
   "relatorios.vazio.texto": "They are prepared overnight from what your company records. Start with this month's transactions.",
   "relatorios.secoes.classes": "By asset class, with the company's goals",
   "relatorios.notas.semRecomendacao": "This report only organizes your company's numbers. It is not investment advice.",
-  "relatorios.notas.anualNaoFiscal": "This only organizes what your company recorded. It does not replace your income tax return and is not tax advice: check your official documents."
+  "relatorios.notas.anualNaoFiscal": "This only organizes what your company recorded. It does not replace your income tax return and is not tax advice: check your official documents.",
+  "investimentos.importar.errors.onlyBrazil": "B3 import is for accounts whose main currency is the Brazilian real.",
+  "investimentos.importar.onlyBrazil": "B3 import is for accounts whose main currency is the Brazilian real.",
+  "investimentos.importar.noPermission": "Your role in this company does not allow importing."
 }

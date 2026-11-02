@@ -117,5 +117,8 @@
   "relatorios.vazio.texto": "Eles são preparados de madrugada, a partir do que a empresa lança. Comece pelos lançamentos do mês.",
   "relatorios.secoes.classes": "Por classe, com as metas da empresa",
   "relatorios.notas.semRecomendacao": "Este relatório só organiza os números da empresa. Não é recomendação de investimento.",
-  "relatorios.notas.anualNaoFiscal": "Só organiza o que a empresa lançou. Não substitui a declaração de imposto de renda nem é orientação fiscal: confira nos seus documentos oficiais."
+  "relatorios.notas.anualNaoFiscal": "Só organiza o que a empresa lançou. Não substitui a declaração de imposto de renda nem é orientação fiscal: confira nos seus documentos oficiais.",
+  "investimentos.importar.errors.onlyBrazil": "A importação da B3 vale para contas com moeda principal em reais.",
+  "investimentos.importar.onlyBrazil": "A importação da B3 vale para contas com moeda principal em reais.",
+  "investimentos.importar.noPermission": "Seu papel nesta empresa não permite importar."
 }
