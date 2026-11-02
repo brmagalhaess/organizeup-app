@@ -337,24 +337,44 @@ export interface KnownEntry {
   date: string;
   kind: StatementKind;
   fingerprint?: string | null;
+  /** Conta da linha. Ausente: sem conta definida, compara com tudo. */
+  accountId?: string | null;
 }
 
 export type ReconciledRow = FingerprintedRow & { state: RowState; match: KnownEntry | null };
 
 const dayOf = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
 
-function takeClosest(row: StatementRow, pool: KnownEntry[], window: number): KnownEntry | null {
+/** Agrupado por sentido e valor: procurar linha a linha fica quadrático em extrato grande. */
+type Pool = Map<string, KnownEntry[]>;
+
+const poolKey = (entry: { kind: StatementKind; amount: string }) =>
+  `${entry.kind}|${toDbAmount(entry.amount)}`;
+
+function poolOf(entries: KnownEntry[]): Pool {
+  const pool: Pool = new Map();
+  for (const entry of entries) {
+    const key = poolKey(entry);
+    const bucket = pool.get(key);
+    if (bucket) bucket.push(entry);
+    else pool.set(key, [entry]);
+  }
+  return pool;
+}
+
+function takeClosest(row: StatementRow, pool: Pool, window: number): KnownEntry | null {
+  const bucket = pool.get(poolKey(row));
+  if (!bucket) return null;
   let best = -1;
   let bestGap = Infinity;
-  pool.forEach((entry, index) => {
-    if (entry.kind !== row.kind || !money(entry.amount).equals(row.amount)) return;
+  bucket.forEach((entry, index) => {
     const gap = Math.abs(dayOf(entry.date) - dayOf(row.date));
     if (gap <= window && gap < bestGap) {
       best = index;
       bestGap = gap;
     }
   });
-  return best < 0 ? null : (pool.splice(best, 1)[0] ?? null);
+  return best < 0 ? null : (bucket.splice(best, 1)[0] ?? null);
 }
 
 /**
@@ -366,33 +386,24 @@ export function reconcileRows(
   rows: FingerprintedRow[],
   known: { realized: KnownEntry[]; forecasts: KnownEntry[] },
 ): ReconciledRow[] {
-  const realized = [...known.realized];
-  const forecasts = [...known.forecasts];
-  const imported = new Set(realized.map((entry) => entry.fingerprint).filter(Boolean));
-
-  const fresh = rows.filter((row) => !imported.has(row.fingerprint));
-  for (const row of rows) {
-    if (!imported.has(row.fingerprint)) continue;
-    const index = realized.findIndex((entry) => entry.fingerprint === row.fingerprint);
-    if (index >= 0) realized.splice(index, 1);
-  }
-
-  const results = new Map<string, ReconciledRow>();
-  for (const row of fresh) {
-    const forecast = takeClosest(row, forecasts, 5);
-    if (forecast) {
-      results.set(row.fingerprint, { ...row, state: "previsto", match: forecast });
-      continue;
-    }
-    const twin = takeClosest(row, realized, 3);
-    results.set(row.fingerprint, { ...row, state: twin ? "lancado" : "novo", match: twin });
-  }
-  return rows.map(
-    (row) => results.get(row.fingerprint) ?? { ...row, state: "importado", match: null },
+  const imported = new Set(known.realized.map((entry) => entry.fingerprint).filter(Boolean));
+  const taken = new Set(rows.map((row) => row.fingerprint).filter((print) => imported.has(print)));
+  const realized = poolOf(
+    known.realized.filter((entry) => !entry.fingerprint || !taken.has(entry.fingerprint)),
   );
+  const forecasts = poolOf(known.forecasts);
+
+  return rows.map((row) => {
+    if (imported.has(row.fingerprint)) return { ...row, state: "importado", match: null };
+    const forecast = takeClosest(row, forecasts, 5);
+    if (forecast) return { ...row, state: "previsto", match: forecast };
+    const twin = takeClosest(row, realized, 3);
+    return { ...row, state: twin ? "lancado" : "novo", match: twin };
+  });
 }
 
 const MONEY = /[-+]?\s*(?:R\$\s*)?[-+]?\d{1,3}(?:\.\d{3})*,\d{2}(?:\s*[-+DC])?(?![\d,])/g;
+const MAX_PDF_LINE = 400;
 const INCOME_WORDS =
   /recebid|credito|deposito|salario|rendimento|estorno|reembolso|resgate|\bted rec|\bpix rec/;
 
@@ -414,6 +425,11 @@ export function parsePdfLines(lines: string[], year: number): ParsedStatement {
   let skipped = 0;
   for (const raw of lines) {
     const line = raw.replace(/\s+/g, " ").trim();
+    // Linha de extrato cabe nisto. A busca de valores abaixo fica quadrática em linha gigante.
+    if (line.length > MAX_PDF_LINE) {
+      skipped += 1;
+      continue;
+    }
     const date = line.match(/^(\d{2})[/.-](\d{2})(?:[/.-](\d{4}|\d{2}))?\b/);
     if (!date) continue;
     const tokens = [...line.matchAll(MONEY)];

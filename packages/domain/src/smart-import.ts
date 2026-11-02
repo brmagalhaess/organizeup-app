@@ -6,14 +6,15 @@ import { checkDebtFile, safeFileName, type Confidence } from "./debt-file";
 import { fitsAmount } from "./fx";
 import { cleanFileText } from "./investment-file";
 import { normalizeTicker } from "./market";
-import { money, toDbAmount } from "./money";
+import { money, toDbAmount, type MoneyValue } from "./money";
 import type { BillingModule } from "./plans";
 import { isYearMonth } from "./cashflow";
 import {
   decodeStatement,
-  parseStatementAmount,
   parseStatementDate,
+  withFingerprints,
   type StatementKind,
+  type StatementRow,
   type StatementSource,
 } from "./statement";
 import { maskDocuments } from "./documents";
@@ -39,7 +40,18 @@ export const SMART_RETENTION_DAYS = 30;
 export const SMART_STALE_MS = 5 * 60_000;
 /** Lote parado na fila há mais que isto: o aviso se perdeu, e a tela pede de novo. */
 export const SMART_REQUEUE_MS = 2 * 60_000;
-export const SMART_MAX_ITEMS_PER_FILE = 500;
+export const SMART_MAX_ITEMS_PER_FILE = 5_000;
+/** Abrir e reconhecer um arquivo roda em processo isolado, com estes tetos (ADR-0030). */
+export const SMART_READ_TIMEOUT_MS = 30_000;
+export const SMART_READ_MAX_OLD_MB = 256;
+export const SMART_READ_MAX_RSS_MB = 640;
+/** Na segunda queda o arquivo fica como falho: quem derruba a leitura não volta para a fila. */
+export const SMART_READ_MAX_ATTEMPTS = 2;
+/** Bytes inflados de verdade, contados ao abrir, sem confiar no que o arquivo declara. */
+export const SMART_ZIP_MAX_INFLATED = 64 * 1024 * 1024;
+export const SMART_PDF_MAX_INFLATED = 128 * 1024 * 1024;
+/** Lote aprovado em pedaços: cada um na própria transação, sob a trava da família. */
+export const SMART_APPROVAL_CHUNK = 200;
 export const SMART_MAX_FIELDS = 12;
 export const SMART_MAX_NOTES = 8;
 const MAX_EXCERPT = 300;
@@ -143,6 +155,8 @@ export interface EntryPayload extends CategoryChoice {
   /** Previsão que esta linha dá baixa, como no importador de extrato. */
   matchKey: string | null;
   matchMonth: string | null;
+  /** Esta linha paga a fatura deste arquivo do lote: vira baixa, e não despesa. */
+  settlesFileId?: string | null;
 }
 
 export interface PurchasePayload extends CategoryChoice {
@@ -337,30 +351,52 @@ export const safeExcerpt = (raw: unknown): string | null => {
 
 const MIN_YEAR = 1990;
 const MAX_YEARS_AHEAD = 40;
+/** Lançamento, compra, operação e provento já aconteceram, ou estão para acontecer. */
+const MAX_ENTRY_YEARS_BACK = 15;
+const MAX_ENTRY_DAYS_AHEAD = 45;
+const MAX_NUMBER_TEXT = 40;
+const STRICT_NUMBER = /^\d+(\.\d+)?$/;
+const STRICT_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const STRICT_INTEGER = /^\d{1,6}$/;
+
+/** Só `123` ou `123.45`. Vírgula, milhar, sinal, expoente e infinito não são número aqui. */
+function strictNumber(raw: unknown): MoneyValue | null {
+  if (typeof raw !== "string") return null;
+  const text = raw.trim();
+  if (text.length > MAX_NUMBER_TEXT || !STRICT_NUMBER.test(text)) return null;
+  return money(text);
+}
 
 function dateField(raw: unknown, today: string): string | null {
   if (typeof raw !== "string") return null;
-  const date = parseStatementDate(raw.trim());
+  const text = raw.trim();
+  if (!STRICT_DATE.test(text)) return null;
+  const date = parseStatementDate(text);
   if (!date) return null;
   const year = Number(date.slice(0, 4));
   return year >= MIN_YEAR && year <= Number(today.slice(0, 4)) + MAX_YEARS_AHEAD ? date : null;
 }
 
+/** Data que não cabe num movimento: vai para a pessoa conferir, sem entrar sozinha. */
+export function plausibleEntryDate(date: string, today: string): boolean {
+  const day = (text: string) => Date.parse(`${text}T00:00:00Z`) / 86_400_000;
+  const distance = day(date) - day(today);
+  return distance <= MAX_ENTRY_DAYS_AHEAD && distance >= -MAX_ENTRY_YEARS_BACK * 365;
+}
+
 const amountField = (raw: unknown): string | null => {
-  if (typeof raw !== "string" && typeof raw !== "number") return null;
-  const value = parseStatementAmount(String(raw));
-  if (!value || !value.isFinite()) return null;
-  const amount = value.abs();
-  if (amount.isZero() || !fitsAmount(amount.toFixed(2))) return null;
-  const db = toDbAmount(amount);
+  const value = strictNumber(raw);
+  if (!value || value.isZero() || !fitsAmount(value.toFixed(2))) return null;
+  const db = toDbAmount(value);
   return money(db).isZero() ? null : db;
 };
 
 const zeroOr = (raw: unknown) => amountField(raw) ?? "0.00";
 
 const intField = (raw: unknown, min: number, max: number): number | null => {
-  const value = typeof raw === "string" ? Number(raw.trim() || NaN) : raw;
-  if (typeof value !== "number" || !Number.isInteger(value)) return null;
+  const text = typeof raw === "string" ? raw.trim() : typeof raw === "number" ? String(raw) : "";
+  if (!STRICT_INTEGER.test(text)) return null;
+  const value = Number(text);
   return value >= min && value <= max ? value : null;
 };
 
@@ -370,18 +406,16 @@ const monthField = (raw: unknown): string | null => {
   return /^\d{4}-\d{2}$/.test(text) && isYearMonth(text) ? text : null;
 };
 
+/** Quantidade e preço: até 8 casas, sem arredondar o que a pessoa ou o arquivo disse. */
 const decimalField = (raw: unknown): string | null => {
-  if (typeof raw !== "string" && typeof raw !== "number") return null;
-  const value = parseStatementAmount(String(raw));
-  if (!value || !value.isFinite() || value.lte(0) || value.gte("1000000000000")) return null;
+  const value = strictNumber(raw);
+  if (!value || value.lte(0) || value.gte("1000000000000")) return null;
   return value.toDecimalPlaces(8).toFixed();
 };
 
 const rateField = (raw: unknown): string | null => {
-  if (typeof raw !== "string" && typeof raw !== "number") return null;
-  if (String(raw).trim() === "") return null;
-  const value = parseStatementAmount(String(raw));
-  if (!value || value.lt(0) || value.gt(MAX_MONTHLY_RATE)) return null;
+  const value = strictNumber(raw);
+  if (!value || value.gt(MAX_MONTHLY_RATE)) return null;
   return value.toFixed(4);
 };
 
@@ -533,30 +567,112 @@ export function buildSmartPayload(
   }
 }
 
-/** Mantém o que a edição não mexe: identidade, conta, categoria e baixa. */
+/** O rascunho de volta aos campos soltos: o que a edição não mandou fica como está. */
+function rawOfPayload(payload: SmartPayload): SmartRawFields {
+  switch (payload.destination) {
+    case "lancamento":
+      return {
+        description: payload.description ?? "",
+        date: payload.date ?? "",
+        amount: payload.amount ?? "",
+        kind: payload.kind,
+      };
+    case "compra_cartao":
+      return {
+        description: payload.description ?? "",
+        date: payload.date ?? "",
+        amount: payload.amount ?? "",
+        installments: String(payload.installments),
+      };
+    case "operacao":
+      return {
+        description: payload.title ?? "",
+        ticker: payload.ticker ?? "",
+        side: payload.side ?? "",
+        date: payload.date ?? "",
+        quantity: payload.quantity ?? "",
+        unitPrice: payload.unitPrice ?? "",
+        fees: payload.fees,
+      };
+    case "provento":
+      return {
+        ticker: payload.ticker ?? "",
+        subtype: payload.kind,
+        date: payload.date ?? "",
+        amount: payload.gross ?? "",
+        withheld: payload.withheld,
+      };
+    case "divida":
+    case "consorcio":
+      return {
+        description: payload.name ?? "",
+        system: payload.system ?? "",
+        amount: payload.balance ?? "",
+        rate: payload.monthlyRate ?? "",
+        installments: payload.installments === null ? "" : String(payload.installments),
+        installmentAmount: payload.installmentAmount ?? "",
+        date: payload.firstDueDate ?? "",
+      };
+    case "renda":
+      return {
+        description: payload.name ?? "",
+        subtype: payload.kind,
+        amount: payload.amount ?? "",
+        isGross: payload.isGross ? "sim" : "nao",
+        day: payload.payDay === null ? "" : String(payload.payDay),
+        startMonth: payload.startMonth ?? "",
+      };
+    case "previsao":
+      return {
+        description: payload.description ?? "",
+        amount: payload.amount ?? "",
+        kind: payload.kind,
+        day: payload.day === null ? "" : String(payload.day),
+        startMonth: payload.startMonth ?? "",
+        endMonth: payload.endMonth ?? "",
+      };
+    case "meta":
+      return {
+        description: payload.name ?? "",
+        subtype: payload.kind,
+        amount: payload.targetAmount ?? "",
+        startMonth: payload.desiredMonth ?? "",
+      };
+    case "documento":
+      return { description: payload.title ?? "" };
+  }
+}
+
+const KEPT_ON_EDIT = [
+  "fingerprint",
+  "source",
+  "accountId",
+  "cardId",
+  "matchKey",
+  "matchMonth",
+  "settlesFileId",
+  "categoryId",
+  "newCategory",
+  "categorySource",
+  "line",
+  "doubt",
+] as const;
+
+/** Só muda o que veio em `raw`. Identidade, conta, categoria e baixa ficam com o item. */
 export function mergeSmartEdit(
   current: SmartPayload,
   raw: SmartRawFields,
   today: string,
 ): SmartPayload {
-  const edited = buildSmartPayload(current.destination, raw, today);
-  if (current.destination === "operacao" && edited.destination === "operacao") {
-    return { ...edited, line: current.line, doubt: current.doubt, accountId: current.accountId };
-  }
+  const edited = buildSmartPayload(
+    current.destination,
+    { ...rawOfPayload(current), ...raw },
+    today,
+  );
   const keep = Object.fromEntries(
-    (
-      [
-        "fingerprint",
-        "source",
-        "accountId",
-        "cardId",
-        "matchKey",
-        "matchMonth",
-        "categoryId",
-        "newCategory",
-        "categorySource",
-      ] as const
-    ).flatMap((key) => (key in current ? [[key, current[key as keyof SmartPayload]]] : [])),
+    KEPT_ON_EDIT.flatMap((key) =>
+      key in current ? [[key, (current as unknown as Record<string, unknown>)[key]]] : [],
+    ),
   );
   return { ...edited, ...keep } as SmartPayload;
 }
@@ -671,14 +787,42 @@ export function totalsClose(proposals: SmartProposal[], declared: string | null)
   return total.minus(declared).abs().lte("0.01");
 }
 
-/** Parcela vezes quantidade precisa cobrir o saldo: senão, um dos dois saiu errado. */
+/**
+ * Parcela vezes quantidade precisa cobrir o saldo: senão, um dos dois saiu errado. Consórcio não entra: o valor
+ * é o crédito, e as parcelas são só as que faltam, então é normal não cobrir.
+ */
 export function debtTermsClose(payload: DebtPayload): boolean {
   const { balance, installmentAmount, installments } = payload;
+  if (payload.destination === "consorcio") return true;
   if (!balance || !installmentAmount || !installments) return true;
   return money(installmentAmount).times(installments).gte(money(balance).times("0.99"));
 }
 
 export const parseDeclaredTotal = amountField;
+
+/** Lançamento e compra lidos pelo modelo ganham a identidade do extrato: reler não duplica. */
+export function withSmartFingerprints(proposals: SmartProposal[]): SmartProposal[] {
+  const rows: Array<{ index: number; row: StatementRow }> = [];
+  proposals.forEach(({ payload }, index) => {
+    if (payload.destination !== "lancamento" && payload.destination !== "compra_cartao") return;
+    const { date, amount, description } = payload;
+    if (!date || !amount || !description || payload.fingerprint) return;
+    const kind = payload.destination === "lancamento" ? payload.kind : "despesa";
+    rows.push({ index, row: { date, amount, description, kind } });
+  });
+  const prints = withFingerprints(
+    rows.map(({ row }) => row),
+    "csv",
+  );
+  const out = [...proposals];
+  rows.forEach(({ index }, at) => {
+    out[index] = {
+      ...out[index]!,
+      payload: { ...out[index]!.payload, fingerprint: prints[at]!.fingerprint } as SmartPayload,
+    };
+  });
+  return out;
+}
 
 /** Conta ou cartão com o nome do emissor, ou a única que existe. O resto a pessoa escolhe na revisão. */
 export function suggestByIssuer<T extends { id: string; name: string }>(

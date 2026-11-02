@@ -36,6 +36,8 @@ export interface DailyAgentsJob {
 export interface SmartImportJob {
   householdId?: string;
   importId?: string;
+  /** O que o lote já leu: cada job lê um arquivo, e a rodada do painel conta o lote inteiro. */
+  tally?: { files: number; byRules: number; byModel: number; failed: number };
 }
 
 export const smartImportKey = (importId: string) => `smart-import:${importId}`;

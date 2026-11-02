@@ -7,6 +7,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   smallint,
   text,
   timestamp,
@@ -85,6 +86,8 @@ export const smartImportFiles = pgTable(
     confidence: text("confidence", { enum: CONFIDENCES }),
     method: text("method", { enum: METHODS }),
     failure: text("failure"),
+    readAttempts: smallint("read_attempts").notNull().default(0),
+    reviewed: boolean("reviewed").notNull().default(false),
     truncated: boolean("truncated").notNull().default(false),
     fields: jsonb("fields").$type<SmartField[]>().notNull().default([]),
     notes: jsonb("notes").$type<string[]>().notNull().default([]),
@@ -122,6 +125,8 @@ export const smartImportFileMeta = {
   confidence: smartImportFiles.confidence,
   method: smartImportFiles.method,
   failure: smartImportFiles.failure,
+  readAttempts: smartImportFiles.readAttempts,
+  reviewed: smartImportFiles.reviewed,
   truncated: smartImportFiles.truncated,
   fields: smartImportFiles.fields,
   notes: smartImportFiles.notes,
@@ -131,6 +136,24 @@ export const smartImportFileMeta = {
   createdAt: smartImportFiles.createdAt,
   updatedAt: smartImportFiles.updatedAt,
 };
+
+export const FILE_SCOPES = ["importador"] as const;
+export type FileScope = (typeof FILE_SCOPES)[number];
+
+/** Aceite por escopo (ADR-0030). O de dívidas é `household_file_consents`: um não abre o outro. */
+export const householdFileScopes = pgTable(
+  "household_file_scopes",
+  {
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    scope: text("scope", { enum: FILE_SCOPES }).notNull(),
+    version: text("version").notNull(),
+    acceptedBy: text("accepted_by").references(() => user.id, { onDelete: "set null" }),
+    acceptedAt: ts("accepted_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.householdId, t.scope] })],
+);
 
 export const smartImportItems = pgTable(
   "smart_import_items",

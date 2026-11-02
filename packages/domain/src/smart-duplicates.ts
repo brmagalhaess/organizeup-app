@@ -1,11 +1,11 @@
 // Duplicidade do importador (ADR-0030): compara cada item com o que a família já tem e com os arquivos
 // anteriores do mesmo lote. Puro. Reaproveita `reconcileRows` (impressão digital e valor a poucos dias),
 // `planInvestmentImport` (operação como identidade) e `matchKnownDebt`. Roda de novo na gravação.
+import { yearMonthOf } from "./cashflow";
 import { matchKnownDebt, type DebtExtraction, type KnownDebt } from "./debt-file";
 import { planInvestmentImport, type KnownHolding, type PlannedTrade } from "./investment-import";
 import type { ParsedTrade } from "./investment-file";
-import { money } from "./money";
-import { yearMonthOf } from "./cashflow";
+import { money, toDbAmount } from "./money";
 import type {
   EntryPayload,
   PurchasePayload,
@@ -21,6 +21,7 @@ import {
 } from "./statement";
 
 const DIVIDEND_NEAR_DAYS = 5;
+const PAYMENT_WORDS = /\b(fatura|cartao|pagamento|pagto|pgto)\b/;
 
 export interface SmartItemRef {
   id: string;
@@ -31,7 +32,7 @@ export interface SmartItemRef {
 export interface SmartKnown {
   realized: KnownEntry[];
   forecasts: KnownEntry[];
-  purchases: Array<{ description: string; amount: string; date: string }>;
+  purchases: Array<{ description: string; amount: string; date: string; cardId?: string | null }>;
   holdings: KnownHolding[];
   debts: KnownDebt[];
   incomes: Array<{ name: string; amount: string }>;
@@ -50,6 +51,8 @@ export interface SmartVerdict {
   /** Previsão que a linha dá baixa. */
   matchKey: string | null;
   matchMonth: string | null;
+  /** Fatura do lote que esta linha paga. */
+  settlesFileId: string | null;
 }
 
 const fresh: SmartVerdict = {
@@ -58,6 +61,7 @@ const fresh: SmartVerdict = {
   otherFileId: null,
   matchKey: null,
   matchMonth: null,
+  settlesFileId: null,
 };
 
 const seen = (reason: string, otherFileId: string | null = null): SmartVerdict => ({
@@ -72,6 +76,12 @@ const maybe = (reason: string, otherFileId: string | null = null): SmartVerdict 
   reason,
   otherFileId,
 });
+
+const RANK: Record<SmartDuplicateState, number> = { novo: 0, possivel: 1, ja_lancado: 2 };
+
+/** A comparação de agora é pior que a da revisão: alguém gravou o mesmo item nesse meio tempo. */
+export const smartVerdictWorse = (before: SmartDuplicateState, now: SmartDuplicateState) =>
+  RANK[now] > RANK[before];
 
 type Money = EntryPayload | PurchasePayload;
 
@@ -97,42 +107,76 @@ function rowOf(item: SmartItemRef & { payload: Money }): FingerprintedRow | null
 const fileKey = (fileId: string, itemId: string) => `arquivo:${fileId}:${itemId}`;
 const fileOfKey = (key: string) => (key.startsWith("arquivo:") ? key.split(":")[1]! : null);
 
-function byFile(items: SmartItemRef[]) {
-  const files = new Map<string, SmartItemRef[]>();
-  for (const item of items) files.set(item.fileId, [...(files.get(item.fileId) ?? []), item]);
+function byFile<T extends SmartItemRef>(items: T[]) {
+  const files = new Map<string, T[]>();
+  for (const item of items) {
+    const group = files.get(item.fileId);
+    if (group) group.push(item);
+    else files.set(item.fileId, [item]);
+  }
   return files;
 }
 
+/** Conta e cartão escolhidos para cada arquivo. */
+export type SmartScope = (fileId: string) => {
+  accountId: string | null;
+  cardId: string | null;
+};
+
+const NO_SCOPE: SmartScope = () => ({ accountId: null, cardId: null });
+
+const inAccount = (entry: KnownEntry, accountId: string | null) =>
+  !accountId || !entry.accountId || entry.accountId === accountId;
+
 /** Lançamentos e compras, arquivo por arquivo: o primeiro de um par fica novo, o segundo aponta para ele. */
-function judgeMoney(items: SmartItemRef[], known: SmartKnown, out: Map<string, SmartVerdict>) {
-  const pool: KnownEntry[] = [
-    ...known.realized,
-    ...known.purchases.map((row, index) => ({
-      key: `c:${index}`,
-      description: row.description,
-      amount: row.amount,
-      date: row.date,
-      kind: "despesa" as const,
-    })),
-  ];
-  const foreignPrints = new Map<string, string>();
+function judgeMoney(
+  items: SmartItemRef[],
+  known: SmartKnown,
+  scope: SmartScope,
+  out: Map<string, SmartVerdict>,
+) {
+  const lot: KnownEntry[] = [];
+  const lotPrints = new Map<string, string>();
   for (const [fileId, group] of byFile(items.filter(isMoney))) {
     const rows = group.flatMap((item) => {
-      const row = isMoney(item) ? rowOf(item) : null;
+      const row = rowOf(item);
       return row ? [{ item, row }] : [];
     });
     if (rows.length === 0) continue;
+    const { accountId, cardId } = scope(fileId);
+    const pool: KnownEntry[] = [
+      ...known.realized.filter((entry) => inAccount(entry, accountId)),
+      ...known.purchases.flatMap((row, index) =>
+        !cardId || !row.cardId || row.cardId === cardId
+          ? [
+              {
+                key: `c:${index}`,
+                description: row.description,
+                amount: row.amount,
+                date: row.date,
+                kind: "despesa" as const,
+              },
+            ]
+          : [],
+      ),
+      ...lot,
+    ];
     // Previsão só dá baixa de lançamento: compra de cartão não paga conta prevista.
-    const entryRows = rows.filter(({ item }) => item.payload.destination === "lancamento");
+    const onlyEntries = rows.every(({ item }) => item.payload.destination === "lancamento");
     const reconciled = new Map(
       reconcileRows(
         rows.map(({ row }) => row),
-        { realized: pool, forecasts: entryRows.length === rows.length ? known.forecasts : [] },
+        {
+          realized: pool,
+          forecasts: onlyEntries
+            ? known.forecasts.filter((entry) => inAccount(entry, accountId))
+            : [],
+        },
       ).map((row) => [row.fingerprint, row]),
     );
     for (const { item, row } of rows) {
       const result = reconciled.get(row.fingerprint)!;
-      const other = foreignPrints.get(row.fingerprint);
+      const other = lotPrints.get(row.fingerprint);
       if (other) out.set(item.id, seen("mesmo_item", other));
       else if (result.state === "importado") out.set(item.id, seen("impressao_digital"));
       else if (result.state === "previsto" && result.match) {
@@ -147,13 +191,45 @@ function judgeMoney(items: SmartItemRef[], known: SmartKnown, out: Map<string, S
       } else out.set(item.id, fresh);
     }
     for (const { item, row } of rows) {
-      if (row.fingerprint.startsWith("item:")) {
-        pool.push({ ...row, key: fileKey(fileId, item.id), fingerprint: null });
-        continue;
+      if (!row.fingerprint.startsWith("item:") && !lotPrints.has(row.fingerprint)) {
+        lotPrints.set(row.fingerprint, fileId);
       }
-      if (!foreignPrints.has(row.fingerprint)) foreignPrints.set(row.fingerprint, fileId);
-      pool.push({ ...row, key: fileKey(fileId, item.id), fingerprint: null });
+      lot.push({
+        key: fileKey(fileId, item.id),
+        description: row.description,
+        amount: row.amount,
+        date: row.date,
+        kind: row.kind,
+      });
     }
+  }
+}
+
+/**
+ * Pagamento da fatura no extrato e as compras da mesma fatura contariam o dinheiro duas vezes. A linha que fecha
+ * com a soma das compras de outro arquivo vira possível duplicado; aprovada, ela dá baixa na fatura.
+ */
+function judgePayments(items: SmartItemRef[], out: Map<string, SmartVerdict>) {
+  const totals = new Map<string, { sum: ReturnType<typeof money>; count: number }>();
+  for (const { fileId, payload } of items) {
+    if (payload.destination !== "compra_cartao" || !payload.amount) continue;
+    const total = totals.get(fileId) ?? { sum: money(0), count: 0 };
+    totals.set(fileId, { sum: total.sum.plus(payload.amount), count: total.count + 1 });
+  }
+  if (totals.size === 0) return;
+  const byAmount = new Map(
+    [...totals].map(([fileId, total]) => [toDbAmount(total.sum), { fileId, count: total.count }]),
+  );
+  for (const item of items) {
+    const { payload } = item;
+    if (payload.destination !== "lancamento" || payload.kind !== "despesa") continue;
+    if (!payload.amount) continue;
+    const found = byAmount.get(payload.amount);
+    if (!found || found.fileId === item.fileId) continue;
+    // Uma compra só pode ser a própria compra, vista no extrato: aí precisa dizer que é pagamento.
+    const words = normalizeDescription(payload.description ?? "");
+    if (found.count < 2 && !PAYMENT_WORDS.test(words)) continue;
+    out.set(item.id, { ...maybe("pagamento_fatura", found.fileId), settlesFileId: found.fileId });
   }
 }
 
@@ -183,8 +259,7 @@ const planLines = (rows: PlannedTrade[]) => new Map(rows.map((row) => [row.line,
 /** Operações do lote viram carteira de faz de conta para o arquivo seguinte: nota e Negociação se acham. */
 function judgeTrades(items: SmartItemRef[], known: SmartKnown, out: Map<string, SmartVerdict>) {
   const pending = new Map<string, Array<KnownHolding["trades"][number] & { fileId: string }>>();
-  for (const [fileId, group] of byFile(items.filter(isCompleteTrade))) {
-    const trades = group as TradeItem[];
+  for (const [fileId, trades] of byFile(items.filter(isCompleteTrade))) {
     const parsed = trades.map((item) => toParsedTrade(item.payload));
     const real = planLines(planInvestmentImport({ trades: parsed, holdings: known.holdings }));
     const tickers = new Set(known.holdings.map((holding) => holding.ticker));
@@ -224,19 +299,19 @@ function judgeTrades(items: SmartItemRef[], known: SmartKnown, out: Map<string, 
     for (const item of trades) {
       const { ticker, side, date, quantity, unitPrice, fees } = item.payload;
       if (!ticker) continue;
-      pending.set(ticker, [
-        ...(pending.get(ticker) ?? []),
-        {
-          id: `lote:${item.id}`,
-          transactionId: null,
-          side: side!,
-          occurredOn: date!,
-          quantity: quantity!,
-          unitPrice: unitPrice!,
-          fees,
-          fileId,
-        },
-      ]);
+      const entry = {
+        id: `lote:${item.id}`,
+        transactionId: null,
+        side: side!,
+        occurredOn: date!,
+        quantity: quantity!,
+        unitPrice: unitPrice!,
+        fees,
+        fileId,
+      };
+      const list = pending.get(ticker);
+      if (list) list.push(entry);
+      else pending.set(ticker, [entry]);
     }
   }
 }
@@ -261,7 +336,6 @@ function judgeOthers(
 ) {
   const lot = {
     debts: new Map<string, string>(),
-    names: new Map<string, string>(),
     dividends: new Map<string, string>(),
   };
   for (const item of items) {
@@ -335,15 +409,21 @@ function judgeOthers(
   }
 }
 
+export interface SmartPlanOptions {
+  shaOf?: (fileId: string) => string | undefined;
+  scope?: SmartScope;
+}
+
 /** Em ordem de arquivo. Item sem dado para comparar sai como novo: a falta aparece na revisão. */
 export function planSmartDuplicates(
   items: SmartItemRef[],
   known: SmartKnown,
-  shaOf: (fileId: string) => string | undefined = () => undefined,
+  options: SmartPlanOptions = {},
 ): Map<string, SmartVerdict> {
   const out = new Map<string, SmartVerdict>();
-  judgeMoney(items, known, out);
+  judgeMoney(items, known, options.scope ?? NO_SCOPE, out);
+  judgePayments(items, out);
   judgeTrades(items, known, out);
-  judgeOthers(items, known, shaOf, out);
+  judgeOthers(items, known, options.shaOf ?? (() => undefined), out);
   return out;
 }

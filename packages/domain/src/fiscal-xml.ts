@@ -21,19 +21,60 @@ export interface FiscalNote {
 
 const MAX_PRODUCTS = 3;
 
-function tag(block: string, name: string): string | null {
-  const match = new RegExp(`<(?:\\w+:)?${name}(?:\\s[^>]*)?>([^<]*)</(?:\\w+:)?${name}>`, "i").exec(
-    block,
-  );
-  return match ? decodeXml(match[1]!).trim() : null;
+const MAX_PREFIX = 32;
+const isNameChar = (code: number) =>
+  (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+
+/** Antes do nome vem `<`, `</` ou o prefixo do namespace. Olha para trás no máximo o tamanho de um prefixo. */
+function markStart(text: string, at: number, closing: boolean): number {
+  let index = at - 1;
+  if (text[index] === ":") {
+    const limit = Math.max(0, index - MAX_PREFIX);
+    index -= 1;
+    while (index >= limit && isNameChar(text.charCodeAt(index))) index -= 1;
+  }
+  if (closing) return text[index] === "/" && text[index - 1] === "<" ? index - 1 : -1;
+  return text[index] === "<" ? index : -1;
 }
 
-function group(block: string, name: string): string | null {
-  const match = new RegExp(
-    `<(?:\\w+:)?${name}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:\\w+:)?${name}>`,
-    "i",
-  ).exec(block);
-  return match ? match[1]! : null;
+/** Abertura de `name` a partir de `from`: varredura linear, sem expressão regular. */
+function findOpen(text: string, name: string, from: number): { start: number; end: number } | null {
+  for (let at = text.indexOf(name, from); at >= 0; at = text.indexOf(name, at + name.length)) {
+    const after = text[at + name.length];
+    if (after !== ">" && after !== " " && after !== "\t" && after !== "\r" && after !== "\n") {
+      continue;
+    }
+    const start = markStart(text, at, false);
+    if (start < 0) continue;
+    const end = text.indexOf(">", at + name.length);
+    if (end < 0) return null;
+    return { start, end: end + 1 };
+  }
+  return null;
+}
+
+function findClose(text: string, name: string, from: number): number {
+  const mark = `${name}>`;
+  for (let at = text.indexOf(mark, from); at >= 0; at = text.indexOf(mark, at + mark.length)) {
+    const start = markStart(text, at, true);
+    if (start >= 0) return start;
+  }
+  return -1;
+}
+
+/** Conteúdo do primeiro `name`, e onde ele acaba. */
+function section(block: string, name: string, from = 0): { inner: string; next: number } | null {
+  const open = findOpen(block, name, from);
+  if (!open) return null;
+  const close = findClose(block, name, open.end);
+  return close < 0 ? null : { inner: block.slice(open.end, close), next: close };
+}
+
+const group = (block: string, name: string): string | null => section(block, name)?.inner ?? null;
+
+function tag(block: string, name: string): string | null {
+  const inner = group(block, name);
+  return inner === null || inner.includes("<") ? null : decodeXml(inner).trim();
 }
 
 function decodeXml(text: string): string {
@@ -51,11 +92,18 @@ function totalOf(raw: string | null): string | null {
   return value.gt(0) && fitsAmount(value.toFixed(2)) ? toDbAmount(value) : null;
 }
 
-const productsOf = (block: string) =>
-  [...block.matchAll(/<(?:\w+:)?xProd>([^<]*)</gi)]
-    .slice(0, MAX_PRODUCTS)
-    .map((match) => decodeXml(match[1]!).trim())
-    .filter(Boolean);
+function productsOf(block: string): string[] {
+  const found: string[] = [];
+  let from = 0;
+  while (found.length < MAX_PRODUCTS) {
+    const product = section(block, "xProd", from);
+    if (!product) break;
+    from = product.next;
+    const name = decodeXml(product.inner).trim();
+    if (name && !name.includes("<")) found.push(name);
+  }
+  return found;
+}
 
 /** Null: não é NF-e nem CF-e, ou falta data ou total. */
 export function parseFiscalXml(text: string): FiscalNote | null {

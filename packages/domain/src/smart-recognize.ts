@@ -5,6 +5,7 @@ import { parseBrokerageNotes } from "./brokerage-note";
 import { parseFiscalXml, looksLikeOfx, ofxHints } from "./fiscal-xml";
 import { cleanFileText, type ParsedInvestmentFile } from "./investment-file";
 import {
+  SMART_MAX_ITEMS_PER_FILE,
   smartNote,
   safeText,
   type SmartDocType,
@@ -334,7 +335,18 @@ export function recognizeSmartFile(
 ): SmartReading | null {
   for (const recognize of recognizers) {
     const reading = recognize(contents);
-    if (reading && reading.proposals.length > 0) return reading;
+    if (reading && reading.proposals.length > 0) return capped(reading);
   }
   return null;
+}
+
+/** Arquivo com mais itens que isto entra pela metade, com aviso, e não derruba a revisão. */
+function capped(reading: SmartReading): SmartReading {
+  const total = reading.proposals.length;
+  if (total <= SMART_MAX_ITEMS_PER_FILE) return reading;
+  return {
+    ...reading,
+    proposals: reading.proposals.slice(0, SMART_MAX_ITEMS_PER_FILE),
+    notes: [...reading.notes, smartNote("itens_cortados", total)],
+  };
 }

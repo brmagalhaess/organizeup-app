@@ -3280,6 +3280,39 @@ describe("importador (ADR-0030)", () => {
     });
   });
 
+  it("aceite por escopo é da família, e quem só vê não aceita", async () => {
+    const { householdFileScopes } = db;
+    const row = (household: string) => ({
+      householdId: household,
+      scope: "importador" as const,
+      version: "2026-11-02.1",
+    });
+    const owner = await ctxFor(A.owner, A.household);
+    await db.withHousehold(owner, (tx) =>
+      tx.insert(householdFileScopes).values(row(A.household)).onConflictDoNothing(),
+    );
+    const other = await ctxFor(B.owner, B.household);
+    await db.withHousehold(other, async (tx) => {
+      expect(await tx.select().from(householdFileScopes)).toEqual([]);
+    });
+    await expect(
+      db.withHousehold(other, (tx) => tx.insert(householdFileScopes).values(row(A.household))),
+    ).rejects.toThrow();
+    const viewer = await ctxFor(A.viewer, A.household);
+    await expect(
+      db.withHousehold(viewer, (tx) =>
+        tx
+          .insert(householdFileScopes)
+          .values(row(A.household))
+          .onConflictDoUpdate({
+            target: [householdFileScopes.householdId, householdFileScopes.scope],
+            set: { version: "x" },
+          }),
+      ),
+    ).rejects.toThrow();
+    await db.withHousehold(owner, (tx) => tx.delete(householdFileScopes));
+  });
+
   it("não forja linha de outra família, nem liga item a arquivo alheio", async () => {
     const mine = await lot(A.owner, A.household, "3");
     const theirs = await lot(B.owner, B.household, "4");

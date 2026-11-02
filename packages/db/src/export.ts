@@ -48,6 +48,7 @@ import {
   people,
   retirementPlan,
   retirementScenarios,
+  householdFileScopes,
   smartImportFileMeta,
   smartImportFiles,
   smartImportItems,
@@ -116,6 +117,7 @@ const LATE_TABLES = {
   household_usage: householdUsage,
   vip_grants: vipGrants,
   trip_intentions: tripIntentions,
+  household_file_scopes: householdFileScopes,
   smart_imports: smartImports,
   smart_import_items: smartImportItems,
 };

@@ -331,6 +331,21 @@ export function maskDocuments(text: string, mark: string): string {
   return out + text.slice(from);
 }
 
+/**
+ * Para texto de arquivo, onde o documento vem partido por coluna ou linha: tabulação, quebra de linha e
+ * dois-pontos também separam. Mesmo tamanho de texto, então as posições valem no original.
+ */
+export function maskDocumentsLoose(text: string, mark: string): string {
+  const flat = text.replace(/[\t\r\n:]/g, " ");
+  let out = "";
+  let from = 0;
+  for (const { start, end } of findDocuments(flat)) {
+    out += text.slice(from, start) + mark;
+    from = end;
+  }
+  return out + text.slice(from);
+}
+
 /** Tipo da conta, gravado no tenant: pessoa física tem família; pessoa jurídica tem sócios. */
 export const ACCOUNT_TYPES = PERSON_TYPES;
 export type AccountType = PersonType;
