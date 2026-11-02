@@ -4,7 +4,9 @@ import "server-only";
 import { JOB_QUEUES, PGBOSS_SCHEMA, smartImportKey, type SmartImportJob } from "@organizeup/db";
 import { reportActionFailure } from "@/lib/diagnostics";
 
-export async function queueSmartImportJob(job: Required<SmartImportJob>): Promise<boolean> {
+export async function queueSmartImportJob(
+  job: Required<Omit<SmartImportJob, "tally">>,
+): Promise<boolean> {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) return false;
   try {
@@ -24,8 +26,9 @@ export async function queueSmartImportJob(job: Required<SmartImportJob>): Promis
       await boss.send(JOB_QUEUES.smartImport, job, {
         singletonKey: smartImportKey(job.importId),
         singletonSeconds: 30,
-        retryLimit: 2,
-        retryDelay: 30,
+        // Passa do prazo de leitura presa: a última tentativa acha o arquivo livre, ou o marca como falho.
+        retryLimit: 3,
+        retryDelay: 120,
       });
     } finally {
       await boss.stop({ graceful: false });

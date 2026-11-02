@@ -68,7 +68,8 @@ de cada falha. Tentar de novo só refaz o que falhou.
 1. A tela cria o lote e envia um arquivo por vez à rota, que confere tipo pelo conteúdo, tamanho e cotas.
 2. "Começar" põe o lote na fila `smart-import`. Se o aviso se perder, a própria tela pede de novo depois de 2 minutos
    parada.
-3. O worker lê um arquivo por vez. Falha em um arquivo não para os outros.
+3. O worker lê um arquivo por vez, em processo isolado, com teto de memória e de tempo, e o lote volta para o fim da
+   fila a cada arquivo. Falha em um arquivo não para os outros.
 4. **Identificação:** parsers sem IA primeiro: OFX, NF-e, CF-e, B3, SINACOR, extrato em CSV, Excel ou PDF. Depois de
    mesclada a frente de proventos, `parseDividendFile` entra na lista de reconhecedores.
 5. **IA:** só no que as regras não entenderam, com o portão aberto. Uma chamada por arquivo, sem ferramentas, saída por
@@ -76,8 +77,9 @@ de cada falha. Tentar de novo só refaz o que falhou.
 6. **Encaixe:** cada item vira proposta com destino, conta, cartão e categoria sugeridos.
 7. **Duplicidade:** compara com o que existe e entre os arquivos do lote.
 8. **Notificação:** ao fim, com o link da revisão.
-9. **Aprovação:** cada item grava na própria transação curta, reconferindo tudo. Operações de um arquivo gravam juntas,
-   porque a nota precisa fechar. Item já gravado é pulado. Repetir não duplica.
+9. **Aprovação:** em pedaços curtos, sob a trava da família, comparando de novo com o que está gravado. Cada item fica
+   inteiro ou de fora. Operações de um arquivo gravam juntas, porque a nota precisa fechar. Item já gravado é pulado.
+   Repetir não duplica. Pagamento de fatura vira baixa depois de gravar as compras, e nunca despesa nova.
 
 ## 3. Destinos
 
@@ -107,7 +109,9 @@ zero descreve isso. O motivo está no ADR-0030.
 
 ## 5. Limites
 
-Arquivo, lote e família na seção 1. Enviados à IA: 120 mil caracteres por arquivo, com aviso de corte na tela; digitalização
+Arquivo, lote e família na seção 1. Até 5.000 itens por arquivo, com aviso. Leitura isolada: 30 segundos, 640 MB, 64 MB
+inflados em planilha e 128 MB em PDF; duas quedas e o arquivo fica como falho. Na tela, os primeiros 200 de cada grupo;
+Marcar e Desmarcar todos valem para o lote inteiro. Enviados à IA: 120 mil caracteres por arquivo, com aviso de corte na tela; digitalização
 até 20 páginas e 5 MB; imagem até 3,75 MB. Por mês: 30 arquivos lidos com IA por família, e 1,5 milhão de tokens. Teto
 diário e teto do serviço do ADR-0018. Não gasta mensagem do assistente.
 

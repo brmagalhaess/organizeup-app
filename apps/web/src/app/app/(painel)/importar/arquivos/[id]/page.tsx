@@ -29,6 +29,8 @@ import { Card, PageHeader } from "@/components/ui";
 import { requireTenant } from "@/lib/session";
 import { ReviewBoard, type FileView, type ItemView } from "./review-board";
 
+const MAX_ROWS_PER_GROUP = 200;
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("importador");
   return { title: t("review.metaTitle") };
@@ -77,7 +79,7 @@ export default async function SmartImportReview({ params }: { params: Promise<{ 
   const { lot, files, items } = data;
   const access = await readFamilyAccess(ctx);
   const fileOf = new Map(files.map((file) => [file.id, file]));
-  const views: ItemView[] = items.map((item) => {
+  const allViews: ItemView[] = items.map((item) => {
     const file = fileOf.get(item.fileId);
     const owner = SMART_DESTINATION_MODULE[item.destination];
     return {
@@ -117,7 +119,22 @@ export default async function SmartImportReview({ params }: { params: Promise<{ 
     accountId: file.accountId,
     cardId: file.cardId,
   }));
-  const chosen = views.filter((item) => item.selected && !item.saved);
+  // Um lote pode ter dezenas de milhares de itens: a tela mostra o começo de cada grupo, e as contas valem para todos.
+  const groupTotals: Record<string, number> = {};
+  const views = allViews.filter((item) => {
+    const key = `${item.fileId}:${item.destination}`;
+    groupTotals[key] = (groupTotals[key] ?? 0) + 1;
+    return groupTotals[key] <= MAX_ROWS_PER_GROUP;
+  });
+  const open = allViews.filter((item) => !item.saved);
+  const chosen = open.filter((item) => item.selected && !item.blockedModule);
+  const summary = {
+    novo: open.filter((item) => item.duplicate === "novo").length,
+    possivel: open.filter((item) => item.duplicate === "possivel").length,
+    jaLancado: open.filter((item) => item.duplicate === "ja_lancado").length,
+    blocked: open.filter((item) => item.blockedModule || item.missing.length > 0).length,
+    selected: chosen.length,
+  };
   const sum = (inflow: boolean) =>
     toDbAmount(
       chosen.reduce(
@@ -147,6 +164,8 @@ export default async function SmartImportReview({ params }: { params: Promise<{ 
         cards={data.cards}
         categories={data.categories.filter((category) => category.name !== CARD_CATEGORY)}
         totals={{ in: sum(true), out: sum(false) }}
+        summary={summary}
+        groupTotals={groupTotals}
         writable={canWrite(ctx)}
       />
     </div>

@@ -4483,7 +4483,9 @@
       "lote": "Este envio já começou. Comece um novo.",
       "muitos": "São até 10 arquivos por vez.",
       "cota_lote": "O envio passou de 40 MB. Mande o resto em outro.",
-      "cota": "A família chegou ao limite de 100 MB de arquivos. Apague um lote antigo para enviar."
+      "cota": "A família chegou ao limite de 100 MB de arquivos. Apague um lote antigo para enviar.",
+      "noLength": "Não foi possível conferir o tamanho do envio. Tente de novo.",
+      "em_outro_lote": "Este arquivo já está em outro envio aberto. Aprove ou apague aquele antes."
     },
     "empty": {
       "title": "Nenhum arquivo importado ainda",
@@ -4536,7 +4538,9 @@
       "report": "{saved, plural, one {# item gravado} other {# itens gravados}}, {existed} já {existed, plural, one {existia} other {existiam}}, {failed, plural, one {# falhou} other {# falharam}}.",
       "quota": "{count, plural, =0 {Não cabe mais nenhum lançamento neste mês.} one {Só cabe # lançamento neste mês.} other {Só cabem # lançamentos neste mês.}} Desmarque o resto ou suba de plano: nada foi gravado.",
       "nada": "Não há nada marcado para aprovar.",
-      "somente_leitura": "Seu papel nesta família permite ver, mas não aprovar."
+      "somente_leitura": "Seu papel nesta família permite ver, mas não aprovar.",
+      "lendo": "Espere a leitura terminar para aprovar.",
+      "hidden": "Mostrando os primeiros {shown} de {total}. Os outros seguem Marcar todos e Desmarcar todos."
     },
     "file": {
       "download": "Baixar",
@@ -4562,7 +4566,8 @@
       "novo": "Novo",
       "possivel": "Possível duplicado",
       "ja_lancado": "Já lançado",
-      "inFile": "Também aparece em {name}."
+      "inFile": "Também aparece em {name}.",
+      "payment": "Parece o pagamento da fatura {name}. Aprovado, vira a baixa da fatura, e não uma despesa nova."
     },
     "confidence": {
       "alta": "Confiança alta",
@@ -4626,7 +4631,10 @@
       "card": "cartão",
       "name": "nome",
       "system": "sistema de amortização",
-      "firstDueDate": "data da próxima parcela"
+      "firstDueDate": "data da próxima parcela",
+      "price": "Parcela fixa (Price)",
+      "sac": "Parcela decrescente (SAC)",
+      "manual": "Parcelas iguais, sem juros"
     },
     "note": {
       "linhas_ignoradas": "{count, plural, one {# linha ficou de fora} other {# linhas ficaram de fora}}.",
@@ -4634,7 +4642,8 @@
       "itens_cortados": "O arquivo tinha {count} itens, e entraram só os primeiros.",
       "total_nao_fecha": "A soma dos itens não fecha com o total do documento.",
       "parcelas_nao_fecham": "Parcela vezes quantidade não cobre o saldo. Confira os dois.",
-      "texto_suspeito": "O arquivo tem um trecho estranho, que foi ignorado."
+      "texto_suspeito": "O arquivo tem um trecho estranho, que foi ignorado.",
+      "data_estranha": "Uma data fora do esperado ficou vazia para você conferir."
     },
     "failure": {
       "tipo": "Não reconhecemos este tipo de arquivo.",
@@ -4662,7 +4671,15 @@
       "data_futura": "Data no futuro",
       "venda_maior_que_posicao": "Venda maior que a posição",
       "sem_codigo": "Falta o código do ativo",
-      "classe_sem_cotacao": "Ativo sem cotação"
+      "classe_sem_cotacao": "Ativo sem cotação",
+      "bomba": "Este arquivo pede memória demais para abrir. Por segurança, ele não foi lido.",
+      "demorado": "Este arquivo demorou demais para abrir. Por segurança, a leitura parou.",
+      "isolamento": "A leitura segura não pôde começar. Tente de novo.",
+      "queda": "A leitura caiu duas vezes neste arquivo e parou.",
+      "duplicado_agora": "Já foi lançado depois da leitura",
+      "linha_repetida": "Operações com a mesma linha: leia o arquivo de novo",
+      "fatura_nao_gravada": "Grave as compras da fatura primeiro",
+      "fatura_nao_fecha": "O valor não fecha com a fatura gravada"
     },
     "errors": {
       "noPermission": "Seu papel nesta família não permite isto.",

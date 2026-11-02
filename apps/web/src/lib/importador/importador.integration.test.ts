@@ -15,13 +15,26 @@ process.env.DATABASE_URL = urls.app;
 process.env.ADMIN_DATABASE_URL = urls.admin;
 process.env.ANTHROPIC_API_KEY = "chave-de-teste";
 
+let sessionCtx: TenantContext;
 vi.mock("@/lib/diagnostics", () => ({ reportActionFailure: () => undefined }));
+vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
+vi.mock("@/lib/importador/queue", () => ({ queueSmartImportJob: async () => true }));
+vi.mock("@/lib/session", () => ({ requireTenant: async () => ({ ctx: sessionCtx }) }));
+vi.mock("next-intl/server", async () => {
+  const { createTranslator } = await import("next-intl");
+  const { messagesFor } = await import("@/i18n/messages");
+  return {
+    getTranslations: async (namespace?: string) =>
+      createTranslator({ locale: "pt-BR", messages: messagesFor("pt-BR"), namespace } as never),
+  };
+});
 
 const db = await import("@organizeup/db");
 const domain = await import("@organizeup/domain");
 const agents = await import("@organizeup/agents");
-const ai = await import("@organizeup/ai");
+const ai = { ...(await import("@organizeup/ai")), ...(await import("@organizeup/ai/importador")) };
 const { approveSmartImport } = await import("./commit");
+const { saveItem, toggleAll } = await import("@/app/app/(painel)/importar/arquivos/actions");
 
 const { accounts, auditLog, cardPurchases, categories, creditCards, debts, debtInstallments } = db;
 const { eq, featureFlags, goals, household, householdMember, householdSettings } = db;
@@ -547,6 +560,316 @@ describe("aprovar", () => {
     expect(await approveSmartImport(owner, importId)).toEqual({ ok: false, code: "nada" });
     const rows = await db.withHousehold(owner, (tx) => tx.select().from(dividends));
     expect(rows[0]).toMatchObject({ gross: "12.00", source: "familia" });
+  });
+});
+
+describe("revisão de segurança", () => {
+  it("operações do modelo gravam as três certas, cada uma com o seu ativo", async () => {
+    const trade = (ticker: string, quantidade: string, preco: string) => ({
+      destino: "operacao",
+      codigo_ativo: ticker,
+      operacao: "compra",
+      data: "2026-03-05",
+      quantidade,
+      preco_unitario: preco,
+    });
+    const client = modelSays(
+      answerOf("nota_corretagem", [
+        trade("PETR4", "10", "30.00"),
+        trade("VALE3", "20", "60.00"),
+        trade("ITUB4", "30", "25.00"),
+      ]),
+    );
+    await db.withHousehold(owner, (tx) =>
+      tx.insert(investments).values(
+        ["PETR4", "VALE3", "ITUB4"].map((ticker) => ({
+          householdId: A.household,
+          name: ticker,
+          ticker,
+          assetClass: "acao" as const,
+        })),
+      ),
+    );
+    const importId = await lotOf(owner, [["nota.txt", encode("nota")]]);
+    await read(importId, client);
+    expect(await approveSmartImport(owner, importId)).toMatchObject({ saved: 4, failed: 0 });
+    const rows = await db.withHousehold(owner, (tx) =>
+      tx
+        .select({
+          ticker: investments.ticker,
+          quantity: investmentTrades.quantity,
+          price: investmentTrades.unitPrice,
+        })
+        .from(investmentTrades)
+        .innerJoin(investments, eq(investments.id, investmentTrades.investmentId)),
+    );
+    expect(
+      rows.map((row) => [row.ticker, Number(row.quantity), Number(row.price)]).toSorted(),
+    ).toEqual([
+      ["ITUB4", 30, 25],
+      ["PETR4", 10, 30],
+      ["VALE3", 20, 60],
+    ]);
+  });
+
+  it("linha repetida é recusada, sem gravar operação trocada", async () => {
+    const importId = await lotOf(owner, [["nota.txt", encode("linhas")]]);
+    const client = modelSays(
+      answerOf("nota_corretagem", [
+        {
+          destino: "operacao",
+          codigo_ativo: "ABCD3",
+          operacao: "compra",
+          data: "2026-03-05",
+          quantidade: "1",
+          preco_unitario: "1.00",
+        },
+        {
+          destino: "operacao",
+          codigo_ativo: "WXYZ3",
+          operacao: "compra",
+          data: "2026-03-05",
+          quantidade: "2",
+          preco_unitario: "2.00",
+        },
+      ]),
+    );
+    const items = await read(importId, client);
+    await db.withHousehold(owner, async (tx) => {
+      for (const item of items.filter((row) => row.destination === "operacao")) {
+        await tx
+          .update(smartImportItems)
+          .set({ payload: { ...item.payload, line: 1 } as never })
+          .where(eq(smartImportItems.id, item.id));
+      }
+    });
+    await approveSmartImport(owner, importId);
+    const rows = await db.withHousehold(owner, (tx) =>
+      tx.select().from(smartImportItems).where(eq(smartImportItems.destination, "operacao")),
+    );
+    expect(rows.every((row) => row.failure === "linha_repetida")).toBe(true);
+    expect(await db.withHousehold(owner, (tx) => tx.select().from(investmentTrades))).toEqual([]);
+  });
+
+  it("pagamento de fatura: as compras e a baixa, sem contar duas vezes", async () => {
+    const importId = await lotOf(owner, [
+      ["extrato.ofx", encode(OFX([["pg", "-300.00", "PAGAMENTO FATURA CARTAO"]]))],
+      [
+        "fatura.ofx",
+        encode(
+          CARD([
+            ["c1", "-100.00", "LOJA UM"],
+            ["c2", "-200.00", "LOJA DOIS"],
+          ]),
+        ),
+      ],
+    ]);
+    const items = await read(importId);
+    const payment = items.find((item) => item.destination === "lancamento")!;
+    expect(payment).toMatchObject({
+      duplicate: "possivel",
+      duplicateReason: "pagamento_fatura",
+      selected: false,
+    });
+    await db.withHousehold(owner, async (tx) => {
+      await tx
+        .update(smartImportFiles)
+        .set({ accountId: bank, cardId: card })
+        .where(eq(smartImportFiles.importId, importId));
+      await tx
+        .update(smartImportItems)
+        .set({ selected: true })
+        .where(eq(smartImportItems.id, payment.id));
+    });
+    expect(await approveSmartImport(owner, importId)).toMatchObject({ saved: 3, failed: 0 });
+
+    const seen = await db.withHousehold(owner, async (tx) => ({
+      entries: await tx
+        .select({
+          amount: transactions.amount,
+          name: categories.name,
+          description: transactions.description,
+        })
+        .from(transactions)
+        .innerJoin(categories, eq(categories.id, transactions.categoryId)),
+      purchases: await tx.select().from(cardPurchases),
+      paid: await tx.select().from(db.cardStatementPayments),
+    }));
+    expect(seen.purchases).toHaveLength(2);
+    expect(seen.paid).toHaveLength(1);
+    // A fatura é movimento de cartão, fora das despesas. Sobram 300 das compras, não 600.
+    const plain = seen.entries.filter((row) => row.name !== domain.CARD_CATEGORY);
+    expect(plain).toEqual([]);
+    const spent = seen.purchases.reduce((acc, row) => acc.plus(row.amount), domain.money(0));
+    expect(spent.toFixed(2)).toBe("300.00");
+    expect(seen.entries.map((row) => row.amount)).toEqual(["300.00"]);
+  });
+
+  it("dá baixa na previsão também sem impressão digital", async () => {
+    const categoryId = await db.withHousehold(owner, async (tx) => {
+      const [row] = await tx
+        .select({ id: categories.id })
+        .from(categories)
+        .where(eq(categories.kind, "despesa"))
+        .limit(1);
+      await tx.insert(cashflowPlans).values({
+        householdId: A.household,
+        accountId: bank,
+        categoryId: row!.id,
+        kind: "despesa",
+        description: "Conta de luz",
+        amount: "90.00",
+        dayOfMonth: 10,
+        startMonth: "2026-10",
+      });
+      return row!.id;
+    });
+    const importId = await lotOf(owner, [
+      [
+        "nota.xml",
+        encode(
+          `<infNFe><ide><dhEmi>2026-10-11T10:00:00-03:00</dhEmi></ide><emit><xNome>Luz Exemplo</xNome></emit><total><ICMSTot><vNF>90.00</vNF></ICMSTot></total></infNFe>`,
+        ),
+      ],
+    ]);
+    const items = await read(importId);
+    await setFileAccount(importId, { accountId: bank });
+    const item = items.find((row) => row.destination === "lancamento")!;
+    await db.withHousehold(owner, (tx) =>
+      tx
+        .update(smartImportItems)
+        .set({ payload: { ...item.payload, fingerprint: null, categoryId } as never })
+        .where(eq(smartImportItems.id, item.id)),
+    );
+    await approveSmartImport(owner, importId);
+    const rows = await db.withHousehold(owner, (tx) => tx.select().from(transactions));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ description: "Conta de luz", planMonth: "2026-10" });
+  });
+
+  it("dois lotes aprovados juntos não gravam a mesma compra duas vezes", async () => {
+    const lot = async (id: string) => {
+      const importId = await lotOf(owner, [
+        [`${id}.ofx`, encode(CARD([[id, "-77.00", "LOJA CORRIDA"]]))],
+      ]);
+      await read(importId);
+      await setFileAccount(importId, { cardId: card });
+      await db.withHousehold(owner, (tx) =>
+        tx
+          .update(smartImportItems)
+          .set({ selected: true, duplicate: "novo" })
+          .where(eq(smartImportItems.importId, importId)),
+      );
+      return importId;
+    };
+    const [first, second] = [await lot("corrida-1"), await lot("corrida-2")];
+    const results = await Promise.all([
+      approveSmartImport(owner, first),
+      approveSmartImport(owner, second),
+    ]);
+    expect(await countOf(cardPurchases)).toBe(1);
+    const failed = results.reduce((acc, row) => acc + (row.ok ? row.failed : 0), 0);
+    expect(failed).toBe(1);
+    const rows = await db.withHousehold(owner, (tx) =>
+      tx.select().from(smartImportItems).where(eq(smartImportItems.failure, "duplicado_agora")),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ selected: false, duplicate: "possivel" });
+  });
+
+  it("duas compras iguais no mesmo arquivo gravam as duas, em pedaços diferentes", async () => {
+    const lines = Array.from(
+      { length: 205 },
+      (_, index) => [`ig${index}`, "-10.00", "PADARIA EXEMPLO"] as [string, string, string],
+    );
+    const importId = await lotOf(owner, [["fatura.ofx", encode(CARD(lines))]]);
+    await read(importId);
+    await setFileAccount(importId, { cardId: card });
+    expect(await approveSmartImport(owner, importId)).toMatchObject({ saved: 205, failed: 0 });
+    expect(await countOf(cardPurchases)).toBe(205);
+  });
+
+  it("não aprova lote ainda em leitura", async () => {
+    const importId = await lotOf(owner, [
+      ["extrato.ofx", encode(OFX([["lendo", "-10.00", "PADARIA"]]))],
+    ]);
+    expect(await approveSmartImport(owner, importId)).toEqual({ ok: false, code: "lendo" });
+  });
+
+  it("desmarcar todos desmarca todos, mesmo com mais de 2.500 itens", async () => {
+    const importId = await lotOf(owner, [["a.ofx", encode(OFX([["tudo", "-10.00", "PADARIA"]]))]]);
+    await read(importId);
+    const [file] = await db.withHousehold(owner, (tx) =>
+      tx.select(smartImportFileMeta).from(smartImportFiles),
+    );
+    await db.withHousehold(owner, async (tx) => {
+      const rows = Array.from({ length: 3_000 }, (_, index) => ({
+        householdId: A.household,
+        importId,
+        fileId: file!.id,
+        position: index + 1,
+        destination: "lancamento" as const,
+        confidence: "alta" as const,
+        selected: true,
+        payload: { destination: "documento", title: null } as never,
+      }));
+      for (let at = 0; at < rows.length; at += 500) {
+        await tx.insert(smartImportItems).values(rows.slice(at, at + 500));
+      }
+    });
+    sessionCtx = owner;
+    expect(await toggleAll(importId, false)).toEqual({ ok: true });
+    const rows = await db.withHousehold(owner, (tx) =>
+      tx.select({ selected: smartImportItems.selected }).from(smartImportItems),
+    );
+    expect(rows).toHaveLength(3_001);
+    expect(rows.filter((row) => row.selected)).toEqual([]);
+  });
+
+  it("marcar todos pula o que é de módulo desligado", async () => {
+    const client = modelSays(
+      answerOf("contrato_emprestimo", [
+        { destino: "divida", descricao: "Financeira Exemplo", valor: "100.00" },
+      ]),
+    );
+    const importId = await lotOf(owner, [["c.txt", encode("módulo")]]);
+    await read(importId, client);
+    await setBilling(true);
+    await onlyBase();
+    sessionCtx = owner;
+    await toggleAll(importId, false);
+    await toggleAll(importId, true);
+    const rows = await db.withHousehold(owner, (tx) =>
+      tx.select().from(smartImportItems).where(eq(smartImportItems.importId, importId)),
+    );
+    expect(rows.find((row) => row.destination === "divida")?.selected).toBe(false);
+    expect(rows.find((row) => row.destination === "documento")?.selected).toBe(true);
+  });
+
+  it("editar pela tela mantém quantidade miúda", async () => {
+    const client = modelSays(
+      answerOf("nota_corretagem", [
+        {
+          destino: "operacao",
+          codigo_ativo: "ABCD3",
+          operacao: "compra",
+          data: "2026-03-05",
+          quantidade: "0.125",
+          preco_unitario: "10.00",
+        },
+      ]),
+    );
+    const importId = await lotOf(owner, [["n.txt", encode("miúda")]]);
+    const items = await read(importId, client);
+    sessionCtx = owner;
+    const item = items.find((row) => row.destination === "operacao")!;
+    expect(await saveItem({ id: item.id, fields: { fees: "1.50" }, categoryId: null })).toEqual({
+      ok: true,
+    });
+    const [row] = await db.withHousehold(owner, (tx) =>
+      tx.select().from(smartImportItems).where(eq(smartImportItems.id, item.id)),
+    );
+    expect(row!.payload).toMatchObject({ quantity: "0.125", fees: "1.50", line: 1 });
   });
 });
 

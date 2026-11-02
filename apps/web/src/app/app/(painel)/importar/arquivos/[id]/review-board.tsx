@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import {
+  parseMoney,
   SMART_DESTINATIONS,
   type SmartDestination,
   type SmartField,
@@ -30,7 +31,8 @@ import {
   reprocessFile,
   saveItem,
   setFileTarget,
-  toggleItems,
+  toggleAll,
+  toggleItem,
 } from "../actions";
 
 export interface ItemView {
@@ -138,13 +140,14 @@ const FIELDS: Record<
     | "unitPrice"
     | "fees"
     | "side"
+    | "system"
   >
 > = {
   lancamento: ["description", "date", "amount", "kind"],
   compra_cartao: ["description", "date", "amount", "installments"],
   operacao: ["ticker", "side", "date", "quantity", "unitPrice", "fees"],
   provento: ["ticker", "date", "amount"],
-  divida: ["description", "amount", "rate", "installments", "installmentAmount", "date"],
+  divida: ["description", "system", "amount", "rate", "installments", "installmentAmount", "date"],
   consorcio: ["description", "amount", "installments", "installmentAmount", "date"],
   renda: ["description", "amount", "day"],
   previsao: ["description", "amount", "kind", "day"],
@@ -152,8 +155,21 @@ const FIELDS: Record<
   documento: ["description"],
 };
 
+/** Campos que vão ao servidor como número, sempre `123.45`: lá, vírgula não é número. */
+const NUMBERS = new Set(["amount", "installmentAmount", "rate", "quantity", "unitPrice", "fees"]);
+
+/** Casas todas, no separador do idioma: "0.125" aparece "0,125", e nunca vira 125. */
+const decimalInput = (value: string, locale: Locale) =>
+  locale === "en" ? value : value.replace(".", ",");
+
+const wireValue = (name: string, value: string, locale: Locale) => {
+  const text = value.trim();
+  return NUMBERS.has(name) && text ? parseMoney(text, locale).toFixed() : text;
+};
+
 function initialField(payload: SmartPayload, name: string, locale: Locale): string {
   const money = (value: string | null | undefined) => (value ? toAmountInput(value, locale) : "");
+  const decimal = (value: string | null | undefined) => (value ? decimalInput(value, locale) : "");
   switch (name) {
     case "description":
       return titleOf(payload);
@@ -173,20 +189,22 @@ function initialField(payload: SmartPayload, name: string, locale: Locale): stri
     case "installmentAmount":
       return "installmentAmount" in payload ? money(payload.installmentAmount) : "";
     case "rate":
-      return "monthlyRate" in payload ? (payload.monthlyRate ?? "") : "";
+      return "monthlyRate" in payload ? decimal(payload.monthlyRate) : "";
     case "day":
       if ("payDay" in payload) return String(payload.payDay ?? "");
       return "day" in payload ? String(payload.day ?? "") : "";
     case "ticker":
       return "ticker" in payload ? (payload.ticker ?? "") : "";
     case "quantity":
-      return "quantity" in payload ? (payload.quantity ?? "") : "";
+      return "quantity" in payload ? decimal(payload.quantity) : "";
     case "unitPrice":
-      return "unitPrice" in payload ? (payload.unitPrice ?? "") : "";
+      return "unitPrice" in payload ? decimal(payload.unitPrice) : "";
     case "fees":
-      return "fees" in payload ? payload.fees : "";
+      return "fees" in payload ? decimal(payload.fees) : "";
     case "side":
       return "side" in payload ? (payload.side ?? "") : "";
+    case "system":
+      return "system" in payload ? (payload.system ?? "") : "";
     default:
       return "";
   }
@@ -212,9 +230,18 @@ function EditItem({
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const fields = Object.fromEntries(
-      FIELDS[item.destination].map((name) => [name, String(form.get(name) ?? "")]),
-    );
+    let fields: Record<string, string>;
+    try {
+      fields = Object.fromEntries(
+        FIELDS[item.destination].map((name) => [
+          name,
+          wireValue(name, String(form.get(name) ?? ""), locale),
+        ]),
+      );
+    } catch {
+      setMessage(t("errors.invalid"));
+      return;
+    }
     const categoryId = String(form.get("categoryId") ?? "") || null;
     startTransition(async () => {
       const result = await saveItem({ id: item.id, fields, categoryId });
@@ -239,6 +266,12 @@ function EditItem({
             <Select name={name} defaultValue={initialField(payload, name, locale)}>
               <option value="compra">{t("field.compra")}</option>
               <option value="venda">{t("field.venda")}</option>
+            </Select>
+          ) : name === "system" ? (
+            <Select name={name} defaultValue={initialField(payload, name, locale)}>
+              <option value="price">{t("field.price")}</option>
+              <option value="sac">{t("field.sac")}</option>
+              <option value="manual">{t("field.manual")}</option>
             </Select>
           ) : (
             <Input
@@ -292,7 +325,7 @@ function ItemRow({
   item: ItemView;
   writable: boolean;
   categories: CategoryOption[];
-  onToggle: (ids: string[], selected: boolean) => void;
+  onToggle: (id: string, selected: boolean) => void;
 }) {
   const t = useTranslations("importador");
   const locale = useLocale() as Locale;
@@ -316,7 +349,7 @@ function ItemRow({
             aria-label={t("item.select", { name })}
             onChange={(event) => {
               setChecked(event.target.checked);
-              onToggle([item.id], event.target.checked);
+              onToggle(item.id, event.target.checked);
             }}
             className="mt-1 size-4 shrink-0 accent-brand-700"
           />
@@ -351,7 +384,9 @@ function ItemRow({
           </div>
           {item.otherFile ? (
             <p className="m-0 mt-1 text-sm text-muted">
-              {t("duplicate.inFile", { name: item.otherFile })}
+              {item.duplicateReason === "pagamento_fatura"
+                ? t("duplicate.payment", { name: item.otherFile })
+                : t("duplicate.inFile", { name: item.otherFile })}
             </p>
           ) : null}
           {item.blockedModule ? (
@@ -408,6 +443,7 @@ function FileBlock({
   cards,
   categories,
   writable,
+  groupTotals,
   onToggle,
 }: {
   file: FileView;
@@ -416,7 +452,8 @@ function FileBlock({
   cards: Option[];
   categories: CategoryOption[];
   writable: boolean;
-  onToggle: (ids: string[], selected: boolean) => void;
+  groupTotals: Record<string, number>;
+  onToggle: (id: string, selected: boolean) => void;
 }) {
   const t = useTranslations("importador");
   const [pending, startTransition] = useTransition();
@@ -548,8 +585,17 @@ function FileBlock({
         {groups.map(({ destination, rows }) => (
           <div key={destination}>
             <h3 className="m-0 text-sm font-semibold">
-              {t(`destination.${destination}`)} ({rows.length})
+              {t(`destination.${destination}`)} (
+              {groupTotals[`${file.id}:${destination}`] ?? rows.length})
             </h3>
+            {(groupTotals[`${file.id}:${destination}`] ?? 0) > rows.length ? (
+              <p className="m-0 text-sm text-muted">
+                {t("review.hidden", {
+                  shown: rows.length,
+                  total: groupTotals[`${file.id}:${destination}`] ?? rows.length,
+                })}
+              </p>
+            ) : null}
             <ul className="m-0 flex list-none flex-col divide-y divide-line p-0">
               {rows.map((item) => (
                 <ItemRow
@@ -577,6 +623,8 @@ export function ReviewBoard({
   cards,
   categories,
   totals,
+  summary,
+  groupTotals,
   writable,
 }: {
   importId: string;
@@ -587,6 +635,8 @@ export function ReviewBoard({
   cards: Option[];
   categories: CategoryOption[];
   totals: { in: string; out: string };
+  summary: { novo: number; possivel: number; jaLancado: number; blocked: number; selected: number };
+  groupTotals: Record<string, number>;
   writable: boolean;
 }) {
   const t = useTranslations("importador");
@@ -606,17 +656,14 @@ export function ReviewBoard({
   }, [reading, importId, router]);
 
   const ready = files.filter((file) => file.status === "lido" || file.status === "falhou").length;
-  const open = items.filter((item) => !item.saved);
-  const selected = open.filter((item) => item.selected && !item.blockedModule);
-  const count = (state: ItemView["duplicate"]) =>
-    open.filter((item) => item.duplicate === state).length;
-  const blocked = open.filter((item) => item.blockedModule || item.missing.length > 0).length;
 
-  const toggle = (ids: string[], value: boolean) =>
-    startTransition(async () => {
-      const result = await toggleItems(importId, ids, value);
-      if (!result.ok) setMessage({ text: result.message, tone: "error" });
-    });
+  const report = (result: { ok: boolean; message?: string }) => {
+    if (!result.ok) setMessage({ text: result.message ?? "", tone: "error" });
+  };
+  const toggle = (id: string, value: boolean) =>
+    startTransition(async () => report(await toggleItem(id, value)));
+  const toggleEverything = (value: boolean) =>
+    startTransition(async () => report(await toggleAll(importId, value)));
 
   const approve = () =>
     startTransition(async () => {
@@ -666,10 +713,10 @@ export function ReviewBoard({
       ) : null}
       {!reading ? (
         <dl className="m-0 grid grid-cols-2 gap-3 lg:grid-cols-3">
-          <StatTile label={t("review.totalNew")} value={String(count("novo"))} />
-          <StatTile label={t("review.totalSeen")} value={String(count("ja_lancado"))} />
-          <StatTile label={t("review.totalMaybe")} value={String(count("possivel"))} />
-          <StatTile label={t("review.totalBlocked")} value={String(blocked)} />
+          <StatTile label={t("review.totalNew")} value={String(summary.novo)} />
+          <StatTile label={t("review.totalSeen")} value={String(summary.jaLancado)} />
+          <StatTile label={t("review.totalMaybe")} value={String(summary.possivel)} />
+          <StatTile label={t("review.totalBlocked")} value={String(summary.blocked)} />
           <StatTile label={t("review.totalIn")} value={moneyText(totals.in)} />
           <StatTile label={t("review.totalOut")} value={moneyText(totals.out)} />
         </dl>
@@ -683,6 +730,7 @@ export function ReviewBoard({
           cards={cards}
           categories={categories}
           writable={writable}
+          groupTotals={groupTotals}
           onToggle={toggle}
         />
       ))}
@@ -691,19 +739,14 @@ export function ReviewBoard({
           <div className="flex flex-col gap-3">
             <p className="m-0 text-sm text-muted">{t("review.nothingSaved")}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" onClick={approve} disabled={pending || selected.length === 0}>
-                {t("review.approve", { count: selected.length })}
+              <Button type="button" onClick={approve} disabled={pending || summary.selected === 0}>
+                {t("review.approve", { count: summary.selected })}
               </Button>
               <Button
                 type="button"
                 variant="secondary"
                 disabled={pending}
-                onClick={() =>
-                  toggle(
-                    open.filter((item) => !item.blockedModule).map((item) => item.id),
-                    true,
-                  )
-                }
+                onClick={() => toggleEverything(true)}
               >
                 {t("review.selectAll")}
               </Button>
@@ -711,12 +754,7 @@ export function ReviewBoard({
                 type="button"
                 variant="secondary"
                 disabled={pending}
-                onClick={() =>
-                  toggle(
-                    open.map((item) => item.id),
-                    false,
-                  )
-                }
+                onClick={() => toggleEverything(false)}
               >
                 {t("review.selectNone")}
               </Button>

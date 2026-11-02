@@ -4483,7 +4483,9 @@
       "lote": "This upload has already started. Begin a new one.",
       "muitos": "Up to 10 files at a time.",
       "cota_lote": "This upload went over 40 MB. Send the rest in another one.",
-      "cota": "The family reached the 100 MB file limit. Delete an old batch to send more."
+      "cota": "The family reached the 100 MB file limit. Delete an old batch to send more.",
+      "noLength": "We could not check the size of this upload. Try again.",
+      "em_outro_lote": "This file is already in another open upload. Approve or delete that one first."
     },
     "empty": {
       "title": "No files imported yet",
@@ -4536,7 +4538,9 @@
       "report": "{saved, plural, one {# item saved} other {# items saved}}, {existed} already {existed, plural, one {existed} other {existed}}, {failed} failed.",
       "quota": "{count, plural, =0 {No more entries fit this month.} one {Only # entry fits this month.} other {Only # entries fit this month.}} Unselect the rest or upgrade: nothing was saved.",
       "nada": "There is nothing selected to approve.",
-      "somente_leitura": "Your role in this family can view, but not approve."
+      "somente_leitura": "Your role in this family can view, but not approve.",
+      "lendo": "Wait for reading to finish before approving.",
+      "hidden": "Showing the first {shown} of {total}. The others follow Select all and Unselect all."
     },
     "file": {
       "download": "Download",
@@ -4562,7 +4566,8 @@
       "novo": "New",
       "possivel": "Possible duplicate",
       "ja_lancado": "Already recorded",
-      "inFile": "Also appears in {name}."
+      "inFile": "Also appears in {name}.",
+      "payment": "This looks like the payment of bill {name}. If approved, it settles the bill instead of adding a new expense."
     },
     "confidence": {
       "alta": "High confidence",
@@ -4626,7 +4631,10 @@
       "card": "card",
       "name": "name",
       "system": "amortization system",
-      "firstDueDate": "next installment date"
+      "firstDueDate": "next installment date",
+      "price": "Fixed installment (Price)",
+      "sac": "Decreasing installment (SAC)",
+      "manual": "Equal installments, no interest"
     },
     "note": {
       "linhas_ignoradas": "{count, plural, one {# line was left out} other {# lines were left out}}.",
@@ -4634,7 +4642,8 @@
       "itens_cortados": "The file had {count} items, and only the first ones came in.",
       "total_nao_fecha": "The sum of the items does not match the document total.",
       "parcelas_nao_fecham": "Installment times quantity does not cover the balance. Check both.",
-      "texto_suspeito": "The file has an odd passage, which was ignored."
+      "texto_suspeito": "The file has an odd passage, which was ignored.",
+      "data_estranha": "An unexpected date was left empty for you to check."
     },
     "failure": {
       "tipo": "We do not recognize this type of file.",
@@ -4662,7 +4671,15 @@
       "data_futura": "Date in the future",
       "venda_maior_que_posicao": "Sale larger than the position",
       "sem_codigo": "Asset code is missing",
-      "classe_sem_cotacao": "Asset without a quote"
+      "classe_sem_cotacao": "Asset without a quote",
+      "bomba": "This file needs too much memory to open. For safety, it was not read.",
+      "demorado": "This file took too long to open. For safety, reading stopped.",
+      "isolamento": "Safe reading could not start. Try again.",
+      "queda": "Reading crashed twice on this file and stopped.",
+      "duplicado_agora": "It was recorded after the reading",
+      "linha_repetida": "Trades with the same line: read the file again",
+      "fatura_nao_gravada": "Save the bill's purchases first",
+      "fatura_nao_fecha": "The amount does not match the saved bill"
     },
     "errors": {
       "noPermission": "Your role in this family does not allow this.",

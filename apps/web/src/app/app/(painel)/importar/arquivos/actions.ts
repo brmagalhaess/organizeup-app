@@ -19,13 +19,23 @@ import {
   creditCards,
   eq,
   householdTimezone,
+  inArray,
   ne,
+  readFamilyAccess,
   smartImportFiles,
   smartImportItems,
   smartImports,
   withHousehold,
 } from "@organizeup/db";
-import { mergeSmartEdit, SMART_REQUEUE_MS, todayIn, type SmartRawFields } from "@organizeup/domain";
+import {
+  canUse,
+  mergeSmartEdit,
+  SMART_DESTINATION_MODULE,
+  SMART_DESTINATIONS,
+  SMART_REQUEUE_MS,
+  todayIn,
+  type SmartRawFields,
+} from "@organizeup/domain";
 import { approveSmartImport, type SmartApproval } from "@/lib/importador/commit";
 import { queueSmartImportJob } from "@/lib/importador/queue";
 import { LEGAL_VERSION } from "@/lib/legal";
@@ -95,27 +105,41 @@ export async function removeImport(form: FormData): Promise<void> {
   refresh();
 }
 
-export async function toggleItems(
-  importId: string,
-  ids: string[],
-  selected: boolean,
-): Promise<ActionResult> {
+/** Um item. Sem corte: o que a tela não mostra segue por `toggleAll`. */
+export async function toggleItem(itemId: string, selected: boolean): Promise<ActionResult> {
   const { ctx } = await requireTenant();
   if (!canWrite(ctx)) return { ok: false, message: await noPermission() };
-  await withHousehold(ctx, async (tx) => {
-    for (const id of ids.slice(0, 2500)) {
-      await tx
-        .update(smartImportItems)
-        .set({ selected, updatedAt: new Date() })
-        .where(
-          and(
-            eq(smartImportItems.id, id),
-            eq(smartImportItems.importId, importId),
-            ne(smartImportItems.status, "gravado"),
-          ),
-        );
-    }
+  await withHousehold(ctx, (tx) =>
+    tx
+      .update(smartImportItems)
+      .set({ selected, updatedAt: new Date() })
+      .where(and(eq(smartImportItems.id, itemId), ne(smartImportItems.status, "gravado"))),
+  );
+  refresh();
+  return { ok: true };
+}
+
+/** Lote inteiro, de uma vez, no servidor. Marcar pula o que é de módulo desligado. */
+export async function toggleAll(importId: string, selected: boolean): Promise<ActionResult> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx)) return { ok: false, message: await noPermission() };
+  const access = await readFamilyAccess(ctx);
+  const allowed = SMART_DESTINATIONS.filter((destination) => {
+    const owner = SMART_DESTINATION_MODULE[destination];
+    return !selected || owner === null || canUse(access, owner);
   });
+  await withHousehold(ctx, (tx) =>
+    tx
+      .update(smartImportItems)
+      .set({ selected, updatedAt: new Date() })
+      .where(
+        and(
+          eq(smartImportItems.importId, importId),
+          ne(smartImportItems.status, "gravado"),
+          inArray(smartImportItems.destination, allowed),
+        ),
+      ),
+  );
   refresh();
   return { ok: true };
 }

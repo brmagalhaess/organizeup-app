@@ -29,6 +29,24 @@ regras não depende do aceite de IA. **XML nunca passa por biblioteca de XML**: 
 entidade a resolver, e DOCTYPE é recusado na porta. `parseDividendFile`, da frente `agente/importar-proventos`, entra como
 mais um reconhecedor: destino, revisão e gravação de `provento` já existem, e o modelo já pode propor esse destino.
 
+### Leitura isolada
+
+Abrir arquivo é a parte perigosa. PDF e XLSX inflam, e expressão regular pode travar. Por isso, abrir e reconhecer rodam
+num processo filho (`read-child.ts`), sem nenhum segredo no ambiente, com `--max-old-space-size` e tempo-limite de 30
+segundos, controlado de fora pelo pai, que mata o filho. Lá dentro, a leitura fica numa thread com `resourceLimits`, e a
+thread principal só vigia a memória total do processo, com teto de 640 MB, porque buffer de descompressão não conta como
+heap do V8.
+
+- **Zip:** cada entrada é inflada de verdade, com teto na saída (64 MB no total), antes de abrir. Tamanho declarado no
+  diretório central não muda a conta.
+- **PDF:** cada fluxo é inflado com teto (128 MB) antes do pdf.js. Filtro em cascata passa dessa conta, e quem para é o
+  vigia de memória.
+- **`read_attempts`:** depois de 2 tentativas o arquivo vira falho (`queda`), para quem derruba a leitura não entrar em
+  laço. Ler de novo pela tela zera a contagem.
+- **Um arquivo por job:** o worker lê um e reenfileira o lote no fim da fila. Nenhuma família espera 10 arquivos de outra.
+- **Expressão regular:** NF-e e CF-e são lidas por varredura com `indexOf`, linear. Linha acima de 400 caracteres não entra
+  na busca de valores do PDF. O que sobrar, o tempo-limite pega.
+
 ### Modelo
 
 - **Uma chamada por arquivo, rota `importador`**, esforço `medium`, `claude-haiku-5-5`. Fora de `withHousehold`.
@@ -38,7 +56,9 @@ mais um reconhecedor: destino, revisão e gravação de `provento` já existem, 
 - **Esquema sem nada anulável.** O que falta vem como texto vazio. Cada `null` é uma união, e esquema com muitas uniões
   corre o risco de ser recusado. O servidor faz a conferência toda de qualquer forma.
 - **`strict` no zod:** campo fora do esquema descarta a resposta inteira, e o arquivo fica para reprocessar.
-- **Todo valor é revalidado** em `buildSmartPayload`, com `packages/domain`: data real, valor em `numeric(14,2)`, código
+- **Todo valor é revalidado** em `buildSmartPayload`, com `packages/domain`. Número só `123` ou `123.45`: vírgula,
+  milhar, sinal e expoente são inválidos, e `1e400` não vira nada. Data só `AAAA-MM-DD`, de verdade. A tela converte o que a
+  pessoa digita no idioma dela e manda sempre nesse formato, então `0.125` não vira `125`. Valor em `numeric(14,2)`, código
   de ativo pelo formato. O que não confere vira vazio, e a revisão mostra o que falta. Texto com link, ordem ou marca não
   entra (`safeText`). Trecho perde `<` e `>` e aparece como texto puro.
 - **Totais:** soma dos itens contra o total do documento, e parcela vezes quantidade contra o saldo. Não fechou, a
@@ -59,9 +79,9 @@ mais um reconhecedor: destino, revisão e gravação de `provento` já existem, 
 
 ### Aceite
 
-Mesma linha de `household_file_consents`, com `IMPORTER_CONSENT_VERSION = 2026-11-02.1`: é tratamento mais amplo que o de
-dívidas, e o aceite antigo não cobre. Aceitar aqui sobe a versão, e a leitura de dívidas continua valendo. Sem o
-assistente ativo, sem esse aceite ou sem `use_ai`, o arquivo que as regras não entendem fica marcado com o motivo e pode
+Por escopo, em `household_file_scopes`, escopo `importador`, com `IMPORTER_CONSENT_VERSION = 2026-11-02.1`: é tratamento
+mais amplo que o de dívidas, e um aceite não abre o outro. O de dívidas segue em `household_file_consents`, cuja chave é só
+a família. Desligar o assistente retira os dois. Sem o assistente ativo, sem esse aceite ou sem `use_ai`, o arquivo que as regras não entendem fica marcado com o motivo e pode
 ser reprocessado depois. `LEGAL_VERSION` subiu para a mesma versão.
 
 **Pendente de advogado:** a seção da Política sobre qualquer arquivo, dados de terceiros em contratos e os 30 dias de
@@ -83,6 +103,14 @@ todos eles. Taxa de administração e crédito ficam nos campos do documento.
 
 ### Duplicidade
 
+Compara com a conta do arquivo, quando ela existe: o mesmo valor em outra conta não é duplicado. Entre arquivos do lote a
+comparação continua, porque extrato e fatura têm instrumentos diferentes. `reconcileRows` agrupa por sentido e valor, para
+10 arquivos de 5.000 itens não ficarem quadráticos, e a revisão grava o veredito em uma instrução por pedaço.
+
+**Pagamento de fatura:** a linha do extrato que fecha com a soma das compras de outro arquivo do lote vira "possível
+duplicado". Marcada, ela não vira despesa: depois de gravar as compras, dá baixa na fatura (`f:`), que é movimento de
+cartão. Sem isso, a despesa do mês contaria 600 em vez de 300. Só fecha se a fatura gravada der o mesmo valor.
+
 Reaproveita o que existe: `withFingerprints` e `reconcileRows` para extrato, com a mesma impressão digital do importador
 clássico, então arquivo importado lá é reconhecido aqui. `planInvestmentImport` para operação, com as do arquivo anterior
 do lote como carteira de faz de conta. `matchKnownDebt` para dívida. Previsão de mesmo valor dá baixa, como no extrato.
@@ -96,8 +124,11 @@ pessoa decidindo, e a tela avisou.
 Regra 7: é dado informado, por aceite na tela. A rotina fica em `apps/web/src/lib/importador/commit.ts`, porque usa
 `confirmCommitment` e `recordTradeCash`.
 
-- **Cada item na própria transação curta**, com `FOR UPDATE` e a marca de gravado na mesma transação. Dois cliques passam
-  em fila, e o segundo vê o item pronto.
+- **Em pedaços de 200 itens**, cada pedaço numa transação curta, sob a trava da família, com `FOR UPDATE` e a marca de
+  gravado junto. Cada item fica num savepoint: erro desfaz só ele, inteiro. Dois cliques e dois lotes passam em fila.
+- **`planSmartDuplicates` roda de novo em cada pedaço**, contra o que está gravado agora, sem contar o que este mesmo lote
+  gravou. Item que piorou desde a revisão fica como `duplicado_agora` e não grava. Arquivo igual em outro lote aberto é
+  recusado no envio.
 - **Operações de um arquivo gravam juntas**, sob a trava da carteira, porque a comparação olha a nota inteira.
 - **Erro desfaz o item inteiro** e fica no próprio item, com código. Tentar de novo só refaz o que falhou.
 - **Limite de lançamentos é conferido antes**: passou, nada grava e a tela diz quantos cabem. Cada item ainda reconfere,

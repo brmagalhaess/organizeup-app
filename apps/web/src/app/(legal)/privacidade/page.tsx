@@ -253,7 +253,9 @@ export default function PrivacyPage() {
         <li>
           <strong>Por quanto tempo:</strong> envio em que nada foi aprovado é apagado em 30 dias.
           Envio com algo aprovado fica guardado até você apagar. Apagar o envio leva os arquivos e o
-          que foi lido, e não mexe no que você já aprovou. Apagar a família apaga tudo.
+          que foi lido, e não mexe no que você já aprovou. O contrato que virou dívida também fica
+          nos anexos da dívida: para tirá-lo de lá, apague o anexo na tela de Dívidas. Apagar a
+          família apaga tudo.
         </li>
         <li>
           <strong>Exportação:</strong> o arquivo de dados da família traz o que foi lido e as

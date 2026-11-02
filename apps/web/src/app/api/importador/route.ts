@@ -14,6 +14,35 @@ export const dynamic = "force-dynamic";
 const allow = createRateLimiter({ limit: 40, windowMs: 60_000 });
 /** Folga para o envelope do formulário em volta do arquivo. */
 const FORM_OVERHEAD = 64 * 1024;
+const MAX_BODY = SMART_FILE_MAX_BYTES + FORM_OVERHEAD;
+
+/** Lê o corpo contando. Passou do limite, cancela: o resto nem chega à memória. */
+async function readLimited(
+  request: Request,
+  limit: number,
+): Promise<Uint8Array<ArrayBuffer> | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.length;
+  }
+  return out;
+}
 
 const refuse = (code: string, message: string, status: number) =>
   Response.json({ ok: false, code, message }, { status });
@@ -25,11 +54,19 @@ export async function POST(request: Request) {
   if (!canWrite(ctx)) return refuse("somente_leitura", t("readOnly"), 403);
   if (!allow(ctx.householdId)) return refuse("muitos_pedidos", t("tooMany"), 429);
 
-  const declared = Number(request.headers.get("content-length") ?? 0);
-  if (declared > SMART_FILE_MAX_BYTES + FORM_OVERHEAD) {
-    return refuse("tamanho", t("tamanho"), 413);
+  // O formulário nunca é lido por inteiro antes da conta: quem mente no cabeçalho para no contador.
+  const declared = Number(request.headers.get("content-length"));
+  if (!request.headers.get("content-length") || !Number.isSafeInteger(declared) || declared < 0) {
+    return refuse("sem_tamanho", t("noLength"), 411);
   }
-  const form = await request.formData().catch(() => null);
+  if (declared > MAX_BODY) return refuse("tamanho", t("tamanho"), 413);
+  const body = await readLimited(request, MAX_BODY);
+  if (!body) return refuse("tamanho", t("tamanho"), 413);
+  const form = await new Response(body, {
+    headers: { "content-type": request.headers.get("content-type") ?? "" },
+  })
+    .formData()
+    .catch(() => null);
   const file = form?.get("file");
   if (!(file instanceof File)) return refuse("sem_arquivo", t("noFile"), 400);
 
