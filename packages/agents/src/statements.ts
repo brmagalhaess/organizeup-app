@@ -7,31 +7,22 @@ import {
   eq,
   householdSettings,
   householdStatements,
-  sql,
   type TenantTx,
 } from "@organizeup/db";
 import {
   addMonths,
-  CURRENCIES,
   yearMonthOf,
   type Currency,
   type ReportKind,
 } from "@organizeup/domain";
 
-/**
- * Moeda principal da família. A coluna `main_currency` chega numa migração de outra frente (0033), e
- * `currency` fica presa em real até lá. `to_jsonb` lê a nova se ela existir, sem depender da ordem em
- * que as duas entram. Moeda desconhecida vira real: nunca derruba tela.
- */
+/** Moeda principal da família. Sem linha de configurações, real. */
 export async function householdCurrency(tx: TenantTx, householdId: string): Promise<Currency> {
   const [row] = await tx
-    .select({
-      currency: sql<string>`coalesce(to_jsonb(household_settings)->>'main_currency', ${householdSettings.currency})`,
-    })
+    .select({ currency: householdSettings.mainCurrency })
     .from(householdSettings)
     .where(eq(householdSettings.householdId, householdId));
-  const currency = CURRENCIES.find((item) => item === row?.currency);
-  return currency ?? "BRL";
+  return row?.currency ?? "BRL";
 }
 
 /** Períodos que este relatório tem, do mais novo ao mais antigo. */
