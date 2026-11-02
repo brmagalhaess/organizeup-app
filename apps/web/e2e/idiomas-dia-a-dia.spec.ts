@@ -163,7 +163,9 @@ test("as telas cheias em espanhol cabem em 375 px", async ({ page }, testInfo) =
   await page.goto("/app/renda");
   await page.getByRole("button", { name: "Nuevo ingreso" }).click();
   await expect(page.getByRole("dialog", { name: "Nuevo ingreso" })).toBeVisible();
-  await expect(page.getByRole("option", { name: "Enero" })).toBeAttached();
+  await expect(
+    page.getByLabel("Mes de vacaciones").getByRole("option", { name: "Enero" }),
+  ).toBeAttached();
   if (shots && mobile) await page.screenshot({ path: `${shots}/es-renda-form.png` });
 });
 
