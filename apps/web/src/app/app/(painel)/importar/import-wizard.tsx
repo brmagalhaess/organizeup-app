@@ -40,11 +40,12 @@ import {
   Input,
   Select,
 } from "@/components/ui";
-import { formatAmount, formatDayMonth } from "@/i18n/format";
+import { formatDayMonth } from "@/i18n/format";
 import { DEFAULT_LOCALE } from "@/i18n/locales";
 import { readPdfLines, readSpreadsheet } from "@/lib/statement-files";
 import { systemTextOf } from "@/i18n/system-text";
 import { commitImport, prepareImport, undoImport, type PreparedRow } from "./actions";
+import { useFamilyCurrency, useMoney } from "@/i18n/money";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS = 2000;
@@ -137,6 +138,7 @@ function CsvMapper({
 }) {
   const t = useTranslations("importar.csv");
   const locale = useLocale();
+  const moneyText = useMoney();
   const { table, mapping } = csv;
   const headerRow = mapping.header >= 0 ? table[mapping.header] : table[0];
   const columns = (headerRow ?? []).map((cell, index) =>
@@ -209,7 +211,7 @@ function CsvMapper({
                 className={cx("whitespace-nowrap font-medium tabular-nums", amountClass(row.kind))}
               >
                 {row.kind === "receita" ? "+ " : "− "}
-                {formatAmount(row.amount, locale, "full", currency)}
+                {moneyText(row.amount, "full", currency)}
               </span>
             </li>
           ))}
@@ -322,6 +324,7 @@ function Review({
   const t = useTranslations("importar.review");
   const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
+  const moneyText = useMoney();
   const [choices, setChoices] = useState<Record<string, Choice>>(() =>
     Object.fromEntries(
       rows.map((row) => [
@@ -456,7 +459,7 @@ function Review({
                 )}
               >
                 {row.kind === "receita" ? "+ " : "− "}
-                {formatAmount(row.amount, locale, "full", currency)}
+                {moneyText(row.amount, "full", currency)}
               </span>
               <div className="col-span-2 col-start-2 min-w-0 md:col-span-1 md:col-start-4 md:row-start-1">
                 {row.state === "previsto" || locked ? null : (
@@ -532,7 +535,8 @@ export function ImportWizard({
   // Cada publicação troca os endereços internos, e uma página já aberta deixa de alcançar o servidor.
   const outdated = tErrors("outdated");
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
-  const currency = accounts.find((account) => account.id === accountId)?.currency ?? "BRL";
+  const main = useFamilyCurrency();
+  const currency = accounts.find((account) => account.id === accountId)?.currency ?? main;
   const [message, setMessage] = useState<string | null>(null);
   const [source, setSource] = useState<StatementSource>("csv");
   const [csv, setCsv] = useState<CsvState | null>(null);
@@ -751,7 +755,7 @@ export function ImportWizard({
             </Field>
           </div>
           <div className="mt-3">
-            {isForeign(currency) ? (
+            {isForeign(currency, main) ? (
               <p className="m-0 mb-2 text-sm text-muted">{t("choose.foreign", { currency })}</p>
             ) : null}
             {message ? (

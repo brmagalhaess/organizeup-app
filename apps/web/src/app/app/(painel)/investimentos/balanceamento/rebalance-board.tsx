@@ -14,11 +14,10 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
-import { formatAmount } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { saveTargets } from "../actions";
 import {
-  ASSET_CLASSES,
+  classesFor,
   initial,
   percentText,
   toInput,
@@ -26,9 +25,11 @@ import {
   type AssetClass,
   type Data,
 } from "../shared";
+import { useFamilyCurrency, useMoney } from "@/i18n/money";
 
 function TargetsForm({ data, onDone }: { data: Data; onDone: () => void }) {
   const t = useTranslations("investimentos");
+  const currency = useFamilyCurrency();
   const tCommon = useTranslations("common");
   const locale = useLocale();
   const [state, action, pending] = useActionState(saveTargets, initial);
@@ -39,7 +40,7 @@ function TargetsForm({ data, onDone }: { data: Data; onDone: () => void }) {
     <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
       <p className="text-sm text-muted">{t("rebalance.form.intro")}</p>
       <div className="grid grid-cols-2 gap-3">
-        {ASSET_CLASSES.map((value) => (
+        {classesFor(currency).map((value) => (
           <Field key={value} label={`${t(`classes.${value}`)} (%)`}>
             <Input
               name={value}
@@ -61,6 +62,7 @@ function TargetsForm({ data, onDone }: { data: Data; onDone: () => void }) {
 function ClassBars({ data }: { data: Data }) {
   const t = useTranslations("investimentos");
   const locale = useLocale();
+  const moneyText = useMoney();
   return (
     <ul aria-label={t("rebalance.byClass.list")} className="m-0 flex list-none flex-col gap-4 p-0">
       {data.summary.classes.map((share) => {
@@ -73,7 +75,7 @@ function ClassBars({ data }: { data: Data }) {
                 {t(`classes.${share.assetClass as AssetClass}`)}
               </span>
               <span className="whitespace-nowrap tabular-nums">
-                {formatAmount(share.value, locale)} · {percentText(share.percent, locale)}
+                {moneyText(share.value)} · {percentText(share.percent, locale)}
               </span>
             </div>
             <div className="relative mt-1.5 h-2 rounded-full bg-brand-50" aria-hidden="true">
@@ -95,11 +97,11 @@ function ClassBars({ data }: { data: Data }) {
                   : gap.gt(0)
                     ? t("rebalance.byClass.below", {
                         percent,
-                        amount: formatAmount(gap, locale),
+                        amount: moneyText(gap),
                       })
                     : t("rebalance.byClass.above", {
                         percent,
-                        amount: formatAmount(gap.abs(), locale),
+                        amount: moneyText(gap.abs()),
                       })}
               </p>
             ) : null}
@@ -123,6 +125,7 @@ function amountOf(text: string, locale: Locale): string | null {
 function NextContribution({ data }: { data: Data }) {
   const t = useTranslations("investimentos");
   const locale = useLocale();
+  const moneyText = useMoney();
   const [text, setText] = useState("");
   const amount = amountOf(text, locale);
   const plan = amount ? distributeContribution(data.summary.classes, amount) : null;
@@ -148,9 +151,7 @@ function NextContribution({ data }: { data: Data }) {
               {plan.rows.map((row) => (
                 <li key={row.assetClass} className="flex justify-between gap-3 py-2 text-sm">
                   <span className="min-w-0">{t(`classes.${row.assetClass as AssetClass}`)}</span>
-                  <span className="font-medium tabular-nums">
-                    {formatAmount(row.amount, locale)}
-                  </span>
+                  <span className="font-medium tabular-nums">{moneyText(row.amount)}</span>
                 </li>
               ))}
             </ul>
@@ -158,7 +159,7 @@ function NextContribution({ data }: { data: Data }) {
         ) : null}
         {plan && money(plan.leftover).gt(0) ? (
           <p className="m-0 text-sm text-muted">
-            {t("rebalance.next.leftover", { amount: formatAmount(plan.leftover, locale) })}
+            {t("rebalance.next.leftover", { amount: moneyText(plan.leftover) })}
           </p>
         ) : null}
       </div>

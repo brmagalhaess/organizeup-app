@@ -18,11 +18,12 @@ import {
   Sheet,
   StatTile,
 } from "@/components/ui";
-import { formatAmount, formatDate, toFieldValue } from "@/i18n/format";
+import { formatDate, toFieldValue } from "@/i18n/format";
 import type { loadNetWorth } from "@/lib/wealth";
 import { systemTextOf } from "@/i18n/system-text";
 import { deleteAsset, saveAsset, type AssetFormState } from "./actions";
 import { NetWorthChart } from "./net-worth-chart";
+import { useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadNetWorth>>;
 type Asset = Data["assets"][number];
@@ -112,16 +113,14 @@ function AssetForm({
 }
 
 function Row({ name, value, hint }: { name: string; value: string; hint?: string }) {
-  const locale = useLocale();
+  const moneyText = useMoney();
   return (
     <li className="flex items-center justify-between gap-3 py-2 text-sm">
       <div className="min-w-0">
         <p>{name}</p>
         {hint ? <p className="text-xs text-muted">{hint}</p> : null}
       </div>
-      <span className="whitespace-nowrap font-medium tabular-nums">
-        {formatAmount(value, locale)}
-      </span>
+      <span className="whitespace-nowrap font-medium tabular-nums">{moneyText(value)}</span>
     </li>
   );
 }
@@ -130,7 +129,8 @@ export function NetWorthBoard({ data, writable }: { data: Data; writable: boolea
   const t = useTranslations("patrimonio");
   const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
-  const amount = (value: string) => formatAmount(value, locale);
+  const moneyText = useMoney();
+  const amount = (value: string) => moneyText(value);
   const [editing, setEditing] = useState<{ nonce: number; asset: Asset | null } | null>(null);
   const [removing, setRemoving] = useState<Asset | null>(null);
   const close = () => setEditing(null);

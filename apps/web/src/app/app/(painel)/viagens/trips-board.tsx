@@ -19,11 +19,12 @@ import {
   StatTile,
   submitKeeping,
 } from "@/components/ui";
-import { formatAmount, formatDate, toFieldValue } from "@/i18n/format";
+import { formatDate, toFieldValue } from "@/i18n/format";
 import type { loadTrips } from "@/lib/planning";
 import type { TripSuggestions as TripSuggestionsData } from "@/lib/suggestions";
 import { addCost, addSaved, deleteCost, deleteTrip, saveTrip, type FormState } from "./actions";
 import { TripSuggestions } from "./trip-suggestions";
+import { useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadTrips>>;
 type Trip = Data["trips"][number];
@@ -179,6 +180,7 @@ function TripCard({
 }) {
   const t = useTranslations("viagens");
   const locale = useLocale();
+  const moneyText = useMoney();
   const { plan } = trip;
   const name = trip.destination;
   const start = formatDate(trip.startOn, locale);
@@ -211,9 +213,9 @@ function TripCard({
       ) : (
         <div className="text-sm">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="font-medium">{formatAmount(plan.total, locale)}</span>
+            <span className="font-medium">{moneyText(plan.total)}</span>
             <span className="tabular-nums text-muted">
-              {t("card.saved", { amount: formatAmount(trip.saved, locale) })}
+              {t("card.saved", { amount: moneyText(trip.saved) })}
             </span>
           </div>
           <div className="mt-1.5 h-2 rounded-full bg-brand-50" aria-hidden="true">
@@ -223,12 +225,12 @@ function TripCard({
             <p className="mt-2">
               {plan.monthsLeft > 1
                 ? t.rich("card.saveMonthly", {
-                    amount: formatAmount(plan.monthly, locale),
+                    amount: moneyText(plan.monthly),
                     months: plan.monthsLeft,
                     strong,
                   })
                 : t.rich("card.saveUntilTrip", {
-                    amount: formatAmount(plan.monthly, locale),
+                    amount: moneyText(plan.monthly),
                     strong,
                   })}
             </p>
@@ -236,7 +238,7 @@ function TripCard({
           {money(plan.missing).isZero() ? <p className="mt-2">{t("card.covered")}</p> : null}
           {trip.personIds.length > 1 ? (
             <p className="mt-1 text-xs text-muted">
-              {t("card.perTraveler", { amount: formatAmount(plan.perTraveler, locale) })}
+              {t("card.perTraveler", { amount: moneyText(plan.perTraveler) })}
             </p>
           ) : null}
         </div>
@@ -255,7 +257,7 @@ function TripCard({
                   {cost.perPerson ? t("card.costPerPerson", { kind }) : kind}
                 </span>
                 <span className="whitespace-nowrap font-medium tabular-nums">
-                  {formatAmount(cost.amount, locale)}
+                  {moneyText(cost.amount)}
                 </span>
                 {writable ? (
                   <IconButton
@@ -312,6 +314,7 @@ export function TripsBoard({
 }) {
   const t = useTranslations("viagens");
   const locale = useLocale();
+  const moneyText = useMoney();
   const [sheet, setSheet] = useState<Open | null>(null);
   const [removing, setRemoving] = useState<Trip | null>(null);
   const [removingCost, setRemovingCost] = useState<Cost | null>(null);
@@ -364,11 +367,11 @@ export function TripsBoard({
             />
             <StatTile
               label={t("stats.missing")}
-              value={formatAmount(sum(upcoming.map((trip) => trip.plan.missing)), locale)}
+              value={moneyText(sum(upcoming.map((trip) => trip.plan.missing)))}
             />
             <StatTile
               label={t("stats.monthly")}
-              value={formatAmount(sum(upcoming.map((trip) => trip.plan.monthly ?? "0")), locale)}
+              value={moneyText(sum(upcoming.map((trip) => trip.plan.monthly ?? "0")))}
               hint={t("stats.monthlyHint")}
             />
           </dl>

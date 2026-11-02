@@ -3,12 +3,15 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
+  accounts,
   and,
   eq,
   isNull,
   ne,
   auditLog,
   canWrite,
+  householdCurrency,
+  householdHasMovement,
   householdSettings,
   people,
   PERSON_RELATIONS,
@@ -16,7 +19,7 @@ import {
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
-import { isValidTimezone } from "@organizeup/domain";
+import { CURRENCIES, isValidTimezone } from "@organizeup/domain";
 import {
   adultProfileFor,
   birthField,
@@ -30,6 +33,7 @@ import {
   weddingSchema,
 } from "@/lib/onboarding";
 import type { Locale } from "@/i18n/locales";
+import { forgetFamilyCurrency } from "@/i18n/money-server";
 import { requireTenant } from "@/lib/session";
 
 export interface ActionState {
@@ -96,6 +100,7 @@ const settingsSchema = z.object({
 export async function bootstrapHousehold(input: {
   city?: string;
   state?: string;
+  currency?: string;
 }): Promise<ActionState> {
   const { session, ctx } = await requireTenant();
   const t = await getTranslations("familiaOnboarding.create");
@@ -105,6 +110,7 @@ export async function bootstrapHousehold(input: {
     state: input.state ?? "",
     timezone: "America/Sao_Paulo",
   });
+  const currency = CURRENCIES.find((code) => code === input.currency) ?? "BRL";
   if (!parsed.success) {
     const tSettings = await getTranslations("settings.home");
     const fieldErrors = translated(parsed.error, {
@@ -117,7 +123,7 @@ export async function bootstrapHousehold(input: {
   await withHousehold(ctx, async (tx) => {
     await tx
       .insert(householdSettings)
-      .values({ householdId: ctx.householdId, ...parsed.data })
+      .values({ householdId: ctx.householdId, ...parsed.data, mainCurrency: currency })
       .onConflictDoNothing();
     const existing = await tx
       .select({ id: people.id })
@@ -302,6 +308,44 @@ export async function updateSettings(_prev: ActionState, formData: FormData): Pr
   });
   revalidatePath("/app", "layout");
   return { ok: true, message: t("home.saved") };
+}
+
+/**
+ * Muda a moeda principal, só enquanto a família não tiver movimento. Conta sem saldo inicial acompanha:
+ * é a conta padrão da família. Conta com saldo fica na moeda dela, porque não existe conversão.
+ */
+export async function updateCurrency(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { ctx } = await requireTenant();
+  const [t, tSettings] = await Promise.all([
+    getTranslations("settings.currency"),
+    getTranslations("settings"),
+  ]);
+  if (!canWrite(ctx)) return { ok: false, message: tSettings("noPermission") };
+  const currency = CURRENCIES.find((code) => code === formData.get("currency"));
+  if (!currency) return { ok: false, message: null, fieldErrors: { currency: t("invalid") } };
+
+  const failure = await withHousehold(ctx, async (tx) => {
+    const current = await householdCurrency(tx);
+    if (current === currency) return null;
+    if (await householdHasMovement(tx)) return t("locked");
+    await tx
+      .insert(householdSettings)
+      .values({ householdId: ctx.householdId, mainCurrency: currency })
+      .onConflictDoUpdate({
+        target: householdSettings.householdId,
+        set: { mainCurrency: currency, updatedAt: new Date() },
+      });
+    await tx
+      .update(accounts)
+      .set({ currency })
+      .where(and(eq(accounts.currency, current), eq(accounts.openingBalance, "0")));
+    await audit(tx, ctx, "update", "household_settings", ctx.householdId);
+    return null;
+  });
+  if (failure) return { ok: false, message: failure };
+  await forgetFamilyCurrency();
+  revalidatePath("/", "layout");
+  return { ok: true, message: t("saved") };
 }
 
 export async function updateWedding(_prev: ActionState, formData: FormData): Promise<ActionState> {

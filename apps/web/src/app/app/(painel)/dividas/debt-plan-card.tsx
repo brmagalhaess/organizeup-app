@@ -1,3 +1,4 @@
+"use client";
 import { AlertCircle, Sparkles } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -8,7 +9,8 @@ import {
   type DebtSignal,
 } from "@organizeup/domain";
 import { Badge, Card, FormMessage } from "@/components/ui";
-import { formatAmount, formatMonthYear, toAmountInput } from "@/i18n/format";
+import { formatMonthYear, toAmountInput } from "@/i18n/format";
+import { useMoney } from "@/i18n/money";
 
 function useWhenText() {
   const t = useTranslations("dividas.plan");
@@ -33,7 +35,7 @@ function useSignalText() {
 
 function StrategyRow({ item, plan }: { item: DebtPlanStrategy; plan: DebtPlan }) {
   const t = useTranslations("dividas.plan");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const whenText = useWhenText();
   return (
     <tr className="border-b border-line last:border-0">
@@ -42,17 +44,15 @@ function StrategyRow({ item, plan }: { item: DebtPlanStrategy; plan: DebtPlan })
         {plan.recommended === item.strategy ? <Badge tone="success">{t("cheapest")}</Badge> : null}
       </th>
       <td className="px-2 py-2">{whenText(item.payoffMonth)}</td>
-      <td className="px-2 py-2 text-right tabular-nums">
-        {formatAmount(item.totalInterest, locale)}
-      </td>
-      <td className="py-2 pl-2 text-right tabular-nums">{formatAmount(item.saved, locale)}</td>
+      <td className="px-2 py-2 text-right tabular-nums">{moneyText(item.totalInterest)}</td>
+      <td className="py-2 pl-2 text-right tabular-nums">{moneyText(item.saved)}</td>
     </tr>
   );
 }
 
 function Comparison({ plan }: { plan: DebtPlan }) {
   const t = useTranslations("dividas.plan");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const whenText = useWhenText();
   return (
     <details className="mt-4 rounded-xl border border-line bg-card-soft p-4 text-sm">
@@ -90,9 +90,9 @@ function Comparison({ plan }: { plan: DebtPlan }) {
               </th>
               <td className="px-2 py-2">{whenText(plan.baseline.payoffMonth)}</td>
               <td className="px-2 py-2 text-right tabular-nums">
-                {formatAmount(plan.baseline.totalInterest, locale)}
+                {moneyText(plan.baseline.totalInterest)}
               </td>
-              <td className="py-2 pl-2 text-right tabular-nums">{formatAmount(0, locale)}</td>
+              <td className="py-2 pl-2 text-right tabular-nums">{moneyText(0)}</td>
             </tr>
           </tbody>
         </table>
@@ -105,6 +105,7 @@ function Comparison({ plan }: { plan: DebtPlan }) {
 export function DebtPlanCard({ plan }: { plan: DebtPlan }) {
   const t = useTranslations("dividas.plan");
   const locale = useLocale();
+  const moneyText = useMoney();
   const signalText = useSignalText();
   const best = recommendedStrategy(plan);
   const hasExtra = best.thisMonth.length > 0;
@@ -113,7 +114,7 @@ export function DebtPlanCard({ plan }: { plan: DebtPlan }) {
     ? t("noEnd")
     : money(best.saved).isZero()
       ? t("payOff", { when })
-      : t("payOffSaving", { when, saved: formatAmount(best.saved, locale) });
+      : t("payOffSaving", { when, saved: moneyText(best.saved) });
   return (
     <Card title={headline} description={t("description")}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -127,7 +128,7 @@ export function DebtPlanCard({ plan }: { plan: DebtPlan }) {
               {best.thisMonth.map((item) => (
                 <li key={item.id}>
                   {t.rich("payExtra", {
-                    amount: formatAmount(item.amount, locale),
+                    amount: moneyText(item.amount),
                     name: item.name,
                     strong: (chunks) => <span className="font-semibold">{chunks}</span>,
                   })}
@@ -161,7 +162,7 @@ export function DebtPlanCard({ plan }: { plan: DebtPlan }) {
       ) : null}
       {money(plan.extra).isZero() ? null : (
         <p className="mt-3 text-xs text-muted">
-          {t("extraUsed", { value: formatAmount(plan.extra, locale) })}
+          {t("extraUsed", { value: moneyText(plan.extra) })}
         </p>
       )}
       <Comparison plan={plan} />

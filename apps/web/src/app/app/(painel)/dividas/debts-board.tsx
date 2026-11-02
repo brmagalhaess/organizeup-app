@@ -29,12 +29,13 @@ import {
   Select,
   Sheet,
 } from "@/components/ui";
-import { formatAmount, formatDayMonth, toAmountInput } from "@/i18n/format";
+import { formatDayMonth, toAmountInput } from "@/i18n/format";
 import type { loadDebts } from "@/lib/commitments";
 import { systemTextOf } from "@/i18n/system-text";
 import { closeDebt, deleteDocument, reopenDebt, saveDebt, type DebtFormState } from "./actions";
 import { DebtFields } from "./debt-fields";
 import { DebtFiles, type DebtFileView } from "./debt-files";
+import { useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadDebts>>;
 type DebtView = Data["debts"][number];
@@ -95,6 +96,7 @@ function DebtForm({
 function Schedule({ debt, today }: { debt: DebtView; today: string }) {
   const t = useTranslations("dividas.schedule");
   const locale = useLocale();
+  const moneyText = useMoney();
   return (
     <table className="w-full border-collapse text-sm">
       <caption className="sr-only">{t("caption", { name: debt.name })}</caption>
@@ -134,10 +136,10 @@ function Schedule({ debt, today }: { debt: DebtView; today: string }) {
               ) : null}
             </td>
             <td className="px-2 py-2 text-right tabular-nums text-muted">
-              {formatAmount(row.interest, locale)}
+              {moneyText(row.interest)}
             </td>
             <td className="py-2 pl-2 text-right font-medium tabular-nums">
-              {formatAmount(row.amount, locale)}
+              {moneyText(row.amount)}
             </td>
           </tr>
         ))}
@@ -168,6 +170,7 @@ function DebtCard({
   const t = useTranslations("dividas");
   const tCard = useTranslations("dividas.card");
   const locale = useLocale();
+  const moneyText = useMoney();
   const { name } = debt;
   const rate = money(debt.monthlyRate);
   const rateLabel = rate.isZero()
@@ -214,7 +217,7 @@ function DebtCard({
       <div>
         <p className="text-xs text-muted">{tCard("left")}</p>
         <p className="text-2xl font-semibold tabular-nums tracking-tight">
-          {formatAmount(debt.balance, locale)}
+          {moneyText(debt.balance)}
         </p>
       </div>
       <div>
@@ -231,7 +234,7 @@ function DebtCard({
       {debt.next ? (
         <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3">
           <div className="min-w-0 text-sm">
-            <p className="font-medium tabular-nums">{formatAmount(debt.next.amount, locale)}</p>
+            <p className="font-medium tabular-nums">{moneyText(debt.next.amount)}</p>
             <p className="flex items-center gap-1 text-xs text-muted">
               {tCard("dueOn", { date: formatDayMonth(debt.next.dueDate, locale) })}
               {overdue ? (
@@ -267,7 +270,7 @@ export function DebtsBoard({
   writable: boolean;
 }) {
   const t = useTranslations("dividas");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const [editing, setEditing] = useState<{ nonce: number; debt: DebtView | null } | null>(null);
   const [viewing, setViewing] = useState<DebtView | null>(null);
   const [closing, setClosing] = useState<DebtView | null>(null);
@@ -407,13 +410,12 @@ export function DebtsBoard({
             <p className="mb-3 text-sm text-muted">
               {t("schedule.openTotal")}{" "}
               <span className="font-semibold text-ink">
-                {formatAmount(
+                {moneyText(
                   toDbAmount(
                     viewing.installments
                       .filter((row) => !row.paid)
                       .reduce((acc, row) => acc.plus(row.amount), money(0)),
                   ),
-                  locale,
                 )}
               </span>
             </p>

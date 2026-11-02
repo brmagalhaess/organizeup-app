@@ -27,10 +27,11 @@ import {
   Input,
   Select,
 } from "@/components/ui";
-import { formatAmount, formatDayMonth } from "@/i18n/format";
+import { formatDayMonth } from "@/i18n/format";
 import { systemTextOf } from "@/i18n/system-text";
 import { deleteEntry, stopPlan } from "./actions";
 import { PlanLink } from "./plan-link";
+import { useMoney } from "@/i18n/money";
 
 interface Named {
   id: string;
@@ -146,6 +147,7 @@ export function EntriesTable({
 }) {
   const t = useTranslations("lancamentos");
   const locale = useLocale();
+  const moneyText = useMoney();
   const { openNew, openEdit, writable } = useEntryDialog();
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("");
@@ -323,13 +325,13 @@ export function EntriesTable({
                     {entry.kind === "receita" ? "+ " : "− "}
                     {entry.originalAmount && entry.originalCurrency ? (
                       <>
-                        {formatAmount(entry.originalAmount, locale, "full", entry.originalCurrency)}
+                        {moneyText(entry.originalAmount, "full", entry.originalCurrency)}
                         <span className="block text-xs font-normal text-muted">
-                          ≈ {formatAmount(entry.amount, locale)}
+                          ≈ {moneyText(entry.amount)}
                         </span>
                       </>
                     ) : (
-                      formatAmount(entry.amount, locale)
+                      moneyText(entry.amount)
                     )}
                   </td>
                   {writable ? (

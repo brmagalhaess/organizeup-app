@@ -17,12 +17,13 @@ import {
   Input,
   Select,
 } from "@/components/ui";
-import { formatAmount, toAmountInput } from "@/i18n/format";
+import { toAmountInput } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { systemTextOf } from "@/i18n/system-text";
 import { acceptFiles, confirmDebtImport, deleteDocument, type DebtFormState } from "../actions";
 import { DebtFields, type DebtFieldName, type DebtFieldValues } from "../debt-fields";
 import { uploadDebtFile, useUploadTexts, type DebtFileView } from "../debt-files";
+import { useMoney } from "@/i18n/money";
 
 type DoubtFlags = Record<DebtFieldName | "name", boolean>;
 
@@ -96,6 +97,7 @@ function ReviewCard({
   const tCommon = useTranslations("common");
   const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
+  const moneyText = useMoney();
   // Confirmado, o arquivo sai da lista junto com este cartão: o aviso precisa ficar no pai.
   const [state, action, pending] = useActionState(
     async (previous: DebtFormState, form: FormData) => {
@@ -143,7 +145,7 @@ function ReviewCard({
         {found?.installmentAmount.value || found?.cetAnnual.value ? (
           <p className="mb-3 text-sm text-muted">
             {found.installmentAmount.value
-              ? `${tReview("inFile", { value: formatAmount(found.installmentAmount.value, locale) })} `
+              ? `${tReview("inFile", { value: moneyText(found.installmentAmount.value) })} `
               : ""}
             {found.cetAnnual.value
               ? tReview("cet", { rate: rateInput(found.cetAnnual.value, locale) })

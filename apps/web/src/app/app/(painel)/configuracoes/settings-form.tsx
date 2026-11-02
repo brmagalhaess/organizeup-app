@@ -1,7 +1,10 @@
 "use client";
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
-import { updatePlan, updateSettings, type ActionState } from "@/app/app/actions";
+import { CURRENCIES, type Currency } from "@organizeup/domain";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { updateCurrency, updatePlan, updateSettings, type ActionState } from "@/app/app/actions";
 import { Button, Field, FormMessage, Input, Select, submitKeeping } from "@/components/ui";
 
 const initial: ActionState = { ok: false, message: null };
@@ -56,6 +59,51 @@ export function SettingsForm({
         <Button type="submit" disabled={pending || disabled}>
           {pending ? tCommon("saving") : t("home.save")}
         </Button>
+      </fieldset>
+      <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
+    </form>
+  );
+}
+
+/** Moeda principal: muda só sem movimento. Travada, mostra a moeda e explica por quê. */
+export function CurrencyForm({
+  currency,
+  locked,
+  disabled,
+}: {
+  currency: Currency;
+  locked: boolean;
+  disabled: boolean;
+}) {
+  const t = useTranslations("settings.currency");
+  const tCurrencies = useTranslations("contas.currencies");
+  const tCommon = useTranslations("common");
+  const router = useRouter();
+  const [state, action, pending] = useActionState(updateCurrency, initial);
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [state, router]);
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      <fieldset disabled={disabled || locked} className="contents">
+        <Field
+          label={t("label")}
+          hint={t(locked ? "lockedHint" : "hint")}
+          error={state.fieldErrors?.currency}
+        >
+          <Select name="currency" defaultValue={currency}>
+            {CURRENCIES.map((value) => (
+              <option key={value} value={value}>
+                {tCurrencies(value)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {locked ? null : (
+          <Button type="submit" disabled={pending || disabled}>
+            {pending ? tCommon("saving") : t("save")}
+          </Button>
+        )}
       </fieldset>
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
     </form>

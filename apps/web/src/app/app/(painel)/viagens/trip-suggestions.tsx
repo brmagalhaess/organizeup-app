@@ -3,7 +3,8 @@ import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { addMonths, money, type YearMonth } from "@organizeup/domain";
 import { Badge, Card } from "@/components/ui";
-import { formatAmount, formatMonthYear } from "@/i18n/format";
+import { formatMonthYear, type MoneyText } from "@/i18n/format";
+import { useMoney } from "@/i18n/money";
 import type { Locale } from "@/i18n/locales";
 import type { TripSuggestionItem, TripSuggestions as Data } from "@/lib/suggestions";
 import {
@@ -14,8 +15,8 @@ import {
 } from "../sugestoes/suggestion-controls";
 
 /** Estimativa em reais inteiros: o centavo daria uma precisão que a tabela não tem. */
-const rounded = (value: string, locale: Locale) =>
-  formatAmount(money(value).toDecimalPlaces(0), locale).replace(/[.,]00(?=\D*$)/, "");
+const rounded = (value: string, moneyText: MoneyText) =>
+  moneyText(money(value).toDecimalPlaces(0)).replace(/[.,]00(?=\D*$)/, "");
 
 /** "julho" neste ano, "julho de 2027" nos seguintes. */
 function monthLabel(month: YearMonth, today: string, locale: Locale) {
@@ -38,10 +39,11 @@ function SuggestionCard({
 }) {
   const t = useTranslations("viagens.suggestions");
   const locale = useLocale();
+  const moneyText = useMoney();
   const perPerson =
     item.perPerson ?? money(item.total).dividedBy(Math.max(1, item.personIds.length)).toString();
   const when = monthLabel(item.month, today, locale);
-  const monthly = rounded(item.monthlyToSave, locale);
+  const monthly = rounded(item.monthlyToSave, moneyText);
   return (
     <li className="rounded-xl border border-line p-4">
       <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
@@ -51,8 +53,8 @@ function SuggestionCard({
       <p className="mt-1 text-sm text-muted">{t("when", { when, days: item.days })}</p>
       <p className="mt-2 text-sm font-medium">
         {t("about", {
-          total: rounded(item.total, locale),
-          perPerson: rounded(perPerson, locale),
+          total: rounded(item.total, moneyText),
+          perPerson: rounded(perPerson, moneyText),
         })}
       </p>
       <p className="mt-1 text-sm">

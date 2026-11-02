@@ -26,7 +26,7 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
-import { formatAmount, formatMonthYear, formatPercent, toFieldValue } from "@/i18n/format";
+import { formatMonthYear, formatPercent, toFieldValue } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import type { loadReserve } from "@/lib/wealth";
 import { systemTextOf } from "@/i18n/system-text";
@@ -38,6 +38,7 @@ import {
   type ReserveFormState,
 } from "./actions";
 import { reserveNextStep, type NextStep } from "./next-step";
+import { useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadReserve>>;
 type Status = Data["status"];
@@ -154,7 +155,7 @@ function AccountToggle({
   account: Data["accounts"][number];
   writable: boolean;
 }) {
-  const locale = useLocale();
+  const moneyText = useMoney();
   const system = systemTextOf(useTranslations("sistema"));
   const [selected, setSelected] = useOptimistic(account.selected);
   const [, start] = useTransition();
@@ -187,7 +188,7 @@ function AccountToggle({
         <span className={cx("min-w-0 flex-1 break-words", selected && "font-medium")}>
           {system.name(account.name)}
         </span>
-        <span className="tabular-nums text-muted">{formatAmount(account.balance, locale)}</span>
+        <span className="tabular-nums text-muted">{moneyText(account.balance)}</span>
       </label>
       <FormMessage message={error} />
     </li>
@@ -210,7 +211,7 @@ function NeedCard({
   onEdit: () => void;
 }) {
   const t = useTranslations("reserva");
-  const locale = useLocale();
+  const moneyText = useMoney();
   if (data.baseline.basis === "sem_dados")
     return (
       <Card title={t("need.title")}>
@@ -228,13 +229,11 @@ function NeedCard({
   const { basis, months } = data.baseline;
   return (
     <Card title={t("need.title")}>
-      <p className="font-display text-4xl font-medium tabular-nums">
-        {formatAmount(status.target, locale)}
-      </p>
+      <p className="font-display text-4xl font-medium tabular-nums">{moneyText(status.target)}</p>
       <p className="mt-2 text-sm">
         {t("need.summary", {
           count: used,
-          amount: formatAmount(data.baseline.monthly, locale),
+          amount: moneyText(data.baseline.monthly),
         })}
       </p>
       <p className="mt-1 text-sm text-muted">
@@ -263,13 +262,11 @@ function NeedCard({
 
 function HaveCard({ data, status, writable }: { data: Data; status: Status; writable: boolean }) {
   const t = useTranslations("reserva.have");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const selected = data.accounts.filter((account) => account.selected);
   return (
     <Card title={t("title")}>
-      <p className="font-display text-4xl font-medium tabular-nums">
-        {formatAmount(status.saved, locale)}
-      </p>
+      <p className="font-display text-4xl font-medium tabular-nums">{moneyText(status.saved)}</p>
       <FxNote fx={data.fx} className="m-0 mt-1 text-xs text-muted" />
       <p className="mt-2 text-sm">
         {t("status", { count: selected.length, name: selected[0]?.name ?? "" })}
@@ -318,6 +315,7 @@ function ContributionForm({
 }) {
   const t = useTranslations("reserva");
   const locale = useLocale();
+  const moneyText = useMoney();
   const [state, action, pending] = useActionState(saveReserveContribution, initial);
   const typed = parseAmount(text, locale);
   const saved = data.contribution === null ? null : money(data.contribution).toFixed(2);
@@ -329,7 +327,7 @@ function ContributionForm({
           label={t("contribution.label")}
           hint={
             suggested && !saved
-              ? t("contribution.hint", { amount: formatAmount(suggested, locale) })
+              ? t("contribution.hint", { amount: moneyText(suggested) })
               : undefined
           }
           error={typed === "invalid" ? t("errors.amountExample") : undefined}
@@ -378,6 +376,7 @@ function MissingCard({
 }) {
   const t = useTranslations("reserva.missing");
   const locale = useLocale();
+  const moneyText = useMoney();
   if (data.baseline.basis === "sem_dados")
     return (
       <Card title={t("title")}>
@@ -390,7 +389,7 @@ function MissingCard({
     <Card title={t("title")}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <p className="font-display text-4xl font-medium tabular-nums">
-          {formatAmount(status.missing, locale)}
+          {moneyText(status.missing)}
         </p>
         {done ? (
           <Badge tone="success">
@@ -427,7 +426,7 @@ function MissingCard({
           {left !== null && amount !== null ? (
             <p role="status" className="mt-3 text-sm">
               {t.rich("forecast", {
-                amount: formatAmount(amount, locale),
+                amount: moneyText(amount),
                 date: formatMonthYear(addMonths(data.month, left), locale),
                 count: left,
                 b: (chunks) => <span className="font-semibold">{chunks}</span>,
@@ -442,10 +441,10 @@ function MissingCard({
 
 function NextStepCard({ step, writable }: { step: NextStep; writable: boolean }) {
   const t = useTranslations("reserva.nextStep");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const { action, key } = step;
   const values = {
-    amount: step.amount ? formatAmount(step.amount, locale) : "",
+    amount: step.amount ? moneyText(step.amount) : "",
     place: step.place ?? "",
   };
   const className = cx(buttonClass("accent"), "shrink-0");

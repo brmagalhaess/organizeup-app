@@ -13,15 +13,17 @@ import {
   creditCards,
   ENTRY_KINDS,
   eq,
-  fxRateOn,
+  fxQuoteIn,
+  householdCurrency,
   inArray,
   transactions,
   withHousehold,
 } from "@organizeup/db";
 import {
   addMonths,
+  CURRENCIES,
   entryFromTyped,
-  FX_CURRENCIES,
+  entryOrigin,
   fitsAmount,
   isForeign,
   isYearMonth,
@@ -43,12 +45,12 @@ export interface EntryFormState {
   fieldErrors?: Record<string, string>;
 }
 
-/** Cotação que um lançamento nesta data usaria, para a prévia do formulário. Só lê. */
+/** Cotação que um lançamento nesta data usaria, na moeda principal, para a prévia do formulário. Só lê. */
 export async function quoteForEntry(currency: string, date: string): Promise<FxQuote | null> {
   const { ctx } = await requireTenant();
-  const known = FX_CURRENCIES.find((code) => code === currency);
+  const known = CURRENCIES.find((code) => code === currency);
   if (!known || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  return withHousehold(ctx, (tx) => fxRateOn(tx, known, date));
+  return withHousehold(ctx, async (tx) => fxQuoteIn(tx, known, await householdCurrency(tx), date));
 }
 
 const entrySchema = (errors: Messages["lancamentos"]["errors"], locale: Locale) =>
@@ -161,11 +163,12 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
 
     const currency = await accountCurrency(tx, data.accountId);
     if (!currency) return t("errors.invalidAccount");
-    const foreign = isForeign(currency);
-    // O valor digitado está na moeda da conta; `amount` guarda sempre reais.
+    const main = await householdCurrency(tx);
+    const foreign = isForeign(currency, main);
+    // O valor digitado está na moeda da conta; `amount` guarda sempre a moeda principal.
     const inAccount = async () => {
-      const quote = foreign ? await fxRateOn(tx, currency, data.date) : null;
-      const entry = entryFromTyped(data.amount, currency, quote);
+      const quote = foreign ? await fxQuoteIn(tx, currency, main, data.date) : null;
+      const entry = entryFromTyped(data.amount, currency, quote, main);
       if (!entry) return t("errors.noQuote", { currency });
       return fitsAmount(entry.amount) ? entry : t("errors.overLimit");
     };
@@ -186,10 +189,11 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
       // A previsão só some do mês do lançamento ligado a ela; trocar de mês a faria voltar.
       if (current.planId && current.planMonth !== month) return t("errors.recurringMonth");
       // A cotação fica congelada: só valor, data ou moeda novos pedem outra conversão.
+      const origin = entryOrigin(current);
       const sameMoney =
-        (current.originalAmount ?? current.amount) === data.amount &&
+        (origin?.amount ?? current.amount) === data.amount &&
         current.occurredOn === data.date &&
-        (current.originalCurrency ?? "BRL") === currency;
+        (origin?.currency ?? main) === currency;
       const changed = !sameMoney || current.description !== data.description;
       if (changed && (await goalEntryLink(tx, id))) return t("errors.goalEntry");
       const entry = sameMoney ? {} : await inAccount();

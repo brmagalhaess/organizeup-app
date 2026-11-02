@@ -30,10 +30,11 @@ import {
   Sheet,
   StatTile,
 } from "@/components/ui";
-import { formatAmount, formatMonthYear, monthName, monthNames, toAmountInput } from "@/i18n/format";
+import { formatMonthYear, monthName, monthNames, toAmountInput } from "@/i18n/format";
 import type { loadIncome } from "@/lib/income-data";
 import { systemTextOf } from "@/i18n/system-text";
 import { saveIncome, stopIncome, type IncomeFormState } from "./actions";
+import { useBrazilRules, useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadIncome>>;
 type Source = Data["sources"][number];
@@ -70,7 +71,7 @@ function Line({
   negative?: boolean;
   strong?: boolean;
 }) {
-  const locale = useLocale();
+  const moneyText = useMoney();
   return (
     <div
       className={cx(
@@ -81,7 +82,7 @@ function Line({
       <dt className={strong ? "" : "text-muted"}>{label}</dt>
       <dd className="m-0 whitespace-nowrap font-medium tabular-nums">
         {negative ? "− " : ""}
-        {formatAmount(value, locale)}
+        {moneyText(value)}
       </dd>
     </div>
   );
@@ -105,12 +106,12 @@ function PayslipLines({ slip }: { slip: Payslip }) {
 
 function TaxNote({ slip, className }: { slip: Payslip; className: string }) {
   const t = useTranslations("renda.slip");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const deduction = t(slip.deduction === "simplificado" ? "simplified" : "legal");
   return (
     <p className={className}>
       {hasValue(slip.reduction)
-        ? `${deduction} ${t("reduction", { value: formatAmount(slip.reduction, locale) })}`
+        ? `${deduction} ${t("reduction", { value: moneyText(slip.reduction) })}`
         : deduction}
     </p>
   );
@@ -125,7 +126,7 @@ function ExtraPay({
 }) {
   const t = useTranslations("renda.extra");
   const tSlip = useTranslations("renda.slip");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const uncertain = !money(vacation.net).equals(vacation.netWithReduction);
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -145,7 +146,7 @@ function ExtraPay({
         </dl>
         {uncertain ? (
           <p className="mt-2 text-xs text-muted">
-            {t("uncertain", { value: formatAmount(vacation.netWithReduction, locale) })}
+            {t("uncertain", { value: moneyText(vacation.netWithReduction) })}
           </p>
         ) : null}
       </section>
@@ -286,7 +287,11 @@ function IncomeForm({
   const locale = useLocale();
   const zero = toAmountInput("0.00", locale);
   const [state, action, pending] = useActionState(saveIncome, initial);
-  const [kind, setKind] = useState<IncomeKind>(source?.kind ?? "clt");
+  const brazil = useBrazilRules();
+  const kinds = brazil ? KINDS : KINDS.filter((value) => value !== "clt");
+  const [kind, setKind] = useState<IncomeKind>(
+    source?.kind && kinds.includes(source.kind) ? source.kind : brazil ? "clt" : "outro",
+  );
   const clt = kind === "clt";
   useEffect(() => {
     if (state.ok) onDone();
@@ -303,7 +308,7 @@ function IncomeForm({
           value={kind}
           onChange={(event) => setKind(event.target.value as IncomeKind)}
         >
-          {KINDS.map((value) => (
+          {kinds.map((value) => (
             <option key={value} value={value}>
               {t(`kinds.${value}`)}
             </option>
@@ -446,6 +451,7 @@ function SourceCard({
 }) {
   const t = useTranslations("renda");
   const locale = useLocale();
+  const moneyText = useMoney();
   const { name } = source;
   const person = data.people.find((p) => p.id === source.personId)?.name;
   return (
@@ -489,7 +495,7 @@ function SourceCard({
         </div>
       ) : (
         <p className="mt-3 text-2xl font-semibold tabular-nums tracking-tight">
-          {formatAmount(source.monthly, locale)}
+          {moneyText(source.monthly)}
         </p>
       )}
     </Card>
@@ -499,6 +505,7 @@ function SourceCard({
 export function IncomeBoard({ data, writable }: { data: Data; writable: boolean }) {
   const t = useTranslations("renda");
   const locale = useLocale();
+  const moneyText = useMoney();
   const [editing, setEditing] = useState<{
     nonce: number;
     source: Source | null;
@@ -509,6 +516,7 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
   const open = (source: Source | null, draft: Draft | null = null) =>
     setEditing((s) => ({ nonce: (s?.nonce ?? 0) + 1, source, draft }));
   const hasPayroll = data.sources.some((source) => source.payslip);
+  const brazil = useBrazilRules();
 
   return (
     <div className="flex flex-col gap-6">
@@ -526,10 +534,12 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
         }
       />
 
-      <div className="flex items-start gap-2 rounded-xl bg-card p-3 text-sm text-muted">
-        <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        <p>{t("estimate", { month: formatMonthYear(data.table.validFrom, locale) })}</p>
-      </div>
+      {brazil ? (
+        <div className="flex items-start gap-2 rounded-xl bg-card p-3 text-sm text-muted">
+          <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p>{t("estimate", { month: formatMonthYear(data.table.validFrom, locale) })}</p>
+        </div>
+      ) : null}
 
       {data.recurringIncome > 0 && data.sources.length > 0 ? (
         <div
@@ -543,17 +553,15 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
 
       {data.sources.length > 0 ? (
         <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
-          <StatTile label={t("stats.net")} value={formatAmount(data.summary.monthly, locale)} />
-          <StatTile label={t("stats.gross")} value={formatAmount(data.summary.gross, locale)} />
-          <StatTile
-            label={t("stats.discounts")}
-            value={formatAmount(data.summary.discounts, locale)}
-          />
+          <StatTile label={t("stats.net")} value={moneyText(data.summary.monthly)} />
+          {brazil ? (
+            <>
+              <StatTile label={t("stats.gross")} value={moneyText(data.summary.gross)} />
+              <StatTile label={t("stats.discounts")} value={moneyText(data.summary.discounts)} />
+            </>
+          ) : null}
           {hasPayroll ? (
-            <StatTile
-              label={t("stats.thirteenth")}
-              value={formatAmount(data.summary.thirteenth, locale)}
-            />
+            <StatTile label={t("stats.thirteenth")} value={moneyText(data.summary.thirteenth)} />
           ) : null}
         </dl>
       ) : null}
@@ -562,7 +570,7 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
         <Card>
           <EmptyState
             title={t("empty.title")}
-            text={t("empty.text")}
+            text={t(brazil ? "empty.text" : "empty.textSimple")}
             action={
               writable ? <Button onClick={() => open(null)}>{t("empty.action")}</Button> : null
             }
@@ -583,7 +591,9 @@ export function IncomeBoard({ data, writable }: { data: Data; writable: boolean 
         </div>
       )}
 
-      <Simulator data={data} writable={writable} onRegister={(draft) => open(null, draft)} />
+      {brazil ? (
+        <Simulator data={data} writable={writable} onRegister={(draft) => open(null, draft)} />
+      ) : null}
 
       <Sheet
         open={editing !== null}

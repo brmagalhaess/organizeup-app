@@ -58,7 +58,7 @@ function writerFor(locale: Locale): Writer {
 function valueText(value: MessageValue, writer: Writer): string | number {
   if (typeof value === "string" || typeof value === "number") return value;
   const { locale, system } = writer;
-  if ("money" in value) return formatAmount(value.money, locale);
+  if ("money" in value) return formatAmount(value.money, locale, "full", value.currency);
   if ("month" in value) return formatMonthYear(value.month, locale);
   if ("date" in value) return formatDate(value.date, locale);
   if ("percent" in value) return formatPercentExact(value.percent, locale, 2);

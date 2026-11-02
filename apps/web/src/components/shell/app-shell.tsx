@@ -38,6 +38,7 @@ import { AssistantPanel } from "@/components/assistant/assistant-panel";
 import { cx } from "@/components/styles";
 import { Button, IconButton, Sheet } from "@/components/ui";
 import { DEFAULT_LOCALE } from "@/i18n/locales";
+import { useBrazilRules } from "@/i18n/money";
 import { authClient } from "@/lib/auth-client";
 import { EntryDialogProvider, useEntryDialog } from "./entry-context";
 import type { EntryOptions } from "./entry-form";
@@ -66,6 +67,7 @@ export interface ShellBanner {
 }
 
 const SUGGESTIONS_HREF = "/app/sugestoes";
+const DIVIDENDS_HREF = "/app/proventos";
 
 /** Telas já traduzidas. As outras seguem em português e avisam isso ao leitor de tela. */
 const TRANSLATED_SCREENS = new Set([
@@ -121,7 +123,7 @@ const groups: Array<{ title: keyof Messages["shell"]["groups"]; items: NavItem[]
       { href: "/app/reserva", label: "reserve", icon: PiggyBank },
       { href: "/app/patrimonio", label: "wealth", icon: Gem },
       { href: "/app/investimentos", label: "investments", icon: TrendingUp },
-      { href: "/app/proventos", label: "dividends", icon: HandCoins },
+      { href: DIVIDENDS_HREF, label: "dividends", icon: HandCoins },
       { href: "/app/metas", label: "goals", icon: Target },
       { href: "/app/aposentadoria", label: "retirement", icon: Sunset },
       { href: "/app/viagens", label: "trips", icon: Palmtree },
@@ -135,6 +137,15 @@ const groups: Array<{ title: keyof Messages["shell"]["groups"]; items: NavItem[]
     ],
   },
 ];
+
+/** Proventos são da B3, com IR e JCP: fora das regras brasileiras, o menu não oferece. */
+const groupsFor = (brazil: boolean) =>
+  brazil
+    ? groups
+    : groups.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => item.href !== DIVIDENDS_HREF),
+      }));
 
 function initials(name: string) {
   return name
@@ -154,9 +165,10 @@ function Navigation({
 }) {
   const t = useTranslations("shell");
   const pathname = usePathname();
+  const brazil = useBrazilRules();
   return (
     <nav aria-label={t("modules")} className="flex flex-col gap-6">
-      {groups.map((group) => (
+      {groupsFor(brazil).map((group) => (
         <div key={group.title}>
           <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/70">
             {t(`groups.${group.title}`)}

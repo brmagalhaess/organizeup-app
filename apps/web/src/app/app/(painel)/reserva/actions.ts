@@ -50,7 +50,7 @@ async function saveFund(ctx: TenantContext, patch: FundPatch, message: string) {
   return { ok: true, message };
 }
 
-/** Valor em reais opcional: em branco vira null. Lança erro se não for um valor válido. */
+/** Valor opcional, na moeda principal: em branco vira null. Lança erro se não for um valor válido. */
 function optionalAmount(raw: FormDataEntryValue | null, locale: Locale): string | null {
   const text = String(raw ?? "").trim();
   if (!text) return null;

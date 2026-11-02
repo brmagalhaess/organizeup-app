@@ -2,7 +2,8 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Button, Field, FormMessage, Input } from "@/components/ui";
+import { CURRENCIES } from "@organizeup/domain";
+import { Button, Field, FormMessage, Input, Select } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
 import { bootstrapHousehold } from "../../actions";
 
@@ -19,6 +20,7 @@ function slugify(name: string): string {
 
 export function CreateHouseholdForm() {
   const t = useTranslations("familiaOnboarding.create");
+  const tCurrencies = useTranslations("contas.currencies");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -49,6 +51,7 @@ export function CreateHouseholdForm() {
     const result = await bootstrapHousehold({
       city: String(form.get("city") ?? ""),
       state: String(form.get("state") ?? ""),
+      currency: String(form.get("currency") ?? "BRL"),
     });
     if (!result.ok) {
       setPending(false);
@@ -72,6 +75,15 @@ export function CreateHouseholdForm() {
           <Input name="state" maxLength={2} autoComplete="address-level1" className="uppercase" />
         </Field>
       </div>
+      <Field label={t("currency")} hint={t("currencyHint")}>
+        <Select name="currency" defaultValue="BRL">
+          {CURRENCIES.map((value) => (
+            <option key={value} value={value}>
+              {tCurrencies(value)}
+            </option>
+          ))}
+        </Select>
+      </Field>
       <FormMessage message={error} />
       <Button type="submit" disabled={pending}>
         {t(pending ? "pending" : "submit")}

@@ -15,11 +15,12 @@ import {
   Select,
   Sheet,
 } from "@/components/ui";
-import { formatAmount, formatDate } from "@/i18n/format";
+import { formatDate } from "@/i18n/format";
 import { systemTextOf } from "@/i18n/system-text";
 import { deleteTrade } from "../actions";
 import { quantityText, type Data, type Trade } from "../shared";
 import { TradeForm } from "../trade-form";
+import { useMoney } from "@/i18n/money";
 
 const sideKey = (unit: boolean, buying: boolean) =>
   unit ? (buying ? "buy" : "sell") : buying ? "deposit" : "redeem";
@@ -37,6 +38,7 @@ export function TradesBoard({
   const t = useTranslations("investimentos");
   const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
+  const moneyText = useMoney();
   const router = useRouter();
   const [removing, setRemoving] = useState<Trade | null>(null);
   const [adding, setAdding] = useState<{ nonce: number } | null>(null);
@@ -79,7 +81,7 @@ export function TradesBoard({
         </Card>
       ) : (
         <Card
-          title={t("trades.balance", { amount: formatAmount(toDbAmount(net), locale) })}
+          title={t("trades.balance", { amount: moneyText(toDbAmount(net)) })}
           description={t("trades.balanceHint")}
         >
           <div className="flex flex-col gap-4">
@@ -115,11 +117,11 @@ export function TradesBoard({
                     unit
                       ? t("trades.detail", {
                           quantity: quantityText(trade.quantity, locale),
-                          price: formatAmount(trade.unitPrice, locale),
+                          price: moneyText(trade.unitPrice),
                         })
                       : null,
                     money(trade.fees).gt(0)
-                      ? t("trades.fees", { amount: formatAmount(trade.fees, locale) })
+                      ? t("trades.fees", { amount: moneyText(trade.fees) })
                       : null,
                     trade.accountName ? system.name(trade.accountName) : null,
                   ];
@@ -135,7 +137,7 @@ export function TradesBoard({
                       </div>
                       <p className="m-0 whitespace-nowrap font-medium tabular-nums">
                         {buying ? "" : "-"}
-                        {formatAmount(toDbAmount(total), locale)}
+                        {moneyText(toDbAmount(total))}
                       </p>
                       {writable ? (
                         <IconButton

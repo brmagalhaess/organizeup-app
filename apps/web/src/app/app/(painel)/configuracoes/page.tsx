@@ -4,7 +4,13 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Suspense } from "react";
 import { canUseAssistant, INSIGHTS_CONSENT_VERSION } from "@organizeup/ai";
-import { canWrite, eq, householdSettings, withHousehold } from "@organizeup/db";
+import {
+  canWrite,
+  eq,
+  householdHasMovement,
+  householdSettings,
+  withHousehold,
+} from "@organizeup/db";
 import { AssistantSettings } from "@/components/assistant/assistant-settings";
 import { buttonClass } from "@/components/styles";
 import { LocaleSelect } from "@/components/locale-select";
@@ -13,7 +19,7 @@ import { formatInstant } from "@/i18n/format";
 import { requireTenant } from "@/lib/session";
 import { DeleteAccount } from "./delete-account";
 import { MemoriesBlock } from "./memories";
-import { PlanForm, SettingsForm } from "./settings-form";
+import { CurrencyForm, PlanForm, SettingsForm } from "./settings-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings");
@@ -29,9 +35,13 @@ function LoadingMemories() {
 
 export default async function SettingsPage() {
   const { session, ctx } = await requireTenant();
-  const [settings] = await withHousehold(ctx, (tx) =>
-    tx.select().from(householdSettings).where(eq(householdSettings.householdId, ctx.householdId)),
-  );
+  const { settings, locked } = await withHousehold(ctx, async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(householdSettings)
+      .where(eq(householdSettings.householdId, ctx.householdId));
+    return { settings: row, locked: await householdHasMovement(tx) };
+  });
   const [t, tLocale, locale] = await Promise.all([
     getTranslations("settings"),
     getTranslations("locale"),
@@ -55,6 +65,13 @@ export default async function SettingsPage() {
               state: settings?.state ?? "",
               timezone: settings?.timezone ?? "America/Sao_Paulo",
             }}
+          />
+        </Card>
+        <Card title={t("currency.title")} description={t("currency.description")}>
+          <CurrencyForm
+            currency={settings?.mainCurrency ?? "BRL"}
+            locked={locked}
+            disabled={!canWrite(ctx)}
           />
         </Card>
         <Card title={t("plan.title")} description={t("plan.description")}>

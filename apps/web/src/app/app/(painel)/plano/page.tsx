@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
+import { getMoney } from "@/i18n/money-server";
 import Link from "next/link";
 import type { PlanAction } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import { Badge, Card, PageHeader } from "@/components/ui";
-import { formatAmount } from "@/i18n/format";
 import { loadMonthlyPlan } from "@/lib/planning";
 import { requireTenant } from "@/lib/session";
 import { systemTextOf } from "@/i18n/system-text";
@@ -25,10 +25,10 @@ const HREF: Record<PlanAction["kind"], string> = {
 export default async function PlanPage() {
   const { ctx } = await requireTenant();
   const { actions, targetYear, year } = await loadMonthlyPlan(ctx);
-  const [t, tSystem, locale] = await Promise.all([
+  const [t, tSystem, moneyText] = await Promise.all([
     getTranslations("plano"),
     getTranslations("sistema"),
-    getLocale(),
+    getMoney(),
   ]);
   const system = systemTextOf(tSystem);
   const description =
@@ -43,7 +43,7 @@ export default async function PlanPage() {
       <ol className="m-0 flex list-none flex-col gap-4 p-0">
         {actions.map((action, index) => {
           const title = t(`actions.${action.kind}.title`, {
-            amount: action.amount === null ? "" : formatAmount(action.amount, locale),
+            amount: action.amount === null ? "" : moneyText(action.amount),
             category: system.name(action.category ?? ""),
           });
           return (

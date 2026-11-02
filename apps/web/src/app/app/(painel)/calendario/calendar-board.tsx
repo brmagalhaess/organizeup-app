@@ -7,13 +7,7 @@ import { addMonths, money, yearMonthOf, type CalendarItem } from "@organizeup/do
 import { useFxNoteText } from "@/components/fx-note";
 import { buttonClass, cx } from "@/components/styles";
 import { Button, PageHeader, StatTile } from "@/components/ui";
-import {
-  formatAmount,
-  formatDayMonth,
-  formatDayName,
-  formatMonthYear,
-  weekdayNames,
-} from "@/i18n/format";
+import { formatDayMonth, formatDayName, formatMonthYear, weekdayNames } from "@/i18n/format";
 import type { loadCalendar } from "@/lib/calendar-data";
 import {
   countByType,
@@ -28,6 +22,7 @@ import {
 } from "./calendar-model";
 import { DayPanel } from "./day-panel";
 import { TYPE_DOT, TYPE_ICON, TYPE_TEXT } from "./item-types";
+import { useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadCalendar>>;
 
@@ -82,6 +77,7 @@ function DayCell({
 }) {
   const t = useTranslations("calendario.grid");
   const locale = useLocale();
+  const moneyText = useMoney();
   const balance = data.balances[date];
   const negative = balance !== undefined && money(balance).lt(0);
   const isToday = date === data.today;
@@ -92,7 +88,7 @@ function DayCell({
     isToday ? t("today") : null,
     t("items", { count: items.length }),
     overdue > 0 ? t("overdue", { count: overdue }) : null,
-    balance ? t("balance", { value: formatAmount(balance, locale) }) : null,
+    balance ? t("balance", { value: moneyText(balance) }) : null,
   ];
 
   return (
@@ -157,7 +153,7 @@ function DayCell({
           )}
         >
           {negative ? <AlertTriangle className="size-3 shrink-0" /> : null}
-          {formatAmount(balance, locale, "short")}
+          {moneyText(balance, "short")}
         </span>
       ) : null}
     </button>
@@ -185,6 +181,7 @@ export function CalendarBoard({
 }) {
   const t = useTranslations("calendario");
   const locale = useLocale();
+  const moneyText = useMoney();
   const fxNote = useFxNoteText(data.fx);
   const { month, cells, summary, lowest, closing, balances, today } = data;
   const [picked, setPicked] = useState<string | null>(null);
@@ -251,7 +248,7 @@ export function CalendarBoard({
           <p className="min-w-0 flex-1 basis-60">
             {t.rich("negative", {
               first: formatDayName(firstNegative, locale),
-              value: formatAmount(lowest.balance, locale),
+              value: moneyText(lowest.balance),
               lowest: formatDayName(lowest.date, locale),
               strong: (chunks) => <span className="font-semibold">{chunks}</span>,
             })}
@@ -266,38 +263,38 @@ export function CalendarBoard({
         <StatTile
           label={t("stats.in")}
           tone="receita"
-          value={formatAmount(income, locale)}
+          value={moneyText(income)}
           hint={t("stats.inHint", {
-            received: formatAmount(summary.received, locale),
-            planned: formatAmount(summary.plannedIncome, locale),
+            received: moneyText(summary.received),
+            planned: moneyText(summary.plannedIncome),
           })}
         />
         <StatTile
           label={t("stats.out")}
           tone="despesa"
-          value={formatAmount(expense, locale)}
+          value={moneyText(expense)}
           hint={t("stats.outHint", {
-            spent: formatAmount(summary.spent, locale),
-            planned: formatAmount(summary.plannedExpense, locale),
+            spent: moneyText(summary.spent),
+            planned: moneyText(summary.plannedExpense),
           })}
         />
         {closing !== null ? (
           <StatTile
             label={t("stats.closing")}
-            value={formatAmount(closing, locale)}
+            value={moneyText(closing)}
             hint={fxNote ? `${t("stats.closingHint")} ${fxNote}` : t("stats.closingHint")}
           />
         ) : (
           <StatTile
             label={t("stats.result")}
-            value={formatAmount(summary.balance, locale)}
+            value={moneyText(summary.balance)}
             hint={t("stats.resultHint")}
           />
         )}
         <StatTile
           label={t("stats.lowest")}
           tone={lowestNegative ? "despesa" : undefined}
-          value={lowest ? formatAmount(lowest.balance, locale) : t("stats.noForecast")}
+          value={lowest ? moneyText(lowest.balance) : t("stats.noForecast")}
           hint={
             lowest
               ? t("stats.lowestOn", { date: formatDayMonth(lowest.date, locale) })

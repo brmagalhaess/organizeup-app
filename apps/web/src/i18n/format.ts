@@ -57,13 +57,24 @@ const decimalMark = (locale: Locale) =>
 export const toInputValue = (value: MoneyInput, locale: Locale) =>
   money(value).toString().replace(".", decimalMark(locale));
 
-/** Reais no idioma da pessoa. A moeda da conta chega na Fase 5. */
+/**
+ * Valor no idioma pedido. Tela da família não usa isto: usa `useMoney` ou `getMoney`, que já sabem a
+ * moeda principal. Fica para quem sabe a moeda por outro caminho: texto dos agentes e a landing.
+ */
 export const formatAmount = (
   value: MoneyInput,
   locale: Locale,
   style?: MoneyStyle,
   currency: Currency = "BRL",
 ) => formatMoney(value, currency, locale, style);
+
+/** Formatador das telas da família. Sem `currency`, a moeda principal; a da conta entra por ele. */
+export type MoneyText = (value: MoneyInput, style?: MoneyStyle, currency?: Currency) => string;
+
+export const moneyTextFor =
+  (locale: Locale, main: Currency): MoneyText =>
+  (value, style, currency = main) =>
+    formatMoney(value, currency, locale, style);
 
 /** Data completa em números: "30/10/2026" em português, "10/30/2026" em inglês. */
 export const formatDate = (date: string, locale: Locale) =>

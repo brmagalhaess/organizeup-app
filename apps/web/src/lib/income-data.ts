@@ -8,6 +8,7 @@ import {
   categories,
   eq,
   gte,
+  householdCurrency,
   householdTimezone,
   incomeReceipts,
   incomeSources,
@@ -29,6 +30,7 @@ import {
   money,
   monthIncome,
   monthlyNet,
+  plainIncomes,
   toDbAmount,
   todayIn,
   yearMonthOf,
@@ -46,7 +48,10 @@ export async function incomeOccurrence(
   month: YearMonth,
   part: string,
 ) {
-  const [source] = await tx.select().from(incomeSources).where(eq(incomeSources.id, sourceId));
+  const [source] = plainIncomes(
+    await tx.select().from(incomeSources).where(eq(incomeSources.id, sourceId)),
+    await householdCurrency(tx),
+  );
   if (!source) return null;
   const tables = await loadFiscalTables(tx);
   const key = `r:${sourceId}:${month}:${part}`;
@@ -68,11 +73,14 @@ export async function loadIncome(ctx: TenantContext) {
     const month = yearMonthOf(today);
     const tables = await loadFiscalTables(tx);
     const table = fiscalTableFor(tables, month);
-    const sources = await tx
-      .select()
-      .from(incomeSources)
-      .where(or(isNull(incomeSources.endMonth), gte(incomeSources.endMonth, month)))
-      .orderBy(asc(incomeSources.createdAt));
+    const sources = plainIncomes(
+      await tx
+        .select()
+        .from(incomeSources)
+        .where(or(isNull(incomeSources.endMonth), gte(incomeSources.endMonth, month)))
+        .orderBy(asc(incomeSources.createdAt)),
+      await householdCurrency(tx),
+    );
     const receipts = await tx
       .select({ sourceId: incomeReceipts.incomeSourceId })
       .from(incomeReceipts);

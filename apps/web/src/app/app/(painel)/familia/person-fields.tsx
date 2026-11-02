@@ -2,6 +2,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { Field, Input, Select } from "@/components/ui";
 import { monthNames } from "@/i18n/format";
+import { useBrazilRules } from "@/i18n/money";
 
 export const WORK_STATUS_LABEL: Record<string, string> = {
   clt: "CLT (carteira assinada)",
@@ -44,36 +45,63 @@ export function AdultFields({
   pensionHint: string;
 }) {
   const t = useTranslations("familiaOnboarding.person");
+  const brazil = useBrazilRules();
   const inss = values?.inssContributor;
+  // CLT, INSS e benefício só existem no Brasil: fora daqui não aparecem, e o que foi guardado fica.
+  const statuses =
+    brazil || values?.workStatus === "clt"
+      ? WORK_STATUSES
+      : WORK_STATUSES.filter((value) => value !== "clt");
   return (
     <>
       <Field label={t("workStatus")} error={errors?.[`workStatus${suffix}`]}>
         <Select name={`workStatus${suffix}`} defaultValue={values?.workStatus ?? ""}>
           <option value="">{t("notInformed")}</option>
-          {WORK_STATUSES.map((value) => (
+          {statuses.map((value) => (
             <option key={value} value={value}>
               {t(`work.${value}`)}
             </option>
           ))}
         </Select>
       </Field>
-      <Field label={t("inss")} error={errors?.[`inssContributor${suffix}`]}>
-        <Select
-          name={`inssContributor${suffix}`}
-          defaultValue={inss === true ? "sim" : inss === false ? "nao" : ""}
-        >
-          <option value="">{t("notInformed")}</option>
-          <option value="sim">{t("yes")}</option>
-          <option value="nao">{t("no")}</option>
-        </Select>
-      </Field>
-      <Field label={t("pension")} hint={pensionHint} error={errors?.[`expectedPension${suffix}`]}>
-        <Input
-          name={`expectedPension${suffix}`}
-          inputMode="decimal"
-          defaultValue={values?.expectedPension ?? ""}
-        />
-      </Field>
+      {brazil ? (
+        <>
+          <Field label={t("inss")} error={errors?.[`inssContributor${suffix}`]}>
+            <Select
+              name={`inssContributor${suffix}`}
+              defaultValue={inss === true ? "sim" : inss === false ? "nao" : ""}
+            >
+              <option value="">{t("notInformed")}</option>
+              <option value="sim">{t("yes")}</option>
+              <option value="nao">{t("no")}</option>
+            </Select>
+          </Field>
+          <Field
+            label={t("pension")}
+            hint={pensionHint}
+            error={errors?.[`expectedPension${suffix}`]}
+          >
+            <Input
+              name={`expectedPension${suffix}`}
+              inputMode="decimal"
+              defaultValue={values?.expectedPension ?? ""}
+            />
+          </Field>
+        </>
+      ) : (
+        <>
+          <input
+            type="hidden"
+            name={`inssContributor${suffix}`}
+            value={inss === true ? "sim" : inss === false ? "nao" : ""}
+          />
+          <input
+            type="hidden"
+            name={`expectedPension${suffix}`}
+            value={values?.expectedPension ?? ""}
+          />
+        </>
+      )}
     </>
   );
 }

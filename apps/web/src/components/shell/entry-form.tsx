@@ -6,9 +6,8 @@ import {
   currencySymbol,
   isForeign,
   parseMoney,
-  toReais,
+  toMain,
   type Currency,
-  type FxCurrency,
   type FxQuote,
   type MonthEntry,
 } from "@organizeup/domain";
@@ -19,8 +18,9 @@ import {
 } from "@/app/app/(painel)/lancamentos/actions";
 import { cx } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select } from "@/components/ui";
-import { formatAmount, formatDate, toAmountInput } from "@/i18n/format";
+import { formatDate, toAmountInput } from "@/i18n/format";
 import { systemTextOf } from "@/i18n/system-text";
+import { useFamilyCurrency, useMoney } from "@/i18n/money";
 
 const initial: EntryFormState = { ok: false, message: null };
 
@@ -44,18 +44,11 @@ export type EditableEntry = Pick<
   | "originalAmount"
 >;
 
-/** "≈ R$ 542,12, cotação de 30/10/2026", enquanto a pessoa digita em dólar ou euro. */
-function FxPreview({
-  currency,
-  date,
-  typed,
-}: {
-  currency: FxCurrency;
-  date: string;
-  typed: string;
-}) {
+/** "≈ 542,12 na moeda principal, cotação de 30/10/2026", enquanto a pessoa digita em outra moeda. */
+function FxPreview({ currency, date, typed }: { currency: Currency; date: string; typed: string }) {
   const t = useTranslations("lancamentos.form");
   const locale = useLocale();
+  const moneyText = useMoney();
   const asked = `${currency}|${date}`;
   const [found, setFound] = useState<{ asked: string; quote: FxQuote | null } | null>(null);
   useEffect(() => {
@@ -79,7 +72,7 @@ function FxPreview({
   let value: string | null = null;
   try {
     const parsed = parseMoney(typed, locale);
-    if (parsed.gt(0)) value = toReais(parsed, found.quote.rate);
+    if (parsed.gt(0)) value = toMain(parsed, found.quote.rate);
   } catch {
     value = null;
   }
@@ -87,7 +80,7 @@ function FxPreview({
   return (
     <p className="m-0 text-xs text-muted" role="status">
       {value
-        ? t("fxPreview", { value: formatAmount(value, locale), date: quoted })
+        ? t("fxPreview", { value: moneyText(value), date: quoted })
         : t("fxRate", { date: quoted })}
     </p>
   );
@@ -123,8 +116,9 @@ export function EntryForm({
   const isPlan = entry?.source === "previsao";
   const showCards = !entry && kind === "despesa" && options.cards.length > 0;
   const onCard = showCards && paidWith.startsWith("card:");
-  const currency = options.accounts.find((account) => account.id === paidWith)?.currency ?? "BRL";
-  const foreign = isForeign(currency);
+  const main = useFamilyCurrency();
+  const currency = options.accounts.find((account) => account.id === paidWith)?.currency ?? main;
+  const foreign = isForeign(currency, main);
 
   useEffect(() => {
     if (state.ok) onDone();

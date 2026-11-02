@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
+import { redirect } from "next/navigation";
 import { Insights } from "@/components/insights/insights";
+import { getBrazilRules } from "@/i18n/money-server";
 import { loadDividends } from "@/lib/investments";
 import { requireTenant } from "@/lib/session";
 import { DividendsBoard } from "./dividends-board";
@@ -14,6 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function DividendsPage() {
   const { ctx } = await requireTenant();
+  if (!(await getBrazilRules())) redirect("/app/investimentos");
   const [data, outlook] = await Promise.all([loadDividends(ctx), loadDividendOutlook(ctx)]);
   return (
     <DividendsBoard

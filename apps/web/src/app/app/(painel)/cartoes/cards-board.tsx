@@ -41,10 +41,11 @@ import {
   Select,
   Sheet,
 } from "@/components/ui";
-import { formatAmount, formatDayMonth, formatMonthYear, toAmountInput } from "@/i18n/format";
+import { formatDayMonth, formatMonthYear, toAmountInput } from "@/i18n/format";
 import type { loadCards } from "@/lib/commitments";
 import { systemTextOf } from "@/i18n/system-text";
 import { deletePurchase, saveCard, setCardArchived, type CardFormState } from "./actions";
+import { useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadCards>>;
 type CardView = Data["cards"][number];
@@ -139,7 +140,7 @@ function CardForm({
 
 function CardTile({ card, selected }: { card: CardView; selected: boolean }) {
   const t = useTranslations("cartoes.tile");
-  const locale = useLocale();
+  const moneyText = useMoney();
   return (
     <Link
       href={`/app/cartoes?c=${card.id}`}
@@ -163,7 +164,7 @@ function CardTile({ card, selected }: { card: CardView; selected: boolean }) {
       <div>
         <p className="text-xs text-muted">{t("current")}</p>
         <p className="text-2xl font-semibold tabular-nums tracking-tight">
-          {formatAmount(card.openTotal, locale)}
+          {moneyText(card.openTotal)}
         </p>
       </div>
       {card.limitAmount && card.available ? (
@@ -175,7 +176,7 @@ function CardTile({ card, selected }: { card: CardView; selected: boolean }) {
             />
           </div>
           <p className="mt-1 text-xs text-muted">
-            {t("available", { value: formatAmount(card.available, locale) })}
+            {t("available", { value: moneyText(card.available) })}
           </p>
         </div>
       ) : null}
@@ -202,6 +203,7 @@ function Statement({
   const tStatement = useTranslations("cartoes.statement");
   const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
+  const moneyText = useMoney();
   const { openNew } = useEntryDialog();
   const [removing, setRemoving] = useState<Line | null>(null);
   const lines = card.lines
@@ -264,7 +266,7 @@ function Statement({
       <dl className="m-0 mt-4 grid grid-cols-3 gap-3 rounded-xl bg-card-soft p-4 text-sm">
         <div>
           <dt className="text-xs text-muted">{tStatement("total")}</dt>
-          <dd className="m-0 font-semibold tabular-nums">{formatAmount(total, locale)}</dd>
+          <dd className="m-0 font-semibold tabular-nums">{moneyText(total)}</dd>
         </div>
         <div>
           <dt className="text-xs text-muted">{tStatement("closes")}</dt>
@@ -364,7 +366,7 @@ function Statement({
                       {system.name(line.categoryName)}
                     </td>
                     <td className="whitespace-nowrap py-3 pl-3 pr-5 text-right align-top font-semibold tabular-nums sm:pr-3">
-                      {formatAmount(line.amount, locale)}
+                      {moneyText(line.amount)}
                     </td>
                     {writable ? (
                       <td className="hidden py-2 pr-6 text-right align-top sm:table-cell">

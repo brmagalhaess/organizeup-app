@@ -11,7 +11,8 @@ import {
   type PayoffResult,
 } from "@organizeup/domain";
 import { Badge, Card, Field, Input } from "@/components/ui";
-import { formatAmount, toAmountInput } from "@/i18n/format";
+import { toAmountInput } from "@/i18n/format";
+import { useMoney } from "@/i18n/money";
 
 function useDuration() {
   const t = useTranslations("dividas.payoff");
@@ -40,7 +41,7 @@ function Result({
   best: boolean;
 }) {
   const t = useTranslations("dividas.payoff");
-  const locale = useLocale();
+  const moneyText = useMoney();
   const duration = useDuration();
   const saved = toDbAmount(money(baseline.totalInterest).minus(result.totalInterest));
   return (
@@ -79,14 +80,12 @@ function Result({
           </div>
           <div>
             <dt className="text-xs text-muted">{t("interestToEnd")}</dt>
-            <dd className="m-0 font-semibold tabular-nums">
-              {formatAmount(result.totalInterest, locale)}
-            </dd>
+            <dd className="m-0 font-semibold tabular-nums">{moneyText(result.totalInterest)}</dd>
           </div>
           {!money(saved).isZero() ? (
             <div className="col-span-2">
               <dt className="text-xs text-muted">{t("savings")}</dt>
-              <dd className="m-0 font-semibold tabular-nums">{formatAmount(saved, locale)}</dd>
+              <dd className="m-0 font-semibold tabular-nums">{moneyText(saved)}</dd>
             </div>
           ) : null}
         </dl>
