@@ -2834,6 +2834,18 @@ describe("gerência do painel do serviço", () => {
     expect(await auditActions(S.owner)).toContain("usuario:redefinir_senha");
   });
 
+  it("reenviar a confirmação lê a conta e registra na mesma ação", async () => {
+    expect(await db.adminConfirmationTarget(admin, S.member)).toEqual({
+      id: S.member,
+      name: "Sol",
+      email: "sol@example.com",
+      emailVerified: false,
+    });
+    expect(await auditActions(S.member)).toContain("usuario:reenviar_confirmacao");
+    expect(await db.adminConfirmationTarget(admin, "user-inexistente")).toBe("not_found");
+    expect(await db.adminConfirmationTarget(admin, admin.adminUserId)).toBe("self");
+  });
+
   it("excluir família confere o nome e apaga em cascata", async () => {
     expect(await db.adminDeleteHousehold(admin, S.solo, "família solo")).toBe("name_mismatch");
     expect(await db.adminHouseholdDetail(S.solo)).not.toBeNull();

@@ -722,6 +722,34 @@ export async function adminPasswordResetTarget(
   });
 }
 
+export interface ConfirmationTarget {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+}
+
+/** Reenvio da confirmação de e-mail: a leitura e o registro entram juntos. O envio fica fora da transação. */
+export async function adminConfirmationTarget(
+  admin: AdminActor,
+  userId: string,
+): Promise<ConfirmationTarget | "not_found" | "self"> {
+  const entry = { action: "usuario:reenviar_confirmacao", targetUserId: userId };
+  return adminAct(admin, entry, async (tx) => {
+    if (userId === admin.adminUserId) return "self";
+    const [row] = await tx
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        emailVerified: user.emailVerified,
+      })
+      .from(user)
+      .where(eq(user.id, userId));
+    return row ?? "not_found";
+  });
+}
+
 async function userDeleteCheck(
   db: Reader,
   admin: AdminActor,
