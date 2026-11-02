@@ -35,7 +35,7 @@ ADR-0020 (chave e valores, moeda da família).
 - **Mês fechado não muda sozinho.** `source_hash` é a assinatura do que a família lançou no período, e só ela reabre o mês:
   lançamentos e compras do cartão (resumo, categorias, fluxo), proventos da família (proventos), operações (investimentos),
   parcelas pagas (dívidas), parcelas de meta (metas) e a foto do mês (patrimônio). Aposentadoria não reabre: é a foto do
-  fechamento. Regenerou: `revised_at` vira "atualizado em", na tela e nos arquivos, e o parágrafo sai, porque falava de
+  fechamento. A rodada confere a assinatura de todo relatório dos últimos 12 meses, de qualquer tipo. Regenerou: `revised_at` vira "atualizado em", na tela e nos arquivos, e o parágrafo sai, porque falava de
   outros números.
 - **O que um agente faz não reabre.** Categoria entra na assinatura só quando a família escolheu uma específica. Mudança do
   agente de categorias e provento automático do mercado não contam: senão mês fechado mudaria toda noite.
@@ -50,7 +50,7 @@ ADR-0020 (chave e valores, moeda da família).
 - **Opcional, por `packages/ai/src/relatorios.ts`, fora de `withHousehold`,** logo depois do agente, na mesma rodada. Portão igual
   ao das dicas, com `INSIGHTS_CONSENT_VERSION`: mesmos dados, mesmo operador, mesma finalidade. Sem aceite, o relatório sai igual.
 - **Rota `relatorios`, esforço `low`, modelo atual, sem ferramentas.** Só o período que acabou de fechar ganha parágrafo: o
-  passado preenchido na primeira rodada não gasta modelo.
+  passado preenchido na primeira rodada já nasce com `narrated_at` marcado e não gasta modelo.
 - **No máximo uma chamada por relatório fechado.** `narrated_at` guarda isso, mesmo quando a resposta é reprovada e mesmo
   depois de o mês regenerar. O teto do serviço e o da família são conferidos antes de cada chamada. Erro da API não marca: tenta
   na noite seguinte.

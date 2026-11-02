@@ -116,6 +116,23 @@ describe("CSV", () => {
     expect(csvOf("pt-BR")).not.toMatch(/(^|;)=SOMA/m);
   });
 
+  it("espaço antes do sinal não esconde a fórmula", () => {
+    const { t, writer } = writerFor("pt-BR");
+    const file = statementFile(stored({ whatChanged: " =1+1" }), writer, t);
+    expect(statementCsv(file, writer)).toContain("' =1+1");
+  });
+
+  it("planilha com o outro separador não abre célula com fórmula", () => {
+    const { t, writer } = writerFor("en");
+    const file = statementFile(stored({ whatChanged: "Conta;=1+1" }), writer, t);
+    expect(statementCsv(file, writer)).toContain('"Conta;=1+1"');
+    const pt = writerFor("pt-BR");
+    const other = statementFile(stored({ whatChanged: "Conta, =1+1" }), pt.writer, pt.t);
+    expect(statementCsv(other, pt.writer)).toContain('"Conta, =1+1"');
+    // Valor com vírgula decimal continua número, sem aspas.
+    expect(statementCsv(other, pt.writer)).toContain("Entrou;1234,50");
+  });
+
   it("aspas e separador no texto não quebram a linha", () => {
     const { t, writer } = writerFor("pt-BR");
     const file = statementFile(stored({ whatChanged: 'Mês "bom"; sobrou' }), writer, t);

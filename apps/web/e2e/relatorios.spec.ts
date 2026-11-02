@@ -155,6 +155,8 @@ test("abre, troca o período, compara e baixa, sem dado de outra família", asyn
   const query = `tipo=resumo&periodo=${closed}`;
   const theirs = await other.request.get(`/app/relatorios/baixar?${query}&formato=pdf`);
   expect(theirs.status()).toBe(404);
+  const theirCsv = await other.request.get(`/app/relatorios/baixar?${query}&formato=csv`);
+  expect(theirCsv.status()).toBe(404);
   await other.goto(`/app/relatorios?${query}`);
   await expect(other.getByText("Seus relatórios aparecem aqui")).toBeVisible();
   await others.close();

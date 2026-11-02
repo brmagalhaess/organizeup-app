@@ -635,7 +635,8 @@ export function buildFluxo(input: FluxoInput): StatementDraft | null {
       { id: "planned", value: cash(plannedLeft) },
       { id: "left", value: cash(summary.balance) },
       { id: "open", value: cash(open) },
-      { id: "projected", value: cash(last?.accumulated ?? "0") },
+      // Mês antigo não tem projeção: zero aqui diria que nada vai sobrar.
+      ...(last ? [{ id: "projected" as const, value: cash(last.accumulated) }] : []),
     ],
     [
       {

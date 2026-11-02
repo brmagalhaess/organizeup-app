@@ -271,6 +271,46 @@ describe("parágrafo dos relatórios fechados", () => {
     expect(run.called).toBe(1);
   });
 
+  it("o passado preenchido na primeira rodada não gasta modelo", async () => {
+    const family = await newFamily();
+    await add(family, "2025-12-03", "500.00");
+    await add(family, "2026-10-03", "900.00");
+    await inFamily(family, (tx) =>
+      agents.runRelatoriosAgent(tx, { today: "2026-11-15", householdId: family.id }),
+    );
+    const client = fakeClient([]);
+    await expect(
+      ai.runStatementNarration({
+        ctx: family.job,
+        client: client.client,
+        day: "2026-11-15",
+        limits,
+      }),
+    ).resolves.toMatchObject({ called: 0 });
+    expect(client.calls).toHaveLength(0);
+  });
+
+  it("perdeu o dia 1: o que estava parcial e fechou depois ainda ganha parágrafo", async () => {
+    const family = await newFamily();
+    await add(family, "2026-10-03", "900.00");
+    await inFamily(family, (tx) =>
+      agents.runRelatoriosAgent(tx, { today: "2026-10-20", householdId: family.id }),
+    );
+    await inFamily(family, (tx) =>
+      agents.runRelatoriosAgent(tx, { today: "2026-11-04", householdId: family.id }),
+    );
+    const rows = await closedRows(family);
+    const client = fakeClient(rows.map(() => answer("Mês tranquilo.")));
+    const run = await ai.runStatementNarration({
+      ctx: family.job,
+      client: client.client,
+      day: "2026-11-04",
+      limits,
+    });
+    expect(run.written).toBe(rows.length);
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
   it("depois de atualizado, o mês não chama o modelo de novo", async () => {
     const family = await closedFamily();
     const rows = await closedRows(family);
