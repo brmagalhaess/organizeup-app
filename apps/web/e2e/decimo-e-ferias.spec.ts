@@ -402,17 +402,18 @@ test("renda sem mês de férias: escolher pelo botão do cartão fica salvo", as
 
   await page.getByRole("button", { name: "Ajustar 13º e férias" }).click();
   const edit = form(page, "Editar renda");
-  await edit.getByLabel("Ano destas escolhas").selectOption(String(today().year + 1));
   await edit.getByLabel("Mês das férias").selectOption("7");
   await saveForm(edit);
-  await expect(page.getByRole("region", { name: "Férias" }).last()).toContainText("julho");
+  await expect(page.getByRole("region", { name: "Férias" }).first()).toContainText("julho");
 
   // É o pedido central: ao recarregar, o mês continua escolhido.
   await page.reload();
   await page.getByRole("button", { name: "Ajustar 13º e férias" }).click();
   const again = form(page, "Editar renda");
+  await expect(again.getByLabel("Mês das férias")).toHaveValue("7");
   await again.getByLabel("Ano destas escolhas").selectOption(String(today().year + 1));
   await expect(again.getByLabel("Mês das férias")).toHaveValue("7");
+  await expect(again.getByText(`Mesma escolha de ${today().year}.`)).toBeVisible();
 });
 
 test("13º recebido de uma vez não volta em duas parcelas", async ({ page }, info) => {
