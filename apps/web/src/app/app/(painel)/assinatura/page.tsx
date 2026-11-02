@@ -7,13 +7,20 @@ import {
   readSubscription,
   withHousehold,
 } from "@organizeup/db";
-import { refundWindowOpen, selectionOfSubscribed, usageLevel } from "@organizeup/domain";
+import {
+  canSubscribe,
+  refundWindowOpen,
+  selectionOfSubscribed,
+  todayIn,
+  usageLevel,
+} from "@organizeup/domain";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Badge, Card, PageHeader, StatTile } from "@/components/ui";
 import { formatDate } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
+import { canLeave } from "@/lib/billing/actor";
 import { stripeKeyMode } from "@/lib/billing/stripe-key";
 import { isServiceAdmin, platformFlags, requireTenant } from "@/lib/session";
 import { PlanBuilder } from "./plan-builder";
@@ -24,8 +31,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
-const dateOf = (value: Date, locale: Locale) =>
-  formatDate(value.toISOString().slice(0, 10), locale);
+/** No fuso do serviço: a validade acaba às 23:59 de Brasília, que em UTC já é o dia seguinte. */
+const dateOf = (value: Date, locale: Locale) => formatDate(todayIn(undefined, value), locale);
 
 export default async function SubscriptionPage({
   searchParams,
@@ -35,17 +42,19 @@ export default async function SubscriptionPage({
   const { session, ctx, role } = await requireTenant();
   const flags = await platformFlags();
   const admin = isServiceAdmin(session.user);
-  // Chave desligada: a tela de planos fica visível só para o admin.
-  if (!flags.billingEnabled && !admin) notFound();
+  // Chave desligada: a tela de planos fica visível só para o admin, e para quem já paga poder sair.
+  const row = await readSubscription(ctx);
+  const leaving = canLeave(row, new Date());
+  const open = flags.billingEnabled || admin;
+  if (!open && !leaving) notFound();
 
   const [t, locale, { assinou }] = await Promise.all([
     getTranslations("assinatura"),
     getLocale() as Promise<Locale>,
     searchParams,
   ]);
-  const [catalog, row, usage, access, main] = await Promise.all([
+  const [catalog, usage, access, main] = await Promise.all([
     readBillingCatalog(),
-    readSubscription(ctx),
     readMonthUsage(ctx),
     readFamilyAccess(ctx, flags),
     withHousehold(ctx, householdCurrency),
@@ -53,8 +62,12 @@ export default async function SubscriptionPage({
   const subscribed =
     row?.cycle && ["active", "trialing", "past_due"].includes(row.status ?? "") ? row : null;
   const current = subscribed ? selectionOfSubscribed(subscribed.items, subscribed.cycle!) : null;
-  const vipFree = access.mode === "vip";
-  const canBuy = role === "owner" && !flags.maintenance && !vipFree;
+  const canManage = role === "owner" && !flags.maintenance;
+  const vipFree = !canSubscribe(access);
+  const canBuy = canManage && !vipFree;
+  // Assinou: vale o que está na Stripe. Ainda não: o desconto concedido entra na primeira cobrança.
+  const discount = subscribed ? subscribed.discountPercent : (access.vip?.discountPercent ?? null);
+  const vipEnds = access.mode === "vip" && !subscribed ? (access.vip?.endsAt ?? null) : null;
   const refundable =
     row !== null &&
     Boolean(row.stripeSubscriptionId) &&
@@ -84,18 +97,25 @@ export default async function SubscriptionPage({
       <Card title={t("status.title")}>
         <div className="flex flex-col gap-3">
           <p className="m-0 text-sm" data-testid="plano-situacao">
-            {t(`status.${access.mode}`, {
-              date: access.trialEndsAt ? dateOf(access.trialEndsAt, locale) : "",
-            })}
+            {open
+              ? t(`status.${access.mode}`, {
+                  date: access.trialEndsAt ? dateOf(access.trialEndsAt, locale) : "",
+                })
+              : t("status.keptOff")}
           </p>
           {access.vip?.cost === "sem_custo" && access.vip.endsAt ? (
             <p className="m-0 text-sm text-muted">
               {t("status.vipUntil", { date: dateOf(access.vip.endsAt, locale) })}
             </p>
           ) : null}
-          {access.vip?.cost === "desconto" ? (
+          {vipEnds && canBuy ? (
             <p className="m-0 text-sm text-muted">
-              {t("status.vipDiscount", { percent: access.vip.discountPercent ?? 0 })}
+              {t("status.vipSubscribe", { date: dateOf(vipEnds, locale) })}
+            </p>
+          ) : null}
+          {subscribed?.discountPercent ? (
+            <p className="m-0 text-sm text-muted">
+              {t("status.vipDiscount", { percent: subscribed.discountPercent })}
             </p>
           ) : null}
           {subscribed?.currentPeriodEnd ? (
@@ -134,18 +154,22 @@ export default async function SubscriptionPage({
         </div>
       </Card>
 
-      <PlanBuilder
-        catalog={catalog}
-        current={current}
-        items={subscribed?.items ?? []}
-        main={main}
-        canBuy={canBuy}
-        vipFree={vipFree}
-      />
+      {open ? (
+        <PlanBuilder
+          catalog={catalog}
+          current={current}
+          items={subscribed?.items ?? []}
+          main={main}
+          canBuy={canBuy}
+          vipFree={vipFree}
+          discountPercent={discount}
+        />
+      ) : null}
 
       {subscribed || refundable ? (
         <SubscriptionPanel
-          canBuy={canBuy}
+          canBuy={canManage}
+          resumable={open}
           active={subscribed !== null}
           cancelling={subscribed?.cancelAtPeriodEnd ?? false}
           refundable={refundable}

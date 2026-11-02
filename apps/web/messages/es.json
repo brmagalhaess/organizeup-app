@@ -1694,6 +1694,7 @@
     "billing": {
       "link": "Ver planes",
       "readOnly": "Tu prueba terminó. Ves y exportas todo, y no se borró nada. Para cambiar algo, suscríbete.",
+      "vipPartial": "Tu acceso VIP incluye parte de los módulos. El resto queda solo para consulta.",
       "pastDue": "No pudimos cobrar tu suscripción. Revisa la tarjeta para no perder el acceso.",
       "trial": "{count, plural, =0 {Tu prueba termina hoy.} one {Falta # día para que termine la prueba.} other {Faltan # días para que termine la prueba.}}",
       "entries": {
@@ -3654,6 +3655,10 @@
     "assinaturaRenovacao": {
       "title": "Tu suscripción anual se renueva pronto",
       "body": "Se renueva el {date}. Para cambiar o cancelar, abre Plan y suscripción."
+    },
+    "vipVencendo": {
+      "title": "Tu acceso VIP está por terminar",
+      "body": "Vale hasta el {date}. Después vuelve a como estaba, sin ningún cargo. Para seguir usándolo, suscríbete en Plan y suscripción."
     }
   },
   "sistema": {
@@ -4093,6 +4098,9 @@
       "vip": "Tu familia es VIP: lo que se liberó no tiene cargo.",
       "vipUntil": "Vale hasta el {date}. Después vuelve a como estaba, sin ningún cargo.",
       "vipDiscount": "Descuento VIP de {percent}% en la suscripción.",
+      "vipSubscribe": "Si te suscribes ahora, el primer cargo es recién el {date}, cuando termina el VIP. Antes de eso no se cobra nada.",
+      "keptOff": "Las nuevas suscripciones están en pausa, pero la tuya sigue activa. Puedes cancelar o pedir la devolución aquí.",
+      "discountNote": "Con descuento VIP de {percent}%.",
       "renewsAt": "Próximo cobro el {date}.",
       "endsAt": "Cancelada. Vale hasta el {date}.",
       "scheduled": "Cambio de plan programado para el {date}.",

@@ -73,6 +73,7 @@ const debtPlan = (over: Record<string, unknown> = {}) => {
 const SAMPLES: Array<{ title: string; body: string; message: Message }> = [
   texts.billingNoticeText("assinatura_falhou"),
   texts.billingNoticeText("assinatura_renovacao", "2026-12-01"),
+  texts.billingNoticeText("vip_vencendo", "2026-12-01"),
   texts.aporteReservaText({
     currency: "BRL",
     amount: "300.00",

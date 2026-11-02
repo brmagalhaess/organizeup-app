@@ -4,6 +4,7 @@
 import {
   CONNECTED_ITEM,
   CURRENCIES,
+  discountedAmount,
   ENTRY_TIERS,
   entitlementsOf,
   FAMILY_SELECTION,
@@ -54,6 +55,8 @@ export interface PlanBuilderProps {
   canBuy: boolean;
   /** VIP sem custo: não há o que assinar agora. */
   vipFree?: boolean;
+  /** Desconto que a Stripe vai aplicar. O total mostra o que a família paga de verdade. */
+  discountPercent?: number | null;
 }
 
 /** Sair da Família completa leva o que ela trazia: só sai o módulo desmarcado. */
@@ -111,6 +114,7 @@ export function PlanBuilder({
   main,
   canBuy,
   vipFree = false,
+  discountPercent = null,
 }: PlanBuilderProps) {
   const t = useTranslations("assinatura");
   const locale = useLocale() as Locale;
@@ -126,6 +130,7 @@ export function PlanBuilder({
     () => quotePlan(selection, catalog, current?.cycle === selection.cycle ? items : []),
     [selection, catalog, current, items],
   );
+  const payable = discountedAmount(quote.total, discountPercent);
   const granted = entitlementsOf(itemsOf(selection));
   const priceOf = (item: string) => {
     const row = catalog.find((price) => price.item === item && price.cycle === selection.cycle);
@@ -232,7 +237,7 @@ export function PlanBuilder({
           className="sticky top-2 z-10 m-0 flex items-baseline justify-between gap-3 rounded-xl border border-line bg-card px-4 py-2 text-sm shadow-card lg:hidden"
         >
           <span className="text-muted">{t("summary.title")}</span>
-          <span className="font-bold tabular-nums">{perCycle(quote.total)}</span>
+          <span className="font-bold tabular-nums">{perCycle(payable)}</span>
         </p>
         <Card title={t("cycle.title")}>
           <fieldset className="m-0 grid grid-cols-2 gap-2 border-0 p-0">
@@ -364,8 +369,13 @@ export function PlanBuilder({
         <div aria-live="polite">
           <p className="m-0 text-sm text-muted">{t("summary.title")}</p>
           <p className="m-0 text-2xl font-bold tabular-nums" data-testid="plano-total">
-            {perCycle(quote.total)}
+            {perCycle(payable)}
           </p>
+          {discountPercent ? (
+            <p className="m-0 text-sm text-muted">
+              {t("status.discountNote", { percent: discountPercent })}
+            </p>
+          ) : null}
           {selection.family ? <Badge tone="success">{t("summary.familyBadge")}</Badge> : null}
           {quote.familySaves ? (
             <div className="mt-2 rounded-xl bg-brand-50 p-3 text-sm">

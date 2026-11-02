@@ -1694,6 +1694,7 @@
     "billing": {
       "link": "See plans",
       "readOnly": "Your trial ended. You can view and export everything, and nothing was deleted. Subscribe to make changes.",
+      "vipPartial": "Your VIP access includes some of the modules. The rest stays view only.",
       "pastDue": "We couldn't charge your subscription. Check your card so you don't lose access.",
       "trial": "{count, plural, =0 {Your trial ends today.} one {# day left in your trial.} other {# days left in your trial.}}",
       "entries": {
@@ -3654,6 +3655,10 @@
     "assinaturaRenovacao": {
       "title": "Your yearly subscription renews soon",
       "body": "It renews on {date}. To change or cancel, open Plan and subscription."
+    },
+    "vipVencendo": {
+      "title": "Your VIP access is ending",
+      "body": "It is valid until {date}. After that it goes back to how it was, with no charge. To keep using it, subscribe in Plan and subscription."
     }
   },
   "sistema": {
@@ -4093,6 +4098,9 @@
       "vip": "Your family is VIP: what was unlocked comes at no charge.",
       "vipUntil": "Valid until {date}. After that it goes back to how it was, with no charge.",
       "vipDiscount": "VIP discount of {percent}% on the subscription.",
+      "vipSubscribe": "If you subscribe now, the first charge is only on {date}, when VIP ends. Nothing is charged before that.",
+      "keptOff": "New subscriptions are paused, but yours is still active. You can cancel or ask for a refund here.",
+      "discountNote": "With a VIP discount of {percent}%.",
       "renewsAt": "Next charge on {date}.",
       "endsAt": "Canceled. Active until {date}.",
       "scheduled": "Plan change scheduled for {date}.",

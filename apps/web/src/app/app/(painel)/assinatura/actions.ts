@@ -13,8 +13,11 @@ import {
 } from "@organizeup/db";
 import {
   BILLING_CYCLES,
+  canSubscribe,
   CURRENCIES,
+  discountedAmount,
   ENTRY_TIERS,
+  firstChargeAfterVip,
   itemsOf,
   MAX_CONNECTED_ACCOUNTS,
   MESSAGE_TIERS,
@@ -115,7 +118,7 @@ export async function subscribe(raw: unknown): Promise<PlanReply<{ url: string }
     const { ctx, subscription } = actor;
     if (hasSubscription(subscription)) return refuse("invalido");
     const access = await readFamilyAccess(ctx);
-    if (access.mode === "vip") return refuse("vip");
+    if (!canSubscribe(access)) return refuse("vip");
     const selection = await chosen(raw, ctx);
     if (!selection) return refuse("invalido");
     const priced = await pricesOf(selection, null);
@@ -144,6 +147,10 @@ export async function subscribe(raw: unknown): Promise<PlanReply<{ url: string }
         successUrl: appUrl(`${SCREEN}?assinou=1`),
         cancelUrl: appUrl(SCREEN),
         ...(access.vip?.discountPercent ? { discountPercent: access.vip.discountPercent } : {}),
+        // Assinou durante o VIP: a primeira cobrança é quando ele acaba, sem pagar dias que já ganhou.
+        ...(access.mode === "vip" && access.vip?.endsAt
+          ? { firstChargeAt: firstChargeAfterVip(access.vip.endsAt, new Date()) }
+          : {}),
       });
       await saveBillingCheckout(householdId, { sessionId: session.id });
       return { ok: true, url: session.url };
@@ -190,7 +197,7 @@ export async function previewPlan(raw: unknown): Promise<PlanReply<{ preview: Pl
     const before = itemsOf(current);
     const after = itemsOf(selection);
     const base = {
-      nextTotal: final.total,
+      nextTotal: discountedAmount(final.total, subscription.discountPercent),
       laterAt: later ? (subscription.currentPeriodEnd?.toISOString() ?? null) : null,
       removed: before.filter((item) => !after.includes(item)),
       added: after.filter((item) => !before.includes(item)),
@@ -254,7 +261,8 @@ export async function resumePlan(): Promise<PlanReply> {
 
 function setCancel(cancel: boolean): Promise<PlanReply> {
   return guarded("plan_cancel_failed", async () => {
-    const actor = await billingActor();
+    // Cancelar é sair, e não depende da chave. Desfazer o cancelamento é continuar pagando, e depende.
+    const actor = await billingActor(process.env, { exit: cancel });
     if (!actor.ok) return actor;
     const { subscription } = actor;
     if (!hasSubscription(subscription)) return refuse("sem_assinatura");
@@ -275,7 +283,7 @@ function setCancel(cancel: boolean): Promise<PlanReply> {
  */
 export async function refundPlan(): Promise<PlanReply<{ outcome: string }>> {
   return guarded("plan_refund_failed", async () => {
-    const actor = await billingActor();
+    const actor = await billingActor(process.env, { exit: true });
     if (!actor.ok) return actor;
     const { subscription } = actor;
     // Sem exigir assinatura ativa: se a devolução caiu no meio, ela já foi encerrada, e repetir conclui.
@@ -300,7 +308,7 @@ export async function refundPlan(): Promise<PlanReply<{ outcome: string }>> {
 /** Portal da Stripe só para cartão e faturas: a troca de plano é por esta tela. */
 export async function openPortal(): Promise<PlanReply<{ url: string }>> {
   return guarded("plan_portal_failed", async () => {
-    const actor = await billingActor();
+    const actor = await billingActor(process.env, { exit: true });
     if (!actor.ok) return actor;
     const customer = actor.subscription?.stripeCustomerId;
     if (!customer) return refuse("sem_assinatura");
