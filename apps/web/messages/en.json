@@ -1194,7 +1194,11 @@
         "media": "medium confidence"
       },
       "accept": "Add to my trips",
-      "itemTitle": "{name} in {when}"
+      "itemTitle": "{name} in {when}",
+      "fromIntention": "On your list",
+      "postponedTime": "{from} wouldn't leave time to save, so it moved to {to}.",
+      "postponedBusy": "There's already a trip in {from}, so it moved to {to}.",
+      "sourceRegion": "Estimated by region, {region}: median of {count, plural, =1 {# destination} other {# destinations}} in our table ({confidence})"
     },
     "errors": {
       "date": "Enter the date.",
@@ -1207,7 +1211,102 @@
       "costKind": "Choose the cost type.",
       "costAmount": "Enter the amount like 1,500.00.",
       "savedAmount": "Enter the amount like 500.00.",
-      "check": "Check the details."
+      "check": "Check the details.",
+      "intentionDestination": "Choose a destination or type the name of the place.",
+      "intentionNameLong": "Use up to 80 characters for the name.",
+      "intentionRegion": "Choose the region of the place.",
+      "intentionMonth": "Choose a month from the list.",
+      "intentionDays": "Enter 1 to 60 days.",
+      "intentionRepeated": "This place is already on your list.",
+      "intentionNotFound": "Place not found.",
+      "intentionForeign": "The assistant doesn't use this list in this currency."
+    },
+    "regions": {
+      "brasil_perto": "Brazil, close to home",
+      "brasil": "Brazil",
+      "america_sul": "South America",
+      "america_norte": "North America",
+      "europa": "Europe",
+      "asia_oceania": "Asia and Oceania"
+    },
+    "intentions": {
+      "title": "Places to visit",
+      "description": "Places you want to see. When one fits the budget, the assistant suggests it ahead of other destinations.",
+      "add": "Add a place",
+      "listLabel": "Places you want to visit",
+      "foreign": "The assistant doesn't use this list in this currency: the cost table is in reais and for trips leaving Brazil. No suggestions will come from here.",
+      "empty": {
+        "title": "Have a place in mind?",
+        "text": "Write down the destinations you want to see. Nothing goes on the calendar until you accept it."
+      },
+      "meta": {
+        "month": "In {month}",
+        "anyMonth": "Any month",
+        "days": "{days, plural, =1 {# day} other {# days}}",
+        "defaultDays": "Usual length",
+        "region": "Not in the table · {region}"
+      },
+      "states": {
+        "aguardando": "The assistant will look at this place in the next overnight run.",
+        "sugerida": "Suggested for {month}. Decide on the suggestion card here in Trips.",
+        "recusada": "You turned down the suggestion. The assistant won't suggest this place again before {year}.",
+        "atendida": "Trip set for {date}.",
+        "atendidaSemViagem": "The trip was deleted. Use Redo to get suggestions again.",
+        "naoCabe": "Doesn't fit yet: about {total}. Save {extra} more a month.",
+        "naoCabeMes": "Doesn't fit yet: about {total}. Save {extra} more a month, or put today's whole budget on it: you'd have the amount by {month}.",
+        "semVaga": "Fits the budget (about {total}), but the trips per year went to other places. Raise it in <link>Settings › Plan</link>.",
+        "umaPorAno": "With no trips per year set, the assistant makes one suggestion a year, and this year's is done. Change it in <link>Settings › Plan</link>.",
+        "criancas": "We don't suggest this destination: it isn't recommended for trips with kids.",
+        "semEstimativa": "We don't have destinations in that region to estimate the cost yet. Try another region."
+      },
+      "badges": {
+        "aguardando": "In line",
+        "sugerida": "Suggested",
+        "recusada": "Turned down",
+        "atendida": "Done",
+        "naoCabe": "Doesn't fit yet",
+        "semVaga": "No slot",
+        "umaPorAno": "Next year",
+        "criancas": "Not suggested",
+        "semEstimativa": "No estimate"
+      },
+      "edit": "Edit {name}",
+      "remove": "Remove {name}",
+      "redo": "Redo",
+      "redoAria": "Redo {name}",
+      "sheets": {
+        "new": "New place",
+        "edit": "Edit place"
+      },
+      "form": {
+        "search": "Destination",
+        "searchHint": "Search our table. If you can't find it, type the name.",
+        "searchPlaceholder": "E.g. Lisbon",
+        "found": "Destinations found",
+        "notFound": "Nothing found in the table.",
+        "useCustom": "It's not on the list",
+        "change": "Change",
+        "fromCatalog": "Search the table",
+        "customName": "Place name",
+        "customHint": "Without the place in the table, we estimate the cost by region.",
+        "region": "Region",
+        "regionChoose": "Choose the region",
+        "month": "Preferred month",
+        "monthAny": "No preference",
+        "days": "Days",
+        "daysHint": "Optional. Empty: we use your usual trip length.",
+        "save": "Save place"
+      },
+      "removeSheet": {
+        "title": "Remove place",
+        "text": "\"{name}\" leaves the list. Trips already set stay.",
+        "confirm": "Remove"
+      },
+      "redoSheet": {
+        "title": "Redo this place",
+        "text": "\"{name}\" goes back in line for the assistant. The trip stays in Trips.",
+        "confirm": "Redo"
+      }
     }
   },
   "pessoas": {
@@ -3191,7 +3290,8 @@
       "later": "Not now",
       "labeled": "{action}: {name}",
       "laterHint": "We'll suggest it again in 30 days",
-      "failed": "We couldn't finish this right now. Refresh the page and try again."
+      "failed": "We couldn't finish this right now. Refresh the page and try again.",
+      "laterHintIntention": "The place stays on your list, and we won't suggest it again this year"
     },
     "errors": {
       "notFound": "Suggestion not found.",
@@ -3241,7 +3341,8 @@
       "tripPeopleInvalid": "Choose people from your family.",
       "tripFailed": "We couldn't create the trip.",
       "tripCreated": "Trip to {name} created. Adjust dates and costs in Trips.",
-      "goalCreated": "Goal {name} created. Adjust the details in Goals."
+      "goalCreated": "Goal {name} created. Adjust the details in Goals.",
+      "dismissedIntention": "All right. The place stays on your list, and we won't suggest it again this year."
     }
   },
   "familiaOnboarding": {
@@ -3641,7 +3742,12 @@
       "relDividasSemExtra": "There's nothing extra for debts today.",
       "relDividasMudou": "The payoff date moved from {from} to {to}.",
       "relDividasAtencao": "{count, plural, one {# point to watch} other {# points to watch}}.",
-      "relViagensForaDoBrasil": "The destination table is in reais and for trips from Brazil, so there are no trip suggestions in this currency."
+      "relViagensForaDoBrasil": "The destination table is in reais and for trips from Brazil, so there are no trip suggestions in this currency.",
+      "viagemFonteRegiao": "Approximate values from our cost table ({confidence, select, baixa {low} other {medium}} confidence). Check flights and lodging before booking. Source: median of {count, plural, =1 {1 destination} other {# destinations}} in the region in our table.",
+      "viagemEstimativaRegiao": "Cost estimated by region, {region, select, brasil_perto {Brazil, close to home} brasil {Brazil} america_sul {South America} america_norte {North America} europa {Europe} other {Asia and Oceania}}: this destination isn't in our table.",
+      "viagemMesSemTempo": "{from} wouldn't leave time to save, so it moved to {to}.",
+      "viagemMesOcupado": "There's already a trip in {from}, so it moved to {to}.",
+      "relViagensIntencoes": "{count, plural, =1 {1 listed place used} other {# listed places used}}."
     },
     "lembreteRendimentoSimples": {
       "title": "Enter the annual portfolio yield",

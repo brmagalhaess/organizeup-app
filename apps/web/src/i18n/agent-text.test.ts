@@ -8,6 +8,7 @@ import {
   importReport,
   ROW_MESSAGE_KEYS,
   SENTENCE_MESSAGE_KEYS,
+  suggestTrips,
   type DebtPlan,
   type Message,
   type TripSuggestion,
@@ -49,6 +50,47 @@ const trip: TripSuggestion = {
     },
   ],
 };
+
+/** Sugestão de verdade, de uma intenção fora do catálogo, com o mês adiado. */
+const intended = (preferredMonth: number, existingTripMonths: string[] = []) =>
+  suggestTrips({
+    today: "2026-11-02",
+    tripsPerYear: 1,
+    tripDays: 5,
+    travelers: [{ personId: "p1", ageYears: 40 }],
+    tripsBudgetMonthly: "3000.00",
+    destinations: [
+      {
+        id: "lisboa",
+        name: "Lisboa",
+        country: "PT",
+        region: "europa",
+        lodgingPerNight: "900.00",
+        foodPerPersonDay: "250.00",
+        localTransportPerPersonDay: "60.00",
+        flightPerPerson: "5000.00",
+        minDays: 7,
+        kidsFriendly: true,
+        bestMonths: [],
+        source: "Tabela interna, consulta 10/2026",
+        confidence: "media",
+      },
+    ],
+    existingTripMonths,
+    weddingMonth: null,
+    intentions: [
+      {
+        id: "i1",
+        destinationId: null,
+        customName: "Praga",
+        customRegion: "europa",
+        preferredMonth,
+        days: null,
+        fulfilled: false,
+        refusedYear: null,
+      },
+    ],
+  })[0]!;
 
 const debtPlan = (over: Record<string, unknown> = {}) => {
   const strategy = {
@@ -231,6 +273,8 @@ const SAMPLES: Array<{ title: string; body: string; message: Message }> = [
   }),
   texts.viagemText(trip, 2, "BRL"),
   texts.viagemText({ ...trip, fits: false, confidence: "baixa" }, 1, "BRL"),
+  texts.viagemText(intended(1), 1, "BRL"),
+  texts.viagemText(intended(8, ["2027-08"]), 1, "BRL"),
   texts.assistenteAporteText({ currency: "BRL", reserve: true, amount: "150.00" }),
   texts.assistenteAporteText({ currency: "BRL", reserve: false, amount: "150.00" }),
   texts.assistenteDataMetaText({ name: "Carro", month: "2027-06" }),
@@ -369,6 +413,18 @@ const REPORTS = [
     }),
   ),
   report(texts.viagensReportText({ day: "2026-10-31", kind: "fora_do_brasil" })),
+  report(
+    texts.viagensReportText({
+      day: "2026-10-31",
+      kind: "sugestoes",
+      count: 2,
+      fits: 2,
+      budget: "1000.00",
+      shortfall: null,
+      currency: "BRL",
+      intentions: 2,
+    }),
+  ),
   report(texts.dividasVaziasReportText("2026-10-31")),
   report(
     texts.dividasReportText("2026-10-31", debtPlan(), debtPlan({ payoffMonth: "2028-05" }), "BRL"),

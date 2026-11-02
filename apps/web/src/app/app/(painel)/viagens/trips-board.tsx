@@ -21,8 +21,12 @@ import {
 } from "@/components/ui";
 import { formatDate, toFieldValue } from "@/i18n/format";
 import type { loadTrips } from "@/lib/planning";
-import type { TripSuggestions as TripSuggestionsData } from "@/lib/suggestions";
+import type {
+  TripIntentions as TripIntentionsData,
+  TripSuggestions as TripSuggestionsData,
+} from "@/lib/suggestions";
 import { addCost, addSaved, deleteCost, deleteTrip, saveTrip, type FormState } from "./actions";
+import { TripIntentions } from "./trip-intentions";
 import { TripSuggestions } from "./trip-suggestions";
 import { useMoney } from "@/i18n/money";
 
@@ -304,11 +308,13 @@ type Open = { type: "new" | "edit" | "cost" | "saved"; nonce: number; id: string
 export function TripsBoard({
   data,
   suggestions,
+  intentions,
   writable,
   insights,
 }: {
   data: Data;
   suggestions: TripSuggestionsData | null;
+  intentions: TripIntentionsData | null;
   writable: boolean;
   insights: ReactNode;
 }) {
@@ -390,6 +396,7 @@ export function TripsBoard({
         </>
       )}
 
+      {intentions ? <TripIntentions data={intentions} writable={writable} /> : null}
       {suggestions ? <TripSuggestions data={suggestions} writable={writable} /> : null}
 
       <Sheet open={sheet !== null} onClose={close} title={sheet ? t(`sheets.${sheet.type}`) : ""}>

@@ -105,7 +105,7 @@ const OWN_DATA = new Set(["assistente/conversas/[id]/route.ts DELETE"]);
  * que grave dado de módulo reprova até entrar na lista, com a conferência feita.
  */
 const MODULE_TABLES =
-  "goals|goalContributions|trips|tripCosts|tripPeople|debts|debtInstallments|debtDocuments|investments|investmentTrades|investmentTargets|investmentStockEvents|dividends|dividendGoals|retirementPlan|retirementScenarios";
+  "goals|goalContributions|trips|tripCosts|tripPeople|tripIntentions|debts|debtInstallments|debtDocuments|investments|investmentTrades|investmentTargets|investmentStockEvents|dividends|dividendGoals|retirementPlan|retirementScenarios";
 const BASE_WRITERS: Record<string, string> = {
   // Baixa de parcela: `confirmCommitment` recusa `d:` e `g:` com o módulo desligado.
   "lib/confirm-entry.ts": "moduleOff",

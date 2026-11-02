@@ -133,5 +133,6 @@
   "assinatura.summary.backToFamily": "Volver a Empresa completa",
   "assinatura.status.cortesia": "Tu empresa tiene cortesía: todo disponible, sin cobro.",
   "assinatura.failure.sem_familia": "Elige una empresa primero.",
-  "assinatura.failure.so_responsavel": "Solo el responsable de la empresa puede hacer esto."
+  "assinatura.failure.so_responsavel": "Solo el responsable de la empresa puede hacer esto.",
+  "viagens.intentions.states.criancas": "No sugerimos este destino: no está indicado para viajar con menores de 12 años."
 }

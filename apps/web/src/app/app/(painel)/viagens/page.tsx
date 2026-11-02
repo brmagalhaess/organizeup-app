@@ -5,7 +5,7 @@ import { canWrite } from "@organizeup/db";
 import { Insights } from "@/components/insights/insights";
 import { loadTrips } from "@/lib/planning";
 import { requireTenant } from "@/lib/session";
-import { loadTripSuggestions } from "@/lib/suggestions";
+import { loadTripIntentionItems, loadTripSuggestions } from "@/lib/suggestions";
 import { TripsBoard } from "./trips-board";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,11 +17,16 @@ export default async function TripsPage() {
   const invite = await moduleInvite("metas");
   if (invite) return invite;
   const { ctx } = await requireTenant();
-  const [data, suggestions] = await Promise.all([loadTrips(ctx), loadTripSuggestions(ctx)]);
+  const [data, suggestions, intentions] = await Promise.all([
+    loadTrips(ctx),
+    loadTripSuggestions(ctx),
+    loadTripIntentionItems(ctx),
+  ]);
   return (
     <TripsBoard
       data={data}
       suggestions={suggestions}
+      intentions={intentions}
       writable={canWrite(ctx)}
       insights={<Insights screen="viagens" />}
     />
