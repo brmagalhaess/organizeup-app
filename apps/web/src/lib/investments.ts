@@ -7,6 +7,7 @@ import {
   desc,
   dividendGoals,
   dividends,
+  gte,
   householdTimezone,
   inArray,
   investments,
@@ -20,8 +21,13 @@ import {
   type TenantContext,
 } from "@organizeup/db";
 import {
+  addMonths,
+  dividendsInMonth,
+  investedUntil,
   marketDateOf,
   money,
+  monthBounds,
+  monthPhase,
   netDividend,
   normalizeTicker,
   quoteStateOf,
@@ -30,6 +36,7 @@ import {
   summarizePortfolio,
   toDbAmount,
   todayIn,
+  tradesByMonth,
   upcomingDividends,
   yearMonthOf,
 } from "@organizeup/domain";
@@ -103,6 +110,64 @@ export async function loadPortfolio(ctx: TenantContext) {
           quoteSource: quote?.source ?? null,
         };
       }),
+    };
+  });
+}
+
+/**
+ * Investimentos e proventos do mês do painel. Aportes, resgates e valor aplicado até o fim do mês saem das
+ * operações, que têm data. Carteira, ganho e divisão por classe são a posição de hoje: não há histórico de
+ * preço. Proventos só da janela usada.
+ */
+export async function loadMonthInvestments(ctx: TenantContext, month: string) {
+  return withHousehold(ctx, async (tx) => {
+    const today = todayIn(await householdTimezone(tx, ctx.householdId));
+    const current = yearMonthOf(today);
+    const events = await loadStockEvents(tx);
+    const oldest = [addMonths(month, -11), addMonths(current, -12)].sort()[0]!;
+    const [holdings, trades, targets, rows] = await Promise.all([
+      tx.select().from(investments).orderBy(asc(investments.createdAt)),
+      tx.select().from(investmentTrades),
+      tx.select().from(investmentTargets),
+      tx
+        .select()
+        .from(dividends)
+        .where(gte(dividends.paidOn, `${oldest}-01`)),
+    ]);
+    const list = holdings.map((holding) => ({
+      ...holding,
+      trades: trades.filter((trade) => trade.investmentId === holding.id),
+      events: events.filter((event) => event.investmentId === holding.id),
+    }));
+    const summary = summarizePortfolio(list, targets);
+    const [moved] = tradesByMonth([month], trades);
+    const phase = monthPhase(month, current);
+    const nameOf = new Map(holdings.map((h) => [h.id, h.ticker ?? h.name]));
+    return {
+      hasInvestments: holdings.length > 0,
+      hasDividends: rows.length > 0,
+      past: phase === "passado",
+      future: phase === "futuro",
+      total: summary.total,
+      cost: summary.cost,
+      gain: summary.gain,
+      gainPercent: summary.gainPercent,
+      classes: summary.classes.filter((share) => money(share.value).gt(0)),
+      /** Ativos sem preço: valem o custo. */
+      estimated: summary.rows.filter((row) => row.estimated).length,
+      bought: moved?.bought ?? "0.00",
+      sold: moved?.sold ?? "0.00",
+      /** Null fora de mês passado. */
+      investedAtEnd: phase === "passado" ? investedUntil(list, monthBounds(month).last) : null,
+      dividends: dividendsInMonth(rows, month, today),
+      upcoming: upcomingDividends(rows, today)
+        .slice(0, 3)
+        .map((row) => ({
+          id: row.id,
+          label: nameOf.get(row.investmentId) ?? "",
+          paidOn: row.paidOn,
+          net: netDividend(row),
+        })),
     };
   });
 }

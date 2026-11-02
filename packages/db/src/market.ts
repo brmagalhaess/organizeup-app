@@ -92,6 +92,11 @@ export async function findMarketAsset(ticker: string) {
   return row ?? null;
 }
 
+/** O catálogo inteiro, para importar arquivos: a nota de corretagem traz nome e não código. */
+export function listMarketAssets() {
+  return tolerateSchemaLag(() => appPool().db.select(assetFields).from(marketAssets), []);
+}
+
 export interface MarketQuoteRow {
   ticker: string;
   price: string;

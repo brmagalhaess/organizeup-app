@@ -270,7 +270,8 @@
       "label": "Pantallas de inversiones",
       "portfolio": "Cartera",
       "trades": "Movimientos",
-      "rebalance": "Rebalanceo"
+      "rebalance": "Rebalanceo",
+      "import": "Importar"
     },
     "form": {
       "name": "Nombre",
@@ -286,7 +287,7 @@
     "account": {
       "label": "Cuenta de la que sale el dinero",
       "tradeLabel": "Cuenta del dinero",
-      "hint": "Se convierte en un movimiento en la cuenta, sin contar como gasto del mes.",
+      "hint": "Se convierte en un movimiento de la cuenta. Entra en los gastos del mes como aporte, separado del consumo.",
       "none": "No tocar ninguna cuenta"
     },
     "add": {
@@ -516,6 +517,149 @@
       "percentMax": "Cada clase llega hasta el 100 %.",
       "percentSum": "La suma de las metas supera el 100 %.",
       "classNotAllowed": "Esta clase solo vale para familias en reales."
+    },
+    "importar": {
+      "metaTitle": "Importar inversiones",
+      "eyebrow": "Inversiones",
+      "title": "Trae tu cartera de B3",
+      "description": "Envía el archivo que descargaste y revisa todo antes de guardar, sin escribir operación por operación.",
+      "noPermission": "Tu papel en esta familia no permite importar.",
+      "onlyBrazil": "La importación de B3 es para familias con moneda principal en reales.",
+      "choose": {
+        "title": "Elige el archivo",
+        "text": "El archivo se lee aquí en el navegador y no se guarda. Solo las operaciones van a tu cartera, nunca tu nombre ni tu CPF.",
+        "file": "Archivo de B3 o del corredor",
+        "fileHint": "Excel (.xlsx) o PDF, hasta 5 MB.",
+        "reading": "Leyendo {name}…",
+        "checking": "Comparando con tu cartera…",
+        "other": "Elegir otro archivo"
+      },
+      "how": {
+        "title": "Cómo descargar el archivo",
+        "text": "Puedes usar más de uno: lo que ya esté en la cartera no entra de nuevo.",
+        "label": "Archivos aceptados",
+        "negociacao": {
+          "name": "Negociação (Excel)",
+          "text": "En el área del inversor de B3, abre Extratos, elige Negociação, marca el período y descarga en Excel. Es el mejor archivo, porque trae la fecha y el precio de cada compra y venta."
+        },
+        "movimentacao": {
+          "name": "Movimentação (Excel)",
+          "text": "En el área del inversor de B3, abre Extratos, elige Movimentação, marca el período y descarga en Excel. B3 muestra la fecha de liquidación, así que la fecha de la compra es estimada."
+        },
+        "posicao": {
+          "name": "Posição (Excel)",
+          "text": "En el área del inversor de B3, abre Extratos, elige Posição y descarga en Excel. Muestra cuántas cuotas tienes, para revisar la cartera."
+        },
+        "nota": {
+          "name": "Nota de corretaje (PDF)",
+          "text": "En el sitio o app del corredor, busca las notas de corretaje y descarga el PDF sin contraseña. Trae las comisiones, que entran en el precio medio."
+        }
+      },
+      "sides": {
+        "compra": "Compra",
+        "venda": "Venta"
+      },
+      "states": {
+        "novo": "Nueva",
+        "taxas": "Ya existe, con comisiones nuevas",
+        "conferir": "Para revisar",
+        "existe": "Ya existe",
+        "ignorado": "Ignorada"
+      },
+      "doubts": {
+        "parecida": "La cartera ya tiene una operación parecida. Márcala solo si es otra.",
+        "nota_nao_fecha": "Los valores de esta nota no cuadran con su neto. Revísala antes de marcar."
+      },
+      "reasons": {
+        "provento": "Dividendo: el sistema lo registra solo, revisa en Dividendos.",
+        "evento": "Evento de la empresa: desdoblamientos y similares los aplica el sistema.",
+        "transferencia": "Cambio de corredor: no es compra ni venta.",
+        "outra_movimentacao": "Este tipo de movimiento no cambia la cartera por aquí.",
+        "ativo_nao_listado": "Solo acciones, fondos inmobiliarios, ETF y BDR entran por aquí.",
+        "mercado_nao_suportado": "Solo el mercado al contado y fraccionario entran por aquí.",
+        "dados_invalidos": "A esta línea le faltan datos o no se entendieron.",
+        "valores_nao_fecham": "Cantidad por precio no da el valor de la línea.",
+        "venda_maior_que_posicao": "La venta supera lo que tenías en esa fecha. Envía antes el archivo con las compras.",
+        "classe_sem_cotacao": "Este activo está en la cartera como renta fija u otro tipo sin cotización.",
+        "sem_codigo": "Falta el código del activo. Indícalo arriba."
+      },
+      "codes": {
+        "title": "Falta el código de algunos activos",
+        "text": "La nota trae el nombre de la empresa, y no encontramos un único código para él.",
+        "codeOf": "Código de {title}",
+        "apply": "Comparar con estos códigos"
+      },
+      "assets": {
+        "title": "Activos que entran en la cartera",
+        "classOf": "Tipo de {ticker}",
+        "notInCatalog": "No está en nuestro catálogo de activos.",
+        "choose": "Elige"
+      },
+      "positions": {
+        "text": "Posição no trae fecha ni precio pagado, así que nada entra solo. Compárala con la cartera y, si falta algo, indica el precio pagado.",
+        "list": "Posición en B3",
+        "compare": "B3: {b3} · Cartera: {held}",
+        "price": "Precio medio pagado por {ticker} (¤)",
+        "priceHint": "Entra una compra de {quantity}.",
+        "date": "Fecha de las compras",
+        "dateHint": "Úsala para lo que no aparece en Negociação, o la compra contará dos veces.",
+        "states": {
+          "confere": "Coincide",
+          "falta": "Falta en la cartera",
+          "sobra": "La cartera tiene más",
+          "ignorado": "Ignorada"
+        }
+      },
+      "review": {
+        "title": {
+          "negociacao": "Revisa Negociação",
+          "movimentacao": "Revisa Movimentação",
+          "posicao": "Revisa Posição",
+          "nota": "Revisa la nota de corretaje"
+        },
+        "text": "Aún no se guardó nada. Desmarca lo que no quieras importar.",
+        "new": "Nuevas",
+        "check": "Para revisar",
+        "exists": "Ya existen",
+        "ignored": "Ignoradas",
+        "rows": "Líneas del archivo",
+        "selectRow": "Importar {name} del {date}",
+        "quantityAt": "{quantity} a {price}",
+        "fees": "comisiones de {value}",
+        "accountHint": "Si no eliges, la importación no crea movimiento en ninguna cuenta.",
+        "nothingTitle": "Nada nuevo en este archivo",
+        "nothingText": "Todo lo que se puede importar ya está en la cartera.",
+        "submit": "{count, plural, =0 {Nada marcado} =1 {Importar 1 operación} other {Importar # operaciones}}",
+        "importing": "Importando…",
+        "cancel": "Cancelar"
+      },
+      "done": {
+        "title": "Cartera actualizada",
+        "counts": "{created, plural, =0 {Ninguna operación nueva} =1 {1 operación nueva} other {# operaciones nuevas}}, {assets, plural, =0 {ningún activo nuevo} =1 {1 activo nuevo} other {# activos nuevos}} y {fees, plural, =0 {ninguna comisión actualizada} =1 {1 operación con comisiones} other {# operaciones con comisiones}}.",
+        "portfolio": "Ver la cartera",
+        "another": "Importar otro archivo"
+      },
+      "errors": {
+        "vazio": "El archivo está vacío.",
+        "tamanho": "El archivo supera los 5 MB.",
+        "tipo": "Este archivo no es un Excel (.xlsx) o PDF de verdad.",
+        "xls_antigo": "Este es el Excel antiguo (.xls). Descárgalo de nuevo en .xlsx.",
+        "layout": "No reconocemos este archivo. Envía el Excel de Negociação, Movimentação o Posição de B3, o la nota de corretaje en formato SINACOR.",
+        "sem_linhas": "El archivo no tiene ninguna operación.",
+        "muitas_linhas": "El archivo supera las 2.000 líneas. Descarga un período menor.",
+        "pdf_sem_texto": "Este PDF es una imagen, sin texto para leer. Descarga la nota original en el sitio del corredor.",
+        "pdf_com_senha": "Este PDF tiene contraseña. Descarga o guarda la nota sin contraseña y envíala de nuevo. No necesitamos tu contraseña.",
+        "readFailed": "No pudimos leer este archivo. Descárgalo de nuevo e inténtalo otra vez.",
+        "invalid": "Algunas líneas llegaron en formato no válido. Envía el archivo de nuevo.",
+        "onlyBrazil": "La importación de B3 es para familias con moneda principal en reales.",
+        "oversold": "La venta de {ticker} supera lo que había en esa fecha. Marca sus compras o desmarca la venta.",
+        "future": "Hay una operación con fecha futura. Revisa las fechas.",
+        "priceFormat": "Revisa el precio pagado: usa un valor como 32,50.",
+        "classRequired": "Elige el tipo de cada activo nuevo.",
+        "noAccount": "Esta cuenta ya no está disponible.",
+        "noQuote": "Falta la cotización de la moneda de la cuenta en la fecha de alguna operación.",
+        "failed": "No pudimos terminar ahora. No se guardó nada. Inténtalo de nuevo."
+      }
     }
   },
   "proventos": {
@@ -1656,13 +1800,25 @@
       "planned": "Previsto"
     },
     "stats": {
+      "title": "Resumen de {month}",
+      "received": "Ingresos",
+      "spent": "Gastos",
+      "result": "Resultado",
+      "receivedPlanned": "Ingresos previstos",
+      "spentPlanned": "Gastos previstos",
+      "resultPlanned": "Resultado previsto",
+      "resultHint": "Ingresos menos gastos.",
+      "open": "Pendiente: {amount}",
+      "openPast": "Quedó pendiente: {amount}",
+      "withPlanned": "Con lo pendiente: {amount}",
       "balance": "Saldo en cuentas",
+      "balanceEnd": "Saldo a fin de mes",
+      "balanceProjected": "Saldo previsto",
+      "balanceEndHint": "El {date}.",
+      "balanceForecast": "Previsión para fin de mes: {amount}",
+      "balanceProjectedHint": "Saldo de hoy más todo lo previsto hasta este mes.",
       "balanceConverted": "Convertido con la cotización del {date}.",
-      "balanceHint": "Saldo inicial más lo que ya se realizó.",
-      "forecast": "Previsión para fin de mes",
-      "forecastHint": "Resultado de ingresos y gastos del mes.",
-      "received": "Entró",
-      "spent": "Salió"
+      "fxMissing": "Sin cotización de {currencies}: esas cuentas quedan fuera de la suma."
     },
     "suggestions": {
       "empty": "Nada que revisar por ahora.",
@@ -1673,29 +1829,33 @@
     "reserve": {
       "define": "Define tu fondo de emergencia",
       "progress": "{saved} de {target}",
-      "title": "Fondo de emergencia"
+      "title": "Fondo de emergencia",
+      "titleToday": "Fondo de emergencia hoy"
     },
     "wealth": {
       "summary": "Tienes {owned} · debes {owed}",
-      "title": "Patrimonio neto"
+      "title": "Patrimonio neto",
+      "titleToday": "Patrimonio neto hoy"
     },
     "cashflow": {
-      "barLabel": "{month}: entró {received}, salió {spent}",
-      "description": "Últimos 6 meses, solo lo que ya ocurrió.",
-      "emptyText": "Marca un ingreso o gasto como pagado para ver la evolución de los meses.",
-      "emptyTitle": "El gráfico aparece con el primer movimiento",
+      "barLabel": "{month}: ingresos {received}, gastos {spent}. Abrir este mes",
+      "description": "12 meses hasta {month}. Toca un mes para abrirlo.",
+      "emptyText": "Ningún movimiento en estos 12 meses.",
       "expenses": "Gastos",
       "income": "Ingresos",
-      "left": "Sobró",
+      "left": "Resultado",
       "month": "Mes",
-      "tableCaption": "Ingresos y gastos de los últimos meses",
-      "title": "Ingresos y gastos"
+      "planned": "Previsto",
+      "plannedExpense": "Gastos previstos",
+      "plannedIncome": "Ingresos previstos",
+      "tableCaption": "Ingresos y gastos de 12 meses",
+      "title": "Evolución"
     },
     "upcoming": {
       "calendar": "Ver calendario",
       "description": "Lo que sigue pendiente.",
-      "emptyText": "Las cuentas e ingresos previstos aparecen aquí hasta que se confirman.",
-      "emptyTitle": "Nada pendiente",
+      "descriptionToday": "Desde hoy, sea cual sea el mes elegido.",
+      "emptyText": "Nada pendiente. Cuentas e ingresos previstos aparecen aquí hasta confirmarlos.",
       "title": "Próximos vencimientos"
     },
     "confirm": {
@@ -1704,11 +1864,7 @@
       "income": "Cobrar"
     },
     "spending": {
-      "description": "Gastos de {month}, pagados y previstos.",
-      "emptyText": "Registra tus gastos para ver a qué categorías va tu dinero.",
-      "emptyTitle": "Ningún gasto este mes",
       "other": "Otras",
-      "title": "A dónde va tu dinero",
       "uncategorized": "Sin categoría"
     },
     "firstSteps": {
@@ -1726,6 +1882,110 @@
       "onboardingHint": "La jubilación, los viajes y las metas dependen de esto. Lleva 3 minutos.",
       "recurring": "Registra una cuenta fija",
       "recurringHint": "Marca “Se repite cada mes” y aparecerá sola."
+    },
+    "picker": {
+      "label": "Mes del panel",
+      "month": "Mes",
+      "year": "Año",
+      "previous": "Mes anterior",
+      "next": "Mes siguiente",
+      "today": "Hoy",
+      "forecast": "Previsto",
+      "sections": "Secciones del panel"
+    },
+    "notice": {
+      "emptyCurrent": "Aún no hay movimientos en {month}.",
+      "seePrevious": "Ver {month}",
+      "emptyPast": "No se registró nada en {month}.",
+      "future": "Aún no llegamos a {month}: todo aquí es previsión.",
+      "futureEmpty": "Aún no llegamos a {month} y no hay nada previsto."
+    },
+    "notes": {
+      "savingsOut": "{amount} de los gastos son aportes y metas: dinero guardado, no consumo. Los informes lo cuentan igual.",
+      "savingsIn": "{amount} de los ingresos son rescates y metas: dinero que ya era tuyo.",
+      "card": "{amount} en facturas de tarjeta con vencimiento este mes. La compra pasa a ser gasto cuando se paga la factura."
+    },
+    "categories": {
+      "title": "Por categoría",
+      "description": "En {month}. Toca una fila para ver los movimientos.",
+      "expenses": "Gastos",
+      "expensesPlanned": "Gastos previstos",
+      "expensesHint": "Pagados y previstos, con la tarjeta abierta por compra.",
+      "income": "Ingresos",
+      "incomePlanned": "Ingresos previstos",
+      "incomeHint": "Recibidos y previstos.",
+      "emptyExpenses": "Ningún gasto este mes.",
+      "emptyIncome": "Ningún ingreso este mes.",
+      "done": "Hecho",
+      "planned": "Previsto",
+      "plannedPart": "{amount} previsto",
+      "saving": "no es consumo"
+    },
+    "accounts": {
+      "title": "Por cuenta",
+      "description": "Movimiento de {month} y saldo de cada una.",
+      "income": "Ingresos",
+      "expenses": "Gastos",
+      "incomePlanned": "Previsto entrar",
+      "expensesPlanned": "Previsto salir",
+      "balanceNow": "Saldo hoy",
+      "balanceEnd": "Saldo final",
+      "balanceProjected": "Saldo previsto",
+      "archived": "Archivada",
+      "native": "En la moneda de la cuenta: {amount}",
+      "cards": "Tarjetas",
+      "statement": "Factura del mes",
+      "ahead": "En próximas facturas",
+      "status": {
+        "aberta": "Abierta",
+        "fechada": "Cerrada",
+        "atrasada": "Atrasada",
+        "paga": "Pagada"
+      },
+      "note": "La factura pagada entra en los gastos de la cuenta que la paga: la tarjeta aquí es detalle y no suma de nuevo. La transferencia entre cuentas no cuenta como ingreso ni gasto."
+    },
+    "investments": {
+      "title": "Inversiones",
+      "description": "Posición de hoy y movimiento del mes.",
+      "descriptionPast": "Sin historial de precios: la cartera es la de hoy, y el movimiento es de {month}.",
+      "open": "Ver cartera",
+      "todayHeading": "Hoy",
+      "monthHeading": "En {month}",
+      "value": "Valor de la cartera",
+      "cost": "Valor invertido",
+      "gain": "Ganancia",
+      "bought": "Aportes",
+      "sold": "Rescates",
+      "investedAtEnd": "Invertido a fin de mes",
+      "history": "Según tus operaciones",
+      "futureNote": "Los aportes aparecen aquí cuando ocurran.",
+      "classes": "División por clase, hoy",
+      "estimated": "{count, plural, one {# activo sin precio vale el costo.} other {# activos sin precio valen el costo.}}",
+      "note": "El aporte es un movimiento, no consumo. Nada aquí es una recomendación.",
+      "invite": "Registra lo que ya tienes para ver cartera, ganancia y aportes aquí.",
+      "inviteAction": "Registrar inversión"
+    },
+    "dividends": {
+      "title": "Dividendos",
+      "description": "Valores netos. No entran en los ingresos del mes.",
+      "open": "Ver dividendos",
+      "received": "Recibidos en {month}",
+      "last12": "Últimos 12 meses",
+      "last12Hint": "Hasta el mes elegido",
+      "announced": "Anunciados para este mes",
+      "ahead": "Anunciados para después",
+      "upcoming": "Próximos pagos anunciados",
+      "estimate": "Estimación por el historial para este mes: {amount}. No es un anuncio ni una garantía.",
+      "invite": "Registra lo que recibes para seguirlo mes a mes.",
+      "inviteAction": "Registrar dividendo"
+    },
+    "fresh": {
+      "title": "Tu panel empieza aquí",
+      "text": "Haz el primer registro y el mes tendrá ingresos, gastos, categorías y gráfico.",
+      "action": "Hacer el primer registro",
+      "accounts": "Indica el saldo para ver cuánto tienes hoy.",
+      "accountsAction": "Ver cuentas",
+      "reserve": "Cuánto guardar para imprevistos."
     }
   },
   "settings": {
@@ -1961,7 +2221,9 @@
       "settled": "Pagados y cobrados",
       "open": "Pendientes",
       "category": "Categoría",
-      "allCategories": "Todas"
+      "allCategories": "Todas",
+      "account": "Cuenta",
+      "allAccounts": "Todas"
     },
     "table": {
       "caption": "Movimientos del mes",
@@ -2040,6 +2302,10 @@
       "text": "No se confirmó nada. Esta cuenta está en {currency, select, USD {dólares} EUR {euros} other {reales}} y todavía no tenemos la cotización del {date}. Inténtalo más tarde.",
       "close": "Entendido",
       "failed": "No se pudo confirmar ahora. Inténtalo de nuevo."
+    },
+    "cardLines": {
+      "total": "{count, plural, one {# compra con tarjeta} other {# compras con tarjeta}} en esta categoría este mes: {amount}. Están dentro de la factura, que aparece aquí como un solo movimiento.",
+      "open": "Ver tarjetas"
     }
   },
   "contas": {
@@ -2646,6 +2912,11 @@
       "invalidAccount": "Elige una cuenta válida.",
       "reviewRows": "Revisa los movimientos e inténtalo de nuevo.",
       "invalidCategory": "Elige una categoría válida en cada movimiento."
+    },
+    "investments": {
+      "title": "¿Inviertes en la bolsa?",
+      "text": "El Excel del área del inversor de B3 y la nota de corretaje en PDF se importan desde la pantalla de inversiones.",
+      "link": "Importar de B3 o del corredor"
     }
   },
   "renda": {

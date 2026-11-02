@@ -1,5 +1,6 @@
 // Leitura de Excel e PDF no navegador: o arquivo não sai da máquina (ADR-0006). As bibliotecas são
 // grandes, por isso só carregam quando alguém escolhe um arquivo desses.
+import type { WorkbookSheet } from "@organizeup/domain";
 
 function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -17,6 +18,17 @@ export async function readSpreadsheet(file: File): Promise<string[][]> {
   return rows
     .map((row) => row.map(cellText))
     .filter((row) => row.some((cell) => cell.trim().length > 0));
+}
+
+/** Todas as abas, sem transformar as células: a Posição da B3 separa cada tipo de ativo numa aba. */
+export async function readWorkbook(file: File): Promise<WorkbookSheet[]> {
+  const { default: readXlsxFile } = await import("read-excel-file/web-worker");
+  const sheets = await readXlsxFile(file);
+  // A biblioteca tipa a célula de data como o construtor; em tempo de execução é uma `Date`.
+  return sheets.map(({ sheet, data }) => ({
+    name: sheet,
+    rows: data as WorkbookSheet["rows"],
+  }));
 }
 
 /** Linhas de texto do PDF, na ordem de leitura. PDF escaneado não tem texto e volta vazio. */

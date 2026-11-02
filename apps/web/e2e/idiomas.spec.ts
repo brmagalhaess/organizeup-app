@@ -94,7 +94,7 @@ test("trocar de idioma traduz menu, painel e Configurações, e recarregar mant�
   await expect(page.getByRole("heading", { level: 1, name: "Hi, Rosa" })).toBeVisible();
   await expect(page.getByText("Account balance", { exact: true })).toBeVisible();
   await expect(page.getByText(/^Today is [A-Z][a-z]+ \d{1,2}, \d{4}/)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Money in and out" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Trend" })).toBeVisible();
   await expect(page.getByText("R$1,234.56").first()).toBeVisible();
   await expectNoAxeViolations(page);
   await expectNoHorizontalOverflow(page);

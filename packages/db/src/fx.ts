@@ -80,15 +80,18 @@ export async function fxSeries(
   return before ? [before, ...rows] : rows;
 }
 
-/** A última cotação de cada moeda: é a "de hoje" dos saldos. */
-export async function latestFxRates(tx: TenantTx): Promise<FxRates> {
+/** Cotação de cada moeda no dia, ou a última anterior. */
+export async function fxRatesOn(tx: TenantTx, date: string): Promise<FxRates> {
   const rates: FxRates = {};
   for (const currency of FX_CURRENCIES) {
-    const quote = await fxRateOn(tx, currency, FAR_AHEAD);
+    const quote = await fxRateOn(tx, currency, date);
     if (quote) rates[currency] = quote;
   }
   return rates;
 }
+
+/** A última cotação de cada moeda: é a "de hoje" dos saldos. */
+export const latestFxRates = (tx: TenantTx): Promise<FxRates> => fxRatesOn(tx, FAR_AHEAD);
 
 export async function accountCurrency(tx: TenantTx, accountId: string): Promise<Currency | null> {
   const [row] = await tx

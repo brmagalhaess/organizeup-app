@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 import {
   accounts,
   asc,
@@ -7,12 +8,14 @@ import {
   categories,
   desc,
   eq,
+  householdCurrency,
   householdReports,
   householdSettings,
   importBatches,
   withHousehold,
 } from "@organizeup/db";
-import { CARD_CATEGORY, todayIn } from "@organizeup/domain";
+import { brazilRulesApply, CARD_CATEGORY, todayIn } from "@organizeup/domain";
+import { buttonClass } from "@/components/styles";
 import { Card, PageHeader } from "@/components/ui";
 import { familyAccountType } from "@/i18n/account-server";
 import { agentText } from "@/i18n/agent-text";
@@ -70,7 +73,14 @@ export default async function ImportPage() {
       .select({ timezone: householdSettings.timezone })
       .from(householdSettings)
       .where(eq(householdSettings.householdId, ctx.householdId));
-    return { accountRows, categoryRows, batchRows, reportRows, timezone: settings?.timezone };
+    return {
+      accountRows,
+      categoryRows,
+      batchRows,
+      reportRows,
+      timezone: settings?.timezone,
+      currency: await householdCurrency(tx),
+    };
   });
   const accountName = new Map(data.accountRows.map((a) => [a.id, system.name(a.name)]));
   const accountType = await familyAccountType();
@@ -81,6 +91,13 @@ export default async function ImportPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
+      {brazilRulesApply(data.currency) ? (
+        <Card title={t("investments.title")} description={t("investments.text")}>
+          <Link href="/app/investimentos/importar" className={buttonClass("secondary")}>
+            {t("investments.link")}
+          </Link>
+        </Card>
+      ) : null}
       {canWrite(ctx) ? (
         <ImportWizard
           accounts={data.accountRows

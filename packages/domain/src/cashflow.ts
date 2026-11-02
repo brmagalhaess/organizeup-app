@@ -222,7 +222,9 @@ export function expensesByCategory(entries: MonthEntry[]) {
 
 /**
  * Como `expensesByCategory`, mas abre a fatura: no lugar da categoria do cartão entram as
- * compras do mês, cada uma na sua categoria. Assim a fatura paga não some nem conta duas vezes.
+ * compras do mês, cada uma na sua categoria. Assim a fatura paga não some nem conta duas vezes. O que
+ * está na categoria do cartão sem compra por trás, como um pagamento de fatura importado do banco por
+ * quem não lança as compras, fica nela: é dinheiro que saiu, e sumiria do total.
  */
 export function spendingByCategory(
   entries: MonthEntry[],
@@ -230,13 +232,19 @@ export function spendingByCategory(
   cardCategoryId: string | undefined,
 ) {
   const totals = new Map<string, MoneyValue>();
-  const add = (categoryId: string, amount: string) =>
+  const add = (categoryId: string, amount: MoneyValue | string) =>
     totals.set(categoryId, (totals.get(categoryId) ?? money(0)).plus(amount));
+  let onCard = money(0);
   for (const entry of entries) {
-    if (entry.kind === "despesa" && entry.categoryId !== cardCategoryId)
-      add(entry.categoryId, entry.amount);
+    if (entry.kind !== "despesa") continue;
+    if (entry.categoryId === cardCategoryId) onCard = onCard.plus(entry.amount);
+    else add(entry.categoryId, entry.amount);
   }
-  for (const line of cardLines) add(line.categoryId, line.amount);
+  for (const line of cardLines) {
+    add(line.categoryId, line.amount);
+    onCard = onCard.minus(line.amount);
+  }
+  if (cardCategoryId !== undefined && onCard.gt(0)) add(cardCategoryId, onCard);
   return [...totals.entries()]
     .map(([categoryId, value]) => ({ categoryId, amount: toDbAmount(value) }))
     .sort((a, b) => money(b.amount).comparedTo(money(a.amount)));

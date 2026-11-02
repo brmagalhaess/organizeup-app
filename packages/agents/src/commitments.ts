@@ -1,6 +1,7 @@
 // Compromissos do mês (faturas, parcelas, metas e rendas em aberto), usados pelas telas da web e
 // pelo assistente: as duas leituras precisam dar o mesmo número. Rode dentro de withHousehold.
 import {
+  and,
   asc,
   cardPurchases,
   cardStatementPayments,
@@ -15,6 +16,8 @@ import {
   householdCurrency,
   incomeSources,
   inArray,
+  lte,
+  sql,
   type TenantTx,
 } from "@organizeup/db";
 import {
@@ -25,6 +28,7 @@ import {
   incomeBetween,
   incomeKey,
   linesTotal,
+  monthBounds,
   occurrenceDate,
   plainIncomes,
   purchaseLines,
@@ -116,10 +120,25 @@ async function goalEntries(tx: TenantTx, categoryId: string | undefined) {
   });
 }
 
-/** Cartões com as parcelas calculadas e os meses de fatura já pagos. */
-export async function cardBook(tx: TenantTx) {
+/**
+ * Cartões com as parcelas calculadas e os meses de fatura já pagos. Com `months`, só as compras com
+ * alguma parcela naquelas faturas: a compra cai até dois meses depois da data, e cada parcela no mês
+ * seguinte, então uma compra de fora do intervalo não tem linha nele.
+ */
+export async function cardBook(tx: TenantTx, months?: { from: YearMonth; to: YearMonth }) {
   const cards = await tx.select().from(creditCards).orderBy(asc(creditCards.createdAt));
-  const purchases = await tx.select().from(cardPurchases).orderBy(asc(cardPurchases.purchasedOn));
+  const purchases = await tx
+    .select()
+    .from(cardPurchases)
+    .where(
+      months
+        ? and(
+            lte(cardPurchases.purchasedOn, monthBounds(months.to).last),
+            sql`${cardPurchases.purchasedOn} + make_interval(months => ${cardPurchases.installments} + 2) >= ${monthBounds(months.from).first}::date`,
+          )
+        : undefined,
+    )
+    .orderBy(asc(cardPurchases.purchasedOn));
   const payments = await tx.select().from(cardStatementPayments);
   return cards.map((card) => ({
     card,
@@ -132,10 +151,14 @@ export async function cardBook(tx: TenantTx) {
 
 /**
  * Faturas, parcelas, metas e rendas em aberto, prontas para entrar no fluxo do mês. A renda não tem fim
- * definido, por isso é calculada só para os meses pedidos.
+ * definido, por isso é calculada só para os meses pedidos. Com `onlyWindow`, as compras de cartão também
+ * ficam só nesses meses: serve a quem não olha nada fora deles.
  */
-export async function loadCommitments(tx: TenantTx, months: { from: YearMonth; to: YearMonth }) {
-  const book = await cardBook(tx);
+export async function loadCommitments(
+  tx: TenantTx,
+  months: { from: YearMonth; to: YearMonth; onlyWindow?: boolean },
+) {
+  const book = await cardBook(tx, months.onlyWindow ? months : undefined);
   const category = await systemCategories(tx);
 
   const statements: ScheduledEntry[] = book.flatMap(({ card, lines, paid }) => {
@@ -185,5 +208,6 @@ export async function loadCommitments(tx: TenantTx, months: { from: YearMonth; t
     ],
     cardLines: book.flatMap(({ lines }) => lines),
     cardCategoryId: category.card,
+    book,
   };
 }

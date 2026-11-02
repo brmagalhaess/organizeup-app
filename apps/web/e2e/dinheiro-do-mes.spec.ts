@@ -101,7 +101,7 @@ test("lança receitas e despesas, confirma previsão e mantém famílias separad
   await expect(total(page, "Previsão para o fim do mês")).toContainText("1.500,00");
 
   await page.goto("/app");
-  await expect(total(page, "Entrou")).toContainText("5.000,00");
+  await expect(total(page, "Receitas").first()).toContainText("5.000,00");
   await expect(total(page, "Saldo nas contas")).toContainText("2.500,00");
   await expect(page.getByRole("list", { name: "Próximos vencimentos" })).toContainText(
     "Aluguel confidencial",
