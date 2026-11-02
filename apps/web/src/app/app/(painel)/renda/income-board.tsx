@@ -1,7 +1,7 @@
 "use client";
-import { AlertTriangle, Info, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarDays, Info, Pencil, Plus, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   calculatePayslip,
   calculateThirteenth,
@@ -11,12 +11,12 @@ import {
   toDbAmount,
   type IncomeKind,
   type Payslip,
+  type IncomeYearView,
   type ThirteenthSalary,
   type VacationPay,
 } from "@organizeup/domain";
 import { cx } from "@/components/styles";
 import {
-  Badge,
   Button,
   Card,
   ConfirmSheet,
@@ -31,10 +31,11 @@ import {
   StatTile,
 } from "@/components/ui";
 import { useAccountFeatures } from "@/i18n/account";
-import { formatMonthYear, monthName, monthNames, toAmountInput } from "@/i18n/format";
+import { formatDayMonth, formatMonthYear, monthName, toAmountInput } from "@/i18n/format";
 import type { loadIncome } from "@/lib/income-data";
 import { systemTextOf } from "@/i18n/system-text";
 import { saveIncome, stopIncome, type IncomeFormState } from "./actions";
+import { PayChoices, type LivePay } from "./pay-choices";
 import { useBrazilRules, useMoney } from "@/i18n/money";
 
 type Data = Awaited<ReturnType<typeof loadIncome>>;
@@ -118,6 +119,28 @@ function TaxNote({ slip, className }: { slip: Payslip; className: string }) {
   );
 }
 
+/** Bloco de férias de 30 dias, para o simulador e para quem ainda não escolheu o mês. */
+function VacationEstimate({ vacation }: { vacation: VacationPay }) {
+  const t = useTranslations("renda.extra");
+  const tSlip = useTranslations("renda.slip");
+  const moneyText = useMoney();
+  const uncertain = !money(vacation.net).equals(vacation.netWithReduction);
+  return (
+    <section aria-label={t("vacationLabel")} className="rounded-xl bg-card-soft p-4">
+      <h3 className="text-sm font-semibold">{t("vacation")}</h3>
+      <dl className="m-0 mt-1">
+        <Line label={t("vacationGross")} value={vacation.gross} />
+        <Line label={tSlip("net")} value={vacation.net} strong />
+      </dl>
+      {uncertain ? (
+        <p className="mt-2 text-xs text-muted">
+          {t("uncertain", { value: moneyText(vacation.netWithReduction) })}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function ExtraPay({
   thirteenth,
   vacation,
@@ -126,9 +149,6 @@ function ExtraPay({
   vacation: VacationPay;
 }) {
   const t = useTranslations("renda.extra");
-  const tSlip = useTranslations("renda.slip");
-  const moneyText = useMoney();
-  const uncertain = !money(vacation.net).equals(vacation.netWithReduction);
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <section aria-label={t("thirteenth")} className="rounded-xl bg-card-soft p-4">
@@ -139,18 +159,131 @@ function ExtraPay({
           <Line label={t("total")} value={thirteenth.net} strong />
         </dl>
       </section>
-      <section aria-label={t("vacationLabel")} className="rounded-xl bg-card-soft p-4">
-        <h3 className="text-sm font-semibold">{t("vacation")}</h3>
-        <dl className="m-0 mt-1">
-          <Line label={t("vacationGross")} value={vacation.gross} />
-          <Line label={tSlip("net")} value={vacation.net} strong />
-        </dl>
-        {uncertain ? (
-          <p className="mt-2 text-xs text-muted">
-            {t("uncertain", { value: moneyText(vacation.netWithReduction) })}
-          </p>
-        ) : null}
+      <VacationEstimate vacation={vacation} />
+    </div>
+  );
+}
+
+/** 13º e férias do ano, como vão cair nas previsões. */
+function YearPay({
+  view,
+  vacation,
+  receivedParts,
+  title,
+}: {
+  view: IncomeYearView;
+  vacation: VacationPay;
+  receivedParts: string[];
+  /** Só quando o cartão mostra mais de um ano. */
+  title?: string;
+}) {
+  const t = useTranslations("renda.extra");
+  const tChoices = useTranslations("renda.choices");
+  const locale = useLocale();
+  const moneyText = useMoney();
+  const { thirteenth, vacations } = view;
+  const monthOf = (month: string) => monthName(Number(month.slice(5)), locale);
+  const label = (text: string, received: boolean) =>
+    received ? `${text} (${t("receivedTag")})` : text;
+  const best = vacations.reduce((acc, row) => acc.plus(row.netWithReduction), money(0));
+  const forecast = vacations.reduce((acc, row) => acc.plus(row.net), money(0));
+  const covered = thirteenth !== null && money(thirteenth.second.amount).lte(0);
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {title ? <h3 className="text-sm font-semibold sm:col-span-2">{title}</h3> : null}
+      {view.inheritedFrom ? (
+        <p className="text-xs text-muted sm:col-span-2">
+          {t("sameChoice", { year: view.inheritedFrom })}
+        </p>
+      ) : null}
+      <section aria-label={t("thirteenth")} className="rounded-xl bg-card-soft p-4">
+        <h3 className="text-sm font-semibold">{t("thirteenth")}</h3>
+        {thirteenth ? (
+          <>
+            <dl className="m-0 mt-1">
+              {thirteenth.first ? (
+                <Line
+                  label={label(
+                    t("firstIn", { month: monthOf(thirteenth.first.month) }),
+                    thirteenth.first.received || receivedParts.includes("13-1"),
+                  )}
+                  value={thirteenth.first.amount}
+                />
+              ) : null}
+              <Line
+                label={label(
+                  t(thirteenth.first ? "secondIn" : "singleIn", {
+                    month: monthOf(thirteenth.second.month),
+                  }),
+                  thirteenth.second.received || receivedParts.includes("13-2"),
+                )}
+                value={covered ? "0.00" : thirteenth.second.amount}
+              />
+              <Line label={t("total")} value={thirteenth.net} strong />
+            </dl>
+            {covered ? (
+              <p className="mt-2 text-xs text-muted">
+                {tChoices("secondCovered", { value: moneyText(thirteenth.net) })}
+              </p>
+            ) : !thirteenth.first && money(thirteenth.advance).gt(0) ? (
+              <p className="mt-2 text-xs text-muted">
+                {tChoices("integralAdvance", { value: moneyText(thirteenth.advance) })}
+              </p>
+            ) : null}
+            {thirteenth.serviceMonths < 12 ? (
+              <p className="mt-2 text-xs text-muted">
+                {t("proportional", { months: thirteenth.serviceMonths })}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-muted">{tChoices("resultNone")}</p>
+        )}
       </section>
+      {vacations.length === 0 ? (
+        <VacationEstimate vacation={vacation} />
+      ) : (
+        <section aria-label={t("vacationLabel")} className="rounded-xl bg-card-soft p-4">
+          <h3 className="text-sm font-semibold">{t("vacationPeriods")}</h3>
+          <dl className="m-0 mt-1">
+            {vacations.map((row) => (
+              <Line
+                key={row.part}
+                label={label(
+                  row.soldDays > 0
+                    ? t("periodSold", {
+                        days: row.days,
+                        month: monthOf(row.keyMonth),
+                        sold: row.soldDays,
+                      })
+                    : t("periodLine", { days: row.days, month: monthOf(row.keyMonth) }),
+                  row.received || receivedParts.includes(row.part),
+                )}
+                value={row.net}
+              />
+            ))}
+          </dl>
+          <ul className="m-0 mt-1 list-none p-0 text-xs text-muted">
+            {vacations.map((row) => (
+              <li key={row.part}>
+                {t("paidOn", { days: row.days, date: formatDayMonth(row.payDate, locale) })}
+              </li>
+            ))}
+            {view.salaryMonths
+              .filter((row) => row.workedDays > 0)
+              .map((row) => (
+                <li key={row.month}>
+                  {t("salaryIn", { month: monthOf(row.month), days: row.workedDays })}
+                </li>
+              ))}
+          </ul>
+          {best.equals(forecast) ? null : (
+            <p className="mt-2 text-xs text-muted">
+              {t("uncertain", { value: moneyText(toDbAmount(best)) })}
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -298,6 +431,68 @@ function IncomeForm({
     source?.kind && kinds.includes(source.kind) ? source.kind : brazil ? "clt" : "outro",
   );
   const clt = kind === "clt";
+  const readAmount = (text: string): string | null => {
+    if (!text.trim()) return "0.00";
+    try {
+      const value = parseMoney(text, locale);
+      return value.lt(0) ? null : toDbAmount(value);
+    } catch {
+      return null;
+    }
+  };
+  const liveFrom = (fields: {
+    amount: string;
+    dependents: string;
+    pension: string;
+    otherDiscounts: string;
+    payDay: string;
+  }): LivePay => {
+    const amount = readAmount(fields.amount);
+    const pension = readAmount(fields.pension);
+    const otherDiscounts = readAmount(fields.otherDiscounts);
+    const payDay = Number(fields.payDay);
+    const dependents = Number(fields.dependents || "0");
+    const invalid =
+      amount === null ||
+      pension === null ||
+      otherDiscounts === null ||
+      !Number.isInteger(dependents) ||
+      !Number.isInteger(payDay) ||
+      payDay < 1 ||
+      payDay > 31;
+    return {
+      amount: invalid || money(amount ?? "0").isZero() ? null : amount,
+      invalid,
+      dependents: invalid ? 0 : dependents,
+      pension: pension ?? "0.00",
+      otherDiscounts: otherDiscounts ?? "0.00",
+      payDay: invalid ? 5 : payDay,
+    };
+  };
+  const [live, setLive] = useState<LivePay>(() =>
+    liveFrom({
+      amount: source ? toAmountInput(source.amount, locale) : (draft?.gross ?? ""),
+      dependents: String(source?.dependents ?? (draft?.dependents || 0)),
+      pension: source ? toAmountInput(source.pensionAmount, locale) : (draft?.pension ?? ""),
+      otherDiscounts: source
+        ? toAmountInput(source.otherDiscounts, locale)
+        : (draft?.otherDiscounts ?? ""),
+      payDay: String(source?.payDay ?? 5),
+    }),
+  );
+  const refreshLive = (event: FormEvent<HTMLFormElement>) => {
+    const fields = new FormData(event.currentTarget);
+    const text = (name: string) => String(fields.get(name) ?? "");
+    setLive(
+      liveFrom({
+        amount: text("amount"),
+        dependents: text("dependents"),
+        pension: text("pensionAmount"),
+        otherDiscounts: text("otherDiscounts"),
+        payDay: text("payDay"),
+      }),
+    );
+  };
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
@@ -305,8 +500,8 @@ function IncomeForm({
   const defaultCategory = data.categories.find((c) => c.name === DEFAULT_CATEGORY[kind])?.id;
 
   return (
-    <form action={action} className="flex flex-col gap-4">
-      <input type="hidden" name="id" value={source?.id ?? ""} />
+    <form action={action} onChange={refreshLive} className="flex flex-col gap-4">
+      <input type="hidden" name="id" value={source?.id ?? state.savedId ?? ""} />
       <Field label={tForm("kind")} error={errors.kind}>
         <Select
           name="kind"
@@ -352,31 +547,19 @@ function IncomeForm({
       </div>
       {clt ? (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            {features.dependents ? (
-              <Field label={tForm("dependents")} error={errors.dependents}>
-                <Input
-                  name="dependents"
-                  type="number"
-                  min={0}
-                  max={20}
-                  defaultValue={source?.dependents ?? (draft?.dependents || 0)}
-                />
-              </Field>
-            ) : (
-              <input type="hidden" name="dependents" value="0" />
-            )}
-            <Field label={tForm("vacationMonth")} error={errors.vacationMonth}>
-              <Select name="vacationMonth" defaultValue={source?.vacationMonth ?? 0}>
-                <option value={0}>{tForm("notSure")}</option>
-                {monthNames(locale).map((month, index) => (
-                  <option key={month} value={index + 1}>
-                    {month}
-                  </option>
-                ))}
-              </Select>
+          {features.dependents ? (
+            <Field label={tForm("dependents")} error={errors.dependents}>
+              <Input
+                name="dependents"
+                type="number"
+                min={0}
+                max={20}
+                defaultValue={source?.dependents ?? (draft?.dependents || 0)}
+              />
             </Field>
-          </div>
+          ) : (
+            <input type="hidden" name="dependents" value="0" />
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Field label={tForm("pension")} error={errors.pensionAmount}>
               <Input
@@ -397,6 +580,7 @@ function IncomeForm({
               />
             </Field>
           </div>
+          <PayChoices source={source} data={data} live={live} errors={errors} />
         </>
       ) : null}
       <Field label={tForm("account")} error={errors.accountId}>
@@ -487,20 +671,44 @@ function SourceCard({
           </div>
         ) : null}
       </div>
-      {source.payslip && source.thirteenth && source.vacation ? (
+      {source.payslip && source.yearView && source.vacation ? (
         <div className="mt-3 flex flex-col gap-3">
           <PayslipLines slip={source.payslip} />
           <TaxNote slip={source.payslip} className="text-xs text-muted" />
-          <ExtraPay thirteenth={source.thirteenth} vacation={source.vacation} />
-          {source.vacationMonth ? (
-            <div>
-              <Badge>
-                {t("extra.vacationIn", { month: monthName(source.vacationMonth, locale) })}
-              </Badge>
-            </div>
-          ) : (
+          <YearPay
+            view={source.yearView}
+            vacation={source.vacation}
+            receivedParts={source.receivedParts}
+            {...(source.nextYearView ? { title: t("extra.yearTitle", { year: data.year }) } : {})}
+          />
+          {source.yearView.vacations.length === 0 ? (
             <p className="text-xs text-muted">{t("extra.noVacation")}</p>
-          )}
+          ) : null}
+          {source.orphanMonths.map((month) => (
+            <p
+              key={month}
+              role="status"
+              className="rounded-xl bg-warning-soft p-3 text-sm text-warning"
+            >
+              {t("choices.orphanReceipt", { month: formatMonthYear(month, locale) })}
+            </p>
+          ))}
+          {source.nextYearView ? (
+            <YearPay
+              view={source.nextYearView}
+              vacation={source.vacation}
+              receivedParts={source.receivedNext}
+              title={t("extra.yearTitle", { year: data.year + 1 })}
+            />
+          ) : null}
+          {writable ? (
+            <div>
+              <Button variant="secondary" onClick={onEdit}>
+                <CalendarDays className="size-4" aria-hidden="true" />
+                {t("extra.adjust")}
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <p className="mt-3 text-2xl font-semibold tabular-nums tracking-tight">

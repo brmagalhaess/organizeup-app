@@ -22,6 +22,7 @@ export * from "./categorize";
 export * from "./wealth";
 export * from "./calendar";
 export * from "./income";
+export * from "./income-plan";
 export * from "./investment";
 export * from "./market";
 export * from "./investment-file";

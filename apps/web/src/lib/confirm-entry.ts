@@ -14,6 +14,7 @@ import {
   goals,
   householdCurrency,
   incomeReceipts,
+  incomeVacationReceipts,
   mainEntry,
   transactions,
   type TenantContext,
@@ -26,12 +27,14 @@ import {
   linesTotal,
   money,
   occurrenceDate,
+  openIncomeEntries,
   purchaseLines,
   statementDueDate,
   toDbAmount,
   type Currency,
   type EntryMoney,
 } from "@organizeup/domain";
+import { incomeReceiptRows } from "@organizeup/agents";
 import { audit } from "./audit";
 import {
   goalEntryDescription,
@@ -103,12 +106,13 @@ export async function confirmCommitment(
   key: string,
   month: string,
   mark: ImportMark | Record<string, never> = {},
+  receivedOn?: string,
 ): Promise<ConfirmOutcome> {
   // Parcela de dívida e de meta são dados de módulo: desligado, ficam guardadas, sem baixa.
   const owner = key.startsWith("d:") ? "dividas" : key.startsWith("g:") ? "metas" : null;
   if (owner && !canUse(await accessWithin(tx), owner)) return { done: false, moduleOff: true };
   try {
-    return { done: await confirmByKey(tx, ctx, key, month, mark) };
+    return { done: await confirmByKey(tx, ctx, key, month, mark, receivedOn) };
   } catch (error) {
     if (error instanceof FrozenCurrency) return { done: false, frozenCurrency: error.currency };
     if (!(error instanceof MissingQuote)) throw error;
@@ -122,6 +126,7 @@ async function confirmByKey(
   key: string,
   month: string,
   mark: ImportMark | Record<string, never>,
+  receivedOn?: string,
 ): Promise<boolean> {
   const id = key.slice(2);
 
@@ -307,19 +312,12 @@ async function confirmByKey(
     if (!isYearMonth(incomeMonth)) return false;
     const found = await incomeOccurrence(tx, sourceId, incomeMonth, part);
     if (!found) return false;
-    const [received] = await tx
-      .select({ id: incomeReceipts.id })
-      .from(incomeReceipts)
-      .where(
-        and(
-          eq(incomeReceipts.incomeSourceId, sourceId),
-          eq(incomeReceipts.month, incomeMonth),
-          eq(incomeReceipts.part, found.part),
-        ),
-      );
-    if (received) return false;
     const { source, entry } = found;
-    const entryMoney = await commitmentEntry(tx, source.accountId, entry.amount, entry.date);
+    // Parte já baixada no ano não baixa de novo, mesmo em outro mês.
+    if (openIncomeEntries([entry], await incomeReceiptRows(tx), [source]).length === 0)
+      return false;
+    const date = receivedOn ?? entry.date;
+    const entryMoney = await commitmentEntry(tx, source.accountId, entry.amount, date);
     if (!entryMoney) return false;
     const [created] = await tx
       .insert(transactions)
@@ -330,19 +328,21 @@ async function confirmByKey(
         kind: "receita",
         description: entry.description,
         ...entryMoney,
-        occurredOn: entry.date,
+        occurredOn: date,
         status: "realizado",
         createdBy: ctx.userId,
         ...mark,
       })
       .returning({ id: transactions.id });
-    await tx.insert(incomeReceipts).values({
+    const receipt = {
       householdId: ctx.householdId,
       incomeSourceId: sourceId,
       month: incomeMonth,
-      part: found.part,
       transactionId: created!.id,
-    });
+    };
+    if (found.part === "ferias-2" || found.part === "ferias-3")
+      await tx.insert(incomeVacationReceipts).values({ ...receipt, part: found.part });
+    else await tx.insert(incomeReceipts).values({ ...receipt, part: found.part });
     await audit(tx, ctx, "confirm", "income_receipts", sourceId);
     return true;
   }

@@ -28,6 +28,7 @@ Status: aceito (2026-10-30)
 
 ## Ponto em aberto: redução nas férias
 
+Conferido de novo em 2026-11-02 (ADR-0028), sem novidade.
 Não achamos fonte oficial sobre como a redução se aplica às férias. A orientação de dezembro de 2025 não fala
 do assunto, e o Perguntas e Respostas IRPF 2026 também não. A lei fala em rendimentos sujeitos à incidência
 mensal, o que sugere que a redução vale, mas isso é leitura nossa. Por isso, a previsão do mês usa o valor
@@ -36,7 +37,7 @@ trocar o valor usado em `monthIncome`.
 
 ## Fora do escopo por enquanto
 
-13º proporcional a quem trabalhou menos de um ano, férias divididas ou vendidas, 13º adiantado nas férias,
-horas extras, adicionais, FGTS, previdência privada e IR de PJ ou autônomo. Com duas fontes pagadoras, cada
+13º proporcional, férias divididas ou vendidas e 13º adiantado nas férias saíram desta lista com o ADR-0028.
+Horas extras, adicionais, FGTS, previdência privada e IR de PJ ou autônomo. Com duas fontes pagadoras, cada
 uma é calculada sozinha, como na retenção, e a diferença aparece só no ajuste anual. O 13º de aposentados
 não é previsto. Tabelas de 2027 precisam de nova migração em janeiro.

@@ -6,6 +6,7 @@ import {
   calendarMonth,
   currentDebtPlan,
   currentDividendPlan,
+  incomeReceiptRows,
   latestStatement,
   loadCommitments,
   loadFiscalTables,
@@ -13,6 +14,7 @@ import {
   monthlyPlanView,
   readStatement,
   reserveInputs,
+  withIncomePlans,
   AGENT_MODULE,
   loadTripIntentions,
 } from "@organizeup/agents";
@@ -58,6 +60,7 @@ import {
   entryFlow,
   entryOrigin,
   formatYearMonth,
+  incomeYearView,
   isExpensiveDebt,
   isSavings,
   money,
@@ -69,6 +72,7 @@ import {
   plainIncomes,
   planTrip,
   receivedDividends,
+  receivedInYear,
   recommendedStrategy,
   savingsByCategory,
   spendingByCategory,
@@ -81,6 +85,7 @@ import {
   upcomingDividends,
   yearMonthOf,
   type DebtPlanStrategy,
+  type IncomeYearView,
   type PlanActionKind,
 } from "@organizeup/domain";
 import { z } from "zod";
@@ -337,25 +342,74 @@ const listarCategorias = defineTool({
     }),
 });
 
+/** 13º e férias do ano, com a mesma conta das previsões. Em outras rendas, nada. */
+function payExtras(view: IncomeYearView | null, received: string[]) {
+  if (!view) return {};
+  const status = (part: string, marked: boolean) =>
+    marked || received.includes(part) ? "recebido" : "previsto";
+  const thirteenth = view.thirteenth;
+  return {
+    ...(view.inheritedFrom ? { mesma_escolha_de: view.inheritedFrom } : {}),
+    decimo_terceiro: thirteenth
+      ? {
+          forma: thirteenth.mode === "integral" ? "tudo_de_uma_vez" : "duas_parcelas",
+          meses_contados: thirteenth.serviceMonths,
+          liquido_total: thirteenth.net,
+          pagamentos: [
+            ...(thirteenth.first
+              ? [
+                  {
+                    parte: "1ª parcela",
+                    data: thirteenth.first.date,
+                    valor: thirteenth.first.amount,
+                    situacao: status("13-1", thirteenth.first.received),
+                  },
+                ]
+              : []),
+            {
+              parte: thirteenth.first ? "2ª parcela" : "pagamento único",
+              data: thirteenth.second.date,
+              valor: thirteenth.second.amount,
+              situacao: status("13-2", thirteenth.second.received),
+            },
+          ],
+        }
+      : null,
+    ferias: view.vacations.map((payout) => ({
+      inicio: payout.dayKnown ? payout.start : null,
+      mes: payout.keyMonth,
+      dias: payout.days,
+      dias_vendidos: payout.soldDays,
+      pagamento: payout.payDate,
+      valor_liquido: payout.net,
+      situacao: status(payout.part, payout.received),
+    })),
+  };
+}
+
 const verRenda = defineTool({
   name: "ver_renda",
   module: null,
   description:
-    "Fontes de renda ativas, com o líquido mensal calculado, de quem é cada uma e o dia de pagamento. Chame quando perguntarem quanto a família ganha ou de onde vem a renda.",
+    "Fontes de renda ativas, com o líquido mensal calculado, de quem é cada uma e o dia de pagamento. Na CLT, também as parcelas do 13º e os períodos de férias do ano, com data, valor e se já foram recebidos. Chame quando perguntarem quanto a família ganha, de onde vem a renda, ou sobre 13º e férias.",
   kind: "leitura",
   input: noInput,
   label: () => "olhei sua renda",
   run: (ctx) =>
     read(ctx, async (tx, today) => {
       const month = yearMonthOf(today);
-      const sources = plainIncomes(
-        await tx
-          .select()
-          .from(incomeSources)
-          .where(or(isNull(incomeSources.endMonth), gte(incomeSources.endMonth, month)))
-          .orderBy(asc(incomeSources.createdAt)),
-        await householdCurrency(tx),
+      const sources = await withIncomePlans(
+        tx,
+        plainIncomes(
+          await tx
+            .select()
+            .from(incomeSources)
+            .where(or(isNull(incomeSources.endMonth), gte(incomeSources.endMonth, month)))
+            .orderBy(asc(incomeSources.createdAt)),
+          await householdCurrency(tx),
+        ),
       );
+      const receipts = await incomeReceiptRows(tx);
       const personRows = await tx
         .select({ id: people.id, relation: people.relation })
         .from(people)
@@ -369,6 +423,10 @@ const verRenda = defineTool({
         tipo: source.kind,
         liquido_mensal: monthlyNet(source, tables, month),
         dia_pagamento: source.payDay,
+        ...payExtras(
+          incomeYearView(source, tables, Number(month.slice(0, 4))),
+          receivedInYear(receipts, source, Number(month.slice(0, 4))),
+        ),
       }));
       return {
         mes: month,

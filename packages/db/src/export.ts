@@ -39,6 +39,8 @@ import {
   vipGrants,
   importBatches,
   incomeReceipts,
+  incomeVacationReceipts,
+  incomeYearPlans,
   incomeSources,
   investments,
   investmentStockEvents,
@@ -106,12 +108,14 @@ const HOUSEHOLD_TABLES = {
   audit_log: auditLog,
 };
 
-/** Tabelas das migrações 0036, 0038 e 0039. Sem elas ainda, exportar segue: cada uma lê no próprio savepoint. */
+/** Tabelas das migrações 0036, 0038, 0039 e 0040. Sem elas ainda, exportar segue: cada uma lê no próprio savepoint. */
 const LATE_TABLES = {
   household_subscriptions: householdSubscriptions,
   household_usage: householdUsage,
   vip_grants: vipGrants,
   trip_intentions: tripIntentions,
+  income_year_plans: incomeYearPlans,
+  income_vacation_receipts: incomeVacationReceipts,
 };
 
 /** Arquivo inteiro deixaria a exportação gigante: vão os metadados, e a tela baixa cada um. */
