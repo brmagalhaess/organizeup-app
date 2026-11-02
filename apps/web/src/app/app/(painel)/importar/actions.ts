@@ -1,5 +1,6 @@
 "use server";
 import { getLocale, getTranslations } from "next-intl/server";
+import { familyAccountType } from "@/i18n/account-server";
 import { agentText } from "@/i18n/agent-text";
 import type { Locale } from "@/i18n/locales";
 import { revalidatePath } from "next/cache";
@@ -436,6 +437,7 @@ export async function commitImport(
           messageParams: report.message.params ?? null,
         },
         (await getLocale()) as Locale,
+        await familyAccountType(),
       ).body,
       counts: {
         rowCount: rows.length,

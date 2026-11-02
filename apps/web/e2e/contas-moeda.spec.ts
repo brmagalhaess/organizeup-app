@@ -2,6 +2,7 @@
 // computador e no celular. Precisa de cotação em market_fx, que o job de mercado do worker grava.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { newCpf } from "./documents";
 
 const password = "senha-segura-123!";
 const shots = process.env.E2E_SHOTS_DIR;
@@ -10,6 +11,7 @@ async function signUp(page: Page, name: string) {
   const email = `${name}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@example.com`;
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill(name);
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByLabel("Confirmar senha").fill(password);
@@ -71,7 +73,9 @@ async function journey(page: Page, label: string) {
     });
   await expect(entry.getByLabel("Valor (R$)")).toBeHidden();
   await entry.getByLabel("Valor (US$)").fill("100,00");
-  await expect(entry.getByText(/≈ R\$\s[\d.]+,\d{2}, cotação de \d{2}\/\d{2}\/\d{4}/)).toBeVisible();
+  await expect(
+    entry.getByText(/≈ R\$\s[\d.]+,\d{2}, cotação de \d{2}\/\d{2}\/\d{4}/),
+  ).toBeVisible();
   await expect(entry.getByLabel("Repete todo mês")).toBeHidden();
   if (shots) await page.screenshot({ path: `${shots}/${label}-lancar.png`, fullPage: true });
   await entry.getByRole("button", { name: "Salvar lançamento" }).click();

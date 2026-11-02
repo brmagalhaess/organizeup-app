@@ -33,7 +33,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { AssistantState } from "@organizeup/ai";
-import { skipOnboarding } from "@/app/app/(inicio)/completar/actions";
+import { skipDocument, skipOnboarding } from "@/app/app/(inicio)/completar/actions";
 import { dismissNotice } from "@/app/app/(painel)/sugestoes/actions";
 import { AssistantPanel } from "@/components/assistant/assistant-panel";
 import { cx } from "@/components/styles";
@@ -307,7 +307,7 @@ function NoticeBanner({ notice }: { notice: ShellNotice }) {
         <Link href={notice.href} className="font-semibold underline underline-offset-2">
           {notice.linkLabel}
         </Link>
-        <form action={skipOnboarding}>
+        <form action={notice.key === "documento" ? skipDocument : skipOnboarding}>
           <Button type="submit" variant="ghost" small>
             {t("dontShowAgain")}
           </Button>

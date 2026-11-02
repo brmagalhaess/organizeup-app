@@ -3,6 +3,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { randomBytes } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
+import { newCpf } from "./documents";
 
 const adminEmail = process.env.E2E_ADMIN_EMAIL ?? "";
 const opsToken = process.env.E2E_OPS_TOKEN ?? "";
@@ -29,6 +30,7 @@ async function signInAsAdmin(page: Page) {
   if (outcome === "entrou") return;
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill("Admin");
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(adminEmail);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByLabel("Confirmar senha").fill(password);

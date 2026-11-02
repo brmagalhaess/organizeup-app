@@ -7,14 +7,18 @@ import {
   WeddingFields,
   type WeddingValues,
 } from "@/app/app/(painel)/familia/person-fields";
+import { IdentityFields } from "@/components/identity-fields";
 import { buttonClass } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select, submitKeeping } from "@/components/ui";
+import { useAccountFeatures } from "@/i18n/account";
 import { systemTextOf } from "@/i18n/system-text";
 import {
   finishOnboarding,
+  saveDocumentStep,
   saveFamilyStep,
   saveRetirementStep,
   saveTripsStep,
+  skipDocumentStep,
   type CompletarState,
 } from "./actions";
 
@@ -56,6 +60,29 @@ function Footer({
   );
 }
 
+/** Pedido único a quem já tinha conta. Nada aqui bloqueia o uso. */
+export function DocumentStep() {
+  const t = useTranslations("identity.step");
+  const tCommon = useTranslations("common");
+  const [state, action, pending] = useActionState(saveDocumentStep, initial);
+  return (
+    <div className="flex flex-col gap-3">
+      <form onSubmit={submitKeeping(action)} className="flex flex-col gap-4">
+        <IdentityFields errors={state.fieldErrors} />
+        <FormMessage message={state.message} />
+        <Button type="submit" disabled={pending}>
+          {pending ? tCommon("saving") : t("submit")}
+        </Button>
+      </form>
+      <form action={skipDocumentStep}>
+        <Button type="submit" variant="ghost" className="w-full">
+          {t("later")}
+        </Button>
+      </form>
+    </div>
+  );
+}
+
 export function FamilyStep({
   titular,
   others,
@@ -67,6 +94,7 @@ export function FamilyStep({
 }) {
   const t = useTranslations("familiaOnboarding.family");
   const tComplete = useTranslations("familiaOnboarding.complete");
+  const features = useAccountFeatures();
   const [state, action, pending] = useActionState(saveFamilyStep, initial);
   const relationLabel = (relation: string) => {
     const known = RELATIONS.find((item) => item === relation);
@@ -111,15 +139,19 @@ export function FamilyStep({
             <Input name="personName" maxLength={120} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label={t("relation")} error={state.fieldErrors?.personRelation}>
-              <Select name="personRelation" defaultValue="conjuge">
-                {RELATIONS.map((value) => (
-                  <option key={value} value={value}>
-                    {t(`relations.${value}`)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            {features.relations ? (
+              <Field label={t("relation")} error={state.fieldErrors?.personRelation}>
+                <Select name="personRelation" defaultValue="conjuge">
+                  {RELATIONS.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`relations.${value}`)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : (
+              <input type="hidden" name="personRelation" value="outro" />
+            )}
             <Field label={t("birth")} error={state.fieldErrors?.personBirth}>
               <Input name="personBirth" type="month" />
             </Field>
@@ -132,11 +164,13 @@ export function FamilyStep({
         </div>
       </fieldset>
 
-      <fieldset className="flex min-w-0 flex-col gap-3">
-        <legend className="mb-1 text-sm font-semibold">{t("wedding")}</legend>
-        <p className="text-xs text-muted">{t("weddingHint")}</p>
-        <WeddingFields values={wedding} errors={state.fieldErrors} />
-      </fieldset>
+      {features.wedding ? (
+        <fieldset className="flex min-w-0 flex-col gap-3">
+          <legend className="mb-1 text-sm font-semibold">{t("wedding")}</legend>
+          <p className="text-xs text-muted">{t("weddingHint")}</p>
+          <WeddingFields values={wedding} errors={state.fieldErrors} />
+        </fieldset>
+      ) : null}
 
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Footer pending={pending} label={tComplete("continue")} skipTo={2} />

@@ -1,6 +1,7 @@
 // Critério de pronto da Fase 0: cadastro → criar família → gravar e ler dados → isolamento.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { newCpf } from "./documents";
 
 const password = "senha-segura-123!";
 
@@ -12,6 +13,7 @@ async function signUpAndCreateFamily(page: Page, name: string, family: string) {
   const email = uniqueEmail(name.toLowerCase());
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill(name);
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByLabel("Confirmar senha").fill(password);
@@ -45,6 +47,7 @@ test("senha precisa de letra, número e caractere especial, na tela e no servido
 
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill("Rita");
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(uniqueEmail("rita"));
   await page.getByLabel("Senha", { exact: true }).fill("abc123");
   await page.getByLabel("Confirmar senha").fill("abc123");

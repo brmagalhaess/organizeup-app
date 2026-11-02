@@ -5,6 +5,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { newCpf } from "./documents";
 
 const shots = process.env.E2E_SHOTS_DIR;
 const workerUrl = process.env.E2E_WORKER_DATABASE_URL ?? "";
@@ -26,6 +27,7 @@ async function signUp(page: Page, family: string) {
   const email = `notif.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@example.com`;
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill("Bia");
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByLabel("Confirmar senha").fill(password);

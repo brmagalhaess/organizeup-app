@@ -1081,7 +1081,8 @@
       "editTitle": "Edit person",
       "removeTitle": "Remove person",
       "removeText": "{name} comes off the family list.",
-      "removeConfirm": "Remove"
+      "removeConfirm": "Remove",
+      "ownershipShare": "{percent}% share"
     },
     "relations": {
       "titular": "Main person",
@@ -1107,7 +1108,9 @@
       "pensionHint": "INSS or private pension. If you don’t know, leave it blank.",
       "retirementAge": "Age to stop working",
       "retirementAgeHint": "Used in the plan when the family doesn’t give a year. Blank: 65.",
-      "save": "Save person"
+      "save": "Save person",
+      "ownership": "Share (%)",
+      "ownershipHint": "Optional. For information only: nothing in the system splits amounts by it."
     },
     "wedding": {
       "title": "Wedding",
@@ -1167,7 +1170,8 @@
       "role": "Choose what the person can do.",
       "alreadyMember": "This person is already part of the family.",
       "inviteFailed": "We couldn’t create the invitation. Try again.",
-      "ownerOnly": "Only the person in charge can invite."
+      "ownerOnly": "Only the person in charge can invite.",
+      "ownership": "Enter a percentage from 0 to 100, like 50 or 12.5."
     }
   },
   "assistente": {
@@ -1529,7 +1533,9 @@
       "suggestions": "Suggestions",
       "trips": "Trips",
       "wealth": "Net worth"
-    }
+    },
+    "documentNotice": "Your document is still missing. It takes a minute.",
+    "documentLink": "Add it now"
   },
   "auth": {
     "fields": {
@@ -1573,7 +1579,7 @@
       "pending": "Creating…",
       "signIn": "Sign in",
       "submit": "Create account",
-      "subtitle": "Next you'll set up your family's space. Each family's data is kept separate.",
+      "subtitle": "Next you'll set up your space. Each account's data is kept separate.",
       "subtitleInvite": "Use the email address that got the invitation. You'll join the family right after.",
       "terms": "I have read and accept the <terms>Terms of Use</terms> and the <privacy>Privacy Policy</privacy>.",
       "title": "Create your account"
@@ -3653,6 +3659,55 @@
       "planoIncompleto": "Some data is missing to close the plan. Fill it in under Retirement.",
       "anualNaoFiscal": "This only organizes what your family recorded. It does not replace your income tax return and is not tax advice: check your official documents.",
       "posicaoDoDia": "Portfolio values are as of the day the report was generated."
+    }
+  },
+  "identity": {
+    "countryLegend": "Where do you live?",
+    "brazil": "Brazil",
+    "otherCountry": "Another country",
+    "abroadNote": "People living outside Brazil don't need to provide a document.",
+    "personLegend": "Account type",
+    "personal": "Individual",
+    "company": "Company",
+    "cpf": "CPF",
+    "cpfHint": "With or without dots. It identifies the account holder and is stored encrypted.",
+    "cnpj": "CNPJ",
+    "cnpjHint": "With or without dots. The new format with letters is accepted.",
+    "companyName": "Registered company name",
+    "responsibleCpf": "CPF of the person in charge",
+    "responsibleCpfHint": "Of the person signing up. With or without dots, it is stored encrypted.",
+    "errors": {
+      "choice": "Choose one of the options.",
+      "cpf": "Invalid CPF. Check the numbers.",
+      "cnpj": "Invalid CNPJ. Check what you typed.",
+      "companyName": "Enter the registered company name.",
+      "refused": "We couldn't finish with this information. Check what you typed. If it continues, contact OrganizeUp support.",
+      "unavailable": "We can't store the document right now. Nothing was saved. Try again later.",
+      "refusedSignUp": "We couldn't finish with this information. Check what you typed. If you already have an account, sign in with it. If it continues, contact OrganizeUp support."
+    },
+    "step": {
+      "title": "Your document",
+      "text": "We only ask once. It identifies the account holder, lets us issue invoices and prevents fraud. It is stored encrypted, and the subscription will require it.",
+      "unavailable": "You can't provide the document right now. Try again later.",
+      "submit": "Save document",
+      "later": "Not now"
+    },
+    "invite": {
+      "title": "Your CPF",
+      "text": "Each partner gives their own document. It stays encrypted, and the other partners can't see it.",
+      "failed": "We couldn't accept with this information. Check what you typed."
+    },
+    "settings": {
+      "personTitle": "Your document",
+      "companyTitle": "Company details",
+      "description": "Only you can see this, and always masked.",
+      "type": "Account type",
+      "responsibleCpf": "CPF of the person in charge",
+      "missing": "No document provided.",
+      "add": "Provide document",
+      "abroad": "You said you live outside Brazil.",
+      "hidden": "Stored",
+      "fix": "To correct it, contact OrganizeUp support."
     }
   }
 }

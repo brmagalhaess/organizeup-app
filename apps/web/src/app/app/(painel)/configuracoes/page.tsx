@@ -16,8 +16,10 @@ import { buttonClass } from "@/components/styles";
 import { LocaleSelect } from "@/components/locale-select";
 import { Card, PageHeader } from "@/components/ui";
 import { formatInstant } from "@/i18n/format";
+import { identityView } from "@/lib/identity";
 import { requireTenant } from "@/lib/session";
 import { DeleteAccount } from "./delete-account";
+import { IdentityCard } from "./identity-card";
 import { MemoriesBlock } from "./memories";
 import { CurrencyForm, PlanForm, SettingsForm } from "./settings-form";
 
@@ -42,10 +44,11 @@ export default async function SettingsPage() {
       .where(eq(householdSettings.householdId, ctx.householdId));
     return { settings: row, locked: await householdHasMovement(tx) };
   });
-  const [t, tLocale, locale] = await Promise.all([
+  const [t, tLocale, locale, identity] = await Promise.all([
     getTranslations("settings"),
     getTranslations("locale"),
     getLocale(),
+    identityView(session.user.id),
   ]);
   const role = ["owner", "adult", "child", "viewer"].includes(ctx.role)
     ? t(`roles.${ctx.role as "owner"}`)
@@ -118,6 +121,7 @@ export default async function SettingsPage() {
             </div>
           </dl>
         </Card>
+        <IdentityCard view={identity} />
         <Card title={t("data.title")} description={t("data.description")}>
           <div className="flex flex-wrap gap-2">
             {ctx.role === "owner" ? (

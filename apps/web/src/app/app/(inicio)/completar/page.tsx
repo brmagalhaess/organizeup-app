@@ -15,9 +15,11 @@ import {
 import { buttonClass } from "@/components/styles";
 import { Card } from "@/components/ui";
 import { toAmountInput } from "@/i18n/format";
+import { vaultReady } from "@/lib/document-vault";
+import { identityView } from "@/lib/identity";
 import { isPlanAdult } from "@/lib/onboarding";
 import { requireTenant } from "@/lib/session";
-import { FamilyStep, GoalStep, RetirementStep, TripsStep } from "./steps";
+import { DocumentStep, FamilyStep, GoalStep, RetirementStep, TripsStep } from "./steps";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("familiaOnboarding.complete");
@@ -42,10 +44,11 @@ export default async function CompletarPage({
 }: {
   searchParams: Promise<{ passo?: string }>;
 }) {
-  const { ctx } = await requireTenant();
-  const [t, locale] = await Promise.all([
+  const { session, ctx } = await requireTenant();
+  const [t, locale, { passo }] = await Promise.all([
     getTranslations("familiaOnboarding.complete"),
     getLocale(),
+    searchParams,
   ]);
   const fieldValue = (value: string | null | undefined) =>
     value ? toAmountInput(value, locale) : "";
@@ -54,6 +57,28 @@ export default async function CompletarPage({
       {t("backToPanel")}
     </Link>
   );
+
+  // O documento é da pessoa: vale para qualquer papel na família, antes do resto do cadastro.
+  const identity = await identityView(session.user.id);
+  const wantsDocument =
+    passo === "documento" ? identity.canFill : !passo && identity.ask && vaultReady();
+  if (wantsDocument) {
+    const tStep = await getTranslations("identity.step");
+    return (
+      <>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h1 className="font-display text-2xl font-medium">{tStep("title")}</h1>
+            <span className="shrink-0">{panelLink}</span>
+          </div>
+          <p className="text-sm text-muted">{tStep("text")}</p>
+        </div>
+        <Card>
+          {vaultReady() ? <DocumentStep /> : <p className="text-sm">{tStep("unavailable")}</p>}
+        </Card>
+      </>
+    );
+  }
 
   if (!canWrite(ctx)) {
     return (
@@ -67,7 +92,7 @@ export default async function CompletarPage({
     );
   }
 
-  const step = currentStep((await searchParams).passo);
+  const step = currentStep(passo);
   const { settings, plan, personRows, accountRows } = await withHousehold(ctx, async (tx) => {
     if (step === 4) await ensureFinanceDefaults(tx, ctx.householdId);
     const [settings] = await tx

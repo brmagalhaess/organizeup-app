@@ -1081,7 +1081,8 @@
       "editTitle": "Editar persona",
       "removeTitle": "Quitar persona",
       "removeText": "{name} sale de la lista de la familia.",
-      "removeConfirm": "Quitar"
+      "removeConfirm": "Quitar",
+      "ownershipShare": "{percent}% de participación"
     },
     "relations": {
       "titular": "Titular",
@@ -1107,7 +1108,9 @@
       "pensionHint": "INSS o plan de pensiones. Si no lo sabes, déjalo en blanco.",
       "retirementAge": "Edad para dejar de trabajar",
       "retirementAgeHint": "Se usa en el plan cuando la familia no indica el año. Vacío: 65 años.",
-      "save": "Guardar persona"
+      "save": "Guardar persona",
+      "ownership": "Participación (%)",
+      "ownershipHint": "Opcional. Es solo informativa: nada en el sistema divide valores por ella."
     },
     "wedding": {
       "title": "Matrimonio",
@@ -1167,7 +1170,8 @@
       "role": "Elige qué puede hacer la persona.",
       "alreadyMember": "Esta persona ya forma parte de la familia.",
       "inviteFailed": "No se pudo crear la invitación. Inténtalo de nuevo.",
-      "ownerOnly": "Solo el responsable puede invitar."
+      "ownerOnly": "Solo el responsable puede invitar.",
+      "ownership": "Informa un porcentaje de 0 a 100, como 50 o 12,5."
     }
   },
   "assistente": {
@@ -1529,7 +1533,9 @@
       "suggestions": "Sugerencias",
       "trips": "Viajes",
       "wealth": "Patrimonio"
-    }
+    },
+    "documentNotice": "Falta informar tu documento. Toma un minuto.",
+    "documentLink": "Informar ahora"
   },
   "auth": {
     "fields": {
@@ -1573,7 +1579,7 @@
       "pending": "Creando…",
       "signIn": "Entrar",
       "submit": "Crear cuenta",
-      "subtitle": "Después crearás el espacio de tu familia. Los datos de cada familia están aislados.",
+      "subtitle": "Después crearás tu espacio. Los datos de cada cuenta están aislados.",
       "subtitleInvite": "Usa el correo que recibió la invitación. Después entrarás en la familia.",
       "terms": "He leído y acepto los <terms>Términos de Uso</terms> y la <privacy>Política de Privacidad</privacy>.",
       "title": "Crea tu cuenta"
@@ -3653,6 +3659,55 @@
       "planoIncompleto": "Faltan datos para cerrar el plan. Complétalos en Jubilación.",
       "anualNaoFiscal": "Solo organiza lo que registró la familia. No sustituye la declaración de impuestos ni es asesoría fiscal: revisa tus documentos oficiales.",
       "posicaoDoDia": "Valores de la cartera según la posición del día en que se generó el informe."
+    }
+  },
+  "identity": {
+    "countryLegend": "¿Dónde vives?",
+    "brazil": "Brasil",
+    "otherCountry": "Otro país",
+    "abroadNote": "Quien vive fuera de Brasil no necesita informar un documento.",
+    "personLegend": "Tipo de registro",
+    "personal": "Persona física",
+    "company": "Persona jurídica",
+    "cpf": "CPF",
+    "cpfHint": "Con o sin puntos. Identifica al titular de la cuenta y se guarda cifrado.",
+    "cnpj": "CNPJ",
+    "cnpjHint": "Con o sin puntos. Acepta el formato nuevo, con letras.",
+    "companyName": "Razón social",
+    "responsibleCpf": "CPF del responsable",
+    "responsibleCpfHint": "De quien se registra. Con o sin puntos, se guarda cifrado.",
+    "errors": {
+      "choice": "Elige una de las opciones.",
+      "cpf": "CPF inválido. Revisa los números.",
+      "cnpj": "CNPJ inválido. Revisa lo que escribiste.",
+      "companyName": "Informa la razón social.",
+      "refused": "No se pudo completar con estos datos. Revisa lo que escribiste. Si continúa, habla con el soporte de OrganizeUp.",
+      "unavailable": "No podemos guardar el documento ahora. No se guardó nada. Inténtalo más tarde.",
+      "refusedSignUp": "No se pudo completar con estos datos. Revisa lo que escribiste. Si ya tienes cuenta, entra con ella. Si continúa, habla con el soporte de OrganizeUp."
+    },
+    "step": {
+      "title": "Tu documento",
+      "text": "Lo pedimos una vez. Sirve para identificar al titular de la cuenta, emitir facturas y prevenir fraudes. Se guarda cifrado, y la suscripción lo va a exigir.",
+      "unavailable": "No se puede informar el documento ahora. Inténtalo más tarde.",
+      "submit": "Guardar documento",
+      "later": "Ahora no"
+    },
+    "invite": {
+      "title": "Tu CPF",
+      "text": "Cada socio informa su propio documento. Queda cifrado y los demás socios no lo ven.",
+      "failed": "No se pudo aceptar con estos datos. Revisa lo que escribiste."
+    },
+    "settings": {
+      "personTitle": "Tu documento",
+      "companyTitle": "Datos de la empresa",
+      "description": "Solo tú lo ves, y siempre enmascarado.",
+      "type": "Tipo de registro",
+      "responsibleCpf": "CPF del responsable",
+      "missing": "Ningún documento informado.",
+      "add": "Informar documento",
+      "abroad": "Indicaste que vives fuera de Brasil.",
+      "hidden": "Guardado",
+      "fix": "Para corregirlo, habla con el soporte de OrganizeUp."
     }
   }
 }

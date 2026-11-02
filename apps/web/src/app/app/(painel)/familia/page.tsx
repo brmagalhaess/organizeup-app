@@ -12,6 +12,7 @@ import {
 } from "@organizeup/db";
 import { ageFromBirth, todayIn } from "@organizeup/domain";
 import { PageHeader } from "@/components/ui";
+import { getAccountFeatures } from "@/i18n/account-server";
 import { toFieldValue } from "@/i18n/format";
 import { getAuth } from "@/lib/auth";
 import { requireTenant } from "@/lib/session";
@@ -26,7 +27,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function FamilyPage() {
   const { session, ctx } = await requireTenant();
-  const [t, locale] = await Promise.all([getTranslations("pessoas"), getLocale()]);
+  const [t, locale, features] = await Promise.all([
+    getTranslations("pessoas"),
+    getLocale(),
+    getAccountFeatures(),
+  ]);
   const isOwner = ctx.role === "owner";
   const writable = canWrite(ctx);
   const requestHeaders = await headers();
@@ -97,16 +102,24 @@ export default async function FamilyPage() {
               inssContributor: person.inssContributor,
               expectedPension: toFieldValue(person.expectedPension, locale),
               retirementAge: person.retirementAge,
+              // Percentual, não dinheiro: sem os zeros do fim, como "12,5".
+              ownership: person.ownershipPercent
+                ? new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(
+                    Number(person.ownershipPercent),
+                  )
+                : "",
             }))}
           />
-          <WeddingForm
-            writable={writable}
-            values={{
-              day: data.settings?.weddingDay ?? null,
-              month: data.settings?.weddingMonth ?? null,
-              year: data.settings?.weddingYear ?? null,
-            }}
-          />
+          {features.wedding ? (
+            <WeddingForm
+              writable={writable}
+              values={{
+                day: data.settings?.weddingDay ?? null,
+                month: data.settings?.weddingMonth ?? null,
+                year: data.settings?.weddingYear ?? null,
+              }}
+            />
+          ) : null}
         </div>
         <MembersBoard members={members} invites={invites} isOwner={isOwner} />
       </div>

@@ -4,6 +4,7 @@
 // --workers=1: os controles mudam chaves globais (cadastro, manutenção) que afetam outras abas.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { newCpf } from "./documents";
 
 const adminEmail = process.env.E2E_ADMIN_EMAIL ?? "";
 const password = "senha-segura-123!";
@@ -25,6 +26,7 @@ const unique = () => `${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
 async function signUp(page: Page, name: string, email: string) {
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill(name);
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByLabel("Confirmar senha").fill(password);

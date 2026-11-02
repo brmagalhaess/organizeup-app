@@ -1,7 +1,13 @@
 // Texto dos agentes no idioma de quem lê (ADR-0020, Fase 3). A linha gravada traz a chave e os valores
 // crus: aqui eles viram frase. Sem chave, ou com chave que esta versão não conhece, sai o texto gravado,
 // em português: linha antiga continua funcionando. Só no servidor: o catálogo tem os três idiomas.
-import { money, type Message, type MessageParams, type MessageValue } from "@organizeup/domain";
+import {
+  money,
+  type AccountType,
+  type Message,
+  type MessageParams,
+  type MessageValue,
+} from "@organizeup/domain";
 import { createTranslator } from "next-intl";
 import {
   formatAmount,
@@ -23,16 +29,17 @@ interface Writer {
   system: SystemText;
 }
 
-const writers = new Map<Locale, Writer>();
+const writers = new Map<string, Writer>();
 
-function writerFor(locale: Locale): Writer {
-  const known = writers.get(locale);
+function writerFor(locale: Locale, accountType: AccountType = "pf"): Writer {
+  const key = `${locale}|${accountType}`;
+  const known = writers.get(key);
   if (known) return known;
   // Erro vira exceção: quem chama cai no texto gravado, em vez de mostrar reticências.
   const fail = (error: Error) => {
     throw error;
   };
-  const messages = messagesFor(locale);
+  const messages = messagesFor(locale, "BRL", accountType);
   const writer: Writer = {
     locale,
     t: createTranslator({
@@ -50,7 +57,7 @@ function writerFor(locale: Locale): Writer {
       }) as never,
     ),
   };
-  writers.set(locale, writer);
+  writers.set(key, writer);
   return writer;
 }
 
@@ -98,11 +105,15 @@ export interface ShownText {
 }
 
 /** Título e corpo de uma linha gravada por chave. */
-export function agentText(stored: StoredText, locale: Locale): ShownText {
+export function agentText(
+  stored: StoredText,
+  locale: Locale,
+  accountType?: AccountType,
+): ShownText {
   const { title, body, messageKey, messageParams } = stored;
   if (!messageKey) return { title, body, translated: false };
   try {
-    const writer = writerFor(locale);
+    const writer = writerFor(locale, accountType);
     const values = valuesOf(
       (messageParams as MessageParams | null | undefined) ?? undefined,
       writer,

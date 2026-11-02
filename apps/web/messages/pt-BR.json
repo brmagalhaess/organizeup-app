@@ -1081,7 +1081,8 @@
       "editTitle": "Editar pessoa",
       "removeTitle": "Remover pessoa",
       "removeText": "{name} sai da lista da família.",
-      "removeConfirm": "Remover"
+      "removeConfirm": "Remover",
+      "ownershipShare": "{percent}% de participação"
     },
     "relations": {
       "titular": "Titular",
@@ -1107,7 +1108,9 @@
       "pensionHint": "INSS ou previdência. Se não sabe, deixe em branco.",
       "retirementAge": "Idade em que quer parar",
       "retirementAgeHint": "Usada no plano quando a família não informa o ano. Vazio: 65 anos.",
-      "save": "Salvar pessoa"
+      "save": "Salvar pessoa",
+      "ownership": "Participação (%)",
+      "ownershipHint": "Opcional. É só informação: nada no sistema divide valores por ela."
     },
     "wedding": {
       "title": "Casamento",
@@ -1167,7 +1170,8 @@
       "role": "Escolha o que a pessoa pode fazer.",
       "alreadyMember": "Esta pessoa já faz parte da família.",
       "inviteFailed": "Não foi possível criar o convite. Tente novamente.",
-      "ownerOnly": "Somente o responsável pode convidar."
+      "ownerOnly": "Somente o responsável pode convidar.",
+      "ownership": "Informe um percentual de 0 a 100, como 50 ou 12,5."
     }
   },
   "assistente": {
@@ -1529,7 +1533,9 @@
       "suggestions": "Sugestões",
       "trips": "Viagens",
       "wealth": "Patrimônio"
-    }
+    },
+    "documentNotice": "Falta informar seu documento. Leva um minuto.",
+    "documentLink": "Informar agora"
   },
   "auth": {
     "fields": {
@@ -1573,7 +1579,7 @@
       "pending": "Criando…",
       "signIn": "Entrar",
       "submit": "Criar conta",
-      "subtitle": "Em seguida você cria o espaço da sua família. Cada família tem seus dados isolados.",
+      "subtitle": "Em seguida você cria o seu espaço. Cada conta tem seus dados isolados.",
       "subtitleInvite": "Use o e-mail que recebeu o convite. Depois você entra na família.",
       "terms": "Li e aceito os <terms>Termos de Uso</terms> e a <privacy>Política de Privacidade</privacy>.",
       "title": "Crie sua conta"
@@ -3653,6 +3659,55 @@
       "planoIncompleto": "Faltam dados para fechar o plano. Complete em Aposentadoria.",
       "anualNaoFiscal": "Só organiza o que a família lançou. Não substitui a declaração de imposto de renda nem é orientação fiscal: confira nos seus documentos oficiais.",
       "posicaoDoDia": "Valores da carteira pela posição do dia em que o relatório foi gerado."
+    }
+  },
+  "identity": {
+    "countryLegend": "Onde você mora?",
+    "brazil": "Brasil",
+    "otherCountry": "Outro país",
+    "abroadNote": "Quem mora fora do Brasil não precisa informar documento.",
+    "personLegend": "Tipo de cadastro",
+    "personal": "Pessoa física",
+    "company": "Pessoa jurídica",
+    "cpf": "CPF",
+    "cpfHint": "Com ou sem pontos. Identifica quem é titular da conta e fica guardado cifrado.",
+    "cnpj": "CNPJ",
+    "cnpjHint": "Com ou sem pontos. Aceita o formato novo, com letras.",
+    "companyName": "Razão social",
+    "responsibleCpf": "CPF do responsável",
+    "responsibleCpfHint": "De quem está cadastrando. Com ou sem pontos, fica guardado cifrado.",
+    "errors": {
+      "choice": "Escolha uma das opções.",
+      "cpf": "CPF inválido. Confira os números.",
+      "cnpj": "CNPJ inválido. Confira o que digitou.",
+      "companyName": "Informe a razão social.",
+      "refused": "Não foi possível concluir com estes dados. Confira o que digitou. Se continuar, fale com o suporte do OrganizeUp.",
+      "unavailable": "Não conseguimos guardar o documento agora. Nada foi salvo. Tente de novo mais tarde.",
+      "refusedSignUp": "Não foi possível concluir com estes dados. Confira o que digitou. Se você já tem conta, entre por ela. Se continuar, fale com o suporte do OrganizeUp."
+    },
+    "step": {
+      "title": "Seu documento",
+      "text": "Pedimos uma vez. Serve para identificar quem é titular da conta, emitir nota fiscal e prevenir fraude. Fica guardado cifrado, e a assinatura vai pedir este dado.",
+      "unavailable": "Não dá para informar o documento agora. Tente de novo mais tarde.",
+      "submit": "Salvar documento",
+      "later": "Agora não"
+    },
+    "invite": {
+      "title": "Seu CPF",
+      "text": "Cada sócio informa o próprio documento. Ele fica cifrado, e os outros sócios não o veem.",
+      "failed": "Não foi possível aceitar com estes dados. Confira o que digitou."
+    },
+    "settings": {
+      "personTitle": "Seu documento",
+      "companyTitle": "Dados da empresa",
+      "description": "Só você vê, e sempre mascarado.",
+      "type": "Tipo de cadastro",
+      "responsibleCpf": "CPF do responsável",
+      "missing": "Nenhum documento informado.",
+      "add": "Informar documento",
+      "abroad": "Você informou que mora fora do Brasil.",
+      "hidden": "Guardado",
+      "fix": "Para corrigir, fale com o suporte do OrganizeUp."
     }
   }
 }

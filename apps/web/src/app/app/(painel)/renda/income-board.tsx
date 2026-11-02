@@ -30,6 +30,7 @@ import {
   Sheet,
   StatTile,
 } from "@/components/ui";
+import { useAccountFeatures } from "@/i18n/account";
 import { formatMonthYear, monthName, monthNames, toAmountInput } from "@/i18n/format";
 import type { loadIncome } from "@/lib/income-data";
 import { systemTextOf } from "@/i18n/system-text";
@@ -165,6 +166,7 @@ function Simulator({
 }) {
   const t = useTranslations("renda.simulator");
   const locale = useLocale();
+  const features = useAccountFeatures();
   const zero = toAmountInput("0.00", locale);
   const [draft, setDraft] = useState<Draft>({
     gross: "",
@@ -215,15 +217,17 @@ function Simulator({
               onChange={set("gross")}
             />
           </Field>
-          <Field label={t("dependents")}>
-            <Input
-              type="number"
-              min={0}
-              max={20}
-              value={draft.dependents}
-              onChange={set("dependents")}
-            />
-          </Field>
+          {features.dependents ? (
+            <Field label={t("dependents")}>
+              <Input
+                type="number"
+                min={0}
+                max={20}
+                value={draft.dependents}
+                onChange={set("dependents")}
+              />
+            </Field>
+          ) : null}
           <Field label={t("pension")} hint={t("pensionHint")}>
             <Input
               inputMode="decimal"
@@ -282,6 +286,7 @@ function IncomeForm({
 }) {
   const t = useTranslations("renda");
   const tForm = useTranslations("renda.form");
+  const features = useAccountFeatures();
   const tCommon = useTranslations("common");
   const system = systemTextOf(useTranslations("sistema"));
   const locale = useLocale();
@@ -348,15 +353,19 @@ function IncomeForm({
       {clt ? (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Field label={tForm("dependents")} error={errors.dependents}>
-              <Input
-                name="dependents"
-                type="number"
-                min={0}
-                max={20}
-                defaultValue={source?.dependents ?? (draft?.dependents || 0)}
-              />
-            </Field>
+            {features.dependents ? (
+              <Field label={tForm("dependents")} error={errors.dependents}>
+                <Input
+                  name="dependents"
+                  type="number"
+                  min={0}
+                  max={20}
+                  defaultValue={source?.dependents ?? (draft?.dependents || 0)}
+                />
+              </Field>
+            ) : (
+              <input type="hidden" name="dependents" value="0" />
+            )}
             <Field label={tForm("vacationMonth")} error={errors.vacationMonth}>
               <Select name="vacationMonth" defaultValue={source?.vacationMonth ?? 0}>
                 <option value={0}>{tForm("notSure")}</option>
