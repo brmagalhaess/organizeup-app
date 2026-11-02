@@ -55,6 +55,8 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      `next dev` (com `NODE_ENV=production` o modelo falso é ignorado), com `ANTHROPIC_API_KEY` qualquer e
      `AI_TEST_BASE_URL=http://127.0.0.1:3199`, depois de `node apps/web/e2e/fake-model.mjs 3199`. Rode com
      `--workers=1`; para vários specs juntos, suba o servidor com `AUTH_RATE_LIMIT=disabled`.
+     Com `E2E_ADMIN_EMAIL`, rode a suíte com `--workers=1`: `admin.spec.ts` liga manutenção e fecha o cadastro para todo
+     mundo, e os specs em paralelo falham sem ter culpa. `E2E_OPS_TOKEN` precisa de 32 caracteres ou mais.
      `E2E_ADMIN_EMAIL` liga o spec `admin.spec.ts`; o servidor de teste sobe com
      `ADMIN_EMAILS` igual a esse valor. `EMAIL_CAPTURE_FILE` liga `recuperar-senha.spec.ts`: o servidor
      grava os e-mails nesse arquivo em vez de enviar. Como `NODE_ENV=production` desliga a captura, esse
