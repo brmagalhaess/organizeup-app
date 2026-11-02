@@ -3,6 +3,7 @@
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { animationsDone } from "./animations";
 import { newCpf } from "./documents";
 import {
   movimentacao,
@@ -42,13 +43,7 @@ const shot = async (page: Page, name: string) => {
 };
 
 async function expectClean(page: Page) {
-  // Botão que acabou de ligar ainda sobe de `opacity-60` para 1: medir no meio da transição dá contraste falso.
-  await page.evaluate(async () => {
-    const finite = document
-      .getAnimations()
-      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
-    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
-  });
+  await animationsDone(page);
   const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(
     a11y.violations.map(({ id, nodes }) => `${id}: ${nodes.map((node) => node.target).join(" ")}`),

@@ -4,6 +4,7 @@
 // --workers=1: os controles mudam chaves globais (cadastro, manutenção) que afetam outras abas.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { animationsDone } from "./animations";
 import { newCpf } from "./documents";
 
 const adminEmail = process.env.E2E_ADMIN_EMAIL ?? "";
@@ -69,6 +70,7 @@ async function createFamily(page: Page, email: string) {
 }
 
 async function expectAccessible(page: Page) {
+  await animationsDone(page);
   const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(a11y.violations.map((v) => ({ id: v.id, html: v.nodes[0]?.html }))).toEqual([]);
 }
