@@ -107,8 +107,7 @@ async function signUp(email: string) {
 }
 
 /** O e-mail do cadastro ocupa a vaga do minuto: adianta o relógio em vez de esperar de verdade. */
-const afterTheMinute = () =>
-  vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 61 * 1000 });
+const afterTheMinute = () => vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 61 * 1000 });
 
 /** Dá tempo ao envio em segundo plano antes de contar o que não deveria ter saído. */
 const settled = () => new Promise((resolve) => setTimeout(resolve, 400));

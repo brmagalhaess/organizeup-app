@@ -316,11 +316,13 @@ describe("intenção do catálogo", () => {
 });
 
 describe("sugestão genérica do mesmo destino", () => {
-  const acceptGeneric = async (values: (generic: { destinationId: string; name: string }) => {
-    destinationId?: string;
-    customName?: string;
-    customRegion?: "europa" | "asia_oceania" | "america_norte" | "america_sul" | "brasil";
-  }) => {
+  const acceptGeneric = async (
+    values: (generic: { destinationId: string; name: string }) => {
+      destinationId?: string;
+      customName?: string;
+      customRegion?: "europa" | "asia_oceania" | "america_norte" | "america_sul" | "brasil";
+    },
+  ) => {
     await run();
     const [generic] = await pendingOf(inA);
     const payload = payloadOf(generic!);
@@ -358,9 +360,7 @@ describe("sugestão genérica do mesmo destino", () => {
 
   it("desfazer tira a marca da intenção que a genérica atendeu", async () => {
     const { generic, ctx } = await acceptGeneric(({ destinationId }) => ({ destinationId }));
-    const undone = await db.withHousehold(ctx, (tx) =>
-      agents.undoSuggestion(tx, ctx, generic.id),
-    );
+    const undone = await db.withHousehold(ctx, (tx) => agents.undoSuggestion(tx, ctx, generic.id));
     expect(undone.ok).toBe(true);
     const [open] = await inA((tx) => tx.select().from(tripIntentions));
     expect(open!.fulfilledAt).toBeNull();

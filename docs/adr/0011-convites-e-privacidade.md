@@ -57,6 +57,17 @@ e-mail confirmado para entrar, usar o sistema ou aceitar convite. Só muda quem 
   mostra sucesso, e sem `estado` nem `error` mostra link inválido. A tela neutra não afirma nada, e pode ser digitada.
 - **Fechar o aviso** vale até a meia-noite, como os outros avisos do painel. Configurações mostra sempre.
 
+## Riscos aceitos
+
+- **O cadastro revela que o e-mail já tem conta.** `POST /sign-up/email` responde `422 USER_ALREADY_EXISTS`, e a tela diz
+  que o e-mail já tem conta. O Better Auth tem resposta neutra, mas ela só liga com `autoSignIn: false` ou
+  `requireEmailVerification`, e nenhuma das duas resolve de forma simples. Hoje quem se cadastra entra na hora, sem
+  confirmar o e-mail. Com `autoSignIn: false`, o 200 viria sem sessão, a tela teria de entrar logo depois, e com o e-mail
+  já usado esse login falharia: a diferença só muda de lugar. Neutro de verdade é "confira seu e-mail para entrar", e
+  isso torna a confirmação obrigatória, contra a decisão acima, e trava quem chega pelo convite e aceita logo depois de
+  criar a conta. O que limita o estrago: 20 cadastros por hora por IP, nenhum e-mail sai nesse caso, e entrar e recuperar
+  a senha seguem neutros. Rever se a confirmação passar a ser obrigatória.
+
 ## Ainda falta
 
 - Contato do encarregado e identificação do controlador nos textos legais, exigidos pelo art. 41 da LGPD antes de

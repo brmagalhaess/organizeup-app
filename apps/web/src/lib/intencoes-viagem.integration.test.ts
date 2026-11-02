@@ -55,8 +55,14 @@ const agents = await import("@organizeup/agents");
 const { requireTenant } = await import("@/lib/session");
 const actions = await import("@/app/app/(painel)/viagens/actions");
 const { loadTripIntentionItems } = await import("@/lib/suggestions");
-const { household, householdMember, householdSettings, householdSuggestions, people, tripIntentions } =
-  db;
+const {
+  household,
+  householdMember,
+  householdSettings,
+  householdSuggestions,
+  people,
+  tripIntentions,
+} = db;
 
 const stamp = randomUUID().slice(0, 8);
 const family = `hh-intencoes-${stamp}`;

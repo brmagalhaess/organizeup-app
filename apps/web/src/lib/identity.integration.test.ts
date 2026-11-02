@@ -71,11 +71,13 @@ beforeAll(async () => {
   vi.stubEnv("DOCUMENT_ENCRYPTION_KEY", KEY);
   await db.withAdmin("seed do teste de documento", (admin) =>
     admin.insert(user).values(
-      ["pf", "pj", "pj-do-pf", "pj-dois", "dup", "cnpj-dup", "fora", "sem-chave", "propria"].map((id) => ({
-        id,
-        name: `Conta ${id}`,
-        email: `doc.${id}@example.com`,
-      })),
+      ["pf", "pj", "pj-do-pf", "pj-dois", "dup", "cnpj-dup", "fora", "sem-chave", "propria"].map(
+        (id) => ({
+          id,
+          name: `Conta ${id}`,
+          email: `doc.${id}@example.com`,
+        }),
+      ),
     ),
   );
 });

@@ -598,9 +598,7 @@ describe("nome livre igual a destino do catálogo", () => {
       ...base,
       tripsBudgetMonthly: "4000.00",
       destinations: [lisboa, roma],
-      intentions: [
-        intention({ id: "i1", customName: "LISBOA", ...inEurope, refusedYear: 2027 }),
-      ],
+      intentions: [intention({ id: "i1", customName: "LISBOA", ...inEurope, refusedYear: 2027 })],
     });
     expect(result.intentions[0]).toMatchObject({ status: "recusada" });
     expect(result.suggestions.map((item) => item.destinationId)).toEqual(["roma"]);

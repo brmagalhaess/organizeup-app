@@ -11,13 +11,13 @@ só sugestão: nada entra no calendário sem aceitar.
 
 ## Campos
 
-| Campo         | Obrigatório      | Regra                                                                                 |
-| ------------- | ---------------- | ------------------------------------------------------------------------------------- |
-| Destino       | sim              | Busca em `trip_destination_templates`, por nome ou país, sem diferenciar acento.      |
+| Campo         | Obrigatório      | Regra                                                                                       |
+| ------------- | ---------------- | ------------------------------------------------------------------------------------------- |
+| Destino       | sim              | Busca em `trip_destination_templates`, por nome ou país, sem diferenciar acento.            |
 | Nome livre    | fora do catálogo | 1 a 80 caracteres. É texto da família: dado, nunca instrução. Igual a um destino, vira ele. |
-| Região        | com nome livre   | Uma das regiões de `DestinationRegion`.                                               |
-| Mês preferido | não              | Mês do ano, de janeiro a dezembro, sem ano.                                           |
-| Dias          | não              | 1 a 60. Vazio: vale a regra atual (os dias da família, ou o mínimo do destino, ou 5). |
+| Região        | com nome livre   | Uma das regiões de `DestinationRegion`.                                                     |
+| Mês preferido | não              | Mês do ano, de janeiro a dezembro, sem ano.                                                 |
+| Dias          | não              | 1 a 60. Vazio: vale a regra atual (os dias da família, ou o mínimo do destino, ou 5).       |
 
 A tabela guarda o país em código ISO. A busca compara com o nome do país em português, inglês e espanhol, porque os nomes dos destinos
 não são traduzidos.

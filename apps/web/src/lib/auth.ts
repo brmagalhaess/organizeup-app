@@ -228,7 +228,9 @@ async function verifyEmailLanding(ctx: GenericEndpointContext) {
   const session = await getSessionFromCtx(ctx, { disableRefresh: true });
   const otherAccount = session !== null && session.user.id !== found.user.id;
   if (await userIsBlocked(found.user.id)) {
-    throw ctx.redirect(otherAccount ? `${CONFIRM_EMAIL_PATH}?estado=outra-conta` : "/conta-bloqueada");
+    throw ctx.redirect(
+      otherAccount ? `${CONFIRM_EMAIL_PATH}?estado=outra-conta` : "/conta-bloqueada",
+    );
   }
   const state = otherAccount
     ? "outra-conta"
