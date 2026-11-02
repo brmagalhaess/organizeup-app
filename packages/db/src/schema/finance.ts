@@ -20,7 +20,13 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { CURRENCIES, FX_CURRENCIES } from "@organizeup/domain";
+import {
+  CURRENCIES,
+  FX_CURRENCIES,
+  STATEMENT_KINDS,
+  STATEMENT_STATUSES,
+  type StatementData,
+} from "@organizeup/domain";
 import { household, user } from "./auth";
 import { people } from "./tenant";
 
@@ -985,6 +991,42 @@ export const householdReports = pgTable(
     unique().on(t.householdId, t.kind, t.period),
     index("household_reports_recent_idx").on(t.householdId, t.createdAt),
   ],
+);
+
+/**
+ * Relatórios da família, um por tipo e período (ADR-0021). Dado derivado: só o agente `relatorios`
+ * grava. Valores e chaves, nunca frase: a tela escreve no idioma de quem lê. `household_reports` é
+ * outra coisa: o que cada agente fez no dia. Ver migrations/0034_relatorios_da_familia.sql.
+ */
+export const householdStatements = pgTable(
+  "household_statements",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: STATEMENT_KINDS }).notNull(),
+    /** `AAAA-MM` ou, no anual, `AAAA`. */
+    period: text("period").notNull(),
+    status: text("status", { enum: STATEMENT_STATUSES }).notNull().default("parcial"),
+    data: jsonb("data").$type<StatementData>().notNull(),
+    messageKey: text("message_key"),
+    messageParams: jsonb("message_params").$type<Record<string, unknown>>(),
+    /** Assinatura do que a família lançou no período: é assim que o mês fechado sabe que mudou. */
+    sourceHash: text("source_hash"),
+    /** Parágrafo escrito com IA, só com aceite, no idioma de `whatChangedLocale`. */
+    whatChanged: text("what_changed"),
+    whatChangedLocale: text("what_changed_locale"),
+    /** A chamada ao modelo já aconteceu: no máximo uma por relatório. */
+    narratedAt: ts("narrated_at"),
+    generatedAt: ts("generated_at").notNull().defaultNow(),
+    closedAt: ts("closed_at"),
+    /** "Atualizado em": a família lançou algo depois de o mês fechar. */
+    revisedAt: ts("revised_at"),
+  },
+  (t) => [unique().on(t.householdId, t.id), unique().on(t.householdId, t.kind, t.period)],
 );
 
 const percent = (name: string) => numeric(name, { precision: 5, scale: 2 });

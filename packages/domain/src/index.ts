@@ -10,6 +10,7 @@ export * from "./debt";
 export * from "./debt-file";
 export * from "./debt-plan";
 export * from "./statement";
+export * from "./household-statement";
 export * from "./categorize";
 export * from "./wealth";
 export * from "./calendar";

@@ -138,6 +138,7 @@ const KNOWN_NAMES = new Set([
   "agente:investimentos",
   "agente:mercado",
   "agente:metas",
+  "agente:relatorios",
   "agente:viagens",
   "job:ai-insights",
   "job:daily-agents",
