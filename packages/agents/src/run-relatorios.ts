@@ -18,6 +18,7 @@ import {
   goalContributions,
   goals,
   gte,
+  householdCurrency,
   householdStatements,
   incomeSources,
   investments,
@@ -58,6 +59,7 @@ import {
   mergeCategoryTotals,
   money,
   monthBounds,
+  plainIncomes,
   plannedForMonth,
   planTrip,
   receivedDividends,
@@ -152,10 +154,14 @@ async function loadSource(tx: TenantTx, today: string) {
     return { month, received, spent, balance };
   };
 
-  const debtRows = once(async () => ({
-    list: await tx.select().from(debts).where(eq(debts.archived, false)),
-    installments: await tx.select().from(debtInstallments).orderBy(asc(debtInstallments.number)),
-  }));
+  const debtRows = once(async () => {
+    const all = await tx.select().from(debts);
+    return {
+      all,
+      list: all.filter((debt) => !debt.archived),
+      installments: await tx.select().from(debtInstallments).orderBy(asc(debtInstallments.number)),
+    };
+  });
   const paidOn = new Map(rows.map((row) => [row.id, row.occurredOn]));
   const goalRows = once(() => tx.select().from(goals));
   const contributionRows = once(() => tx.select().from(goalContributions));
@@ -182,7 +188,8 @@ async function loadSource(tx: TenantTx, today: string) {
     goalRows,
     contributionRows,
     income: once(async () => ({
-      sources: await tx.select().from(incomeSources),
+      // Mesma regra de `scheduledIncome`: fora do real, o valor informado não leva desconto do Brasil.
+      sources: plainIncomes(await tx.select().from(incomeSources), await householdCurrency(tx)),
       tables: await loadFiscalTables(tx),
     })),
     worth: once(async () => summarizeNetWorth(await netWorthInputs(tx))),
@@ -368,11 +375,12 @@ function interestPaid(
 }
 
 async function dividasDraft(source: Source, month: string, asOf: string) {
-  const { list, installments } = await source.debtRows();
-  const rows = list
+  const { all, installments } = await source.debtRows();
+  // Dívida arquivada não tem saldo, como no patrimônio, mas os juros que ela pagou no mês continuam pagos.
+  const rows = all
     .map((debt) => {
       const own = installments.filter((row) => row.debtId === debt.id);
-      const open = own.filter((row) => row.transactionId === null);
+      const open = debt.archived ? [] : own.filter((row) => row.transactionId === null);
       return {
         name: debt.name,
         monthlyRate: debt.monthlyRate,
@@ -578,12 +586,22 @@ function closingTargets(thisMonth: string, stored: StoredRow[]) {
   }
   add("anual", String(Number(thisMonth.slice(0, 4)) - 1));
   const year = thisMonth.slice(0, 4);
+  // Mês fechado reabre por assinatura em qualquer tipo, dentro dos meses que a rodada lê: mais para trás,
+  // a assinatura sairia vazia e apagaria o relatório.
+  const oldest = addMonths(thisMonth, -HISTORY_MONTHS);
   for (const row of stored) {
     const behind = isYearPeriod(row.period) ? row.period < year : row.period < thisMonth;
-    if (row.status === "parcial" && behind) add(row.kind, row.period);
+    const recent = !isYearPeriod(row.period) && row.period >= oldest;
+    if (behind && (row.status === "parcial" || recent)) add(row.kind, row.period);
   }
   return [...targets.values()];
 }
+
+/** Hoje é o dia em que este período fecha: dia 1 do mês seguinte, ou 1º de janeiro no ano. */
+const closingToday = (period: string, today: string) =>
+  isYearPeriod(period)
+    ? today === `${Number(period) + 1}-01-01`
+    : today === `${addMonths(period, 1)}-01`;
 
 const messageOf = (draft: StatementDraft) => ({
   messageKey: draft.message.key,
@@ -633,9 +651,17 @@ async function closeOne(
   const change = closed
     ? { ...values, revisedAt: now, whatChanged: null, whatChangedLocale: null }
     : { ...values, closedAt: now };
+  // O passado preenchido já nasce marcado: só o período que acabou de fechar gasta modelo.
+  const filled = !row && !closingToday(period, input.today);
   await tx
     .insert(householdStatements)
-    .values({ householdId: input.householdId, kind, period, ...change })
+    .values({
+      householdId: input.householdId,
+      kind,
+      period,
+      ...change,
+      ...(filled ? { narratedAt: now } : {}),
+    })
     .onConflictDoUpdate({
       target: [
         householdStatements.householdId,
