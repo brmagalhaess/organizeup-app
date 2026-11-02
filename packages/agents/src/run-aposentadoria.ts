@@ -6,6 +6,7 @@ import {
   debts,
   eq,
   gte,
+  householdCurrency,
   sql,
   tripCosts,
   tripPeople,
@@ -14,6 +15,7 @@ import {
 } from "@organizeup/db";
 import {
   availableToAllocate,
+  brazilRulesApply,
   isExpensiveDebt,
   money,
   planDividendRetirement,
@@ -22,6 +24,7 @@ import {
   toDbAmount,
   yearMonthOf,
   type Allocation,
+  type Currency,
   type DividendPlan,
 } from "@organizeup/domain";
 import { dividendPlanInputs, reserveInputs, surplusInputs } from "./inputs";
@@ -111,6 +114,7 @@ export async function runAposentadoriaAgent(
 ): Promise<AposentadoriaResult> {
   const { today, householdId } = input;
   const month = yearMonthOf(today);
+  const currency = await householdCurrency(tx);
 
   const surplus = await surplusInputs(tx, { today });
   const reserve = await reserveInputs(tx, { today });
@@ -139,6 +143,7 @@ export async function runAposentadoriaAgent(
     retirementRequired: first.requiredContribution,
     confirmedTripsMonthly: tripsMonthly,
     surplusMonths: surplus.result.months,
+    currency,
   });
   // Depois com o aporte real: o informado pela família, senão o que a divisão sugere.
   const contribution = planData.plan?.monthlyContribution ?? allocation.retirement;
@@ -160,6 +165,7 @@ export async function runAposentadoriaAgent(
         missing: reserve.status.missing,
         targetMonths: reserve.targetMonths,
         months,
+        currency,
       }),
       payload,
       dedupeKey: DEDUPE.aporteReserva(month),
@@ -185,6 +191,7 @@ export async function runAposentadoriaAgent(
         amount: toDbAmount(extra),
         debt: debt.name,
         monthlyRate: debt.monthlyRate,
+        currency,
       }),
       payload,
       dedupeKey: DEDUPE.aporteDivida(debt.id, month),
@@ -210,6 +217,7 @@ export async function runAposentadoriaAgent(
           : required !== null && money(allocation.retirement).gte(required)
             ? { kind: "fecha", targetYear }
             : { kind: "falta", targetYear, required, year: plan.yearWithContribution ?? null },
+        currency,
       ),
       payload,
       dedupeKey: DEDUPE.aporteInvestimento(month),
@@ -217,7 +225,7 @@ export async function runAposentadoriaAgent(
   }
 
   if (plan.status !== "ok") {
-    const { href, ...reminder } = reminderText(reminderKind(plan.status));
+    const { href, ...reminder } = reminderText(reminderKind(plan.status, currency));
     const payload: LinkPayload = { href };
     pending.push({
       kind: "lembrete",
@@ -256,6 +264,7 @@ export async function runAposentadoriaAgent(
         plan.status === "ok"
           ? { targetIncome: plan.targetIncome ?? "0.00", coverage: plan.coverage ?? 0 }
           : null,
+      currency,
     }),
     data,
   };
@@ -263,5 +272,8 @@ export async function runAposentadoriaAgent(
   return { suggestions, applied: 0, report, allocation, plan };
 }
 
-const reminderKind = (status: DividendPlan["status"]): ReminderKind =>
-  status === "sem_yield" || status === "sem_ano" ? status : "outro";
+/** Sem as regras brasileiras não há tela de proventos, então o lembrete não manda para lá. */
+function reminderKind(status: DividendPlan["status"], currency: Currency): ReminderKind {
+  if (status === "sem_yield") return brazilRulesApply(currency) ? status : "sem_yield_simples";
+  return status === "sem_ano" ? status : "outro";
+}

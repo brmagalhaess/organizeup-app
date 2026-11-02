@@ -4,8 +4,13 @@
 // - o custo vem do `usage` de cada resposta;
 // - no log, só código de erro e contagens. Nada de texto da conversa.
 import Anthropic from "@anthropic-ai/sdk";
-import { withHousehold, householdTimezone, type TenantContext } from "@organizeup/db";
-import { todayIn } from "@organizeup/domain";
+import {
+  householdCurrency,
+  householdTimezone,
+  withHousehold,
+  type TenantContext,
+} from "@organizeup/db";
+import { todayIn, type Currency } from "@organizeup/domain";
 import { aiLimits, assistantState, serviceDay, type AiLimits, type AssistantState } from "./access";
 import { errorCode, reportFailure, type AssistantErrorCode } from "./api-errors";
 import type { ModelClient, ModelMessage, ModelStream, StreamParams } from "./client";
@@ -140,6 +145,7 @@ interface Prepared {
   privacy: PrivacyFilter;
   history: MessageParam[];
   memories: TurnMemory[];
+  currency: Currency;
 }
 
 /** Grava a pergunta antes de chamar o modelo: se a chamada cair, ela continua na conversa. */
@@ -157,7 +163,8 @@ async function prepare(input: ChatTurnInput): Promise<Prepared | null> {
       threadId = await createThread(tx, ctx, message);
     }
     await appendMessage(tx, ctx, threadId, "user", { text: message });
-    return { threadId, today, privacy, history: historyParams(earlier, privacy) };
+    const currency = await householdCurrency(tx);
+    return { threadId, today, currency, privacy, history: historyParams(earlier, privacy) };
   });
   if (!prepared) return null;
   const memories = await memoriesForTurn(ctx, prepared.today);

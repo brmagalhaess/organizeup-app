@@ -1,5 +1,6 @@
 // Instruções do assistente. O texto é fixo: nada de data, nome ou dado da família aqui, porque ele é
 // o começo do prefixo do cache de prompt. O que muda a cada conversa vai em `turnContext`.
+import { brazilRulesApply, type Currency } from "@organizeup/domain";
 import type { TurnMemory } from "./memories";
 import { untrusted } from "./privacy";
 
@@ -41,11 +42,36 @@ export type AssistantLocale = "pt-BR" | "en" | "es";
 export const isAssistantLocale = (value: unknown): value is AssistantLocale =>
   value === "pt-BR" || value === "en" || value === "es";
 
-/** Sobrepõe o idioma e o formato de valores das instruções, que ficam fixas por causa do cache. */
+/** Sobrepõe o idioma das instruções, que ficam fixas por causa do cache. */
 const LOCALE_NOTE: Record<Exclude<AssistantLocale, "pt-BR">, string> = {
-  en: 'Idioma da pessoa: inglês. Responda sempre em inglês, a não ser que ela peça outro idioma, mesmo com estas instruções e as ferramentas em português. Escreva os valores em reais sempre com "R$" na frente, como R$ 1,234.56.',
-  es: 'Idioma da pessoa: espanhol. Responda sempre em espanhol, a não ser que ela peça outro idioma, mesmo com estas instruções e as ferramentas em português. Escreva os valores em reais sempre com "R$" na frente, como R$ 1.234,56.',
+  en: "Idioma da pessoa: inglês. Responda sempre em inglês, a não ser que ela peça outro idioma, mesmo com estas instruções e as ferramentas em português.",
+  es: "Idioma da pessoa: espanhol. Responda sempre em espanhol, a não ser que ela peça outro idioma, mesmo com estas instruções e as ferramentas em português.",
 };
+
+/** Exemplo de valor em cada idioma. Sobrepõe o formato das instruções, que é o de real em português. */
+const AMOUNT_EXAMPLE: Record<AssistantLocale, string> = {
+  "pt-BR": "1.234,56",
+  en: "1,234.56",
+  es: "1.234,56",
+};
+
+const CURRENCY_NAME: Record<Currency, string> = { BRL: "real", USD: "dólar", EUR: "euro" };
+const CURRENCY_PLURAL: Record<Currency, string> = { BRL: "reais", USD: "dólares", EUR: "euros" };
+const CURRENCY_SYMBOL: Record<Currency, string> = { BRL: "R$", USD: "US$", EUR: "€" };
+
+const amountNote = (currency: Currency, locale: AssistantLocale) => {
+  const symbol = CURRENCY_SYMBOL[currency];
+  return `Escreva os valores em ${CURRENCY_PLURAL[currency]} sempre com "${symbol}" na frente, como ${symbol} ${AMOUNT_EXAMPLE[locale]}.`;
+};
+
+/** Moeda principal fora do real: valores, e as regras que não valem para esta família. */
+const currencyNote = (currency: Currency, locale: AssistantLocale) =>
+  [
+    `Moeda principal da família: ${CURRENCY_NAME[currency]} (${CURRENCY_SYMBOL[currency]}). Todos os valores das ferramentas estão nessa moeda, mesmo onde o texto diz reais.`,
+    amountNote(currency, locale),
+    "INSS, FGTS, CLT, imposto de renda, FGC, previdência brasileira e proventos da B3 não se aplicam a esta família: não calcule nem sugira nada com essas regras.",
+    "A base de buscar_conhecimento é do Brasil: se usar, diga que a regra é brasileira e pode não valer para a família.",
+  ].join(" ");
 
 export interface TurnContext {
   /** AAAA-MM-DD no fuso da família. */
@@ -54,15 +80,30 @@ export interface TurnContext {
   memories?: TurnMemory[];
   /** Idioma de quem conversa. Sem ele, o das instruções: português do Brasil. */
   locale?: AssistantLocale | undefined;
+  /** Moeda principal da família. Sem ela, a das instruções: real. */
+  currency?: Currency | undefined;
 }
 
 /**
  * Dado do dia, depois do histórico: mudar aqui não invalida o cache das instruções. Memória é texto
  * que veio de uma conversa, então vai marcada como dado e com `<` escapado, como a saída de ferramenta.
  */
-export function turnContext({ today, memories = [], locale = "pt-BR" }: TurnContext): string {
+export function turnContext({
+  today,
+  memories = [],
+  locale = "pt-BR",
+  currency = "BRL",
+}: TurnContext): string {
   const day = `Hoje é ${today}. "Este mês" é ${today.slice(0, 7)}.`;
-  const date = locale === "pt-BR" ? day : `${day}\n\n${LOCALE_NOTE[locale]}`;
+  const brazil = brazilRulesApply(currency);
+  const language = locale === "pt-BR" ? null : LOCALE_NOTE[locale];
+  const date = [
+    day,
+    language && brazil ? `${language} ${amountNote(currency, locale)}` : language,
+    brazil ? null : currencyNote(currency, locale),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   if (memories.length === 0) return date;
   const notes = memories.map(({ tipo, texto }) => ({ tipo, texto: untrusted(texto, MAX_NOTE) }));
   const data = JSON.stringify(notes).replaceAll("<", "\\u003c");

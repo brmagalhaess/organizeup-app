@@ -6,13 +6,14 @@ import {
   debtPlanReports,
   desc,
   eq,
+  householdCurrency,
   householdSuggestions,
   like,
   lt,
   sql,
   type TenantTx,
 } from "@organizeup/db";
-import { recommendedStrategy, yearMonthOf, type DebtPlan } from "@organizeup/domain";
+import { recommendedStrategy, yearMonthOf, type Currency, type DebtPlan } from "@organizeup/domain";
 import { currentDebtPlan } from "./debt-view";
 import type { ReportDividas } from "./reports";
 import {
@@ -31,7 +32,7 @@ import { aporteDividaPlanoText, dividasReportText, dividasVaziasReportText } fro
 
 export const DIVIDAS_AGENT = "dividas";
 
-function suggestionsOf(plan: DebtPlan, month: string): PendingSuggestion[] {
+function suggestionsOf(plan: DebtPlan, month: string, currency: Currency): PendingSuggestion[] {
   const best = recommendedStrategy(plan);
   return best.thisMonth.map((item) => {
     const payload: AporteDividaPayload = { debtId: item.id, extraMonthly: item.amount };
@@ -41,6 +42,7 @@ function suggestionsOf(plan: DebtPlan, month: string): PendingSuggestion[] {
         amount: item.amount,
         debt: item.name,
         strategy: plan.recommended,
+        currency,
       }),
       payload,
       dedupeKey: DEDUPE.aporteDivida(item.id, month),
@@ -100,12 +102,15 @@ export async function runDividasAgent(tx: TenantTx, input: AgentInput): Promise<
     .limit(1);
   const previous = (earlier?.data as ReportDividas | undefined)?.plan ?? null;
 
+  const currency = await householdCurrency(tx);
   const decisions = await loadDecisions(tx, today);
   const accepted = await acceptedThisMonth(tx, month);
-  const pending = suggestionsOf(plan, month).filter((item) => !accepted.has(item.dedupeKey));
+  const pending = suggestionsOf(plan, month, currency).filter(
+    (item) => !accepted.has(item.dedupeKey),
+  );
   const suggestions = await upsertPending(tx, householdId, DIVIDAS_AGENT, decisions, pending);
 
-  const report = { ...dividasReportText(today, plan, previous), data };
+  const report = { ...dividasReportText(today, plan, previous, currency), data };
   await saveReport(tx, householdId, today, report);
   return { suggestions, applied: 0, report };
 }

@@ -1,16 +1,19 @@
 // Tudo o que os agentes escrevem para a família. Cada função devolve o texto em português, gravado em
 // `title` e `body` como reserva, e a mesma coisa por chave e valores, que a tela mostra no idioma de quem
-// lê (ADR-0020). O teste apps/web/src/i18n/agent-text.test.ts confere que os dois dizem o mesmo.
+// lê (ADR-0020). O teste apps/web/src/i18n/agent-text.test.ts confere que os dois dizem o mesmo. O valor
+// sai na moeda principal da família, que vem de quem chama.
 import {
   addMonths,
   debtPlanHeadline,
   debtPlanHeadlineMessage,
-  formatBRL,
+  formatMoney,
   formatYearMonth,
   message,
   money,
+  moneyValue,
   recommendedStrategy,
   sentences,
+  type Currency,
   type DebtPlan,
   type GoalPlan,
   type Message,
@@ -32,7 +35,8 @@ export interface ReportText {
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-const reais = (value: string): MessageValue => ({ money: value });
+const reais = moneyValue;
+const moneyText = (value: string, currency: Currency) => formatMoney(value, currency);
 const month = (value: string): MessageValue => ({ month: value });
 const entries = (count: number) => plural(count, "lançamento", "lançamentos");
 const quote = (name: string) => `‘${name}’`;
@@ -47,18 +51,19 @@ export function aporteReservaText(input: {
   targetMonths: number;
   /** Meses até fechar. Null quando não há como dizer. */
   months: number | null;
+  currency: Currency;
 }): AgentText {
-  const { amount, missing, targetMonths, months } = input;
+  const { amount, missing, targetMonths, months, currency } = input;
   return {
-    title: `Guardar ${formatBRL(amount)} por mês na reserva de emergência`,
+    title: `Guardar ${moneyText(amount, currency)} por mês na reserva de emergência`,
     body:
-      `Faltam ${formatBRL(missing)} para a reserva de ${targetMonths} meses ` +
+      `Faltam ${moneyText(missing, currency)} para a reserva de ${targetMonths} meses ` +
       `de gastos essenciais.${months ? ` Com este valor ela fecha em ${months} ${months === 1 ? "mês" : "meses"}.` : ""} ` +
       `Aceitar grava este valor como o quanto guardar por mês na reserva.`,
     message: message("aporteReserva", {
-      amount: reais(amount),
+      amount: reais(amount, currency),
       parts: sentences([
-        message("frases.reservaFalta", { missing: reais(missing), targetMonths }),
+        message("frases.reservaFalta", { missing: reais(missing, currency), targetMonths }),
         ...(months ? [message("frases.reservaFecha", { months })] : []),
         message("frases.reservaAceitar"),
       ]),
@@ -70,17 +75,18 @@ export function aporteDividaText(input: {
   amount: string;
   debt: string;
   monthlyRate: string;
+  currency: Currency;
 }): AgentText {
-  const { amount, debt, monthlyRate } = input;
+  const { amount, debt, monthlyRate, currency } = input;
   const rate = money(monthlyRate).toDecimalPlaces(2);
   return {
-    title: `Pagar ${formatBRL(amount)} a mais por mês em ‘${debt}’`,
+    title: `Pagar ${moneyText(amount, currency)} a mais por mês em ‘${debt}’`,
     body:
       `Essa dívida custa ${rate.toString().replace(".", ",")}% ao mês, ` +
       `mais do que a carteira rende. Quitar antes rende mais que investir. Aceitar registra a ` +
       `decisão; o pagamento extra você faz na tela de dívidas.`,
     message: message("aporteDivida", {
-      amount: reais(amount),
+      amount: reais(amount, currency),
       debt,
       rate: { percent: rate.toNumber() },
     }),
@@ -93,14 +99,15 @@ export function aporteDividaPlanoText(input: {
   amount: string;
   debt: string;
   strategy: keyof typeof STRATEGY_NAME;
+  currency: Currency;
 }): AgentText {
-  const { amount, debt, strategy } = input;
+  const { amount, debt, strategy, currency } = input;
   return {
-    title: `Pagar ${formatBRL(amount)} a mais por mês em ‘${debt}’`,
+    title: `Pagar ${moneyText(amount, currency)} a mais por mês em ‘${debt}’`,
     body:
       `Pelo plano de saída (${STRATEGY_NAME[strategy]}), esta é a dívida a atacar agora. ` +
       `Aceitar registra a decisão; o pagamento extra você faz na tela de dívidas.`,
-    message: message("aporteDividaPlano", { amount: reais(amount), debt, strategy }),
+    message: message("aporteDividaPlano", { amount: reais(amount, currency), debt, strategy }),
   };
 }
 
@@ -109,7 +116,7 @@ type RetirementDetail =
   | { kind: "fecha"; targetYear: number }
   | { kind: "falta"; targetYear: number; required: string | null; year: number | null };
 
-function retirementDetail(detail: RetirementDetail, amount: string) {
+function retirementDetail(detail: RetirementDetail, amount: string, currency: Currency) {
   if (detail.kind === "incompleto")
     return {
       text: "Complete o plano de aposentadoria para ver em que ano a carteira fecha.",
@@ -123,30 +130,36 @@ function retirementDetail(detail: RetirementDetail, amount: string) {
   const { targetYear, required, year } = detail;
   return {
     text:
-      `Para fechar em ${targetYear} seria preciso ${required ? formatBRL(required) : "mais"} por mês; ` +
-      `com ${formatBRL(amount)} a carteira fecha em ${year ?? "mais de 60 anos"}.`,
+      `Para fechar em ${targetYear} seria preciso ${required ? moneyText(required, currency) : "mais"} por mês; ` +
+      `com ${moneyText(amount, currency)} a carteira fecha em ${year ?? "mais de 60 anos"}.`,
     message: message("frases.aposentadoriaPreciso", {
       targetYear,
-      required: required ? reais(required) : { message: message("frases.aposentadoriaMais") },
-      amount: reais(amount),
+      required: required
+        ? reais(required, currency)
+        : { message: message("frases.aposentadoriaMais") },
+      amount: reais(amount, currency),
       year: year ?? { message: message("frases.aposentadoriaMaisDe60") },
     }),
   };
 }
 
-export function aporteInvestimentoText(amount: string, kind: RetirementDetail): AgentText {
-  const detail = retirementDetail(kind, amount);
+export function aporteInvestimentoText(
+  amount: string,
+  kind: RetirementDetail,
+  currency: Currency,
+): AgentText {
+  const detail = retirementDetail(kind, amount, currency);
   return {
-    title: `Guardar ${formatBRL(amount)} por mês para a aposentadoria`,
+    title: `Guardar ${moneyText(amount, currency)} por mês para a aposentadoria`,
     body: `${detail.text} Aceitar grava este valor como o quanto guardar por mês no plano.`,
     message: message("aporteInvestimento", {
-      amount: reais(amount),
+      amount: reais(amount, currency),
       detail: { message: detail.message },
     }),
   };
 }
 
-export type ReminderKind = "sem_yield" | "sem_ano" | "outro";
+export type ReminderKind = "sem_yield" | "sem_yield_simples" | "sem_ano" | "outro";
 
 export function reminderText(kind: ReminderKind): AgentText & { href: string } {
   switch (kind) {
@@ -158,6 +171,15 @@ export function reminderText(kind: ReminderKind): AgentText & { href: string } {
           "precisa ter investido para viver dos rendimentos.",
         href: "/app/aposentadoria",
         message: message("lembreteRendimento"),
+      };
+    case "sem_yield_simples":
+      return {
+        title: "Informe o rendimento anual da carteira",
+        body:
+          "Sem isso o assistente não consegue calcular quanto precisa ter investido para viver dos " +
+          "rendimentos.",
+        href: "/app/aposentadoria",
+        message: message("lembreteRendimentoSimples"),
       };
     case "sem_ano":
       return {
@@ -379,8 +401,9 @@ export function mercadoDiaText(input: {
   upcomingNet: string;
   adjusted: number;
   removed: number;
+  currency: Currency;
 }): AgentText {
-  const { prices, labels, created, upcoming, upcomingNet, adjusted, removed } = input;
+  const { prices, labels, created, upcoming, upcomingNet, adjusted, removed, currency } = input;
   const shown = labels.slice(0, 8).join(", ");
   const more = labels.length > 8 ? "sim" : "nao";
   const lines: Array<{ text: string; message: Message }> = [];
@@ -396,8 +419,11 @@ export function mercadoDiaText(input: {
     });
   if (upcoming > 0)
     lines.push({
-      text: `${formatBRL(upcomingNet)} a receber em ${plural(upcoming, "pagamento", "pagamentos")}`,
-      message: message("frases.mercadoAReceber", { amount: reais(upcomingNet), count: upcoming }),
+      text: `${moneyText(upcomingNet, currency)} a receber em ${plural(upcoming, "pagamento", "pagamentos")}`,
+      message: message("frases.mercadoAReceber", {
+        amount: reais(upcomingNet, currency),
+        count: upcoming,
+      }),
     });
   if (adjusted > 0)
     lines.push({
@@ -423,10 +449,13 @@ export function mercadoDiaText(input: {
 
 // ---------- metas ----------
 
-export function metaNotaParcelaText(from: string, to: string) {
+export function metaNotaParcelaText(from: string, to: string, currency: Currency) {
   return {
-    text: `Parcela ajustada de ${formatBRL(from)} para ${formatBRL(to)}.`,
-    message: message("frases.notaParcelaAjustada", { from: reais(from), to: reais(to) }),
+    text: `Parcela ajustada de ${moneyText(from, currency)} para ${moneyText(to, currency)}.`,
+    message: message("frases.notaParcelaAjustada", {
+      from: reais(from, currency),
+      to: reais(to, currency),
+    }),
   };
 }
 
@@ -444,18 +473,19 @@ export function metaText(input: {
   desiredMonth: string | null;
   plan: Pick<GoalPlan, "monthly" | "end" | "note" | "noteMessages">;
   extraMonthly: string | null;
+  currency: Currency;
 }): AgentText {
-  const { name, desiredMonth, plan, extraMonthly } = input;
+  const { name, desiredMonth, plan, extraMonthly, currency } = input;
   const parts: string[] = [];
   const items: Message[] = [];
   if (plan.monthly && plan.end) {
     parts.push(
-      `Hoje dá para guardar ${formatBRL(plan.monthly)} por mês para ‘${name}’, o que termina em ` +
+      `Hoje dá para guardar ${moneyText(plan.monthly, currency)} por mês para ‘${name}’, o que termina em ` +
         `${formatYearMonth(plan.end)}.`,
     );
     items.push(
       message("frases.metaGuardar", {
-        amount: reais(plan.monthly),
+        amount: reais(plan.monthly, currency),
         name,
         end: month(plan.end),
       }),
@@ -466,10 +496,13 @@ export function metaText(input: {
   }
   if (desiredMonth && extraMonthly) {
     parts.push(
-      `Para conquistar em ${formatYearMonth(desiredMonth)} seria preciso ${formatBRL(extraMonthly)} a mais por mês.`,
+      `Para conquistar em ${formatYearMonth(desiredMonth)} seria preciso ${moneyText(extraMonthly, currency)} a mais por mês.`,
     );
     items.push(
-      message("frases.metaPrecisa", { desired: month(desiredMonth), extra: reais(extraMonthly) }),
+      message("frases.metaPrecisa", {
+        desired: month(desiredMonth),
+        extra: reais(extraMonthly, currency),
+      }),
     );
   } else if (desiredMonth && plan.note) {
     parts.push(plan.note);
@@ -496,18 +529,18 @@ export function metaText(input: {
 
 // ---------- viagens ----------
 
-export function viagemText(item: TripSuggestion, travelers: number): AgentText {
+export function viagemText(item: TripSuggestion, travelers: number, currency: Currency): AgentText {
   const saveUntil = addMonths(item.month, -1);
   const parts = [
     `Em ${formatYearMonth(item.month)} · ${plural(item.days, "dia", "dias")} para ` +
       `${plural(travelers, "pessoa", "pessoas")}.`,
-    `Cerca de ${formatBRL(item.total)} (${formatBRL(item.perPerson)} por pessoa): passagem ` +
-      `${formatBRL(item.estimated.passagem)}, hospedagem ${formatBRL(item.estimated.hospedagem)}, ` +
-      `alimentação ${formatBRL(item.estimated.alimentacao)} e transporte ` +
-      `${formatBRL(item.estimated.transporte)}; passeios ficam por sua conta.`,
+    `Cerca de ${moneyText(item.total, currency)} (${moneyText(item.perPerson, currency)} por pessoa): passagem ` +
+      `${moneyText(item.estimated.passagem, currency)}, hospedagem ${moneyText(item.estimated.hospedagem, currency)}, ` +
+      `alimentação ${moneyText(item.estimated.alimentacao, currency)} e transporte ` +
+      `${moneyText(item.estimated.transporte, currency)}; passeios ficam por sua conta.`,
     item.fits
-      ? `Guarde ${formatBRL(item.monthlyToSave)} por mês até ${formatYearMonth(saveUntil)}.`
-      : `Pede ${formatBRL(item.monthlyToSave)} por mês, mais do que sobra para viagens hoje.`,
+      ? `Guarde ${moneyText(item.monthlyToSave, currency)} por mês até ${formatYearMonth(saveUntil)}.`
+      : `Pede ${moneyText(item.monthlyToSave, currency)} por mês, mais do que sobra para viagens hoje.`,
     item.note,
     `Valores aproximados pela nossa tabela de custos (confiança ${item.confidence}). Confira ` +
       `passagens e hospedagem antes de fechar. Fonte: ${item.source}`,
@@ -525,19 +558,19 @@ export function viagemText(item: TripSuggestion, travelers: number): AgentText {
           people: travelers,
         }),
         message("frases.viagemCusto", {
-          total: reais(item.total),
-          perPerson: reais(item.perPerson),
-          flight: reais(item.estimated.passagem),
-          lodging: reais(item.estimated.hospedagem),
-          food: reais(item.estimated.alimentacao),
-          transport: reais(item.estimated.transporte),
+          total: reais(item.total, currency),
+          perPerson: reais(item.perPerson, currency),
+          flight: reais(item.estimated.passagem, currency),
+          lodging: reais(item.estimated.hospedagem, currency),
+          food: reais(item.estimated.alimentacao, currency),
+          transport: reais(item.estimated.transporte, currency),
         }),
         item.fits
           ? message("frases.viagemGuarde", {
-              amount: reais(item.monthlyToSave),
+              amount: reais(item.monthlyToSave, currency),
               until: month(saveUntil),
             })
-          : message("frases.viagemPede", { amount: reais(item.monthlyToSave) }),
+          : message("frases.viagemPede", { amount: reais(item.monthlyToSave, currency) }),
         ...item.noteMessages,
         message("frases.viagemFonte", { confidence: item.confidence, source: item.source }),
       ]),
@@ -547,11 +580,19 @@ export function viagemText(item: TripSuggestion, travelers: number): AgentText {
 
 // ---------- assistente ----------
 
-export const assistenteAporteText = (input: { reserve: boolean; amount: string }): AgentText => ({
-  title: input.reserve ? "Guardar na reserva todo mês" : "Guardar para a aposentadoria todo mês",
-  body: `Combinado na conversa com o assistente: ${formatBRL(input.amount)} por mês.`,
-  message: message(input.reserve ? "assistenteReserva" : "assistenteAposentadoria", {
-    amount: reais(input.amount),
+export const assistenteAporteText = ({
+  reserve,
+  amount,
+  currency,
+}: {
+  reserve: boolean;
+  amount: string;
+  currency: Currency;
+}): AgentText => ({
+  title: reserve ? "Guardar na reserva todo mês" : "Guardar para a aposentadoria todo mês",
+  body: `Combinado na conversa com o assistente: ${moneyText(amount, currency)} por mês.`,
+  message: message(reserve ? "assistenteReserva" : "assistenteAposentadoria", {
+    amount: reais(amount, currency),
   }),
 });
 
@@ -562,10 +603,18 @@ export const assistenteDataMetaText = (input: { name: string; month: string }): 
   message: message("assistenteDataMeta", { name: input.name, month: input.month }),
 });
 
-export const assistenteMetaText = (input: { name: string; amount: string }): AgentText => ({
-  title: `Criar a meta ${input.name}`,
-  body: `Meta de ${formatBRL(input.amount)}, proposta na conversa com o assistente.`,
-  message: message("assistenteMeta", { name: input.name, amount: reais(input.amount) }),
+export const assistenteMetaText = ({
+  name,
+  amount,
+  currency,
+}: {
+  name: string;
+  amount: string;
+  currency: Currency;
+}): AgentText => ({
+  title: `Criar a meta ${name}`,
+  body: `Meta de ${moneyText(amount, currency)}, proposta na conversa com o assistente.`,
+  message: message("assistenteMeta", { name, amount: reais(amount, currency) }),
 });
 
 /** O modelo já escreve o lembrete no idioma de quem conversa: a chave só diz que não é português. */
@@ -587,15 +636,15 @@ export interface NotificationLine {
   changes?: number;
 }
 
-const notificationEntries = (count: number, total: string): MessageValue => ({
-  message: message("frases.notificacaoLancamentos", { count, sum: reais(total) }),
+const notificationEntries = (count: number, total: string, currency: Currency): MessageValue => ({
+  message: message("frases.notificacaoLancamentos", { count, sum: reais(total, currency) }),
 });
 
 /** O que a linha de Notificações diz. A etiqueta de categoria nova é da tela, ao lado do título. */
-export function notificationText(line: NotificationLine): AgentText {
+export function notificationText(line: NotificationLine, currency: Currency): AgentText {
   const { count, total } = line;
-  const sum = formatBRL(total);
-  const detail = notificationEntries(count, total);
+  const sum = moneyText(total, currency);
+  const detail = notificationEntries(count, total, currency);
   if (line.type === "resumo") {
     const changes = line.changes ?? 0;
     return {
@@ -641,10 +690,11 @@ export interface InvestimentosReportInput {
   upcoming: number;
   upcomingNet: string;
   next: { month: string; amount: string } | null;
+  currency: Currency;
 }
 
 export function investimentosReportText(input: InvestimentosReportInput): ReportText {
-  const { day, empty, total, dividends12, yield12, stale } = input;
+  const { day, empty, total, dividends12, yield12, stale, currency } = input;
   const title = `Investimentos em ${day}`;
   if (empty)
     return {
@@ -654,7 +704,7 @@ export function investimentosReportText(input: InvestimentosReportInput): Report
     };
   const { applied, prices, created, stockEvents, upcoming, upcomingNet, next } = input;
   const yieldText = yield12 !== null ? ` (${decimalText(yield12)}% ao ano)` : "";
-  const wallet = { total: reais(total), dividends: reais(dividends12) };
+  const wallet = { total: reais(total, currency), dividends: reais(dividends12, currency) };
   const items: Message[] = [
     yield12 === null
       ? message("frases.relCarteira", wallet)
@@ -662,12 +712,14 @@ export function investimentosReportText(input: InvestimentosReportInput): Report
     message("frases.relValorAtualizar", { count: stale }),
     ...(applied > 0 ? [message("frases.relAtualizadoHoje", { prices, created })] : []),
     ...(stockEvents > 0 ? [message("frases.relQuantidades", { count: stockEvents })] : []),
-    ...(upcoming > 0 ? [message("frases.relAReceber", { amount: reais(upcomingNet) })] : []),
+    ...(upcoming > 0
+      ? [message("frases.relAReceber", { amount: reais(upcomingNet, currency) })]
+      : []),
     ...(next
       ? [
           message("frases.relPrevisao", {
             month: month(next.month),
-            amount: reais(next.amount),
+            amount: reais(next.amount, currency),
           }),
         ]
       : []),
@@ -675,7 +727,7 @@ export function investimentosReportText(input: InvestimentosReportInput): Report
   return {
     title,
     summary:
-      `Carteira de ${formatBRL(total)}; ${formatBRL(dividends12)} em proventos nos ` +
+      `Carteira de ${moneyText(total, currency)}; ${moneyText(dividends12, currency)} em proventos nos ` +
       `últimos 12 meses${yieldText}. ` +
       `${plural(stale, "investimento", "investimentos")} com valor para atualizar.` +
       (applied > 0
@@ -686,9 +738,9 @@ export function investimentosReportText(input: InvestimentosReportInput): Report
         ? ` ${plural(stockEvents, "quantidade ajustada", "quantidades ajustadas")} por ` +
           `desdobramento, grupamento ou bonificação.`
         : "") +
-      (upcoming > 0 ? ` A receber: ${formatBRL(upcomingNet)}.` : "") +
+      (upcoming > 0 ? ` A receber: ${moneyText(upcomingNet, currency)}.` : "") +
       (next
-        ? ` Previsão para ${formatYearMonth(next.month)}: ${formatBRL(next.amount)} em proventos.`
+        ? ` Previsão para ${formatYearMonth(next.month)}: ${moneyText(next.amount, currency)} em proventos.`
         : ""),
     message: message("relatorioInvestimentos", { day: stamp(day), parts: sentences(items) }),
   };
@@ -707,23 +759,24 @@ export interface AposentadoriaReportInput {
   trips: string;
   /** Null: plano incompleto. */
   plan: { targetIncome: string; coverage: number } | null;
+  currency: Currency;
 }
 
 export function aposentadoriaReportText(input: AposentadoriaReportInput): ReportText {
   const { day, surplus, available, baseMonths, reserve, debt, retirement, goals, trips } = input;
-  const { plan } = input;
+  const { plan, currency } = input;
   const basisText =
     baseMonths === null
       ? "previsto pela renda e pelas despesas recorrentes"
       : `base de ${baseMonths} ${baseMonths === 1 ? "mês" : "meses"}`;
   const summary =
-    `Sobra típica de ${formatBRL(surplus)} por mês (${basisText}); ` +
-    `${formatBRL(available)} para dividir depois da folga. Divisão: ${formatBRL(reserve)} ` +
-    `na reserva, ${formatBRL(debt)} em dívidas caras, ${formatBRL(retirement)} ` +
-    `para a aposentadoria, ${formatBRL(goals)} para metas e ` +
-    `${formatBRL(trips)} para viagens.` +
+    `Sobra típica de ${moneyText(surplus, currency)} por mês (${basisText}); ` +
+    `${moneyText(available, currency)} para dividir depois da folga. Divisão: ${moneyText(reserve, currency)} ` +
+    `na reserva, ${moneyText(debt, currency)} em dívidas caras, ${moneyText(retirement, currency)} ` +
+    `para a aposentadoria, ${moneyText(goals, currency)} para metas e ` +
+    `${moneyText(trips, currency)} para viagens.` +
     (plan
-      ? ` Renda alvo ${formatBRL(plan.targetIncome)}; a carteira já cobre ${plan.coverage}% do que falta.`
+      ? ` Renda alvo ${moneyText(plan.targetIncome, currency)}; a carteira já cobre ${plan.coverage}% do que falta.`
       : " O plano de aposentadoria ainda está incompleto.");
   return {
     title: `Divisão do que sobra em ${day}`,
@@ -732,23 +785,23 @@ export function aposentadoriaReportText(input: AposentadoriaReportInput): Report
       day: stamp(day),
       parts: sentences([
         message("frases.relSobra", {
-          surplus: reais(surplus),
-          available: reais(available),
+          surplus: reais(surplus, currency),
+          available: reais(available, currency),
           basis: {
             message:
               baseMonths === null
                 ? message("frases.relSobraBasePrevista")
                 : message("frases.relSobraBaseMeses", { months: baseMonths }),
           },
-          reserve: reais(reserve),
-          debt: reais(debt),
-          retirement: reais(retirement),
-          goals: reais(goals),
-          trips: reais(trips),
+          reserve: reais(reserve, currency),
+          debt: reais(debt, currency),
+          retirement: reais(retirement, currency),
+          goals: reais(goals, currency),
+          trips: reais(trips, currency),
         }),
         plan
           ? message("frases.relPlanoCoberto", {
-              target: reais(plan.targetIncome),
+              target: reais(plan.targetIncome, currency),
               coverage: { percent: plan.coverage },
             })
           : message("frases.relPlanoIncompleto"),
@@ -771,7 +824,7 @@ const fixedReport = (
 });
 
 export type ViagensReportInput =
-  | { day: string; kind: "sem_pedido" | "sem_divisao" | "sem_pessoas" }
+  | { day: string; kind: "sem_pedido" | "sem_divisao" | "sem_pessoas" | "fora_do_brasil" }
   | {
       day: string;
       kind: "sugestoes";
@@ -779,6 +832,7 @@ export type ViagensReportInput =
       fits: number;
       budget: string;
       shortfall: string | null;
+      currency: Currency;
     };
 
 export function viagensReportText(input: ViagensReportInput): ReportText {
@@ -798,35 +852,43 @@ export function viagensReportText(input: ViagensReportInput): ReportText {
         text: "Cadastre as pessoas da família para receber sugestões de viagem.",
         sentence: message("frases.relViagensSemPessoas"),
       },
+      fora_do_brasil: {
+        text: "A tabela de destinos é em reais e para quem sai do Brasil: sem sugestões de viagem nesta moeda.",
+        sentence: message("frases.relViagensForaDoBrasil"),
+      },
     }[input.kind];
     return fixedReport(title, text, "relatorioViagens", day, sentence);
   }
-  const { count, fits, budget, shortfall } = input;
+  const { count, fits, budget, shortfall, currency } = input;
   if (count === 0)
     return fixedReport(
       title,
-      `Nenhum destino da tabela cabe em ${formatBRL(budget)} por mês para viagens.`,
+      `Nenhum destino da tabela cabe em ${moneyText(budget, currency)} por mês para viagens.`,
       "relatorioViagens",
       day,
-      message("frases.relViagensNenhuma", { budget: reais(budget) }),
+      message("frases.relViagensNenhuma", { budget: reais(budget, currency) }),
     );
   const notAll = fits < count;
   return {
     title,
     summary:
       `${plural(count, "viagem sugerida", "viagens sugeridas")} com ` +
-      `${formatBRL(budget)} por mês para viagens` +
+      `${moneyText(budget, currency)} por mês para viagens` +
       (notAll ? "; nem todas cabem no orçamento de hoje." : ".") +
-      (shortfall ? ` As viagens já marcadas pedem ${formatBRL(shortfall)} a mais por mês.` : ""),
+      (shortfall
+        ? ` As viagens já marcadas pedem ${moneyText(shortfall, currency)} a mais por mês.`
+        : ""),
     message: message("relatorioViagens", {
       day: stamp(day),
       parts: sentences([
         message("frases.relViagensSugeridas", {
           count,
-          budget: reais(budget),
+          budget: reais(budget, currency),
           notAll: notAll ? "sim" : "nao",
         }),
-        ...(shortfall ? [message("frases.relViagensPedem", { amount: reais(shortfall) })] : []),
+        ...(shortfall
+          ? [message("frases.relViagensPedem", { amount: reais(shortfall, currency) })]
+          : []),
       ]),
     }),
   };
@@ -842,6 +904,7 @@ export type MetasReportInput =
       planned: number;
       onTime: number;
       noRoom: number;
+      currency: Currency;
     };
 
 export function metasReportText(input: MetasReportInput): ReportText {
@@ -860,17 +923,17 @@ export function metasReportText(input: MetasReportInput): ReportText {
     }[input.kind];
     return fixedReport(title, text, "relatorioMetas", day, sentence);
   }
-  const { goals, budget, planned, onTime, noRoom } = input;
+  const { goals, budget, planned, onTime, noRoom, currency } = input;
   return {
     title,
     summary:
-      `${plural(goals, "meta", "metas")}; ${formatBRL(budget)} por mês para ` +
+      `${plural(goals, "meta", "metas")}; ${moneyText(budget, currency)} por mês para ` +
       `metas. ${plural(planned, "meta com plano", "metas com plano")}, ${onTime} dentro do prazo, ` +
       `${plural(noRoom, "sem espaço no orçamento", "sem espaço no orçamento")}.`,
     message: message("relatorioMetasPlano", {
       day: stamp(day),
       goals,
-      budget: reais(budget),
+      budget: reais(budget, currency),
       planned,
       onTime,
       noRoom,
@@ -891,17 +954,18 @@ export function dividasReportText(
   day: string,
   plan: DebtPlan,
   previous: DebtPlan | null,
+  currency: Currency,
 ): ReportText {
   const best = recommendedStrategy(plan);
   const parts = [
-    `${debtPlanHeadline(plan)}.`,
-    `${plural(best.attack.length, "dívida", "dívidas")}, ${formatBRL(plan.totalBalance)} no total.`,
+    `${debtPlanHeadline(plan, currency)}.`,
+    `${plural(best.attack.length, "dívida", "dívidas")}, ${moneyText(plan.totalBalance, currency)} no total.`,
   ];
   const items: Message[] = [
-    debtPlanHeadlineMessage(plan),
+    debtPlanHeadlineMessage(plan, currency),
     message("frases.relDividasTotal", {
       count: best.attack.length,
-      total: reais(plan.totalBalance),
+      total: reais(plan.totalBalance, currency),
     }),
   ];
   if (best.focus) {

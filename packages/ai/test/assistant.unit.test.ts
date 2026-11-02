@@ -324,9 +324,34 @@ describe("pedido ao modelo", () => {
   });
 
   it("em português o contexto do turno fica como sempre foi", () => {
-    expect(turnContext({ today: "2026-10-31", locale: "pt-BR" })).toBe(
+    expect(turnContext({ today: "2026-10-31", locale: "pt-BR", currency: "BRL" })).toBe(
       turnContext({ today: "2026-10-31" }),
     );
+  });
+
+  it("a moeda fora do real vai no contexto do turno, e as instruções não mudam", () => {
+    const before = SYSTEM_PROMPT;
+    const context = turnContext({ today: "2026-10-31", currency: "USD" });
+    expect(context).toContain("Moeda principal da família: dólar (US$)");
+    expect(context).toContain("US$ 1.234,56");
+    expect(context).toContain("INSS, FGTS, CLT, imposto de renda, FGC");
+    expect(context).toContain("buscar_conhecimento é do Brasil");
+    expect(SYSTEM_PROMPT).toBe(before);
+    expect(SYSTEM_PROMPT).not.toContain("Moeda principal da família");
+  });
+
+  it("em inglês, com euro, o formato de valores é o da moeda", () => {
+    const context = turnContext({ today: "2026-10-31", locale: "en", currency: "EUR" });
+    expect(context).toContain("inglês");
+    expect(context).toContain("€ 1,234.56");
+    expect(context).not.toContain("R$");
+  });
+
+  it("em real, a moeda não acrescenta nada ao contexto", () => {
+    expect(turnContext({ today: "2026-10-31", locale: "es", currency: "BRL" })).toBe(
+      turnContext({ today: "2026-10-31", locale: "es" }),
+    );
+    expect(turnContext({ today: "2026-10-31", currency: "BRL" })).not.toContain("Moeda principal");
   });
 
   it("o idioma não se mistura com as memórias", () => {

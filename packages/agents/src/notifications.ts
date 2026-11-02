@@ -2,8 +2,8 @@
 // com o antes e o depois. O texto da tela nasce de `data`, em cada idioma; `title` e `body` são a mesma
 // coisa em português. Uma linha por estabelecimento e destino a cada noite, até o limite, e o resto
 // numa linha de resumo. Tudo roda dentro do `tx` recebido.
-import { eq, householdNotifications, sql, type TenantTx } from "@organizeup/db";
-import { money, toDbAmount } from "@organizeup/domain";
+import { eq, householdCurrency, householdNotifications, sql, type TenantTx } from "@organizeup/db";
+import { money, toDbAmount, type Currency } from "@organizeup/domain";
 import { z } from "zod";
 import { clamp, messageColumns } from "./shared";
 import { kindSchema, nonNegativeAmountSchema } from "./suggestions";
@@ -22,7 +22,7 @@ const categoryChangeSchema = z.object({
   merchant: z.string().min(1),
   kind: kindSchema,
   count: z.number().int().min(1),
-  /** Soma em reais: `transactions.amount` é sempre em reais (ADR-0020). */
+  /** Soma de `transactions.amount`, sempre na moeda principal da família (ADR-0020). */
   total: nonNegativeAmountSchema,
   /** Categorias de antes, da mais comum para a menos comum. */
   fromNames: z.array(z.string().min(1)).min(1),
@@ -59,8 +59,8 @@ export type CategorySummaryLine = z.infer<typeof categorySummarySchema>;
 export type CategoryNotification = z.infer<typeof categoryNotificationSchema>;
 
 /** O que vai para as colunas de texto. "Categoria nova" fica no texto de reserva e, na tela, é etiqueta. */
-function textOf(data: CategoryNotification) {
-  const { message, ...text } = notificationText(data);
+function textOf(data: CategoryNotification, currency: Currency) {
+  const { message, ...text } = notificationText(data, currency);
   const fresh = data.type === "alteracao" && data.isNew ? " Categoria nova." : "";
   return {
     title: clamp(text.title, MAX_TITLE),
@@ -105,7 +105,7 @@ async function addToSummary(
         total: added(parsed.data.total, line.total),
       }
     : { type: "resumo", changes: 1, count: line.count, total: line.total };
-  const values = { ...textOf(data), data };
+  const values = { ...textOf(data, await householdCurrency(tx)), data };
   if (saved) {
     await tx
       .update(householdNotifications)
@@ -156,7 +156,7 @@ export async function notifyCategoryChange(
     const data = mergedLine(saved.data, notice.line);
     await tx
       .update(householdNotifications)
-      .set({ ...textOf(data), data, readAt: null })
+      .set({ ...textOf(data, await householdCurrency(tx)), data, readAt: null })
       .where(eq(householdNotifications.id, saved.id));
     return;
   }
@@ -172,7 +172,7 @@ export async function notifyCategoryChange(
   await tx.insert(householdNotifications).values({
     householdId: scope.householdId,
     kind: "categoria",
-    ...textOf(notice.line),
+    ...textOf(notice.line, await householdCurrency(tx)),
     data: notice.line,
     suggestionId: notice.suggestionId,
     dedupeKey,

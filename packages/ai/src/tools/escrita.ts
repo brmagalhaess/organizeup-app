@@ -21,6 +21,7 @@ import {
   eq,
   goals,
   gte,
+  householdCurrency,
   householdSettings,
   householdSuggestions,
   lte,
@@ -252,7 +253,11 @@ const sugerirAporte = defineTool({
       const reserve = destino === "reserva";
       await propose(tx, ctx, {
         kind: reserve ? "aporte_reserva" : "aporte_investimento",
-        ...assistenteAporteText({ reserve, amount: monthlyAmount }),
+        ...assistenteAporteText({
+          reserve,
+          amount: monthlyAmount,
+          currency: await householdCurrency(tx),
+        }),
         payload: { monthlyAmount, previous: null },
         dedupeKey: reserve ? DEDUPE.aporteReserva(month) : DEDUPE.aporteInvestimento(month),
       });
@@ -315,7 +320,11 @@ const criarMetaRascunho = defineTool({
       });
       const id = await propose(tx, ctx, {
         kind: "meta",
-        ...assistenteMetaText({ name: nome, amount: toDbAmount(valor) }),
+        ...assistenteMetaText({
+          name: nome,
+          amount: toDbAmount(valor),
+          currency: await householdCurrency(tx),
+        }),
         payload,
         dedupeKey: DEDUPE.metaNova(normalizeDescription(nome)),
       });

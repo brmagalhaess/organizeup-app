@@ -7,6 +7,7 @@ import {
   asc,
   dividends,
   eq,
+  householdCurrency,
   householdSuggestions,
   inArray,
   investments,
@@ -78,12 +79,14 @@ export interface StockEventsResult {
  * as operações até a data-com foram registradas antes dela: operação cadastrada depois pode já estar na
  * quantidade nova, e aí fica o aviso. Rodar de novo não muda nada, e o que a família desfez não volta.
  */
+export const noStockEvents = (): StockEventsResult => ({ applied: 0, unapplied: new Map() });
+
 export async function applyStockEvents(
   tx: TenantTx,
   input: { householdId: string },
 ): Promise<StockEventsResult> {
   const { householdId } = input;
-  const result: StockEventsResult = { applied: 0, unapplied: new Map() };
+  const result = noStockEvents();
   const eligible = withMarketTicker(await tx.select().from(investments));
   if (eligible.length === 0) return result;
 
@@ -282,20 +285,22 @@ async function saveDailyChange(
     .where(eq(householdSuggestions.id, existing.id));
 }
 
+export const noMarketData = (): MarketSyncResult => ({
+  changes: emptyChanges(),
+  applied: 0,
+  created: 0,
+  upcoming: 0,
+  upcomingNet: "0.00",
+  skippedFamily: 0,
+  skippedTax: [],
+});
+
 export async function syncMarketData(
   tx: TenantTx,
   input: { today: string; householdId: string },
 ): Promise<MarketSyncResult> {
   const { today, householdId } = input;
-  const result: MarketSyncResult = {
-    changes: emptyChanges(),
-    applied: 0,
-    created: 0,
-    upcoming: 0,
-    upcomingNet: "0.00",
-    skippedFamily: 0,
-    skippedTax: [],
-  };
+  const result = noMarketData();
   const eligible = withMarketTicker(await tx.select().from(investments));
   if (eligible.length === 0) return result;
 
@@ -421,6 +426,7 @@ export async function syncMarketData(
       upcomingNet: toDbAmount(upcomingNet),
       adjusted: changes.adjusted.length,
       removed: changes.removed.length,
+      currency: await householdCurrency(tx),
     }),
   );
   return result;

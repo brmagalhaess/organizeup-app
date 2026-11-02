@@ -4,6 +4,7 @@ import {
   and,
   eq,
   gte,
+  householdCurrency,
   householdSettings,
   householdSuggestions,
   inArray,
@@ -16,6 +17,7 @@ import {
 import {
   addMonths,
   ageFromBirth,
+  brazilRulesApply,
   money,
   suggestTrips,
   yearMonthOf,
@@ -88,6 +90,11 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
     return { suggestions, applied: 0, report };
   };
 
+  // A tabela de destinos está em reais, para quem sai do Brasil.
+  const currency = await householdCurrency(tx);
+  if (!brazilRulesApply(currency)) {
+    return finish("0.00", [], { day: today, kind: "fora_do_brasil" }, 0);
+  }
   if (tripsPerYear <= 0) {
     return finish("0.00", [], { day: today, kind: "sem_pedido" }, 0);
   }
@@ -120,6 +127,7 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
     destinations: await loadDestinations(tx),
     existingTripMonths: future.map((trip) => yearMonthOf(trip.startOn)),
     weddingMonth: settings?.weddingMonth ?? null,
+    currency,
   }).slice(0, tripsPerYear);
 
   // Sugestões de viagem são dado derivado: as pendentes que saíram da lista de hoje vão embora,
@@ -152,7 +160,7 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
     };
     return {
       kind: "viagem",
-      ...viagemText(item, travelers.length),
+      ...viagemText(item, travelers.length, currency),
       payload,
       dedupeKey: keys[index]!,
     };
@@ -170,6 +178,7 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
       fits: items.filter((item) => item.fits).length,
       budget: allocation.tripsBudget,
       shortfall: money(allocation.shortfall).gt(0) ? allocation.shortfall : null,
+      currency,
     },
     suggestions,
   );

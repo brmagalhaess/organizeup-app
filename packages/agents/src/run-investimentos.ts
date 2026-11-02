@@ -6,6 +6,7 @@ import {
   asc,
   dividends,
   eq,
+  householdCurrency,
   householdSuggestions,
   inArray,
   investments,
@@ -18,6 +19,7 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import {
+  brazilRulesApply,
   forecastDividends,
   isUnitPriced,
   marketDateOf,
@@ -31,7 +33,7 @@ import {
   yearMonthOf,
   netDividend,
 } from "@organizeup/domain";
-import { applyStockEvents, syncMarketData } from "./market-sync";
+import { applyStockEvents, noMarketData, noStockEvents, syncMarketData } from "./market-sync";
 import type { ReportInvestimentos } from "./reports";
 import { DEDUPE, type LinkPayload } from "./suggestions";
 import {
@@ -64,8 +66,11 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
   const month = yearMonthOf(today);
   // Primeiro os eventos em ações, porque a quantidade decide o valor dos proventos. Depois o mercado:
   // o resumo abaixo já sai com o preço e os proventos de hoje.
-  const stock = await applyStockEvents(tx, input);
-  const market = await syncMarketData(tx, input);
+  // Fora das regras brasileiras não há B3: nem cotação, nem evento, nem provento automático.
+  const currency = await householdCurrency(tx);
+  const brazil = brazilRulesApply(currency);
+  const stock = brazil ? await applyStockEvents(tx, input) : noStockEvents();
+  const market = brazil ? await syncMarketData(tx, input) : noMarketData();
   const stockEvents = await loadStockEvents(tx);
   const [holdings, trades, targets, allDividends, quotes] = await Promise.all([
     tx.select().from(investments).orderBy(asc(investments.createdAt)),
@@ -233,6 +238,7 @@ export async function runInvestimentosAgent(tx: TenantTx, input: AgentInput): Pr
       upcoming: upcoming.length,
       upcomingNet: data.upcomingNet,
       next: forecast.find((item) => item.month > month) ?? null,
+      currency,
     }),
     data,
   };

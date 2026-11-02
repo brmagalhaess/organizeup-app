@@ -8,6 +8,7 @@ import {
   and,
   eq,
   gte,
+  householdCurrency,
   householdInsights,
   INSIGHT_SCREENS,
   lt,
@@ -18,7 +19,7 @@ import {
   type InsightScreen,
   type TenantContext,
 } from "@organizeup/db";
-import { normalizeDescription } from "@organizeup/domain";
+import { normalizeDescription, type Currency } from "@organizeup/domain";
 import { z } from "zod";
 import {
   aiLimits,
@@ -200,6 +201,7 @@ interface Night {
   privacy: PrivacyFilter;
   /** Idioma de quem definiu o aceite: é nele que as dicas ficam gravadas. */
   locale: AssistantLocale;
+  currency: Currency;
 }
 
 async function ask(
@@ -223,7 +225,10 @@ async function chooseSpecialists(night: Night, reports: string): Promise<Special
     night,
     [
       { role: "user", content: reports },
-      { role: "system", content: `${ORCHESTRATOR_BRIEF} ${turnContext({ today: night.day })}` },
+      {
+        role: "system",
+        content: `${ORCHESTRATOR_BRIEF} ${turnContext({ today: night.day, currency: night.currency })}`,
+      },
     ],
     false,
     ORCHESTRATOR_FORMAT,
@@ -241,7 +246,11 @@ async function runSpecialist(night: Night, name: Specialist, reports: string) {
     { role: "user", content: reports },
     {
       role: "system",
-      content: `${SPECIALIST_BRIEF(name)} ${turnContext({ today: night.day, locale: night.locale })}`,
+      content: `${SPECIALIST_BRIEF(name)} ${turnContext({
+        today: night.day,
+        locale: night.locale,
+        currency: night.currency,
+      })}`,
     },
   ];
   for (let step = 0; step < NIGHT_ROUTE.maxIterations; step += 1) {
@@ -340,7 +349,8 @@ export async function runNightlyInsights(input: NightInput): Promise<InsightRun>
 
   const privacy = await withHousehold(ctx, (tx) => loadPrivacyFilter(tx, ctx.householdId));
   const locale = await nightLocale(ctx);
-  const night: Night = { ctx, client, day, limits, privacy, locale };
+  const currency = await withHousehold(ctx, householdCurrency);
+  const night: Night = { ctx, client, day, limits, privacy, locale, currency };
   const tools = toolsFor(NIGHT_ROUTE);
   const report = await executeTool(tools, ctx, privacy, "relatorios_do_dia", {});
   if (!report.ok) return run;
