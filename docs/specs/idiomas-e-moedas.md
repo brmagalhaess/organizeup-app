@@ -12,11 +12,11 @@ no código em 35 lugares, e regras que só existem no Brasil: CLT, INSS, IR, FGC
 - **Idioma é da pessoa; moeda principal é da família.** Na mesma família, cada pessoa escolhe o idioma, e todos
   veem os totais na mesma moeda.
 - **Dinheiro continua em `numeric(14,2)` com `packages/domain`.** Nunca `number`. Nada é reescrito.
-- **`transactions.amount` é sempre em reais**, em qualquer conta. Lançamento em conta estrangeira guarda ao lado o que foi
-  digitado e a cotação congelada (`original_amount`, `original_currency`, `fx_rate`). Resumos, planos, agentes, IA e
-  calendário somam essa coluna em cerca de 50 arquivos: guardar dólar nela obrigaria a converter em todos eles, e um
-  esquecido somaria dólar com real em silêncio. Por isso a primeira versão desta especificação, com cada valor na moeda da
-  conta, mudou (ADR-0020).
+- **`transactions.amount` é sempre na moeda principal da família**, em qualquer conta. Lançamento em conta estrangeira
+  guarda ao lado o que foi digitado e a cotação congelada (`original_amount`, `original_currency`, `fx_rate`; em conta em
+  real de família em dólar ou euro, `brl_amount` e `brl_rate`). Resumos, planos, agentes, IA e calendário somam essa coluna
+  em cerca de 50 arquivos: guardar a moeda da conta nela obrigaria a converter em todos eles, e um esquecido somaria dólar
+  com real em silêncio. Por isso a primeira versão desta especificação, com cada valor na moeda da conta, mudou (ADR-0020).
 
 ## Idiomas
 
@@ -34,10 +34,12 @@ no código em 35 lugares, e regras que só existem no Brasil: CLT, INSS, IR, FGC
 
 - `accounts.currency` (BRL, USD, EUR), padrão BRL. Só muda em conta sem movimento. `opening_balance` fica na moeda da
   conta.
-- Cartão, dívida, meta e investimento seguem só em real. Pagos com conta estrangeira, convertem pela data.
-- `household_settings.currency` já existe: passa a ser a moeda principal na Fase 6.
+- Cartão, dívida, meta e investimento seguem na moeda principal. Pagos com conta estrangeira, convertem pela data.
+- A moeda principal fica em `household_settings.main_currency` (BRL, USD, EUR). `household_settings.currency` tem CHECK de
+  real desde a 0002 e trocar CHECK não é aditivo: a coluna fica como está, sem uso.
 - `market_fx`, global: PTAX de venda por dia, no job de mercado, com histórico de 10 anos na primeira vez. Sem cotação no
   dia, vale a última anterior; data futura usa a última. Depois de gravada, não muda.
+- Conversão entre quaisquer das três moedas usa o real como pivô, por `convertMoney` e `crossQuote`.
 - Lançamento converte com a cotação da data dele, congelada; editar valor ou data recalcula. Saldo e patrimônio convertem
   com a última. Toda tela com conversão diz "convertido pela cotação de <data>".
 - Saldo de conta estrangeira, na moeda dela: `opening_balance` + soma de `coalesce(original_amount, amount)` com sinal +
@@ -46,13 +48,16 @@ no código em 35 lugares, e regras que só existem no Brasil: CLT, INSS, IR, FGC
 - Transferência entre contas de moedas diferentes guarda o valor que saiu (`amount`), o que entrou (`to_amount`) e a taxa
   real (`fx_rate`). A diferença de câmbio não é gasto nem receita.
 - Extrato de conta estrangeira está na moeda da conta: converte na data de cada linha.
-- Conta em dólar ou euro ainda não aceita conta que se repete (`cashflow_plans` só guarda reais).
+- Conta fora da moeda principal ainda não aceita conta que se repete (`cashflow_plans` só guarda a moeda principal).
 
 ## Limite que precisa ficar claro
 
 Moeda principal fora do real muda a promessa do produto. INSS, CLT, IR, FGC, tesouro e proventos da B3 só valem no
 Brasil. Família com moeda principal dólar ou euro não vê nem recebe cálculo baseado nessas regras: aposentadoria fica
 só com carteira e renda alvo. A base de conhecimento continua brasileira e o assistente avisa isso.
+
+A escolha é feita ao criar a família e, depois, em Configurações só enquanto ela não tiver lançamento, compra de cartão,
+dívida, investimento, meta nem transferência. Não existe conversão de histórico.
 
 ## Fases
 

@@ -5,7 +5,7 @@ Status: aceito (2026-11-01).
 Pedido do fundador. Soma ao ADR-0004 (dinheiro), ao ADR-0015 (agentes, que desde a Fase 3 gravam chave e valores ao
 lado do texto em português) e ao ADR-0018 (o assistente passa a responder no idioma da pessoa). A especificação e as fases estão em
 `docs/specs/idiomas-e-moedas.md`. Este ADR registra o que já vale. A moeda em conta nasceu na Fase 5; moeda principal fora do real
-fica para a Fase 6.
+veio na Fase 6, e o que ela muda está na seção própria.
 
 ## Decisão
 
@@ -118,6 +118,8 @@ fica para a Fase 6.
 
 ### Contas em dólar e euro (Fase 5, 2026-11-01)
 
+Escrito para família em real. Desde a Fase 6, onde esta seção diz reais, leia moeda principal da família.
+
 - **`transactions.amount` continua sempre em reais.** Muda o que a especificação previa, "cada valor na moeda da conta".
   Resumos, planos, agentes, IA e calendário somam essa coluna em cerca de 50 arquivos. Com dólar nela, todos teriam de
   converter, e o que ficasse para trás somaria dólar com real sem erro nenhum. Assim, nada disso muda: lançamento em conta
@@ -160,13 +162,52 @@ fica para a Fase 6.
 - Intervalo sem valor, como um fim de semana, responde 404 com `Value(s) not found`: é lista vazia, não erro.
 - `/dados/ultimos/25` responde 400: o máximo são 20 pontos. Por isso o histórico usa `dataInicial` e `dataFinal`.
 
+### Moeda principal fora do real (Fase 6, 2026-11-01)
+
+- **`transactions.amount` é sempre na moeda principal da família.** O desenho da Fase 5 continua: a soma não converte
+  nada. O que muda é o que é estrangeiro: é a moeda diferente da principal. Em família em dólar, a conta em real é a
+  estrangeira. Família em real não nota nada.
+- **`household_settings.main_currency`, e não `currency`.** A coluna `currency` tem `CHECK (currency = 'BRL')` desde a 0002,
+  e trocar CHECK não é aditivo (regra 3). A migração `0033` é só aditiva: coluna nova, e `currency` fica em `BRL`, sem uso.
+  O mesmo vale para `transactions.original_currency`, que só aceita dólar e euro: a conta em real de família em dólar ou
+  euro guarda a origem em `brl_amount` e `brl_rate`, com CHECK de par completo e de uma origem só. `EntryMoney` escreve as
+  colunas certas; quem lê usa `entryOrigin`, e `accountBalances` soma `coalesce(original_amount, brl_amount, amount)`.
+- **Real como pivô.** `market_fx` guarda reais por unidade. `crossQuote` dá a cotação entre quaisquer duas moedas, com o dia
+  da mais antiga e 8 casas, as da coluna que a congela; `convertMoney` converte sem arredondar no meio. Lançamento de R$ 0,01
+  em família em dólar vira US$ 0,01: a coluna recusa zero.
+- **Escolha.** Ao criar a família, com real pré-selecionado, e em Configurações só sem lançamento, compra de cartão, dívida,
+  investimento, meta nem transferência (`householdHasMovement`). Não existe conversão de histórico. Ao mudar, conta sem saldo
+  inicial acompanha; conta com saldo fica na moeda dela, e passa a ser estrangeira.
+- **Regras brasileiras em uma pergunta só: `brazilRulesApply(currency)`.** Fora do real somem, sem apagar dado: CLT e tabelas
+  fiscais (a renda vale pelo valor cadastrado, `plainIncomes`), INSS e benefício no plano e no cadastro de pessoas, tela de
+  proventos, catálogo e cotação da B3, e sugestão de viagem, porque a tabela de destinos está em reais e parte do Brasil.
+  Investimento fica em `exterior`, `renda_fixa`, `fundo`, `previdencia` e `outro`, com valor informado. Os agentes de
+  investimentos e de mercado não buscam nada de B3 para essa família.
+- **`useMoney` e `getMoney` são como a tela formata.** A moeda vem do layout raiz, lida uma vez por requisição por
+  `familyCurrency`, e cai em real sem sessão ou sem banco. `formatAmount` fica para quem sabe a moeda por outro caminho: texto
+  dos agentes e a landing. Um teste procura `R$` escrito à mão e formatador direto nas telas da família.
+- **Moeda no catálogo por marca, não por variável.** `¤` é o símbolo, `¤¤` o nome no plural e `¤¤¤` as outras duas, trocados em
+  `messagesFor(locale, currency)`, ao montar o catálogo. Assim dezenas de rótulos "Valor (¤)" não pedem um parâmetro em cada
+  tela, e em real sai o texto de sempre.
+- **Agentes gravam valor cru com a moeda:** `{ money, currency }`, com `currency` só fora do real, para linha em real ficar
+  igual. Texto de reserva em português também sai na moeda da família.
+- **Assistente e dicas.** A moeda e o aviso de que INSS, FGTS, CLT, IR, FGC, previdência brasileira e B3 não se aplicam vão em
+  `turnContext`, nunca em `SYSTEM_PROMPT`. `buscar_conhecimento` avisa que a base é do Brasil. O verificador de números já
+  aceitava US$ e €.
+
 ## Fora do escopo por enquanto
 
-Fase 6 da especificação: moeda principal fora do real. Tradução dos Termos e da Privacidade. Nomes e fontes dos destinos de viagem, que vêm de uma tabela global sem campo por idioma. Troca dos usos de
+Tradução dos Termos e da Privacidade. Nomes e fontes dos destinos de viagem, que vêm de uma tabela global sem campo por idioma. Troca dos usos de
 `formatBRL` fora das telas traduzidas. Painel de administração, que segue só em português.
 
 ## Riscos aceitos
 
+- **Trava da moeda cobre o que o pedido listou.** Bem, previsão, renda e plano de aposentadoria não travam: quem cadastra só
+  isso e troca a moeda vê o mesmo número na moeda nova. Não há conversão.
+- **Corrida na troca de moeda.** A trava é conferida na action, sem constraint no banco: um lançamento gravado no mesmo instante
+  da troca passa.
+- **Leitura de dívida por arquivo** continua dizendo ao modelo que o saldo está em reais, porque o número é copiado como está.
+- **Uma consulta a mais por requisição** para quem está logado: `familyCurrency`, no layout raiz e no catálogo.
 - **Lançamento previsto com data futura** fica com a última cotação na criação e não muda ao ser confirmado. A conta na
   moeda original é exata; os reais podem diferir da cotação do dia em que o pagamento aconteceu. Editar a data recalcula.
 - **Reais de um mês antigo não acompanham o câmbio**, e o saldo em reais, sim. Por isso a soma dos lançamentos em reais não
