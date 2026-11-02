@@ -55,18 +55,22 @@ import {
   isGenericCategory,
   isYearPeriod,
   largestExpenses,
-  linesTotal,
   mergeCategoryTotals,
   money,
   monthBounds,
+  monthPoint,
   plainIncomes,
   plannedForMonth,
   planTrip,
   receivedDividends,
   recentMonths,
+  SAVINGS_STATEMENT_KINDS,
+  savingsByCategory,
   spendingByCategory,
+  splitCardSavings,
   stableJson,
   STATEMENT_KINDS,
+  STATEMENT_RULE_VERSION,
   summarizeDividends,
   summarizeMonth,
   summarizeNetWorth,
@@ -75,13 +79,14 @@ import {
   tradesByMonth,
   yearMonthOf,
   type MonthPoint,
+  type StatementData,
   type StatementDraft,
   type ReportKind,
   type StatementReportStatus,
 } from "@organizeup/domain";
 import { loadCommitments } from "./commitments";
 import { currentDebtPlan } from "./debt-view";
-import { loadFiscalTables } from "./inputs";
+import { loadFiscalTables, loadSavingsRule } from "./inputs";
 import { currentDividendPlan } from "./retirement-view";
 import type { AgentInput } from "./shared";
 
@@ -141,18 +146,25 @@ async function loadSource(tx: TenantTx, today: string) {
   ]);
   const commitments = await loadCommitments(tx, { from, to });
   const { scheduled, cardLines, cardCategoryId } = commitments;
+  const rule = await loadSavingsRule(tx);
 
   const rowsOf = memo((month) => rows.filter((row) => yearMonthOf(row.occurredOn) === month));
   const linesOf = memo((month) => cardLines.filter((line) => line.statementMonth === month));
-  const entriesOf = memo((month) => buildMonthEntries(month, plans, rowsOf(month), scheduled));
-  const summaryOf = memo((month) => summarizeMonth(entriesOf(month)));
-  const byCategoryOf = memo((month) =>
-    spendingByCategory(entriesOf(month), linesOf(month), cardCategoryId),
+  // Só para somar: a compra de aporte no cartão sai da fatura (ADR-0027).
+  const entriesOf = memo((month) =>
+    splitCardSavings(
+      buildMonthEntries(month, plans, rowsOf(month), scheduled),
+      linesOf(month),
+      cardCategoryId,
+      rule,
+    ),
   );
-  const pointOf = (month: string): MonthPoint => {
-    const { received, spent, balance } = summaryOf(month);
-    return { month, received, spent, balance };
-  };
+  const summaryOf = memo((month) => summarizeMonth(entriesOf(month), rule));
+  const byCategoryOf = memo((month) =>
+    spendingByCategory(entriesOf(month), linesOf(month), cardCategoryId, rule),
+  );
+  const contributionsOf = memo((month) => savingsByCategory(entriesOf(month), "aporte", rule));
+  const pointOf = (month: string): MonthPoint => monthPoint(month, summaryOf(month));
 
   const debtRows = once(async () => {
     const all = await tx.select().from(debts);
@@ -176,7 +188,9 @@ async function loadSource(tx: TenantTx, today: string) {
     entriesOf,
     summaryOf,
     byCategoryOf,
+    contributionsOf,
     pointOf,
+    rule,
     categoryRows,
     names: new Map(categoryRows.map((row) => [row.id, row.name])),
     snapshots,
@@ -274,7 +288,10 @@ async function goalLines(source: Source, month: string) {
  */
 async function sourceHash(kind: ReportKind, period: string, source: Source) {
   const months = monthsOf(period, source.thisMonth);
-  const lines: string[] = [];
+  // A regra da conta faz parte da assinatura: mudou a regra, o que estava fechado regenera uma vez.
+  const lines: string[] = SAVINGS_STATEMENT_KINDS.includes(kind)
+    ? [`regra|${STATEMENT_RULE_VERSION}`]
+    : [];
   for (const month of months) {
     if (kind === "resumo" || kind === "categorias" || kind === "fluxo" || kind === "anual") {
       lines.push(...entryLines(source, month));
@@ -302,19 +319,34 @@ async function fluxoDraft(source: Source, month: string, asOf: string, next: str
       .filter((goal) => goal.status !== "pausada" && goal.status !== "concluida")
       .map((goal) => goal.id),
   );
-  const planned = plannedForMonth(month, source.plans, [
-    ...incomeBetween(sources, tables, month, month).map((entry) => ({
-      kind: "receita" as const,
-      amount: entry.amount,
-    })),
-    { kind: "despesa", amount: linesTotal(source.linesOf(month)) },
-    ...installments
-      .filter((row) => open.has(row.debtId) && yearMonthOf(row.dueDate) === month)
-      .map((row) => ({ kind: "despesa" as const, amount: row.amount })),
-    ...contributions
-      .filter((row) => row.month === month && activeGoals.has(row.goalId))
-      .map((row) => ({ kind: "despesa" as const, amount: row.amount })),
-  ]);
+  const planned = plannedForMonth(
+    month,
+    source.plans,
+    [
+      ...incomeBetween(sources, tables, month, month).map((entry) => ({
+        kind: "receita" as const,
+        categoryId: "",
+        amount: entry.amount,
+      })),
+      ...source.linesOf(month).map((line) => ({
+        kind: "despesa" as const,
+        categoryId: line.categoryId,
+        amount: line.amount,
+      })),
+      ...installments
+        .filter((row) => open.has(row.debtId) && yearMonthOf(row.dueDate) === month)
+        .map((row) => ({ kind: "despesa" as const, categoryId: "", amount: row.amount })),
+      ...contributions
+        .filter((row) => row.month === month && activeGoals.has(row.goalId))
+        .map((row) => ({
+          kind: "despesa" as const,
+          categoryId: "",
+          source: "meta",
+          amount: row.amount,
+        })),
+    ],
+    source.rule,
+  );
   return buildFluxo({
     month,
     asOf,
@@ -462,7 +494,10 @@ async function anualDraft(
     asOf,
     months: months.map(source.pointOf),
     expenses: mergeCategoryTotals(months.map(source.byCategoryOf)),
-    incomes: mergeCategoryTotals(months.map((month) => incomeByCategory(source.entriesOf(month)))),
+    incomes: mergeCategoryTotals(
+      months.map((month) => incomeByCategory(source.entriesOf(month), source.rule)),
+    ),
+    contributions: mergeCategoryTotals(months.map(source.contributionsOf)),
     names: source.names,
     dividends: investmentIds.map((id) => {
       const own = paid.filter((row) => row.investmentId === id);
@@ -502,6 +537,7 @@ async function buildStatement(
           source.entriesOf(period),
           source.linesOf(period),
           source.cardCategoryId,
+          source.rule,
         ),
       });
     case "categorias":
@@ -509,6 +545,7 @@ async function buildStatement(
         month: period,
         asOf,
         byCategory: byCategoryOf(period),
+        contributions: source.contributionsOf(period),
         previous: byCategoryOf(before),
         names: source.names,
         evolution: recentMonths(period, 12).map((month) => ({
@@ -614,6 +651,30 @@ async function removeStatement(tx: TenantTx, kind: ReportKind, period: string) {
     .where(and(eq(householdStatements.kind, kind), eq(householdStatements.period, period)));
 }
 
+/** Relatório gravado antes da regra atual, de um tipo que ela muda. */
+const beforeRule = (row: StoredRow) =>
+  SAVINGS_STATEMENT_KINDS.includes(row.kind) &&
+  (row.data as StatementData).version < STATEMENT_RULE_VERSION;
+
+/**
+ * O que um relatório fechado leva da versão anterior ao regenerar: o aviso de que a regra o regenerou, que
+ * fica nas regenerações seguintes, e a posição do fim do ano, uma foto que não dá para refazer depois.
+ */
+const carriedOver = (row: StoredRow, draft: StatementDraft): StatementData => {
+  const stored = row.data as StatementData;
+  const positions = stored.sections.find((section) => section.id === "positions");
+  const lacksPositions = !draft.data.sections.some((section) => section.id === "positions");
+  const regenerated = beforeRule(row) || stored.notes.includes("aporteSeparado");
+  return {
+    ...draft.data,
+    sections: [
+      ...draft.data.sections,
+      ...(positions && lacksPositions && beforeRule(row) ? [positions] : []),
+    ],
+    notes: regenerated ? [...draft.data.notes, "aporteSeparado"] : draft.data.notes,
+  };
+};
+
 const sameRow = (row: StoredRow, draft: StatementDraft) =>
   stableJson(row.data) === stableJson(draft.data) &&
   stableJson(row.messageParams ?? null) === stableJson(draft.message.params);
@@ -641,13 +702,14 @@ async function closeOne(
   }
   const now = new Date();
   const values = {
-    data: draft.data,
+    data: closed ? carriedOver(row, draft) : draft.data,
     ...messageOf(draft),
     status: "fechado" as const,
     sourceHash: hash,
     generatedAt: now,
   };
-  // A família lançou depois de o mês fechar: o parágrafo falava de outros números e sai.
+  // A família lançou depois de o mês fechar, ou a regra mudou: o parágrafo falava de outros números e
+  // sai, e `narrated_at` continua marcado, então a regeneração não gasta modelo.
   const change = closed
     ? { ...values, revisedAt: now, whatChanged: null, whatChangedLocale: null }
     : { ...values, closedAt: now };

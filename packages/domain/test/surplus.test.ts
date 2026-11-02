@@ -2,7 +2,9 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   availableToAllocate,
-  excludeSavings,
+  investedByMonth,
+  investingHabit,
+  NO_SAVINGS,
   forecastSurplus,
   monthlySeries,
   monthlySurplus,
@@ -16,6 +18,8 @@ const point = (month: string, received: number, spent: number): MonthPoint => ({
   received: received.toFixed(2),
   spent: spent.toFixed(2),
   balance: (received - spent).toFixed(2),
+  contributed: "0.00",
+  redeemed: "0.00",
 });
 
 describe("excedente mensal", () => {
@@ -99,11 +103,54 @@ describe("excedente mensal", () => {
       tx("g", "2026-08", "700.00", "metas"),
       tx("c", "2026-09", "300.00", "x"),
     ];
-    const filtered = excludeSavings(withGoal, { categoryIds: ["metas"], transactionIds: ["c"] });
-    expect(monthlySurplus(monthlySeries(months, [], filtered))).toEqual(
-      monthlySurplus(monthlySeries(months, [], base)),
+    const rule = {
+      ...NO_SAVINGS,
+      goalCategories: new Set(["metas"]),
+      goalTransactions: new Set(["c"]),
+    };
+    expect(monthlySurplus(monthlySeries(months, [], withGoal, rule))).toEqual(
+      monthlySurplus(monthlySeries(months, [], base, NO_SAVINGS)),
     );
-    expect(monthlySurplus(monthlySeries(months, [], withGoal)).usable).not.toBe("1000.00");
+    expect(monthlySurplus(monthlySeries(months, [], withGoal, NO_SAVINGS)).usable).not.toBe(
+      "1000.00",
+    );
+  });
+
+  it("mede o que já é aportado por mês, sem pico, sem meta e sem ficar negativo", () => {
+    const rule = {
+      ...NO_SAVINGS,
+      investmentCategories: new Set(["aportes"]),
+      goalCategories: new Set(["metas"]),
+    };
+    const row = (id: string, month: string, amount: string, categoryId: string) => ({
+      id,
+      kind: "despesa" as const,
+      description: "x",
+      amount,
+      occurredOn: `${month}-10`,
+      status: "realizado" as const,
+      categoryId,
+      accountId: "a",
+      planId: null,
+      planMonth: null,
+    });
+    const months = ["2026-07", "2026-08", "2026-09"];
+    const rows = [
+      row("a", "2026-07", "1000.00", "aportes"),
+      row("b", "2026-08", "1000.00", "aportes"),
+      row("c", "2026-08", "700.00", "metas"),
+      row("d", "2026-09", "9000.00", "aportes"),
+      { ...row("e", "2026-09", "8000.00", "aportes"), kind: "receita" as const },
+    ];
+    const invested = investedByMonth(months, rows, rule);
+    expect(invested).toEqual(["1000.00", "1000.00", "1000.00"]);
+    const points = months.map((month) => point(month, 5000, 4000));
+    expect(investingHabit(invested, points)).toBe("1000.00");
+    // Um mês grande não vira compromisso: a mediana ignora o pico.
+    expect(investingHabit(["0.00", "50000.00", "0.00"], points)).toBe("0.00");
+    expect(investingHabit(["-500.00", "-500.00", "-500.00"], points)).toBe("0.00");
+    // Menos de três meses não é hábito.
+    expect(investingHabit(["1000.00", "1000.00"], points.slice(0, 2))).toBe("0.00");
   });
 
   it("o utilizável nunca passa da média nem da mediana com histórico cheio", () => {

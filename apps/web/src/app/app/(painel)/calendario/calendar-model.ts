@@ -17,6 +17,7 @@ export const ITEM_TYPES: CalendarItemType[] = [
   "cartao",
   "divida",
   "meta",
+  "aporte",
   "viagem",
   "evento",
 ];
@@ -106,6 +107,7 @@ export function itemHref(item: CalendarItem, type: CalendarItemType): string | n
         ? "/app/renda"
         : `/app/lancamentos?m=${yearMonthOf(item.date)}`;
     case "conta":
+    case "aporte":
       return `/app/lancamentos?m=${yearMonthOf(item.date)}`;
     default:
       return null;

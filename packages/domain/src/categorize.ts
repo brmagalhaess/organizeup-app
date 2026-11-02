@@ -7,12 +7,8 @@ import { CARD_CATEGORY } from "./card";
 import { DEBT_CATEGORY } from "./debt";
 import { message, sentences, type Message } from "./messages";
 import { money, toDbAmount } from "./money";
+import { CONTRIBUTION_CATEGORY, GOAL_CATEGORY } from "./savings";
 import { normalizeDescription, type StatementKind, type StatementRow } from "./statement";
-
-/** Categoria de sistema das parcelas de metas (despesa na origem, receita no destino). */
-export const GOAL_CATEGORY = "Metas e objetivos";
-/** Categoria de sistema dos aportes em investimentos e reserva. */
-export const CONTRIBUTION_CATEGORY = "Aportes e investimentos";
 
 export interface CategoryOption {
   id: string;

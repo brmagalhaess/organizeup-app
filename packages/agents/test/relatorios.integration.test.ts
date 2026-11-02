@@ -312,7 +312,10 @@ describe("agente de relatórios", () => {
     const row = await statement(family, "resumo", "2026-11");
     const panel = await inFamily(family, async (tx) => {
       const rows = await tx.select().from(transactions);
-      return domain.summarizeMonth(domain.buildMonthEntries("2026-11", [], rows));
+      return domain.summarizeMonth(
+        domain.buildMonthEntries("2026-11", [], rows),
+        domain.NO_SAVINGS,
+      );
     });
     expect(figure(row.data, "received")).toEqual({ money: panel.received });
     expect(figure(row.data, "spent")).toEqual({ money: panel.spent });

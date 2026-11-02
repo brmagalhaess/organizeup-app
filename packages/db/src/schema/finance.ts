@@ -1316,6 +1316,7 @@ export const NOTIFICATION_KINDS = [
   "assinatura_falhou",
   "assinatura_renovacao",
   "vip_vencendo",
+  "aviso_painel",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

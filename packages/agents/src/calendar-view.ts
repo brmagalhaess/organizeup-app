@@ -23,6 +23,7 @@ import {
   monthBounds,
   monthCells,
   projectDailyBalance,
+  splitCardSavings,
   summarizeMonth,
   toDbAmount,
   yearMonthOf,
@@ -31,6 +32,7 @@ import {
 } from "@organizeup/domain";
 import { calendarItemType, type CalendarItemType } from "./calendar-types";
 import { loadCommitments, systemCategories } from "./commitments";
+import { loadSavingsRule } from "./inputs";
 
 /** Até onde o saldo previsto faz sentido: depois disso, são só as contas fixas somadas. */
 const MAX_PROJECTION_MONTHS = 24;
@@ -52,7 +54,10 @@ export async function calendarMonth(tx: TenantTx, input: { today: string; month:
         lte(transactions.occurredOn, monthBounds(month).last),
       ),
     );
-  const { scheduled } = await loadCommitments(tx, { from: firstMonth, to: month });
+  const { scheduled, cardLines, cardCategoryId } = await loadCommitments(tx, {
+    from: firstMonth,
+    to: month,
+  });
   const entriesOf = (ym: string) =>
     buildMonthEntries(
       ym,
@@ -85,6 +90,7 @@ export async function calendarMonth(tx: TenantTx, input: { today: string; month:
 
   const items = groupCalendarItems(entries, eventsInMonth(eventRows, month), cards, month);
   const system = await systemCategories(tx);
+  const rule = await loadSavingsRule(tx);
   // Só a categoria diz que "Aporte em X" foi o sistema que escreveu.
   const contributions = entries
     .filter((entry) => system.contribution && entry.categoryId === system.contribution)
@@ -109,7 +115,15 @@ export async function calendarMonth(tx: TenantTx, input: { today: string; month:
     contributions,
     balances,
     fx,
-    summary: summarizeMonth(entries),
+    summary: summarizeMonth(
+      splitCardSavings(
+        entries,
+        cardLines.filter((line) => line.statementMonth === month),
+        cardCategoryId,
+        rule,
+      ),
+      rule,
+    ),
     lowest: lowestBalance(balances),
     closing: balances[cells.days.at(-1)!] ?? null,
   };

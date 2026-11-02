@@ -21,6 +21,7 @@ vi.mock("@/lib/session", () => ({
   requireTenant: async () => ({ ctx, session: { user: { id: ctx.userId, name: "Dona" } } }),
 }));
 vi.mock("@/i18n/money-server", () => ({ forgetFamilyCurrency: async () => undefined }));
+vi.mock("@/i18n/resolve", () => ({ resolveLocale: async () => "pt-BR" }));
 vi.mock("next-intl/server", async () => {
   const { createTranslator } = await import("next-intl");
   const { messagesFor } = await import("@/i18n/messages");
@@ -38,9 +39,11 @@ const domain = await import("@organizeup/domain");
 const { bootstrapHousehold } = await import("@/app/app/actions");
 const { saveEntry, confirmEntry } = await import("@/app/app/(painel)/lancamentos/actions");
 const { createTransfer } = await import("@/app/app/(painel)/contas/actions");
-const { addAsset } = await import("@/app/app/(painel)/investimentos/actions");
+const { addAsset, addTrade } = await import("@/app/app/(painel)/investimentos/actions");
+const { dismissSavingsNotice } = await import("@/app/app/(painel)/notificacoes/actions");
 const { loadAccountBalances, loadMonth, loadOverview } = await import("@/lib/finance-data");
 const { loadMonthInvestments } = await import("@/lib/investments");
+const { countUnread, loadNotifications } = await import("@/lib/notifications");
 
 const { accounts, categories, eq, and, household, householdMember, user } = db;
 const { cardPurchases, cashflowPlans, creditCards, dividends, householdSettings } = db;
@@ -131,6 +134,13 @@ async function expectSameNumbers(family: Family, month: string) {
     expect(figure(report, "received")).toEqual({ money: panel.summary.received });
     expect(figure(report, "spent")).toEqual({ money: panel.summary.spent });
     expect(figure(report, "left")).toEqual({ money: panel.summary.balance });
+    expect(figure(report, "contributed")).toEqual({ money: panel.summary.contributed });
+    expect(figure(report, "afterContributions")).toEqual({
+      money: panel.summary.afterContributions,
+    });
+    expect((figure(report, "redeemed") as object | undefined) ?? { money: "0.00" }).toEqual({
+      money: panel.summary.redeemed,
+    });
   }
   const point = panel.series.at(-1)!;
   expect(point).toMatchObject({
@@ -139,10 +149,13 @@ async function expectSameNumbers(family: Family, month: string) {
     spent: panel.summary.spent,
     plannedExpense: panel.summary.plannedExpense,
   });
-  const byAccount = (field: "received" | "spent" | "plannedIncome" | "plannedExpense") =>
+  const byAccount = (
+    field: "received" | "spent" | "contributed" | "plannedIncome" | "plannedExpense",
+  ) =>
     domain.toDbAmount(panel.accounts.reduce((acc, row) => acc.plus(row[field]), domain.money(0)));
   expect(byAccount("received")).toBe(panel.summary.received);
   expect(byAccount("spent")).toBe(panel.summary.spent);
+  expect(byAccount("contributed")).toBe(panel.summary.contributed);
   expect(byAccount("plannedIncome")).toBe(panel.summary.plannedIncome);
   expect(byAccount("plannedExpense")).toBe(panel.summary.plannedExpense);
 
@@ -157,6 +170,15 @@ async function expectSameNumbers(family: Family, month: string) {
   );
   const categoryReport = await statement(family, "categorias", month);
   if (categoryReport) expect(figure(categoryReport, "total")).toEqual({ money: total });
+  const contributions = domain.foldCategories(panel.contributions).total;
+  expect(contributions).toBe(
+    domain.toDbAmount(
+      domain.money(panel.summary.contributed).plus(panel.summary.plannedContribution),
+    ),
+  );
+  if (categoryReport) {
+    expect(figure(categoryReport, "contributed")).toEqual({ money: contributions });
+  }
   return panel;
 }
 
@@ -311,17 +333,18 @@ describe("prova cruzada", () => {
     });
   });
 
-  it("outubro: fatura paga e aporte entram; a transferência não", async () => {
+  it("outubro: a fatura paga é despesa, o aporte fica à parte e a transferência não entra", async () => {
     const panel = await expectSameNumbers(scenario.family, "2026-10");
     expect(panel.summary).toMatchObject({
       received: "5000.00",
-      // Fatura de 400 mais aporte de 1.000. O aluguel de 1.500 ficou em aberto.
-      spent: "1400.00",
+      // Fatura de 400. O aluguel de 1.500 ficou em aberto.
+      spent: "400.00",
       plannedExpense: "1500.00",
-      balance: "3600.00",
+      balance: "4600.00",
+      contributed: "1000.00",
+      afterContributions: "3600.00",
     });
-    // Aporte fica nos totais, como no relatório, e a tela diz quanto é.
-    expect(panel.savings).toEqual({ out: "1000.00", in: "0.00" });
+    expect(panel.contributions.map((row) => row.amount)).toEqual(["1000.00"]);
   });
 
   it("a fatura abre por categoria sem contar duas vezes", async () => {
@@ -329,7 +352,6 @@ describe("prova cruzada", () => {
     const named = expenses.map((row) => [categoryNames.get(row.categoryId), row.amount, row.done]);
     expect(named).toEqual([
       ["Moradia", "1500.00", "0.00"],
-      [domain.CONTRIBUTION_CATEGORY, "1000.00", "1000.00"],
       ["Mercado", "400.00", "400.00"],
     ]);
   });
@@ -351,7 +373,9 @@ describe("prova cruzada", () => {
     const row = (id: string) => panel.accounts.find((account) => account.id === id)!;
     expect(row(main)).toMatchObject({
       received: "5000.00",
-      spent: "1400.00",
+      spent: "400.00",
+      contributed: "1000.00",
+      // O dinheiro saiu da conta do mesmo jeito: o saldo é o de antes.
       balance: "6760.00",
       foreign: false,
     });
@@ -400,10 +424,13 @@ describe("prova cruzada", () => {
     expect(series.at(-2)).toEqual({
       month: "2026-10",
       received: "5000.00",
-      spent: "1400.00",
-      balance: "3600.00",
+      spent: "400.00",
+      balance: "4600.00",
+      contributed: "1000.00",
+      redeemed: "0.00",
       plannedIncome: "0.00",
       plannedExpense: "1500.00",
+      plannedContribution: "0.00",
     });
   });
 
@@ -484,6 +511,116 @@ describe("prova cruzada", () => {
         .where(and(eq(categories.name, "Mercado"), eq(categories.kind, "despesa"))),
     );
     expect(screen.cardLines.filter((line) => line.categoryId === market!.id)).toHaveLength(1);
+  });
+});
+
+describe("aporte, resgate e aporte em dólar", () => {
+  let scenario: Awaited<ReturnType<typeof savingFamily>>;
+
+  /**
+   * Em outubro: salário, mercado, aporte de 1.000 na conta em real, aporte de US$ 100 na conta em dólar
+   * pela cotação de 30/09 (5,00, ou 500) e resgate de 600 que volta à conta. Tudo pelas actions de verdade.
+   */
+  async function savingFamily() {
+    const family = await newFamily();
+    const ids = await inFamily(family, async (tx) => {
+      const [main] = await tx.select().from(accounts);
+      await tx.update(accounts).set({ openingBalance: "2000.00" }).where(eq(accounts.id, main!.id));
+      const [dollars] = await tx
+        .insert(accounts)
+        .values({
+          householdId: family.id,
+          name: "Conta em dólar",
+          currency: "USD",
+          openingBalance: "200.00",
+        })
+        .returning();
+      return { main: main!.id, dollars: dollars!.id };
+    });
+    const salary = await categoryId(family, "Salário", "receita");
+    const market = await categoryId(family, "Mercado", "despesa");
+    await entry(ids.main, salary, "2026-10-05", "5.000,00", { kind: "receita" });
+    await entry(ids.main, market, "2026-10-06", "1.234,56");
+    const asset = (name: string, accountId: string, amount: string, occurredOn: string) =>
+      addAsset(initial, form({ name, assetClass: "renda_fixa", occurredOn, amount, accountId }));
+    expect((await asset("CDB um", ids.main, "1.000,00", "2026-10-10")).ok).toBe(true);
+    expect((await asset("CDB dois", ids.dollars, "500,00", "2026-10-11")).ok).toBe(true);
+    const [held] = await inFamily(family, (tx) =>
+      tx.select().from(investments).where(eq(investments.name, "CDB um")),
+    );
+    const sold = await addTrade(
+      initial,
+      form({
+        investmentId: held!.id,
+        side: "venda",
+        occurredOn: "2026-10-20",
+        amount: "600,00",
+        accountId: ids.main,
+      }),
+    );
+    expect(sold.ok).toBe(true);
+    await runAgent(family, "2026-11-01");
+    await runAgent(family, TODAY);
+    return { family, ids };
+  }
+
+  beforeAll(async () => {
+    scenario = await savingFamily();
+  });
+  beforeEach(() => {
+    ctx = scenario.family.ctx;
+  });
+
+  it("painel, lançamentos e relatórios batem, e nada de aporte em despesa nem resgate em receita", async () => {
+    const panel = await expectSameNumbers(scenario.family, "2026-10");
+    expect(panel.summary).toMatchObject({
+      received: "5000.00",
+      spent: "1234.56",
+      balance: "3765.44",
+      contributed: "1500.00",
+      redeemed: "600.00",
+      afterContributions: "2265.44",
+    });
+    const names = (rows: Array<{ categoryId: string }>) =>
+      rows.map((row) => panel.categoryNames.get(row.categoryId));
+    expect(names(panel.expenses)).toEqual(["Mercado"]);
+    expect(names(panel.incomes)).toEqual(["Salário"]);
+    expect(names(panel.contributions)).toEqual([domain.CONTRIBUTION_CATEGORY]);
+  });
+
+  it("nenhum saldo muda: o dinheiro saiu das contas do mesmo jeito", async () => {
+    const { accounts: balances } = await loadAccountBalances(ctx);
+    const balance = (id: string) => balances.find((row) => row.id === id)!;
+    // 2000 + 5000 − 1234,56 − 1000 + 600.
+    expect(balance(scenario.ids.main).balance).toBe("5365.44");
+    // US$ 200 menos US$ 100, que entraram em real pela cotação do dia.
+    expect(balance(scenario.ids.dollars).nativeBalance).toBe("100.00");
+  });
+
+  it("o relatório anual soma igual", async () => {
+    const report = await inFamily(scenario.family, (tx) =>
+      agents.readStatement(tx, "anual", "2026"),
+    );
+    expect(figure(report, "contributed")).toEqual({ money: "1500.00" });
+    expect(figure(report, "redeemed")).toEqual({ money: "600.00" });
+    expect(figure(report, "spent")).toEqual({ money: "1234.56" });
+  });
+
+  it("a lista de lançamentos continua mostrando o aporte, identificado", async () => {
+    const screen = await loadMonth(ctx, "2026-10");
+    const flows = screen.entries.map((row) => screen.flows[row.key]);
+    expect(flows.filter((flow) => flow === "aporte")).toHaveLength(2);
+    expect(flows.filter((flow) => flow === "resgate")).toHaveLength(1);
+  });
+
+  it("a nota explica uma vez e some depois de fechada", async () => {
+    expect((await loadOverview(ctx, "2026-10")).savingsNotice).toBe(true);
+    await dismissSavingsNotice();
+    await dismissSavingsNotice();
+    expect((await loadOverview(ctx, "2026-10")).savingsNotice).toBe(false);
+    // O sininho não ganha nada: a marca nasce lida e fica fora da lista.
+    expect(await countUnread(ctx)).toBe(0);
+    expect(await loadNotifications(ctx, "todas")).toEqual([]);
   });
 });
 

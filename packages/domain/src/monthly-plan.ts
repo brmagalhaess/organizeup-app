@@ -33,7 +33,7 @@ export interface MonthlyPlanInput {
   plan: DividendPlan;
   /** Aporte real do plano. */
   contribution: string;
-  allocation: Pick<Allocation, "reserve" | "debt" | "retirement">;
+  allocation: Pick<Allocation, "reserve" | "debt" | "retirement" | "alreadyInvesting">;
   /** Maior categoria de despesa do último mês fechado. */
   largestCategory: { name: string; amount: string } | null;
 }
@@ -62,7 +62,11 @@ export function monthlyPlan(input: MonthlyPlanInput): PlanAction[] {
       yearsEarlier: yearsEarlier(input, allocation.debt),
     });
   }
-  const gap = money(allocation.retirement).minus(contribution);
+  // Parte do que a divisão pede a família já faz: só o resto é guardar mais.
+  const doing = money(allocation.alreadyInvesting).gt(contribution)
+    ? allocation.alreadyInvesting
+    : contribution;
+  const gap = money(allocation.retirement).minus(doing);
   const extra = toDbAmount(gap.gt(MONTHLY_PLAN_RULES.minExtra) ? gap : MONTHLY_PLAN_RULES.minExtra);
   actions.push({ kind: "guardar", amount: extra, yearsEarlier: yearsEarlier(input, extra) });
 

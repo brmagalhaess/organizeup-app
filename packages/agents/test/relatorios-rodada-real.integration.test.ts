@@ -587,8 +587,11 @@ describe("rodada real: dia 1 de novembro fecha outubro", () => {
     expect(data.asOf).toBe("2026-10-31");
     expect(figures(data)).toEqual({
       received: { money: "8200.00" },
-      spent: { money: "5578.58" },
-      left: { money: "2621.42" },
+      // A parcela de meta de 500,00 é dinheiro guardado, à parte (ADR-0027).
+      spent: { money: "5078.58" },
+      left: { money: "3121.42" },
+      contributed: { money: "500.00" },
+      afterContributions: { money: "2621.42" },
       // (6000,00 + 5100,00 + 4165,50) / 3 meses com movimento.
       average12: { money: "5088.50" },
     });
@@ -602,23 +605,32 @@ describe("rodada real: dia 1 de novembro fecha outubro", () => {
         { money: "7833.33" },
         { percent: 5 },
       ],
-      // 5578,58 × 4334,50 = +28,70%; média (1000 + 2900 + 4334,50) / 3 = 2744,83, +103,23%.
+      // 5078,58 × 4334,50 = +17,17%; média (1000 + 2900 + 4334,50) / 3 = 2744,83, +85,02%.
       [
         { label: "saiu" },
-        { money: "5578.58" },
+        { money: "5078.58" },
         { money: "4334.50" },
-        { percent: 29 },
+        { percent: 17 },
         { money: "2744.83" },
-        { percent: 103 },
+        { percent: 85 },
       ],
-      // 2621,42 × 4165,50 = −37,07%; 2621,42 × 5088,50 = −48,48%.
+      // 3121,42 × 4165,50 = −25,06%; 3121,42 × 5088,50 = −38,66%.
       [
         { label: "sobrou" },
-        { money: "2621.42" },
+        { money: "3121.42" },
         { money: "4165.50" },
-        { percent: -37 },
+        { percent: -25 },
         { money: "5088.50" },
-        { percent: -48 },
+        { percent: -39 },
+      ],
+      // Sem aporte antes: não há base para variação.
+      [
+        { label: "aportado" },
+        { money: "500.00" },
+        { money: "0.00" },
+        null,
+        { money: "0.00" },
+        null,
       ],
     ]);
     // A fatura paga abre nas compras: 633,33 não aparece como um gasto só.
@@ -626,8 +638,8 @@ describe("rodada real: dia 1 de novembro fecha outubro", () => {
       [{ text: "Aluguel" }, { date: "2026-10-06" }, { money: "2000.00" }],
       [{ text: "Mercado" }, { date: "2026-10-08" }, { money: "1100.25" }],
       [{ text: "Dívidas e empréstimos" }, { date: "2026-10-05" }, { money: "1075.00" }],
-      [{ text: "Metas e objetivos" }, { date: "2026-10-07" }, { money: "500.00" }],
       [{ text: "Televisão" }, { date: "2026-09-20" }, { money: "333.33" }],
+      [{ text: "Atacado" }, { date: "2026-09-10" }, { money: "300.00" }],
     ]);
     const evolution = section(data, "evolution")!;
     expect(evolution).toHaveLength(11);
@@ -636,17 +648,19 @@ describe("rodada real: dia 1 de novembro fecha outubro", () => {
       { money: "7000.00" },
       { money: "1000.00" },
       { money: "6000.00" },
+      { money: "0.00" },
     ]);
     expect(evolution.at(-1)).toEqual([
       { month: "2026-10" },
       { money: "8200.00" },
-      { money: "5578.58" },
-      { money: "2621.42" },
+      { money: "5078.58" },
+      { money: "3121.42" },
+      { money: "500.00" },
     ]);
     expect(messageParams).toEqual({
       received: { money: "8200.00" },
-      spent: { money: "5578.58" },
-      left: { money: "2621.42" },
+      spent: { money: "5078.58" },
+      left: { money: "3121.42" },
     });
   });
 
@@ -656,27 +670,30 @@ describe("rodada real: dia 1 de novembro fecha outubro", () => {
     expect(
       ranking.map((row) => [(row[0] as { category: string }).category, row[1], row[2]]),
     ).toEqual([
-      ["Moradia", { money: "2000.00" }, { percent: 34.3 }],
-      ["Mercado", { money: "1400.25" }, { percent: 24 }],
-      ["Dívidas e empréstimos", { money: "1075.00" }, { percent: 18.4 }],
-      ["Metas e objetivos", { money: "500.00" }, { percent: 8.6 }],
-      ["Compras", { money: "333.33" }, { percent: 5.7 }],
-      ["Lazer", { money: "270.00" }, { percent: 4.6 }],
-      ["Saúde", { money: "150.00" }, { percent: 2.6 }],
-      ["Assinaturas", { money: "100.00" }, { percent: 1.7 }],
+      ["Moradia", { money: "2000.00" }, { percent: 37.5 }],
+      ["Mercado", { money: "1400.25" }, { percent: 26.3 }],
+      ["Dívidas e empréstimos", { money: "1075.00" }, { percent: 20.2 }],
+      ["Compras", { money: "333.33" }, { percent: 6.3 }],
+      ["Lazer", { money: "270.00" }, { percent: 5.1 }],
+      ["Saúde", { money: "150.00" }, { percent: 2.8 }],
+      ["Assinaturas", { money: "100.00" }, { percent: 1.9 }],
     ]);
-    // 5578,58 feitos + 250,00 previstos; set/26 tem 4334,50: +34,47%.
+    // 5078,58 feitos + 250,00 previstos; set/26 tem 4334,50: +22,93%.
     expect(figures(data)).toEqual({
-      total: { money: "5828.58" },
+      total: { money: "5328.58" },
       topCategory: { category: "Moradia" },
-      change: { percent: 34 },
+      change: { percent: 23 },
+      contributed: { money: "500.00" },
     });
+    expect(section(data, "savings")).toEqual([
+      [{ category: "Metas e objetivos" }, { money: "500.00" }, { percent: 100 }],
+    ]);
     expect(section(data, "up")!.map((row) => (row[3] as { money: string }).money)).toEqual([
-      "500.00",
       "333.33",
       "270.00",
       "165.75",
       "150.00",
+      "100.00",
     ]);
     expect(section(data, "down")).toEqual([
       [
@@ -686,24 +703,26 @@ describe("rodada real: dia 1 de novembro fecha outubro", () => {
         { money: "-25.00" },
       ],
     ]);
-    expect(data.notes).toEqual(["incluiPrevisto"]);
+    expect(data.notes).toEqual(["incluiPrevisto", "aporteAParte"]);
   });
 
   it("fluxo de outubro: previsto × realizado e os três meses seguintes", async () => {
     const { data } = await read(family, "fluxo", "2026-10");
-    // Previsto: renda 8000,00. Saídas: 100,00 + 633,33 + 1075,00 + 500,00 = 2308,33.
+    // Previsto: renda 8000,00. Despesas: 100,00 + 633,33 + 1075,00 = 1808,33. Aporte: meta de 500,00.
     expect(section(data, "plannedActual")).toEqual([
       [{ label: "entrou" }, { money: "8000.00" }, { money: "8200.00" }, { money: "200.00" }],
-      [{ label: "saiu" }, { money: "2308.33" }, { money: "5578.58" }, { money: "3270.25" }],
-      [{ label: "sobrou" }, { money: "5691.67" }, { money: "2621.42" }, { money: "-3070.25" }],
+      [{ label: "saiu" }, { money: "1808.33" }, { money: "5078.58" }, { money: "3270.25" }],
+      [{ label: "sobrou" }, { money: "6191.67" }, { money: "3121.42" }, { money: "-3070.25" }],
+      [{ label: "aportado" }, { money: "500.00" }, { money: "500.00" }, { money: "0.00" }],
     ]);
     expect(section(data, "projection")).toEqual([
-      // Novembro: 100,00 + fatura 533,33 + parcela 1050,00 + meta 500,00.
+      // Novembro: 100,00 + fatura 533,33 + parcela 1050,00; aporte: meta 500,00. O acumulado é o de antes.
       [
         { month: "2026-11" },
         { money: "8000.00" },
-        { money: "2183.33" },
-        { money: "5816.67" },
+        { money: "1683.33" },
+        { money: "6316.67" },
+        { money: "500.00" },
         { money: "5816.67" },
       ],
       // Dezembro: 100,00 + fatura 333,34.
@@ -712,6 +731,7 @@ describe("rodada real: dia 1 de novembro fecha outubro", () => {
         { money: "8000.00" },
         { money: "433.34" },
         { money: "7566.66" },
+        { money: "0.00" },
         { money: "13383.33" },
       ],
       [
@@ -719,12 +739,13 @@ describe("rodada real: dia 1 de novembro fecha outubro", () => {
         { money: "8000.00" },
         { money: "100.00" },
         { money: "7900.00" },
+        { money: "0.00" },
         { money: "21283.33" },
       ],
     ]);
     expect(figures(data)).toEqual({
-      planned: { money: "5691.67" },
-      left: { money: "2621.42" },
+      planned: { money: "6191.67" },
+      left: { money: "3121.42" },
       open: { money: "-250.00" },
       projected: { money: "21283.33" },
     });
@@ -913,6 +934,8 @@ describe("rodada real: dia 1 de novembro fecha outubro", () => {
       received: { money: "7000.00" },
       spent: { money: "1000.00" },
       left: { money: "6000.00" },
+      contributed: { money: "0.00" },
+      afterContributions: { money: "6000.00" },
       monthlyAverage: { money: "6000.00" },
       dividends: { money: "40.00" },
       interest: { money: "0.00" },
@@ -1000,12 +1023,15 @@ describe("rodada real: ano e virada", () => {
     expect(status).toBe("fechado");
     expect(closedAt).not.toBeNull();
     expect(data.asOf).toBe("2026-12-31");
-    // Entrou 8000 + 8500 + 8200 + 8000 + 8000. Saiu 2900,00 + 4334,50 + 5578,58 + 3583,33 + 2333,34.
+    // Entrou 8000 + 8500 + 8200 + 8000 + 8000. Saiu 2900,00 + 4334,50 + 5078,58 + 3583,33 + 2333,34,
+    // sem a parcela de meta paga em outubro. A de novembro segue prevista, e o bloco de aportes a mostra.
     expect(figures(data)).toEqual({
       received: { money: "40700.00" },
-      spent: { money: "18729.75" },
-      left: { money: "21970.25" },
-      monthlyAverage: { money: "4394.05" },
+      spent: { money: "18229.75" },
+      left: { money: "22470.25" },
+      contributed: { money: "500.00" },
+      afterContributions: { money: "21970.25" },
+      monthlyAverage: { money: "4494.05" },
       dividends: { money: "339.00" },
       interest: { money: "225.00" },
     });
@@ -1013,18 +1039,15 @@ describe("rodada real: ano e virada", () => {
       [{ category: "Salário" }, { money: "40200.00" }, { percent: 98.8 }],
       [{ category: "Trabalho autônomo" }, { money: "500.00" }, { percent: 1.2 }],
     ]);
-    // Compras e Metas empatam em 1000,00: a ordem entre as duas não importa.
     const ranking = section(data, "ranking")!.map((row) => [
       (row[0] as { category: string }).category,
       row[1],
     ]);
-    ranking.splice(3, 2, ...ranking.slice(3, 5).sort());
     expect(ranking).toEqual([
       ["Moradia", { money: "10000.00" }],
       ["Mercado", { money: "3534.75" }],
       ["Dívidas e empréstimos", { money: "3225.00" }],
       ["Compras", { money: "1000.00" }],
-      ["Metas e objetivos", { money: "1000.00" }],
       ["Lazer", { money: "470.00" }],
       ["Assinaturas", { money: "300.00" }],
       ["Saúde", { money: "150.00" }],
@@ -1033,7 +1056,10 @@ describe("rodada real: ano e virada", () => {
       [{ text: "PROV11" }, { money: "354.00" }, { money: "15.00" }, { money: "339.00" }],
     ]);
     expect(data.sections.some((item) => item.id === "positions")).toBe(true);
-    expect(data.notes).toEqual(["anualNaoFiscal"]);
+    expect(section(data, "savings")).toEqual([
+      [{ category: "Metas e objetivos" }, { money: "1000.00" }, { percent: 100 }],
+    ]);
+    expect(data.notes).toEqual(["anualNaoFiscal", "aporteAParte"]);
     // Dia 1 de janeiro só fecha: 2027 ainda não existe, e dezembro fechou junto.
     const rows = await all(family);
     expect(rows.some((row) => row.period.startsWith("2027"))).toBe(false);
@@ -1152,7 +1178,7 @@ describe("rodada real: assinatura do mês fechado", () => {
       expect(row.revisedAt).not.toBeNull();
       expect(row.closedAt).toEqual(before.find((item) => key(item) === key(row))!.closedAt);
     }
-    expect(figure(changed[2]!.data, "spent")).toEqual({ money: "5678.58" });
+    expect(figure(changed[2]!.data, "spent")).toEqual({ money: "5178.58" });
   });
 
   it("operação antiga reabre investimentos, mesmo dois meses depois", async () => {
@@ -1262,24 +1288,34 @@ describe("rodada real: assinatura do mês fechado", () => {
     const { family } = await closed();
     const direct = await inFamily(family, async (tx) => {
       const rows = await tx.select().from(transactions);
-      const total = (month: string, kind: string) =>
+      const savings = await tx
+        .select({ id: categories.id })
+        .from(categories)
+        .where(eq(categories.name, domain.GOAL_CATEGORY));
+      const saved = new Set(savings.map((row) => row.id));
+      const total = (month: string, kind: string, guarded: boolean) =>
         rows
           .filter(
             (row) =>
-              row.occurredOn.startsWith(month) && row.kind === kind && row.status === "realizado",
+              row.occurredOn.startsWith(month) &&
+              row.kind === kind &&
+              row.status === "realizado" &&
+              saved.has(row.categoryId) === guarded,
           )
           .reduce((acc, row) => acc.plus(row.amount), domain.money(0))
           .toFixed(2);
       return ["2026-08", "2026-09", "2026-10"].map((month) => ({
         month,
-        received: total(month, "receita"),
-        spent: total(month, "despesa"),
+        received: total(month, "receita", false),
+        spent: total(month, "despesa", false),
+        contributed: total(month, "despesa", true),
       }));
     });
-    for (const { month, received, spent } of direct) {
+    for (const { month, received, spent, contributed } of direct) {
       const { data } = await read(family, "resumo", month);
       expect(figure(data, "received")).toEqual({ money: received });
       expect(figure(data, "spent")).toEqual({ money: spent });
+      expect(figure(data, "contributed")).toEqual({ money: contributed });
     }
   });
 });

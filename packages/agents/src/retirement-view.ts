@@ -75,6 +75,7 @@ export async function currentDividendPlan(tx: TenantTx, today: string) {
     expensiveDebtBalance: await expensiveDebtBalance(tx, first.yieldUsed),
     retirementRequired: first.requiredContribution,
     confirmedTripsMonthly: await confirmedTripsMonthly(tx, today),
+    alreadyInvesting: surplus.invested,
     surplusMonths: surplus.result.months,
     ...(planData.input.currency ? { currency: planData.input.currency } : {}),
   });

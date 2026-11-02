@@ -236,7 +236,10 @@ beforeAll(async () => {
     ]);
     await seedFinance(tx, A.household, "PIX para Carlos CPF 123.456.789-09");
     const [account] = await tx.select({ id: db.accounts.id }).from(db.accounts).limit(1);
-    const [category] = await tx.select({ id: db.categories.id }).from(db.categories).limit(1);
+    const [category] = await tx
+      .select({ id: db.categories.id })
+      .from(db.categories)
+      .where(db.and(db.eq(db.categories.name, "Lazer"), db.eq(db.categories.kind, "despesa")));
     await tx.insert(db.transactions).values({
       householdId: A.household,
       accountId: account!.id,

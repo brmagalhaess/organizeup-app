@@ -7,15 +7,19 @@ import {
   eq,
   gte,
   lte,
+  notInArray,
   sql,
   transactions,
   type TenantTx,
 } from "@organizeup/db";
 import { addMonths, monthBounds, monthlyPlan, toDbAmount, yearMonthOf } from "@organizeup/domain";
+import { loadSavingsRule } from "./inputs";
 import { currentDividendPlan } from "./retirement-view";
 
+/** O maior gasto. Aporte não é gasto: o plano nunca sugere cortar o que a família guarda. */
 async function largestCategory(tx: TenantTx, today: string) {
   const { first, last } = monthBounds(addMonths(yearMonthOf(today), -1));
+  const rule = await loadSavingsRule(tx);
   const total = sql<string>`sum(${transactions.amount})`;
   const [row] = await tx
     .select({ name: categories.name, amount: total })
@@ -26,6 +30,8 @@ async function largestCategory(tx: TenantTx, today: string) {
         eq(transactions.kind, "despesa"),
         gte(transactions.occurredOn, first),
         lte(transactions.occurredOn, last),
+        notInArray(transactions.categoryId, [...rule.investmentCategories, ...rule.goalCategories]),
+        notInArray(transactions.id, [...rule.investmentTransactions, ...rule.goalTransactions]),
       ),
     )
     .groupBy(categories.name)

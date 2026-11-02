@@ -51,9 +51,12 @@ export async function loadDividendPlan(ctx: TenantContext) {
         investment: allocation.retirement,
         debt: allocation.debt,
         total: toDbAmount(money(allocation.reserve).plus(allocation.retirement)),
+        /** Parte de `investment` que já sai todo mês. */
+        alreadyInvesting: allocation.alreadyInvesting,
         accepted:
           matches(allocation.reserve, reserve.contribution) &&
-          matches(allocation.retirement, informed),
+          (matches(allocation.retirement, informed) ||
+            money(allocation.retirement).lte(allocation.alreadyInvesting)),
       },
       form: {
         targetIncome: planData.plan?.targetIncome ?? null,

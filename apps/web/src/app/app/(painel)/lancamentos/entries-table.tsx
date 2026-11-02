@@ -13,7 +13,12 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { linesTotal, type MonthEntry, type StatementLine } from "@organizeup/domain";
+import {
+  linesTotal,
+  type EntryFlow,
+  type MonthEntry,
+  type StatementLine,
+} from "@organizeup/domain";
 import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { useEntryDialog } from "@/components/shell/entry-context";
 import {
@@ -136,6 +141,7 @@ export function EntriesTable({
   month,
   today,
   entries,
+  flows,
   categories,
   accounts,
   filters,
@@ -144,6 +150,8 @@ export function EntriesTable({
   month: string;
   today: string;
   entries: MonthEntry[];
+  /** Receita, despesa, aporte ou resgate, pela chave da entrada. */
+  flows: Record<string, EntryFlow>;
   categories: Named[];
   accounts: Named[];
   /** Filtros que já vêm do endereço, como nos links do painel. */
@@ -180,10 +188,11 @@ export function EntriesTable({
       bill: entry.source === "fatura",
     });
 
+  const flowOf = (entry: MonthEntry) => flows[entry.key] ?? entry.kind;
   const search = query.trim().toLocaleLowerCase(locale);
   const visible = entries.filter(
     (entry) =>
-      (!kind || entry.kind === kind) &&
+      (!kind || flowOf(entry) === kind) &&
       (!status || entry.status === status) &&
       (!category || entry.categoryId === category) &&
       (!account || entry.accountId === account) &&
@@ -225,6 +234,8 @@ export function EntriesTable({
             <option value="">{t("filters.allTypes")}</option>
             <option value="receita">{t("filters.income")}</option>
             <option value="despesa">{t("filters.expenses")}</option>
+            <option value="aporte">{t("filters.contributions")}</option>
+            <option value="resgate">{t("filters.redemptions")}</option>
           </Select>
         </Field>
         <Field label={t("filters.status")}>
@@ -326,6 +337,13 @@ export function EntriesTable({
                     <p className="mt-0.5 text-xs text-muted md:hidden">
                       {categoryName.get(entry.categoryId)}
                     </p>
+                    {flowOf(entry) === "aporte" || flowOf(entry) === "resgate" ? (
+                      <div className="mt-1">
+                        <Badge>
+                          {t(`flow.${flowOf(entry) as "aporte" | "resgate"}`)}
+                        </Badge>
+                      </div>
+                    ) : null}
                     <div className="mt-1 sm:hidden">
                       <StatusBadge entry={entry} today={today} />
                     </div>
@@ -354,7 +372,7 @@ export function EntriesTable({
                   <td
                     className={cx(
                       "whitespace-nowrap py-3 pl-3 pr-5 text-right align-top font-semibold tabular-nums sm:pr-3",
-                      amountClass(entry.kind),
+                      flowOf(entry) === entry.kind ? amountClass(entry.kind) : "text-ink",
                     )}
                   >
                     {entry.kind === "receita" ? "+ " : "− "}

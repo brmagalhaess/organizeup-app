@@ -1,4 +1,4 @@
-import { createTranslator } from "next-intl";
+﻿import { createTranslator } from "next-intl";
 import { describe, expect, it } from "vitest";
 import {
   buildResumo,
@@ -37,6 +37,11 @@ const summary = (received: string, spent: string) => ({
   balance: toDbAmount(money(received).minus(spent)),
   plannedIncome: "0.00",
   plannedExpense: "0.00",
+  contributed: "0.00",
+  redeemed: "0.00",
+  afterContributions: toDbAmount(money(received).minus(spent)),
+  plannedContribution: "0.00",
+  plannedRedemption: "0.00",
   projectedBalance: toDbAmount(money(received).minus(spent)),
 });
 
@@ -45,7 +50,16 @@ const draft = buildResumo({
   asOf: "2026-10-31",
   summary: summary("1234.50", "500.00"),
   previous: summary("1000.00", "600.00"),
-  history: [{ month: "2026-09", received: "1000.00", spent: "600.00", balance: "400.00" }],
+  history: [
+    {
+      month: "2026-09",
+      received: "1000.00",
+      spent: "600.00",
+      balance: "400.00",
+      contributed: "0.00",
+      redeemed: "0.00",
+    },
+  ],
   largest: [{ description: "=SOMA(A1)", date: "2026-10-05", amount: "500.00" }],
 })!;
 
@@ -82,7 +96,7 @@ describe("texto do relatório", () => {
     expect(writerFor("en", "USD").writer.amount("1234.50")).toBe("$1,234.50");
     expect(writerFor("es", "EUR").writer.amount("1234.50")).toContain("€");
     expect(writerFor("en").writer.headline(draft.message.key, draft.message.params)).toBe(
-      "R$1,234.50 came in, R$500.00 went out and R$734.50 was left.",
+      "Income of R$1,234.50, expenses of R$500.00 and a result of R$734.50.",
     );
   });
 
@@ -106,8 +120,8 @@ describe("CSV", () => {
 
   it("abre certo na planilha de cada idioma", () => {
     expect(csvOf("pt-BR")).toMatch(/^\uFEFF/);
-    expect(csvOf("pt-BR")).toContain("Entrou;1234,50");
-    expect(csvOf("en")).toContain("Came in,1234.50");
+    expect(csvOf("pt-BR")).toContain("Receitas;1234,50");
+    expect(csvOf("en")).toContain("Income,1234.50");
     expect(csvOf("en")).toContain("Currency,BRL");
   });
 
@@ -130,7 +144,7 @@ describe("CSV", () => {
     const other = statementFile(stored({ whatChanged: "Conta, =1+1" }), pt.writer, pt.t);
     expect(statementCsv(other, pt.writer)).toContain('"Conta, =1+1"');
     // Valor com vírgula decimal continua número, sem aspas.
-    expect(statementCsv(other, pt.writer)).toContain("Entrou;1234,50");
+    expect(statementCsv(other, pt.writer)).toContain("Receitas;1234,50");
   });
 
   it("aspas e separador no texto não quebram a linha", () => {

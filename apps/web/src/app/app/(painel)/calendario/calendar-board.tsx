@@ -198,6 +198,7 @@ export function CalendarBoard({
 
   const income = money(summary.received).plus(summary.plannedIncome);
   const expense = money(summary.spent).plus(summary.plannedExpense);
+  const contribution = money(summary.contributed).plus(summary.plannedContribution);
   const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
   const lowestNegative = lowest !== null && money(lowest.balance).lt(0);
   const selectedItems = days[selected] ?? [];
@@ -278,6 +279,16 @@ export function CalendarBoard({
             planned: moneyText(summary.plannedExpense),
           })}
         />
+        {contribution.isZero() ? null : (
+          <StatTile
+            label={t("stats.contributions")}
+            value={moneyText(contribution)}
+            hint={t("stats.contributionsHint", {
+              done: moneyText(summary.contributed),
+              planned: moneyText(summary.plannedContribution),
+            })}
+          />
+        )}
         {closing !== null ? (
           <StatTile
             label={t("stats.closing")}

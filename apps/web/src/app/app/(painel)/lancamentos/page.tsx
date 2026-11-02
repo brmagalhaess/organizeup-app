@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { addMonths } from "@organizeup/domain";
+import { addMonths, money } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import { PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
@@ -30,7 +30,9 @@ export default async function EntriesPage({
   const known = (id: string, list: Array<{ id: string }>) =>
     list.some((row) => row.id === id) ? id : "";
   const filters = {
-    kind: ["receita", "despesa"].includes(text(query.tipo)) ? text(query.tipo) : "",
+    kind: ["receita", "despesa", "aporte", "resgate"].includes(text(query.tipo))
+      ? text(query.tipo)
+      : "",
     category: known(text(query.categoria), data.categories),
     account: known(text(query.conta), data.accounts),
   };
@@ -70,19 +72,40 @@ export default async function EntriesPage({
         }
       />
       <Insights screen="lancamentos" />
-      <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-3">
         <StatTile
           label={t("stats.received")}
           tone="receita"
           value={moneyText(data.summary.received)}
         />
         <StatTile label={t("stats.spent")} tone="despesa" value={moneyText(data.summary.spent)} />
-        <StatTile label={t("stats.balance")} value={moneyText(data.summary.balance)} />
+        <StatTile
+          label={t("stats.balance")}
+          value={moneyText(data.summary.balance)}
+          hint={t("stats.balanceHint")}
+        />
+        <StatTile
+          label={t("stats.contributed")}
+          value={moneyText(data.summary.contributed)}
+          hint={t("stats.contributedHint")}
+        />
+        <StatTile
+          label={t("stats.afterContributions")}
+          value={moneyText(data.summary.afterContributions)}
+          hint={t("stats.afterContributionsHint")}
+        />
         <StatTile
           label={t("stats.forecast")}
           value={moneyText(data.summary.projectedBalance)}
           hint={t("stats.forecastHint")}
         />
+        {money(data.summary.redeemed).isZero() ? null : (
+          <StatTile
+            label={t("stats.redeemed")}
+            value={moneyText(data.summary.redeemed)}
+            hint={t("stats.redeemedHint")}
+          />
+        )}
       </dl>
       <EntriesTable
         key={`${data.month}:${filters.kind}:${filters.category}:${filters.account}`}
@@ -91,6 +114,7 @@ export default async function EntriesPage({
         month={data.month}
         today={data.today}
         entries={data.entries}
+        flows={data.flows}
         categories={data.categories.map(({ id, name }) => ({ id, name }))}
         accounts={data.accounts.map(({ id, name }) => ({ id, name }))}
       />

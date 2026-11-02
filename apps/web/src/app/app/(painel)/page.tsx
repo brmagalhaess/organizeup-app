@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { getBrazilRules, getMoney } from "@/i18n/money-server";
 import Link from "next/link";
+import { dismissSavingsNotice } from "./notificacoes/actions";
 import { canWrite, readFamilyAccess } from "@organizeup/db";
 import {
   comparableTotals,
@@ -18,7 +19,7 @@ import {
 } from "@organizeup/domain";
 import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { amountClass, buttonClass, confirmAction, cx } from "@/components/styles";
-import { Badge, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
 import {
   formatDayMonth,
@@ -195,6 +196,9 @@ export default async function OverviewPage({
   const shown = comparableTotals(summary, phase);
   const before = comparableTotals(previousSummary, phase);
   const openText = past ? "stats.openPast" : "stats.open";
+  const moneyMoved = [shown.contribution, shown.redemption, summary.plannedContribution].some(
+    (value) => !money(value).isZero(),
+  );
 
   const tile = (open: string, base: string, now: string) => (
     <>
@@ -211,18 +215,20 @@ export default async function OverviewPage({
     system.name(data.categoryNames.get(id) ?? t("spending.uncategorized"));
   const hrefOf = (kind: string) => (id: string | null) =>
     id ? `/app/lancamentos?m=${month}&categoria=${id}` : `/app/lancamentos?m=${month}&tipo=${kind}`;
-  const savings = new Set(data.savingsCategoryIds);
   const expenseRows = barRows(foldCategories(data.expenses), {
     nameOf,
     hrefOf: hrefOf("despesa"),
     otherName: t("spending.other"),
-    savings,
   });
   const incomeRows = barRows(foldCategories(data.incomes), {
     nameOf,
     hrefOf: hrefOf("receita"),
     otherName: t("spending.other"),
-    savings,
+  });
+  const contributionRows = barRows(foldCategories(data.contributions), {
+    nameOf,
+    hrefOf: hrefOf("aporte"),
+    otherName: t("spending.other"),
   });
 
   const anything = hasAnything(summary);
@@ -361,6 +367,22 @@ export default async function OverviewPage({
         </p>
       ) : null}
 
+      {data.savingsNotice ? (
+        <aside
+          aria-label={t("savingsNotice.label")}
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-line bg-card-soft px-5 py-4 text-sm"
+        >
+          <p className="m-0 min-w-0 flex-1 basis-64">{t("savingsNotice.text")}</p>
+          {writable ? (
+            <form action={dismissSavingsNotice}>
+              <Button type="submit" variant="secondary" small>
+                {t("savingsNotice.action")}
+              </Button>
+            </form>
+          ) : null}
+        </aside>
+      ) : null}
+
       <section aria-label={t("stats.title", { month: label })} className="flex flex-col gap-3">
         <dl className="m-0 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <StatTile
@@ -427,19 +449,42 @@ export default async function OverviewPage({
             }
           />
         </dl>
-        {money(data.savings.out).isZero() &&
-        money(data.savings.in).isZero() &&
-        money(cardTotal).isZero() ? null : (
+        {moneyMoved ? (
+          <dl
+            aria-label={t("stats.savingsTitle", { month: label })}
+            className="m-0 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4"
+          >
+            <StatTile
+              label={future ? t("stats.contributedPlanned") : t("stats.contributed")}
+              value={amount(shown.contribution)}
+              hint={
+                <>
+                  <span className="block">{t("stats.contributedHint")}</span>
+                  {!future && !money(summary.plannedContribution).isZero() ? (
+                    <span className="block">
+                      {t(openText, { amount: amount(summary.plannedContribution) })}
+                    </span>
+                  ) : null}
+                </>
+              }
+            />
+            <StatTile
+              label={future ? t("stats.afterContributionsPlanned") : t("stats.afterContributions")}
+              value={amount(shown.afterContributions)}
+              hint={t("stats.afterContributionsHint")}
+            />
+            {money(shown.redemption).isZero() ? null : (
+              <StatTile
+                label={t("stats.redeemed")}
+                value={amount(shown.redemption)}
+                hint={t("stats.redeemedHint")}
+              />
+            )}
+          </dl>
+        ) : null}
+        {money(cardTotal).isZero() ? null : (
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
-            {money(data.savings.out).isZero() ? null : (
-              <Note>{t("notes.savingsOut", { amount: amount(data.savings.out) })}</Note>
-            )}
-            {money(data.savings.in).isZero() ? null : (
-              <Note>{t("notes.savingsIn", { amount: amount(data.savings.in) })}</Note>
-            )}
-            {money(cardTotal).isZero() ? null : (
-              <Note>{t("notes.card", { amount: amount(cardTotal) })}</Note>
-            )}
+            <Note>{t("notes.card", { amount: amount(cardTotal) })}</Note>
           </ul>
         )}
       </section>
@@ -518,6 +563,18 @@ export default async function OverviewPage({
               empty={t("categories.emptyIncome")}
               money={moneyText}
             />
+            {contributionRows.length === 0 ? null : (
+              <CategoryBars
+                title={
+                  future ? t("categories.contributionsPlanned") : t("categories.contributions")
+                }
+                description={t("categories.contributionsHint")}
+                tone="aporte"
+                rows={contributionRows}
+                empty=""
+                money={moneyText}
+              />
+            )}
           </div>
         </Card>
       </div>

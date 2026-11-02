@@ -18,6 +18,7 @@ import {
   type IncomeSourceInput,
 } from "../src/income";
 import { money } from "../src/money";
+import { NO_SAVINGS } from "../src/savings";
 
 // Fontes:
 // INSS: Portaria Interministerial MPS/MF nº 13, de 09/01/2026.
@@ -333,7 +334,7 @@ describe("previsões da renda", () => {
     const scheduled = incomeBetween([source()], [table2026], "2026-03", "2026-03");
     const entries = buildMonthEntries("2026-03", [], [], scheduled);
     expect(entries[0]).toMatchObject({ kind: "receita", status: "previsto", source: "renda" });
-    expect(summarizeMonth(entries)).toMatchObject({
+    expect(summarizeMonth(entries, NO_SAVINGS)).toMatchObject({
       plannedIncome: "4973.39",
       plannedExpense: "0.00",
     });

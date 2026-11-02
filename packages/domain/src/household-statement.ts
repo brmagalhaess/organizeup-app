@@ -4,6 +4,7 @@
 // `summarizeDividends`), então painel e relatório batem. Nada aqui recomenda ativo.
 import {
   addMonths,
+  monthPoint,
   percentChange,
   percentOf,
   planIsActiveIn,
@@ -20,6 +21,7 @@ import type { DividendForecast, DividendPlan } from "./dividend-retirement";
 import type { ClassShare, DividendSummary, PortfolioSummary, TradeInput } from "./investment";
 import type { MessageParams } from "./messages";
 import { money, toDbAmount, type MoneyInput, type MoneyValue } from "./money";
+import { entryFlow, isSavings, type FlowInput, type SavingsRule } from "./savings";
 import type { NetWorthSummary } from "./wealth";
 
 export const STATEMENT_KINDS = [
@@ -52,6 +54,9 @@ export const STATEMENT_FIGURES = [
   "received",
   "spent",
   "left",
+  "contributed",
+  "redeemed",
+  "afterContributions",
   "average12",
   "total",
   "topCategory",
@@ -119,6 +124,7 @@ export const STATEMENT_SECTIONS = [
   "trips",
   "income",
   "positions",
+  "savings",
 ] as const;
 export type StatementSectionId = (typeof STATEMENT_SECTIONS)[number];
 
@@ -137,12 +143,15 @@ export const STATEMENT_COLUMNS = [
   "received",
   "spent",
   "left",
+  "contributed",
+  "afterContributions",
   "total",
   "planned",
   "actual",
   "difference",
   "plannedIn",
   "plannedOut",
+  "plannedContribution",
   "accumulated",
   "net",
   "assetClass",
@@ -187,6 +196,7 @@ export const STATEMENT_LABELS = [
   "entrou",
   "saiu",
   "sobrou",
+  "aportado",
   "contas",
   "bens",
   "investimentos",
@@ -222,6 +232,10 @@ export const STATEMENT_NOTES = [
   "planoIncompleto",
   "anualNaoFiscal",
   "posicaoDoDia",
+  /** Aporte e resgate fora de receitas e despesas. */
+  "aporteAParte",
+  /** Fechado antes da regra e regenerado uma vez por causa dela (ADR-0027). */
+  "aporteSeparado",
 ] as const;
 export type StatementNote = (typeof STATEMENT_NOTES)[number];
 
@@ -260,8 +274,23 @@ export interface StatementSection {
   chart?: StatementChart;
 }
 
+/**
+ * Versão da conta dos relatórios. A 2 tira aporte e resgate de receitas e despesas (ADR-0027). Entra na
+ * assinatura dos tipos que mudam: é o que regenera o que estava fechado, uma vez só. Relatório gravado
+ * com versão menor mostra um aviso até ser regenerado.
+ */
+export const STATEMENT_RULE_VERSION = 2;
+
+/** Tipos cujos números dependem de separar aporte. Os outros não mudam com a regra. */
+export const SAVINGS_STATEMENT_KINDS: readonly ReportKind[] = [
+  "resumo",
+  "categorias",
+  "fluxo",
+  "anual",
+];
+
 export interface StatementData {
-  version: 1;
+  version: number;
   kind: ReportKind;
   period: string;
   /** Até que dia os números vão. */
@@ -311,7 +340,7 @@ const draft = (
   notes: StatementNote[] = [],
 ): StatementDraft => ({
   data: {
-    version: 1,
+    version: STATEMENT_RULE_VERSION,
     kind,
     period,
     asOf,
@@ -324,9 +353,12 @@ const draft = (
 
 const shareOf = (part: string, whole: string) => percentOf(toDbAmount(part), toDbAmount(whole));
 
+const moved = (point: MonthPoint) =>
+  [point.received, point.spent, point.contributed, point.redeemed].some((v) => !isZero(v));
+
 /** Média dos meses com movimento: mês sem nada lançado não dilui quem acabou de começar. */
 export function monthsAverage(points: MonthPoint[]) {
-  const active = points.filter((point) => !isZero(point.received) || !isZero(point.spent));
+  const active = points.filter(moved);
   const average = (values: string[]) =>
     active.length === 0 ? "0.00" : toDbAmount(sumOf(values).dividedBy(active.length));
   return {
@@ -334,6 +366,7 @@ export function monthsAverage(points: MonthPoint[]) {
     received: average(active.map((point) => point.received)),
     spent: average(active.map((point) => point.spent)),
     balance: average(active.map((point) => point.balance)),
+    contributed: average(active.map((point) => point.contributed)),
   };
 }
 
@@ -362,22 +395,25 @@ export function largestExpenses(
     categoryId: string;
   }>,
   cardCategoryId: string | undefined,
+  rule: SavingsRule,
   limit = 5,
 ): ExpenseItem[] {
   return [
     ...entries
       .filter(
         (entry) =>
-          entry.kind === "despesa" &&
+          entryFlow(entry, rule) === "despesa" &&
           entry.status === "realizado" &&
           entry.categoryId !== cardCategoryId,
       )
       .map(({ description, date, amount }) => ({ description, date, amount })),
-    ...cardLines.map((line) => ({
-      description: line.description,
-      date: line.purchasedOn,
-      amount: line.amount,
-    })),
+    ...cardLines
+      .filter((line) => !isSavings(line, rule))
+      .map((line) => ({
+        description: line.description,
+        date: line.purchasedOn,
+        amount: line.amount,
+      })),
   ]
     .sort(
       (a, b) =>
@@ -403,8 +439,11 @@ export function buildResumo(input: ResumoInput): StatementDraft | null {
   const empty = [
     summary.received,
     summary.spent,
+    summary.contributed,
+    summary.redeemed,
     summary.plannedIncome,
     summary.plannedExpense,
+    summary.plannedContribution,
   ].every(isZero);
   if (empty) return null;
   const average = monthsAverage(history);
@@ -424,6 +463,11 @@ export function buildResumo(input: ResumoInput): StatementDraft | null {
       { id: "received", value: cash(summary.received), tone: "receita" },
       { id: "spent", value: cash(summary.spent), tone: "despesa" },
       { id: "left", value: cash(summary.balance) },
+      { id: "contributed", value: cash(summary.contributed) },
+      { id: "afterContributions", value: cash(summary.afterContributions) },
+      ...(isZero(summary.redeemed)
+        ? []
+        : [{ id: "redeemed" as const, value: cash(summary.redeemed) }]),
       { id: "average12", value: cash(average.balance) },
     ],
     [
@@ -434,6 +478,7 @@ export function buildResumo(input: ResumoInput): StatementDraft | null {
           line("entrou", summary.received, previous.received, average.received),
           line("saiu", summary.spent, previous.spent, average.spent),
           line("sobrou", summary.balance, previous.balance, average.balance),
+          line("aportado", summary.contributed, previous.contributed, average.contributed),
         ],
       },
       {
@@ -448,25 +493,17 @@ export function buildResumo(input: ResumoInput): StatementDraft | null {
       },
       {
         id: "evolution",
-        columns: ["month", "received", "spent", "left"],
+        columns: ["month", "received", "spent", "left", "contributed"],
         chart: { type: "columns", series: [1, 2] },
-        rows: fromFirstMovement(
-          [
-            ...history.slice(1),
-            {
-              month,
-              received: summary.received,
-              spent: summary.spent,
-              balance: summary.balance,
-            },
+        rows: fromFirstMovement([...history.slice(1), monthPoint(month, summary)], moved).map(
+          (point) => [
+            { month: point.month },
+            cash(point.received),
+            cash(point.spent),
+            cash(point.balance),
+            cash(point.contributed),
           ],
-          (point) => !isZero(point.received) || !isZero(point.spent),
-        ).map((point) => [
-          { month: point.month },
-          cash(point.received),
-          cash(point.spent),
-          cash(point.balance),
-        ]),
+        ),
       },
     ],
     {
@@ -474,6 +511,7 @@ export function buildResumo(input: ResumoInput): StatementDraft | null {
       spent: { money: summary.spent },
       left: { money: summary.balance },
     },
+    ["aporteAParte"],
   );
 }
 
@@ -520,6 +558,8 @@ export interface CategoriasInput {
   month: string;
   asOf: string;
   byCategory: CategoryTotal[];
+  /** Aportes por categoria, fora dos gastos. */
+  contributions: CategoryTotal[];
   previous: CategoryTotal[];
   names: Map<string, string>;
   /** Total de cada um dos 12 meses que terminam neste, do mais antigo ao atual. */
@@ -527,9 +567,10 @@ export interface CategoriasInput {
 }
 
 export function buildCategorias(input: CategoriasInput): StatementDraft | null {
-  const { month, asOf, byCategory, previous, names, evolution } = input;
-  if (byCategory.length === 0) return null;
+  const { month, asOf, byCategory, contributions, previous, names, evolution } = input;
+  if (byCategory.length === 0 && contributions.length === 0) return null;
   const total = totalOf(byCategory);
+  const contributed = totalOf(contributions);
   const before = totalOf(previous);
   const nameOf = (categoryId: string) => ({ category: names.get(categoryId) ?? "" });
   const { up, down } = categoryChanges(byCategory, previous);
@@ -539,7 +580,7 @@ export function buildCategorias(input: CategoriasInput): StatementDraft | null {
     cash(row.previous),
     cash(row.delta),
   ];
-  const top = byCategory[0]!;
+  const top = byCategory[0];
   const change = percentChange(total, before);
   return draft(
     "categorias",
@@ -547,8 +588,9 @@ export function buildCategorias(input: CategoriasInput): StatementDraft | null {
     asOf,
     [
       { id: "total", value: cash(total), tone: "despesa" },
-      { id: "topCategory", value: nameOf(top.categoryId) },
+      ...(top ? [{ id: "topCategory" as const, value: nameOf(top.categoryId) }] : []),
       ...(change === null ? [] : [{ id: "change" as const, value: { percent: change } }]),
+      { id: "contributed", value: cash(contributed) },
     ],
     [
       {
@@ -580,9 +622,22 @@ export function buildCategorias(input: CategoriasInput): StatementDraft | null {
         columns: ["category", "current", "previous", "difference"],
         rows: down.slice(0, 5).map(changeRow),
       },
+      {
+        id: "savings",
+        columns: ["category", "amount", "share"],
+        rows: contributions.map((row) => [
+          nameOf(row.categoryId),
+          cash(row.amount),
+          { percent: shareOf(row.amount, contributed) },
+        ]),
+      },
     ],
-    { total: { money: total }, category: nameOf(top.categoryId), amount: { money: top.amount } },
-    ["incluiPrevisto"],
+    {
+      total: { money: total },
+      category: top ? nameOf(top.categoryId) : { category: "" },
+      amount: { money: top?.amount ?? "0.00" },
+    },
+    ["incluiPrevisto", "aporteAParte"],
   );
 }
 
@@ -591,21 +646,23 @@ export interface FluxoInput {
   asOf: string;
   summary: MonthSummary;
   /** Tudo o que estava previsto para o mês, feito ou não. */
-  planned: { income: string; expense: string };
+  planned: { income: string; expense: string; contribution: string };
   /** Os próximos meses, com o que já se sabe deles. */
   next: Array<{ month: string; summary: MonthSummary }>;
 }
 
-/** Sobra prevista de cada mês e o acumulado, a partir de zero. */
+/** Resultado previsto de cada mês, o aporte previsto e o que acumula depois de aportar, a partir de zero. */
 export function projectMonths(next: FluxoInput["next"]) {
   let accumulated = money(0);
   return next.map(({ month, summary }) => {
-    accumulated = accumulated.plus(summary.projectedBalance);
+    const contribution = money(summary.contributed).plus(summary.plannedContribution);
+    accumulated = accumulated.plus(summary.projectedBalance).minus(contribution);
     return {
       month,
       income: toDbAmount(money(summary.received).plus(summary.plannedIncome)),
       expense: toDbAmount(money(summary.spent).plus(summary.plannedExpense)),
       left: summary.projectedBalance,
+      contribution: toDbAmount(contribution),
       accumulated: toDbAmount(accumulated),
     };
   });
@@ -615,8 +672,17 @@ export function buildFluxo(input: FluxoInput): StatementDraft | null {
   const { month, asOf, summary, planned, next } = input;
   const projection = projectMonths(next);
   const empty =
-    [summary.received, summary.spent, planned.income, planned.expense].every(isZero) &&
-    projection.every((row) => isZero(row.income) && isZero(row.expense));
+    [
+      summary.received,
+      summary.spent,
+      summary.contributed,
+      planned.income,
+      planned.expense,
+      planned.contribution,
+    ].every(isZero) &&
+    projection.every(
+      (row) => isZero(row.income) && isZero(row.expense) && isZero(row.contribution),
+    );
   if (empty) return null;
   const plannedLeft = toDbAmount(money(planned.income).minus(planned.expense));
   const open = toDbAmount(money(summary.plannedIncome).minus(summary.plannedExpense));
@@ -646,23 +712,25 @@ export function buildFluxo(input: FluxoInput): StatementDraft | null {
           line("entrou", planned.income, summary.received),
           line("saiu", planned.expense, summary.spent),
           line("sobrou", plannedLeft, summary.balance),
+          line("aportado", planned.contribution, summary.contributed),
         ],
       },
       {
         id: "projection",
-        columns: ["month", "plannedIn", "plannedOut", "left", "accumulated"],
+        columns: ["month", "plannedIn", "plannedOut", "left", "plannedContribution", "accumulated"],
         chart: { type: "columns", series: [1, 2] },
         rows: projection.map((row) => [
           { month: row.month },
           cash(row.income),
           cash(row.expense),
           cash(row.left),
+          cash(row.contribution),
           cash(row.accumulated),
         ]),
       },
     ],
     { planned: { money: plannedLeft }, left: { money: summary.balance } },
-    ["estimativa"],
+    ["estimativa", "aporteAParte"],
   );
 }
 
@@ -1132,6 +1200,8 @@ export interface AnualInput {
   months: MonthPoint[];
   expenses: CategoryTotal[];
   incomes: CategoryTotal[];
+  /** Aportes por categoria, fora de `expenses`. */
+  contributions: CategoryTotal[];
   names: Map<string, string>;
   dividends: AssetIncomeRow[];
   interestPaid: string;
@@ -1140,13 +1210,16 @@ export interface AnualInput {
 }
 
 export function buildAnual(input: AnualInput): StatementDraft | null {
-  const { year, asOf, months, expenses, incomes, names, dividends, interestPaid, positions } =
-    input;
-  const active = months.filter((row) => !isZero(row.received) || !isZero(row.spent));
+  const { year, asOf, months, expenses, incomes, contributions, names } = input;
+  const { dividends, interestPaid, positions } = input;
+  const active = months.filter(moved);
   if (active.length === 0 && dividends.length === 0) return null;
   const received = sumOf(months.map((row) => row.received));
   const spent = sumOf(months.map((row) => row.spent));
   const left = toDbAmount(received.minus(spent));
+  const contributed = sumOf(months.map((row) => row.contributed));
+  const redeemed = sumOf(months.map((row) => row.redeemed));
+  const contributionTotal = totalOf(contributions);
   const nameOf = (categoryId: string) => ({ category: names.get(categoryId) ?? "" });
   const expenseTotal = totalOf(expenses);
   const incomeTotal = totalOf(incomes);
@@ -1161,6 +1234,9 @@ export function buildAnual(input: AnualInput): StatementDraft | null {
       { id: "received", value: cash(received), tone: "receita" },
       { id: "spent", value: cash(spent), tone: "despesa" },
       { id: "left", value: cash(left) },
+      { id: "contributed", value: cash(contributed) },
+      { id: "afterContributions", value: cash(money(left).minus(contributed)) },
+      ...(redeemed.isZero() ? [] : [{ id: "redeemed" as const, value: cash(redeemed) }]),
       { id: "monthlyAverage", value: cash(monthsAverage(months).balance) },
       { id: "dividends", value: cash(net) },
       { id: "interest", value: cash(interestPaid) },
@@ -1168,13 +1244,14 @@ export function buildAnual(input: AnualInput): StatementDraft | null {
     [
       {
         id: "evolution",
-        columns: ["month", "received", "spent", "left"],
+        columns: ["month", "received", "spent", "left", "contributed"],
         chart: { type: "columns", series: [1, 2] },
         rows: months.map((row) => [
           { month: row.month },
           cash(row.received),
           cash(row.spent),
           cash(row.balance),
+          cash(row.contributed),
         ]),
       },
       {
@@ -1195,6 +1272,15 @@ export function buildAnual(input: AnualInput): StatementDraft | null {
           nameOf(row.categoryId),
           cash(row.amount),
           { percent: shareOf(row.amount, expenseTotal) },
+        ]),
+      },
+      {
+        id: "savings",
+        columns: ["category", "amount", "share"],
+        rows: contributions.map((row) => [
+          nameOf(row.categoryId),
+          cash(row.amount),
+          { percent: shareOf(row.amount, contributionTotal) },
         ]),
       },
       {
@@ -1222,7 +1308,7 @@ export function buildAnual(input: AnualInput): StatementDraft | null {
       },
     ],
     { received: { money: toDbAmount(received) }, spent: { money: toDbAmount(spent) } },
-    ["anualNaoFiscal"],
+    ["anualNaoFiscal", "aporteAParte"],
   );
 }
 
@@ -1304,13 +1390,16 @@ export function stableJson(value: unknown): string {
  */
 export function plannedForMonth(
   month: YearMonth,
-  plans: Array<Pick<PlanInput, "kind" | "amount" | "startMonth" | "endMonth">>,
-  commitments: Array<{ kind: EntryKind; amount: string }>,
+  plans: Array<Pick<PlanInput, "kind" | "amount" | "startMonth" | "endMonth" | "categoryId">>,
+  commitments: Array<FlowInput & { kind: EntryKind; amount: string }>,
+  rule: SavingsRule,
 ) {
   const items = [...plans.filter((plan) => planIsActiveIn(plan, month)), ...commitments];
-  const total = (kind: EntryKind) =>
-    toDbAmount(sumOf(items.filter((item) => item.kind === kind).map((item) => item.amount)));
-  return { income: total("receita"), expense: total("despesa") };
+  const total = (flow: "receita" | "despesa" | "aporte") =>
+    toDbAmount(
+      sumOf(items.filter((item) => entryFlow(item, rule) === flow).map((item) => item.amount)),
+    );
+  return { income: total("receita"), expense: total("despesa"), contribution: total("aporte") };
 }
 
 /** Compras e vendas de cada mês. Compra custa preço e taxas; venda rende preço menos taxas. */
@@ -1336,11 +1425,11 @@ export function forecastByMonth(rows: DividendForecast[]) {
   }));
 }
 
-/** Receitas feitas no mês por categoria, da maior para a menor. */
-export function incomeByCategory(entries: MonthEntry[]): CategoryTotal[] {
+/** Receitas feitas no mês por categoria, da maior para a menor. Resgate não é receita. */
+export function incomeByCategory(entries: MonthEntry[], rule: SavingsRule): CategoryTotal[] {
   return mergeCategoryTotals([
     entries
-      .filter((entry) => entry.kind === "receita" && entry.status === "realizado")
+      .filter((entry) => entryFlow(entry, rule) === "receita" && entry.status === "realizado")
       .map(({ categoryId, amount }) => ({ categoryId, amount })),
   ]);
 }

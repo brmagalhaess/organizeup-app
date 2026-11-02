@@ -30,6 +30,8 @@ export interface AllocationInput {
   retirementRequired: string | null;
   /** Quanto as viagens já confirmadas pedem por mês; é descontado uma vez, aqui. */
   confirmedTripsMonthly: string;
+  /** O que a família já investe por mês (`investingHabit`). Dinheiro que já saiu não é dividido de novo. */
+  alreadyInvesting?: string;
   /** Meses de histórico, só para o texto da nota. */
   surplusMonths?: number;
   /** Moeda principal da família, para as notas. Sem ela, real. */
@@ -39,7 +41,10 @@ export interface AllocationInput {
 export interface Allocation {
   reserve: string;
   debt: string;
+  /** Total por mês para investir, já contando `alreadyInvesting`. */
   retirement: string;
+  /** Parte de `retirement` que a família já faz. O que sobra acima disso é o pedido novo. */
+  alreadyInvesting: string;
   goalsBudget: string;
   /** O que sobra para viagens novas depois das confirmadas. */
   tripsBudget: string;
@@ -67,6 +72,11 @@ const positive = (value: MoneyValue) => (value.gt(0) ? value : money(0));
 /**
  * Reserva primeiro, depois dívidas caras, depois aposentadoria, e o resto meio a meio entre metas e
  * viagens. Cada passo arredonda em centavos, para a soma das partes fechar exatamente no disponível.
+ *
+ * O excedente vem antes dos aportes, então o que a família já aporta saiu dele (ADR-0027). Esse dinheiro
+ * é a fatia da aposentadoria, e não uma fatia a mais: quem segue a sugestão recebe a mesma sugestão no mês
+ * seguinte. Só o que passa da fatia sai das outras, da menor prioridade para a maior: metas e viagens,
+ * dívidas e, por último, a reserva. Assim nenhuma fatia promete dinheiro que já foi investido.
  */
 export function suggestAllocation(input: AllocationInput): Allocation {
   const { currency } = input;
@@ -81,6 +91,7 @@ export function suggestAllocation(input: AllocationInput): Allocation {
       reserve: zero,
       debt: zero,
       retirement: zero,
+      alreadyInvesting: zero,
       goalsBudget: zero,
       tripsBudget: zero,
       tripsCommitted: zero,
@@ -90,39 +101,59 @@ export function suggestAllocation(input: AllocationInput): Allocation {
   }
 
   // 1. Reserva de emergência.
-  const reserve = toCents(
+  let reserve = toCents(
     min(positive(money(input.reserveMissing)), available.times(ALLOCATION_RULES.reserveShare)),
   );
   let rest = available.minus(reserve);
-  if (reserve.gt(0))
-    notes.push(`Primeiro a reserva de emergência: ${formatMoney(reserve, currency)} por mês.`);
 
   // 2. Dívidas caras.
-  const debt = toCents(
+  let debt = toCents(
     min(positive(money(input.expensiveDebtBalance)), rest.times(ALLOCATION_RULES.debtShare)),
   );
   rest = rest.minus(debt);
+
+  // 3. Aposentadoria.
+  const required =
+    input.retirementRequired === null ? null : positive(money(input.retirementRequired));
+  let retirement =
+    required === null
+      ? money(0)
+      : toCents(min(required, rest.times(ALLOCATION_RULES.retirementShare)));
+  rest = rest.minus(retirement);
+
+  // O que já é investido por mês entra na fatia; o que passa dela sai das outras, de baixo para cima.
+  const invested = min(positive(toCents(input.alreadyInvesting ?? 0)), available);
+  let over = positive(invested.minus(retirement));
+  retirement = retirement.plus(over);
+  const take = (slice: MoneyValue) => {
+    const part = min(over, slice);
+    over = over.minus(part);
+    return slice.minus(part);
+  };
+  rest = take(rest);
+  debt = take(debt);
+  reserve = take(reserve);
+
+  if (reserve.gt(0))
+    notes.push(`Primeiro a reserva de emergência: ${formatMoney(reserve, currency)} por mês.`);
   if (debt.gt(0)) {
     notes.push(
       `Quitar as dívidas caras rende mais que investir: ${formatMoney(debt, currency)} por mês para elas.`,
     );
   }
-
-  // 3. Aposentadoria.
-  let retirement = money(0);
-  if (input.retirementRequired === null) {
+  if (required === null) {
     notes.push("Complete o plano de aposentadoria para receber quanto guardar.");
-  } else {
-    const required = positive(money(input.retirementRequired));
-    retirement = toCents(min(required, rest.times(ALLOCATION_RULES.retirementShare)));
-    if (retirement.lt(required)) {
-      notes.push(
-        `Para a aposentadoria cabem ${formatMoney(retirement, currency)} por mês, menos que os ` +
-          `${formatMoney(required, currency)} necessários; a projeção mostra em que ano fecha com este valor.`,
-      );
-    }
+  } else if (retirement.lt(required)) {
+    notes.push(
+      `Para a aposentadoria cabem ${formatMoney(retirement, currency)} por mês, menos que os ` +
+        `${formatMoney(required, currency)} necessários; a projeção mostra em que ano fecha com este valor.`,
+    );
   }
-  rest = rest.minus(retirement);
+  if (invested.gt(0)) {
+    notes.push(
+      `Os ${formatMoney(invested, currency)} que já saem por mês para investimentos contam nesta divisão.`,
+    );
+  }
 
   // 4. Metas e viagens, meio a meio. As viagens confirmadas saem da metade das viagens.
   const goalsBudget = toCents(rest.times(ALLOCATION_RULES.goalsShare));
@@ -140,6 +171,7 @@ export function suggestAllocation(input: AllocationInput): Allocation {
     reserve: toDbAmount(reserve),
     debt: toDbAmount(debt),
     retirement: toDbAmount(retirement),
+    alreadyInvesting: toDbAmount(invested),
     goalsBudget: toDbAmount(goalsBudget),
     tripsBudget: toDbAmount(tripsBudget),
     tripsCommitted: toDbAmount(tripsHalf.minus(tripsBudget)),

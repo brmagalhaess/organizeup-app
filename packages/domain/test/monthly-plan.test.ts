@@ -32,7 +32,7 @@ const input = (over = {}) => ({
   base,
   plan: planDividendRetirement(base),
   contribution: "500.00",
-  allocation: { reserve: "0.00", debt: "0.00", retirement: "500.00" },
+  allocation: { reserve: "0.00", debt: "0.00", retirement: "500.00", alreadyInvesting: "0.00" },
   largestCategory: { name: "Mercado", amount: "2000.00" },
   ...over,
 });
@@ -45,14 +45,28 @@ describe("plano do mês", () => {
 
   it("reserva e dívida cara vêm antes de guardar mais, e são três no máximo", () => {
     const actions = monthlyPlan(
-      input({ allocation: { reserve: "300.00", debt: "200.00", retirement: "0.00" } }),
+      input({
+        allocation: {
+          reserve: "300.00",
+          debt: "200.00",
+          retirement: "0.00",
+          alreadyInvesting: "0.00",
+        },
+      }),
     );
     expect(actions.map((action) => action.kind)).toEqual(["reserva", "divida", "guardar"]);
   });
 
   it("guardar mais mostra quantos anos antecipa", () => {
     const [action] = monthlyPlan(
-      input({ allocation: { reserve: "0.00", debt: "0.00", retirement: "2500.00" } }),
+      input({
+        allocation: {
+          reserve: "0.00",
+          debt: "0.00",
+          retirement: "2500.00",
+          alreadyInvesting: "0.00",
+        },
+      }),
     );
     expect(action).toMatchObject({ kind: "guardar", amount: "2000.00" });
     expect(action!.yearsEarlier).toBeGreaterThan(0);

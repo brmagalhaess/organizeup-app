@@ -57,7 +57,7 @@ export {
   dividendPlanInputs,
   loadFiscalTables,
   reserveInputs,
-  savingsCategoryIds,
+  loadSavingsRule,
   surplusInputs,
   type DividendPlanData,
   type ReserveData,

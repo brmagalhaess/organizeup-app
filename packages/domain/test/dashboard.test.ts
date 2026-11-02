@@ -7,6 +7,7 @@ import {
   type TransactionInput,
 } from "../src/cashflow";
 import type { CardBookEntry } from "../src/dashboard";
+import { NO_SAVINGS } from "../src/savings";
 import {
   activityByAccount,
   cardsInMonth,
@@ -26,7 +27,6 @@ import {
   plannedNetByAccount,
   projectBalances,
   resolvePeriod,
-  savingsMoved,
 } from "../src/dashboard";
 import { purchaseLines } from "../src/card";
 import { money } from "../src/money";
@@ -155,7 +155,7 @@ describe("categorias do mês", () => {
 
   it("fatura em aberto: compras previstas, abertas por categoria", () => {
     const entries = buildMonthEntries("2026-10", [], [tx()], [fatura]);
-    expect(expenseLines(entries, lines, "cartao")).toEqual([
+    expect(expenseLines(entries, lines, "cartao", NO_SAVINGS)).toEqual([
       { categoryId: "mercado", amount: "500.00", done: "200.00", planned: "300.00" },
       { categoryId: "lazer", amount: "100.00", done: "0.00", planned: "100.00" },
     ]);
@@ -164,7 +164,7 @@ describe("categorias do mês", () => {
   it("fatura paga: compras feitas e sem contar duas vezes", () => {
     const paid = tx({ id: "t2", amount: "400.00", categoryId: "cartao", occurredOn: "2026-10-10" });
     const entries = buildMonthEntries("2026-10", [], [tx(), paid]);
-    expect(expenseLines(entries, lines, "cartao")).toEqual([
+    expect(expenseLines(entries, lines, "cartao", NO_SAVINGS)).toEqual([
       { categoryId: "mercado", amount: "500.00", done: "500.00", planned: "0.00" },
       { categoryId: "lazer", amount: "100.00", done: "100.00", planned: "0.00" },
     ]);
@@ -173,7 +173,7 @@ describe("categorias do mês", () => {
   it("pagamento de fatura sem compras lançadas não some das categorias", () => {
     const bank = tx({ id: "t2", amount: "900.00", categoryId: "cartao" });
     const entries = buildMonthEntries("2026-10", [], [tx(), bank]);
-    expect(spendingByCategory(entries, [], "cartao")).toEqual([
+    expect(spendingByCategory(entries, [], "cartao", NO_SAVINGS)).toEqual([
       { categoryId: "cartao", amount: "900.00" },
       { categoryId: "mercado", amount: "200.00" },
     ]);
@@ -205,8 +205,8 @@ describe("categorias do mês", () => {
               : rows,
             !paid && hasBill ? [{ ...fatura, amount: bill }] : [],
           );
-          const summary = summarizeMonth(entries);
-          const folded = foldCategories(expenseLines(entries, cardLines, "cartao"), 2);
+          const summary = summarizeMonth(entries, NO_SAVINGS);
+          const folded = foldCategories(expenseLines(entries, cardLines, "cartao", NO_SAVINGS), 2);
           expect(folded.total).toBe(money(summary.spent).plus(summary.plannedExpense).toFixed(2));
         },
       ),
@@ -231,7 +231,7 @@ describe("categorias do mês", () => {
       ],
       [tx({ kind: "receita", amount: "5000.00", categoryId: "salario" })],
     );
-    expect(incomeLines(entries)).toEqual([
+    expect(incomeLines(entries, NO_SAVINGS)).toEqual([
       { categoryId: "salario", amount: "5000.00", done: "5000.00", planned: "0.00" },
       { categoryId: "aluguel", amount: "800.00", done: "0.00", planned: "800.00" },
     ]);
@@ -271,27 +271,29 @@ describe("categorias do mês", () => {
 });
 
 describe("resumo do mês", () => {
-  const empty = summarizeMonth([]);
+  const empty = summarizeMonth([], NO_SAVINGS);
 
   it("sabe quando o mês tem movimento e quando só tem previsão", () => {
     expect(hasMovement(empty)).toBe(false);
     expect(hasAnything(empty)).toBe(false);
-    const planned = summarizeMonth(buildMonthEntries("2026-10", [], [], [fatura]));
+    const planned = summarizeMonth(buildMonthEntries("2026-10", [], [], [fatura]), NO_SAVINGS);
     expect(hasMovement(planned)).toBe(false);
     expect(hasAnything(planned)).toBe(true);
-    expect(hasMovement(summarizeMonth(buildMonthEntries("2026-10", [], [tx()])))).toBe(true);
+    expect(hasMovement(summarizeMonth(buildMonthEntries("2026-10", [], [tx()]), NO_SAVINGS))).toBe(
+      true,
+    );
   });
 
   it("compara feito com feito e, em mês futuro, o previsto", () => {
     const entries = buildMonthEntries("2026-10", [], [tx()], [fatura]);
-    const summary = summarizeMonth(entries);
-    expect(comparableTotals(summary, "passado")).toEqual({ income: "0.00", expense: "200.00" });
-    expect(comparableTotals(summary, "futuro")).toEqual({ income: "0.00", expense: "600.00" });
+    const summary = summarizeMonth(entries, NO_SAVINGS);
+    expect(comparableTotals(summary, "passado")).toMatchObject({ income: "0.00", expense: "200.00" });
+    expect(comparableTotals(summary, "futuro")).toMatchObject({ income: "0.00", expense: "600.00" });
   });
 
   it("o ponto do gráfico leva feito e previsto", () => {
-    const summary = summarizeMonth(buildMonthEntries("2026-10", [], [tx()], [fatura]));
-    expect(planPoint("2026-10", summary)).toEqual({
+    const summary = summarizeMonth(buildMonthEntries("2026-10", [], [tx()], [fatura]), NO_SAVINGS);
+    expect(planPoint("2026-10", summary)).toMatchObject({
       month: "2026-10",
       received: "0.00",
       spent: "200.00",
@@ -301,16 +303,16 @@ describe("resumo do mês", () => {
     });
   });
 
-  it("aporte e meta ficam nos totais, e a tela sabe quanto são", () => {
-    const rows = [
-      tx(),
-      tx({ id: "t2", amount: "500.00", categoryId: "aportes" }),
-      tx({ id: "t3", amount: "120.00", kind: "receita", categoryId: "aportes" }),
-      tx({ id: "t4", amount: "70.00", status: "previsto", categoryId: "aportes" }),
-    ];
-    const entries = buildMonthEntries("2026-10", [], rows);
-    expect(savingsMoved(entries, ["aportes"])).toEqual({ out: "500.00", in: "120.00" });
-    expect(summarizeMonth(entries).spent).toBe("700.00");
+  it("mês só com aporte não é mês vazio", () => {
+    const rule = { ...NO_SAVINGS, investmentCategories: new Set(["aportes"]) };
+    const entries = buildMonthEntries(
+      "2026-10",
+      [],
+      [tx({ amount: "500.00", categoryId: "aportes" })],
+    );
+    const summary = summarizeMonth(entries, rule);
+    expect(summary.spent).toBe("0.00");
+    expect(hasMovement(summary)).toBe(true);
   });
 });
 
@@ -326,10 +328,10 @@ describe("contas no mês", () => {
   );
 
   it("a soma das contas é o total do mês", () => {
-    const activity = activityByAccount(entries);
+    const activity = activityByAccount(entries, NO_SAVINGS);
     expect(activity.get("a1")).toMatchObject({ received: "1000.00", spent: "0.00" });
     expect(activity.get("a2")).toMatchObject({ spent: "300.00", plannedExpense: "50.00" });
-    const summary = summarizeMonth(entries);
+    const summary = summarizeMonth(entries, NO_SAVINGS);
     const spent = [...activity.values()].reduce((acc, row) => acc.plus(row.spent), money(0));
     expect(spent.toFixed(2)).toBe(summary.spent);
   });
@@ -340,7 +342,10 @@ describe("contas no mês", () => {
       [],
       [tx({ id: "t9", amount: "100.00", status: "previsto", occurredOn: "2026-11-05" })],
     );
-    const planned = plannedNetByAccount([activityByAccount(entries), activityByAccount(later)]);
+    const planned = plannedNetByAccount([
+      activityByAccount(entries, NO_SAVINGS),
+      activityByAccount(later, NO_SAVINGS),
+    ]);
     const { rows, total } = projectBalances(
       [
         { id: "a1", balance: "1000.00", archived: false },

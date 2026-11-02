@@ -22,6 +22,8 @@ export interface CategoryRow {
   kind: "receita" | "despesa";
   essential: boolean;
   archived: boolean;
+  /** Metas e aportes: dinheiro guardado, fora de despesas e receitas. */
+  saving: boolean;
 }
 
 const initial: CategoryFormState = { ok: false, message: null };
@@ -64,15 +66,19 @@ function CategoryForm({
           </Select>
         </Field>
       )}
-      <label className="flex min-h-10 items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          name="essential"
-          defaultChecked={category?.essential}
-          className="size-5 accent-brand-500"
-        />
-        {t("essential")}
-      </label>
+      {category?.saving ? (
+        <p className="m-0 text-sm text-muted">{t("savingHint")}</p>
+      ) : (
+        <label className="flex min-h-10 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="essential"
+            defaultChecked={category?.essential}
+            className="size-5 accent-brand-500"
+          />
+          {t("essential")}
+        </label>
+      )}
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
         {pending ? tCommon("saving") : t("save")}
@@ -102,7 +108,11 @@ function Group({
             <span className="min-w-0 flex-1 truncate text-sm font-medium">
               {system.name(category.name)}
             </span>
-            {category.essential ? <Badge>{t("essential")}</Badge> : null}
+            {category.saving ? (
+              <Badge>{t(category.kind === "despesa" ? "savingOut" : "savingIn")}</Badge>
+            ) : category.essential ? (
+              <Badge>{t("essential")}</Badge>
+            ) : null}
             {writable ? (
               <div className="flex shrink-0">
                 <IconButton

@@ -1,5 +1,9 @@
 // O que os dois arquivos têm em comum: título, situação e avisos no idioma de quem baixa.
-import type { StatementData } from "@organizeup/domain";
+import {
+  SAVINGS_STATEMENT_KINDS,
+  STATEMENT_RULE_VERSION,
+  type StatementData,
+} from "@organizeup/domain";
 import { formatDate, formatInstant } from "@/i18n/format";
 import type { StatementFileInfo } from "./statement-csv";
 import type { ReportTranslate, StatementWriter } from "./statement-text";
@@ -25,7 +29,14 @@ export function statementNotices(
       ? [t("parcial.texto", { date: formatDate(row.data.asOf, writer.locale) })]
       : []),
     ...(row.revisedAt
-      ? [t("atualizado", { date: formatInstant(row.revisedAt, writer.locale) })]
+      ? [
+          t(row.data.notes.includes("aporteSeparado") ? "atualizadoRegra" : "atualizado", {
+            date: formatInstant(row.revisedAt, writer.locale),
+          }),
+        ]
+      : []),
+    ...(SAVINGS_STATEMENT_KINDS.includes(row.data.kind) && row.data.version < STATEMENT_RULE_VERSION
+      ? [t("regraAntiga")]
       : []),
     ...row.data.notes.map(writer.note),
   ];

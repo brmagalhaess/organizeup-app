@@ -9,6 +9,7 @@ import {
   householdSuggestions,
   isNotNull,
   isNull,
+  ne,
   sql,
   tolerateSchemaLag,
   withHousehold,
@@ -90,7 +91,8 @@ export async function loadNotifications(
               eq(householdSuggestions.id, householdNotifications.suggestionId),
             ),
           )
-          .where(filterOf(filter))
+          // A nota fechada no painel fica aqui só como marca: não é aviso para ler.
+          .where(and(filterOf(filter), ne(householdNotifications.kind, "aviso_painel")))
           .orderBy(desc(householdNotifications.createdAt), desc(householdNotifications.id))
           .limit(MAX_ITEMS);
         const currency = await householdCurrency(tx);

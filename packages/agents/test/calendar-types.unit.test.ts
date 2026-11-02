@@ -8,6 +8,7 @@ const context: CalendarTypeContext = {
     ["t:divida", "cat-divida"],
     ["t:meta", "cat-meta"],
     ["t:meta-espelho", "cat-meta-receita"],
+    ["t:aporte", "cat-aporte"],
     ["t:mercado", "cat-mercado"],
     ["t:salario", "cat-salario"],
   ]),
@@ -16,6 +17,7 @@ const context: CalendarTypeContext = {
     debt: "cat-divida",
     goal: "cat-meta",
     goalIncome: "cat-meta-receita",
+    contribution: "cat-aporte",
   },
   tripEvents: new Set(["viagem-1"]),
 };
@@ -54,6 +56,7 @@ describe("calendarItemType", () => {
       "meta",
     );
     expect(calendarItemType(entry("t:mercado", "lancamento"), context)).toBe("conta");
+    expect(calendarItemType(entry("t:aporte", "lancamento"), context)).toBe("aporte");
     expect(calendarItemType(entry("t:salario", "lancamento", "receita"), context)).toBe("receita");
   });
 

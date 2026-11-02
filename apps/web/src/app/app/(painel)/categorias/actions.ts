@@ -4,6 +4,7 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { and, canWrite, categories, ENTRY_KINDS, eq, withHousehold } from "@organizeup/db";
+import { savingsCategory } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
 import { requireTenant } from "@/lib/session";
 import { systemTextOf } from "@/i18n/system-text";
@@ -49,13 +50,18 @@ export async function saveCategory(
     if (same && same.id !== id) return t("errors.duplicate");
     if (id) {
       const [current] = await tx
-        .select({ name: categories.name })
+        .select({ name: categories.name, kind: categories.kind, position: categories.position })
         .from(categories)
         .where(eq(categories.id, id));
       // O formulário mostra o nome padrão traduzido: sem mudança, o gravado fica como estava.
       const kept = current && system.name(current.name) === name ? current.name : name;
+      // Dinheiro guardado nunca é gasto essencial, nem depois de renomeado (ADR-0027).
+      const saving = current !== undefined && savingsCategory(current) !== null;
       // O tipo não muda: lançamentos da categoria dependem dele.
-      await tx.update(categories).set({ name: kept, essential }).where(eq(categories.id, id));
+      await tx
+        .update(categories)
+        .set({ name: kept, essential: essential && !saving })
+        .where(eq(categories.id, id));
       await audit(tx, ctx, "update", "categories", id);
     } else {
       const [created] = await tx

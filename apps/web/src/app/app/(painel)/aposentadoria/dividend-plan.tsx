@@ -51,6 +51,11 @@ function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) 
       {money(suggested.debt).gt(0) ? (
         <p className="text-sm">{t("debt", { amount: moneyText(suggested.debt) })}</p>
       ) : null}
+      {money(suggested.alreadyInvesting).gt(0) ? (
+        <p className="text-sm">
+          {t("alreadyInvesting", { amount: moneyText(suggested.alreadyInvesting) })}
+        </p>
+      ) : null}
       <p className="text-xs text-muted">
         {surplus.basis === "previsto"
           ? t("basisPlanned")

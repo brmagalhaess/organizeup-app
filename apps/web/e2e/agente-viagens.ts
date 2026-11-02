@@ -47,6 +47,7 @@ if (command === "so-ver") {
         reserve: "0.00",
         debt: "0.00",
         retirement: "0.00",
+        alreadyInvesting: "0.00",
         goalsBudget: "0.00",
         tripsBudget: budget!,
         tripsCommitted: "0.00",

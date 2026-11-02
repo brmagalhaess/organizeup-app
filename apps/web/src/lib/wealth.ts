@@ -1,4 +1,5 @@
 import "server-only";
+import { loadSavingsRule } from "@organizeup/agents";
 import {
   and,
   asc,
@@ -25,7 +26,9 @@ import {
   addMonths,
   buildMonthEntries,
   DEFAULT_RESERVE_MONTHS,
+  entryFlow,
   essentialBaseline,
+  essentialSpending,
   money,
   monthBounds,
   recentMonths,
@@ -69,25 +72,18 @@ export async function loadReserve(ctx: TenantContext) {
         ),
       );
     const { scheduled, cardLines } = await loadCommitments(tx, { from: month, to: month });
-    const essentialLines = cardLines.filter((line) => essential.has(line.categoryId));
+    const rule = await loadSavingsRule(tx);
     const sum = (values: string[]) =>
       toDbAmount(values.reduce((acc, value) => acc.plus(value), money(0)));
-    const linesOf = (ym: string) =>
-      essentialLines.filter((line) => line.statementMonth === ym).map((line) => line.amount);
+    const linesOf = (ym: string) => cardLines.filter((line) => line.statementMonth === ym);
 
     const closedTotals = closed.map((ym) =>
-      sum([
-        ...rows
-          .filter(
-            (t) =>
-              yearMonthOf(t.occurredOn) === ym &&
-              t.kind === "despesa" &&
-              t.status === "realizado" &&
-              essential.has(t.categoryId),
-          )
-          .map((t) => t.amount),
-        ...linesOf(ym),
-      ]),
+      essentialSpending(
+        rows.filter((t) => yearMonthOf(t.occurredOn) === ym && t.status === "realizado"),
+        linesOf(ym),
+        essential,
+        rule,
+      ),
     );
     const currentEntries = buildMonthEntries(
       month,
@@ -95,12 +91,7 @@ export async function loadReserve(ctx: TenantContext) {
       rows.filter((t) => yearMonthOf(t.occurredOn) === month),
       scheduled,
     );
-    const currentTotal = sum([
-      ...currentEntries
-        .filter((entry) => entry.kind === "despesa" && essential.has(entry.categoryId))
-        .map((entry) => entry.amount),
-      ...linesOf(month),
-    ]);
+    const currentTotal = essentialSpending(currentEntries, linesOf(month), essential, rule);
 
     const baseline = essentialBaseline(closedTotals, currentTotal, fund?.monthlyAmount ?? null);
     const targetMonths = fund?.targetMonths ?? DEFAULT_RESERVE_MONTHS;
@@ -109,8 +100,8 @@ export async function loadReserve(ctx: TenantContext) {
       month,
       /** Já há gasto lançado? Sem gasto essencial, isso decide para qual tela levar a família. */
       hasExpenses:
-        rows.some((t) => t.kind === "despesa") ||
-        planRows.some((plan) => plan.kind === "despesa") ||
+        rows.some((t) => entryFlow(t, rule) === "despesa") ||
+        planRows.some((plan) => entryFlow(plan, rule) === "despesa") ||
         cardLines.length > 0,
       targetMonths,
       informedMonthly: fund?.monthlyAmount ?? null,

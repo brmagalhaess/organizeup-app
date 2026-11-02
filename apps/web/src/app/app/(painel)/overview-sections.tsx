@@ -48,10 +48,17 @@ export function ModuleInvite({
   );
 }
 
-function Legend({ tone }: { tone: "receita" | "despesa" }) {
+type BarTone = "receita" | "despesa" | "aporte";
+
+const BAR_COLORS: Record<BarTone, { solid: string; light: string }> = {
+  receita: { solid: "bg-income", light: "bg-income/35" },
+  despesa: { solid: "bg-expense", light: "bg-expense/35" },
+  aporte: { solid: "bg-brand-500", light: "bg-brand-500/35" },
+};
+
+function Legend({ tone }: { tone: BarTone }) {
   const t = useTranslations("dashboard.categories");
-  const solid = tone === "receita" ? "bg-income" : "bg-expense";
-  const light = tone === "receita" ? "bg-income/35" : "bg-expense/35";
+  const { solid, light } = BAR_COLORS[tone];
   return (
     <ul className="m-0 mb-3 flex list-none gap-4 p-0 text-xs text-muted">
       <li className="flex items-center gap-1.5">
@@ -74,8 +81,6 @@ interface BarRow {
   planned: string;
   percent: number;
   href: string;
-  /** Aporte, resgate e meta: não é consumo. */
-  saving: boolean;
 }
 
 /** Barras horizontais, do maior para o menor, cada uma abrindo os lançamentos filtrados. */
@@ -91,7 +96,7 @@ export function CategoryBars({
   id?: string;
   title: string;
   description: string;
-  tone: "receita" | "despesa";
+  tone: BarTone;
   rows: BarRow[];
   empty: string;
   money: MoneyText;
@@ -99,8 +104,7 @@ export function CategoryBars({
   const t = useTranslations("dashboard.categories");
   const locale = useLocale();
   const largest = rows.reduce((acc, row) => (money(row.amount).gt(acc) ? row.amount : acc), "0.00");
-  const solid = tone === "receita" ? "bg-income" : "bg-expense";
-  const light = tone === "receita" ? "bg-income/35" : "bg-expense/35";
+  const { solid, light } = BAR_COLORS[tone];
   const anyPlanned = rows.some((row) => !money(row.planned).isZero());
   return (
     <div id={id} className="min-w-0 scroll-mt-20">
@@ -139,18 +143,11 @@ export function CategoryBars({
                       />
                     )}
                   </span>
-                  {row.saving || !money(row.planned).isZero() ? (
+                  {money(row.planned).isZero() ? null : (
                     <span className="mt-0.5 block text-xs text-muted">
-                      {[
-                        money(row.planned).isZero()
-                          ? null
-                          : t("plannedPart", { amount: moneyText(row.planned) }),
-                        row.saving ? t("saving") : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      {t("plannedPart", { amount: moneyText(row.planned) })}
                     </span>
-                  ) : null}
+                  )}
                 </Link>
               </li>
             ))}
@@ -168,7 +165,6 @@ export function barRows(
     nameOf: (id: string) => string;
     hrefOf: (id: string | null) => string;
     otherName: string;
-    savings: ReadonlySet<string>;
   },
 ): BarRow[] {
   const rows: BarRow[] = folded.rows.map((row) => ({
@@ -179,7 +175,6 @@ export function barRows(
     planned: row.planned,
     percent: row.percent,
     href: options.hrefOf(row.categoryId),
-    saving: options.savings.has(row.categoryId),
   }));
   if (!folded.other) return rows;
   return [
@@ -192,7 +187,6 @@ export function barRows(
       planned: folded.other.planned,
       percent: folded.other.percent,
       href: options.hrefOf(null),
-      saving: false,
     },
   ];
 }
@@ -279,6 +273,13 @@ export function AccountsSection({
                 value={moneyText(future ? account.projected : account.balance)}
               />
             </span>
+            {money(future ? account.plannedContribution : account.contributed).isZero() ? null : (
+              <span className="mt-1 block text-xs text-muted">
+                {t("contributed", {
+                  amount: moneyText(future ? account.plannedContribution : account.contributed),
+                })}
+              </span>
+            )}
             {account.foreign && !future ? (
               <span className="mt-1 block text-xs text-muted">
                 {t("native", {
@@ -384,6 +385,7 @@ export function InvestmentsSection({
         )}
       </dl>
       {data.future ? <p className="text-xs text-muted">{t("futureNote")}</p> : null}
+      {data.future ? null : <p className="mt-2 text-xs text-muted">{t("cashNote")}</p>}
 
       {data.classes.length === 0 ? null : (
         <>

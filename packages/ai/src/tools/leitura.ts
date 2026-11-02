@@ -10,6 +10,7 @@ import {
   latestStatement,
   loadCommitments,
   loadFiscalTables,
+  loadSavingsRule,
   monthlyPlanView,
   readStatement,
   reserveInputs,
@@ -55,9 +56,11 @@ import {
   canUse,
   type BillingModule,
   debtPlanHeadline,
+  entryFlow,
   entryOrigin,
   formatYearMonth,
   isExpensiveDebt,
+  isSavings,
   money,
   monthBounds,
   monthlyNet,
@@ -68,7 +71,9 @@ import {
   planTrip,
   receivedDividends,
   recommendedStrategy,
+  savingsByCategory,
   spendingByCategory,
+  splitCardSavings,
   STATEMENT_KINDS,
   summarizeDividends,
   summarizeMonth,
@@ -106,7 +111,7 @@ const resumoDoMes = defineTool({
   name: "resumo_do_mes",
   module: null,
   description:
-    "Resumo de um mês: recebido, gasto, saldo, previsto, gasto por categoria (com as compras do cartão abertas) e contas em aberto. Chame quando perguntarem como foi ou está o mês, quanto sobrou, onde foi o dinheiro ou o que falta pagar.",
+    "Resumo de um mês: recebido, gasto, resultado, aportado, resgatado, o que sobrou depois de aportar, previsto, gasto por categoria (com as compras do cartão abertas) e contas em aberto. Aporte e resgate vêm à parte: não são gasto nem recebimento. Chame quando perguntarem como foi ou está o mês, quanto sobrou, onde foi o dinheiro ou o que falta pagar.",
   kind: "leitura",
   input: monthOnly,
   label: ({ mes }) => `olhei o resumo${monthWord(mes)}`,
@@ -128,28 +133,33 @@ const resumoDoMes = defineTool({
         to: month,
       });
       const entries = buildMonthEntries(month, planRows, rows, scheduled);
-      const summary = summarizeMonth(entries);
+      const rule = await loadSavingsRule(tx);
+      const lines = cardLines.filter((line) => line.statementMonth === month);
+      const split = splitCardSavings(entries, lines, cardCategoryId, rule);
+      const summary = summarizeMonth(split, rule);
+      const named = (row: { categoryId: string; amount: string }) => ({
+        categoria: names.get(row.categoryId) ?? "Sem categoria",
+        valor: row.amount,
+      });
       return {
         mes: month,
         recebido: summary.received,
         gasto: summary.spent,
-        saldo: summary.balance,
+        resultado: summary.balance,
+        aportado: summary.contributed,
+        resgatado: summary.redeemed,
+        sobrou_depois_de_aportar: summary.afterContributions,
         receita_prevista: summary.plannedIncome,
         despesa_prevista: summary.plannedExpense,
-        saldo_projetado: summary.projectedBalance,
-        por_categoria: spendingByCategory(
-          entries,
-          cardLines.filter((line) => line.statementMonth === month),
-          cardCategoryId,
-        )
+        aporte_previsto: summary.plannedContribution,
+        resultado_projetado: summary.projectedBalance,
+        por_categoria: spendingByCategory(split, lines, cardCategoryId, rule)
           .slice(0, 15)
-          .map((row) => ({
-            categoria: names.get(row.categoryId) ?? "Sem categoria",
-            valor: row.amount,
-          })),
+          .map(named),
+        aportes_por_categoria: savingsByCategory(split, "aporte", rule).map(named),
         em_aberto: pendingEntries(entries, today, 15).map((entry) => ({
           data: entry.date,
-          tipo: entry.kind,
+          tipo: entryFlow(entry, rule),
           descricao: untrusted(entry.description),
           valor: entry.amount,
           atrasado: entry.overdue,
@@ -162,12 +172,12 @@ const listarLancamentos = defineTool({
   name: "listar_lancamentos",
   module: null,
   description:
-    "Lista lançamentos de um mês, inclusive as compras da fatura do cartão, com a soma do que foi encontrado. Chame quando pedirem os gastos de uma categoria, a busca de uma compra ou o detalhe de um mês. A soma devolvida é a única que vale.",
+    "Lista lançamentos de um mês, inclusive as compras da fatura do cartão, com a soma do que foi encontrado. Aporte e resgate têm tipo e soma próprios: não entram em soma_despesas nem em soma_receitas. Chame quando pedirem os gastos de uma categoria, a busca de uma compra ou o detalhe de um mês. A soma devolvida é a única que vale.",
   kind: "leitura",
   input: z.strictObject({
     mes: monthInput,
     categoria: z.string().max(80).optional().describe("Parte do nome da categoria."),
-    tipo: z.enum(["receita", "despesa"]).optional(),
+    tipo: z.enum(["receita", "despesa", "aporte", "resgate"]).optional(),
     busca: z.string().max(80).optional().describe("Parte da descrição do lançamento."),
     limite: z
       .number()
@@ -195,22 +205,23 @@ const listarLancamentos = defineTool({
       const lines = book
         .flatMap((entry) => entry.lines)
         .filter((line) => line.statementMonth === month);
+      const rule = await loadSavingsRule(tx);
 
       const wantedCategory = input.categoria ? normalizeDescription(input.categoria) : null;
       const wantedText = input.busca ? normalizeDescription(input.busca) : null;
-      const matches = (description: string, categoryId: string, kind: string) =>
-        (!input.tipo || input.tipo === kind) &&
+      const matches = (description: string, categoryId: string, flow: string) =>
+        (!input.tipo || input.tipo === flow) &&
         (!wantedText || normalizeDescription(description).includes(wantedText)) &&
         (!wantedCategory ||
           normalizeDescription(names.get(categoryId) ?? "").includes(wantedCategory));
 
       const found = [
         ...rows
-          .filter((row) => matches(row.description, row.categoryId, row.kind))
+          .filter((row) => matches(row.description, row.categoryId, entryFlow(row, rule)))
           .map((row) => ({
             data: row.occurredOn,
             origem: "conta",
-            tipo: row.kind,
+            tipo: entryFlow(row, rule) as string,
             situacao: row.status,
             categoria: names.get(row.categoryId) ?? "Sem categoria",
             descricao: untrusted(row.description),
@@ -218,11 +229,17 @@ const listarLancamentos = defineTool({
             ...originFields(row),
           })),
         ...lines
-          .filter((line) => matches(line.description, line.categoryId, "despesa"))
+          .filter((line) =>
+            matches(
+              line.description,
+              line.categoryId,
+              isSavings(line, rule) ? "aporte" : "despesa",
+            ),
+          )
           .map((line) => ({
             data: line.purchasedOn,
             origem: "cartao",
-            tipo: "despesa",
+            tipo: isSavings(line, rule) ? "aporte" : "despesa",
             situacao: "realizado",
             categoria: names.get(line.categoryId) ?? "Sem categoria",
             descricao: untrusted(line.description),
@@ -235,6 +252,8 @@ const listarLancamentos = defineTool({
         encontrados: found.length,
         soma_receitas: sum(found.filter((row) => row.tipo === "receita").map((row) => row.valor)),
         soma_despesas: sum(found.filter((row) => row.tipo === "despesa").map((row) => row.valor)),
+        soma_aportes: sum(found.filter((row) => row.tipo === "aporte").map((row) => row.valor)),
+        soma_resgates: sum(found.filter((row) => row.tipo === "resgate").map((row) => row.valor)),
         itens: found.slice(0, input.limite ?? DEFAULT_ROWS),
       };
     }),
@@ -553,6 +572,7 @@ const verPlanoAposentadoria = defineTool({
         ano_em_que_fecha_com_esse_aporte: plan.yearWithContribution,
         renda_projetada_no_ano_alvo: plan.projectedIncomeAtTarget,
         sobra_mensal: surplus.surplus,
+        ja_aporta_por_mes: allocation.alreadyInvesting,
         divisao_sugerida_da_sobra: {
           reserva: allocation.reserve,
           dividas: allocation.debt,

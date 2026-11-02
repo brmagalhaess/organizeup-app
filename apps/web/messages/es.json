@@ -941,7 +941,8 @@
       "none": "Hoy no sobra dinero para guardar. Registra tu ingreso y tus gastos, o revisa los egresos.",
       "accepted": "Este es el valor de tu plan.",
       "current": "Hoy el plan usa {amount} en inversiones.",
-      "accept": "Aceptar este valor"
+      "accept": "Aceptar este valor",
+      "alreadyInvesting": "Ya aportas {amount} al mes: ese valor cuenta en la inversión de arriba."
     },
     "facts": {
       "target": "Ingreso que quieres al mes",
@@ -1974,7 +1975,16 @@
       "balanceForecast": "Previsión para fin de mes: {amount}",
       "balanceProjectedHint": "Saldo de hoy más todo lo previsto hasta este mes.",
       "balanceConverted": "Convertido con la cotización del {date}.",
-      "fxMissing": "Sin cotización de {currencies}: esas cuentas quedan fuera de la suma."
+      "fxMissing": "Sin cotización de {currencies}: esas cuentas quedan fuera de la suma.",
+      "contributed": "Aportado",
+      "contributedPlanned": "Aporte previsto",
+      "contributedHint": "Dinero guardado. No cuenta como gasto.",
+      "afterContributions": "Quedó después de aportar",
+      "afterContributionsPlanned": "Debería quedar después de aportar",
+      "afterContributionsHint": "Resultado menos aportes.",
+      "redeemed": "Volvió a las cuentas",
+      "redeemedHint": "Rescates y entradas de metas. No cuentan como ingresos.",
+      "savingsTitle": "Dinero guardado en {month}"
     },
     "suggestions": {
       "empty": "Nada que revisar por ahora.",
@@ -2005,7 +2015,9 @@
       "plannedExpense": "Gastos previstos",
       "plannedIncome": "Ingresos previstos",
       "tableCaption": "Ingresos y gastos de 12 meses",
-      "title": "Evolución"
+      "title": "Evolución",
+      "contributed": "Aportado",
+      "plannedContribution": "Aporte previsto"
     },
     "upcoming": {
       "calendar": "Ver calendario",
@@ -2057,8 +2069,6 @@
       "futureEmpty": "Aún no llegamos a {month} y no hay nada previsto."
     },
     "notes": {
-      "savingsOut": "{amount} de los gastos son aportes y metas: dinero guardado, no consumo. Los informes lo cuentan igual.",
-      "savingsIn": "{amount} de los ingresos son rescates y metas: dinero que ya era tuyo.",
       "card": "{amount} en facturas de tarjeta con vencimiento este mes. La compra pasa a ser gasto cuando se paga la factura."
     },
     "categories": {
@@ -2075,7 +2085,9 @@
       "done": "Hecho",
       "planned": "Previsto",
       "plannedPart": "{amount} previsto",
-      "saving": "no es consumo"
+      "contributions": "Aportes",
+      "contributionsPlanned": "Aportes previstos",
+      "contributionsHint": "Hechos y previstos. No cuentan como gastos."
     },
     "accounts": {
       "title": "Por cuenta",
@@ -2098,7 +2110,8 @@
         "atrasada": "Atrasada",
         "paga": "Pagada"
       },
-      "note": "La factura pagada entra en los gastos de la cuenta que la paga: la tarjeta aquí es detalle y no suma de nuevo. La transferencia entre cuentas no cuenta como ingreso ni gasto."
+      "note": "La factura pagada entra en los gastos de la cuenta que la paga: la tarjeta aquí es detalle y no suma de nuevo. La transferencia entre cuentas no cuenta como ingreso ni gasto.",
+      "contributed": "Aportado: {amount}"
     },
     "investments": {
       "title": "Inversiones",
@@ -2119,7 +2132,8 @@
       "estimated": "{count, plural, one {# activo sin precio vale el costo.} other {# activos sin precio valen el costo.}}",
       "note": "El aporte es un movimiento, no consumo. Nada aquí es una recomendación.",
       "invite": "Registra lo que ya tienes para ver cartera, ganancia y aportes aquí.",
-      "inviteAction": "Registrar inversión"
+      "inviteAction": "Registrar inversión",
+      "cashNote": "Los aportes de aquí suman las operaciones. \"Aportado\", en el resumen, suma lo que salió de una cuenta."
     },
     "dividends": {
       "title": "Dividendos",
@@ -2142,6 +2156,11 @@
       "accounts": "Indica el saldo para ver cuánto tienes hoy.",
       "accountsAction": "Ver cuentas",
       "reserve": "Cuánto guardar para imprevistos."
+    },
+    "savingsNotice": {
+      "label": "Aviso sobre aportes",
+      "text": "Los aportes y rescates ahora aparecen separados de gastos e ingresos: guardar dinero no es gastar. El saldo de las cuentas no cambió.",
+      "action": "Entendido"
     }
   },
   "settings": {
@@ -2333,11 +2352,18 @@
     "previousMonth": "Mes anterior",
     "nextMonth": "Mes siguiente",
     "stats": {
-      "received": "Entró",
-      "spent": "Salió",
-      "balance": "Sobró hasta ahora",
+      "received": "Ingresos",
+      "spent": "Gastos",
+      "balance": "Resultado",
       "forecast": "Previsión para fin de mes",
-      "forecastHint": "Incluye lo que aún va a entrar y salir."
+      "forecastHint": "Ingresos menos gastos, con lo que aún está previsto.",
+      "balanceHint": "Ingresos menos gastos.",
+      "contributed": "Aportado",
+      "contributedHint": "Dinero guardado. No cuenta como gasto.",
+      "afterContributions": "Quedó después de aportar",
+      "afterContributionsHint": "Resultado menos aportes.",
+      "redeemed": "Volvió a las cuentas",
+      "redeemedHint": "Rescates y entradas de metas. No cuentan como ingresos."
     },
     "status": {
       "overdue": "Atrasado",
@@ -2382,7 +2408,9 @@
       "category": "Categoría",
       "allCategories": "Todas",
       "account": "Cuenta",
-      "allAccounts": "Todas"
+      "allAccounts": "Todas",
+      "contributions": "Aportes",
+      "redemptions": "Rescates"
     },
     "table": {
       "caption": "Movimientos del mes",
@@ -2468,6 +2496,10 @@
     "cardLines": {
       "total": "{count, plural, one {# compra con tarjeta} other {# compras con tarjeta}} en esta categoría este mes: {amount}. Están dentro de la factura, que aparece aquí como un solo movimiento.",
       "open": "Ver tarjetas"
+    },
+    "flow": {
+      "aporte": "Aporte",
+      "resgate": "Rescate"
     }
   },
   "contas": {
@@ -2683,7 +2715,8 @@
       "expense": "Gasto",
       "income": "Ingreso",
       "essential": "Es un gasto esencial",
-      "save": "Guardar categoría"
+      "save": "Guardar categoría",
+      "savingHint": "Esta categoría guarda dinero: no cuenta como gasto ni como ingreso, y nunca es gasto esencial."
     },
     "saved": "Categoría guardada.",
     "created": "Categoría creada.",
@@ -2691,7 +2724,9 @@
       "name": "Escribe el nombre de la categoría.",
       "check": "Revisa los datos.",
       "duplicate": "Ya existe una categoría con ese nombre."
-    }
+    },
+    "savingOut": "Fuera de gastos",
+    "savingIn": "Fuera de ingresos"
   },
   "dividas": {
     "metaTitle": "Deudas",
@@ -3222,24 +3257,27 @@
       "divida": "Deuda",
       "meta": "Meta",
       "viagem": "Viaje",
-      "evento": "Evento"
+      "evento": "Evento",
+      "aporte": "Aporte"
     },
     "negative": "Según lo previsto, tu saldo queda negativo el {first}. El menor valor es <strong>{value}</strong>, el {lowest}.",
     "seeDay": "Ver el día",
     "stats": {
-      "in": "Entra",
+      "in": "Ingresos",
       "inHint": "Cobrado {received}. Por cobrar {planned}.",
-      "out": "Sale",
+      "out": "Gastos",
       "outHint": "Pagado {spent}. Por pagar {planned}.",
       "closing": "Saldo final previsto",
       "closingHint": "Saldo de las cuentas más lo pendiente.",
       "result": "Resultado del mes",
-      "resultHint": "Lo que entró menos lo que salió.",
+      "resultHint": "Ingresos menos gastos.",
       "lowest": "Saldo más bajo",
       "noForecast": "Sin previsión",
       "lowestOn": "El {date}.",
       "fromToday": "Solo hay previsión de hoy en adelante.",
-      "upTo": "La previsión llega hasta 24 meses."
+      "upTo": "La previsión llega hasta 24 meses.",
+      "contributions": "Aportes",
+      "contributionsHint": "Hecho {done}. Por hacer {planned}."
     },
     "grid": {
       "label": "Mes en cuadrícula",
@@ -3942,26 +3980,26 @@
       "anual": "Anual"
     },
     "mensagens": {
-      "resumo": "Entraron {received}, salieron {spent} y sobraron {left}.",
+      "resumo": "Ingresos de {received}, gastos de {spent} y resultado de {left}.",
       "categorias": "Los gastos suman {total}. La mayor categoría es {category}, con {amount}.",
-      "fluxo": "Lo previsto era que sobraran {planned}, y hasta ahora sobraron {left}.",
+      "fluxo": "El resultado previsto era {planned}, y hasta ahora quedó en {left}.",
       "patrimonio": "El patrimonio neto es {net}: tienes {owned} y debes {owed}.",
       "investimentos": "La cartera vale {total}, con un resultado de {gain}.",
       "proventos": "Entraron {month} en dividendos este mes y {last12} en 12 meses.",
       "dividas": "El saldo pendiente es {balance}, y se pagaron {interest} de intereses en el período.",
       "metas": "{saved} ahorrados, faltan {missing}. {late, plural, =0 {Ninguna meta fuera de plazo.} =1 {1 meta fuera de plazo.} other {# metas fuera de plazo.}}",
       "aposentadoria": "Los dividendos de hoy, {currentIncome} al mes, cubren {coverage} de la renta que la cartera debe pagar.",
-      "anual": "En el año, entraron {received} y salieron {spent}."
+      "anual": "En el año, los ingresos sumaron {received} y los gastos, {spent}."
     },
     "numeros": {
-      "received": "Entró",
-      "spent": "Salió",
-      "left": "Sobró",
-      "average12": "Sobrante medio en 12 meses",
+      "received": "Ingresos",
+      "spent": "Gastos",
+      "left": "Resultado",
+      "average12": "Resultado medio en 12 meses",
       "total": "Total de gastos",
       "topCategory": "Mayor categoría",
       "change": "Cambio en el período",
-      "planned": "Sobrante previsto",
+      "planned": "Resultado previsto",
       "open": "Aún pendiente",
       "projected": "Acumulado en los próximos 3 meses",
       "net": "Patrimonio neto",
@@ -3997,7 +4035,10 @@
       "requiredContribution": "Aporte que cierra el plan",
       "targetYear": "Año objetivo",
       "closingYear": "Año en que cierra",
-      "dividends": "Dividendos del año"
+      "dividends": "Dividendos del año",
+      "contributed": "Aportado",
+      "redeemed": "Volvió a las cuentas",
+      "afterContributions": "Quedó después de aportar"
     },
     "secoes": {
       "comparison": "Frente al período anterior y la media",
@@ -4021,7 +4062,8 @@
       "goals": "Metas",
       "trips": "Viajes",
       "income": "Ingresos por categoría",
-      "positions": "Posición al final del año"
+      "positions": "Posición al final del año",
+      "savings": "Aportes por categoría"
     },
     "colunas": {
       "item": "Ítem",
@@ -4035,15 +4077,15 @@
       "change": "Variación",
       "average12": "Media de 12 meses",
       "changeAverage": "Variación sobre la media",
-      "received": "Entró",
-      "spent": "Salió",
-      "left": "Sobró",
+      "received": "Ingresos",
+      "spent": "Gastos",
+      "left": "Resultado",
       "total": "Total",
       "planned": "Previsto",
       "actual": "Realizado",
       "difference": "Diferencia",
-      "plannedIn": "Entradas previstas",
-      "plannedOut": "Salidas previstas",
+      "plannedIn": "Ingresos previstos",
+      "plannedOut": "Gastos previstos",
       "accumulated": "Acumulado",
       "net": "Neto",
       "assetClass": "Clase",
@@ -4079,12 +4121,15 @@
       "missing": "Falta",
       "monthly": "Ahorrar por mes",
       "portfolio": "Cartera",
-      "income": "Renta por mes"
+      "income": "Renta por mes",
+      "contributed": "Aportado",
+      "afterContributions": "Quedó después de aportar",
+      "plannedContribution": "Aporte previsto"
     },
     "rotulos": {
-      "entrou": "Entró",
-      "saiu": "Salió",
-      "sobrou": "Sobró",
+      "entrou": "Ingresos",
+      "saiu": "Gastos",
+      "sobrou": "Resultado",
       "contas": "Cuentas",
       "bens": "Bienes",
       "investimentos": "Inversiones",
@@ -4109,7 +4154,8 @@
       "classe_fundo": "Fondos",
       "classe_previdencia": "Previsión",
       "classe_exterior": "Exterior",
-      "classe_outro": "Otros"
+      "classe_outro": "Otros",
+      "aportado": "Aportado"
     },
     "notas": {
       "incluiPrevisto": "Como en el panel, incluye lo que aún está previsto y abre las compras de la tarjeta en cada categoría.",
@@ -4118,8 +4164,12 @@
       "estimativa": "Las previsiones y proyecciones son estimaciones, sin garantía.",
       "planoIncompleto": "Faltan datos para cerrar el plan. Complétalos en Jubilación.",
       "anualNaoFiscal": "Solo organiza lo que registró la familia. No sustituye la declaración de impuestos ni es asesoría fiscal: revisa tus documentos oficiales.",
-      "posicaoDoDia": "Valores de la cartera según la posición del día en que se generó el informe."
-    }
+      "posicaoDoDia": "Valores de la cartera según la posición del día en que se generó el informe.",
+      "aporteAParte": "Los aportes y rescates quedan fuera de ingresos y gastos: guardar dinero no es gastar.",
+      "aporteSeparado": "Los números cambiaron de lugar, no de valor: el saldo de las cuentas es el mismo."
+    },
+    "atualizadoRegra": "Actualizado el {date}: los aportes y rescates pasaron a aparecer separados de ingresos y gastos.",
+    "regraAntiga": "Este informe aún cuenta los aportes como gastos y los rescates como ingresos: se generó antes del cambio."
   },
   "assinatura": {
     "metaTitle": "Plan y suscripción",

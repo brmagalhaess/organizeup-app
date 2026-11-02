@@ -4,7 +4,6 @@ import {
   addMonths,
   axisCeiling,
   buildMonthEntries,
-  expensesByCategory,
   formatMonthShort,
   formatShortDate,
   monthBounds,
@@ -19,6 +18,7 @@ import {
   type PlanInput,
   type TransactionInput,
 } from "../src/cashflow";
+import { NO_SAVINGS } from "../src/savings";
 
 const plan = (over: Partial<PlanInput> = {}): PlanInput => ({
   id: "p1",
@@ -110,12 +110,17 @@ describe("resumo do mês", () => {
         tx({ id: "d2", amount: "99.90", status: "previsto" }),
       ],
     );
-    expect(summarizeMonth(entries)).toEqual({
+    expect(summarizeMonth(entries, NO_SAVINGS)).toEqual({
       received: "5000.00",
       spent: "200.10",
       balance: "4799.90",
+      contributed: "0.00",
+      redeemed: "0.00",
+      afterContributions: "4799.90",
       plannedIncome: "0.00",
       plannedExpense: "1599.90",
+      plannedContribution: "0.00",
+      plannedRedemption: "0.00",
       projectedBalance: "3200.00",
     });
   });
@@ -126,7 +131,7 @@ describe("resumo do mês", () => {
       [plan()],
       [tx(), tx({ id: "t2", amount: "0.90" })],
     );
-    expect(expensesByCategory(entries)).toEqual([
+    expect(spendingByCategory(entries, [], undefined, NO_SAVINGS)).toEqual([
       { categoryId: "moradia", amount: "1500.00" },
       { categoryId: "mercado", amount: "201.00" },
     ]);
@@ -149,7 +154,10 @@ describe("resumo do mês", () => {
           }),
         );
         const expected = items.reduce((acc, it) => acc + (it.income ? it.cents : -it.cents), 0);
-        const got = summarizeMonth(buildMonthEntries("2026-03", [], txs)).projectedBalance;
+        const got = summarizeMonth(
+          buildMonthEntries("2026-03", [], txs),
+          NO_SAVINGS,
+        ).projectedBalance;
         return Math.round(Number(got) * 100) === expected;
       }),
     );
@@ -170,8 +178,9 @@ describe("painel", () => {
         tx({ id: "d", amount: "400.00", occurredOn: "2026-03-02" }),
         tx({ id: "f", amount: "50.00", occurredOn: "2026-02-02" }),
       ],
+      NO_SAVINGS,
     );
-    expect(series).toEqual([
+    expect(series).toMatchObject([
       { month: "2026-02", received: "0.00", spent: "50.00", balance: "-50.00" },
       { month: "2026-03", received: "1000.00", spent: "400.00", balance: "600.00" },
     ]);
@@ -213,7 +222,7 @@ describe("compromissos no mês", () => {
     const entries = buildMonthEntries("2026-11", [], [], [fatura]);
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ status: "previsto", kind: "despesa", source: "fatura" });
-    expect(summarizeMonth(entries).plannedExpense).toBe("400.00");
+    expect(summarizeMonth(entries, NO_SAVINGS).plannedExpense).toBe("400.00");
     expect(buildMonthEntries("2026-12", [], [], [fatura])).toEqual([]);
   });
 
@@ -223,7 +232,7 @@ describe("compromissos no mês", () => {
       { categoryId: "mercado", amount: "300.00" },
       { categoryId: "lazer", amount: "100.00" },
     ];
-    expect(spendingByCategory(entries, lines, "cartao")).toEqual([
+    expect(spendingByCategory(entries, lines, "cartao", NO_SAVINGS)).toEqual([
       { categoryId: "mercado", amount: "300.00" },
       { categoryId: "lazer", amount: "100.00" },
     ]);

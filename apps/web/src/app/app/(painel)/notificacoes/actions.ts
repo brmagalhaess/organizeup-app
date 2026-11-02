@@ -1,6 +1,7 @@
 "use server";
 import { undoSuggestion, type ApplyResult } from "@organizeup/agents";
 import { canWrite, eq, householdNotifications, isNull, withHousehold } from "@organizeup/db";
+import { SAVINGS_NOTICE_KEY } from "@organizeup/domain";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "@/lib/session";
@@ -36,4 +37,24 @@ export async function markAllRead(): Promise<ApplyResult> {
   );
   revalidatePath("/app", "layout");
   return { ok: true, message: t("allRead") };
+}
+
+/** Fecha, para a família inteira, a nota do painel sobre aportes. A linha nasce lida: não é aviso novo. */
+export async function dismissSavingsNotice(): Promise<void> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx)) return;
+  await withHousehold(ctx, (tx) =>
+    tx
+      .insert(householdNotifications)
+      .values({
+        householdId: ctx.householdId,
+        kind: "aviso_painel",
+        title: "Aportes separados",
+        body: "Nota do painel fechada.",
+        dedupeKey: SAVINGS_NOTICE_KEY,
+        readAt: new Date(),
+      })
+      .onConflictDoNothing(),
+  );
+  revalidatePath("/app", "layout");
 }

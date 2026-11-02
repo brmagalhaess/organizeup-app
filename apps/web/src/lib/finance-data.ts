@@ -1,5 +1,5 @@
 import "server-only";
-import { savingsCategoryIds } from "@organizeup/agents";
+import { loadSavingsRule } from "@organizeup/agents";
 import {
   accountBalances,
   accounts,
@@ -13,6 +13,7 @@ import {
   eq,
   firstMovementDate,
   gte,
+  householdNotifications,
   householdSettings,
   householdTimezone,
   incomeSources,
@@ -29,7 +30,9 @@ import {
   addMonths,
   buildMonthEntries,
   cardsInMonth,
+  contributionLines,
   DASHBOARD_SERIES_MONTHS,
+  entryFlow,
   expenseLines,
   incomeLines,
   isForeign,
@@ -43,11 +46,13 @@ import {
   projectBalances,
   recentMonths,
   resolvePeriod,
-  savingsMoved,
+  splitCardSavings,
+  SAVINGS_NOTICE_KEY,
   summarizeMonth,
   toDbAmount,
   todayIn,
   yearMonthOf,
+  type EntryFlow,
   type MonthEntry,
 } from "@organizeup/domain";
 import { loadCommitments } from "./commitments";
@@ -76,21 +81,27 @@ export async function loadMonth(ctx: TenantContext, requestedMonth?: string | nu
       .from(transactions)
       .where(and(gte(transactions.occurredOn, first), lte(transactions.occurredOn, last)));
 
-    const { scheduled, cardLines } = await loadCommitments(tx, {
+    const { scheduled, cardLines, cardCategoryId } = await loadCommitments(tx, {
       from: month,
       to: month,
       onlyWindow: true,
     });
     const entries = buildMonthEntries(month, planRows, transactionRows, scheduled);
+    const lines = cardLines.filter((line) => line.statementMonth === month);
+    const rule = await loadSavingsRule(tx);
     return {
       month,
       today,
       accounts: accountRows,
       categories: categoryRows,
       entries,
-      summary: summarizeMonth(entries),
+      /** O fluxo de cada entrada: a lista mostra o aporte, com o nome dele. */
+      flows: Object.fromEntries(
+        entries.map((entry): [string, EntryFlow] => [entry.key, entryFlow(entry, rule)]),
+      ),
+      summary: summarizeMonth(splitCardSavings(entries, lines, cardCategoryId, rule), rule),
       /** Compras na fatura do mês, para a tela abrir o cartão ao filtrar por categoria. */
-      cardLines: cardLines.filter((line) => line.statementMonth === month),
+      cardLines: lines,
     };
   });
 }
@@ -206,8 +217,14 @@ export async function loadOverview(ctx: TenantContext, requestedMonth?: unknown)
       known.set(ym, entries);
       return entries;
     };
-    const entries = inMonth(month);
-    const lines = cardLines.filter((line) => line.statementMonth === month);
+    const rule = await loadSavingsRule(tx);
+    const linesOf = (ym: string) => cardLines.filter((line) => line.statementMonth === ym);
+    const lines = linesOf(month);
+    // Para somar, a compra de aporte no cartão sai da fatura (ADR-0027). A lista segue com `inMonth`.
+    const flowsOf = (ym: string) =>
+      splitCardSavings(inMonth(ym), linesOf(ym), cardCategoryId, rule);
+    const flows = flowsOf(month);
+    const summaryOf = (ym: string) => summarizeMonth(flowsOf(ym), rule);
 
     // Saldo: o de hoje, igual ao da tela de Contas, e, em mês passado, o do último dia com a cotação dele.
     const now = await accountBalances(tx);
@@ -218,14 +235,17 @@ export async function loadOverview(ctx: TenantContext, requestedMonth?: unknown)
       shown.accounts,
       plannedNetByAccount(
         Array.from({ length: ahead }, (_, index) =>
-          activityByAccount(inMonth(addMonths(current, index))),
+          activityByAccount(inMonth(addMonths(current, index)), rule),
         ),
       ),
     );
-    const activity = activityByAccount(entries);
-    const idle = summarizeMonth([]);
+    const activity = activityByAccount(flows, rule);
+    const idle = summarizeMonth([], rule);
+    const [noticeSeen] = await tx
+      .select({ id: householdNotifications.id })
+      .from(householdNotifications)
+      .where(eq(householdNotifications.dedupeKey, SAVINGS_NOTICE_KEY));
 
-    const savings = await savingsCategoryIds(tx);
     const onboarding = await onboardingStatus(tx);
     const balances = now.accounts;
     return {
@@ -249,20 +269,36 @@ export async function loadOverview(ctx: TenantContext, requestedMonth?: unknown)
         asOf: monthBounds(month).last,
         fx: shown.fx,
       },
-      summary: summarizeMonth(entries),
-      previousSummary: summarizeMonth(inMonth(addMonths(month, -1))),
-      series: months.map((ym) => planPoint(ym, summarizeMonth(inMonth(ym)))),
-      expenses: expenseLines(entries, lines, cardCategoryId),
-      incomes: incomeLines(entries),
-      savings: savingsMoved(entries, savings),
-      savingsCategoryIds: savings,
+      summary: summaryOf(month),
+      previousSummary: summaryOf(addMonths(month, -1)),
+      series: months.map((ym) => planPoint(ym, summaryOf(ym))),
+      expenses: expenseLines(flows, lines, cardCategoryId, rule),
+      incomes: incomeLines(flows, rule),
+      contributions: contributionLines(flows, rule),
+      /** A nota que explica a mudança: uma vez, para quem tem aporte ou resgate lançado (ADR-0027). */
+      savingsNotice:
+        !noticeSeen &&
+        transactionRows.some((row) => {
+          const flow = entryFlow(row, rule);
+          return flow === "aporte" || flow === "resgate";
+        }),
       accounts: projection.rows
         .filter((account) => !account.archived || activity.has(account.id))
         .map((account) => {
           const { received, spent, plannedIncome, plannedExpense } =
             activity.get(account.id) ?? idle;
+          const { contributed, plannedContribution } = activity.get(account.id) ?? idle;
           const foreign = isForeign(account.currency, shown.main);
-          return { ...account, received, spent, plannedIncome, plannedExpense, foreign };
+          return {
+            ...account,
+            received,
+            spent,
+            plannedIncome,
+            plannedExpense,
+            contributed,
+            plannedContribution,
+            foreign,
+          };
         }),
       cards: cardsInMonth(book, month, today),
       categoryNames: new Map(categoryRows.map((c) => [c.id, c.name])),

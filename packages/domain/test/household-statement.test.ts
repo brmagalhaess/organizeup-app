@@ -41,6 +41,7 @@ import {
 } from "../src/household-statement";
 import { summarizeDividends, summarizePortfolio } from "../src/investment";
 import { money, toDbAmount } from "../src/money";
+import { NO_SAVINGS } from "../src/savings";
 
 const figure = (data: StatementData | undefined, id: (typeof STATEMENT_FIGURES)[number]) =>
   data?.figures.find((item) => item.id === id)?.value;
@@ -51,8 +52,13 @@ const summary = (received: string, spent: string, plannedIncome = "0", plannedEx
     received: toDbAmount(received),
     spent: toDbAmount(spent),
     balance: toDbAmount(balance),
+    contributed: "0.00",
+    redeemed: "0.00",
+    afterContributions: toDbAmount(balance),
     plannedIncome: toDbAmount(plannedIncome),
     plannedExpense: toDbAmount(plannedExpense),
+    plannedContribution: "0.00",
+    plannedRedemption: "0.00",
     projectedBalance: toDbAmount(balance.plus(plannedIncome).minus(plannedExpense)),
   };
 };
@@ -62,6 +68,8 @@ const point = (month: string, received: string, spent: string): MonthPoint => ({
   received,
   spent,
   balance: toDbAmount(money(received).minus(spent)),
+  contributed: "0.00",
+  redeemed: "0.00",
 });
 
 const amountArb = fc
@@ -118,6 +126,7 @@ describe("média dos meses", () => {
       received: "2000.00",
       spent: "600.00",
       balance: "1400.00",
+      contributed: "0.00",
     });
   });
 
@@ -181,7 +190,10 @@ describe("resumo do mês", () => {
     fc.assert(
       fc.property(fc.array(entryArb, { maxLength: 40 }), (rows) => {
         const month = "2026-10";
-        const panel = summarizeMonth(buildMonthEntries(month, [], transactionsOf(rows)));
+        const panel = summarizeMonth(
+          buildMonthEntries(month, [], transactionsOf(rows)),
+          NO_SAVINGS,
+        );
         const draft = buildResumo({ ...input, month, summary: panel, largest: [] });
         if (!draft) return;
         const cents = (id: "received" | "spent" | "left") => {
@@ -242,10 +254,9 @@ describe("maiores gastos", () => {
     const lines = [
       { description: "TV", purchasedOn: "2026-09-20", amount: "2500.00", categoryId: "casa" },
     ];
-    expect(largestExpenses(entries, lines, "cartao").map((row) => row.description)).toEqual([
-      "TV",
-      "Aluguel",
-    ]);
+    expect(
+      largestExpenses(entries, lines, "cartao", NO_SAVINGS).map((row) => row.description),
+    ).toEqual(["TV", "Aluguel"]);
   });
 });
 
@@ -306,11 +317,12 @@ describe("gastos por categoria", () => {
                   ]).map((row) => ({ ...row, id: "fatura" }))),
             ],
           );
-          const byCategory = spendingByCategory(entries, lines, "cartao");
+          const byCategory = spendingByCategory(entries, lines, "cartao", NO_SAVINGS);
           const draft = buildCategorias({
             month: "2026-10",
             asOf: "2026-10-31",
             byCategory,
+            contributions: [],
             previous: [],
             names,
             evolution: [],
@@ -342,6 +354,7 @@ describe("gastos por categoria", () => {
       month: "2026-10",
       asOf: "2026-10-31",
       byCategory: [{ categoryId: "mercado", amount: "900.00" }],
+      contributions: [],
       previous: [],
       names,
       evolution: [],
@@ -357,16 +370,43 @@ describe("fluxo de caixa", () => {
       plannedForMonth(
         "2026-10",
         [
-          { kind: "despesa", amount: "1000.00", startMonth: "2026-01", endMonth: null },
-          { kind: "despesa", amount: "9.00", startMonth: "2026-11", endMonth: null },
-          { kind: "receita", amount: "5000.00", startMonth: "2026-01", endMonth: "2026-10" },
+          {
+            kind: "despesa",
+            categoryId: "m",
+            amount: "1000.00",
+            startMonth: "2026-01",
+            endMonth: null,
+          },
+          {
+            kind: "despesa",
+            categoryId: "m",
+            amount: "9.00",
+            startMonth: "2026-11",
+            endMonth: null,
+          },
+          {
+            kind: "receita",
+            categoryId: "s",
+            amount: "5000.00",
+            startMonth: "2026-01",
+            endMonth: "2026-10",
+          },
+          {
+            kind: "despesa",
+            categoryId: "aportes",
+            amount: "400.00",
+            startMonth: "2026-01",
+            endMonth: null,
+          },
         ],
         [
-          { kind: "despesa", amount: "300.00" },
-          { kind: "receita", amount: "200.00" },
+          { kind: "despesa", categoryId: "c", amount: "300.00" },
+          { kind: "receita", categoryId: "r", amount: "200.00" },
+          { kind: "despesa", categoryId: "", source: "meta", amount: "150.00" },
         ],
+        { ...NO_SAVINGS, investmentCategories: new Set(["aportes"]) },
       ),
-    ).toEqual({ income: "5200.00", expense: "1300.00" });
+    ).toEqual({ income: "5200.00", expense: "1300.00", contribution: "550.00" });
   });
 
   it("projeta os próximos meses somando a sobra", () => {
@@ -381,6 +421,7 @@ describe("fluxo de caixa", () => {
         income: "1000.00",
         expense: "400.00",
         left: "600.00",
+        contribution: "0.00",
         accumulated: "600.00",
       },
       {
@@ -388,6 +429,7 @@ describe("fluxo de caixa", () => {
         income: "1000.00",
         expense: "1300.00",
         left: "-300.00",
+        contribution: "0.00",
         accumulated: "300.00",
       },
     ]);
@@ -398,7 +440,7 @@ describe("fluxo de caixa", () => {
       month: "2026-10",
       asOf: "2026-10-31",
       summary: summary("5000.00", "4500.00"),
-      planned: { income: "5000.00", expense: "4000.00" },
+      planned: { income: "5000.00", expense: "4000.00", contribution: "0.00" },
       next: [{ month: "2026-11", summary: summary("0", "0", "5000", "4000") }],
     });
     const table = draft?.data.sections.find((section) => section.id === "plannedActual");
@@ -633,6 +675,7 @@ describe("anual", () => {
     months: [point("2026-01", "1000.00", "400.00"), point("2026-02", "1000.00", "500.00")],
     expenses: [{ categoryId: "c", amount: "900.00" }],
     incomes: [{ categoryId: "r", amount: "2000.00" }],
+    contributions: [],
     names: new Map([
       ["c", "Mercado"],
       ["r", "Salário"],
@@ -681,7 +724,9 @@ describe("somas e comparação", () => {
         ]),
       ],
     );
-    expect(incomeByCategory(entries)).toEqual([{ categoryId: "saude", amount: "10.00" }]);
+    expect(incomeByCategory(entries, NO_SAVINGS)).toEqual([
+      { categoryId: "saude", amount: "10.00" },
+    ]);
   });
 
   it("compara dois períodos pelos números que os dois têm", () => {

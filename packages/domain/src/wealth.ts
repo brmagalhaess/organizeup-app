@@ -1,7 +1,9 @@
 // Reserva de emergência e patrimônio. Puro: recebe valores e devolve o que a tela mostra.
 import { purchaseLines, linesTotal, type CardTerms, type PurchaseInput } from "./card";
+import type { EntryKind } from "./cashflow";
 import { summarizePortfolio, type InvestmentInput } from "./investment";
 import { money, toDbAmount } from "./money";
+import { entryFlow, isSavings, type FlowInput, type SavingsRule } from "./savings";
 
 export const DEFAULT_RESERVE_MONTHS = 6;
 
@@ -37,6 +39,25 @@ export function essentialBaseline(
   if (money(currentMonth).gt(0))
     return { monthly: toDbAmount(currentMonth), basis: "mes_atual", months: 1 };
   return { monthly: "0.00", basis: "sem_dados", months: 0 };
+}
+
+/**
+ * Gasto essencial de um mês: despesa em categoria essencial mais compra de cartão nela. Aporte nunca entra,
+ * mesmo em categoria marcada como essencial: a reserva cobre o custo de viver, e aporte para primeiro.
+ */
+export function essentialSpending(
+  entries: Array<FlowInput & { kind: EntryKind; amount: string }>,
+  cardLines: Array<{ categoryId: string; amount: string }>,
+  essential: ReadonlySet<string>,
+  rule: SavingsRule,
+): string {
+  const inCategory = (row: { categoryId: string }) => essential.has(row.categoryId);
+  return toDbAmount(
+    [
+      ...entries.filter((entry) => entryFlow(entry, rule) === "despesa" && inCategory(entry)),
+      ...cardLines.filter((line) => inCategory(line) && !isSavings(line, rule)),
+    ].reduce((acc, row) => acc.plus(row.amount), money(0)),
+  );
 }
 
 export interface ReserveStatus {

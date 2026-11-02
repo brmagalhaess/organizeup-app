@@ -46,6 +46,7 @@ const allocation = (tripsBudget = "3000.00"): Allocation => ({
   reserve: "0.00",
   debt: "0.00",
   retirement: "0.00",
+  alreadyInvesting: "0.00",
   goalsBudget: "500.00",
   tripsBudget,
   tripsCommitted: "0.00",

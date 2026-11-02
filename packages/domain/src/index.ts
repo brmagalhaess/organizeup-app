@@ -9,6 +9,7 @@ export * from "./brazil-rules";
 export * from "./rebalance";
 export * from "./monthly-plan";
 export * from "./dates";
+export * from "./savings";
 export * from "./cashflow";
 export * from "./card";
 export * from "./debt";

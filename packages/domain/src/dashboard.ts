@@ -1,10 +1,13 @@
 // Painel por mês (docs/specs/painel.md). Puro: recebe o que já foi lido e devolve o que a tela mostra.
 // As somas continuam em `summarizeMonth`, `spendingByCategory`, `incomeByCategory`, `summarizeDividends`
 // e `positionOf`: aqui só se escolhe o recorte, para painel, lançamentos e relatório darem o mesmo número.
+// Aporte e resgate seguem a definição de `savings.ts` (ADR-0027).
 import {
   addMonths,
   monthBounds,
+  monthPoint,
   percentOf,
+  savingsByCategory,
   spendingByCategory,
   summarizeMonth,
   isYearMonth,
@@ -27,6 +30,7 @@ import {
   type InvestmentInput,
 } from "./investment";
 import { money, toDbAmount, type MoneyValue } from "./money";
+import { entryFlow, type SavingsRule } from "./savings";
 import { monthsBetween } from "./trip";
 
 /** Até onde o painel olha para a frente. */
@@ -110,36 +114,53 @@ export function clampToRange(month: YearMonth, first: YearMonth, last: YearMonth
 export interface MonthPlanPoint extends MonthPoint {
   plannedIncome: string;
   plannedExpense: string;
+  plannedContribution: string;
 }
 
 export const planPoint = (month: YearMonth, summary: MonthSummary): MonthPlanPoint => ({
-  month,
-  received: summary.received,
-  spent: summary.spent,
-  balance: summary.balance,
+  ...monthPoint(month, summary),
   plannedIncome: summary.plannedIncome,
   plannedExpense: summary.plannedExpense,
+  plannedContribution: summary.plannedContribution,
 });
 
-/** O mês teve algo feito? */
+const nonZero = (values: string[]) => values.some((value) => !money(value).isZero());
+
+/** O mês teve algo feito? Aporte conta: o mês em que só se guardou dinheiro não é um mês vazio. */
 export const hasMovement = (summary: MonthSummary) =>
-  !money(summary.received).isZero() || !money(summary.spent).isZero();
+  nonZero([summary.received, summary.spent, summary.contributed, summary.redeemed]);
 
 /** O mês tem algo, feito ou previsto? */
 export const hasAnything = (summary: MonthSummary) =>
   hasMovement(summary) ||
-  !money(summary.plannedIncome).isZero() ||
-  !money(summary.plannedExpense).isZero();
+  nonZero([
+    summary.plannedIncome,
+    summary.plannedExpense,
+    summary.plannedContribution,
+    summary.plannedRedemption,
+  ]);
 
 /**
  * O que compara com o mês anterior. Até o mês atual, o feito; em mês futuro, em que nada aconteceu, o
  * que está previsto, somado ao feito se o anterior for o mês atual.
  */
 export function comparableTotals(summary: MonthSummary, phase: MonthPhase) {
-  if (phase !== "futuro") return { income: summary.received, expense: summary.spent };
+  if (phase !== "futuro") {
+    return {
+      income: summary.received,
+      expense: summary.spent,
+      contribution: summary.contributed,
+      redemption: summary.redeemed,
+      afterContributions: summary.afterContributions,
+    };
+  }
+  const contribution = money(summary.contributed).plus(summary.plannedContribution);
   return {
     income: toDbAmount(money(summary.received).plus(summary.plannedIncome)),
     expense: toDbAmount(money(summary.spent).plus(summary.plannedExpense)),
+    contribution: toDbAmount(contribution),
+    redemption: toDbAmount(money(summary.redeemed).plus(summary.plannedRedemption)),
+    afterContributions: toDbAmount(money(summary.projectedBalance).minus(contribution)),
   };
 }
 
@@ -166,27 +187,41 @@ export function expenseLines(
   entries: MonthEntry[],
   cardLines: Array<Pick<StatementLine, "cardId" | "categoryId" | "amount">>,
   cardCategoryId: string | undefined,
+  rule: SavingsRule,
 ): CategoryLine[] {
   const open = new Set(entries.filter((e) => e.source === "fatura").map((e) => e.id));
   return splitCategories(
-    spendingByCategory(entries, cardLines, cardCategoryId),
+    spendingByCategory(entries, cardLines, cardCategoryId, rule),
     spendingByCategory(
       entries.filter((entry) => entry.status === "realizado"),
       cardLines.filter((line) => !open.has(line.cardId)),
       cardCategoryId,
+      rule,
     ),
   );
 }
 
-/** Receitas por categoria, feitas e previstas. */
-export function incomeLines(entries: MonthEntry[]): CategoryLine[] {
+/** Receitas por categoria, feitas e previstas. Resgate não é receita. */
+export function incomeLines(entries: MonthEntry[], rule: SavingsRule): CategoryLine[] {
   return splitCategories(
     mergeCategoryTotals([
       entries
-        .filter((entry) => entry.kind === "receita")
+        .filter((entry) => entryFlow(entry, rule) === "receita")
         .map(({ categoryId, amount }) => ({ categoryId, amount })),
     ]),
-    incomeByCategory(entries),
+    incomeByCategory(entries, rule),
+  );
+}
+
+/** Aportes por categoria, feitos e previstos: o que saiu de "Despesas" tem o seu próprio bloco. */
+export function contributionLines(entries: MonthEntry[], rule: SavingsRule): CategoryLine[] {
+  return splitCategories(
+    savingsByCategory(entries, "aporte", rule),
+    savingsByCategory(
+      entries.filter((entry) => entry.status === "realizado"),
+      "aporte",
+      rule,
+    ),
   );
 }
 
@@ -235,32 +270,35 @@ export function foldCategories(
   };
 }
 
-/**
- * Aportes, resgates e parcelas de meta feitos no mês. Ficam nos totais, como nos relatórios, mas não são
- * consumo: a tela diz quanto é isso.
- */
-export function savingsMoved(entries: MonthEntry[], savingsCategoryIds: Iterable<string>) {
-  const ids = new Set(savingsCategoryIds);
-  const moved = entries.filter((e) => e.status === "realizado" && ids.has(e.categoryId));
-  const total = (kind: MonthEntry["kind"]) =>
-    toDbAmount(sumOf(moved.filter((e) => e.kind === kind).map((e) => e.amount)));
-  return { out: total("despesa"), in: total("receita") };
-}
-
-/** Receitas e despesas do mês de cada conta, pelo mesmo `summarizeMonth` do total. */
-export function activityByAccount(entries: MonthEntry[]): Map<string, MonthSummary> {
+/** Os números do mês de cada conta, pelo mesmo `summarizeMonth` do total. */
+export function activityByAccount(
+  entries: MonthEntry[],
+  rule: SavingsRule,
+): Map<string, MonthSummary> {
   const ids = [...new Set(entries.map((entry) => entry.accountId))];
   return new Map(
-    ids.map((id) => [id, summarizeMonth(entries.filter((entry) => entry.accountId === id))]),
+    ids.map((id) => [
+      id,
+      summarizeMonth(
+        entries.filter((entry) => entry.accountId === id),
+        rule,
+      ),
+    ]),
   );
 }
 
-/** Saldo que os previstos ainda vão mexer, por conta, nos meses informados. */
+/**
+ * Saldo que os previstos ainda vão mexer, por conta, nos meses informados. Aporte e resgate mexem no
+ * saldo como sempre mexeram: o dinheiro sai da conta do mesmo jeito.
+ */
 export function plannedNetByAccount(months: MonthSummaryMap[]): Map<string, MoneyValue> {
   const net = new Map<string, MoneyValue>();
   for (const month of months) {
     for (const [id, summary] of month) {
-      const change = money(summary.plannedIncome).minus(summary.plannedExpense);
+      const change = money(summary.plannedIncome)
+        .plus(summary.plannedRedemption)
+        .minus(summary.plannedExpense)
+        .minus(summary.plannedContribution);
       net.set(id, (net.get(id) ?? money(0)).plus(change));
     }
   }

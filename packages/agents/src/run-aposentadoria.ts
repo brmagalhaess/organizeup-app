@@ -138,6 +138,7 @@ async function allocationContext(tx: TenantTx, today: string) {
     expensiveDebtBalance,
     retirementRequired: first.requiredContribution,
     confirmedTripsMonthly: tripsMonthly,
+    alreadyInvesting: surplus.invested,
     surplusMonths: surplus.result.months,
     currency,
   });
@@ -209,8 +210,9 @@ export async function runAposentadoriaAgent(
     });
   }
 
+  // Só pede o que falta: repetir o que a família já aporta seria sugerir o mesmo dinheiro de novo.
   if (
-    money(allocation.retirement).gt(0) &&
+    money(allocation.retirement).gt(allocation.alreadyInvesting) &&
     allocation.retirement !== (planData.plan?.monthlyContribution ?? null)
   ) {
     const payload: AporteInvestimentoPayload = {

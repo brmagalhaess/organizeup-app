@@ -2,7 +2,7 @@
 import type { CalendarItem } from "@organizeup/domain";
 
 export type CalendarItemType =
-  "conta" | "receita" | "cartao" | "divida" | "meta" | "viagem" | "evento";
+  "conta" | "receita" | "cartao" | "divida" | "meta" | "aporte" | "viagem" | "evento";
 
 export interface CalendarTypeContext {
   /** Categoria de cada lançamento, pela chave: o item do calendário não a carrega. */
@@ -13,6 +13,7 @@ export interface CalendarTypeContext {
     debt?: string | undefined;
     goal?: string | undefined;
     goalIncome?: string | undefined;
+    contribution?: string | undefined;
   };
   /** Eventos criados por uma viagem. */
   tripEvents: Set<string>;
@@ -29,9 +30,10 @@ export function calendarItemType(
   if (item.source === "parcela") return "divida";
   if (item.source === "meta") return "meta";
   const category = context.categoryOf.get(item.key);
-  const { card, debt, goal, goalIncome } = context.system;
+  const { card, debt, goal, goalIncome, contribution } = context.system;
   if (category !== undefined) {
     if (category === goal || category === goalIncome) return "meta";
+    if (category === contribution) return "aporte";
     if (category === card) return "cartao";
     if (category === debt) return "divida";
   }

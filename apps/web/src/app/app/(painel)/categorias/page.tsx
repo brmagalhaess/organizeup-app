@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { asc, canWrite, categories, withHousehold } from "@organizeup/db";
+import { savingsCategory } from "@organizeup/domain";
 import { PageHeader } from "@/components/ui";
 import { requireTenant } from "@/lib/session";
 import { CategoriesBoard } from "./categories-board";
@@ -21,6 +22,7 @@ export default async function CategoriesPage() {
         kind: categories.kind,
         essential: categories.essential,
         archived: categories.archived,
+        position: categories.position,
       })
       .from(categories)
       .orderBy(asc(categories.position), asc(categories.name)),
@@ -28,7 +30,13 @@ export default async function CategoriesPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("title")} description={t("description")} />
-      <CategoriesBoard rows={rows} writable={canWrite(ctx)} />
+      <CategoriesBoard
+        rows={rows.map(({ position, ...row }) => ({
+          ...row,
+          saving: savingsCategory({ ...row, position }) !== null,
+        }))}
+        writable={canWrite(ctx)}
+      />
     </div>
   );
 }

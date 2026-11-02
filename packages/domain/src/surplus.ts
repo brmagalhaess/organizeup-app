@@ -1,10 +1,10 @@
 // Excedente mensal da família (ADR-0015). Puro e estimativa: o que sobra de receitas menos despesas
-// nos meses fechados vira a base do que o assistente sugere guardar. O chamador monta os pontos
-// com `monthlySeries` já sem o que a família guarda (categorias `GOAL_CATEGORY` e
-// `CONTRIBUTION_CATEGORY` e os lançamentos ligados a `goal_contributions`), porque guardar não é
-// gastar. `excludeSavings` faz esse filtro.
-import type { MonthPoint, TransactionInput } from "./cashflow";
+// nos meses fechados vira a base do que o assistente sugere guardar. Guardar não é gastar: os pontos de
+// `monthlySeries` já vêm sem aporte e resgate, pela regra de `savings.ts`, e o que a família já aporta
+// por mês é medido à parte em `investingHabit`, para a divisão não sugerir de novo o mesmo dinheiro.
+import { yearMonthOf, type MonthPoint, type TransactionInput } from "./cashflow";
 import { money, toCents, toDbAmount, type MoneyValue } from "./money";
+import { savingsDestination, type SavingsRule } from "./savings";
 
 export const SURPLUS_RULES = {
   /** Abaixo disso não há base: `sem_dados`. */
@@ -25,16 +25,6 @@ export interface SurplusResult {
   /** Meses fechados com algum lançamento. */
   months: number;
   basis: SurplusBasis;
-}
-
-/** Tira do histórico o que a família guardou: categorias de metas/aportes e parcelas confirmadas. */
-export function excludeSavings(
-  transactions: TransactionInput[],
-  exclude: { categoryIds: Iterable<string>; transactionIds: Iterable<string> },
-): TransactionInput[] {
-  const categories = new Set(exclude.categoryIds);
-  const ids = new Set(exclude.transactionIds);
-  return transactions.filter((row) => !categories.has(row.categoryId) && !ids.has(row.id));
 }
 
 const medianOf = (values: MoneyValue[]): MoneyValue => {
@@ -71,6 +61,50 @@ export function monthlySurplus(
     months,
     basis: full ? "media_mediana" : "mediana",
   };
+}
+
+/** Aportes em investimento menos resgates de cada mês. Meta fica fora: é a fatia de metas da divisão. */
+export function investedByMonth(
+  months: string[],
+  transactions: TransactionInput[],
+  rule: SavingsRule,
+): string[] {
+  return months.map((month) =>
+    toDbAmount(
+      transactions
+        .filter(
+          (row) =>
+            row.status === "realizado" &&
+            yearMonthOf(row.occurredOn) === month &&
+            savingsDestination(row, rule) === "investimento",
+        )
+        .reduce(
+          (acc, row) => (row.kind === "despesa" ? acc.plus(row.amount) : acc.minus(row.amount)),
+          money(0),
+        ),
+    ),
+  );
+}
+
+/**
+ * Quanto a família já põe em investimentos por mês, como hábito: `min(média, mediana)` dos meses com
+ * movimento, igual ao excedente. O pico de um mês não vira compromisso, e venda não deixa negativo.
+ */
+export function investingHabit(invested: string[], points: MonthPoint[]): string {
+  const values = invested
+    .filter((_, index) => {
+      const point = points[index];
+      if (!point) return false;
+      return [point.received, point.spent, point.contributed, point.redeemed].some(
+        (value) => !money(value).isZero(),
+      );
+    })
+    .map((value) => money(value));
+  if (values.length < SURPLUS_RULES.minMonths) return "0.00";
+  const average = values.reduce((acc, value) => acc.plus(value), money(0)).dividedBy(values.length);
+  const median = medianOf(values);
+  const usable = values.length < SURPLUS_RULES.fullMonths || median.lt(average) ? median : average;
+  return toDbAmount(usable.gt(0) ? usable : 0);
 }
 
 /**

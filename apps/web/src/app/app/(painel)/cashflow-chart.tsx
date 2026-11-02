@@ -165,6 +165,14 @@ export function CashflowChart({
                         {amount(point.spent)}
                       </span>
                     </span>
+                    {money(point.contributed).isZero() ? null : (
+                      <span className="flex justify-between gap-2 text-muted">
+                        {t("contributed")}
+                        <span className="font-medium tabular-nums text-ink">
+                          {amount(point.contributed)}
+                        </span>
+                      </span>
+                    )}
                     {open ? (
                       <>
                         <span className="flex justify-between gap-2 text-muted">
@@ -218,6 +226,8 @@ export function CashflowChart({
               <th scope="col">{t("expenses")}</th>
               <th scope="col">{t("plannedIncome")}</th>
               <th scope="col">{t("plannedExpense")}</th>
+              <th scope="col">{t("contributed")}</th>
+              <th scope="col">{t("plannedContribution")}</th>
             </tr>
           </thead>
           <tbody>
@@ -228,6 +238,8 @@ export function CashflowChart({
                 <td>{amount(point.spent)}</td>
                 <td>{amount(point.plannedIncome)}</td>
                 <td>{amount(point.plannedExpense)}</td>
+                <td>{amount(point.contributed)}</td>
+                <td>{amount(point.plannedContribution)}</td>
               </tr>
             ))}
           </tbody>

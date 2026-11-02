@@ -5,6 +5,7 @@ import {
   CreditCard,
   HandCoins,
   Landmark,
+  PiggyBank,
   Plane,
   Receipt,
   Target,
@@ -17,6 +18,7 @@ export const TYPE_ICON: Record<CalendarItemType, LucideIcon> = {
   cartao: CreditCard,
   divida: Landmark,
   meta: Target,
+  aporte: PiggyBank,
   viagem: Plane,
   evento: CalendarDays,
 };
@@ -28,6 +30,7 @@ export const TYPE_TEXT: Record<CalendarItemType, string> = {
   cartao: "text-expense",
   divida: "text-expense",
   meta: "text-brand-500",
+  aporte: "text-brand-500",
   viagem: "text-series-b",
   evento: "text-muted",
 };
@@ -38,6 +41,7 @@ export const TYPE_DOT: Record<CalendarItemType, string> = {
   cartao: "bg-expense",
   divida: "bg-expense",
   meta: "bg-brand-500",
+  aporte: "bg-brand-500",
   viagem: "bg-series-b",
   evento: "bg-muted",
 };

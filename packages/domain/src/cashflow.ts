@@ -2,6 +2,7 @@
 import { entryOrigin, type FxCurrency } from "./fx";
 import type { Currency } from "./money";
 import { money, toDbAmount, type MoneyValue } from "./money";
+import { entryFlow, isSavings, type EntryFlow, type SavingsRule } from "./savings";
 
 export type EntryKind = "receita" | "despesa";
 export type EntryStatus = "previsto" | "realizado";
@@ -70,12 +71,26 @@ export type ScheduledEntry = Omit<MonthEntry, "status" | "recurring" | "kind"> &
   kind?: EntryKind;
 };
 
+/**
+ * Os números do mês (ADR-0027). Receita, despesa, aporte e resgate são fluxos separados: nada entra em
+ * dois. `spent` + `contributed` e `received` + `redeemed` são tudo o que saiu e entrou nas contas.
+ */
 export interface MonthSummary {
   received: string;
   spent: string;
+  /** Resultado: receitas menos despesas. */
   balance: string;
+  /** Aportes e parcelas de meta feitos. */
+  contributed: string;
+  /** Resgates e entradas de meta feitos. Nem receita, nem parte do resultado. */
+  redeemed: string;
+  /** "Sobrou depois de aportar": resultado menos aportes. */
+  afterContributions: string;
   plannedIncome: string;
   plannedExpense: string;
+  plannedContribution: string;
+  plannedRedemption: string;
+  /** Resultado com o que ainda está previsto. */
   projectedBalance: string;
 }
 
@@ -188,13 +203,14 @@ export function buildMonthEntries(
   );
 }
 
-export function summarizeMonth(entries: MonthEntry[]): MonthSummary {
-  const total = (kind: EntryKind, status: EntryStatus): MoneyValue =>
+export function summarizeMonth(entries: MonthEntry[], rule: SavingsRule): MonthSummary {
+  const total = (flow: EntryFlow, status: EntryStatus): MoneyValue =>
     entries
-      .filter((e) => e.kind === kind && e.status === status)
+      .filter((e) => e.status === status && entryFlow(e, rule) === flow)
       .reduce((acc, e) => acc.plus(e.amount), money(0));
   const received = total("receita", "realizado");
   const spent = total("despesa", "realizado");
+  const contributed = total("aporte", "realizado");
   const plannedIncome = total("receita", "previsto");
   const plannedExpense = total("despesa", "previsto");
   const balance = received.minus(spent);
@@ -202,52 +218,103 @@ export function summarizeMonth(entries: MonthEntry[]): MonthSummary {
     received: toDbAmount(received),
     spent: toDbAmount(spent),
     balance: toDbAmount(balance),
+    contributed: toDbAmount(contributed),
+    redeemed: toDbAmount(total("resgate", "realizado")),
+    afterContributions: toDbAmount(balance.minus(contributed)),
     plannedIncome: toDbAmount(plannedIncome),
     plannedExpense: toDbAmount(plannedExpense),
+    plannedContribution: toDbAmount(total("aporte", "previsto")),
+    plannedRedemption: toDbAmount(total("resgate", "previsto")),
     projectedBalance: toDbAmount(balance.plus(plannedIncome).minus(plannedExpense)),
   };
 }
 
-/** Despesas do mês (feitas e previstas) por categoria, da maior para a menor. */
-export function expensesByCategory(entries: MonthEntry[]) {
-  const totals = new Map<string, MoneyValue>();
-  for (const entry of entries) {
-    if (entry.kind !== "despesa") continue;
-    totals.set(entry.categoryId, (totals.get(entry.categoryId) ?? money(0)).plus(entry.amount));
-  }
-  return [...totals.entries()]
+const sortedTotals = (totals: Map<string, MoneyValue>) =>
+  [...totals.entries()]
     .map(([categoryId, value]) => ({ categoryId, amount: toDbAmount(value) }))
     .sort((a, b) => money(b.amount).comparedTo(money(a.amount)));
+
+/**
+ * Compra de cartão na categoria de aportes é aporte, mas chega ao mês dentro da fatura. Separa a parte
+ * dela na fatura em aberto, ou no pagamento de fatura lançado: a soma do mês não muda. Só serve para somar:
+ * a lista da tela continua mostrando a fatura inteira.
+ */
+export function splitCardSavings(
+  entries: MonthEntry[],
+  cardLines: Array<{ cardId: string; categoryId: string; amount: string }>,
+  cardCategoryId: string | undefined,
+  rule: SavingsRule,
+): MonthEntry[] {
+  const lines = cardLines.filter((line) => isSavings(line, rule));
+  if (lines.length === 0) return entries;
+  const result = entries.map((entry) => ({ ...entry }));
+  const isCardEntry = (entry: MonthEntry) =>
+    entry.kind === "despesa" && (entry.source === "fatura" || entry.categoryId === cardCategoryId);
+  for (const line of lines) {
+    let left = money(line.amount);
+    const own = result.filter((e) => e.source === "fatura" && e.id === line.cardId);
+    const paid = result.filter((e) => e.source !== "fatura" && isCardEntry(e));
+    for (const entry of [...own, ...paid]) {
+      if (left.lte(0)) break;
+      const part = left.gt(entry.amount) ? money(entry.amount) : left;
+      if (part.lte(0)) continue;
+      entry.amount = toDbAmount(money(entry.amount).minus(part));
+      left = left.minus(part);
+      result.push({
+        ...entry,
+        key: `${entry.key}#${line.categoryId}:${result.length}`,
+        source: "previsao",
+        amount: toDbAmount(part),
+        categoryId: line.categoryId,
+      });
+    }
+  }
+  return result;
 }
 
 /**
- * Como `expensesByCategory`, mas abre a fatura: no lugar da categoria do cartão entram as
- * compras do mês, cada uma na sua categoria. Assim a fatura paga não some nem conta duas vezes. O que
- * está na categoria do cartão sem compra por trás, como um pagamento de fatura importado do banco por
- * quem não lança as compras, fica nela: é dinheiro que saiu, e sumiria do total.
+ * Despesas do mês, feitas e previstas, por categoria e da maior para a menor. Abre a fatura: no lugar da
+ * categoria do cartão entram as compras do mês, cada uma na sua categoria. Assim a fatura paga não some
+ * nem conta duas vezes. O que está na categoria do cartão sem compra por trás, como um pagamento de
+ * fatura importado do banco por quem não lança as compras, fica nela: é dinheiro que saiu, e sumiria do
+ * total. Aporte fica fora: `entries` vem de `splitCardSavings`, e a compra de aporte já saiu da fatura.
  */
 export function spendingByCategory(
   entries: MonthEntry[],
   cardLines: Array<{ categoryId: string; amount: string }>,
   cardCategoryId: string | undefined,
+  rule: SavingsRule,
 ) {
   const totals = new Map<string, MoneyValue>();
   const add = (categoryId: string, amount: MoneyValue | string) =>
     totals.set(categoryId, (totals.get(categoryId) ?? money(0)).plus(amount));
   let onCard = money(0);
   for (const entry of entries) {
-    if (entry.kind !== "despesa") continue;
+    if (entryFlow(entry, rule) !== "despesa") continue;
     if (entry.categoryId === cardCategoryId) onCard = onCard.plus(entry.amount);
     else add(entry.categoryId, entry.amount);
   }
   for (const line of cardLines) {
+    if (isSavings(line, rule)) continue;
     add(line.categoryId, line.amount);
     onCard = onCard.minus(line.amount);
   }
   if (cardCategoryId !== undefined && onCard.gt(0)) add(cardCategoryId, onCard);
-  return [...totals.entries()]
-    .map(([categoryId, value]) => ({ categoryId, amount: toDbAmount(value) }))
-    .sort((a, b) => money(b.amount).comparedTo(money(a.amount)));
+  return sortedTotals(totals);
+}
+
+/** Aportes ou resgates do mês, feitos e previstos, por categoria. */
+export function savingsByCategory(
+  entries: MonthEntry[],
+  flow: "aporte" | "resgate",
+  rule: SavingsRule,
+) {
+  const totals = new Map<string, MoneyValue>();
+  for (const entry of entries) {
+    if (entryFlow(entry, rule) !== flow) continue;
+    totals.set(entry.categoryId, (totals.get(entry.categoryId) ?? money(0)).plus(entry.amount));
+  }
+  return sortedTotals(totals);
 }
 
 export interface MonthPoint {
@@ -255,28 +322,42 @@ export interface MonthPoint {
   received: string;
   spent: string;
   balance: string;
+  contributed: string;
+  redeemed: string;
 }
+
+/** Ponto de um mês, para séries e médias. */
+export const monthPoint = (month: YearMonth, summary: MonthSummary): MonthPoint => ({
+  month,
+  received: summary.received,
+  spent: summary.spent,
+  balance: summary.balance,
+  contributed: summary.contributed,
+  redeemed: summary.redeemed,
+});
 
 /** Os últimos `count` meses terminando em `ym`, do mais antigo para o mais novo. */
 export function recentMonths(ym: YearMonth, count: number): YearMonth[] {
   return Array.from({ length: count }, (_, index) => addMonths(ym, index - count + 1));
 }
 
-/** Entradas e saídas já realizadas em cada mês, para gráficos de evolução. */
+/** O que já aconteceu em cada mês, para médias e excedente. `cards` separa o aporte feito no cartão. */
 export function monthlySeries(
   months: YearMonth[],
   plans: PlanInput[],
   transactions: TransactionInput[],
+  rule: SavingsRule,
+  cards?: {
+    lines: Array<{ cardId: string; categoryId: string; amount: string; statementMonth: YearMonth }>;
+    categoryId: string | undefined;
+  },
 ): MonthPoint[] {
   return months.map((month) => {
     const inMonth = transactions.filter((t) => yearMonthOf(t.occurredOn) === month);
-    const summary = summarizeMonth(buildMonthEntries(month, plans, inMonth));
-    return {
-      month,
-      received: summary.received,
-      spent: summary.spent,
-      balance: summary.balance,
-    };
+    const entries = buildMonthEntries(month, plans, inMonth);
+    const lines = cards?.lines.filter((line) => line.statementMonth === month) ?? [];
+    const split = splitCardSavings(entries, lines, cards?.categoryId, rule);
+    return monthPoint(month, summarizeMonth(split, rule));
   });
 }
 

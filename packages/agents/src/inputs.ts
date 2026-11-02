@@ -32,13 +32,15 @@ import {
   ageFromBirth,
   brazilRulesApply,
   buildMonthEntries,
-  CONTRIBUTION_CATEGORY,
+  CARD_CATEGORY,
   DEFAULT_RESERVE_MONTHS,
   essentialBaseline,
-  excludeSavings,
+  essentialSpending,
   forecastSurplus,
   fxNoteOf,
-  GOAL_CATEGORY,
+  investedByMonth,
+  investingHabit,
+  isSavings,
   money,
   monthBounds,
   monthlyNet,
@@ -47,11 +49,12 @@ import {
   monthsBetween,
   plainIncomes,
   monthsToReserve,
-  normalizeDescription,
   purchaseLines,
   receivedDividends,
   recentMonths,
   reserveStatus,
+  savingsDestination,
+  savingsRule,
   summarizeDividends,
   summarizePortfolio,
   toDbAmount,
@@ -65,6 +68,7 @@ import {
   type MonthPoint,
   type PensionInput,
   type ReserveStatus,
+  type SavingsRule,
   type SurplusBasis,
   type SurplusResult,
   type TransactionInput,
@@ -80,11 +84,25 @@ async function todayOf(tx: TenantTx): Promise<string> {
   return todayIn(settings?.timezone);
 }
 
-/** Categorias de sistema do que a família guarda (metas e aportes): não é gasto. */
-export async function savingsCategoryIds(tx: TenantTx): Promise<string[]> {
-  const rows = await tx.select({ id: categories.id, name: categories.name }).from(categories);
-  const wanted = new Set([GOAL_CATEGORY, CONTRIBUTION_CATEGORY].map(normalizeDescription));
-  return rows.filter((row) => wanted.has(normalizeDescription(row.name))).map((row) => row.id);
+/** O que é dinheiro guardado nesta família (ADR-0027): a regra que toda soma do mês recebe. */
+export async function loadSavingsRule(tx: TenantTx): Promise<SavingsRule> {
+  const [rows, trades, contributions] = await Promise.all([
+    tx
+      .select({
+        id: categories.id,
+        name: categories.name,
+        kind: categories.kind,
+        position: categories.position,
+      })
+      .from(categories),
+    tx.select({ id: investmentTrades.transactionId }).from(investmentTrades),
+    tx.select({ id: goalContributions.transactionId }).from(goalContributions),
+  ]);
+  return savingsRule({
+    categories: rows,
+    tradeTransactionIds: trades.map((row) => row.id),
+    goalTransactionIds: contributions.map((row) => row.id),
+  });
 }
 
 export interface ReserveData {
@@ -146,38 +164,25 @@ export async function reserveInputs(
       .filter((purchase) => purchase.cardId === card.id)
       .flatMap((purchase) => purchaseLines(purchase, card)),
   );
+  const rule = await loadSavingsRule(tx);
   const sum = (values: string[]) =>
     toDbAmount(values.reduce((acc, value) => acc.plus(value), money(0)));
-  const linesOf = (ym: string) =>
-    lines
-      .filter((line) => line.statementMonth === ym && essential.has(line.categoryId))
-      .map((line) => line.amount);
+  const linesOf = (ym: string) => lines.filter((line) => line.statementMonth === ym);
 
   const closedTotals = closed.map((ym) =>
-    sum([
-      ...rows
-        .filter(
-          (t) =>
-            yearMonthOf(t.occurredOn) === ym &&
-            t.kind === "despesa" &&
-            t.status === "realizado" &&
-            essential.has(t.categoryId),
-        )
-        .map((t) => t.amount),
-      ...linesOf(ym),
-    ]),
+    essentialSpending(
+      rows.filter((t) => yearMonthOf(t.occurredOn) === ym && t.status === "realizado"),
+      linesOf(ym),
+      essential,
+      rule,
+    ),
   );
   const currentEntries = buildMonthEntries(
     month,
     planRows,
     rows.filter((t) => yearMonthOf(t.occurredOn) === month),
   );
-  const currentTotal = sum([
-    ...currentEntries
-      .filter((entry) => entry.kind === "despesa" && essential.has(entry.categoryId))
-      .map((entry) => entry.amount),
-    ...linesOf(month),
-  ]);
+  const currentTotal = essentialSpending(currentEntries, linesOf(month), essential, rule);
 
   const baseline = essentialBaseline(closedTotals, currentTotal, fund?.monthlyAmount ?? null);
   const targetMonths = fund?.targetMonths ?? DEFAULT_RESERVE_MONTHS;
@@ -200,19 +205,23 @@ export async function reserveInputs(
 }
 
 export interface SurplusData {
-  /** Os 12 meses fechados, já sem o que a família guardou. */
+  /** Os 12 meses fechados. Receitas e despesas sem o que a família guardou. */
   points: MonthPoint[];
   result: SurplusResult;
   /** `previsto` quando não há histórico e o valor veio de renda líquida − previsões de despesa. */
   basis: SurplusBasis | "previsto";
-  /** Excedente que vale para a divisão (antes da folga). Pode ser negativo. */
+  /** Excedente que vale para a divisão (antes da folga e dos aportes). Pode ser negativo. */
   surplus: string;
+  /** O que a família já põe em investimentos por mês: aportes menos resgates, como hábito. */
+  invested: string;
   /** Gasto médio mensal nos meses fechados com dados. Null sem dados. */
   averageExpenses12: string | null;
   /** Renda líquida típica do mês atual (sem férias e 13º). */
   incomeMonthlyNet: string;
   /** Previsões recorrentes de despesa do mês atual, sem metas e aportes. */
   plannedExpenses: string;
+  /** Previsões recorrentes de aporte do mês atual. */
+  plannedInvestments: string;
 }
 
 export async function loadFiscalTables(tx: TenantTx): Promise<FiscalTable[]> {
@@ -223,14 +232,31 @@ export async function loadFiscalTables(tx: TenantTx): Promise<FiscalTable[]> {
   }));
 }
 
-/** Excedente dos últimos 12 meses fechados, sem o que a família guardou. */
+/** Compras de cartão dos meses pedidos, para separar o aporte feito no cartão. */
+async function savingsCardLines(tx: TenantTx) {
+  const [cards, purchases, [cardCategory]] = await Promise.all([
+    tx.select().from(creditCards),
+    tx.select().from(cardPurchases),
+    tx
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.name, CARD_CATEGORY), eq(categories.kind, "despesa"))),
+  ]);
+  return {
+    categoryId: cardCategory?.id,
+    lines: cards.flatMap((card) =>
+      purchases
+        .filter((purchase) => purchase.cardId === card.id)
+        .flatMap((purchase) => purchaseLines(purchase, card)),
+    ),
+  };
+}
+
+/** Excedente dos últimos 12 meses fechados: receitas menos despesas, antes dos aportes. */
 export async function surplusInputs(tx: TenantTx, input: { today: string }): Promise<SurplusData> {
   const month = yearMonthOf(input.today);
   const months = recentMonths(addMonths(month, -1), 12);
-  const savings = await savingsCategoryIds(tx);
-  const confirmed = await tx
-    .select({ transactionId: goalContributions.transactionId })
-    .from(goalContributions);
+  const rule = await loadSavingsRule(tx);
   const rows: TransactionInput[] = await tx
     .select()
     .from(transactions)
@@ -240,11 +266,7 @@ export async function surplusInputs(tx: TenantTx, input: { today: string }): Pro
         lte(transactions.occurredOn, monthBounds(months[months.length - 1]!).last),
       ),
     );
-  const filtered = excludeSavings(rows, {
-    categoryIds: savings,
-    transactionIds: confirmed.flatMap((row) => (row.transactionId ? [row.transactionId] : [])),
-  });
-  const points = monthlySeries(months, [], filtered);
+  const points = monthlySeries(months, [], rows, rule, await savingsCardLines(tx));
   const result = monthlySurplus(points);
 
   const withData = points.filter(
@@ -268,17 +290,15 @@ export async function surplusInputs(tx: TenantTx, input: { today: string }): Pro
   const incomeMonthlyNet = toDbAmount(
     active.reduce((acc, source) => acc.plus(monthlyNet(source, tables, month)), money(0)),
   );
-  const savingsSet = new Set(savings);
   const plans = await tx.select().from(cashflowPlans).where(eq(cashflowPlans.kind, "despesa"));
-  const plannedExpenses = toDbAmount(
-    plans
-      .filter(
-        (plan) =>
-          plan.startMonth <= month &&
-          (plan.endMonth === null || plan.endMonth >= month) &&
-          !savingsSet.has(plan.categoryId),
-      )
-      .reduce((acc, plan) => acc.plus(plan.amount), money(0)),
+  const activePlans = plans.filter(
+    (plan) => plan.startMonth <= month && (plan.endMonth === null || plan.endMonth >= month),
+  );
+  const planTotal = (list: typeof plans) =>
+    toDbAmount(list.reduce((acc, plan) => acc.plus(plan.amount), money(0)));
+  const plannedExpenses = planTotal(activePlans.filter((plan) => !isSavings(plan, rule)));
+  const plannedInvestments = planTotal(
+    activePlans.filter((plan) => savingsDestination(plan, rule) === "investimento"),
   );
 
   const previsto = result.basis === "sem_dados";
@@ -287,9 +307,13 @@ export async function surplusInputs(tx: TenantTx, input: { today: string }): Pro
     result,
     basis: previsto ? "previsto" : result.basis,
     surplus: previsto ? forecastSurplus(incomeMonthlyNet, plannedExpenses) : result.usable,
+    invested: previsto
+      ? plannedInvestments
+      : investingHabit(investedByMonth(months, rows, rule), points),
     averageExpenses12,
     incomeMonthlyNet,
     plannedExpenses,
+    plannedInvestments,
   };
 }
 
