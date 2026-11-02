@@ -14,6 +14,7 @@ import {
   investmentStockEvents,
   investmentTrades,
   loadStockEvents,
+  lockFamilyImport,
   marketDividends,
   marketQuotes,
   marketStockEvents,
@@ -90,6 +91,8 @@ export async function applyStockEvents(
   const eligible = withMarketTicker(await tx.select().from(investments));
   if (eligible.length === 0) return result;
 
+  // Importação em andamento termina antes: esta rodada precisa enxergar o que ela gravou (ADR-0029).
+  await lockFamilyImport(tx, householdId);
   const tickers = [...new Set(eligible.map((holding) => holding.marketTicker))];
   const recorded = await loadStockEvents(tx);
   const [market, trades, undoneRows] = await Promise.all([
@@ -189,7 +192,7 @@ interface Blocks {
 const priceKey = (investmentId: string, quoteDate: string) => `${investmentId}:${quoteDate}`;
 
 /** O que a família desfez ou excluiu. Fica nas linhas `desfeita`, para sempre. */
-async function loadBlocks(tx: TenantTx): Promise<Blocks> {
+export async function loadBlocks(tx: TenantTx): Promise<Blocks> {
   const rows = await tx
     .select({ payload: householdSuggestions.payload })
     .from(householdSuggestions)
@@ -358,6 +361,7 @@ export async function syncMarketData(
       events: events.filter((event) => event.ticker === holding.marketTicker),
       existing,
       blocked: blocks.proventos.get(holding.id) ?? new Set(),
+      today,
     });
     result.skippedFamily += plan.skippedFamily;
     if (plan.skippedTax > 0) result.skippedTax.push(holding.marketTicker);

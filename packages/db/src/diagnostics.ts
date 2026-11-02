@@ -109,6 +109,7 @@ const KNOWN_ROUTES = [
   "/app/patrimonio",
   "/app/plano",
   "/app/proventos",
+  "/app/proventos/importar",
   "/app/relatorios",
   "/app/relatorios/baixar",
   "/app/renda",

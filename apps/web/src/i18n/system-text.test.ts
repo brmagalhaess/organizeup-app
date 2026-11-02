@@ -65,6 +65,7 @@ describe("descrições geradas pelo sistema", () => {
 
   it("renda", () => {
     expect(inEnglish.description("Férias · Empresa X")).toBe("Vacation · Empresa X");
+    expect(inEnglish.description("13º salário · Empresa X")).toBe("13th salary · Empresa X");
     expect(inEnglish.description("13º, 1ª parcela · Empresa X")).toBe(
       "13th salary, 1st installment · Empresa X",
     );

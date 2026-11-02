@@ -99,11 +99,20 @@ export default async function ImportPage() {
         </Card>
       ) : null}
       {brazilRulesApply(data.currency) ? (
-        <Card title={t("investments.title")} description={t("investments.text")}>
-          <Link href="/app/investimentos/importar" className={buttonClass("secondary")}>
-            {t("investments.link")}
-          </Link>
-        </Card>
+        <>
+          <Card title={t("investments.title")} description={t("investments.text")}>
+            <Link href="/app/investimentos/importar" className={buttonClass("secondary")}>
+              {t("investments.link")}
+            </Link>
+          </Card>
+          {canWrite(ctx) ? (
+            <Card title={t("dividends.title")} description={t("dividends.text")}>
+              <Link href="/app/proventos/importar" className={buttonClass("secondary")}>
+                {t("dividends.link")}
+              </Link>
+            </Card>
+          ) : null}
+        </>
       ) : null}
       {canWrite(ctx) ? (
         <ImportWizard

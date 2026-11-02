@@ -7,6 +7,7 @@ export {
   fromSession,
   getMembership,
   listMemberships,
+  lockFamilyImport,
   readOnlyContext,
   withHousehold,
   withWorkerHousehold,

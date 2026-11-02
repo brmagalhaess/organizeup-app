@@ -43,6 +43,7 @@ const shot = async (page: Page, name: string) => {
 };
 
 async function expectClean(page: Page) {
+  await expect(page).toHaveTitle(/.+/);
   await animationsDone(page);
   const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(

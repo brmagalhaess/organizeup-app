@@ -87,7 +87,7 @@ valendo para os agentes diários, que não chamam nada de fora, e a coleta é um
 - **Provento.** Linha em `dividends` com `source = 'agente'` e `market_dividend_id`, com índice único parcial.
   Se a operação ou o valor na fonte muda, a linha é corrigida; se a posição some ou o ticker muda, sai.
   **Provento que a família já lançou à mão não duplica**: lançamento no mesmo investimento até 5 dias do
-  pagamento conta como o mesmo. Quem tinha lançado o total de JCP e dividendo numa linha só cobre os dois.
+  pagamento conta como o mesmo. Quem tinha lançado o total de JCP e dividendo numa linha só cobre os dois. Linha importada de arquivo não entra nessa regra: responde por um provento só (ADR-0029).
 - **"A receber" não tem coluna:** é `paid_on` depois de hoje. `receivedDividends` tira essas linhas de todas as
   somas, inclusive do mês corrente. Isso vale também para quem digitou data futura à mão.
 - **Uma sugestão `aplicada`/`agente` por dia**, chave `mercado:dia:<data>`, com resumo e a lista do que mudou no

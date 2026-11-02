@@ -19,6 +19,15 @@ const { householdSettings, householdSubscriptions, transactions, user } = db;
 
 let families = 0;
 
+/** Agora, no relógio do banco. */
+const databaseNow = (ctx: Parameters<typeof db.withHousehold>[0]) =>
+  db.withHousehold(ctx, async (tx) => {
+    const rows = await tx.execute<{ ms: number }>(
+      db.sql`select (extract(epoch from now()) * 1000)::float8 as ms`,
+    );
+    return Number(rows[0]!.ms);
+  });
+
 async function newFamily() {
   families += 1;
   const id = `hh-planos-${families}`;
@@ -88,7 +97,8 @@ describe("linha da família", () => {
     const { ctx } = await newFamily();
     const row = await db.readSubscription(ctx);
     expect(row).toMatchObject({ courtesy: false });
-    const left = row!.trialEndsAt!.getTime() - Date.now();
+    // Só o relógio do banco: o fim do teste nasce nele, e o do Node pode estar atrás.
+    const left = row!.trialEndsAt!.getTime() - (await databaseNow(ctx));
     expect(left).toBeGreaterThan(6.9 * 24 * 60 * 60 * 1000);
     expect(left).toBeLessThanOrEqual(7 * 24 * 60 * 60 * 1000);
     expect((await db.readFamilyAccess(ctx)).mode).toBe("teste");

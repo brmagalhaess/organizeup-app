@@ -25,7 +25,7 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import { transactions } from "@organizeup/db";
-import { daysInMonth, normalizePlace } from "@organizeup/domain";
+import { answeredByImport, daysInMonth, normalizePlace } from "@organizeup/domain";
 import {
   DEDUPE,
   INTENTION_DEDUPE_PREFIX,
@@ -320,7 +320,14 @@ async function undoMercado(tx: TenantTx, ctx: TenantContext, market: MarketChang
         ),
       );
   }
+  const answered = new Set<string>();
   for (const { investmentId, marketDividendId, ...row } of market.removed) {
+    // A família importou este provento depois que ele saiu: voltar criaria o mesmo ao lado (ADR-0029).
+    const recorded = await tx
+      .select()
+      .from(dividends)
+      .where(eq(dividends.investmentId, investmentId));
+    if (answeredByImport(row, recorded, answered)) continue;
     await tx
       .insert(dividends)
       .values({

@@ -34,7 +34,7 @@ Regra central: **quem aprova é sempre o titular da conta no banco, nunca outra 
 ## Etapa 1: importar arquivo
 
 Extrato OFX e CSV existe em `/app/importar`; Excel da Área do Investidor da B3 e nota de corretagem, em
-`/app/investimentos/importar` (ADR-0024). O arquivo é baixado pelo próprio titular, sem contrato com banco ou B3, e é o
+`/app/investimentos/importar` (ADR-0024); proventos, em `/app/proventos/importar` (ADR-0029). O arquivo é baixado pelo próprio titular, sem contrato com banco ou B3, e é o
 caminho mais estável.
 
 ## Etapa 2: API da B3

@@ -1,9 +1,9 @@
 "use client";
-import { Plus, Target, Trash2 } from "lucide-react";
+import { Plus, Target, Trash2, Upload } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useEffect, useState, type ReactNode } from "react";
-import { money, netDividend } from "@organizeup/domain";
+import { cameFromFile, money, netDividend } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import {
   Badge,
@@ -113,6 +113,7 @@ function DividendLine({
           {row.label}
           <Badge>{t(`kinds.${row.kind}`)}</Badge>
           {row.source === "agente" ? <Badge tone="success">{t("line.automatic")}</Badge> : null}
+          {cameFromFile(row) ? <Badge>{t("line.imported")}</Badge> : null}
         </p>
         <p className="text-xs text-muted">
           {formatDate(row.paidOn, locale)}
@@ -273,10 +274,16 @@ export function DividendsBoard({
         description={t("description")}
         actions={
           canAdd ? (
-            <Button variant="secondary" onClick={() => open("new")}>
-              <Plus className="size-4" aria-hidden="true" />
-              {t("add")}
-            </Button>
+            <>
+              <Link href="/app/proventos/importar" className={buttonClass("secondary")}>
+                <Upload className="size-4" aria-hidden="true" />
+                {t("importLink")}
+              </Link>
+              <Button variant="secondary" onClick={() => open("new")}>
+                <Plus className="size-4" aria-hidden="true" />
+                {t("add")}
+              </Button>
+            </>
           ) : null
         }
       />

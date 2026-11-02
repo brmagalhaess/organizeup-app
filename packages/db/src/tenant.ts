@@ -105,6 +105,13 @@ export async function withHousehold<T>(
   });
 }
 
+/**
+ * Fila por família para o que compara e grava em lote: importações e o job de mercado. Dois pedidos não veem
+ * o "antes" ao mesmo tempo. Vale até o fim da transação.
+ */
+export const lockFamilyImport = (tx: TenantTx, householdId: string) =>
+  tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${householdId}, 7311))`);
+
 /** Atalho para jobs do worker. */
 export function withWorkerHousehold<T>(
   householdId: string,

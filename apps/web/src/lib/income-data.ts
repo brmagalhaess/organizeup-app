@@ -1,5 +1,5 @@
 import "server-only";
-import { loadFiscalTables } from "@organizeup/agents";
+import { incomeReceiptRows, loadFiscalTables, withIncomePlans } from "@organizeup/agents";
 import {
   accounts,
   and,
@@ -10,9 +10,10 @@ import {
   gte,
   householdCurrency,
   householdTimezone,
-  incomeReceipts,
   incomeSources,
+  incomeYearPlans,
   isNull,
+  isSchemaLag,
   or,
   people,
   withHousehold,
@@ -25,12 +26,15 @@ import {
   calculateVacation,
   CARD_CATEGORY,
   DEBT_CATEGORY,
+  findIncomeEntry,
   fiscalTableFor,
+  incomeYearView,
   isPayroll,
   money,
-  monthIncome,
   monthlyNet,
+  orphanVacationMonths,
   plainIncomes,
+  receivedInYear,
   toDbAmount,
   todayIn,
   yearMonthOf,
@@ -48,15 +52,35 @@ export async function incomeOccurrence(
   month: YearMonth,
   part: string,
 ) {
-  const [source] = plainIncomes(
-    await tx.select().from(incomeSources).where(eq(incomeSources.id, sourceId)),
-    await householdCurrency(tx),
+  const [source] = await withIncomePlans(
+    tx,
+    plainIncomes(
+      await tx.select().from(incomeSources).where(eq(incomeSources.id, sourceId)),
+      await householdCurrency(tx),
+    ),
   );
   if (!source) return null;
   const tables = await loadFiscalTables(tx);
-  const key = `r:${sourceId}:${month}:${part}`;
-  const entry = monthIncome(source, tables, month).find((item) => item.key === key);
+  // O 13º já recebido pode ser de antes de a renda entrar aqui: a previsão começa depois, ele não.
+  const reachable =
+    (part === "13-1" || part === "13-2") && month < source.startMonth
+      ? { ...source, startMonth: month }
+      : source;
+  const entry = findIncomeEntry(reachable, tables, month, part);
   return entry ? { source, entry, part: part as IncomePart } : null;
+}
+
+/** A tabela das escolhas já chegou? Antes da 0040, salvar uma escolha pede para tentar depois. */
+export async function incomePlanStoreReady(tx: TenantTx): Promise<boolean> {
+  return tx
+    .transaction((step) => step.select({ id: incomeYearPlans.id }).from(incomeYearPlans).limit(1))
+    .then(
+      () => true,
+      (error: unknown) => {
+        if (isSchemaLag(error)) return false;
+        throw error;
+      },
+    );
 }
 
 const toPayroll = (source: IncomeSourceInput) => ({
@@ -73,18 +97,20 @@ export async function loadIncome(ctx: TenantContext) {
     const month = yearMonthOf(today);
     const tables = await loadFiscalTables(tx);
     const table = fiscalTableFor(tables, month);
-    const sources = plainIncomes(
-      await tx
-        .select()
-        .from(incomeSources)
-        .where(or(isNull(incomeSources.endMonth), gte(incomeSources.endMonth, month)))
-        .orderBy(asc(incomeSources.createdAt)),
-      await householdCurrency(tx),
+    const sources = await withIncomePlans(
+      tx,
+      plainIncomes(
+        await tx
+          .select()
+          .from(incomeSources)
+          .where(or(isNull(incomeSources.endMonth), gte(incomeSources.endMonth, month)))
+          .orderBy(asc(incomeSources.createdAt)),
+        await householdCurrency(tx),
+      ),
     );
-    const receipts = await tx
-      .select({ sourceId: incomeReceipts.incomeSourceId })
-      .from(incomeReceipts);
-    const withReceipts = new Set(receipts.map((r) => r.sourceId));
+    const receipts = await incomeReceiptRows(tx);
+    const withReceipts = new Set(receipts.map((r) => r.incomeSourceId));
+    const year = Number(month.slice(0, 4));
 
     const accountRows = await tx
       .select({ id: accounts.id, name: accounts.name })
@@ -115,6 +141,15 @@ export async function loadIncome(ctx: TenantContext) {
         payslip: payroll ? calculatePayslip(toPayroll(source), table) : null,
         thirteenth: payroll ? calculateThirteenth(toPayroll(source), table) : null,
         vacation: payroll ? calculateVacation(toPayroll(source), table) : null,
+        yearView: incomeYearView(source, tables, year),
+        // O ano seguinte aparece no cartão com a escolha dele ou a herdada; sem escolha, não aparece.
+        nextYearView: source.plans.some((plan) => plan.year <= year + 1)
+          ? incomeYearView(source, tables, year + 1)
+          : null,
+        receivedParts: receivedInYear(receipts, source, year),
+        receivedNext: receivedInYear(receipts, source, year + 1),
+        orphanMonths: orphanVacationMonths(receipts, source, year),
+        receipts: receipts.filter((row) => row.incomeSourceId === source.id),
       };
     });
     const sum = (values: string[]) =>
@@ -123,7 +158,9 @@ export async function loadIncome(ctx: TenantContext) {
     return {
       today,
       month,
+      year,
       table,
+      tables,
       accounts: accountRows,
       categories: categoryRows.filter((c) => c.name !== CARD_CATEGORY && c.name !== DEBT_CATEGORY),
       people: peopleRows,
@@ -137,7 +174,7 @@ export async function loadIncome(ctx: TenantContext) {
             v.payslip ? toDbAmount(money(v.payslip.gross).minus(v.payslip.net)) : "0",
           ),
         ),
-        thirteenth: sum(views.map((v) => v.thirteenth?.net ?? "0")),
+        thirteenth: sum(views.map((v) => v.yearView?.thirteenth?.net ?? "0")),
       },
     };
   });

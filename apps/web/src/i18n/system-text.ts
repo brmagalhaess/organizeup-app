@@ -62,6 +62,7 @@ const WITH_SOURCE = [
   { key: "ferias", pattern: /^Férias · (.+)$/ },
   { key: "decimoPrimeira", pattern: /^13º, 1ª parcela · (.+)$/ },
   { key: "decimoSegunda", pattern: /^13º, 2ª parcela · (.+)$/ },
+  { key: "decimoUnico", pattern: /^13º salário · (.+)$/ },
 ];
 
 function description(text: string, t: Translate, origin: DescriptionOrigin): string {

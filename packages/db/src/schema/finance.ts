@@ -25,6 +25,7 @@ import {
   FX_CURRENCIES,
   STATEMENT_KINDS,
   STATEMENT_STATUSES,
+  THIRTEENTH_MODES,
   type StatementData,
 } from "@organizeup/domain";
 import { household, user } from "./auth";
@@ -625,6 +626,74 @@ export const incomeReceipts = pgTable(
     incomeSourceId: text("income_source_id").notNull(),
     month: char("month", { length: 7 }).notNull(),
     part: text("part", { enum: INCOME_PARTS }).notNull(),
+    transactionId: text("transaction_id").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.incomeSourceId, t.month, t.part),
+    foreignKey({
+      columns: [t.householdId, t.incomeSourceId],
+      foreignColumns: [incomeSources.householdId, incomeSources.id],
+    }),
+    foreignKey({
+      columns: [t.householdId, t.transactionId],
+      foreignColumns: [transactions.householdId, transactions.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+export const VACATION_RECEIPT_PARTS = ["ferias-2", "ferias-3"] as const;
+
+/** Escolhas de 13º e férias, do ano em diante (ADR-0028). Dado informado: o agente nunca muda. */
+export const incomeYearPlans = pgTable(
+  "income_year_plans",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    incomeSourceId: text("income_source_id").notNull(),
+    year: smallint("year").notNull(),
+    thirteenthMode: text("thirteenth_mode", { enum: THIRTEENTH_MODES })
+      .notNull()
+      .default("parcelas"),
+    thirteenthFirstMonth: smallint("thirteenth_first_month").notNull().default(11),
+    thirteenthSecondMonth: smallint("thirteenth_second_month").notNull().default(12),
+    thirteenthWithVacation: boolean("thirteenth_with_vacation").notNull().default(false),
+    thirteenthFirstReceived: boolean("thirteenth_first_received").notNull().default(false),
+    thirteenthFirstAmount: amount("thirteenth_first_amount"),
+    thirteenthSingleReceived: boolean("thirteenth_single_received").notNull().default(false),
+    jobStartedOn: date("job_started_on"),
+    vacationSoldDays: smallint("vacation_sold_days").notNull().default(0),
+    vacationPeriods: jsonb("vacation_periods").notNull().default([]),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.householdId, t.id),
+    unique().on(t.householdId, t.incomeSourceId, t.year),
+    foreignKey({
+      columns: [t.householdId, t.incomeSourceId],
+      foreignColumns: [incomeSources.householdId, incomeSources.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+/** Baixa do 2º e do 3º período de férias. O 1º continua em `income_receipts`. */
+export const incomeVacationReceipts = pgTable(
+  "income_vacation_receipts",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    householdId: text("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    incomeSourceId: text("income_source_id").notNull(),
+    month: char("month", { length: 7 }).notNull(),
+    part: text("part", { enum: VACATION_RECEIPT_PARTS }).notNull(),
     transactionId: text("transaction_id").notNull(),
     createdAt: ts("created_at").notNull().defaultNow(),
   },

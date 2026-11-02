@@ -199,6 +199,105 @@ export const posicao = () =>
     ],
   });
 
+/** Mesmas colunas de `packages/domain/src/dividend-file.ts`. ABCD3 e FICT11 vêm de `negociacao`. */
+export const proventosRecebidos = (name = "proventos-recebidos-2026-03.xlsx") =>
+  workbook(name, {
+    "Proventos Recebidos": [
+      [
+        "Produto",
+        "Pagamento",
+        "Tipo de Evento",
+        "Instituição",
+        "Quantidade",
+        "Preço unitário",
+        "Valor líquido",
+      ],
+      ["ABCD3 - ABCD SA", "16/03/2026", "Dividendo", BROKER, 55, 0.5, 27.5],
+      // Pagamento antes de 2026: 15%, calculado a partir do líquido.
+      ["ABCD3 - ABCD SA", "15/12/2025", "Juros Sobre Capital Próprio", BROKER, 55, 1, 85],
+      ["FICT11 - FUNDO FICTICIO", "16/03/2026", "Rendimento", BROKER, 10, 0.8, 8],
+      // Sem data-com conhecida, a alíquota de 2026 fica para a pessoa conferir.
+      ["ABCD3 - ABCD SA", "20/03/2026", "Juros Sobre Capital Próprio", BROKER, 55, 1, 41.25],
+      ["QWER4 - QWER SA", "17/03/2026", "Dividendo", BROKER, 20, 0.5, 10],
+      ["ABCD3 - ABCD SA", "18/03/2026", "Reembolso", BROKER, 5, 0.5, 2.5],
+      ["Total líquido", null, null, null, null, null, 174.25],
+    ],
+  });
+
+export const movimentacaoProventos = () =>
+  workbook("movimentacao-proventos-2026-03.xlsx", {
+    Movimentação: [
+      [
+        "Entrada/Saída",
+        "Data",
+        "Movimentação",
+        "Produto",
+        "Instituição",
+        "Quantidade",
+        "Preço unitário",
+        "Valor da Operação",
+      ],
+      // A mesma linha de Proventos recebidos, e uma nova.
+      ["Credito", "16/03/2026", "Dividendo", "ABCD3 - ABCD SA", BROKER, 55, 0.5, 27.5],
+      ["Credito", "23/03/2026", "Rendimento", "FICT11 - FUNDO FICTICIO", BROKER, 10, 0.9, 9],
+      [
+        "Debito",
+        "23/03/2026",
+        "Rendimento - Transferido",
+        "FICT11 - FUNDO FICTICIO",
+        BROKER,
+        10,
+        0.9,
+        9,
+      ],
+      [
+        "Credito",
+        "09/03/2026",
+        "Transferência - Liquidação",
+        "ABCD3 - ABCD SA",
+        BROKER,
+        105,
+        10,
+        1050,
+      ],
+    ],
+  });
+
+const textFile = (name: string, content: string) => ({
+  name,
+  mimeType: "text/csv",
+  buffer: Buffer.from(content),
+});
+
+/** Nome e CPF fictícios de propósito: a tela não pode mandá-los ao servidor. */
+export const FICTIONAL_NAME = "Pessoa Ficticia";
+export const FICTIONAL_CPF = "000.000.000-00";
+
+export const proventosCsv = () =>
+  textFile(
+    "proventos.csv",
+    [
+      "Data;Ativo;Tipo;Bruto;IR;Líquido;Titular;CPF",
+      `30/03/2026;ABCD3;JCP;100,00;17,50;82,50;${FICTIONAL_NAME};${FICTIONAL_CPF}`,
+      `31/03/2026;FICT11;Rendimento;12,00;0,00;12,00;${FICTIONAL_NAME};${FICTIONAL_CPF}`,
+    ].join("\n"),
+  );
+
+export const proventosCsvSemTitulos = () =>
+  textFile(
+    "proventos-minha-planilha.csv",
+    "Quando;Papel;Natureza;Quanto\n02/03/2026;ABCD3;Dividendo;4,00\n",
+  );
+
+/** A linha de FICT11 de `proventosCsv`, com outro valor. */
+export const proventosCsvOutroValor = () =>
+  textFile(
+    "proventos-corrigido.csv",
+    "Data;Ativo;Tipo;Valor\n31/03/2026;FICT11;Rendimento;15,00\n",
+  );
+
+export const csvTexto = () => textFile("anotacao.csv", "uma frase qualquer\n");
+
 export const unknownSheet = () =>
   workbook("gastos.xlsx", {
     Plan1: [

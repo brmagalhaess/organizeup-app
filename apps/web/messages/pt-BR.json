@@ -692,7 +692,8 @@
       "automatic": "automático",
       "gross": "bruto de {amount}",
       "market": "data-com {date} · fonte: {source}",
-      "remove": "Excluir provento de {name}"
+      "remove": "Excluir provento de {name}",
+      "imported": "importado"
     },
     "goal": {
       "title": "Meta de proventos",
@@ -789,7 +790,150 @@
       "withheldTooHigh": "O imposto não pode passar do valor bruto.",
       "goalFormat": "Informe a meta como 1.500,00.",
       "check": "Verifique."
-    }
+    },
+    "importar": {
+      "metaTitle": "Importar proventos",
+      "eyebrow": "Proventos",
+      "title": "Traga seus proventos",
+      "description": "Envie o arquivo que você baixou e confira tudo antes de gravar.",
+      "back": "Voltar para Proventos",
+      "noPermission": "Seu papel não permite importar.",
+      "noInvestments": {
+        "title": "Primeiro, os investimentos",
+        "text": "Os proventos ficam ligados aos ativos da sua carteira. Importe a carteira e volte aqui.",
+        "action": "Importar a carteira"
+      },
+      "choose": {
+        "title": "Escolha o arquivo",
+        "text": "O arquivo é lido aqui no seu navegador e não fica guardado. Só o código do ativo, o tipo, a data e os valores chegam ao sistema, nunca seu nome ou CPF.",
+        "file": "Arquivo de proventos",
+        "fileHint": "Excel (.xlsx) ou CSV, até 5 MB.",
+        "reading": "Lendo {name}…",
+        "checking": "Conferindo com seus proventos…",
+        "other": "Escolher outro arquivo"
+      },
+      "how": {
+        "title": "Como baixar",
+        "text": "Um arquivo por vez. Períodos que se repetem não duplicam.",
+        "label": "Arquivos aceitos",
+        "recebidos": {
+          "name": "Proventos recebidos (Excel)",
+          "text": "Na Área do Investidor da B3, abra Proventos, depois Recebidos, escolha o período e baixe."
+        },
+        "movimentacao": {
+          "name": "Movimentação (Excel)",
+          "text": "Na Área do Investidor da B3, abra Extratos, depois Movimentação, escolha o período e baixe em Excel."
+        },
+        "csv": {
+          "name": "CSV",
+          "text": "Exporte da sua planilha ou corretora, com títulos na primeira linha e colunas de data, ativo, tipo e valor."
+        }
+      },
+      "columns": {
+        "title": "Diga o que há em cada coluna",
+        "text": "Não reconhecemos todos os títulos deste CSV. Escolha a coluna de cada informação.",
+        "optional": "Opcional.",
+        "none": "Não tem",
+        "unnamed": "Coluna {number}",
+        "use": "Usar estas colunas",
+        "cancel": "Cancelar",
+        "fields": {
+          "date": "Data do pagamento",
+          "asset": "Ativo",
+          "kind": "Tipo do provento",
+          "value": "Valor recebido",
+          "gross": "Valor bruto",
+          "withheld": "Imposto retido",
+          "net": "Valor líquido"
+        }
+      },
+      "states": {
+        "novo": "Novo",
+        "existe": "Já existe",
+        "conferir": "Para conferir",
+        "ignorado": "Ignorado"
+      },
+      "calculations": {
+        "jcp_do_liquido": "Calculado: o arquivo só traz o líquido, então bruto e imposto saem do JCP a {rate}.",
+        "jcp_do_bruto": "Calculado: o arquivo só traz o bruto, então o imposto sai do JCP a {rate}.",
+        "retido_pela_diferenca": "Calculado: imposto é o bruto menos o líquido do arquivo.",
+        "bruto_pela_soma": "Calculado: bruto é o líquido mais o imposto do arquivo."
+      },
+      "doubts": {
+        "sem_ativo": "Este ativo não está na carteira, ou está em mais de um investimento. Escolha abaixo ou deixe de fora.",
+        "valor_diferente": "Já há um provento automático com outro valor. Se marcar, ele fica com o valor do arquivo.",
+        "parecida": "Há um lançamento seu por perto com outro valor. Se marcar, entra mais um.",
+        "imposto_incerto": "Não dá para saber o imposto só por este arquivo. Se marcar, entra o valor do arquivo, sem imposto. Confira no extrato.",
+        "acima_do_limite": "Acima de {limit} no mês da mesma empresa pode haver retenção de 10%. Confira no extrato.",
+        "excluido": "Você já excluiu ou desfez este provento. Marque se quiser trazer de volta.",
+        "parte_do_automatico": "Faz parte do mesmo pagamento da linha que troca o automático: entra só junto com ela.",
+        "valor_ambiguo": "Este valor pode ser lido de mais de um jeito. Confira no extrato antes de marcar."
+      },
+      "reasons": {
+        "transferido": "Repete outra linha do extrato.",
+        "reembolso": "Reembolso não entra como provento. Se foi, registre à mão.",
+        "debito": "É uma saída, não um pagamento recebido.",
+        "outra_movimentacao": "Não é provento.",
+        "tipo_desconhecido": "Tipo que não reconhecemos. Use dividendo, JCP ou rendimento.",
+        "ativo_nao_listado": "Sem código de negociação da B3.",
+        "dados_invalidos": "Data ou valor em formato que não reconhecemos.",
+        "valores_nao_fecham": "Bruto, imposto e líquido não fecham entre si.",
+        "data_futura": "Pagamento em data futura: entra quando for pago."
+      },
+      "missing": {
+        "title": "Ativos fora da carteira",
+        "text": "Nada cria posição sozinho. Escolha um investimento da carteira ou deixe de fora.",
+        "holdingOf": "Investimento de {ticker}",
+        "leaveOut": "Deixar de fora",
+        "apply": "Conferir com esta escolha"
+      },
+      "review": {
+        "title": {
+          "recebidos": "Confira os Proventos recebidos",
+          "movimentacao": "Confira a Movimentação",
+          "csv": "Confira o CSV"
+        },
+        "text": "Nada foi gravado ainda. Desmarque o que não quiser. O provento não cria lançamento em conta nem receita.",
+        "new": "Novos",
+        "check": "Para conferir",
+        "exists": "Já existem",
+        "ignored": "Ignorados",
+        "rows": "Linhas do arquivo",
+        "selectRow": "Importar {name} de {date}",
+        "netOnly": "{net}",
+        "amounts": "{net} líquido · {gross} bruto · {withheld} de imposto",
+        "nothingTitle": "Nada novo neste arquivo",
+        "nothingText": "Tudo o que dá para importar já está nos seus proventos.",
+        "submit": "{count, plural, =0 {Nada marcado} one {Importar # provento} other {Importar # proventos}}",
+        "importing": "Importando…",
+        "cancel": "Cancelar",
+        "current": "Hoje: {current} · no arquivo: {file}",
+        "columns": "Trocar as colunas"
+      },
+      "done": {
+        "title": "Proventos atualizados",
+        "counts": "{created, plural, one {# provento novo} other {# proventos novos}}{replaced, plural, =0 {} one { · # trocado pelo valor do arquivo} other { · # trocados pelo valor do arquivo}}{skipped, plural, =0 {} one { · # linha pulada, confira de novo} other { · # linhas puladas, confira de novo}}",
+        "list": "Ver proventos",
+        "another": "Importar outro arquivo"
+      },
+      "errors": {
+        "vazio": "O arquivo está vazio.",
+        "tamanho": "O arquivo passa de 5 MB.",
+        "tipo": "Este arquivo não é um Excel (.xlsx) ou CSV de verdade.",
+        "xls_antigo": "Este é o Excel antigo (.xls). Baixe de novo em .xlsx.",
+        "layout": "Não reconhecemos este arquivo. Envie Proventos recebidos ou Movimentação da B3, ou um CSV com data, ativo, tipo e valor.",
+        "sem_linhas": "O arquivo não tem nenhum provento.",
+        "muitas_linhas": "O arquivo passa de 2.000 linhas. Baixe um período menor.",
+        "colunas": "Faltam colunas neste CSV: precisa ter data, ativo, tipo e valor.",
+        "readFailed": "Não conseguimos ler este arquivo. Baixe de novo e tente outra vez.",
+        "invalid": "Algumas linhas vieram em formato inválido. Envie o arquivo de novo.",
+        "onlyBrazil": "A importação de proventos vale para quem tem moeda principal em reais.",
+        "failed": "Não conseguimos concluir agora. Nada foi gravado. Tente de novo.",
+        "withheldTooHigh": "Há linha com imposto maior que o valor bruto. Confira o arquivo.",
+        "amountsOff": "Bruto, imposto e líquido de alguma linha não fecham. Confira o arquivo."
+      }
+    },
+    "importLink": "Importar arquivo"
   },
   "metas": {
     "metaTitle": "Metas",
@@ -3132,6 +3276,11 @@
       "title": "Importar arquivos",
       "text": "Envie até 10 arquivos de qualquer tipo. O agente diz o que é cada um, onde cada item entra e o que já está lançado.",
       "link": "Importar arquivos"
+    },
+    "dividends": {
+      "title": "Tem proventos para trazer?",
+      "text": "Excel da Área do Investidor da B3 ou CSV entram pela tela de proventos, sem duplicar o que já está lá.",
+      "link": "Importar proventos"
     }
   },
   "renda": {
@@ -3181,8 +3330,20 @@
       "vacation": "Férias de 30 dias",
       "vacationGross": "Salário + 1/3",
       "uncertain": "Pode vir até {value}. A Receita ainda não explicou se a redução vale para férias, então prevemos o valor menor.",
-      "vacationIn": "Férias em {month}",
-      "noVacation": "Sem mês de férias definido: a previsão fica como salário normal o ano todo."
+      "noVacation": "Sem mês de férias definido: a previsão fica como salário normal o ano todo.",
+      "firstIn": "1ª parcela, {month}",
+      "secondIn": "2ª parcela, {month}",
+      "singleIn": "Tudo de uma vez, {month}",
+      "receivedTag": "recebida",
+      "proportional": "Proporcional: {months} meses de 12.",
+      "adjust": "Ajustar 13º e férias",
+      "vacationPeriods": "Férias",
+      "periodLine": "{days} dias em {month}",
+      "periodSold": "{days} dias em {month}, mais {sold} vendidos",
+      "paidOn": "{days} dias: pagamento em {date}",
+      "salaryIn": "Salário de {month}: {days} dias trabalhados",
+      "yearTitle": "Em {year}",
+      "sameChoice": "Mesma escolha de {year}."
     },
     "simulator": {
       "title": "Simulador de salário",
@@ -3250,7 +3411,84 @@
       "invalidAccount": "Escolha uma conta válida.",
       "incomeCategory": "Escolha uma categoria de receita.",
       "invalidPerson": "Escolha uma pessoa válida.",
-      "kindNotHere": "Fora do Brasil, esta renda não existe. Escolha outro tipo."
+      "kindNotHere": "Fora do Brasil, esta renda não existe. Escolha outro tipo.",
+      "firstAmount": "Informe o valor como 3.000,00.",
+      "planLater": "Ainda não deu para guardar esta escolha. Tente de novo em alguns minutos.",
+      "registerFailed": "Marcamos a 1ª parcela como recebida, mas não deu para criar o lançamento. Use Lançamentos para registrar.",
+      "invalid": "Confira os dados e tente de novo."
+    },
+    "choices": {
+      "thirteenth": "13º salário",
+      "thirteenthHint": "Muda só o mês em que o dinheiro entra. Sem escolher nada, prevemos novembro e dezembro.",
+      "how": "Como você recebe",
+      "twoParts": "Em duas parcelas",
+      "oneTime": "Tudo de uma vez",
+      "firstMonth": "Mês da 1ª parcela",
+      "secondMonth": "Mês da 2ª parcela",
+      "singleMonth": "Mês do pagamento",
+      "oneTimeNote": "O INSS e o imposto saem deste pagamento, sobre o valor inteiro.",
+      "twoPartsNote": "A 1ª parcela vem sem descontos. INSS e imposto do valor inteiro saem da 2ª.",
+      "withVacation": "Receber a 1ª junto com as férias",
+      "withVacationHint": "A lei pede que você peça à empresa em janeiro.",
+      "firstReceived": "Já recebi a primeira",
+      "firstRegistered": "A 1ª parcela já está em Lançamentos.",
+      "firstAmount": "Valor da 1ª parcela (¤)",
+      "firstAmountHint": "Pode ser diferente de metade do salário de hoje. Em branco, usamos metade do 13º.",
+      "registerFirst": "Registrar também em Lançamentos",
+      "jobStarted": "Comecei neste emprego em",
+      "jobStartedHint": "Só para quem começou neste ano: o 13º fica proporcional aos meses.",
+      "vacation": "Férias",
+      "vacationHint": "Divida em até 3 períodos: um com pelo menos 14 dias e os outros com pelo menos 5.",
+      "periodTitle": "Período {number}",
+      "startDay": "Começa no dia",
+      "startDayPlaceholder": "Não sei",
+      "days": "Dias",
+      "periodReceived": "Já recebi",
+      "addPeriod": "Adicionar período",
+      "removePeriod": "Remover período {number}",
+      "sell": "Vender dias de férias",
+      "soldDays": "Quantos dias",
+      "soldDaysHint": "Até 10 dias, um terço das férias. Você trabalha esses dias e recebe por eles em dobro, sem INSS sobre os dias vendidos.",
+      "resultTitle": "Quanto e quando entra",
+      "resultPrompt": "Digite o salário bruto para ver o resultado.",
+      "resultInvalid": "Confira os valores para ver o resultado.",
+      "resultFix": "Corrija os campos acima para ver o resultado.",
+      "resultFirst": "13º, 1ª parcela",
+      "resultSecond": "13º, 2ª parcela",
+      "resultSingle": "13º, tudo de uma vez",
+      "resultVacation": "Férias, {days} dias",
+      "resultSold": "Com {days} dias vendidos",
+      "resultSalary": "Salário de {month}, {days} dias trabalhados",
+      "resultNone": "Nada de 13º neste ano, pela data de início.",
+      "resultReceived": "Recebida",
+      "earlyPay": "A lei manda pagar as férias até 2 dias antes do início, por isso este pagamento cai no mês anterior.",
+      "noDay": "Sem o dia de início, prevemos no dia do salário.",
+      "missingDays": "Faltam {days} dias das suas férias de 30 dias.",
+      "proportional": "13º proporcional: {months} meses de 12.",
+      "registeredNote": "Vale para este ano e não cria lançamento.",
+      "periodReceivedHint": "Tira este período da previsão e não cria lançamento.",
+      "year": "Ano destas escolhas",
+      "yearHint": "A escolha vale para este ano e os seguintes, até haver outra. Marcas de recebido não passam de ano.",
+      "singleReceived": "Já recebi",
+      "singleRegistered": "O 13º já está em Lançamentos.",
+      "integralAdvance": "Já descontamos {value} da 1ª parcela recebida.",
+      "secondCovered": "A 1ª parcela já cobre todo o 13º líquido, de {value}: não há mais nada a receber.",
+      "quitNote": "O 13º deste ano já está quitado: nada volta para a previsão.",
+      "orphanReceipt": "As férias de {month} já têm lançamento. Sem esse período, o lançamento continua em Lançamentos e fica sem período aqui."
+    },
+    "planErrors": {
+      "too_many_periods": "Divida em até 3 períodos.",
+      "period_too_short": "Cada período precisa de pelo menos 5 dias.",
+      "needs_long_period": "Um dos períodos precisa de pelo menos 14 dias.",
+      "days_over": "Férias e dias vendidos somam mais de 30 dias.",
+      "sold_over": "Dá para vender até 10 dias, um terço das férias.",
+      "overlap": "Os períodos se sobrepõem. Confira o dia de início.",
+      "bad_day": "Este mês não tem esse dia.",
+      "bad_period": "Confira o mês e os dias de cada período.",
+      "first_after_second": "A 1ª parcela precisa vir antes da 2ª.",
+      "bad_job_date": "Informe a data de início em um dia que existe.",
+      "bad_sold": "Informe quantos dias, de 1 a 10.",
+      "bad_month": "Confira os dados e tente de novo."
     }
   },
   "calendario": {
@@ -3901,7 +4139,8 @@
       "casamento": "Aniversário de casamento",
       "ferias": "Férias · {name}",
       "decimoPrimeira": "13º, 1ª parcela · {name}",
-      "decimoSegunda": "13º, 2ª parcela · {name}"
+      "decimoSegunda": "13º, 2ª parcela · {name}",
+      "decimoUnico": "13º salário · {name}"
     }
   },
   "emails": {

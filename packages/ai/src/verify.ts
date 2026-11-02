@@ -1,6 +1,7 @@
 // Verificação determinística da resposta (§0): todo valor em dinheiro, em reais, dólar ou euro, precisa
 // ter vindo de uma ferramenta ou da pergunta. A resposta sai em tempo real, então o que não confere não some: a tela
 // avisa para conferir. O verificador completo, que reprova antes de gravar, é o da rotina noturna.
+import { TICKER_IN_TEXT } from "@organizeup/domain";
 
 // Número em qualquer dos dois formatos: "1.234,56" em português e espanhol, "1,234.56" em inglês.
 const AMOUNT = String.raw`\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?`;
@@ -57,10 +58,10 @@ export function uncheckedAmounts(answer: string, known: number[]): number[] {
   return moneyValues(answer).filter((value) => !known.some((item) => closeTo(value, item)));
 }
 
-const TICKER = /\b[A-Z]{4}\d{1,2}\b/;
 // A resposta sai no idioma da pessoa: o aviso da CVM não pode depender de ela estar em português.
 const INVESTMENT_TALK =
   /\b(investimentos?|ações|fundos? imobiliários?|fiis?|renda fixa|tesouro|cdb|etfs?|carteira|proventos?|dividendos?|investments?|stocks?|shares|reits?|real estate funds?|fixed income|treasury|bonds?|portfolio|dividends?|inversi(?:ón|ones)|acciones|fondos? inmobiliarios?|renta fija|cartera)(?![\p{L}\p{N}])/iu;
 
 /** A resposta fala de investimento, com ou sem ferramenta: leva o aviso da CVM. */
-export const mentionsInvestment = (text: string) => TICKER.test(text) || INVESTMENT_TALK.test(text);
+export const mentionsInvestment = (text: string) =>
+  TICKER_IN_TEXT.test(text) || INVESTMENT_TALK.test(text);
