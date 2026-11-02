@@ -286,7 +286,7 @@
     "account": {
       "label": "Account the money comes from",
       "tradeLabel": "Money account",
-      "hint": "It becomes a transaction in the account and does not count as spending for the month.",
+      "hint": "It becomes a transaction in the account. It counts in the month's expenses as a contribution, apart from spending.",
       "none": "Don’t touch any account"
     },
     "add": {
@@ -1650,13 +1650,25 @@
       "planned": "Upcoming"
     },
     "stats": {
+      "title": "{month} summary",
+      "received": "Income",
+      "spent": "Expenses",
+      "result": "Result",
+      "receivedPlanned": "Planned income",
+      "spentPlanned": "Planned expenses",
+      "resultPlanned": "Planned result",
+      "resultHint": "Income minus expenses.",
+      "open": "Still open: {amount}",
+      "openPast": "Left open: {amount}",
+      "withPlanned": "With what's still open: {amount}",
       "balance": "Account balance",
+      "balanceEnd": "End-of-month balance",
+      "balanceProjected": "Projected balance",
+      "balanceEndHint": "On {date}.",
+      "balanceForecast": "End-of-month forecast: {amount}",
+      "balanceProjectedHint": "Today's balance plus everything planned through this month.",
       "balanceConverted": "Converted at the exchange rate of {date}.",
-      "balanceHint": "Opening balance plus what has already cleared.",
-      "forecast": "End-of-month forecast",
-      "forecastHint": "This month's money in minus money out.",
-      "received": "Money in",
-      "spent": "Money out"
+      "fxMissing": "No exchange rate for {currencies}: those accounts are left out of the total."
     },
     "suggestions": {
       "empty": "Nothing to review for now.",
@@ -1667,30 +1679,34 @@
     "reserve": {
       "define": "Set up your emergency fund",
       "progress": "{saved} of {target}",
-      "title": "Emergency fund"
+      "title": "Emergency fund",
+      "titleToday": "Emergency fund today"
     },
     "wealth": {
       "summary": "Own {owned} · owe {owed}",
-      "title": "Net worth"
+      "title": "Net worth",
+      "titleToday": "Net worth today"
     },
     "cashflow": {
-      "barLabel": "{month}: {received} in, {spent} out",
-      "description": "Last 6 months, only what has already happened.",
-      "emptyText": "Mark an income or expense as paid to see how the months evolve.",
-      "emptyTitle": "The chart appears with your first transaction",
-      "expenses": "Money out",
-      "income": "Money in",
-      "left": "Left over",
+      "barLabel": "{month}: income {received}, expenses {spent}. Open this month",
+      "description": "12 months through {month}. Tap a month to open it.",
+      "emptyText": "No transactions in these 12 months.",
+      "expenses": "Expenses",
+      "income": "Income",
+      "left": "Result",
       "month": "Month",
-      "tableCaption": "Money in and out over the last few months",
-      "title": "Money in and out"
+      "planned": "Planned",
+      "plannedExpense": "Planned expenses",
+      "plannedIncome": "Planned income",
+      "tableCaption": "Income and expenses over 12 months",
+      "title": "Trend"
     },
     "upcoming": {
-      "calendar": "View calendar",
+      "calendar": "See calendar",
       "description": "What's still open.",
-      "emptyText": "Upcoming bills and income show up here until they're confirmed.",
-      "emptyTitle": "Nothing open",
-      "title": "Coming up"
+      "descriptionToday": "From today on, whichever month is selected.",
+      "emptyText": "Nothing open. Planned bills and income show up here until confirmed.",
+      "title": "Upcoming"
     },
     "confirm": {
       "expense": "Pay",
@@ -1698,11 +1714,7 @@
       "income": "Receive"
     },
     "spending": {
-      "description": "{month} expenses, paid and upcoming.",
-      "emptyText": "Add your expenses to see which categories your money goes to.",
-      "emptyTitle": "No expenses this month",
       "other": "Other",
-      "title": "Where your money goes",
       "uncategorized": "Uncategorized"
     },
     "firstSteps": {
@@ -1720,6 +1732,110 @@
       "onboardingHint": "Retirement, trips and goals depend on it. It takes 3 minutes.",
       "recurring": "Add a fixed bill",
       "recurringHint": "Tick “Repeats every month” and it shows up on its own."
+    },
+    "picker": {
+      "label": "Dashboard month",
+      "month": "Month",
+      "year": "Year",
+      "previous": "Previous month",
+      "next": "Next month",
+      "today": "Today",
+      "forecast": "Forecast",
+      "sections": "Dashboard sections"
+    },
+    "notice": {
+      "emptyCurrent": "No activity in {month} yet.",
+      "seePrevious": "See {month}",
+      "emptyPast": "Nothing was recorded in {month}.",
+      "future": "We haven't reached {month} yet: everything here is a forecast.",
+      "futureEmpty": "We haven't reached {month} yet, and nothing is planned for it."
+    },
+    "notes": {
+      "savingsOut": "{amount} of expenses are investments and goals: money saved, not spent. Reports count it the same way.",
+      "savingsIn": "{amount} of income is withdrawals and goals: money that was already yours.",
+      "card": "{amount} in card statements due this month. A purchase becomes an expense when the statement is paid."
+    },
+    "categories": {
+      "title": "By category",
+      "description": "In {month}. Tap a row to see the transactions.",
+      "expenses": "Expenses",
+      "expensesPlanned": "Planned expenses",
+      "expensesHint": "Paid and planned, with the card split by purchase.",
+      "income": "Income",
+      "incomePlanned": "Planned income",
+      "incomeHint": "Received and planned.",
+      "emptyExpenses": "No expenses this month.",
+      "emptyIncome": "No income this month.",
+      "done": "Done",
+      "planned": "Planned",
+      "plannedPart": "{amount} planned",
+      "saving": "not spending"
+    },
+    "accounts": {
+      "title": "By account",
+      "description": "{month} activity and each one's balance.",
+      "income": "Income",
+      "expenses": "Expenses",
+      "incomePlanned": "Planned in",
+      "expensesPlanned": "Planned out",
+      "balanceNow": "Balance today",
+      "balanceEnd": "End balance",
+      "balanceProjected": "Projected balance",
+      "archived": "Archived",
+      "native": "In the account's currency: {amount}",
+      "cards": "Cards",
+      "statement": "This month's statement",
+      "ahead": "On later statements",
+      "status": {
+        "aberta": "Open",
+        "fechada": "Closed",
+        "atrasada": "Overdue",
+        "paga": "Paid"
+      },
+      "note": "A paid statement counts as an expense of the account that pays it: the card here is detail and isn't added again. Transfers between accounts are neither income nor expenses."
+    },
+    "investments": {
+      "title": "Investments",
+      "description": "Today's position and this month's activity.",
+      "descriptionPast": "No price history: the portfolio is today's, and the activity is from {month}.",
+      "open": "See portfolio",
+      "todayHeading": "Today",
+      "monthHeading": "In {month}",
+      "value": "Portfolio value",
+      "cost": "Amount invested",
+      "gain": "Gain",
+      "bought": "Contributions",
+      "sold": "Withdrawals",
+      "investedAtEnd": "Invested at month end",
+      "history": "From your transactions",
+      "futureNote": "Contributions show up here when they happen.",
+      "classes": "Split by class, today",
+      "estimated": "{count, plural, one {# asset with no price is valued at cost.} other {# assets with no price are valued at cost.}}",
+      "note": "A contribution moves money, it isn't spending. Nothing here is a recommendation.",
+      "invite": "Add what you already own to see your portfolio, gains and contributions here.",
+      "inviteAction": "Add investment"
+    },
+    "dividends": {
+      "title": "Dividends",
+      "description": "Net amounts. Not included in the month's income.",
+      "open": "See dividends",
+      "received": "Received in {month}",
+      "last12": "Last 12 months",
+      "last12Hint": "Through the selected month",
+      "announced": "Announced for this month",
+      "ahead": "Announced for later",
+      "upcoming": "Next announced payments",
+      "estimate": "Estimate from history for this month: {amount}. Not an announcement or a guarantee.",
+      "invite": "Record what you receive to follow it month by month.",
+      "inviteAction": "Add dividend"
+    },
+    "fresh": {
+      "title": "Your dashboard starts here",
+      "text": "Add your first transaction and the month gets income, expenses, categories and a chart.",
+      "action": "Add your first transaction",
+      "accounts": "Enter your balance to see how much you have today.",
+      "accountsAction": "See accounts",
+      "reserve": "How much to keep for emergencies."
     }
   },
   "settings": {
@@ -1955,7 +2071,9 @@
       "settled": "Paid and received",
       "open": "Open",
       "category": "Category",
-      "allCategories": "All"
+      "allCategories": "All",
+      "account": "Account",
+      "allAccounts": "All"
     },
     "table": {
       "caption": "Transactions for the month",
@@ -2034,6 +2152,10 @@
       "text": "Nothing was confirmed. This account is in {currency, select, USD {US dollars} EUR {euros} other {reais}} and we don't have the exchange rate for {date} yet. Try again later.",
       "close": "Got it",
       "failed": "We couldn't confirm this right now. Try again."
+    },
+    "cardLines": {
+      "total": "{count, plural, one {# card purchase} other {# card purchases}} in this category this month: {amount}. They're inside the statement, which shows up here as a single transaction.",
+      "open": "See cards"
     }
   },
   "contas": {

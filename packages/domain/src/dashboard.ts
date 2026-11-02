@@ -322,9 +322,7 @@ export function cardsInMonth(book: CardBookEntry[], month: YearMonth, today: str
         name: card.name,
         statement: toDbAmount(sumOf(statementLines.map((line) => line.amount))),
         status:
-          statementLines.length === 0
-            ? null
-            : statementStatus(month, card, today, paid.has(month)),
+          statementLines.length === 0 ? null : statementStatus(month, card, today, paid.has(month)),
         ahead: toDbAmount(sumOf(later.map((line) => line.amount))),
       },
     ];

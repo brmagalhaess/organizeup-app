@@ -13,7 +13,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { MonthEntry } from "@organizeup/domain";
+import { linesTotal, type MonthEntry, type StatementLine } from "@organizeup/domain";
 import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { useEntryDialog } from "@/components/shell/entry-context";
 import {
@@ -138,21 +138,28 @@ export function EntriesTable({
   entries,
   categories,
   accounts,
+  filters,
+  cardLines,
 }: {
   month: string;
   today: string;
   entries: MonthEntry[];
   categories: Named[];
   accounts: Named[];
+  /** Filtros que já vêm do endereço, como nos links do painel. */
+  filters: { kind: string; category: string; account: string };
+  /** Compras na fatura do mês: a lista mostra só a fatura, e a categoria delas fica aqui. */
+  cardLines: Array<Pick<StatementLine, "categoryId" | "amount">>;
 }) {
   const t = useTranslations("lancamentos");
   const locale = useLocale();
   const moneyText = useMoney();
   const { openNew, openEdit, writable } = useEntryDialog();
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState("");
+  const [kind, setKind] = useState(filters.kind);
   const [status, setStatus] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(filters.category);
+  const [account, setAccount] = useState(filters.account);
   const [removing, setRemoving] = useState<MonthEntry | null>(null);
   const [stopping, setStopping] = useState<MonthEntry | null>(null);
 
@@ -179,11 +186,17 @@ export function EntriesTable({
       (!kind || entry.kind === kind) &&
       (!status || entry.status === status) &&
       (!category || entry.categoryId === category) &&
+      (!account || entry.accountId === account) &&
       (!search || describe(entry).toLocaleLowerCase(locale).includes(search)),
   );
-  const usedCategories = categories.filter((c) => entries.some((e) => e.categoryId === c.id));
+  const usedCategories = categories.filter(
+    (c) =>
+      entries.some((e) => e.categoryId === c.id) || cardLines.some((l) => l.categoryId === c.id),
+  );
+  const usedAccounts = accounts.filter((a) => entries.some((e) => e.accountId === a.id));
+  const onCard = category ? cardLines.filter((line) => line.categoryId === category) : [];
 
-  if (entries.length === 0)
+  if (entries.length === 0 && cardLines.length === 0)
     return (
       <Card>
         <EmptyState
@@ -196,7 +209,7 @@ export function EntriesTable({
 
   return (
     <Card>
-      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-[minmax(0,1fr)_repeat(3,11rem)]">
+      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-[minmax(0,1fr)_repeat(4,10rem)]">
         <div className="col-span-2 xl:col-span-1">
           <Field label={t("filters.search")}>
             <Input
@@ -221,19 +234,41 @@ export function EntriesTable({
             <option value="previsto">{t("filters.open")}</option>
           </Select>
         </Field>
-        <div className="col-span-2 xl:col-span-1">
-          <Field label={t("filters.category")}>
-            <Select value={category} onChange={(event) => setCategory(event.target.value)}>
-              <option value="">{t("filters.allCategories")}</option>
-              {usedCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {system.name(c.name)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
+        <Field label={t("filters.category")}>
+          <Select value={category} onChange={(event) => setCategory(event.target.value)}>
+            <option value="">{t("filters.allCategories")}</option>
+            {usedCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {system.name(c.name)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t("filters.account")}>
+          <Select value={account} onChange={(event) => setAccount(event.target.value)}>
+            <option value="">{t("filters.allAccounts")}</option>
+            {usedAccounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {system.name(a.name)}
+              </option>
+            ))}
+          </Select>
+        </Field>
       </div>
+
+      {onCard.length > 0 ? (
+        <p className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-xl bg-brand-50 px-4 py-3 text-sm">
+          <span>
+            {t("cardLines.total", {
+              count: onCard.length,
+              amount: moneyText(linesTotal(onCard)),
+            })}
+          </span>
+          <Link href="/app/cartoes" className="font-medium underline underline-offset-2">
+            {t("cardLines.open")}
+          </Link>
+        </p>
+      ) : null}
 
       {visible.length === 0 ? (
         <EmptyState title={t("empty.noResultsTitle")} text={t("empty.noResultsText")} />

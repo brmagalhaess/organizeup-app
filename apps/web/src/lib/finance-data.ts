@@ -1,4 +1,5 @@
 import "server-only";
+import { savingsCategoryIds } from "@organizeup/agents";
 import {
   accountBalances,
   accounts,
@@ -10,11 +11,13 @@ import {
   categories,
   desc,
   eq,
+  firstMovementDate,
   gte,
   householdSettings,
   householdTimezone,
   incomeSources,
   lte,
+  or,
   people,
   sql,
   transactions,
@@ -22,19 +25,30 @@ import {
   type TenantContext,
 } from "@organizeup/db";
 import {
+  activityByAccount,
   addMonths,
   buildMonthEntries,
+  cardsInMonth,
+  DASHBOARD_SERIES_MONTHS,
+  expenseLines,
+  incomeLines,
+  isForeign,
   isYearMonth,
   money,
   monthBounds,
-  monthlySeries,
+  monthsBetween,
   pendingEntries,
+  plannedNetByAccount,
+  planPoint,
+  projectBalances,
   recentMonths,
-  spendingByCategory,
+  resolvePeriod,
+  savingsMoved,
   summarizeMonth,
   toDbAmount,
   todayIn,
   yearMonthOf,
+  type MonthEntry,
 } from "@organizeup/domain";
 import { loadCommitments } from "./commitments";
 import { onboardingStatus } from "./onboarding";
@@ -62,7 +76,11 @@ export async function loadMonth(ctx: TenantContext, requestedMonth?: string | nu
       .from(transactions)
       .where(and(gte(transactions.occurredOn, first), lte(transactions.occurredOn, last)));
 
-    const { scheduled } = await loadCommitments(tx, { from: month, to: month });
+    const { scheduled, cardLines } = await loadCommitments(tx, {
+      from: month,
+      to: month,
+      onlyWindow: true,
+    });
     const entries = buildMonthEntries(month, planRows, transactionRows, scheduled);
     return {
       month,
@@ -71,6 +89,8 @@ export async function loadMonth(ctx: TenantContext, requestedMonth?: string | nu
       categories: categoryRows,
       entries,
       summary: summarizeMonth(entries),
+      /** Compras na fatura do mês, para a tela abrir o cartão ao filtrar por categoria. */
+      cardLines: cardLines.filter((line) => line.statementMonth === month),
     };
   });
 }
@@ -120,9 +140,11 @@ export async function loadAccountBalances(ctx: TenantContext) {
   return withHousehold(ctx, (tx) => accountBalances(tx));
 }
 
-/** Dados do painel inicial. */
-export async function loadOverview(ctx: TenantContext) {
-  const { accounts: balances, fx } = await loadAccountBalances(ctx);
+/**
+ * Dados do painel para o mês pedido (docs/specs/painel.md). Lê só o período: os 12 meses até o escolhido e
+ * os meses em volta de hoje, de onde saem os próximos vencimentos e a projeção do saldo.
+ */
+export async function loadOverview(ctx: TenantContext, requestedMonth?: unknown) {
   return withHousehold(ctx, async (tx) => {
     const [settings] = await tx
       .select({
@@ -133,8 +155,12 @@ export async function loadOverview(ctx: TenantContext) {
       .from(householdSettings)
       .where(eq(householdSettings.householdId, ctx.householdId));
     const today = todayIn(settings?.timezone);
-    const month = yearMonthOf(today);
-    const months = recentMonths(month, 6);
+    const firstMovement = await firstMovementDate(tx);
+    const period = resolvePeriod(requestedMonth, today, firstMovement);
+    const { month, current, phase } = period;
+    const months = recentMonths(month, DASHBOARD_SERIES_MONTHS);
+    const nearFrom = addMonths(current, -1);
+    const nearTo = month > addMonths(current, 1) ? month : addMonths(current, 1);
 
     const categoryRows = await tx.select().from(categories);
     const planRows = await tx.select().from(cashflowPlans);
@@ -150,47 +176,105 @@ export async function loadOverview(ctx: TenantContext) {
       .select()
       .from(transactions)
       .where(
-        and(
-          gte(transactions.occurredOn, `${months[0]!}-01`),
-          lte(transactions.occurredOn, monthBounds(addMonths(month, 1)).last),
+        or(
+          and(
+            gte(transactions.occurredOn, `${months[0]!}-01`),
+            lte(transactions.occurredOn, monthBounds(month).last),
+          ),
+          and(
+            gte(transactions.occurredOn, `${nearFrom}-01`),
+            lte(transactions.occurredOn, monthBounds(nearTo).last),
+          ),
         ),
       );
 
-    const { scheduled, cardLines, cardCategoryId } = await loadCommitments(tx, {
-      from: addMonths(month, -1),
-      to: addMonths(month, 1),
+    const { scheduled, cardLines, cardCategoryId, book } = await loadCommitments(tx, {
+      from: months[0]! < nearFrom ? months[0]! : nearFrom,
+      to: nearTo,
+      onlyWindow: true,
     });
-    const inMonth = (ym: string) =>
-      buildMonthEntries(
-        ym,
-        planRows,
-        transactionRows.filter((t) => yearMonthOf(t.occurredOn) === ym),
-        scheduled,
-      );
-    const current = inMonth(month);
-    const previous = inMonth(addMonths(month, -1));
-    const next = inMonth(addMonths(month, 1));
+    const known = new Map<string, MonthEntry[]>();
+    const inMonth = (ym: string) => {
+      const entries =
+        known.get(ym) ??
+        buildMonthEntries(
+          ym,
+          planRows,
+          transactionRows.filter((t) => yearMonthOf(t.occurredOn) === ym),
+          scheduled,
+        );
+      known.set(ym, entries);
+      return entries;
+    };
+    const entries = inMonth(month);
+    const lines = cardLines.filter((line) => line.statementMonth === month);
 
+    // Saldo: o de hoje, igual ao da tela de Contas, e, em mês passado, o do último dia com a cotação dele.
+    const now = await accountBalances(tx);
+    const shown =
+      phase === "passado" ? await accountBalances(tx, { on: monthBounds(month).last }) : now;
+    const ahead = phase === "passado" ? 0 : monthsBetween(current, month) + 1;
+    const projection = projectBalances(
+      shown.accounts,
+      plannedNetByAccount(
+        Array.from({ length: ahead }, (_, index) =>
+          activityByAccount(inMonth(addMonths(current, index))),
+        ),
+      ),
+    );
+    const activity = activityByAccount(entries);
+    const idle = summarizeMonth([]);
+
+    const savings = await savingsCategoryIds(tx);
     const onboarding = await onboardingStatus(tx);
-    const active = balances.filter((b) => !b.archived);
+    const balances = now.accounts;
     return {
-      month,
+      period,
       today,
       place: settings?.city
         ? `${settings.city}${settings.state ? `/${settings.state}` : ""}`
         : null,
-      total: toDbAmount(active.reduce((acc, b) => acc.plus(b.balance), money(0))),
-      fx,
-      summary: summarizeMonth(current),
-      previousSummary: summarizeMonth(previous),
-      series: monthlySeries(months, planRows, transactionRows),
-      byCategory: spendingByCategory(
-        current,
-        cardLines.filter((line) => line.statementMonth === month),
-        cardCategoryId,
-      ),
+      /** Nada lançado, previsto nem cadastrado que mexa no mês: tela de boas-vindas. */
+      fresh: firstMovement === null && planRows.length === 0 && scheduled.length === 0,
+      balance: {
+        value:
+          phase === "futuro"
+            ? projection.total
+            : toDbAmount(
+                shown.accounts
+                  .filter((b) => !b.archived)
+                  .reduce((acc, b) => acc.plus(b.balance), money(0)),
+              ),
+        projected: projection.total,
+        asOf: monthBounds(month).last,
+        fx: shown.fx,
+      },
+      summary: summarizeMonth(entries),
+      previousSummary: summarizeMonth(inMonth(addMonths(month, -1))),
+      series: months.map((ym) => planPoint(ym, summarizeMonth(inMonth(ym)))),
+      expenses: expenseLines(entries, lines, cardCategoryId),
+      incomes: incomeLines(entries),
+      savings: savingsMoved(entries, savings),
+      savingsCategoryIds: savings,
+      accounts: projection.rows
+        .filter((account) => !account.archived || activity.has(account.id))
+        .map((account) => {
+          const { received, spent, plannedIncome, plannedExpense } =
+            activity.get(account.id) ?? idle;
+          const foreign = isForeign(account.currency, shown.main);
+          return { ...account, received, spent, plannedIncome, plannedExpense, foreign };
+        }),
+      cards: cardsInMonth(book, month, today),
       categoryNames: new Map(categoryRows.map((c) => [c.id, c.name])),
-      pending: pendingEntries([...previous, ...current, ...next], today, 6),
+      pending: pendingEntries(
+        [
+          ...inMonth(addMonths(current, -1)),
+          ...inMonth(current),
+          ...inMonth(addMonths(current, 1)),
+        ],
+        today,
+        4,
+      ),
       checklist: {
         onboarding: !onboarding.pending,
         income:
