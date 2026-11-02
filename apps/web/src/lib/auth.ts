@@ -227,7 +227,8 @@ function createAuth() {
     },
     emailVerification: {
       sendOnSignUp: true,
-      autoSignInAfterVerification: true,
+      // O link só confirma: quem tem o e-mail encaminhado não entra na conta sem a senha.
+      autoSignInAfterVerification: false,
       expiresIn: VERIFY_LINK_HOURS * 60 * 60,
       sendVerificationEmail: ({ user, token }, request) =>
         sendEmailInBackground(

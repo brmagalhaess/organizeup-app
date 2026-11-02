@@ -262,12 +262,12 @@ async function signIn(email: string) {
 }
 
 describe("volta do link", () => {
-  it("link do e-mail confirma e abre a sessão, sem nenhuma aberta", async () => {
+  it("link do e-mail confirma sem abrir sessão: quem tem o link não entra na conta", async () => {
     const account = await newAccount();
     const response = await openLink(linkIn((await captured(account.email))[0]));
     expect(response.status).toBe(302);
     expect(landing(response)).toBe("/confirmar-email?estado=confirmado");
-    expect(response.headers.getSetCookie().join()).toContain("session_token");
+    expect(response.headers.getSetCookie().join()).not.toContain("session_token");
     expect(await isVerified(account.id)).toBe(true);
   });
 

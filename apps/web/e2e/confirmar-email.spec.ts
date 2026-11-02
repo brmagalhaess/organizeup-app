@@ -162,7 +162,7 @@ for (const locale of LOCALES) {
     await page.getByRole("button", { name: texts.send }).scrollIntoViewIfNeeded();
     await shot(page, testInfo, `${locale.name}-5-configuracoes-pendente`);
 
-    // O e-mail vem no idioma da conta. Abrir sem sessão confirma e já entra.
+    // O e-mail vem no idioma da conta. Abrir sem sessão confirma, mas não entra na conta.
     const sent = (await confirmations(email)).at(-1);
     expect(sent?.subject).toBe(locale.subject);
     const link = linkIn(sent);
@@ -171,8 +171,9 @@ for (const locale of LOCALES) {
     await expect(visitor.page.getByRole("heading", { name: texts.confirmedTitle })).toBeVisible();
     await expectGoodPage(visitor.page);
     await shot(visitor.page, testInfo, `${locale.name}-6-confirmado`);
-    await visitor.page.getByRole("link", { name: texts.goToPanel }).click();
-    await expect(visitor.page).toHaveURL(/\/app/);
+    await expect(visitor.page.getByRole("link", { name: texts.goToPanel })).toBeHidden();
+    await visitor.page.goto("/app");
+    await expect(visitor.page).toHaveURL(/\/entrar/);
     await visitor.context.close();
 
     // Quem já confirmou nunca mais vê o aviso, com a mesma sessão de antes.
