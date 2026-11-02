@@ -25,7 +25,9 @@ Todo o resto funciona com o banco atrasado, e `atraso.integration.test.ts` prova
 ### Dado informado
 
 A intenção é da família. O agente nunca muda nem apaga, e o teste confere a linha igual antes e depois de rodar. Só o **aceite** grava
-`fulfilled_at` e `fulfilled_trip_id`, dentro de `applySuggestion`, no contexto de quem aceitou. Desfazer limpa. Sugestão pendente é dado
+`fulfilled_at` e `fulfilled_trip_id`, dentro de `applySuggestion`, no contexto de quem aceitou. Aceitar é da família: nenhuma tela oferece
+Desfazer para viagem, e ela remove a viagem pela tela de Viagens. `undoViagem` continua em `undoSuggestion` e só limpa a marca se ela ainda
+apontar para a viagem daquela sugestão: depois de Refazer e de outro aceite, a intenção é de outra viagem. Sugestão pendente é dado
 derivado: editar ou remover a intenção tira a pendente na mesma transação, porque aceitar uma sugestão feita com os dados antigos
 criaria a viagem errada.
 
@@ -61,12 +63,26 @@ crianças. A sugestão guarda `regionEstimate`, e a tela escreve a fonte no idio
 ela usa a mediana de `brasil`. Isso erra para mais em viagem de carro, porque leva passagem aérea, e a nota diz a região usada. Inventar
 um número seria pior (ADR-0014). Região sem nenhuma linha, nem a de reserva, fica com `sem_estimativa` e o cartão explica.
 
+### Mesmo lugar, duas portas
+
+O catálogo e a lista da família têm de ser um lugar só, ou "Destino que é intenção não vem pelo catálogo" e a recusa furam.
+
+- **Nome livre igual a um destino vira o destino.** `saveIntention` resolve com `normalizePlace`, sem contar acento, caixa, espaço nem
+  caractere invisível. Nome parecido não: "Lisboa e arredores" segue livre.
+- **Linha já gravada vale igual no plano.** Sem migração: `planTrips` lê o nome livre pela mesma comparação e usa custo, confiança e restrição
+  do catálogo. Duas linhas do mesmo lugar saem uma vez só, a outra fica com `sem_vaga`, e a decisão sobre uma vale para a outra.
+- **Sugestão genérica.** Criar ou editar a intenção tira a pendente do destino na mesma transação. Aceitar uma genérica que ainda estava
+  na tela marca a intenção como atendida e guarda o `intentionId` no `payload`. Sem isso, o agente sugeriria o mesmo lugar no dia seguinte.
+  A leitura usa `loadTripIntentions`: com o banco atrasado, a sugestão genérica é aceita como antes.
+- **A busca acha pelo país.** A coluna `country` é código ISO, e quem digita "Portugal" não acharia. `searchDestinations` usa
+  `Intl.DisplayNames` em português, inglês e espanhol, e não compara com o código: "es" traria Madri para quem procura Fortaleza.
+
 ### Recusa
 
 - **Chave própria:** `viagem:intencao:<id>:<ano>`. A chave genérica `viagem:<destino>:<ano>` carregaria a recusa antiga de um destino
   genérico para o desejo que a família escreveu depois.
 - **Vale até o fim do ano da viagem recusada,** não 30 dias, e não só aquele mês. Recusou março de 2027 em novembro de 2026: nada até 2028. Sem isso, a sugestão voltaria no dia seguinte para outro mês, ou para março de 2028. O texto de "Agora não" muda nesse caso, nas
-  duas telas. `desfeita` conta como recusa.
+  duas telas. Uma linha `desfeita` também contaria como recusa, mas hoje nenhuma tela desfaz viagem.
 - **Remover e cadastrar de novo** zera a recusa: é um gesto explícito da família.
 
 ### `trips_per_year = 0`

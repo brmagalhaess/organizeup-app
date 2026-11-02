@@ -14,12 +14,17 @@ só sugestão: nada entra no calendário sem aceitar.
 | Campo         | Obrigatório      | Regra                                                                                 |
 | ------------- | ---------------- | ------------------------------------------------------------------------------------- |
 | Destino       | sim              | Busca em `trip_destination_templates`, por nome ou país, sem diferenciar acento.      |
-| Nome livre    | fora do catálogo | 1 a 80 caracteres. É texto da família: dado, nunca instrução.                         |
+| Nome livre    | fora do catálogo | 1 a 80 caracteres. É texto da família: dado, nunca instrução. Igual a um destino, vira ele. |
 | Região        | com nome livre   | Uma das regiões de `DestinationRegion`.                                               |
 | Mês preferido | não              | Mês do ano, de janeiro a dezembro, sem ano.                                           |
 | Dias          | não              | 1 a 60. Vazio: vale a regra atual (os dias da família, ou o mínimo do destino, ou 5). |
 
-O mesmo destino, ou o mesmo nome livre, entra uma vez só por família. Quem tenta de novo lê que já está na lista.
+A tabela guarda o país em código ISO. A busca compara com o nome do país em português, inglês e espanhol, porque os nomes dos destinos
+não são traduzidos.
+
+Nome livre igual a um destino da tabela, sem contar acento, caixa e espaço, é gravado como esse destino, e aí a região não é necessária.
+
+O mesmo destino, ou o mesmo nome livre, entra uma vez só por família, na mesma comparação. Quem tenta de novo lê que já está na lista.
 
 ## Situação de cada intenção
 
@@ -29,7 +34,7 @@ Só uma aparece por vez, nesta ordem. A linha da intenção sempre mostra destin
 | -------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Atendida       | Aceitou a sugestão (`fulfilled_at`)                         | Selo "Atendida" e a viagem criada. Ainda dá para refazer ou remover.                    |
 | Sugerida       | Há sugestão pendente dela                                   | Mês sugerido. A decisão fica no cartão de sugestão logo abaixo.                         |
-| Recusada       | Recusou ou desfez a sugestão de um ano                      | Até quando o assistente deixa de sugerir.                                               |
+| Recusada       | Recusou a sugestão de um ano                                | Até quando o assistente deixa de sugerir.                                               |
 | Aguardando     | Nova, editada, ou a rodada não olhou                        | O assistente olha na próxima madrugada.                                                 |
 | Não cabe       | Custo acima da parte de uma viagem no orçamento             | Custo, quanto guardar a mais por mês e, se houver, o primeiro mês em que o valor fecha. |
 | Crianças       | Destino do catálogo não indicado para crianças              | Por que não sugere.                                                                     |
@@ -66,8 +71,11 @@ mensal, mínimo de 4 meses, máximo de 36, boa época, meses ocupados, casamento
   região. A região `brasil_perto` ainda não tem linha na tabela: usa a mediana de `brasil`, e a nota diz a região usada.
 - **Não cabe** é o critério do catálogo: custo maior que a parte de uma viagem no orçamento de um ano.
 - **Recusar** não apaga a intenção e vale até o fim do ano da viagem recusada: recusou março de 2027, não volta nem para outro mês,
-  nem em 2028, enquanto 2027 não acabar. O destino recusado também não vem pelo catálogo. Desfazer um aceite conta como recusa.
-- **Aceitar** cria a viagem e marca a intenção como atendida. Refazer tira a marca, a viagem criada continua, e a intenção volta à fila.
+  nem em 2028, enquanto 2027 não acabar. O destino recusado também não vem pelo catálogo.
+- **Aceitar** cria a viagem e marca a intenção como atendida. Aceitar é da família: não há botão de desfazer. Para voltar atrás, ela
+  remove a viagem na tela de Viagens. Refazer tira a marca, a viagem criada continua, e a intenção volta à fila.
+- **Sugestão genérica do mesmo destino.** Criar a intenção tira a pendente. Se a família aceitar uma que ainda estava na tela, a intenção
+  fica atendida.
 - **`trips_per_year = 0` com intenção aberta:** o agente trata como uma vaga só para intenção, sem catálogo, e cria no máximo uma
   sugestão por ano civil, contando as já decididas. Assim a intenção não fica ignorada, e quem disse zero não recebe catálogo.
 - **Família fora do real:** o agente segue sem sugerir.

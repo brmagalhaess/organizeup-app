@@ -25,7 +25,7 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import { transactions } from "@organizeup/db";
-import { daysInMonth } from "@organizeup/domain";
+import { daysInMonth, normalizePlace } from "@organizeup/domain";
 import {
   DEDUPE,
   INTENTION_DEDUPE_PREFIX,
@@ -34,6 +34,7 @@ import {
   type StockEventChange,
   type SuggestionPayload,
 } from "./suggestions";
+import { loadTripIntentions } from "./run-viagens";
 import { INVESTIMENTOS_AGENT, messageColumns, recordAudit } from "./shared";
 import { proventoExcluidoText } from "./texts";
 import { createTrip } from "./trips";
@@ -597,6 +598,22 @@ async function undoAporteInvestimento(
 
 // ---------- viagem ----------
 
+/**
+ * A intenção que este aceite atende. Sugestão genérica aceita depois de a família cadastrar o mesmo destino
+ * também conta: senão a intenção seguiria aberta, e o agente sugeriria o lugar de novo.
+ */
+async function intentionOf(tx: TenantTx, payload: SuggestionPayload["viagem"]) {
+  if (payload.intentionId) return payload.intentionId;
+  const place = normalizePlace(payload.name);
+  const rows = await loadTripIntentions(tx);
+  return rows.find(
+    (row) =>
+      row.fulfilledAt === null &&
+      (row.destinationId === payload.destinationId ||
+        (row.customName !== null && normalizePlace(row.customName) === place)),
+  )?.id;
+}
+
 async function applyViagem(
   tx: TenantTx,
   ctx: TenantContext,
@@ -617,17 +634,23 @@ async function applyViagem(
         perPerson: false,
       })),
     });
-    if (payload.intentionId) {
+    const intentionId = await intentionOf(tx, payload);
+    if (intentionId) {
       // Aceitar é da família: a intenção só muda aqui (regra 7).
       await tx
         .update(tripIntentions)
         .set({ fulfilledAt: new Date(), fulfilledTripId: created.tripId })
-        .where(eq(tripIntentions.id, payload.intentionId));
-      await recordAudit(tx, ctx, "update", "trip_intentions", payload.intentionId);
+        .where(eq(tripIntentions.id, intentionId));
+      await recordAudit(tx, ctx, "update", "trip_intentions", intentionId);
     }
     return {
       ...reply("tripCreated", { name: payload.name }),
-      payload: { ...payload, tripId: created.tripId, eventId: created.eventId },
+      payload: {
+        ...payload,
+        ...(intentionId ? { intentionId } : {}),
+        tripId: created.tripId,
+        eventId: created.eventId,
+      },
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
@@ -645,11 +668,20 @@ async function undoViagem(
 ): Promise<Said | Refused> {
   if (!payload.tripId) return refused("notAssistantTrip");
   if (payload.intentionId) {
-    await tx
+    // Só o aceite que esta sugestão fez: depois de Refazer, a intenção pode apontar para outra viagem.
+    const cleared = await tx
       .update(tripIntentions)
       .set({ fulfilledAt: null, fulfilledTripId: null })
-      .where(eq(tripIntentions.id, payload.intentionId));
-    await recordAudit(tx, ctx, "update", "trip_intentions", payload.intentionId);
+      .where(
+        and(
+          eq(tripIntentions.id, payload.intentionId),
+          eq(tripIntentions.fulfilledTripId, payload.tripId),
+        ),
+      )
+      .returning({ id: tripIntentions.id });
+    if (cleared.length > 0) {
+      await recordAudit(tx, ctx, "update", "trip_intentions", payload.intentionId);
+    }
   }
   const [removed] = await tx
     .delete(trips)

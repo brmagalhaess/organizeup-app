@@ -257,6 +257,48 @@ describe("web nova em banco na 0035", () => {
     });
   });
 
+  it("aceitar uma sugestão genérica de viagem funciona sem a tabela de intenções", async () => {
+    const [created] = await db.withHousehold(ctx, async (tx) => {
+      const [titular] = await tx
+        .insert(db.people)
+        .values({ householdId: family, name: "Titular", relation: "titular", userId: person })
+        .returning({ id: db.people.id });
+      return tx
+        .insert(db.householdSuggestions)
+        .values({
+          householdId: family,
+          agent: "viagens",
+          kind: "viagem",
+          title: "Viagem",
+          body: "Sugestão",
+          dedupeKey: "viagem:lisboa:2027",
+          payload: {
+            destinationId: "lisboa",
+            name: "Lisboa",
+            month: "2027-05",
+            days: 5,
+            personIds: [titular!.id],
+            estimated: {
+              passagem: "1000.00",
+              hospedagem: "1000.00",
+              alimentacao: "500.00",
+              transporte: "100.00",
+            },
+            total: "2600.00",
+            monthlyToSave: "400.00",
+            fits: true,
+            confidence: "media",
+            source: "tabela",
+          },
+        })
+        .returning({ id: db.householdSuggestions.id });
+    });
+    const applied = await db.withHousehold(ctx, (tx) =>
+      agents.applySuggestion(tx, ctx, created!.id),
+    );
+    expect(applied).toMatchObject({ ok: true, code: "tripCreated" });
+  });
+
   it("conversar com o assistente funciona, sem contar mensagem", async () => {
     process.env.ANTHROPIC_API_KEY = "chave-de-teste";
     await ai.activateAssistant(ctx, {

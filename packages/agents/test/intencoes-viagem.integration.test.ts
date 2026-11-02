@@ -253,6 +253,33 @@ describe("intenção do catálogo", () => {
     expect(refused.get(row.id)).toBe(year);
   });
 
+  it("desfazer um aceite velho não mexe no aceite mais novo da mesma intenção", async () => {
+    const row = await addIntention({ destinationId: "lisboa" });
+    await run();
+    const [first] = await pendingOf(inA);
+    const ctx = await ownerCtx();
+    await db.withHousehold(ctx, (tx) => agents.applySuggestion(tx, ctx, first!.id));
+    // Refazer, como a tela, e aceitar de novo no ano seguinte.
+    await inA((tx) =>
+      tx
+        .update(tripIntentions)
+        .set({ fulfilledAt: null, fulfilledTripId: null, updatedAt: new Date() })
+        .where(eq(tripIntentions.id, row.id)),
+    );
+    await run();
+    const second = (await pendingOf(inA)).find((item) => payloadOf(item).intentionId === row.id);
+    expect(second).toBeDefined();
+    await db.withHousehold(ctx, (tx) => agents.applySuggestion(tx, ctx, second!.id));
+    const [before] = await inA((tx) => tx.select().from(tripIntentions));
+
+    const undone = await db.withHousehold(ctx, (tx) => agents.undoSuggestion(tx, ctx, first!.id));
+    expect(undone.ok).toBe(true);
+    const [after] = await inA((tx) => tx.select().from(tripIntentions));
+    expect(after!.fulfilledTripId).toBe(before!.fulfilledTripId);
+    expect(after!.fulfilledAt).toEqual(before!.fulfilledAt);
+    expect(await inA((tx) => tx.select().from(trips))).toHaveLength(1);
+  });
+
   it("recusar não apaga a intenção e não repete a sugestão naquele ano", async () => {
     const row = await addIntention({ destinationId: "lisboa" });
     await run();
@@ -285,6 +312,87 @@ describe("intenção do catálogo", () => {
     await run();
     const later = await pendingOf(inA);
     expect(later.map((item) => payloadOf(item).intentionId)).not.toContain(row.id);
+  });
+});
+
+describe("sugestão genérica do mesmo destino", () => {
+  const acceptGeneric = async (values: (generic: { destinationId: string; name: string }) => {
+    destinationId?: string;
+    customName?: string;
+    customRegion?: "europa" | "asia_oceania" | "america_norte" | "america_sul" | "brasil";
+  }) => {
+    await run();
+    const [generic] = await pendingOf(inA);
+    const payload = payloadOf(generic!);
+    expect(payload.intentionId).toBeUndefined();
+    const row = await addIntention(values(payload));
+    const ctx = await ownerCtx();
+    const applied = await db.withHousehold(ctx, (tx) =>
+      agents.applySuggestion(tx, ctx, generic!.id),
+    );
+    expect(applied.ok).toBe(true);
+    return { row, generic: generic!, ctx };
+  };
+
+  it("aceitar a genérica marca a intenção como atendida e não sugere de novo", async () => {
+    const { row } = await acceptGeneric(({ destinationId }) => ({ destinationId }));
+    const [trip] = await inA((tx) => tx.select().from(trips));
+    const [done] = await inA((tx) => tx.select().from(tripIntentions));
+    expect(done!.fulfilledTripId).toBe(trip!.id);
+    expect(done!.fulfilledAt).not.toBeNull();
+
+    await run();
+    const next = await pendingOf(inA);
+    expect(next.map((item) => payloadOf(item).intentionId)).not.toContain(row.id);
+    expect(next.map((item) => payloadOf(item).destinationId)).not.toContain(trip!.destination);
+  });
+
+  it("vale também para nome livre já gravado igual ao do catálogo", async () => {
+    await acceptGeneric(({ name }) => ({
+      customName: ` ${name.toUpperCase()} `,
+      customRegion: "europa",
+    }));
+    const [done] = await inA((tx) => tx.select().from(tripIntentions));
+    expect(done!.fulfilledAt).not.toBeNull();
+  });
+
+  it("desfazer tira a marca da intenção que a genérica atendeu", async () => {
+    const { generic, ctx } = await acceptGeneric(({ destinationId }) => ({ destinationId }));
+    const undone = await db.withHousehold(ctx, (tx) =>
+      agents.undoSuggestion(tx, ctx, generic.id),
+    );
+    expect(undone.ok).toBe(true);
+    const [open] = await inA((tx) => tx.select().from(tripIntentions));
+    expect(open!.fulfilledAt).toBeNull();
+    expect(open!.fulfilledTripId).toBeNull();
+  });
+
+  it("intenção de outro lugar fica como está", async () => {
+    await run();
+    const [generic] = await pendingOf(inA);
+    const other = payloadOf(generic!).destinationId === "roma" ? "lisboa" : "roma";
+    const row = await addIntention({ destinationId: other });
+    const ctx = await ownerCtx();
+    await db.withHousehold(ctx, (tx) => agents.applySuggestion(tx, ctx, generic!.id));
+    const [same] = await inA((tx) => tx.select().from(tripIntentions));
+    expect(same).toEqual(row);
+  });
+
+  it("nome livre gravado igual ao catálogo não traz o destino duas vezes, nem depois da recusa", async () => {
+    await run();
+    const [generic] = await pendingOf(inA);
+    const { destinationId, name } = payloadOf(generic!);
+    await inA((tx) => tx.delete(householdSuggestions));
+    await addIntention({ customName: name, customRegion: "europa" });
+    await run();
+    const [first] = await pendingOf(inA);
+    expect(payloadOf(first!)).toMatchObject({ destinationId, name });
+    expect(payloadOf(first!).intentionId).toBeDefined();
+    const ctx = await ownerCtx();
+    await db.withHousehold(ctx, (tx) => agents.dismissSuggestion(tx, ctx, first!.id));
+    await run();
+    const next = await pendingOf(inA);
+    expect(next.map((item) => payloadOf(item).destinationId)).not.toContain(destinationId);
   });
 });
 
