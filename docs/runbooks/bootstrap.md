@@ -36,6 +36,12 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      `OrganizeUp <notificacoes@organizeup.com.br>`, remetente já verificado na Brevo).
      `ADMIN_EMAILS` **não** vai para produção: só desenvolvimento e e2e, porque um e-mail sem conta pode
      ser tomado por quem se cadastrar com ele (ADR-0016).
+     `DOCUMENT_ENCRYPTION_KEY` (só no `ou3-web`, nunca no `ou3-worker` nem com `NEXT_PUBLIC`: 32 bytes em base64,
+     gerados com `openssl rand -base64 32`; cifra CPF, CNPJ e razão social e calcula o hash de duplicidade). Cole
+     antes do deploy da versão que pede documento: sem ela, quem mora no Brasil não consegue se cadastrar, nada
+     fica em texto puro, e `/admin` e `/admin/sistema` avisam (ADR-0022). Guarde uma cópia fora do Dokploy e fora
+     das cópias de segurança do banco: perder a chave perde os documentos, e trocá-la exige recifrar todas as
+     linhas, porque o hash de duplicidade também depende dela.
      `ANTHROPIC_API_KEY` (chave da API da Anthropic, no `ou3-web` e no `ou3-worker`, nunca com `NEXT_PUBLIC`; vazia, o assistente
      aparece como indisponível e o resto segue igual), `ANTHROPIC_WORKSPACE_ID` (`wrkspc_...`, obrigatório quando a
      chave não pertence a um workspace; o botão **Testar a IA** em `/admin/sistema` avisa), `AI_MONTHLY_BUDGET_USD` (opcional; padrão 50, teto do
