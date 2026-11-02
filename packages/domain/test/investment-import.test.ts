@@ -1,4 +1,4 @@
-// Importar a carteira (ADR-0022). Todo dado aqui é inventado: não há arquivo real no repositório, e o
+// Importar a carteira (ADR-0024). Todo dado aqui é inventado: não há arquivo real no repositório, e o
 // layout segue as fontes citadas em `b3-spreadsheet.ts` e `brokerage-note.ts`.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";

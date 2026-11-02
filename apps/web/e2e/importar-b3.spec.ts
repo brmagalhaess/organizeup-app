@@ -1,4 +1,4 @@
-// Importar a carteira (ADR-0022) com arquivos fictícios: prévia, idempotência, nota com taxas, erros claros,
+// Importar a carteira (ADR-0024) com arquivos fictícios: prévia, idempotência, nota com taxas, erros claros,
 // em computador e 375 px, em português e inglês. Fixe E2E_SHOTS numa pasta para guardar as capturas.
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
