@@ -48,6 +48,9 @@ agente (`categorias`, `categorias_ia`, `investimentos`, `dividas`, `aposentadori
 worker grava ao terminar cada agente; rodar de novo no mesmo dia substitui as contagens e soma 1 em `runs`. Só
 números, nunca uma família. Nas dicas, repetir no dia sem atender nenhuma família mantém a rodada da madrugada.
 
+A linha `viagens_intencoes` não é um agente: é a contagem das intenções de viagem (ADR-0026). `households` são as famílias com
+intenção cadastrada, e `suggestions`, as intenções que viraram sugestão na rodada. Nunca o nome de um destino.
+
 | Campo         | Significado                                                        |
 | ------------- | ------------------------------------------------------------------ |
 | `day`         | Dia da execução (`YYYY-MM-DD`, fuso America/Sao_Paulo)             |
