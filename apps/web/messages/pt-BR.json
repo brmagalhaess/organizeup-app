@@ -287,7 +287,7 @@
     "account": {
       "label": "Conta de onde sai o dinheiro",
       "tradeLabel": "Conta do dinheiro",
-      "hint": "Vira um lançamento na conta, sem contar como gasto do mês.",
+      "hint": "Vira um lançamento na conta e entra nas despesas do mês como aporte. O painel mostra isso à parte do consumo.",
       "none": "Não mexer em nenhuma conta"
     },
     "add": {
@@ -1794,13 +1794,25 @@
       "planned": "Previsto"
     },
     "stats": {
+      "title": "Resumo de {month}",
+      "received": "Receitas",
+      "spent": "Despesas",
+      "result": "Resultado",
+      "receivedPlanned": "Receitas previstas",
+      "spentPlanned": "Despesas previstas",
+      "resultPlanned": "Resultado previsto",
+      "resultHint": "Receitas menos despesas.",
+      "open": "Em aberto: {amount}",
+      "openPast": "Ficou em aberto: {amount}",
+      "withPlanned": "Com o que está em aberto: {amount}",
       "balance": "Saldo nas contas",
+      "balanceEnd": "Saldo no fim do mês",
+      "balanceProjected": "Saldo previsto",
+      "balanceEndHint": "Em {date}.",
+      "balanceForecast": "Previsão para o fim do mês: {amount}",
+      "balanceProjectedHint": "Saldo de hoje mais tudo o que está previsto até este mês.",
       "balanceConverted": "Convertido pela cotação de {date}.",
-      "balanceHint": "Saldo inicial mais o que já foi realizado.",
-      "forecast": "Previsão para o fim do mês",
-      "forecastHint": "Resultado de entradas e saídas do mês.",
-      "received": "Entrou",
-      "spent": "Saiu"
+      "fxMissing": "Sem cotação de {currencies}: essas contas ficam fora da soma."
     },
     "suggestions": {
       "empty": "Nada para revisar por enquanto.",
@@ -1811,29 +1823,33 @@
     "reserve": {
       "define": "Defina sua reserva",
       "progress": "{saved} de {target}",
-      "title": "Reserva de emergência"
+      "title": "Reserva de emergência",
+      "titleToday": "Reserva de emergência hoje"
     },
     "wealth": {
       "summary": "Tem {owned} · deve {owed}",
-      "title": "Patrimônio líquido"
+      "title": "Patrimônio líquido",
+      "titleToday": "Patrimônio líquido hoje"
     },
     "cashflow": {
-      "barLabel": "{month}: entrou {received}, saiu {spent}",
-      "description": "Últimos 6 meses, só o que já aconteceu.",
-      "emptyText": "Marque uma receita ou despesa como paga para ver a evolução dos meses.",
-      "emptyTitle": "O gráfico aparece com o primeiro lançamento",
-      "expenses": "Saídas",
-      "income": "Entradas",
-      "left": "Sobrou",
+      "barLabel": "{month}: receitas {received}, despesas {spent}. Abrir este mês",
+      "description": "12 meses até {month}. Toque em um mês para abrir.",
+      "emptyText": "Nenhum lançamento nestes 12 meses.",
+      "expenses": "Despesas",
+      "income": "Receitas",
+      "left": "Resultado",
       "month": "Mês",
-      "tableCaption": "Entradas e saídas dos últimos meses",
-      "title": "Entradas e saídas"
+      "planned": "Previsto",
+      "plannedExpense": "Despesas previstas",
+      "plannedIncome": "Receitas previstas",
+      "tableCaption": "Receitas e despesas de 12 meses",
+      "title": "Evolução"
     },
     "upcoming": {
       "calendar": "Ver calendário",
       "description": "O que ainda está em aberto.",
-      "emptyText": "Contas e receitas previstas aparecem aqui até serem confirmadas.",
-      "emptyTitle": "Nada em aberto",
+      "descriptionToday": "A partir de hoje, seja qual for o mês escolhido.",
+      "emptyText": "Nada em aberto. Contas e receitas previstas aparecem aqui até serem confirmadas.",
       "title": "Próximos vencimentos"
     },
     "confirm": {
@@ -1842,11 +1858,7 @@
       "income": "Receber"
     },
     "spending": {
-      "description": "Despesas de {month}, pagas e previstas.",
-      "emptyText": "Lance suas despesas para ver em que categorias o dinheiro está indo.",
-      "emptyTitle": "Nenhuma despesa neste mês",
       "other": "Outras",
-      "title": "Para onde vai o dinheiro",
       "uncategorized": "Sem categoria"
     },
     "firstSteps": {
@@ -1864,6 +1876,110 @@
       "onboardingHint": "Aposentadoria, viagens e metas dependem disso. Leva 3 minutos.",
       "recurring": "Cadastre uma conta fixa",
       "recurringHint": "Marque “Repete todo mês” e ela aparece sozinha."
+    },
+    "picker": {
+      "label": "Mês do painel",
+      "month": "Mês",
+      "year": "Ano",
+      "previous": "Mês anterior",
+      "next": "Próximo mês",
+      "today": "Hoje",
+      "forecast": "Previsto",
+      "sections": "Seções do painel"
+    },
+    "notice": {
+      "emptyCurrent": "Ainda não há movimento em {month}.",
+      "seePrevious": "Ver {month}",
+      "emptyPast": "Nada foi lançado em {month}.",
+      "future": "Ainda não chegamos a {month}: tudo aqui é previsão.",
+      "futureEmpty": "Ainda não chegamos a {month}, e nada está previsto para ele."
+    },
+    "notes": {
+      "savingsOut": "{amount} das despesas são aportes e metas: dinheiro guardado, não consumo. Os relatórios contam do mesmo jeito.",
+      "savingsIn": "{amount} das receitas são resgates e metas: dinheiro que já era seu.",
+      "card": "{amount} em faturas de cartão com vencimento neste mês. Compra vira despesa quando a fatura é paga."
+    },
+    "categories": {
+      "title": "Por categoria",
+      "description": "Em {month}. Toque em uma linha para ver os lançamentos.",
+      "expenses": "Despesas",
+      "expensesPlanned": "Despesas previstas",
+      "expensesHint": "Pagas e previstas, com o cartão aberto por compra.",
+      "income": "Receitas",
+      "incomePlanned": "Receitas previstas",
+      "incomeHint": "Recebidas e previstas.",
+      "emptyExpenses": "Nenhuma despesa neste mês.",
+      "emptyIncome": "Nenhuma receita neste mês.",
+      "done": "Feito",
+      "planned": "Previsto",
+      "plannedPart": "{amount} previsto",
+      "saving": "não é consumo"
+    },
+    "accounts": {
+      "title": "Por conta",
+      "description": "Movimento de {month} e saldo de cada uma.",
+      "income": "Receitas",
+      "expenses": "Despesas",
+      "incomePlanned": "Previsto entrar",
+      "expensesPlanned": "Previsto sair",
+      "balanceNow": "Saldo hoje",
+      "balanceEnd": "Saldo final",
+      "balanceProjected": "Saldo previsto",
+      "archived": "Arquivada",
+      "native": "Na moeda da conta: {amount}",
+      "cards": "Cartões",
+      "statement": "Fatura do mês",
+      "ahead": "Nas próximas faturas",
+      "status": {
+        "aberta": "Aberta",
+        "fechada": "Fechada",
+        "atrasada": "Atrasada",
+        "paga": "Paga"
+      },
+      "note": "A fatura paga entra nas despesas da conta que paga: o cartão aqui é detalhe e não soma de novo. Transferência entre contas não conta como receita nem despesa."
+    },
+    "investments": {
+      "title": "Investimentos",
+      "description": "Posição de hoje e movimento do mês.",
+      "descriptionPast": "Sem histórico de preços: a carteira é a de hoje, e o movimento é de {month}.",
+      "open": "Ver carteira",
+      "todayHeading": "Hoje",
+      "monthHeading": "Em {month}",
+      "value": "Valor da carteira",
+      "cost": "Valor aplicado",
+      "gain": "Ganho",
+      "bought": "Aportes",
+      "sold": "Resgates",
+      "investedAtEnd": "Aplicado no fim do mês",
+      "history": "Histórico das operações",
+      "futureNote": "Aportes aparecem aqui quando acontecerem.",
+      "classes": "Divisão por classe, hoje",
+      "estimated": "{count, plural, one {# ativo sem preço vale o custo.} other {# ativos sem preço valem o custo.}}",
+      "note": "Aporte é movimentação, não consumo. Nada aqui é recomendação.",
+      "invite": "Cadastre o que você já tem para ver carteira, ganho e aportes aqui.",
+      "inviteAction": "Cadastrar investimento"
+    },
+    "dividends": {
+      "title": "Proventos",
+      "description": "Valores líquidos. Não entram nas receitas do mês.",
+      "open": "Ver proventos",
+      "received": "Recebidos em {month}",
+      "last12": "Últimos 12 meses",
+      "last12Hint": "Até o mês escolhido",
+      "announced": "Anunciados para este mês",
+      "ahead": "Anunciados para depois",
+      "upcoming": "Próximos pagamentos anunciados",
+      "estimate": "Estimativa pelo histórico para este mês: {amount}. Não é anúncio nem garantia.",
+      "invite": "Lance o que recebeu para acompanhar mês a mês.",
+      "inviteAction": "Lançar provento"
+    },
+    "fresh": {
+      "title": "Seu painel começa aqui",
+      "text": "Faça o primeiro lançamento e o mês ganha receitas, despesas, categorias e gráfico.",
+      "action": "Fazer o primeiro lançamento",
+      "accounts": "Informe o saldo para ver quanto você tem hoje.",
+      "accountsAction": "Ver contas",
+      "reserve": "Quanto guardar para imprevistos."
     }
   },
   "settings": {
@@ -2099,7 +2215,9 @@
       "settled": "Pagos e recebidos",
       "open": "Em aberto",
       "category": "Categoria",
-      "allCategories": "Todas"
+      "allCategories": "Todas",
+      "account": "Conta",
+      "allAccounts": "Todas"
     },
     "table": {
       "caption": "Lançamentos do mês",
@@ -2178,6 +2296,10 @@
       "text": "Nada foi confirmado. Esta conta é em {currency, select, USD {dólar} EUR {euro} other {real}} e ainda não temos a cotação de {date}. Tente de novo mais tarde.",
       "close": "Entendi",
       "failed": "Não foi possível confirmar agora. Tente de novo."
+    },
+    "cardLines": {
+      "total": "{count, plural, one {# compra no cartão} other {# compras no cartão}} nesta categoria, neste mês: {amount}. Elas estão dentro da fatura, que aparece aqui como um lançamento só.",
+      "open": "Ver cartões"
     }
   },
   "contas": {

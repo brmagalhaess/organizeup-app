@@ -20,11 +20,20 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function EntriesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { ctx } = await requireTenant();
-  const { m } = await searchParams;
-  const data = await loadMonth(ctx, m);
+  const query = await searchParams;
+  const text = (value: string | string[] | undefined) => (typeof value === "string" ? value : "");
+  const data = await loadMonth(ctx, text(query.m));
+  // O painel abre esta tela já filtrada; o filtro continua sendo só da tela.
+  const known = (id: string, list: Array<{ id: string }>) =>
+    list.some((row) => row.id === id) ? id : "";
+  const filters = {
+    kind: ["receita", "despesa"].includes(text(query.tipo)) ? text(query.tipo) : "",
+    category: known(text(query.categoria), data.categories),
+    account: known(text(query.conta), data.accounts),
+  };
   const [t, moneyText, locale] = await Promise.all([
     getTranslations("lancamentos"),
     getMoney(),
@@ -76,6 +85,9 @@ export default async function EntriesPage({
         />
       </dl>
       <EntriesTable
+        key={`${data.month}:${filters.kind}:${filters.category}:${filters.account}`}
+        filters={filters}
+        cardLines={data.cardLines}
         month={data.month}
         today={data.today}
         entries={data.entries}

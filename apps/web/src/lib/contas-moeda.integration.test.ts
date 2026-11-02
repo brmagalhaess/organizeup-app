@@ -315,10 +315,10 @@ describe("saldo e totais", () => {
   it("o total em reais usa a cotação de hoje, não a do lançamento", async () => {
     await save({ date: "2026-10-28" });
     expect((await newest("Hotel")).amount).toBe("534.20");
-    const { total, fx: note } = await loadOverview(ctx);
+    const { balance } = await loadOverview(ctx);
     // 1000 em real + 100 dólares a 5,4212 + zero em euro.
-    expect(total).toBe("1542.12");
-    expect(note).toEqual({ date: "2026-10-30", missing: [] });
+    expect(balance.value).toBe("1542.12");
+    expect(balance.fx).toEqual({ date: "2026-10-30", missing: [] });
   });
 
   it("patrimônio e reserva somam em reais", async () => {
