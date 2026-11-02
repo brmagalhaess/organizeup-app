@@ -30,8 +30,10 @@ export interface AllocationInput {
   retirementRequired: string | null;
   /** Quanto as viagens já confirmadas pedem por mês; é descontado uma vez, aqui. */
   confirmedTripsMonthly: string;
-  /** O que a família já investe por mês (`investingHabit`). Dinheiro que já saiu não é dividido de novo. */
+  /** O que a família já investe por mês (`savingHabit`). Dinheiro que já saiu não é dividido de novo. */
   alreadyInvesting?: string;
+  /** O que a família já paga por mês em parcelas de meta (`savingHabit`). */
+  alreadySavingForGoals?: string;
   /** Meses de histórico, só para o texto da nota. */
   surplusMonths?: number;
   /** Moeda principal da família, para as notas. Sem ela, real. */
@@ -45,13 +47,22 @@ export interface Allocation {
   retirement: string;
   /** Parte de `retirement` que a família já faz. O que sobra acima disso é o pedido novo. */
   alreadyInvesting: string;
+  /** Total por mês para metas, já contando `alreadySavingForGoals`. */
   goalsBudget: string;
+  /** Parte de `goalsBudget` que a família já paga. */
+  alreadySavingForGoals: string;
   /** O que sobra para viagens novas depois das confirmadas. */
   tripsBudget: string;
   /** Parte do orçamento de viagens já tomada pelas confirmadas. */
   tripsCommitted: string;
   /** O que as viagens confirmadas pedem além do que sobra para viagens. */
   shortfall: string;
+  /** O que a reserva pediria e não coube, porque o dinheiro já sai para investimentos e metas. */
+  reserveShort: string;
+  /** O mesmo, para as dívidas caras. */
+  debtShort: string;
+  /** Quanto do aporte de hoje cobriria o que ficou curto. Só informa: nada muda sozinho. */
+  redirectable: string;
   notes: string[];
 }
 
@@ -73,10 +84,11 @@ const positive = (value: MoneyValue) => (value.gt(0) ? value : money(0));
  * Reserva primeiro, depois dívidas caras, depois aposentadoria, e o resto meio a meio entre metas e
  * viagens. Cada passo arredonda em centavos, para a soma das partes fechar exatamente no disponível.
  *
- * O excedente vem antes dos aportes, então o que a família já aporta saiu dele (ADR-0027). Esse dinheiro
- * é a fatia da aposentadoria, e não uma fatia a mais: quem segue a sugestão recebe a mesma sugestão no mês
- * seguinte. Só o que passa da fatia sai das outras, da menor prioridade para a maior: metas e viagens,
- * dívidas e, por último, a reserva. Assim nenhuma fatia promete dinheiro que já foi investido.
+ * O excedente vem antes dos aportes, e o hábito é dinheiro que de fato sai (ADR-0027). Por isso a divisão
+ * reparte só o que resta depois dele, na mesma ordem, e nunca promete mais do que sobra de verdade. As
+ * fatias que a ordem pediria são medidas sobre o disponível inteiro: assim quem segue a sugestão recebe a
+ * mesma sugestão no mês seguinte. Quando reserva ou dívida ficam curtas por causa do hábito, `reserveShort`,
+ * `debtShort` e as notas dizem isso. Redirecionar é decisão da família.
  */
 export function suggestAllocation(input: AllocationInput): Allocation {
   const { currency } = input;
@@ -93,50 +105,75 @@ export function suggestAllocation(input: AllocationInput): Allocation {
       retirement: zero,
       alreadyInvesting: zero,
       goalsBudget: zero,
+      alreadySavingForGoals: zero,
       tripsBudget: zero,
       tripsCommitted: zero,
       shortfall: toDbAmount(positive(money(input.confirmedTripsMonthly))),
+      reserveShort: zero,
+      debtShort: zero,
+      redirectable: zero,
       notes: [`Sem excedente ${period}: nada a dividir por enquanto.`],
     };
   }
 
-  // 1. Reserva de emergência.
-  let reserve = toCents(
+  // O que já sai todo mês: só o resto é repartido.
+  const invested = min(positive(toCents(input.alreadyInvesting ?? 0)), available);
+  const goalsPaid = min(
+    positive(toCents(input.alreadySavingForGoals ?? 0)),
+    available.minus(invested),
+  );
+  let free = available.minus(invested).minus(goalsPaid);
+  const take = (wanted: MoneyValue) => {
+    const part = min(wanted, free);
+    free = free.minus(part);
+    return part;
+  };
+
+  // O que a ordem pediria, sobre o disponível inteiro.
+  const wantedReserve = toCents(
     min(positive(money(input.reserveMissing)), available.times(ALLOCATION_RULES.reserveShare)),
   );
-  let rest = available.minus(reserve);
-
-  // 2. Dívidas caras.
-  let debt = toCents(
-    min(positive(money(input.expensiveDebtBalance)), rest.times(ALLOCATION_RULES.debtShare)),
+  const afterReserve = available.minus(wantedReserve);
+  const wantedDebt = toCents(
+    min(
+      positive(money(input.expensiveDebtBalance)),
+      afterReserve.times(ALLOCATION_RULES.debtShare),
+    ),
   );
-  rest = rest.minus(debt);
-
-  // 3. Aposentadoria.
+  const afterDebt = afterReserve.minus(wantedDebt);
   const required =
     input.retirementRequired === null ? null : positive(money(input.retirementRequired));
-  let retirement =
+  const wantedRetirement =
     required === null
       ? money(0)
-      : toCents(min(required, rest.times(ALLOCATION_RULES.retirementShare)));
-  rest = rest.minus(retirement);
+      : toCents(min(required, afterDebt.times(ALLOCATION_RULES.retirementShare)));
+  const wantedGoals = toCents(afterDebt.minus(wantedRetirement).times(ALLOCATION_RULES.goalsShare));
 
-  // O que já é investido por mês entra na fatia; o que passa dela sai das outras, de baixo para cima.
-  const invested = min(positive(toCents(input.alreadyInvesting ?? 0)), available);
-  let over = positive(invested.minus(retirement));
-  retirement = retirement.plus(over);
-  const take = (slice: MoneyValue) => {
-    const part = min(over, slice);
-    over = over.minus(part);
-    return slice.minus(part);
-  };
-  rest = take(rest);
-  debt = take(debt);
-  reserve = take(reserve);
+  // O que cabe, na mesma ordem. O que já é feito conta na fatia dele.
+  const reserve = take(wantedReserve);
+  const debt = take(wantedDebt);
+  const retirement = invested.plus(take(positive(wantedRetirement.minus(invested))));
+  const goalsBudget = goalsPaid.plus(take(positive(wantedGoals.minus(goalsPaid))));
+  const tripsHalf = free;
 
-  if (reserve.gt(0))
+  const reserveShort = wantedReserve.minus(reserve);
+  const debtShort = wantedDebt.minus(debt);
+  const redirectable = min(reserveShort.plus(debtShort), invested);
+  const gone = invested.plus(goalsPaid);
+  if (reserveShort.gt(0)) {
+    notes.push(
+      `A reserva de emergência pede ${formatMoney(wantedReserve, currency)} por mês, mas só cabem ` +
+        `${formatMoney(reserve, currency)}: ${formatMoney(gone, currency)} já saem para investimentos e metas.`,
+    );
+  } else if (reserve.gt(0)) {
     notes.push(`Primeiro a reserva de emergência: ${formatMoney(reserve, currency)} por mês.`);
-  if (debt.gt(0)) {
+  }
+  if (debtShort.gt(0)) {
+    notes.push(
+      `Quitar as dívidas caras pede ${formatMoney(wantedDebt, currency)} por mês, mas só cabem ` +
+        `${formatMoney(debt, currency)}: ${formatMoney(gone, currency)} já saem para investimentos e metas.`,
+    );
+  } else if (debt.gt(0)) {
     notes.push(
       `Quitar as dívidas caras rende mais que investir: ${formatMoney(debt, currency)} por mês para elas.`,
     );
@@ -154,10 +191,13 @@ export function suggestAllocation(input: AllocationInput): Allocation {
       `Os ${formatMoney(invested, currency)} que já saem por mês para investimentos contam nesta divisão.`,
     );
   }
+  if (goalsPaid.gt(0)) {
+    notes.push(
+      `Os ${formatMoney(goalsPaid, currency)} que já saem por mês para metas contam nesta divisão.`,
+    );
+  }
 
-  // 4. Metas e viagens, meio a meio. As viagens confirmadas saem da metade das viagens.
-  const goalsBudget = toCents(rest.times(ALLOCATION_RULES.goalsShare));
-  const tripsHalf = rest.minus(goalsBudget);
+  // As viagens confirmadas saem do que restou para viagens.
   const confirmed = positive(toCents(input.confirmedTripsMonthly));
   const tripsBudget = positive(tripsHalf.minus(confirmed));
   const shortfall = positive(confirmed.minus(tripsHalf));
@@ -173,9 +213,13 @@ export function suggestAllocation(input: AllocationInput): Allocation {
     retirement: toDbAmount(retirement),
     alreadyInvesting: toDbAmount(invested),
     goalsBudget: toDbAmount(goalsBudget),
+    alreadySavingForGoals: toDbAmount(goalsPaid),
     tripsBudget: toDbAmount(tripsBudget),
     tripsCommitted: toDbAmount(tripsHalf.minus(tripsBudget)),
     shortfall: toDbAmount(shortfall),
+    reserveShort: toDbAmount(reserveShort),
+    debtShort: toDbAmount(debtShort),
+    redirectable: toDbAmount(redirectable),
     notes,
   };
 }

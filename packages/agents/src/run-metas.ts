@@ -40,6 +40,7 @@ import {
   metaNotaContaText,
   metaNotaMessage,
   metaNotaParcelaText,
+  metaPlanoMantidoText,
   metasReportText,
   metaText,
   type MetasReportInput,
@@ -113,10 +114,20 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
     currency,
   });
 
+  // Falta de sobra não apaga plano (ADR-0027): meta que já tinha plano e não coube fica como está, com um
+  // aviso, e as parcelas abertas ficam. A família decide o que fazer.
+  const noRoomOf = (plan: GoalPlan) =>
+    plan.monthly === null && plan.status !== "concluida" && plan.status !== "pausada";
+  const keptIds = new Set(
+    plans
+      .filter((plan) => noRoomOf(plan) && byIdOf(goalRows, plan.id)?.planMonthly != null)
+      .map((plan) => plan.id),
+  );
+
   // Parcelas previstas são recriadas do zero; as confirmadas (com lançamento) ficam intocadas.
   const heldIds = new Set([...heldOf.values()].map((row) => row.id));
   const stale = contributions
-    .filter((row) => row.transactionId === null && !heldIds.has(row.id))
+    .filter((row) => row.transactionId === null && !heldIds.has(row.id) && !keptIds.has(row.goalId))
     .map((row) => row.id);
   if (stale.length > 0)
     await tx.delete(goalContributions).where(inArray(goalContributions.id, stale));
@@ -134,6 +145,23 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
     const missing = money(goal.targetAmount)
       .minus(goal.saved)
       .minus(held?.amount ?? 0);
+
+    if (keptIds.has(goal.id)) {
+      noRoom += 1;
+      const kept = metaPlanoMantidoText();
+      const noteMessage = metaNotaMessage([kept.message]);
+      await tx
+        .update(goals)
+        .set({
+          planNote: clamp(kept.text, MAX_NOTE),
+          planNoteKey: noteMessage.key,
+          planNoteParams: noteMessage.params,
+          planUpdatedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(goals.id, goal.id));
+      continue;
+    }
 
     if (plan.monthly !== null) {
       planned += 1;
@@ -227,6 +255,9 @@ export async function runMetasAgent(tx: TenantTx, input: AgentInput): Promise<Ag
     suggestions,
   );
 }
+
+const byIdOf = <T extends { id: string }>(rows: T[], id: string) =>
+  rows.find((row) => row.id === id);
 
 /** Quanto a mais por mês fecharia a meta na data desejada. Null sem data ou quando já passou. */
 function extraMonthlyFor(

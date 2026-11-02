@@ -33,7 +33,10 @@ export interface MonthlyPlanInput {
   plan: DividendPlan;
   /** Aporte real do plano. */
   contribution: string;
-  allocation: Pick<Allocation, "reserve" | "debt" | "retirement" | "alreadyInvesting">;
+  allocation: Pick<
+    Allocation,
+    "reserve" | "debt" | "retirement" | "alreadyInvesting" | "reserveShort" | "debtShort"
+  >;
   /** Maior categoria de despesa do último mês fechado. */
   largestCategory: { name: string; amount: string } | null;
 }
@@ -68,7 +71,11 @@ export function monthlyPlan(input: MonthlyPlanInput): PlanAction[] {
     : contribution;
   const gap = money(allocation.retirement).minus(doing);
   const extra = toDbAmount(gap.gt(MONTHLY_PLAN_RULES.minExtra) ? gap : MONTHLY_PLAN_RULES.minExtra);
-  actions.push({ kind: "guardar", amount: extra, yearsEarlier: yearsEarlier(input, extra) });
+  // Reserva ou dívida curtas: pedir para guardar mais prometeria um dinheiro que não existe.
+  const short = money(allocation.reserveShort).plus(allocation.debtShort).gt(0);
+  if (!short) {
+    actions.push({ kind: "guardar", amount: extra, yearsEarlier: yearsEarlier(input, extra) });
+  }
 
   if (largestCategory && money(largestCategory.amount).gt(0)) {
     const cut = toDbAmount(money(largestCategory.amount).times(MONTHLY_PLAN_RULES.categoryCut));

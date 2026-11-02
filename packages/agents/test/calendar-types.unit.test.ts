@@ -60,6 +60,22 @@ describe("calendarItemType", () => {
     expect(calendarItemType(entry("t:salario", "lancamento", "receita"), context)).toBe("receita");
   });
 
+  it("reconhece categoria de aporte e de meta renomeadas, pela regra", () => {
+    const renamed: CalendarTypeContext = {
+      ...context,
+      categoryOf: new Map([
+        ["t:investimentos", "cat-renomeada"],
+        ["t:poupanca", "cat-meta-renomeada"],
+      ]),
+      savings: {
+        investmentCategories: new Set(["cat-renomeada"]),
+        goalCategories: new Set(["cat-meta-renomeada"]),
+      },
+    };
+    expect(calendarItemType(entry("t:investimentos", "lancamento"), renamed)).toBe("aporte");
+    expect(calendarItemType(entry("t:poupanca", "lancamento"), renamed)).toBe("meta");
+  });
+
   it("não confunde categoria ausente com categoria do sistema", () => {
     const empty: CalendarTypeContext = { ...context, system: {} };
     expect(calendarItemType(entry("t:sem-categoria", "lancamento"), empty)).toBe("conta");

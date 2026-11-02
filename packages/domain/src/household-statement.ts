@@ -236,6 +236,8 @@ export const STATEMENT_NOTES = [
   "aporteAParte",
   /** Fechado antes da regra e regenerado uma vez por causa dela (ADR-0027). */
   "aporteSeparado",
+  /** A projeção é a do fechamento, feita pela regra antiga. */
+  "projecaoAntiga",
 ] as const;
 export type StatementNote = (typeof STATEMENT_NOTES)[number];
 
@@ -676,6 +678,7 @@ export function buildFluxo(input: FluxoInput): StatementDraft | null {
       summary.received,
       summary.spent,
       summary.contributed,
+      summary.redeemed,
       planned.income,
       planned.expense,
       planned.contribution,

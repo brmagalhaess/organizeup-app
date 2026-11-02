@@ -942,7 +942,9 @@
       "accepted": "This is the amount in your plan.",
       "current": "Today the plan uses {amount} in investments.",
       "accept": "Accept this amount",
-      "alreadyInvesting": "You already contribute {amount} a month: that amount counts toward the investment above."
+      "alreadyInvesting": "You already contribute {amount} a month: that amount counts toward the investment above.",
+      "short": "Your emergency fund and expensive debts need {amount} a month more than what is left, because that money is already going out. To cover it, lower your contribution: nothing changes on its own.",
+      "projectionUsesHabit": "Since no contribution was entered, the projection uses what already goes out each month."
     },
     "facts": {
       "target": "Monthly income you want",
@@ -1981,7 +1983,7 @@
       "contributedHint": "Money set aside. Not counted as an expense.",
       "afterContributions": "Left after contributing",
       "afterContributionsPlanned": "Expected left after contributing",
-      "afterContributionsHint": "Result minus contributions.",
+      "afterContributionsHint": "Result minus contributions. Redemptions are not part of this figure.",
       "redeemed": "Back in your accounts",
       "redeemedHint": "Redemptions and goal money coming in. Not counted as income.",
       "savingsTitle": "Money set aside in {month}"
@@ -2361,7 +2363,7 @@
       "contributed": "Contributed",
       "contributedHint": "Money set aside. Not counted as an expense.",
       "afterContributions": "Left after contributing",
-      "afterContributionsHint": "Result minus contributions.",
+      "afterContributionsHint": "Result minus contributions. Redemptions are not part of this figure.",
       "redeemed": "Back in your accounts",
       "redeemedHint": "Redemptions and goal money coming in. Not counted as income."
     },
@@ -3817,7 +3819,8 @@
       "viagemEstimativaRegiao": "Cost estimated by region, {region, select, brasil_perto {Brazil, close to home} brasil {Brazil} america_sul {South America} america_norte {North America} europa {Europe} other {Asia and Oceania}}: this destination isn't in our table.",
       "viagemMesSemTempo": "{from} wouldn't leave time to save, so it moved to {to}.",
       "viagemMesOcupado": "There's already a trip in {from}, so it moved to {to}.",
-      "relViagensIntencoes": "{count, plural, =1 {1 listed place used} other {# listed places used}}."
+      "relViagensIntencoes": "{count, plural, =1 {1 listed place used} other {# listed places used}}.",
+      "notaPlanoMantido": "Plan kept: today's split has no room for this goal. The installments stay, and you decide what to do."
     },
     "lembreteRendimentoSimples": {
       "title": "Enter the annual portfolio yield",
@@ -3834,6 +3837,14 @@
     "vipVencendo": {
       "title": "Your VIP access is ending",
       "body": "It is valid until {date}. After that it goes back to how it was, with no charge. To keep using it, subscribe in Plan and subscription."
+    },
+    "lembreteRedirecionar": {
+      "title": "Redirect {amount} of your contribution?",
+      "body": "Your emergency fund and expensive debts need {amount} a month more than what is left, because {invested} already goes to investments. It is your call: nothing changes on its own."
+    },
+    "lembreteValorAcima": {
+      "title": "Your plan amount is above what is left today",
+      "body": "You accepted saving {accepted} a month, and {fits} fits today. Nothing changes on its own: the accepted amount still stands."
     }
   },
   "sistema": {
@@ -4166,7 +4177,8 @@
       "anualNaoFiscal": "This only organizes what your family recorded. It does not replace your income tax return and is not tax advice: check your official documents.",
       "posicaoDoDia": "Portfolio values are as of the day the report was generated.",
       "aporteAParte": "Contributions and redemptions stay out of income and expenses: saving money is not spending.",
-      "aporteSeparado": "The numbers moved, they did not change: your account balances are the same."
+      "aporteSeparado": "The numbers moved, they did not change: your account balances are the same.",
+      "projecaoAntiga": "The projection is the one from closing and still counts contributions as expenses."
     },
     "atualizadoRegra": "Updated on {date}: contributions and redemptions now appear apart from income and expenses.",
     "regraAntiga": "This report still counts contributions as expenses and redemptions as income: it was generated before the change."

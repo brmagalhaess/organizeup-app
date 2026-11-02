@@ -53,8 +53,12 @@ function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) 
       ) : null}
       {money(suggested.alreadyInvesting).gt(0) ? (
         <p className="text-sm">
-          {t("alreadyInvesting", { amount: moneyText(suggested.alreadyInvesting) })}
+          {t("alreadyInvesting", { amount: moneyText(suggested.alreadyInvesting) })}{" "}
+          {data.form.monthlyContribution === null ? t("projectionUsesHabit") : null}
         </p>
+      ) : null}
+      {money(suggested.short).gt(0) ? (
+        <p className="text-sm">{t("short", { amount: moneyText(suggested.short) })}</p>
       ) : null}
       <p className="text-xs text-muted">
         {surplus.basis === "previsto"
@@ -72,8 +76,8 @@ function SavingHighlight({ data, writable }: { data: Data; writable: boolean }) 
           ) : null}
           {writable ? (
             <form onSubmit={submitKeeping(action)} className="flex flex-col gap-2 sm:items-start">
-              <input type="hidden" name="reserve" value={suggested.reserve} />
-              <input type="hidden" name="investment" value={suggested.investment} />
+              <input type="hidden" name="reserve" value={suggested.accept.reserve} />
+              <input type="hidden" name="investment" value={suggested.accept.investment} />
               <Button type="submit" disabled={pending}>
                 {pending ? tPlan("saving") : t("accept")}
               </Button>

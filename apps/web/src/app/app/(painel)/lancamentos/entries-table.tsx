@@ -35,6 +35,7 @@ import {
 import { formatDayMonth } from "@/i18n/format";
 import { systemTextOf } from "@/i18n/system-text";
 import { deleteEntry, stopPlan } from "./actions";
+import { cardLinesInFilter } from "./card-filter";
 import { PlanLink } from "./plan-link";
 import { useMoney } from "@/i18n/money";
 
@@ -142,6 +143,7 @@ export function EntriesTable({
   today,
   entries,
   flows,
+  savingCategoryIds,
   categories,
   accounts,
   filters,
@@ -152,6 +154,7 @@ export function EntriesTable({
   entries: MonthEntry[];
   /** Receita, despesa, aporte ou resgate, pela chave da entrada. */
   flows: Record<string, EntryFlow>;
+  savingCategoryIds: string[];
   categories: Named[];
   accounts: Named[];
   /** Filtros que já vêm do endereço, como nos links do painel. */
@@ -203,7 +206,7 @@ export function EntriesTable({
       entries.some((e) => e.categoryId === c.id) || cardLines.some((l) => l.categoryId === c.id),
   );
   const usedAccounts = accounts.filter((a) => entries.some((e) => e.accountId === a.id));
-  const onCard = category ? cardLines.filter((line) => line.categoryId === category) : [];
+  const onCard = cardLinesInFilter(cardLines, { category, kind }, savingCategoryIds);
 
   if (entries.length === 0 && cardLines.length === 0)
     return (
@@ -339,9 +342,7 @@ export function EntriesTable({
                     </p>
                     {flowOf(entry) === "aporte" || flowOf(entry) === "resgate" ? (
                       <div className="mt-1">
-                        <Badge>
-                          {t(`flow.${flowOf(entry) as "aporte" | "resgate"}`)}
-                        </Badge>
+                        <Badge>{t(`flow.${flowOf(entry) as "aporte" | "resgate"}`)}</Badge>
                       </div>
                     ) : null}
                     <div className="mt-1 sm:hidden">

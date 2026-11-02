@@ -11,6 +11,7 @@ import {
   loadCommitments,
   loadFiscalTables,
   loadSavingsRule,
+  systemCategories,
   monthlyPlanView,
   readStatement,
   reserveInputs,
@@ -172,7 +173,7 @@ const listarLancamentos = defineTool({
   name: "listar_lancamentos",
   module: null,
   description:
-    "Lista lançamentos de um mês, inclusive as compras da fatura do cartão, com a soma do que foi encontrado. Aporte e resgate têm tipo e soma próprios: não entram em soma_despesas nem em soma_receitas. Chame quando pedirem os gastos de uma categoria, a busca de uma compra ou o detalhe de um mês. A soma devolvida é a única que vale.",
+    "Lista lançamentos de um mês, inclusive as compras da fatura do cartão, com a soma do que foi encontrado. Aporte e resgate têm tipo e soma próprios: não entram em soma_despesas nem em soma_receitas. As somas contam só o que já aconteceu, e o pagamento da fatura sai delas quando as compras estão na lista, para bater com resumo_do_mes. Chame quando pedirem os gastos de uma categoria, a busca de uma compra ou o detalhe de um mês. A soma devolvida é a única que vale.",
   kind: "leitura",
   input: z.strictObject({
     mes: monthInput,
@@ -206,6 +207,9 @@ const listarLancamentos = defineTool({
         .flatMap((entry) => entry.lines)
         .filter((line) => line.statementMonth === month);
       const rule = await loadSavingsRule(tx);
+      const { card: cardCategory } = await systemCategories(tx);
+      const billPaid = (line: (typeof lines)[number]) =>
+        book.find((entry) => entry.card.id === line.cardId)?.paid.has(line.statementMonth) ?? false;
 
       const wantedCategory = input.categoria ? normalizeDescription(input.categoria) : null;
       const wantedText = input.busca ? normalizeDescription(input.busca) : null;
@@ -222,7 +226,8 @@ const listarLancamentos = defineTool({
             data: row.occurredOn,
             origem: "conta",
             tipo: entryFlow(row, rule) as string,
-            situacao: row.status,
+            situacao: row.status as string,
+            pagamento_de_fatura: row.kind === "despesa" && row.categoryId === cardCategory,
             categoria: names.get(row.categoryId) ?? "Sem categoria",
             descricao: untrusted(row.description),
             valor: row.amount,
@@ -240,20 +245,31 @@ const listarLancamentos = defineTool({
             data: line.purchasedOn,
             origem: "cartao",
             tipo: isSavings(line, rule) ? "aporte" : "despesa",
-            situacao: "realizado",
+            situacao: billPaid(line) ? "realizado" : "previsto",
+            pagamento_de_fatura: false,
             categoria: names.get(line.categoryId) ?? "Sem categoria",
             descricao: untrusted(line.description),
             valor: line.amount,
             parcela: line.installments > 1 ? `${line.installment}/${line.installments}` : null,
           })),
       ].sort((a, b) => b.data.localeCompare(a.data));
+      // A fatura paga é o total das compras: com elas na lista, contar as duas somaria duas vezes.
+      const done = found.filter((row) => row.situacao === "realizado");
+      const of = (tipo: string) => done.filter((row) => row.tipo === tipo).map((row) => row.valor);
+      const bills = money(
+        sum(done.filter((row) => row.pagamento_de_fatura).map((row) => row.valor)),
+      );
+      const purchases = money(
+        sum(done.filter((row) => row.origem === "cartao").map((row) => row.valor)),
+      );
+      const counted = bills.lt(purchases) ? bills : purchases;
       return {
         mes: month,
         encontrados: found.length,
-        soma_receitas: sum(found.filter((row) => row.tipo === "receita").map((row) => row.valor)),
-        soma_despesas: sum(found.filter((row) => row.tipo === "despesa").map((row) => row.valor)),
-        soma_aportes: sum(found.filter((row) => row.tipo === "aporte").map((row) => row.valor)),
-        soma_resgates: sum(found.filter((row) => row.tipo === "resgate").map((row) => row.valor)),
+        soma_receitas: sum(of("receita")),
+        soma_despesas: toDbAmount(money(sum(of("despesa"))).minus(counted)),
+        soma_aportes: sum(of("aporte")),
+        soma_resgates: sum(of("resgate")),
         itens: found.slice(0, input.limite ?? DEFAULT_ROWS),
       };
     }),
@@ -573,6 +589,10 @@ const verPlanoAposentadoria = defineTool({
         renda_projetada_no_ano_alvo: plan.projectedIncomeAtTarget,
         sobra_mensal: surplus.surplus,
         ja_aporta_por_mes: allocation.alreadyInvesting,
+        ja_paga_em_metas_por_mes: allocation.alreadySavingForGoals,
+        reserva_e_dividas_curtas_por_mes: toDbAmount(
+          money(allocation.reserveShort).plus(allocation.debtShort),
+        ),
         divisao_sugerida_da_sobra: {
           reserva: allocation.reserve,
           dividas: allocation.debt,

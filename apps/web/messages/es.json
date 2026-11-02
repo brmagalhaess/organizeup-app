@@ -942,7 +942,9 @@
       "accepted": "Este es el valor de tu plan.",
       "current": "Hoy el plan usa {amount} en inversiones.",
       "accept": "Aceptar este valor",
-      "alreadyInvesting": "Ya aportas {amount} al mes: ese valor cuenta en la inversión de arriba."
+      "alreadyInvesting": "Ya aportas {amount} al mes: ese valor cuenta en la inversión de arriba.",
+      "short": "La reserva y las deudas caras piden {amount} al mes más de lo que queda, porque ese dinero ya está saliendo. Para cubrirlo, reduce el aporte: nada cambia solo.",
+      "projectionUsesHabit": "Como no se informó ningún aporte, la proyección usa lo que ya sale cada mes."
     },
     "facts": {
       "target": "Ingreso que quieres al mes",
@@ -1981,7 +1983,7 @@
       "contributedHint": "Dinero guardado. No cuenta como gasto.",
       "afterContributions": "Quedó después de aportar",
       "afterContributionsPlanned": "Debería quedar después de aportar",
-      "afterContributionsHint": "Resultado menos aportes.",
+      "afterContributionsHint": "Resultado menos aportes. Los rescates no entran en esta cuenta.",
       "redeemed": "Volvió a las cuentas",
       "redeemedHint": "Rescates y entradas de metas. No cuentan como ingresos.",
       "savingsTitle": "Dinero guardado en {month}"
@@ -2361,7 +2363,7 @@
       "contributed": "Aportado",
       "contributedHint": "Dinero guardado. No cuenta como gasto.",
       "afterContributions": "Quedó después de aportar",
-      "afterContributionsHint": "Resultado menos aportes.",
+      "afterContributionsHint": "Resultado menos aportes. Los rescates no entran en esta cuenta.",
       "redeemed": "Volvió a las cuentas",
       "redeemedHint": "Rescates y entradas de metas. No cuentan como ingresos."
     },
@@ -3817,7 +3819,8 @@
       "viagemEstimativaRegiao": "Costo estimado por la región {region, select, brasil_perto {Brasil, cerca de casa} brasil {Brasil} america_sul {América del Sur} america_norte {América del Norte} europa {Europa} other {Asia y Oceanía}}: este destino no está en nuestra tabla.",
       "viagemMesSemTempo": "En {from} no daría tiempo de ahorrar, así que quedó para {to}.",
       "viagemMesOcupado": "En {from} ya hay otro viaje, así que quedó para {to}.",
-      "relViagensIntencoes": "{count, plural, =1 {1 lugar de la lista usado} other {# lugares de la lista usados}}."
+      "relViagensIntencoes": "{count, plural, =1 {1 lugar de la lista usado} other {# lugares de la lista usados}}.",
+      "notaPlanoMantido": "Plan mantenido: hoy la división no tiene espacio para esta meta. Las cuotas siguen, y tú decides qué hacer."
     },
     "lembreteRendimentoSimples": {
       "title": "Indica el rendimiento anual de la cartera",
@@ -3834,6 +3837,14 @@
     "vipVencendo": {
       "title": "Tu acceso VIP está por terminar",
       "body": "Vale hasta el {date}. Después vuelve a como estaba, sin ningún cargo. Para seguir usándolo, suscríbete en Plan y suscripción."
+    },
+    "lembreteRedirecionar": {
+      "title": "¿Quieres redirigir {amount} del aporte?",
+      "body": "La reserva y las deudas caras piden {amount} al mes más de lo que queda, porque {invested} ya van a inversiones. Tú decides: nada cambia solo."
+    },
+    "lembreteValorAcima": {
+      "title": "El valor de tu plan está por encima de lo que queda hoy",
+      "body": "Se aceptó guardar {accepted} al mes, y hoy caben {fits}. Nada cambia solo: el valor aceptado sigue vigente."
     }
   },
   "sistema": {
@@ -4166,7 +4177,8 @@
       "anualNaoFiscal": "Solo organiza lo que registró la familia. No sustituye la declaración de impuestos ni es asesoría fiscal: revisa tus documentos oficiales.",
       "posicaoDoDia": "Valores de la cartera según la posición del día en que se generó el informe.",
       "aporteAParte": "Los aportes y rescates quedan fuera de ingresos y gastos: guardar dinero no es gastar.",
-      "aporteSeparado": "Los números cambiaron de lugar, no de valor: el saldo de las cuentas es el mismo."
+      "aporteSeparado": "Los números cambiaron de lugar, no de valor: el saldo de las cuentas es el mismo.",
+      "projecaoAntiga": "La proyección es la del cierre y aún cuenta los aportes como gastos."
     },
     "atualizadoRegra": "Actualizado el {date}: los aportes y rescates pasaron a aparecer separados de ingresos y gastos.",
     "regraAntiga": "Este informe aún cuenta los aportes como gastos y los rescates como ingresos: se generó antes del cambio."

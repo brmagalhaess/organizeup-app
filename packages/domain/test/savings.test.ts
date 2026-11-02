@@ -367,12 +367,12 @@ describe("divisão do excedente", () => {
     expect({ ...next, alreadyInvesting: "0.00", notes: [] }).toEqual({ ...first, notes: [] });
   });
 
-  it("o que passa da fatia sai de metas e viagens antes de tocar na reserva", () => {
+  it("o que resta depois do hábito segue a ordem: reserva, metas, viagens", () => {
     expect(suggestAllocation({ ...base, alreadyInvesting: "1500.00" })).toMatchObject({
       reserve: "1800.00",
       retirement: "1500.00",
-      goalsBudget: "150.00",
-      tripsBudget: "150.00",
+      goalsBudget: "270.00",
+      tripsBudget: "30.00",
     });
     expect(suggestAllocation({ ...base, alreadyInvesting: "3000.00" })).toMatchObject({
       reserve: "600.00",
@@ -440,6 +440,8 @@ describe("divisão do excedente", () => {
         debt: "0.00",
         retirement: "3000.00",
         alreadyInvesting: "3000.00",
+        reserveShort: "0.00",
+        debtShort: "0.00",
       },
       largestCategory: null,
     });

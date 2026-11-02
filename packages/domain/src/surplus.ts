@@ -1,8 +1,13 @@
 // Excedente mensal da família (ADR-0015). Puro e estimativa: o que sobra de receitas menos despesas
 // nos meses fechados vira a base do que o assistente sugere guardar. Guardar não é gastar: os pontos de
-// `monthlySeries` já vêm sem aporte e resgate, pela regra de `savings.ts`, e o que a família já aporta
-// por mês é medido à parte em `investingHabit`, para a divisão não sugerir de novo o mesmo dinheiro.
-import { yearMonthOf, type MonthPoint, type TransactionInput } from "./cashflow";
+// `monthlySeries` já vêm sem aporte e resgate, pela regra de `savings.ts`, e o que a família já guarda
+// por mês é medido à parte em `savingHabit`, para a divisão não repartir de novo o mesmo dinheiro.
+import {
+  splitMonthEntries,
+  type CardSavings,
+  type MonthPoint,
+  type TransactionInput,
+} from "./cashflow";
 import { money, toCents, toDbAmount, type MoneyValue } from "./money";
 import { savingsDestination, type SavingsRule } from "./savings";
 
@@ -63,35 +68,48 @@ export function monthlySurplus(
   };
 }
 
-/** Aportes em investimento menos resgates de cada mês. Meta fica fora: é a fatia de metas da divisão. */
-export function investedByMonth(
-  months: string[],
-  transactions: TransactionInput[],
-  rule: SavingsRule,
-): string[] {
-  return months.map((month) =>
-    toDbAmount(
-      transactions
-        .filter(
-          (row) =>
-            row.status === "realizado" &&
-            yearMonthOf(row.occurredOn) === month &&
-            savingsDestination(row, rule) === "investimento",
-        )
-        .reduce(
-          (acc, row) => (row.kind === "despesa" ? acc.plus(row.amount) : acc.minus(row.amount)),
-          money(0),
-        ),
-    ),
-  );
+export interface SavedMonth {
+  month: string;
+  /** Aportes em investimento menos resgates, no líquido: aplicação e resgate automáticos se anulam. */
+  invested: string;
+  /** Parcelas de meta pagas. A entrada na conta de destino não abate: o dinheiro foi guardado. */
+  goals: string;
 }
 
 /**
- * Quanto a família já põe em investimentos por mês, como hábito: `min(média, mediana)` dos meses com
- * movimento, igual ao excedente. O pico de um mês não vira compromisso, e venda não deixa negativo.
+ * O que foi guardado em cada mês, das mesmas entradas de `monthlySeries`: o aporte feito no cartão
+ * entra aqui do mesmo jeito que sai da despesa, e excedente e hábito fecham.
  */
-export function investingHabit(invested: string[], points: MonthPoint[]): string {
-  const values = invested
+export function savedByMonth(
+  months: string[],
+  transactions: TransactionInput[],
+  rule: SavingsRule,
+  cards?: CardSavings,
+): SavedMonth[] {
+  return months.map((month) => {
+    const done = splitMonthEntries(month, [], transactions, rule, cards).filter(
+      (entry) => entry.status === "realizado",
+    );
+    const invested = done
+      .filter((entry) => savingsDestination(entry, rule) === "investimento")
+      .reduce(
+        (acc, row) => (row.kind === "despesa" ? acc.plus(row.amount) : acc.minus(row.amount)),
+        money(0),
+      );
+    const goals = done
+      .filter((entry) => entry.kind === "despesa" && savingsDestination(entry, rule) === "meta")
+      .reduce((acc, row) => acc.plus(row.amount), money(0));
+    return { month, invested: toDbAmount(invested), goals: toDbAmount(goals) };
+  });
+}
+
+/**
+ * Quanto sai todo mês para investimento ou meta, como hábito: `min(média, mediana)` dos meses com
+ * movimento, igual ao excedente, e nunca negativo. O pico de um mês não vira compromisso. Os casos estão
+ * no ADR-0027: quem começou há pouco ou aporta por trimestre fica com hábito zero.
+ */
+export function savingHabit(values: string[], points: MonthPoint[]): string {
+  const active = values
     .filter((_, index) => {
       const point = points[index];
       if (!point) return false;
@@ -100,10 +118,10 @@ export function investingHabit(invested: string[], points: MonthPoint[]): string
       );
     })
     .map((value) => money(value));
-  if (values.length < SURPLUS_RULES.minMonths) return "0.00";
-  const average = values.reduce((acc, value) => acc.plus(value), money(0)).dividedBy(values.length);
-  const median = medianOf(values);
-  const usable = values.length < SURPLUS_RULES.fullMonths || median.lt(average) ? median : average;
+  if (active.length < SURPLUS_RULES.minMonths) return "0.00";
+  const average = active.reduce((acc, value) => acc.plus(value), money(0)).dividedBy(active.length);
+  const median = medianOf(active);
+  const usable = active.length < SURPLUS_RULES.fullMonths || median.lt(average) ? median : average;
   return toDbAmount(usable.gt(0) ? usable : 0);
 }
 

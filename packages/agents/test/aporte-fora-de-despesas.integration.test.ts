@@ -284,16 +284,21 @@ describe("família de prova", () => {
       goalsBudget: "270.00",
       tripsBudget: "270.00",
     });
-    // O que passa dos 1.260 da fatia sai de metas e viagens e, por último, da reserva.
+    // Hábito de 2.923,33 e parcela de meta de 300: só 376,67 restam, e a reserva vem primeiro.
     expect(depois).toMatchObject({
-      reserve: "676.67",
+      reserve: "376.67",
       retirement: "2923.33",
       alreadyInvesting: "2923.33",
-      goalsBudget: "0.00",
+      goalsBudget: "300.00",
+      alreadySavingForGoals: "300.00",
       tripsBudget: "0.00",
+      reserveShort: "1423.33",
+      redirectable: "1423.33",
     });
     // Soma das fatias é o disponível: 3.600. O dinheiro de hoje não é dividido duas vezes.
-    expect(domain.money(depois.reserve).plus(depois.retirement).toFixed(2)).toBe("3600.00");
+    expect(
+      domain.money(depois.reserve).plus(depois.retirement).plus(depois.goalsBudget).toFixed(2),
+    ).toBe("3600.00");
     // A projeção passa a usar o aporte real, que a família não informou.
     expect(plan.contribution).toBe("2923.33");
     // Não sugere aportar o que já é aportado, e o que a família informou continua intocado.

@@ -341,24 +341,39 @@ export function recentMonths(ym: YearMonth, count: number): YearMonth[] {
   return Array.from({ length: count }, (_, index) => addMonths(ym, index - count + 1));
 }
 
+/** Compras de cartão para `splitMonthEntries`. */
+export interface CardSavings {
+  lines: Array<{ cardId: string; categoryId: string; amount: string; statementMonth: YearMonth }>;
+  categoryId: string | undefined;
+}
+
+/** Entradas de um mês, com a compra de aporte fora da fatura: excedente e hábito leem as mesmas. */
+export function splitMonthEntries(
+  month: YearMonth,
+  plans: PlanInput[],
+  transactions: TransactionInput[],
+  rule: SavingsRule,
+  cards?: CardSavings,
+): MonthEntry[] {
+  const inMonth = transactions.filter((t) => yearMonthOf(t.occurredOn) === month);
+  const lines = cards?.lines.filter((line) => line.statementMonth === month) ?? [];
+  return splitCardSavings(buildMonthEntries(month, plans, inMonth), lines, cards?.categoryId, rule);
+}
+
 /** O que já aconteceu em cada mês, para médias e excedente. `cards` separa o aporte feito no cartão. */
 export function monthlySeries(
   months: YearMonth[],
   plans: PlanInput[],
   transactions: TransactionInput[],
   rule: SavingsRule,
-  cards?: {
-    lines: Array<{ cardId: string; categoryId: string; amount: string; statementMonth: YearMonth }>;
-    categoryId: string | undefined;
-  },
+  cards?: CardSavings,
 ): MonthPoint[] {
-  return months.map((month) => {
-    const inMonth = transactions.filter((t) => yearMonthOf(t.occurredOn) === month);
-    const entries = buildMonthEntries(month, plans, inMonth);
-    const lines = cards?.lines.filter((line) => line.statementMonth === month) ?? [];
-    const split = splitCardSavings(entries, lines, cards?.categoryId, rule);
-    return monthPoint(month, summarizeMonth(split, rule));
-  });
+  return months.map((month) =>
+    monthPoint(
+      month,
+      summarizeMonth(splitMonthEntries(month, plans, transactions, rule, cards), rule),
+    ),
+  );
 }
 
 /** Contas e receitas ainda em aberto, das mais antigas para as mais novas. */

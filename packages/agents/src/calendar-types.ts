@@ -15,6 +15,11 @@ export interface CalendarTypeContext {
     goalIncome?: string | undefined;
     contribution?: string | undefined;
   };
+  /** Categorias de dinheiro guardado, pela regra: valem renomeadas. */
+  savings?: {
+    investmentCategories: ReadonlySet<string>;
+    goalCategories: ReadonlySet<string>;
+  };
   /** Eventos criados por uma viagem. */
   tripEvents: Set<string>;
 }
@@ -33,7 +38,9 @@ export function calendarItemType(
   const { card, debt, goal, goalIncome, contribution } = context.system;
   if (category !== undefined) {
     if (category === goal || category === goalIncome) return "meta";
+    if (context.savings?.goalCategories.has(category)) return "meta";
     if (category === contribution) return "aporte";
+    if (context.savings?.investmentCategories.has(category)) return "aporte";
     if (category === card) return "cartao";
     if (category === debt) return "divida";
   }

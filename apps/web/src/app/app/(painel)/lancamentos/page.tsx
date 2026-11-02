@@ -115,6 +115,7 @@ export default async function EntriesPage({
         today={data.today}
         entries={data.entries}
         flows={data.flows}
+        savingCategoryIds={data.savingCategoryIds}
         categories={data.categories.map(({ id, name }) => ({ id, name }))}
         accounts={data.accounts.map(({ id, name }) => ({ id, name }))}
       />

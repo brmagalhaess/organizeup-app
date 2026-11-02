@@ -279,6 +279,8 @@ export const DEDUPE = {
   investimentoClasse: (assetClass: string, month: string) =>
     `investimento:classe:${assetClass}:${month}`,
   lembreteAposentadoria: () => "lembrete:aposentadoria",
+  lembreteRedirecionar: (month: string) => `lembrete:redirecionar:${month}`,
+  lembreteValorAcima: (month: string) => `lembrete:valor-acima:${month}`,
   /** Desdobramento, grupamento ou bonificação: o aviso sai uma vez por evento. */
   investimentoEvento: (investmentId: string, eventOn: string) =>
     `investimento:evento:${investmentId}:${eventOn}`,

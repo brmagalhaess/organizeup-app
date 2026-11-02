@@ -36,6 +36,7 @@ async function chooseLanguage(page: Page, from: string, locale: string, heading:
   await languageSelect(page, from).selectOption(locale);
   await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
+  await expect(page).toHaveTitle(/.+/);
 }
 
 async function expectNoAxeViolations(page: Page) {
@@ -63,7 +64,7 @@ async function freshContext(browser: Browser, locale: string) {
 test("trocar de idioma traduz menu, painel e Configurações, e recarregar mantém", async ({
   page,
 }, testInfo) => {
-  const mobile = testInfo.project.name === "mobile";
+  const mobile = testInfo.project.name !== "desktop";
   // Texto ou número diferente entre servidor e navegador apareceria aqui como erro de hidratação.
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));

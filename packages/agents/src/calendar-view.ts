@@ -23,6 +23,7 @@ import {
   monthBounds,
   monthCells,
   projectDailyBalance,
+  savingsDestination,
   splitCardSavings,
   summarizeMonth,
   toDbAmount,
@@ -93,12 +94,13 @@ export async function calendarMonth(tx: TenantTx, input: { today: string; month:
   const rule = await loadSavingsRule(tx);
   // Só a categoria diz que "Aporte em X" foi o sistema que escreveu.
   const contributions = entries
-    .filter((entry) => system.contribution && entry.categoryId === system.contribution)
+    .filter((entry) => savingsDestination(entry, rule) === "investimento")
     .map((entry) => entry.key);
   const tripRows = await tx.select({ eventId: trips.calendarEventId }).from(trips);
   const typeContext = {
     categoryOf: new Map(entries.map((entry) => [entry.key, entry.categoryId])),
     system,
+    savings: rule,
     tripEvents: new Set(tripRows.flatMap((trip) => (trip.eventId ? [trip.eventId] : []))),
   };
   const types: Record<string, CalendarItemType> = {};

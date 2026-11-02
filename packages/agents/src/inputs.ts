@@ -38,8 +38,6 @@ import {
   essentialSpending,
   forecastSurplus,
   fxNoteOf,
-  investedByMonth,
-  investingHabit,
   isSavings,
   money,
   monthBounds,
@@ -53,6 +51,8 @@ import {
   receivedDividends,
   recentMonths,
   reserveStatus,
+  savedByMonth,
+  savingHabit,
   savingsDestination,
   savingsRule,
   summarizeDividends,
@@ -214,6 +214,8 @@ export interface SurplusData {
   surplus: string;
   /** O que a família já põe em investimentos por mês: aportes menos resgates, como hábito. */
   invested: string;
+  /** O que a família já paga por mês em parcelas de meta, como hábito. */
+  goalsPaid: string;
   /** Gasto médio mensal nos meses fechados com dados. Null sem dados. */
   averageExpenses12: string | null;
   /** Renda líquida típica do mês atual (sem férias e 13º). */
@@ -266,7 +268,9 @@ export async function surplusInputs(tx: TenantTx, input: { today: string }): Pro
         lte(transactions.occurredOn, monthBounds(months[months.length - 1]!).last),
       ),
     );
-  const points = monthlySeries(months, [], rows, rule, await savingsCardLines(tx));
+  const cards = await savingsCardLines(tx);
+  const points = monthlySeries(months, [], rows, rule, cards);
+  const saved = savedByMonth(months, rows, rule, cards);
   const result = monthlySurplus(points);
 
   const withData = points.filter(
@@ -300,6 +304,9 @@ export async function surplusInputs(tx: TenantTx, input: { today: string }): Pro
   const plannedInvestments = planTotal(
     activePlans.filter((plan) => savingsDestination(plan, rule) === "investimento"),
   );
+  const plannedGoals = planTotal(
+    activePlans.filter((plan) => savingsDestination(plan, rule) === "meta"),
+  );
 
   const previsto = result.basis === "sem_dados";
   return {
@@ -309,7 +316,16 @@ export async function surplusInputs(tx: TenantTx, input: { today: string }): Pro
     surplus: previsto ? forecastSurplus(incomeMonthlyNet, plannedExpenses) : result.usable,
     invested: previsto
       ? plannedInvestments
-      : investingHabit(investedByMonth(months, rows, rule), points),
+      : savingHabit(
+          saved.map((month) => month.invested),
+          points,
+        ),
+    goalsPaid: previsto
+      ? plannedGoals
+      : savingHabit(
+          saved.map((month) => month.goals),
+          points,
+        ),
     averageExpenses12,
     incomeMonthlyNet,
     plannedExpenses,

@@ -167,6 +167,8 @@ const SAMPLES: Array<{ title: string; body: string; message: Message }> = [
   texts.reminderText("sem_yield_simples"),
   texts.reminderText("sem_ano"),
   texts.reminderText("outro"),
+  texts.redirecionarText({ amount: "1500.00", invested: "3000.00", currency: "BRL" }),
+  texts.valorAcimaText({ accepted: "1800.00", fits: "600.00", currency: "BRL" }),
   texts.categoriaMovidaText({
     count: 3,
     from: "Outras despesas",
@@ -540,6 +542,7 @@ const FROM_DOMAIN: Message[] = [
   { key: "frases.notaConquistada" },
   { key: "frases.notaPausada" },
   { key: "frases.notaSemOrcamento" },
+  { key: "frases.notaPlanoMantido" },
   { key: "frases.notaSemOrcamentoReduza" },
   { key: "frases.notaLonga", params: { amount: { money: "10.00" } } },
   { key: "frases.notaDataPassou", params: { end: { month: "2027-01" } } },

@@ -102,6 +102,8 @@ export async function loadMonth(ctx: TenantContext, requestedMonth?: string | nu
       summary: summarizeMonth(splitCardSavings(entries, lines, cardCategoryId, rule), rule),
       /** Compras na fatura do mês, para a tela abrir o cartão ao filtrar por categoria. */
       cardLines: lines,
+      /** Categorias de dinheiro guardado: o filtro Aportes abre as compras delas no cartão. */
+      savingCategoryIds: [...rule.investmentCategories, ...rule.goalCategories],
     };
   });
 }

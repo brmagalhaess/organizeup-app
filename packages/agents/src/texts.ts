@@ -186,6 +186,44 @@ export function aporteInvestimentoText(
   };
 }
 
+/** Reserva ou dívida curtas por causa do hábito: só avisa. Mudar o aporte é decisão da família. */
+export function redirecionarText(input: {
+  amount: string;
+  invested: string;
+  currency: Currency;
+}): AgentText {
+  const { amount, invested, currency } = input;
+  return {
+    title: `Quer redirecionar ${moneyText(amount, currency)} do aporte?`,
+    body:
+      `Reserva e dívidas caras pedem ${moneyText(amount, currency)} por mês a mais do que sobra, porque ` +
+      `${moneyText(invested, currency)} já vão para investimentos. Você decide: nada muda sozinho.`,
+    message: message("lembreteRedirecionar", {
+      amount: reais(amount, currency),
+      invested: reais(invested, currency),
+    }),
+  };
+}
+
+/** O valor que a família aceitou passou do que sobra. O agente nunca propõe reduzir: só informa. */
+export function valorAcimaText(input: {
+  accepted: string;
+  fits: string;
+  currency: Currency;
+}): AgentText {
+  const { accepted, fits, currency } = input;
+  return {
+    title: "O valor do seu plano está acima do que sobra hoje",
+    body:
+      `Foi aceito guardar ${moneyText(accepted, currency)} por mês, e hoje cabem ` +
+      `${moneyText(fits, currency)}. Nada muda sozinho: o valor aceito continua valendo.`,
+    message: message("lembreteValorAcima", {
+      accepted: reais(accepted, currency),
+      fits: reais(fits, currency),
+    }),
+  };
+}
+
 export type ReminderKind = "sem_yield" | "sem_yield_simples" | "sem_ano" | "outro";
 
 export function reminderText(kind: ReminderKind): AgentText & { href: string } {
@@ -489,6 +527,12 @@ export function metaNotaParcelaText(from: string, to: string, currency: Currency
 export const metaNotaContaText = () => ({
   text: "Escolha a conta de onde sai a parcela para ela entrar no calendário.",
   message: message("frases.notaEscolhaConta"),
+});
+
+/** Sem sobra na divisão, a meta fica com o plano que tinha. */
+export const metaPlanoMantidoText = () => ({
+  text: "Plano mantido: hoje a divisão não tem espaço para esta meta. As parcelas continuam, e você decide o que fazer.",
+  message: message("frases.notaPlanoMantido"),
 });
 
 /** A nota do plano, por chave: uma frase só, porque a coluna guarda uma chave. */

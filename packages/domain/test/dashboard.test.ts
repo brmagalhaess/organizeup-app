@@ -287,8 +287,14 @@ describe("resumo do mês", () => {
   it("compara feito com feito e, em mês futuro, o previsto", () => {
     const entries = buildMonthEntries("2026-10", [], [tx()], [fatura]);
     const summary = summarizeMonth(entries, NO_SAVINGS);
-    expect(comparableTotals(summary, "passado")).toMatchObject({ income: "0.00", expense: "200.00" });
-    expect(comparableTotals(summary, "futuro")).toMatchObject({ income: "0.00", expense: "600.00" });
+    expect(comparableTotals(summary, "passado")).toMatchObject({
+      income: "0.00",
+      expense: "200.00",
+    });
+    expect(comparableTotals(summary, "futuro")).toMatchObject({
+      income: "0.00",
+      expense: "600.00",
+    });
   });
 
   it("o ponto do gráfico leva feito e previsto", () => {

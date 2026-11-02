@@ -1,4 +1,4 @@
-﻿import { createTranslator } from "next-intl";
+import { createTranslator } from "next-intl";
 import { describe, expect, it } from "vitest";
 import {
   buildResumo,

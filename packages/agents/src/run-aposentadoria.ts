@@ -2,11 +2,14 @@
 // dívidas caras, aposentadoria, metas e viagens, e recalcula o plano por proventos com o aporte
 // real. Tudo vira sugestão; a família decide. Estimativa, não promessa.
 import {
+  and,
   debtPlanReports,
   debts,
   eq,
   gte,
   householdCurrency,
+  householdSuggestions,
+  inArray,
   sql,
   tripCosts,
   tripPeople,
@@ -29,6 +32,7 @@ import {
 } from "@organizeup/domain";
 import { dividendPlanInputs, reserveInputs, surplusInputs } from "./inputs";
 import type { ReportAposentadoria } from "./reports";
+import { DIVIDAS_AGENT } from "./run-dividas";
 import {
   DEDUPE,
   type AporteDividaPayload,
@@ -37,6 +41,7 @@ import {
   type LinkPayload,
 } from "./suggestions";
 import {
+  closePending,
   loadDecisions,
   saveDailyReport,
   upsertPending,
@@ -49,11 +54,17 @@ import {
   aporteInvestimentoText,
   aporteReservaText,
   aposentadoriaReportText,
+  redirecionarText,
   reminderText,
+  valorAcimaText,
   type ReminderKind,
 } from "./texts";
 
 export const APOSENTADORIA_AGENT = "aposentadoria";
+
+/** Quem cria as sugestões da divisão. O que nasce na conversa foi pedido pela pessoa, e fica. */
+const DIVISION_AGENTS = [APOSENTADORIA_AGENT, DIVIDAS_AGENT];
+const DIVISION_KINDS = ["aporte_reserva", "aporte_investimento", "aporte_divida"] as const;
 
 export interface AposentadoriaResult extends AgentResult {
   allocation: Allocation;
@@ -139,6 +150,7 @@ async function allocationContext(tx: TenantTx, today: string) {
     retirementRequired: first.requiredContribution,
     confirmedTripsMonthly: tripsMonthly,
     alreadyInvesting: surplus.invested,
+    alreadySavingForGoals: surplus.goalsPaid,
     surplusMonths: surplus.result.months,
     currency,
   });
@@ -162,7 +174,10 @@ export async function runAposentadoriaAgent(
   const plan = planDividendRetirement({ ...planData.input, contribution });
 
   const pending: PendingSuggestion[] = [];
-  if (money(allocation.reserve).gt(0) && allocation.reserve !== reserve.contribution) {
+  // Só propõe subir. Valor que a família aceitou não é reduzido nem por sugestão: o agente só informa.
+  const reserveAccepted = reserve.contribution ?? "0.00";
+  const retirementAccepted = planData.plan?.monthlyContribution ?? "0.00";
+  if (money(allocation.reserve).gt(reserveAccepted)) {
     const payload: AporteReservaPayload = {
       monthlyAmount: allocation.reserve,
       previous: reserve.contribution,
@@ -213,7 +228,7 @@ export async function runAposentadoriaAgent(
   // Só pede o que falta: repetir o que a família já aporta seria sugerir o mesmo dinheiro de novo.
   if (
     money(allocation.retirement).gt(allocation.alreadyInvesting) &&
-    allocation.retirement !== (planData.plan?.monthlyContribution ?? null)
+    money(allocation.retirement).gt(retirementAccepted)
   ) {
     const payload: AporteInvestimentoPayload = {
       monthlyAmount: allocation.retirement,
@@ -237,6 +252,36 @@ export async function runAposentadoriaAgent(
     });
   }
 
+  if (money(allocation.redirectable).gt(0)) {
+    const payload: LinkPayload = { href: "/app/reserva" };
+    pending.push({
+      kind: "lembrete",
+      ...redirecionarText({
+        amount: allocation.redirectable,
+        invested: allocation.alreadyInvesting,
+        currency,
+      }),
+      payload,
+      dedupeKey: DEDUPE.lembreteRedirecionar(month),
+    });
+  }
+
+  const above = [
+    { accepted: reserveAccepted, fits: allocation.reserve },
+    { accepted: retirementAccepted, fits: allocation.retirement },
+  ].filter((item) => money(item.accepted).gt(item.fits));
+  if (above.length > 0) {
+    const total = (field: "accepted" | "fits") =>
+      toDbAmount(above.reduce((acc, item) => acc.plus(item[field]), money(0)));
+    const payload: LinkPayload = { href: "/app/aposentadoria" };
+    pending.push({
+      kind: "lembrete",
+      ...valorAcimaText({ accepted: total("accepted"), fits: total("fits"), currency }),
+      payload,
+      dedupeKey: DEDUPE.lembreteValorAcima(month),
+    });
+  }
+
   if (plan.status !== "ok") {
     const { href, ...reminder } = reminderText(reminderKind(plan.status, currency));
     const payload: LinkPayload = { href };
@@ -251,6 +296,7 @@ export async function runAposentadoriaAgent(
   // Sem filtro de agente: `aporte_divida` pode ter nascido no agente de dívidas.
   const decisions = await loadDecisions(tx, today);
   const suggestions = await upsertPending(tx, householdId, APOSENTADORIA_AGENT, decisions, pending);
+  await closeStale(tx, pending, money(allocation.debt).gt(0));
 
   const data: ReportAposentadoria = {
     plan,
@@ -283,6 +329,36 @@ export async function runAposentadoriaAgent(
   };
   await saveDailyReport(tx, householdId, APOSENTADORIA_AGENT, "aposentadoria", today, report);
   return { suggestions, applied: 0, report, allocation, plan };
+}
+
+/**
+ * Fecha o que a divisão não pede mais: sugestão velha, se aceita, gravaria um valor que já não vale. Sem
+ * chave de recusa, porque ninguém decidiu nada. `aporte_divida` do agente de dívidas fica enquanto a
+ * divisão ainda tiver dinheiro para dívidas: quem escolhe qual pagar é ele.
+ */
+async function closeStale(tx: TenantTx, wanted: PendingSuggestion[], debtAsked: boolean) {
+  const keep = new Set(wanted.map((item) => item.dedupeKey.slice(0, 160)));
+  const rows = await tx
+    .select({
+      id: householdSuggestions.id,
+      kind: householdSuggestions.kind,
+      dedupeKey: householdSuggestions.dedupeKey,
+    })
+    .from(householdSuggestions)
+    .where(
+      and(
+        eq(householdSuggestions.status, "pendente"),
+        inArray(householdSuggestions.agent, DIVISION_AGENTS),
+        inArray(householdSuggestions.kind, [...DIVISION_KINDS, "lembrete"]),
+      ),
+    );
+  for (const row of rows) {
+    if (keep.has(row.dedupeKey)) continue;
+    const reminder = /^lembrete:(redirecionar|valor-acima):/.test(row.dedupeKey);
+    if (row.kind === "lembrete" && !reminder) continue;
+    if (row.kind === "aporte_divida" && debtAsked) continue;
+    await closePending(tx, row.id, row.dedupeKey);
+  }
 }
 
 /** Sem as regras brasileiras não há tela de proventos, então o lembrete não manda para lá. */

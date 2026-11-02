@@ -32,7 +32,14 @@ const input = (over = {}) => ({
   base,
   plan: planDividendRetirement(base),
   contribution: "500.00",
-  allocation: { reserve: "0.00", debt: "0.00", retirement: "500.00", alreadyInvesting: "0.00" },
+  allocation: {
+    reserve: "0.00",
+    debt: "0.00",
+    retirement: "500.00",
+    alreadyInvesting: "0.00",
+    reserveShort: "0.00",
+    debtShort: "0.00",
+  },
   largestCategory: { name: "Mercado", amount: "2000.00" },
   ...over,
 });
@@ -51,6 +58,8 @@ describe("plano do mês", () => {
           debt: "200.00",
           retirement: "0.00",
           alreadyInvesting: "0.00",
+          reserveShort: "0.00",
+          debtShort: "0.00",
         },
       }),
     );
@@ -65,6 +74,8 @@ describe("plano do mês", () => {
           debt: "0.00",
           retirement: "2500.00",
           alreadyInvesting: "0.00",
+          reserveShort: "0.00",
+          debtShort: "0.00",
         },
       }),
     );

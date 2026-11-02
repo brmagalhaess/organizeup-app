@@ -942,7 +942,9 @@
       "accepted": "Este é o valor do seu plano.",
       "current": "Hoje o plano usa {amount} em investimentos.",
       "accept": "Aceitar este valor",
-      "alreadyInvesting": "Você já aporta {amount} por mês: esse valor conta no investimento acima."
+      "alreadyInvesting": "Você já aporta {amount} por mês: esse valor conta no investimento acima.",
+      "short": "Reserva e dívidas caras pedem {amount} por mês a mais do que sobra, porque esse dinheiro já está saindo. Se quiser cobrir, reduza o aporte: nada muda sozinho.",
+      "projectionUsesHabit": "Como nenhum aporte foi informado, a projeção usa o que já sai todo mês."
     },
     "facts": {
       "target": "Renda que você quer por mês",
@@ -1981,7 +1983,7 @@
       "contributedHint": "Dinheiro guardado. Não entra em despesas.",
       "afterContributions": "Sobrou depois de aportar",
       "afterContributionsPlanned": "Deve sobrar depois de aportar",
-      "afterContributionsHint": "Resultado menos aportes.",
+      "afterContributionsHint": "Resultado menos aportes. Resgates não entram nesta conta.",
       "redeemed": "Voltou para as contas",
       "redeemedHint": "Resgates e entradas de metas. Não entram em receitas.",
       "savingsTitle": "Dinheiro guardado em {month}"
@@ -2361,7 +2363,7 @@
       "contributed": "Aportado",
       "contributedHint": "Dinheiro guardado. Não entra em despesas.",
       "afterContributions": "Sobrou depois de aportar",
-      "afterContributionsHint": "Resultado menos aportes.",
+      "afterContributionsHint": "Resultado menos aportes. Resgates não entram nesta conta.",
       "redeemed": "Voltou para as contas",
       "redeemedHint": "Resgates e entradas de metas. Não entram em receitas."
     },
@@ -3817,7 +3819,8 @@
       "viagemEstimativaRegiao": "Custo estimado pela região {region, select, brasil_perto {Brasil, perto de casa} brasil {Brasil} america_sul {América do Sul} america_norte {América do Norte} europa {Europa} other {Ásia e Oceania}}: este destino não está na nossa tabela.",
       "viagemMesSemTempo": "Em {from} não daria tempo de guardar, então ficou para {to}.",
       "viagemMesOcupado": "Em {from} já há outra viagem, então ficou para {to}.",
-      "relViagensIntencoes": "{count, plural, =1 {1 intenção usada} other {# intenções usadas}}."
+      "relViagensIntencoes": "{count, plural, =1 {1 intenção usada} other {# intenções usadas}}.",
+      "notaPlanoMantido": "Plano mantido: hoje a divisão não tem espaço para esta meta. As parcelas continuam, e você decide o que fazer."
     },
     "lembreteRendimentoSimples": {
       "title": "Informe o rendimento anual da carteira",
@@ -3834,6 +3837,14 @@
     "vipVencendo": {
       "title": "Seu acesso VIP está acabando",
       "body": "Ele vale até {date}. Depois volta ao que era antes, sem cobrança. Para continuar usando, assine em Plano e assinatura."
+    },
+    "lembreteRedirecionar": {
+      "title": "Quer redirecionar {amount} do aporte?",
+      "body": "Reserva e dívidas caras pedem {amount} por mês a mais do que sobra, porque {invested} já vão para investimentos. Você decide: nada muda sozinho."
+    },
+    "lembreteValorAcima": {
+      "title": "O valor do seu plano está acima do que sobra hoje",
+      "body": "Foi aceito guardar {accepted} por mês, e hoje cabem {fits}. Nada muda sozinho: o valor aceito continua valendo."
     }
   },
   "sistema": {
@@ -4166,7 +4177,8 @@
       "anualNaoFiscal": "Só organiza o que a família lançou. Não substitui a declaração de imposto de renda nem é orientação fiscal: confira nos seus documentos oficiais.",
       "posicaoDoDia": "Valores da carteira pela posição do dia em que o relatório foi gerado.",
       "aporteAParte": "Aportes e resgates ficam fora de receitas e despesas: guardar dinheiro não é gasto.",
-      "aporteSeparado": "Os números mudaram de lugar, não de valor: o saldo das contas é o mesmo."
+      "aporteSeparado": "Os números mudaram de lugar, não de valor: o saldo das contas é o mesmo.",
+      "projecaoAntiga": "A projeção é a do fechamento e ainda conta aportes como despesas."
     },
     "atualizadoRegra": "Atualizado em {date}: aportes e resgates passaram a aparecer separados de receitas e despesas.",
     "regraAntiga": "Este relatório ainda conta aportes como despesas e resgates como receitas: foi gerado antes da mudança."

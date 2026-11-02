@@ -81,6 +81,7 @@ import {
   type MonthPoint,
   type StatementData,
   type StatementDraft,
+  type StatementSectionId,
   type ReportKind,
   type StatementReportStatus,
 } from "@organizeup/domain";
@@ -657,21 +658,29 @@ const beforeRule = (row: StoredRow) =>
   (row.data as StatementData).version < STATEMENT_RULE_VERSION;
 
 /**
- * O que um relatório fechado leva da versão anterior ao regenerar: o aviso de que a regra o regenerou, que
- * fica nas regenerações seguintes, e a posição do fim do ano, uma foto que não dá para refazer depois.
+ * O que um relatório fechado leva da versão anterior ao regenerar. A posição do fim do ano é uma foto de
+ * janeiro, e nenhuma regeneração a refaz. O aviso de que a regra o regenerou fica. A projeção do fluxo só
+ * existe no fechamento: a regra nova não a refaz, então ela fica como era, com uma nota que diz isso.
  */
 const carriedOver = (row: StoredRow, draft: StatementDraft): StatementData => {
   const stored = row.data as StatementData;
-  const positions = stored.sections.find((section) => section.id === "positions");
-  const lacksPositions = !draft.data.sections.some((section) => section.id === "positions");
-  const regenerated = beforeRule(row) || stored.notes.includes("aporteSeparado");
+  const kept = (id: StatementSectionId) =>
+    draft.data.sections.some((section) => section.id === id)
+      ? []
+      : stored.sections.filter((section) => section.id === id);
+  const old = beforeRule(row);
+  const projection = old || stored.notes.includes("projecaoAntiga") ? kept("projection") : [];
+  const projected = stored.figures.filter((figure) => figure.id === "projected");
+  const regenerated = old || stored.notes.includes("aporteSeparado");
   return {
     ...draft.data,
-    sections: [
-      ...draft.data.sections,
-      ...(positions && lacksPositions && beforeRule(row) ? [positions] : []),
+    figures: [...draft.data.figures, ...(projection.length > 0 ? projected : [])],
+    sections: [...draft.data.sections, ...kept("positions"), ...projection],
+    notes: [
+      ...draft.data.notes,
+      ...(regenerated ? (["aporteSeparado"] as const) : []),
+      ...(projection.length > 0 ? (["projecaoAntiga"] as const) : []),
     ],
-    notes: regenerated ? [...draft.data.notes, "aporteSeparado"] : draft.data.notes,
   };
 };
 

@@ -38,8 +38,11 @@ export async function loadDividendPlan(ctx: TenantContext) {
     const today = todayIn(await householdTimezone(tx, ctx.householdId));
     const { plan, planData, contribution, informed, allocation, surplus, reserve } =
       await currentDividendPlan(tx, today);
+    // O valor aceito só sobe: sugestão menor que ele não vira botão de aceitar.
     const matches = (suggested: string, saved: string | null) =>
-      money(suggested).isZero() || (saved !== null && money(saved).eq(suggested));
+      money(suggested).isZero() || (saved !== null && money(saved).gte(suggested));
+    const atLeast = (suggested: string, saved: string | null) =>
+      saved !== null && money(saved).gt(suggested) ? saved : suggested;
 
     return {
       plan,
@@ -53,6 +56,13 @@ export async function loadDividendPlan(ctx: TenantContext) {
         total: toDbAmount(money(allocation.reserve).plus(allocation.retirement)),
         /** Parte de `investment` que já sai todo mês. */
         alreadyInvesting: allocation.alreadyInvesting,
+        /** O que reserva e dívidas caras pedem além do que sobra, por causa do que já sai. */
+        short: toDbAmount(money(allocation.reserveShort).plus(allocation.debtShort)),
+        /** O que aceitar grava: nunca menos que o valor que a família já aceitou. */
+        accept: {
+          reserve: atLeast(allocation.reserve, reserve.contribution),
+          investment: atLeast(allocation.retirement, informed),
+        },
         accepted:
           matches(allocation.reserve, reserve.contribution) &&
           (matches(allocation.retirement, informed) ||

@@ -194,6 +194,11 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
     },
     { category: "Aluguel recebido", words: ["aluguel"] },
     { category: "Reembolsos", words: ["estorno", "reembolso", "cashback", "devolucao"] },
+    {
+      // O outro lado da aplicação: dinheiro que já era da família, não receita (ADR-0027).
+      category: CONTRIBUTION_CATEGORY,
+      words: ["resgate", "resgates", "resg", "res aplic"],
+    },
   ],
 };
 
@@ -637,6 +642,38 @@ export function isProtectedCategory(name: string): boolean {
 /** Categoria que pode receber lançamento por classificação. */
 export const isCategoryTarget = (name: string) =>
   !isGenericCategory(name) && !isProtectedCategory(name);
+
+export interface ImportedRedemptionGroup {
+  ids: string[];
+  merchant: string;
+  fromCategoryId: string;
+}
+
+/**
+ * Resgate que veio do extrato antes de existir a palavra e ficou em categoria genérica. Só esse muda
+ * sozinho (ADR-0027): o que a família pôs em categoria específica, ou lançou à mão, fica. `blocked` traz os
+ * estabelecimentos desfeitos, em `tipo:estabelecimento`. A categoria de aportes é protegida de toda
+ * classificação; este é o único caminho que chega nela, por isso não passa por `reviewCategories`.
+ */
+export function importedRedemptionGroups(
+  rows: ReviewTransaction[],
+  blocked: ReadonlySet<string>,
+): ImportedRedemptionGroup[] {
+  const groups = new Map<string, ReviewTransaction[]>();
+  for (const row of rows) {
+    const merchant = merchantKey(row.description);
+    const redemption = keywordGroup(row.description, "receita")?.category === CONTRIBUTION_CATEGORY;
+    const imported = row.importBatchId !== null && isGenericCategory(row.categoryName);
+    if (row.kind !== "receita" || !merchant || !redemption || !imported) continue;
+    if (blocked.has(memoryKey(row.kind, merchant))) continue;
+    groups.set(merchant, [...(groups.get(merchant) ?? []), row]);
+  }
+  return [...groups.entries()].map(([merchant, list]) => ({
+    ids: list.map((row) => row.id),
+    merchant,
+    fromCategoryId: mostCommon(list.map((row) => row.categoryId)),
+  }));
+}
 
 export type CandidateTransaction = ReviewTransaction & { amount: string };
 

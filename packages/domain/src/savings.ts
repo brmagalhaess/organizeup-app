@@ -48,7 +48,7 @@ export interface SavingsRule {
 /** Marca, em `household_notifications`, que a nota do painel sobre aportes já foi fechada. */
 export const SAVINGS_NOTICE_KEY = "aviso:aporte-separado";
 
-/** Sem nada guardado: as somas ficam como eram antes do ADR-0027. Serve de "antes" nos testes. */
+/** Nada é guardado, nem parcela de meta: as somas ficam como eram antes do ADR-0027. É o "antes" dos testes. */
 export const NO_SAVINGS: SavingsRule = {
   investmentCategories: new Set(),
   goalCategories: new Set(),
@@ -84,6 +84,7 @@ export interface FlowInput {
 
 /** A definição: para onde foi o dinheiro desta entrada. Null é receita ou despesa de verdade. */
 export function savingsDestination(entry: FlowInput, rule: SavingsRule): SavingsDestination | null {
+  if (rule === NO_SAVINGS) return null;
   if (entry.source === "meta") return "meta";
   if (entry.id !== undefined) {
     if (rule.goalTransactions.has(entry.id)) return "meta";

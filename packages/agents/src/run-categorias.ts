@@ -13,13 +13,16 @@ import {
   householdReports,
   householdSuggestions,
   inArray,
+  isNotNull,
   sql,
   transactions,
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
 import {
+  CONTRIBUTION_CATEGORY,
   dailyCategoryReport,
+  importedRedemptionGroups,
   isCategoryCandidate,
   isCategoryTarget,
   memoryKey,
@@ -151,6 +154,7 @@ export async function runCategoriasAgent(tx: TenantTx, input: AgentInput): Promi
     const target = await applyGroup(tx, scope, group, current, nameOf, created);
     if (target) moved += group.ids.length;
   }
+  moved += await reclassifyImportedRedemptions(tx, scope, decisions, categoryRows, nameOf);
 
   // Esta revisão pode rodar de novo no dia: o que a etapa de IA já relatou continua no relatório.
   const report = dailyCategoryReport({
@@ -167,6 +171,66 @@ export async function runCategoriasAgent(tx: TenantTx, input: AgentInput): Promi
     applied: moved + resolved.merges + merges,
     report: { ...report, data: { ...report.data } },
   };
+}
+
+/**
+ * Resgate de extrato que ficou em categoria genérica, de qualquer data (ADR-0027). Mesma regra da exceção
+ * de categoria: muda sem aceite, com notificação e Desfazer, e o desfeito não volta.
+ */
+async function reclassifyImportedRedemptions(
+  tx: TenantTx,
+  scope: ChangeScope,
+  decisions: Decisions,
+  categoryRows: CategoryRow[],
+  nameOf: Map<string, string>,
+): Promise<number> {
+  const rows = await tx
+    .select({
+      id: transactions.id,
+      kind: transactions.kind,
+      description: transactions.description,
+      amount: transactions.amount,
+      categoryId: transactions.categoryId,
+      categorySource: transactions.categorySource,
+      importBatchId: transactions.importBatchId,
+    })
+    .from(transactions)
+    .where(and(eq(transactions.kind, "receita"), isNotNull(transactions.importBatchId)));
+  const named = rows.map((row) => ({ ...row, categoryName: nameOf.get(row.categoryId) ?? "" }));
+  const groups = importedRedemptionGroups(named, merchantsOfDedupeKeys(decisions.blocked));
+  if (groups.length === 0) return 0;
+  const target = await ensureCategory(
+    tx,
+    scope.householdId,
+    "receita",
+    CONTRIBUTION_CATEGORY,
+    false,
+  );
+  const names = new Map(nameOf).set(
+    target.id,
+    categoryRows.find((row) => row.id === target.id)?.name ?? CONTRIBUTION_CATEGORY,
+  );
+  const current = new Map(named.map((row) => [row.id, row]));
+  let moved = 0;
+  for (const group of groups) {
+    const applied = await applyGroup(
+      tx,
+      scope,
+      {
+        ...group,
+        kind: "receita",
+        toCategoryId: target.id,
+        newCategory: null,
+        reason: "Resgate de aplicação vindo do extrato",
+        dedupeKey: DEDUPE.categoria("receita", group.merchant, target.id),
+      },
+      current,
+      names,
+      [],
+    );
+    if (applied) moved += group.ids.length;
+  }
+  return moved;
 }
 
 async function todayAiReport(tx: TenantTx, today: string): Promise<{ ia?: ReportCategoriasIa }> {
