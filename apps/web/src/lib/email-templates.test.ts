@@ -41,7 +41,7 @@ describe("modelos de e-mail", () => {
   it("confirmar e-mail escapa o & do link no HTML e não no texto", () => {
     const email = verifyEmail({ name: "Ana", token: "t.o-k" });
     const link =
-      "https://app.example.com/api/auth/verify-email?token=t.o-k&callbackURL=%2Fapp%2Fescolher";
+      "https://app.example.com/api/auth/verify-email?token=t.o-k&callbackURL=%2Fconfirmar-email";
     expect(email.template).toBe("confirmar-email");
     expect(email.text).toContain(link);
     expect(email.html).toContain(`href="${escapeHtml(link)}"`);

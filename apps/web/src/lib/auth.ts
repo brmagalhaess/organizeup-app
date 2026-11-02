@@ -1,7 +1,8 @@
 import "server-only";
-import { betterAuth } from "better-auth";
+import { betterAuth, type GenericEndpointContext } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
+import { verifyJWT } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
 import {
@@ -30,6 +31,7 @@ import { clientIp, withClientIp } from "./client-ip";
 import { noteRefusal, refusalsBlocked } from "./document-refusals";
 import { sendEmailInBackground } from "./email";
 import {
+  CONFIRM_EMAIL_PATH,
   INVITE_LINK_DAYS,
   invitationEmail,
   passwordChangedEmail,
@@ -173,6 +175,27 @@ const writesInMaintenance = (path: string) =>
   (path.startsWith("/organization/") &&
     !["/organization/set-active", "/organization/list"].includes(path));
 
+/**
+ * Volta do link de confirmação. O Better Auth trata link repetido como sucesso, cai em JSON sem `token` e, em
+ * conta bloqueada, confirma e só então falha ao abrir a sessão. Por isso a decisão vem antes dele: o endereço de
+ * volta é sempre o nosso, o que vier na URL é ignorado, e o estado sai do token já conferido, nunca do pedido.
+ */
+async function verifyEmailLanding(ctx: GenericEndpointContext) {
+  if ((await readPlatformFlags()).maintenance) {
+    throw ctx.redirect(`${CONFIRM_EMAIL_PATH}?error=MAINTENANCE`);
+  }
+  const token: unknown = ctx.query?.token;
+  if (typeof token !== "string") throw ctx.redirect(`${CONFIRM_EMAIL_PATH}?error=INVALID_TOKEN`);
+  const payload = await verifyJWT<{ email?: string }>(token, ctx.context.secret);
+  const found = payload?.email
+    ? await ctx.context.internalAdapter.findUserByEmail(payload.email)
+    : null;
+  if (found && (await userIsBlocked(found.user.id))) throw ctx.redirect("/conta-bloqueada");
+  const state = found?.user.emailVerified ? "ja-confirmado" : "confirmado";
+  const callbackURL = found ? `${CONFIRM_EMAIL_PATH}?estado=${state}` : CONFIRM_EMAIL_PATH;
+  return { context: { query: { ...ctx.query, callbackURL } } };
+}
+
 function createAuth() {
   const auth = betterAuth({
     appName: "OrganizeUp",
@@ -182,7 +205,7 @@ function createAuth() {
       // Sem tamanho mínimo, por decisão do fundador: vale a regra de lib/password.ts.
       minPasswordLength: 1,
       maxPasswordLength: 128,
-      // A confirmação de e-mail é enviada no cadastro, mas não impede de entrar.
+      // A confirmação de e-mail sai no cadastro e pode ser pedida de novo, mas não impede de entrar.
       requireEmailVerification: false,
       // Trocar a senha derruba quem estiver dentro da conta.
       revokeSessionsOnPasswordReset: true,
@@ -255,6 +278,7 @@ function createAuth() {
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/verify-email") return verifyEmailLanding(ctx);
         // Senha nova passa pela regra aqui: o formulário sozinho pode ser contornado.
         const body = ctx.body as { password?: unknown; newPassword?: unknown } | undefined;
         const password = ctx.path === "/sign-up/email" ? body?.password : body?.newPassword;
@@ -292,6 +316,8 @@ function createAuth() {
       "/organization/list-invitations",
       "/organization/get-full-organization",
       "/organization/accept-invitation",
+      // Aceita qualquer e-mail, sem sessão e fora do limite por conta. O reenvio é por server action.
+      "/send-verification-email",
     ],
     plugins: [
       organization({

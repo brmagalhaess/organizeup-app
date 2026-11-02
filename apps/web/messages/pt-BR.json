@@ -1706,7 +1706,9 @@
       }
     },
     "documentNotice": "Falta informar seu documento. Leva um minuto.",
-    "documentLink": "Informar agora"
+    "documentLink": "Informar agora",
+    "emailNotice": "Confirme seu e-mail para garantir que os avisos da conta cheguem até você.",
+    "emailNoticeLabel": "Confirmação de e-mail"
   },
   "auth": {
     "fields": {
@@ -1801,6 +1803,31 @@
       "roleViewer": "Você pode ver, mas não altera nada",
       "unavailableText": "Este convite expirou ou foi cancelado. Peça um novo link a quem convidou você.",
       "unavailableTitle": "Convite indisponível"
+    },
+    "confirmEmail": {
+      "metaTitle": "Confirmar e-mail",
+      "send": "Enviar e-mail de confirmação",
+      "sending": "Enviando…",
+      "sent": "Enviado. Confira sua caixa de entrada e o spam. O link vale {hours, plural, =1 {1 hora} other {# horas}}.",
+      "alreadyConfirmed": "Seu e-mail já está confirmado.",
+      "waitSeconds": "Aguarde {seconds, plural, one {# segundo} other {# segundos}} para pedir de novo.",
+      "waitMinutes": "Você pediu várias vezes. Aguarde {minutes, plural, one {# minuto} other {# minutos}} para pedir de novo.",
+      "emailOff": "O envio de e-mail está desligado no momento. Nada foi enviado. Tente de novo mais tarde.",
+      "maintenance": "Estamos em manutenção. Nada foi enviado. Tente de novo quando ela terminar.",
+      "failed": "Não foi possível enviar agora. Tente de novo.",
+      "confirmedTitle": "E-mail confirmado",
+      "confirmedText": "Tudo certo: este e-mail é seu e os avisos da conta vão chegar nele.",
+      "alreadyTitle": "Este e-mail já está confirmado",
+      "alreadyText": "Este link já foi usado e não vale mais. Não precisa pedir outro.",
+      "expiredTitle": "Este link venceu",
+      "expiredText": "O link vale {hours, plural, =1 {1 hora} other {# horas}}. Peça outro para confirmar seu e-mail.",
+      "invalidTitle": "Este link não é válido",
+      "invalidText": "O link está incompleto ou não é mais válido. Peça outro para confirmar seu e-mail.",
+      "maintenanceTitle": "Estamos em manutenção",
+      "maintenanceText": "Seu e-mail ainda não foi confirmado. Abra o mesmo link quando a manutenção terminar.",
+      "signInHint": "Entre na sua conta e peça outro em Configurações.",
+      "goToPanel": "Ir para o painel",
+      "signIn": "Entrar"
     }
   },
   "insights": {
@@ -2115,7 +2142,9 @@
       "id": "ID da conta",
       "name": "Nome",
       "role": "Seu papel na família",
-      "title": "Sua conta"
+      "title": "Sua conta",
+      "emailConfirmed": "Confirmado",
+      "emailNotConfirmed": "Não confirmado"
     },
     "roles": {
       "adult": "Adulto",

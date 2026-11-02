@@ -29,6 +29,9 @@ function logFailure(template: EmailTemplate | "indefinido", status: number | str
 export const emailConfigured = () =>
   Boolean(process.env.BREVO_API_KEY) && process.env.EMAIL_ENABLED !== "false";
 
+/** Dá para enviar agora, pela Brevo ou pelo arquivo de captura do e2e? */
+export const emailCanSend = () => Boolean(captureFile()) || emailConfigured();
+
 /** Envia pela API da Brevo. Nunca lança: e-mail fora do ar não pode derrubar quem chamou. */
 export async function sendEmail(message: EmailMessage): Promise<boolean> {
   const { to, subject, html, text, template } = message;

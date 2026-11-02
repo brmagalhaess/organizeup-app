@@ -1706,7 +1706,9 @@
       }
     },
     "documentNotice": "Your document is still missing. It takes a minute.",
-    "documentLink": "Add it now"
+    "documentLink": "Add it now",
+    "emailNotice": "Confirm your email to make sure account notices reach you.",
+    "emailNoticeLabel": "Email confirmation"
   },
   "auth": {
     "fields": {
@@ -1801,6 +1803,31 @@
       "roleViewer": "You can view but not change anything",
       "unavailableText": "This invitation has expired or was canceled. Ask the person who invited you for a new link.",
       "unavailableTitle": "Invitation unavailable"
+    },
+    "confirmEmail": {
+      "metaTitle": "Confirm email",
+      "send": "Send confirmation email",
+      "sending": "Sending…",
+      "sent": "Sent. Check your inbox and spam folder. The link is valid for {hours, plural, =1 {1 hour} other {# hours}}.",
+      "alreadyConfirmed": "Your email is already confirmed.",
+      "waitSeconds": "Wait {seconds, plural, one {# second} other {# seconds}} before asking again.",
+      "waitMinutes": "You have asked several times. Wait {minutes, plural, one {# minute} other {# minutes}} before asking again.",
+      "emailOff": "Sending email is turned off right now. Nothing was sent. Try again later.",
+      "maintenance": "We are under maintenance. Nothing was sent. Try again when it ends.",
+      "failed": "We could not send it right now. Try again.",
+      "confirmedTitle": "Email confirmed",
+      "confirmedText": "All set: this email is yours and account notices will reach it.",
+      "alreadyTitle": "This email is already confirmed",
+      "alreadyText": "This link has already been used and is no longer valid. You do not need another one.",
+      "expiredTitle": "This link has expired",
+      "expiredText": "The link is valid for {hours, plural, =1 {1 hour} other {# hours}}. Ask for another one to confirm your email.",
+      "invalidTitle": "This link is not valid",
+      "invalidText": "The link is incomplete or no longer valid. Ask for another one to confirm your email.",
+      "maintenanceTitle": "We are under maintenance",
+      "maintenanceText": "Your email has not been confirmed yet. Open the same link when maintenance ends.",
+      "signInHint": "Sign in to your account and ask for another one in Settings.",
+      "goToPanel": "Go to the dashboard",
+      "signIn": "Sign in"
     }
   },
   "insights": {
@@ -2115,7 +2142,9 @@
       "id": "Account ID",
       "name": "Name",
       "role": "Your role in the family",
-      "title": "Your account"
+      "title": "Your account",
+      "emailConfirmed": "Confirmed",
+      "emailNotConfirmed": "Not confirmed"
     },
     "roles": {
       "adult": "Adult",

@@ -7,6 +7,8 @@ import type { EmailTemplate } from "./email";
 export const RESET_LINK_HOURS = 1;
 export const VERIFY_LINK_HOURS = 24;
 export const INVITE_LINK_DAYS = 7;
+/** Tela de volta do link de confirmação. */
+export const CONFIRM_EMAIL_PATH = "/confirmar-email";
 
 const MAX_NAME_LENGTH = 80;
 
@@ -142,7 +144,7 @@ export function verifyEmail(input: { name: string; token: string; locale?: Local
     action: {
       label: t("verify.action"),
       url: appUrl(
-        `/api/auth/verify-email?token=${encodeURIComponent(token)}&callbackURL=%2Fapp%2Fescolher`,
+        `/api/auth/verify-email?token=${encodeURIComponent(token)}&callbackURL=${encodeURIComponent(CONFIRM_EMAIL_PATH)}`,
       ),
     },
     note: t("verify.note"),
