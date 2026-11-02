@@ -14,6 +14,7 @@ import {
   readStatement,
   reserveInputs,
   AGENT_MODULE,
+  loadTripIntentions,
 } from "@organizeup/agents";
 import {
   and,
@@ -44,6 +45,7 @@ import {
   people,
   transactions,
   tripCosts,
+  tripDestinationTemplates,
   tripPeople,
   trips,
   readFamilyAccess,
@@ -599,13 +601,13 @@ const listarViagens = defineTool({
   name: "listar_viagens",
   module: "metas",
   description:
-    "Viagens marcadas: destino, datas, quem vai, custo total, quanto falta e quanto guardar por mês. Chame quando falarem de viagem ou férias.",
+    "Viagens marcadas: destino, datas, quem vai, custo total, quanto falta e quanto guardar por mês. Também os lugares que a família quer conhecer, com mês preferido e dias. Chame quando falarem de viagem ou férias.",
   kind: "leitura",
   input: noInput,
   label: () => "olhei suas viagens",
   run: (ctx) =>
     read(ctx, async (tx, today) => {
-      const [tripRows, costs, travelers, personRows] = await Promise.all([
+      const [tripRows, costs, travelers, personRows, catalog] = await Promise.all([
         tx.select().from(trips).orderBy(asc(trips.startOn)),
         tx.select().from(tripCosts),
         tx.select().from(tripPeople),
@@ -613,9 +615,25 @@ const listarViagens = defineTool({
           .select({ id: people.id, relation: people.relation })
           .from(people)
           .orderBy(asc(people.createdAt)),
+        tx
+          .select({ id: tripDestinationTemplates.id, name: tripDestinationTemplates.name })
+          .from(tripDestinationTemplates),
       ]);
+      // Fora do Promise.all: é um savepoint, e não pode dividir a conexão com outra consulta.
+      const intentionRows = await loadTripIntentions(tx);
       const labels = personLabels(personRows);
+      const catalogNames = new Map(catalog.map((row) => [row.id, row.name]));
       return {
+        intencoes: intentionRows.map((row) => ({
+          // Nome do catálogo é nosso; nome livre foi digitado pela família.
+          destino: row.destinationId
+            ? (catalogNames.get(row.destinationId) ?? null)
+            : untrusted(row.customName, 80),
+          regiao: row.customRegion,
+          mes_preferido: row.preferredMonth,
+          dias: row.days,
+          atendida: row.fulfilledAt !== null,
+        })),
         viagens: tripRows.map((trip) => {
           const going = travelers.filter((row) => row.tripId === trip.id);
           const own = costs.filter((cost) => cost.tripId === trip.id);

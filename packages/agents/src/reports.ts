@@ -5,6 +5,7 @@ import type {
   DebtPlan,
   DividendPlan,
   GoalPlan,
+  IntentionOutcome,
   Message,
   ReportCategorias,
   SurplusBasis,
@@ -62,6 +63,14 @@ export type ReportViagens = {
   suggestions: TripSuggestion[];
   /** Viagens já marcadas pela família para os próximos 12 meses. */
   confirmedNext12: number;
+  /** Só com intenção cadastrada (ADR-0026). Por id, sem nome. */
+  intentions?: {
+    total: number;
+    /** Viraram sugestão hoje. */
+    used: number;
+    /** `updatedAt`: a versão olhada. Intenção editada depois volta a esperar a rodada. */
+    outcomes: Array<IntentionOutcome & { updatedAt: string }>;
+  };
 };
 
 export type ReportMetas = {
