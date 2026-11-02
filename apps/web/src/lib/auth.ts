@@ -210,6 +210,13 @@ function createAuth() {
       database: { generateId: () => crypto.randomUUID() },
     },
     telemetry: { enabled: false },
+    // Só a rota pública. A tela e a action usam `auth.api`, que não passa por aqui. Fechadas porque
+    // devolvem o id dos convites a qualquer membro, e o id é o segredo do link.
+    disabledPaths: [
+      "/organization/list-invitations",
+      "/organization/get-full-organization",
+      "/organization/accept-invitation",
+    ],
     plugins: [
       organization({
         ac,
@@ -220,7 +227,8 @@ function createAuth() {
         membershipLimit: 12,
         // Continua desligado mesmo com e-mail: quem chega pelo convite aceita logo depois de criar a
         // conta, ainda sem confirmar, e as contas antigas nunca receberam confirmação. O id
-        // aleatório (UUID v4) faz papel de segredo: quem tem o link e o e-mail convidado entra.
+        // aleatório (UUID v4) faz papel de segredo, desde que só o e-mail convidado e quem tem o papel
+        // de convidar o vejam: ver `disabledPaths`.
         requireEmailVerificationOnInvitation: false,
         invitationExpiresIn: INVITE_LINK_DAYS * 60 * 60 * 24,
         cancelPendingInvitationsOnReInvite: true,
