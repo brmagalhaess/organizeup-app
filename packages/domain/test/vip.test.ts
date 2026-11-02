@@ -4,11 +4,17 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   BILLING_MODULES,
+  canSubscribe,
   canUse,
   canUseCurrency,
+  canView,
+  discountedAmount,
+  firstChargeAfterVip,
   resolveAccess,
   vipActive,
   vipEndingSoon,
+  vipNoticeDue,
+  vipPartial,
   VIP_NOTICE_DAYS,
   willChargeAgain,
   type SubscribedItem,
@@ -171,6 +177,73 @@ describe("fim do VIP", () => {
   });
 });
 
+describe("visão", () => {
+  it("VIP nunca tira visão: o que ficou de fora abre só para consulta", () => {
+    const reading = plan({ trialEndsAt: PAST });
+    const access = resolve(reading, limited());
+    for (const module of BILLING_MODULES) {
+      expect(canView(resolve(reading, null), module)).toBe(true);
+      expect(canView(access, module), module).toBe(true);
+    }
+    expect(canUse(access, "dividas")).toBe(false);
+    expect(vipPartial(access)).toBe(true);
+  });
+
+  it("tudo liberado não é parcial", () => {
+    expect(vipPartial(resolve(plan(), vip()))).toBe(false);
+    expect(vipPartial(resolve(plan(), null))).toBe(false);
+  });
+});
+
+describe("assinar durante o VIP", () => {
+  it("sem data não há o que assinar; com data, pode", () => {
+    expect(canSubscribe(resolve(plan(), vip()))).toBe(false);
+    expect(canSubscribe(resolve(plan(), vip({ endsAt: FUTURE })))).toBe(true);
+    expect(canSubscribe(resolve(plan({ trialEndsAt: PAST }), null))).toBe(true);
+  });
+
+  it("a primeira cobrança é o fim do VIP, sem pagar dias que já ganhou", () => {
+    const end = new Date(NOW.getTime() + 10 * DAY);
+    expect(firstChargeAfterVip(end, NOW)).toEqual(end);
+  });
+
+  it("faltando menos que o prazo da Stripe, vale o prazo", () => {
+    const first = firstChargeAfterVip(new Date(NOW.getTime() + DAY), NOW);
+    expect(first.getTime() - NOW.getTime()).toBe(49 * 60 * 60 * 1000);
+  });
+
+  it("assinatura em teste na Stripe mantém o acesso quando o VIP acaba", () => {
+    const after = plan({ status: "trialing", items: [line("base:50"), line("modulo:metas")] });
+    const ended = resolve(after, vip({ endsAt: PAST }));
+    expect(ended.mode).toBe("assinatura");
+    expect(canUse(ended, "metas")).toBe(true);
+  });
+});
+
+describe("aviso à família", () => {
+  it("só de concessão sem custo que vale e acaba em breve", () => {
+    const soon = new Date(NOW.getTime() + 5 * DAY);
+    const far = new Date(NOW.getTime() + 30 * DAY);
+    expect(vipNoticeDue(vip({ endsAt: soon }), NOW)).toBe(true);
+    expect(vipNoticeDue(vip({ endsAt: far }), NOW)).toBe(false);
+    expect(vipNoticeDue(vip({ endsAt: null }), NOW)).toBe(false);
+    expect(vipNoticeDue(vip({ endsAt: PAST }), NOW)).toBe(false);
+    expect(vipNoticeDue(vip({ endsAt: soon, revokedAt: PAST }), NOW)).toBe(false);
+    expect(vipNoticeDue(vip({ endsAt: soon, holderActive: false }), NOW)).toBe(false);
+    expect(vipNoticeDue(vip({ endsAt: soon, cost: "desconto", discountPercent: 10 }), NOW)).toBe(
+      false,
+    );
+  });
+});
+
+describe("desconto no valor", () => {
+  it("tira o percentual e arredonda só no fim", () => {
+    // R$ 44,90 com 30% de desconto = 31,43.
+    expect(discountedAmount("44.90", 30)).toBe("31.43");
+    expect(discountedAmount("44.90", null)).toBe("44.90");
+  });
+});
+
 describe("VIP com desconto", () => {
   const discount = (over: Partial<VipState> = {}) =>
     vip({ cost: "desconto", discountPercent: 30, ...over });
@@ -216,6 +289,10 @@ describe("apoio do painel", () => {
   it("só quem a Stripe vai cobrar de novo impede a concessão sem custo", () => {
     expect(willChargeAgain({ status: "active", cancelAtPeriodEnd: false })).toBe(true);
     expect(willChargeAgain({ status: "past_due", cancelAtPeriodEnd: false })).toBe(true);
+    // Boleto esperando e fatura sem pagar ainda podem cobrar.
+    expect(willChargeAgain({ status: "incomplete", cancelAtPeriodEnd: false })).toBe(true);
+    expect(willChargeAgain({ status: "unpaid", cancelAtPeriodEnd: false })).toBe(true);
+    expect(willChargeAgain({ status: "incomplete_expired", cancelAtPeriodEnd: false })).toBe(false);
     expect(willChargeAgain({ status: "active", cancelAtPeriodEnd: true })).toBe(false);
     expect(willChargeAgain({ status: "canceled", cancelAtPeriodEnd: false })).toBe(false);
     expect(willChargeAgain({ status: null, cancelAtPeriodEnd: false })).toBe(false);

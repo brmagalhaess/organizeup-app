@@ -26,6 +26,7 @@ const sub = (over: Partial<Sub> = {}): Sub => ({
   items: [line("familia", "44.90")],
   trialEndsAt: null,
   cancelAtPeriodEnd: false,
+  currentPeriodEnd: null,
   cycle: "mes",
   discountPercent: null,
   canceledAt: null,
@@ -93,6 +94,47 @@ describe("resumo", () => {
         sub({ status: "canceled", canceledAt: new Date(NOW.getTime() - days * DAY) }),
       );
     expect(revenueSummary([canceled(29), canceled(31)], NOW, null).canceled30d).toBe(1);
+  });
+
+  it("pedido de cancelamento não é cancelamento: conta à parte e segue na receita", () => {
+    const asked = new Date(NOW.getTime() - DAY);
+    const asking = sub({
+      cancelAtPeriodEnd: true,
+      canceledAt: asked,
+      currentPeriodEnd: new Date(NOW.getTime() + 20 * DAY),
+    });
+    const summary = revenueSummary([family("assinatura", asking)], NOW, null);
+    expect(summary).toMatchObject({ canceled30d: 0, cancelling: 1, active: 1, mrr: "44.90" });
+  });
+
+  it("anual que pediu há meses e acabou agora conta pelo fim, não pelo pedido", () => {
+    const ended = sub({
+      status: "canceled",
+      cancelAtPeriodEnd: true,
+      canceledAt: new Date(NOW.getTime() - 200 * DAY),
+      currentPeriodEnd: new Date(NOW.getTime() - 2 * DAY),
+    });
+    expect(revenueSummary([family("leitura", ended)], NOW, null).canceled30d).toBe(1);
+  });
+
+  it("quem a Stripe cobra entra na receita, mesmo com cortesia ou VIP", () => {
+    const summary = revenueSummary(
+      [family("cortesia", sub()), family("vip", sub({ items: [line("base:50", "9.90")] }))],
+      NOW,
+      null,
+    );
+    expect(summary).toMatchObject({ mrr: "54.80", active: 2 });
+  });
+
+  it("quem está em teste na Stripe ainda não paga: fora da receita, e conta como teste", () => {
+    const summary = revenueSummary([family("vip", sub({ status: "trialing" }))], NOW, null);
+    expect(summary).toMatchObject({ mrr: "0.00", active: 0, trial: 1 });
+    expect(summary.tiers.find((tier) => tier.tier === "sem_receita")?.families).toBe(1);
+  });
+
+  it("modo assinatura com a Stripe já encerrada não é receita", () => {
+    const over = family("assinatura", sub({ status: "canceled" }));
+    expect(revenueSummary([over], NOW, null).mrr).toBe("0.00");
   });
 
   it("conversão olha só quem terminou o teste ou pagou antes dele acabar", () => {

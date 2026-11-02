@@ -366,10 +366,32 @@ export const vipEndingSoon = (vip: Pick<VipState, "endsAt">, now: Date) =>
   vip.endsAt > now &&
   vip.endsAt.getTime() - now.getTime() <= VIP_NOTICE_DAYS * DAY_MS;
 
+/** Concessão sem custo que acaba em breve: a família precisa saber antes de cair em só leitura. */
+export const vipNoticeDue = (vip: VipState, now: Date) =>
+  vip.cost === "sem_custo" && vipActive(vip, now) && vipEndingSoon(vip, now);
+
 /** Situações da Stripe em que o serviço segue. `incomplete` espera o boleto ou o primeiro pagamento. */
 const PAYING = new Set(["active", "trialing", "past_due"]);
 /** Evento de cancelamento atrasado não dá acesso de graça depois do fim do período pago. */
 const CANCEL_GRACE_DAYS = 3;
+/** Situações da Stripe das quais a assinatura não volta: não cobra mais nada. */
+const STRIPE_ENDED = new Set(["canceled", "incomplete_expired"]);
+
+/** A assinatura segue existindo na Stripe, mesmo esperando pagamento ou sem conseguir cobrar. */
+export const stripeAlive = (status: string | null) => status !== null && !STRIPE_ENDED.has(status);
+
+/** Situação que mantém o serviço: é o que `resolveAccess` e a receita chamam de assinatura de pé. */
+export function stripeServing(
+  subscription: Pick<SubscriptionState, "status" | "cancelAtPeriodEnd" | "currentPeriodEnd">,
+  now: Date,
+) {
+  const { status, cancelAtPeriodEnd, currentPeriodEnd } = subscription;
+  const ended =
+    cancelAtPeriodEnd &&
+    currentPeriodEnd !== null &&
+    now.getTime() > currentPeriodEnd.getTime() + CANCEL_GRACE_DAYS * DAY_MS;
+  return status !== null && PAYING.has(status) && !ended;
+}
 
 const FULL = {
   modules: BILLING_MODULES,
@@ -387,11 +409,7 @@ function planAccess(subscription: SubscriptionState | null, now: Date): FamilyAc
   const { courtesy, courtesyUntil, trialEndsAt, status, items } = subscription;
   if (courtesy && (!courtesyUntil || courtesyUntil > now)) return { ...FULL, mode: "cortesia" };
 
-  const ended =
-    subscription.cancelAtPeriodEnd &&
-    subscription.currentPeriodEnd !== null &&
-    now.getTime() > subscription.currentPeriodEnd.getTime() + CANCEL_GRACE_DAYS * DAY_MS;
-  if (status && PAYING.has(status) && !ended) {
+  if (stripeServing(subscription, now)) {
     const granted = entitlementsOf(items.map((row) => row.item));
     return {
       mode: "assinatura",
@@ -482,23 +500,50 @@ export function resolveAccess(input: {
 }
 
 /**
- * A próxima renovação vai cobrar? Conceder de graça a quem a Stripe segue cobrando faria a família pagar
- * por algo que ganhou: o painel recusa até a assinatura estar marcada para acabar.
+ * A Stripe ainda pode cobrar? Inclui quem espera boleto (`incomplete`) e fatura sem pagar (`unpaid`): dar de
+ * graça a quem ainda vai pagar faria a família pagar pelo que ganhou. O painel recusa até a assinatura estar
+ * marcada para acabar.
  */
 export const willChargeAgain = (
   subscription: Pick<SubscriptionState, "status" | "cancelAtPeriodEnd">,
-) =>
-  subscription.status !== null &&
-  PAYING.has(subscription.status) &&
-  !subscription.cancelAtPeriodEnd;
+) => stripeAlive(subscription.status) && !subscription.cancelAtPeriodEnd;
 
 /** Pode agir: gravar, rodar agente, chamar a IA. */
 export const canUse = (access: FamilyAccess, module: BillingModule) =>
   access.modules.includes(module);
 
-/** Pode abrir a tela. Em só leitura a família continua vendo tudo o que é dela. */
+/**
+ * Pode abrir a tela. Em só leitura a família continua vendo tudo o que é dela, e VIP nunca tira visão: com
+ * módulos escolhidos, o que ficou de fora abre só para consulta.
+ */
 export const canView = (access: FamilyAccess, module: BillingModule) =>
-  access.mode === "leitura" || canUse(access, module);
+  access.mode === "leitura" || access.mode === "vip" || canUse(access, module);
+
+/** VIP com módulos escolhidos: parte das telas é só consulta, e a família precisa saber por quê. */
+export const vipPartial = (access: FamilyAccess) =>
+  access.mode === "vip" && access.modules.length < BILLING_MODULES.length;
+
+/** VIP sem custo e sem data não tem o que assinar: nada acaba. Com data, dá para assinar antes. */
+export const canSubscribe = (access: FamilyAccess) =>
+  access.mode !== "vip" || access.vip?.endsAt != null;
+
+/** A Stripe exige pelo menos dois dias de prazo até a primeira cobrança. Uma hora a mais é a folga. */
+const MIN_FIRST_CHARGE_HOURS = 49;
+
+/**
+ * Primeira cobrança de quem assina durante o VIP: quando ele acaba, para não pagar por dias que já ganhou.
+ * Faltando menos que o prazo da Stripe, vale o prazo: a família ganha umas horas, e não paga em dobro.
+ */
+export function firstChargeAfterVip(endsAt: Date, now: Date): Date {
+  const earliest = now.getTime() + MIN_FIRST_CHARGE_HOURS * 60 * 60 * 1000;
+  return new Date(Math.max(endsAt.getTime(), earliest));
+}
+
+/** O que a família paga depois do desconto da Stripe. Null: sem desconto. */
+export const discountedAmount = (amount: string, percent: number | null) =>
+  percent
+    ? toDbAmount(money(amount).times(money(100).minus(percent)).dividedBy(100))
+    : toDbAmount(amount);
 
 /** Moeda principal é grátis. Moeda adicional cancelada: a conta fica, só leitura. */
 export const canUseCurrency = (access: FamilyAccess, currency: Currency, main: Currency) =>

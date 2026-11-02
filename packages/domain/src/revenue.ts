@@ -1,6 +1,7 @@
-// Números da tela Receita do painel (ADR-0025). Tudo aqui é puro e por `money`: recebe o que o banco leu, com o
-// acesso já decidido por `resolveAccess`, e devolve valores em reais, como texto, no formato do banco. Só para a
-// plataforma: nenhum dado financeiro da família entra aqui, só o que ela paga ao serviço.
+// Números da tela Receita do painel (ADR-0025). Tudo aqui é puro e por `money`: recebe o que o banco leu e devolve
+// valores em reais, como texto, no formato do banco. Só para a plataforma: nenhum dado financeiro da família entra
+// aqui, só o que ela paga ao serviço. Receita é de quem a Stripe cobra de fato, seja qual for o acesso: cortesia e VIP
+// não apagam uma assinatura que segue cobrando.
 import { money, toDbAmount } from "./money";
 import type {
   AccessMode,
@@ -9,12 +10,15 @@ import type {
   SubscribedItem,
   SubscriptionState,
 } from "./plans";
-import { PAID_MODULES, selectionOfItems } from "./plans";
+import { PAID_MODULES, selectionOfItems, stripeServing } from "./plans";
 
 export interface RevenueFamily {
   mode: AccessMode;
   subscription:
-    | (Pick<SubscriptionState, "status" | "items" | "trialEndsAt" | "cancelAtPeriodEnd"> & {
+    | (Pick<
+        SubscriptionState,
+        "status" | "items" | "trialEndsAt" | "cancelAtPeriodEnd" | "currentPeriodEnd"
+      > & {
         cycle: BillingCycle | null;
         discountPercent: number | null;
         canceledAt: Date | null;
@@ -25,7 +29,7 @@ export interface RevenueFamily {
   aiCostUsd: string;
 }
 
-/** Faixa de mensagens por mês. `sem_receita`: cortesia, VIP sem custo, teste e só leitura. */
+/** Faixa de mensagens por mês. `sem_receita`: quem a Stripe não cobra agora. */
 export const REVENUE_TIERS = ["sem_assistente", "30", "100", "300", "sem_receita"] as const;
 export type RevenueTier = (typeof REVENUE_TIERS)[number];
 
@@ -48,10 +52,11 @@ export interface RevenueSummary {
   /** Em atraso ficam fora da receita, e o valor em risco aparece aqui. */
   pastDue: number;
   pastDueAmount: string;
+  /** Em teste, nosso ou da Stripe: ainda não pagam. */
   trial: number;
-  /** Ativas que não renovam. */
+  /** Pediram para cancelar, e seguem até o fim do período pago. */
   cancelling: number;
-  /** Encerradas nos últimos 30 dias. */
+  /** Assinaturas que acabaram de fato nos últimos 30 dias. */
   canceled30d: number;
   /** Null: nenhum assinante. */
   averageTicket: string | null;
@@ -61,6 +66,8 @@ export interface RevenueSummary {
   modules: Array<{ module: PaidModule; families: number }>;
   tiers: TierRevenue[];
 }
+
+type Subscription = NonNullable<RevenueFamily["subscription"]>;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const PERCENT_SCALE = 1;
@@ -82,15 +89,26 @@ export function monthlyAmount(
 const percent = (part: ReturnType<typeof money>, whole: ReturnType<typeof money>) =>
   part.times(100).dividedBy(whole).toFixed(PERCENT_SCALE);
 
-function tierOf(family: RevenueFamily): RevenueTier {
-  const sub = family.subscription;
-  const paying = family.mode === "assinatura" && sub !== null;
-  if (!paying) return "sem_receita";
+/** A Stripe cobra agora? Em teste, nosso ou dela, ainda não. */
+const chargedNow = (sub: Subscription | null, now: Date): sub is Subscription =>
+  sub !== null && sub.status !== "trialing" && stripeServing(sub, now);
+
+function tierOf(sub: Subscription | null, now: Date): RevenueTier {
+  if (!chargedNow(sub, now)) return "sem_receita";
   const { messages } = selectionOfItems(
     sub.items.map((row) => row.item),
     sub.cycle ?? "mes",
   );
   return messages === 0 ? "sem_assistente" : (String(messages) as RevenueTier);
+}
+
+/**
+ * Quando acabou de fato. A Stripe marca `canceled_at` no pedido: quem cancelou para o fim do período só acaba
+ * ali, e contar pelo pedido mostraria quem ainda está pagando como perdido.
+ */
+function endedAt(sub: Subscription): Date | null {
+  if (sub.status !== "canceled") return null;
+  return sub.cancelAtPeriodEnd && sub.currentPeriodEnd ? sub.currentPeriodEnd : sub.canceledAt;
 }
 
 export function revenueSummary(
@@ -115,17 +133,19 @@ export function revenueSummary(
 
   for (const family of families) {
     const sub = family.subscription;
-    const tier = tiers.get(tierOf(family))!;
+    const tier = tiers.get(tierOf(sub, now))!;
     tier.families += 1;
     tier.costUsd = tier.costUsd.plus(family.aiCostUsd);
-    if (family.mode === "teste") trial += 1;
+    if (family.mode === "teste" || sub?.status === "trialing") trial += 1;
     if (!sub) continue;
-    if (sub.canceledAt && now.getTime() - sub.canceledAt.getTime() <= 30 * DAY_MS) canceled30d += 1;
+    const ended = endedAt(sub);
+    if (ended && ended <= now && now.getTime() - ended.getTime() <= 30 * DAY_MS) canceled30d += 1;
     if (sub.trialEndsAt && (sub.trialEndsAt <= now || sub.firstPaidAt)) {
       started += 1;
       if (sub.firstPaidAt) converted += 1;
     }
-    if (family.mode !== "assinatura") continue;
+    if (!chargedNow(sub, now)) continue;
+    if (sub.cancelAtPeriodEnd) cancelling += 1;
     const value = monthlyAmount(sub.items, sub.cycle, sub.discountPercent);
     if (sub.status === "past_due") {
       pastDue += 1;
@@ -135,7 +155,6 @@ export function revenueSummary(
     active += 1;
     mrr = mrr.plus(value);
     tier.revenue = tier.revenue.plus(value);
-    if (sub.cancelAtPeriodEnd) cancelling += 1;
     const selection = selectionOfItems(
       sub.items.map((row) => row.item),
       sub.cycle ?? "mes",
