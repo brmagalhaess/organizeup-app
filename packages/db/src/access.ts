@@ -2,8 +2,15 @@
 // requisição do app, então tudo aqui tolera a migração ainda não aplicada: a coluna ou a tabela nova
 // faltando vale como "liberado", e a web sobe antes do worker sem derrubar nada.
 import { eq, sql } from "drizzle-orm";
+import type { AccountType } from "@organizeup/domain";
 import { appPool } from "./client";
-import { featureFlags, householdAccess, userAccess, userPreferences } from "./schema";
+import {
+  featureFlags,
+  householdAccess,
+  householdInvitation,
+  userAccess,
+  userPreferences,
+} from "./schema";
 
 /** 42703 (coluna) e 42P01 (tabela): a versão nova subiu antes da migração. */
 export function isSchemaLag(error: unknown): boolean {
@@ -74,6 +81,37 @@ export async function householdIsSuspended(householdId: string): Promise<boolean
       .where(eq(householdAccess.id, householdId));
     return Boolean(row?.suspendedAt);
   }, false);
+}
+
+/** Tipo da conta. Lido antes de a pessoa entrar, no convite e no e-mail. Sem a coluna ainda: 'pf'. */
+export async function householdAccountType(householdId: string): Promise<AccountType> {
+  return tolerateSchemaLag(async () => {
+    const [row] = await appPool()
+      .db.select({ accountType: householdAccess.accountType })
+      .from(householdAccess)
+      .where(eq(householdAccess.id, householdId));
+    return row?.accountType ?? "pf";
+  }, "pf");
+}
+
+/** Tipo da família do convite. Convite inexistente vale como 'pf': a tela já o recusa adiante. */
+export async function inviteAccountType(invitationId: string): Promise<AccountType> {
+  return tolerateSchemaLag(async () => {
+    const [row] = await appPool()
+      .db.select({ accountType: householdAccess.accountType })
+      .from(householdInvitation)
+      .innerJoin(householdAccess, eq(householdAccess.id, householdInvitation.organizationId))
+      .where(eq(householdInvitation.id, invitationId));
+    return row?.accountType ?? "pf";
+  }, "pf");
+}
+
+/** Só sobe para 'pj': quem é responsável e informou empresa. Nunca volta sozinho para 'pf'. */
+export async function markHouseholdAsCompany(householdId: string): Promise<void> {
+  await appPool()
+    .db.update(householdAccess)
+    .set({ accountType: "pj" })
+    .where(eq(householdAccess.id, householdId));
 }
 
 /** Famílias suspensas entre os ids informados, para a tela de escolha. */

@@ -17,6 +17,7 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
+import { useAccountFeatures } from "@/i18n/account";
 import { AdultFields } from "./person-fields";
 
 /** Quem pode ser cadastrado; o titular nasce com a família. */
@@ -33,6 +34,8 @@ export interface PersonRow {
   inssContributor: boolean | null;
   expectedPension: string;
   retirementAge: number | null;
+  /** Participação, como digitada. Vazia em conta PF. */
+  ownership: string;
 }
 
 const initial: ActionState = { ok: false, message: null };
@@ -43,7 +46,10 @@ function PersonForm({ person, onDone }: { person: PersonRow | null; onDone: () =
   const t = useTranslations("pessoas");
   const tCommon = useTranslations("common");
   const [state, action, pending] = useActionState(person ? updatePerson : addPerson, initial);
-  const [relation, setRelation] = useState(person?.relation ?? "conjuge");
+  const features = useAccountFeatures();
+  const [relation, setRelation] = useState(
+    person?.relation ?? (features.relations ? "conjuge" : "outro"),
+  );
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
@@ -53,8 +59,8 @@ function PersonForm({ person, onDone }: { person: PersonRow | null; onDone: () =
       <Field label={t("form.name")} error={state.fieldErrors?.name}>
         <Input name="name" required maxLength={120} defaultValue={person?.name ?? ""} />
       </Field>
-      {relation === "titular" ? (
-        <input type="hidden" name="relation" value="titular" />
+      {relation === "titular" || !features.relations ? (
+        <input type="hidden" name="relation" value={relation} />
       ) : (
         <Field label={t("form.relation")} error={state.fieldErrors?.relation}>
           <Select
@@ -74,6 +80,15 @@ function PersonForm({ person, onDone }: { person: PersonRow | null; onDone: () =
       <Field label={t("form.birth")} hint={t("form.birthHint")} error={state.fieldErrors?.birth}>
         <Input name="birth" type="month" defaultValue={person?.birth ?? ""} />
       </Field>
+      {features.ownership ? (
+        <Field
+          label={t("form.ownership")}
+          hint={t("form.ownershipHint")}
+          error={state.fieldErrors?.ownership}
+        >
+          <Input name="ownership" inputMode="decimal" defaultValue={person?.ownership ?? ""} />
+        </Field>
+      ) : null}
       {isPlanAdult(relation) ? (
         <>
           <AdultFields
@@ -142,6 +157,9 @@ export function PeopleBoard({ rows, writable }: { rows: PersonRow[]; writable: b
                     : relation}
                 </p>
               </div>
+              {person.ownership ? (
+                <Badge>{t("people.ownershipShare", { percent: person.ownership })}</Badge>
+              ) : null}
               {person.age !== null ? <Badge>{t("people.age", { age: person.age })}</Badge> : null}
               {writable ? (
                 <IconButton

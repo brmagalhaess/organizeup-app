@@ -1,7 +1,10 @@
 // Catálogos de texto. Um texto que falta em inglês ou espanhol aparece em português: a tela nunca fica
 // com chave crua nem em branco.
-import { currencySymbol, type Currency } from "@organizeup/domain";
+import { currencySymbol, type AccountType, type Currency } from "@organizeup/domain";
 import type { AbstractIntlMessages } from "next-intl";
+import enCompany from "../../messages/empresa/en.json";
+import esCompany from "../../messages/empresa/es.json";
+import ptCompany from "../../messages/empresa/pt-BR.json";
 import en from "../../messages/en.json";
 import es from "../../messages/es.json";
 import ptBR from "../../messages/pt-BR.json";
@@ -76,14 +79,47 @@ const withMoneyMarks = (
   );
 };
 
+/**
+ * Textos de conta de pessoa jurídica, por caminho da chave, em `messages/empresa/`. São as mesmas chaves do
+ * catálogo: conta PF tem família, conta PJ tem sócios, e nenhuma tela precisa saber. O que faltar em inglês ou
+ * espanhol aparece em português, como no catálogo principal.
+ */
+export const companyTexts: Record<Locale, Record<string, string>> = {
+  "pt-BR": ptCompany,
+  en: { ...ptCompany, ...enCompany },
+  es: { ...ptCompany, ...esCompany },
+};
+
+function replaceAt(
+  tree: AbstractIntlMessages,
+  [head, ...rest]: string[],
+  text: string,
+): AbstractIntlMessages {
+  if (!head) return tree;
+  const current = tree[head];
+  if (rest.length === 0) return { ...tree, [head]: text };
+  return { ...tree, [head]: replaceAt(isGroup(current) ? current : {}, rest, text) };
+}
+
+const withCompanyTexts = (messages: AbstractIntlMessages, locale: Locale) =>
+  Object.entries(companyTexts[locale]).reduce(
+    (tree, [path, text]) => replaceAt(tree, path.split("."), text),
+    messages,
+  );
+
 const prepared = new Map<string, AbstractIntlMessages>();
 
-/** Catálogo no idioma, já com a moeda. Montado uma vez por par e guardado. */
-export function messagesFor(locale: Locale, currency: Currency = "BRL") {
-  const key = `${locale}|${currency}`;
+/** Catálogo no idioma, já com a moeda e o tipo da conta. Montado uma vez por trio e guardado. */
+export function messagesFor(
+  locale: Locale,
+  currency: Currency = "BRL",
+  accountType: AccountType = "pf",
+) {
+  const key = `${locale}|${currency}|${accountType}`;
   const known = prepared.get(key);
   if (known) return known;
-  const messages = withMoneyMarks(catalogs[locale], locale, currency);
+  const base = accountType === "pj" ? withCompanyTexts(catalogs[locale], locale) : catalogs[locale];
+  const messages = withMoneyMarks(base, locale, currency);
   prepared.set(key, messages);
   return messages;
 }

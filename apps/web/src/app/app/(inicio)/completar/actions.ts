@@ -7,31 +7,37 @@ import {
   accounts,
   and,
   canWrite,
+  dismissIdentityPrompt,
   eq,
   GOAL_KINDS,
   goals,
   inArray,
+  markHouseholdAsCompany,
   people,
   PERSON_RELATIONS,
   readFamilyAccess,
   retirementPlan,
   withHousehold,
+  type TenantContext,
 } from "@organizeup/db";
-import { canUse, isYearMonth } from "@organizeup/domain";
+import { canUse, isYearMonth, parseIdentity } from "@organizeup/domain";
 import { knownText } from "@/i18n/known-text";
 import { audit } from "@/lib/audit";
+import { storeOwnDocument } from "@/lib/identity";
+import { identityFromForm } from "@/lib/identity-form";
 import {
   adultProfileFor,
   birthField,
   birthParts,
   markOnboardingDone,
+  onboardingStatus,
   optionalAmount,
   patchSettings,
   planShape,
   saveWedding,
   weddingSchema,
 } from "@/lib/onboarding";
-import { requireTenant } from "@/lib/session";
+import { platformFlags, requireTenant } from "@/lib/session";
 import ptBR from "../../../../../messages/pt-BR.json";
 
 export interface CompletarState {
@@ -320,4 +326,52 @@ export async function skipOnboarding(_form: FormData): Promise<void> {
   if (!canWrite(ctx)) return;
   await withHousehold(ctx, (tx) => markOnboardingDone(tx, ctx));
   revalidatePath("/app", "layout");
+}
+
+/**
+ * Documento de quem já tinha conta. É da pessoa, não da família: vale para qualquer papel, e fica fora
+ * da auditoria da família, como o idioma. O passo seguinte é o cadastro complementar, se ainda faltar.
+ */
+export async function saveDocumentStep(
+  _prev: CompletarState,
+  form: FormData,
+): Promise<CompletarState> {
+  const { session, ctx } = await requireTenant();
+  const [t, tAuth] = await Promise.all([getTranslations("identity"), getTranslations("auth")]);
+  if ((await platformFlags()).maintenance) {
+    return { ok: false, message: tAuth("errors.maintenance") };
+  }
+  const parsed = parseIdentity(identityFromForm(form));
+  if (!parsed.ok) {
+    const fields = parsed.fields.map((field) => [field, t(`errors.${field}`)]);
+    return { ok: false, message: null, fieldErrors: Object.fromEntries(fields) };
+  }
+  const result = await storeOwnDocument(session.user.id, parsed.value);
+  if (result !== "ok") return { ok: false, message: t(`errors.${result}`) };
+  // Quem é responsável e informou empresa: a conta passa a ser de sócios.
+  if (parsed.value.personType === "pj" && ctx.role === "owner") {
+    await markHouseholdAsCompany(ctx.householdId);
+  }
+  return continueAfterDocument(ctx);
+}
+
+async function continueAfterDocument(ctx: TenantContext): Promise<never> {
+  const pending = canWrite(ctx) && (await withHousehold(ctx, onboardingStatus)).pending;
+  revalidatePath("/app", "layout");
+  redirect(pending ? "/app/completar?passo=1" : "/app");
+}
+
+/** "Não mostrar mais", no aviso do painel: some o pedido, e o documento segue em Configurações. */
+export async function skipDocument(_form: FormData): Promise<void> {
+  const { session } = await requireTenant();
+  if ((await platformFlags()).maintenance) return;
+  await dismissIdentityPrompt(session.user.id);
+  revalidatePath("/app", "layout");
+}
+
+/** "Agora não", no passo: dispensa do mesmo jeito e segue para o resto do cadastro. */
+export async function skipDocumentStep(_form: FormData): Promise<void> {
+  const { session, ctx } = await requireTenant();
+  if (!(await platformFlags()).maintenance) await dismissIdentityPrompt(session.user.id);
+  await continueAfterDocument(ctx);
 }

@@ -1,4 +1,6 @@
 // Regras puras do assistente: privacidade, custo, verificação, endereço do modelo e esquemas.
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { aiLimits } from "../src/access";
 import { assistantConfigured, modelBaseUrl, workspaceHeaders } from "../src/client";
@@ -42,6 +44,111 @@ describe("privacidade", () => {
   it("mascara e-mail e CPF, com e sem pontuação", () => {
     expect(filter.scrub("fale com ana@example.com")).toBe("fale com [e-mail]");
     expect(filter.scrub("CPF 123.456.789-09 e 12345678909")).toBe("CPF [documento] e [documento]");
+  });
+
+  it("o ponto final da frase não protege o CPF", () => {
+    expect(filter.scrub("Meu CPF é 123.456.789-09.")).toBe("Meu CPF é [documento].");
+    expect(filter.scrub("CPF 12345678909. Obrigada")).toBe("CPF [documento]. Obrigada");
+  });
+
+  it("mascara CNPJ numérico e alfanumérico, com e sem pontuação", () => {
+    expect(filter.scrub("CNPJ 12.345.678/0001-95 pago")).toBe("CNPJ [documento] pago");
+    expect(filter.scrub("CNPJ 12.ABC.345/01DE-35.")).toBe("CNPJ [documento].");
+    expect(filter.scrub("cnpj 12.abc.345/01de-35")).toBe("cnpj [documento]");
+    expect(filter.scrub("doc 12ABC34501DE35 ok")).toBe("doc [documento] ok");
+    expect(filter.scrub("doc 00000000000191 ok")).toBe("doc [documento] ok");
+  });
+
+  it("sequência que não fecha o dígito verificador continua como está", () => {
+    expect(filter.scrub("MERCADOLIVRE12 compra")).toBe("MERCADOLIVRE12 compra");
+    const id = "6f1c2b8e-3a4d-4e5f-9a7b-1c2d3e4f5a6b";
+    expect(filter.scrub(id)).toBe(id);
+  });
+
+  it("documento em número solto não passa por valor", () => {
+    expect(
+      filter.scrubDeep({ a: "12345678909", b: "00000000000191", c: "1234.56", d: "100" }),
+    ).toEqual({ a: "[documento]", b: "[documento]", c: "1234.56", d: "100" });
+  });
+
+  it("número negativo, número puro, chave e valor com sinal também não escapam", () => {
+    expect(
+      filter.scrubDeep({
+        a: "-12345678909",
+        b: "+12345678909",
+        c: 12345678909,
+        d: 11222333000181,
+        e: "11222333000181.00",
+        f: "12345678909.5",
+        "12345678909": "chave",
+      }),
+    ).toEqual({
+      a: "[documento]",
+      b: "[documento]",
+      c: "[documento]",
+      d: "[documento]",
+      e: "[documento]",
+      f: "[documento]",
+      "[documento]": "chave",
+    });
+  });
+
+  it("número comum e valor em dinheiro passam intactos, como número ou como texto", () => {
+    const values = {
+      a: 12345678901,
+      b: 1500,
+      c: "12345678909.00",
+      d: "-1234.56",
+      e: "0.00000001",
+      f: 321.45,
+      g: "999999999999.99",
+    };
+    expect(filter.scrubDeep(values)).toEqual(values);
+  });
+
+  it.each([
+    "CPF.123.456.789-09",
+    "doc.12345678909",
+    "cpf 123/456/789-09",
+    "cpf 123.456.789–09",
+    "cpf 123​456​789​09",
+    "cpf １２３４５６７８９０９",
+    "cpf 1 2 3 4 5 6 7 8 9 0 9",
+    "cnpj 11-222-333/0001-81",
+    "cnpj 11.222.333/0001.81",
+    "CNPJ11222333000181",
+    "PIX11222333000181X",
+    "CNPJ12ABC34501DE35",
+    "cnpj 12 ABC 345 01DE 35",
+  ])("não deixa passar %j", (text) => {
+    const safe = filter.scrub(text);
+    expect(safe).toContain("[documento]");
+    expect(safe.replace(/\D/g, "").length).toBeLessThan(4);
+  });
+
+  it.each([
+    "PIX de R$ 1.234,56 em 31/10/2026",
+    "100,00 200,00 300,00 400,00",
+    "id 6f1c2b8e-3a4d-4e5f-9a7b-1c2d3e4f5a6b",
+    "E60746948202611011230s12345678901",
+    "fatura 20261101000012345678",
+  ])("não confunde valor nem id de transação: %j", (text) => {
+    expect(filter.scrub(text)).toBe(text);
+  });
+
+  it("nada que fala com o modelo lê o documento da conta", () => {
+    const files = readdirSync(path.join(import.meta.dirname, "..", "src"), {
+      recursive: true,
+      encoding: "utf8",
+    }).filter((file) => file.endsWith(".ts"));
+    expect(files.length).toBeGreaterThan(10);
+    const readers = files.filter((file) => {
+      const source = readFileSync(path.join(import.meta.dirname, "..", "src", file), "utf8");
+      return /userIdentity|user_identity\b(?!`)|readUserIdentity|DOCUMENT_ENCRYPTION_KEY/.test(
+        source.replace("nada em packages/ai lê `user_identity`", ""),
+      );
+    });
+    expect(readers).toEqual([]);
   });
 
   it("limpa objetos inteiros sem tocar em valores", () => {

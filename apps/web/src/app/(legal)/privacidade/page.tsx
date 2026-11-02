@@ -18,6 +18,17 @@ export default function PrivacyPage() {
           pode ser lida.
         </li>
         <li>
+          <strong>Identificação:</strong> se você mora no Brasil, o seu CPF e, em cadastro de pessoa
+          jurídica, também o CNPJ e a razão social. Esses dados ficam cifrados no banco de dados, só
+          aparecem mascarados e não são lidos pelos assistentes. Quem mora em outro país não informa
+          documento.
+        </li>
+        <li>
+          <strong>Empresa:</strong> em conta de pessoa jurídica, os sócios e, se você informar, o
+          percentual de participação de cada um. Cada sócio informa o próprio CPF ao aceitar o
+          convite. O percentual é só informativo.
+        </li>
+        <li>
           <strong>Família:</strong> nomes, relação entre as pessoas, mês e ano de nascimento, cidade
           e, se você quiser informar, dia, mês e ano do casamento.
         </li>
@@ -57,6 +68,11 @@ export default function PrivacyPage() {
         <li>
           Prestar o serviço que você contratou ao criar a conta, incluindo montar os planos de
           aposentadoria, metas e viagens (LGPD, art. 7º, V).
+        </li>
+        <li>
+          Identificar quem é titular da conta, emitir nota fiscal e prevenir fraude, com CPF, CNPJ e
+          razão social. Nós os tratamos para executar o contrato que você faz conosco (LGPD, art.
+          7º, V).
         </li>
         <li>
           Enviar os e-mails do serviço: confirmar seu e-mail, trocar a senha, avisar que a senha
@@ -109,13 +125,17 @@ export default function PrivacyPage() {
           em cada conversa. De madrugada, os mesmos dados são usados para preparar as dicas que
           aparecem em cada tela, sem que ninguém pergunte. Também de madrugada vão as descrições dos
           lançamentos sem categoria definida, com quantidade e valor médio, e os nomes das suas
-          categorias, para classificar esses lançamentos.
+          categorias, para classificar esses lançamentos. Os relatórios da família podem trazer um
+          parágrafo escrito com inteligência artificial, a partir desses mesmos dados e sob o mesmo
+          aceite das dicas e das categorias.
         </li>
         <li>
-          <strong>O que não vai:</strong> nomes, e-mails, CPF e senhas. As pessoas aparecem como
-          titular, cônjuge, filho 1, e os nomes conhecidos da família são trocados também nas
-          descrições. Uma descrição de extrato ainda pode conter outros dados de terceiros, como o
-          nome de um estabelecimento ou de quem recebeu um pagamento.
+          <strong>O que não vai:</strong> nomes, e-mails, CPF, CNPJ, razão social e senhas. O
+          documento informado no cadastro nunca é enviado. As pessoas aparecem como titular,
+          cônjuge, filho 1, e os nomes conhecidos da família são trocados também nas descrições. CPF
+          e CNPJ que apareçam em uma descrição são trocados por [documento]. Uma descrição de
+          extrato ainda pode conter outros dados de terceiros, como o nome de um estabelecimento ou
+          de quem recebeu um pagamento.
         </li>
         <li>
           <strong>Para quem:</strong> a Anthropic, PBC, empresa dos Estados Unidos que opera o
@@ -196,7 +216,9 @@ export default function PrivacyPage() {
         Para dar suporte, a administração do serviço vê o nome da família, as datas de criação e de
         último acesso, as pessoas com acesso pelo papel de cada uma e quais áreas do sistema a
         família usa, sem nenhum valor. Nome e e-mail do responsável só aparecem quando pedidos, e
-        cada acesso fica registrado. Dados financeiros não aparecem nesse painel. A administração
+        cada acesso fica registrado. Do documento, o painel mostra só se existe e se é de pessoa
+        física ou jurídica; o documento completo só aparece por pedido do responsável pelo suporte,
+        e esse pedido fica registrado. Dados financeiros não aparecem nesse painel. A administração
         também pode suspender o acesso de uma família, bloquear uma conta ou excluí-las, por exemplo
         em caso de abuso ou a pedido; essas ações ficam registradas.
       </p>
@@ -231,6 +253,10 @@ export default function PrivacyPage() {
         hora, mas continuam nas cópias de segurança por até 30 dias, até serem substituídas.
       </p>
       <p>
+        O documento segue a mesma regra: apagar a conta apaga o CPF, o CNPJ e a razão social. No
+        arquivo de dados baixado em Configurações, ele sai mascarado, só o de quem baixou.
+      </p>
+      <p>
         Se você apagar a conta sendo o responsável por uma família só sua, a família e todos os
         dados dela são apagados. Se a família tiver outras pessoas, remova o acesso delas antes. Se
         você apenas participa de uma família, seu acesso acaba, e os dados que você lançou continuam
@@ -244,7 +270,7 @@ export default function PrivacyPage() {
         (LGPD, art. 18).
       </p>
       <ul>
-        <li>Corrigir: nas telas do próprio sistema.</li>
+        <li>Corrigir: nas telas do próprio sistema. O documento, pelo suporte.</li>
         <li>Baixar os dados da família: Configurações, opção disponível para o responsável.</li>
         <li>Apagar as anotações do assistente: Configurações.</li>
         <li>Baixar ou apagar os arquivos de dívidas: tela de Dívidas.</li>

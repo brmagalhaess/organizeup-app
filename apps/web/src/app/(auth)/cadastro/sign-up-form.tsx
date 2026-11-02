@@ -1,21 +1,34 @@
 "use client";
+import { parseIdentity } from "@organizeup/domain";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { IdentityFields, type IdentityErrors } from "@/components/identity-fields";
 import { Button, Field, FormMessage, Input } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
+import { identityFromForm } from "@/lib/identity-form";
 import { isValidPassword } from "@/lib/password";
 
 export function SignUpForm({ invite }: { invite: string | null }) {
   const t = useTranslations("auth");
+  const tIdentity = useTranslations("identity");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [identityErrors, setIdentityErrors] = useState<IdentityErrors>({});
   const [pending, setPending] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setIdentityErrors({});
     const form = new FormData(event.currentTarget);
+    const identity = identityFromForm(form);
+    const parsed = parseIdentity(identity);
+    if (!parsed.ok) {
+      const fields = parsed.fields.map((field) => [field, tIdentity(`errors.${field}`)]);
+      setIdentityErrors(Object.fromEntries(fields) as IdentityErrors);
+      return;
+    }
     const password = String(form.get("password") ?? "");
     if (password !== String(form.get("confirm") ?? "")) {
       setError(t("errors.passwordsDiffer"));
@@ -26,12 +39,14 @@ export function SignUpForm({ invite }: { invite: string | null }) {
       return;
     }
     setPending(true);
-    // termsAccepted é conferido no hook de cadastro; o cliente tipado não o conhece.
+    // termsAccepted, identity e invitation são conferidos no hook de cadastro; o cliente tipado não os conhece.
     const input = {
       name: String(form.get("name") ?? "").trim(),
       email: String(form.get("email") ?? "").trim(),
       password,
       termsAccepted: form.get("terms") === "on",
+      identity: parsed.value,
+      invitation: invite,
     };
     const { error: signUpError } = await authClient.signUp.email(input);
     if (signUpError) {
@@ -39,13 +54,19 @@ export function SignUpForm({ invite }: { invite: string | null }) {
       setError(
         signUpError.code?.startsWith("USER_ALREADY_EXISTS") || signUpError.status === 422
           ? t("errors.emailTaken")
-          : signUpError.message === "WEAK_PASSWORD"
-            ? t("errors.passwordRule")
-            : signUpError.message === "SIGNUP_CLOSED"
-              ? t("errors.signupClosed")
-              : signUpError.message === "MAINTENANCE"
-                ? t("errors.maintenance")
-                : t("errors.signupFailed"),
+          : signUpError.status === 429
+            ? t("errors.tooManyAttempts")
+            : signUpError.message === "WEAK_PASSWORD"
+              ? t("errors.passwordRule")
+              : signUpError.message === "SIGNUP_CLOSED"
+                ? t("errors.signupClosed")
+                : signUpError.message === "MAINTENANCE"
+                  ? t("errors.maintenance")
+                  : signUpError.message === "DOCUMENT_REFUSED"
+                    ? tIdentity("errors.refusedSignUp")
+                    : signUpError.message === "DOCUMENT_UNAVAILABLE"
+                      ? tIdentity("errors.unavailable")
+                      : t("errors.signupFailed"),
       );
       return;
     }
@@ -61,6 +82,7 @@ export function SignUpForm({ invite }: { invite: string | null }) {
       <Field label={t("fields.email")}>
         <Input name="email" type="email" autoComplete="email" required />
       </Field>
+      <IdentityFields errors={identityErrors} personOnly={invite !== null} />
       <Field label={t("fields.password")} hint={t("fields.passwordHint")}>
         <Input name="password" type="password" autoComplete="new-password" required />
       </Field>

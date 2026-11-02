@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Fraunces, Inter } from "next/font/google";
+import { AccountTypeProvider } from "@/i18n/account";
+import { familyAccountType } from "@/i18n/account-server";
 import { FamilyCurrencyProvider } from "@/i18n/money";
 import { familyCurrency } from "@/i18n/money-server";
 import { IntlProvider } from "@/i18n/provider";
@@ -25,16 +27,19 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [locale, messages, currency] = await Promise.all([
+  const [locale, messages, currency, accountType] = await Promise.all([
     getLocale(),
     getMessages(),
     familyCurrency(),
+    familyAccountType(),
   ]);
   return (
     <html lang={locale} className={`${inter.variable} ${fraunces.variable}`}>
       <body className="min-h-dvh font-sans antialiased">
         <IntlProvider locale={locale} messages={messages}>
-          <FamilyCurrencyProvider currency={currency}>{children}</FamilyCurrencyProvider>
+          <AccountTypeProvider type={accountType}>
+            <FamilyCurrencyProvider currency={currency}>{children}</FamilyCurrencyProvider>
+          </AccountTypeProvider>
         </IntlProvider>
       </body>
     </html>

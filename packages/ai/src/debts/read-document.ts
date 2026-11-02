@@ -22,6 +22,7 @@ import {
   CONFIDENCE_LEVELS,
   decodeStatement,
   DEBT_FILE_TYPES,
+  legalVersionAtLeast,
   money,
   parseBRL,
   todayIn,
@@ -218,7 +219,7 @@ async function hasFileConsent(ctx: TenantContext): Promise<boolean> {
     const [row] = await withHousehold(ctx, (tx) =>
       tx.select({ version: householdFileConsents.version }).from(householdFileConsents),
     );
-    return row !== undefined && row.version >= FILES_CONSENT_VERSION;
+    return row !== undefined && legalVersionAtLeast(row.version, FILES_CONSENT_VERSION);
   }, false);
 }
 

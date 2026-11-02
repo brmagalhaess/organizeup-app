@@ -18,7 +18,7 @@ function post(body: unknown, headers: Record<string, string> = {}) {
   return POST(
     new Request("https://site.example.com/api/diagnostics", {
       method: "POST",
-      headers: { "x-forwarded-for": `10.0.0.${ip}, 172.16.0.1`, ...headers },
+      headers: { "x-forwarded-for": `172.16.0.1, 10.0.0.${ip}`, ...headers },
       body: typeof body === "string" ? body : JSON.stringify(body),
     }),
   );

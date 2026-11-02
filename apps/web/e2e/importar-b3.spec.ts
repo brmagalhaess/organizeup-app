@@ -3,6 +3,8 @@
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { animationsDone } from "./animations";
+import { newCpf } from "./documents";
 import {
   movimentacao,
   negociacao,
@@ -20,6 +22,7 @@ async function signUp(page: Page, name: string) {
   const email = `${name}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@example.com`;
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill(name);
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByLabel("Confirmar senha").fill(password);
@@ -40,8 +43,11 @@ const shot = async (page: Page, name: string) => {
 };
 
 async function expectClean(page: Page) {
+  await animationsDone(page);
   const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
-  expect(a11y.violations.map((violation) => violation.id)).toEqual([]);
+  expect(
+    a11y.violations.map(({ id, nodes }) => `${id}: ${nodes.map((node) => node.target).join(" ")}`),
+  ).toEqual([]);
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
@@ -60,8 +66,11 @@ async function open(page: Page) {
   await expect(page.locator('input[type="file"]')).toBeEnabled();
 }
 
-/** O Next deixa um `role=alert` vazio na página para anunciar rotas. */
-const problem = (page: Page) => page.getByRole("alert").filter({ hasText: /\S/ });
+/**
+ * Só o conteúdo da tela. O Next deixa fora do `main` um `role=alert` que anuncia rotas, e ele ganha texto depois
+ * de navegar por link. Dentro do `main`, dois alertas com texto ainda reprovam o teste.
+ */
+const problem = (page: Page) => page.getByRole("main").getByRole("alert").filter({ hasText: /\S/ });
 
 test.beforeEach(async ({ page }, info) => {
   if (info.project.name === "mobile") await page.setViewportSize({ width: 375, height: 812 });

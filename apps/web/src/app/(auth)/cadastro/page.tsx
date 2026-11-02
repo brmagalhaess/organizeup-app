@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { inviteAccountType } from "@organizeup/db";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui";
+import { textsForAccount } from "@/i18n/account-server";
 import { inviteId } from "@/lib/invites";
 import { platformFlags } from "@/lib/session";
 import { SignUpForm } from "./sign-up-form";
@@ -18,7 +20,7 @@ export default async function SignUpPage({
 }) {
   const invite = inviteId((await searchParams).convite);
   const { signupClosed } = await platformFlags();
-  const t = await getTranslations("auth.signUp");
+  const t = await textsForAccount(invite ? await inviteAccountType(invite) : "pf", "auth.signUp");
   if (signupClosed && !invite) {
     return (
       <>

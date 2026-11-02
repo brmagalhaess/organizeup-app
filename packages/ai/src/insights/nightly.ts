@@ -8,6 +8,7 @@ import {
   and,
   eq,
   gte,
+  householdAccountType,
   householdCurrency,
   householdInsights,
   INSIGHT_SCREENS,
@@ -20,7 +21,14 @@ import {
   type TenantContext,
   readFamilyAccess,
 } from "@organizeup/db";
-import { canUse, normalizeDescription, type Currency, type FamilyAccess } from "@organizeup/domain";
+import {
+  canUse,
+  legalVersionAtLeast,
+  normalizeDescription,
+  type AccountType,
+  type Currency,
+  type FamilyAccess,
+} from "@organizeup/domain";
 import { z } from "zod";
 import {
   aiLimits,
@@ -155,7 +163,9 @@ export async function nightGate(
   if ((await monthSpend(day, limits)).reached) return "teto_mensal";
   const settings = await readAssistantSettings(ctx);
   const version = settings?.consentVersion ?? "";
-  if (!settings?.consentAt || version < INSIGHTS_CONSENT_VERSION) return "sem_aceite";
+  if (!settings?.consentAt || !legalVersionAtLeast(version, INSIGHTS_CONSENT_VERSION)) {
+    return "sem_aceite";
+  }
   return "pronto";
 }
 
@@ -205,6 +215,7 @@ interface Night {
   /** Idioma de quem definiu o aceite: é nele que as dicas ficam gravadas. */
   locale: AssistantLocale;
   currency: Currency;
+  accountType: AccountType;
   access: FamilyAccess;
 }
 
@@ -231,7 +242,7 @@ async function chooseSpecialists(night: Night, reports: string): Promise<Special
       { role: "user", content: reports },
       {
         role: "system",
-        content: `${ORCHESTRATOR_BRIEF} ${turnContext({ today: night.day, currency: night.currency })}`,
+        content: `${ORCHESTRATOR_BRIEF} ${turnContext({ today: night.day, currency: night.currency, accountType: night.accountType })}`,
       },
     ],
     false,
@@ -254,6 +265,7 @@ async function runSpecialist(night: Night, name: Specialist, reports: string) {
         today: night.day,
         locale: night.locale,
         currency: night.currency,
+        accountType: night.accountType,
       })}`,
     },
   ];
@@ -354,8 +366,9 @@ export async function runNightlyInsights(input: NightInput): Promise<InsightRun>
   const privacy = await withHousehold(ctx, (tx) => loadPrivacyFilter(tx, ctx.householdId));
   const locale = await nightLocale(ctx);
   const currency = await withHousehold(ctx, householdCurrency);
+  const accountType = await householdAccountType(ctx.householdId);
   const access = await readFamilyAccess(ctx);
-  const night: Night = { ctx, client, day, limits, privacy, locale, currency, access };
+  const night: Night = { ctx, client, day, limits, privacy, locale, currency, accountType, access };
   const tools = toolsFor(NIGHT_ROUTE, access);
   const report = await executeTool(tools, ctx, privacy, "relatorios_do_dia", {});
   if (!report.ok) return run;

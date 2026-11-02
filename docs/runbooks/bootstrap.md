@@ -36,6 +36,16 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      `OrganizeUp <notificacoes@organizeup.com.br>`, remetente já verificado na Brevo).
      `ADMIN_EMAILS` **não** vai para produção: só desenvolvimento e e2e, porque um e-mail sem conta pode
      ser tomado por quem se cadastrar com ele (ADR-0016).
+     `DOCUMENT_ENCRYPTION_KEY` (só no `ou3-web`, nunca no `ou3-worker` nem com `NEXT_PUBLIC`: 32 bytes em base64,
+     gerados com `openssl rand -base64 32`; cifra CPF, CNPJ e razão social e calcula o hash de duplicidade). Cole
+     antes do deploy da versão que pede documento: sem ela, quem mora no Brasil não consegue se cadastrar, nada
+     fica em texto puro, e `/admin` e `/admin/sistema` avisam (ADR-0022). Guarde uma cópia fora do Dokploy e fora
+     das cópias de segurança do banco: perder a chave perde os documentos, e trocá-la exige recifrar todas as
+     linhas, porque o hash de duplicidade também depende dela. Com chave diferente da que cifrou o que está no banco,
+     cadastro com documento fica recusado e `/admin` avisa.
+     `TRUSTED_PROXY_HOPS` (opcional; padrão 1, no `ou3-web`: quantos proxies nossos ficam na frente da web, contados da
+     direita em `x-forwarded-for`. Hoje é só o proxy do Dokploy, sem Cloudflare. Número errado aqui faz o limite por IP olhar
+     o endereço errado: a mais, todo mundo cai no mesmo limite; a menos, o IP volta a ser forjável).
      `ANTHROPIC_API_KEY` (chave da API da Anthropic, no `ou3-web` e no `ou3-worker`, nunca com `NEXT_PUBLIC`; vazia, o assistente
      aparece como indisponível e o resto segue igual), `ANTHROPIC_WORKSPACE_ID` (`wrkspc_...`, obrigatório quando a
      chave não pertence a um workspace; o botão **Testar a IA** em `/admin/sistema` avisa), `AI_MONTHLY_BUDGET_USD` (opcional; padrão 50, teto do
@@ -58,6 +68,8 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      `next dev` (com `NODE_ENV=production` o modelo falso é ignorado), com `ANTHROPIC_API_KEY` qualquer e
      `AI_TEST_BASE_URL=http://127.0.0.1:3199`, depois de `node apps/web/e2e/fake-model.mjs 3199`. Rode com
      `--workers=1`; para vários specs juntos, suba o servidor com `AUTH_RATE_LIMIT=disabled`.
+     Com `E2E_ADMIN_EMAIL`, rode a suíte com `--workers=1`: `admin.spec.ts` liga manutenção e fecha o cadastro para todo
+     mundo, e os specs em paralelo falham sem ter culpa. `E2E_OPS_TOKEN` precisa de 32 caracteres ou mais.
      `E2E_ADMIN_EMAIL` liga o spec `admin.spec.ts`; o servidor de teste sobe com
      `ADMIN_EMAILS` igual a esse valor. `EMAIL_CAPTURE_FILE` liga `recuperar-senha.spec.ts`: o servidor
      grava os e-mails nesse arquivo em vez de enviar. Como `NODE_ENV=production` desliga a captura, esse

@@ -13,26 +13,30 @@ import {
   householdCurrency,
   householdHasMovement,
   householdSettings,
+  markHouseholdAsCompany,
   people,
   PERSON_RELATIONS,
   withHousehold,
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
-import { CURRENCIES, isValidTimezone } from "@organizeup/domain";
+import { CURRENCIES, isValidTimezone, type AccountFeatures } from "@organizeup/domain";
 import {
   adultProfileFor,
   birthField,
   birthParts,
   isPlanAdult,
   NO_SUCH_DAY,
+  optionalAmount,
   optionalInt,
   patchSettings,
   planShape,
   saveWedding,
   weddingSchema,
 } from "@/lib/onboarding";
+import { getAccountFeatures } from "@/i18n/account-server";
 import type { Locale } from "@/i18n/locales";
+import { isCompanyPerson } from "@/lib/identity";
 import { forgetFamilyCurrency } from "@/i18n/money-server";
 import { requireTenant } from "@/lib/session";
 
@@ -153,6 +157,8 @@ export async function bootstrapHousehold(input: {
     }
     await audit(tx, ctx, "bootstrap", "household", ctx.householdId);
   });
+  // Quem se cadastrou como empresa cria conta de sócios; o tipo fica no tenant.
+  if (await isCompanyPerson(session.user.id)) await markHouseholdAsCompany(ctx.householdId);
   revalidatePath("/app", "layout");
   return { ok: true, message: null };
 }
@@ -166,6 +172,7 @@ const personSchema = (t: PersonTexts, locale: Locale) =>
     birth: birthField,
     ...adultProfileFor(locale),
     retirementAge: optionalInt(40, 100, t("errors.retirementAge")),
+    ownership: optionalAmount(t("errors.ownership"), { max: "100" }, locale),
   });
 
 /** `birth` e o perfil do adulto vêm de @/lib/onboarding, com o texto de /app/completar. */
@@ -187,11 +194,16 @@ function readPerson(formData: FormData, t: PersonTexts, locale: Locale) {
     inssContributor: text("inssContributor"),
     expectedPension: text("expectedPension"),
     retirementAge: text("retirementAge"),
+    ownership: text("ownership"),
   });
 }
 
 /** Colunas da pessoa. Quem não entra no plano fica sem dados de trabalho e previdência. */
-function personValues(data: z.output<ReturnType<typeof personSchema>>, relation: string) {
+function personValues(
+  data: z.output<ReturnType<typeof personSchema>>,
+  relation: string,
+  features: AccountFeatures,
+) {
   const adult = isPlanAdult(relation);
   return {
     name: data.name,
@@ -200,6 +212,7 @@ function personValues(data: z.output<ReturnType<typeof personSchema>>, relation:
     inssContributor: adult ? data.inssContributor : null,
     expectedPension: adult ? data.expectedPension : null,
     retirementAge: adult ? data.retirementAge : null,
+    ownershipPercent: features.ownership ? data.ownership : null,
   };
 }
 
@@ -214,14 +227,17 @@ export async function addPerson(_prev: ActionState, formData: FormData): Promise
   const parsed = readPerson(formData, t, locale);
   if (!parsed.success)
     return { ok: false, message: null, fieldErrors: personFieldErrors(parsed.error, t) };
-  const { relation } = parsed.data;
+  const features = await getAccountFeatures();
+  // Sem parentesco, o sócio entra como "outro": não há outro lugar para o CHECK da coluna.
+  const relation = features.relations ? parsed.data.relation : "outro";
   if (relation === "titular")
     return { ok: false, message: null, fieldErrors: { relation: t("errors.relation") } };
 
   await withHousehold(ctx, async (tx) => {
+    const values = personValues(parsed.data, relation, features);
     const [person] = await tx
       .insert(people)
-      .values({ householdId: ctx.householdId, relation, ...personValues(parsed.data, relation) })
+      .values({ householdId: ctx.householdId, relation, ...values })
       .returning({ id: people.id });
     await audit(tx, ctx, "create", "people", person!.id);
   });
@@ -242,6 +258,7 @@ export async function updatePerson(_prev: ActionState, formData: FormData): Prom
   const parsed = readPerson(formData, t, locale);
   if (!parsed.success)
     return { ok: false, message: null, fieldErrors: personFieldErrors(parsed.error, t) };
+  const features = await getAccountFeatures();
 
   const failure = await withHousehold(ctx, async (tx) => {
     const [current] = await tx
@@ -251,10 +268,11 @@ export async function updatePerson(_prev: ActionState, formData: FormData): Prom
     if (!current) return t("errors.personGone");
     const titular = current.relation === "titular";
     if (!titular && parsed.data.relation === "titular") return t("errors.relation");
-    const relation = titular ? "titular" : parsed.data.relation;
+    const relation = titular || !features.relations ? current.relation : parsed.data.relation;
+    const values = personValues(parsed.data, relation, features);
     await tx
       .update(people)
-      .set({ relation, ...personValues(parsed.data, relation), updatedAt: new Date() })
+      .set({ relation, ...values, updatedAt: new Date() })
       .where(eq(people.id, id));
     await audit(tx, ctx, "update", "people", id);
     return null;

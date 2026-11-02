@@ -2,6 +2,7 @@
 // inglês e espanhol: título traduzido, sem português, sem violação de acessibilidade e sem transbordo.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { newCpf } from "./documents";
 
 const password = "senha-segura-123!";
 const PHONE = { width: 375, height: 812 };
@@ -10,6 +11,7 @@ async function signUp(page: Page, name: string) {
   const email = `${name.toLowerCase()}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@example.com`;
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill(name);
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByLabel("Confirmar senha").fill(password);

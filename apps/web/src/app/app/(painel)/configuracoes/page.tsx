@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Suspense } from "react";
 import { canUseAssistant, INSIGHTS_CONSENT_VERSION } from "@organizeup/ai";
+import { legalVersionAtLeast } from "@organizeup/domain";
 import {
   canWrite,
   eq,
@@ -16,8 +17,10 @@ import { buttonClass } from "@/components/styles";
 import { LocaleSelect } from "@/components/locale-select";
 import { Card, PageHeader } from "@/components/ui";
 import { formatInstant } from "@/i18n/format";
+import { identityView } from "@/lib/identity";
 import { requireOwnData, requireTenant } from "@/lib/session";
 import { DeleteAccount } from "./delete-account";
+import { IdentityCard } from "./identity-card";
 import { MemoriesBlock } from "./memories";
 import { CurrencyForm, PlanForm, SettingsForm } from "./settings-form";
 
@@ -43,10 +46,11 @@ export default async function SettingsPage() {
       .where(eq(householdSettings.householdId, ctx.householdId));
     return { settings: row, locked: await householdHasMovement(tx) };
   });
-  const [t, tLocale, locale] = await Promise.all([
+  const [t, tLocale, locale, identity] = await Promise.all([
     getTranslations("settings"),
     getTranslations("locale"),
     getLocale(),
+    identityView(session.user.id),
   ]);
   const role = ["owner", "adult", "child", "viewer"].includes(memberRole)
     ? t(`roles.${memberRole as "owner"}`)
@@ -91,7 +95,9 @@ export default async function SettingsPage() {
             acceptedOn={settings?.aiConsentAt ? formatInstant(settings.aiConsentAt, locale) : null}
             autonomy={settings?.aiAutonomy ?? "organizar"}
             canManage={canUseAssistant(ownCtx)}
-            needsInsightsConsent={(settings?.aiConsentVersion ?? "") < INSIGHTS_CONSENT_VERSION}
+            needsInsightsConsent={
+              !legalVersionAtLeast(settings?.aiConsentVersion, INSIGHTS_CONSENT_VERSION)
+            }
           />
         </Card>
         <Card title={t("memories.title")} description={t("memories.description")}>
@@ -119,6 +125,7 @@ export default async function SettingsPage() {
             </div>
           </dl>
         </Card>
+        <IdentityCard view={identity} />
         <Card title={t("data.title")} description={t("data.description")}>
           <div className="flex flex-wrap gap-2">
             {memberRole === "owner" ? (

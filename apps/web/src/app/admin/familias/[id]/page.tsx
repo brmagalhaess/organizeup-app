@@ -1,4 +1,9 @@
-import { adminHouseholdAssistant, adminHouseholdDetail, type PlatformModule } from "@organizeup/db";
+import {
+  adminHouseholdAssistant,
+  adminHouseholdDetail,
+  householdAccountType,
+  type PlatformModule,
+} from "@organizeup/db";
 import { todayIn } from "@organizeup/domain";
 import { Check, Minus } from "lucide-react";
 import type { Metadata } from "next";
@@ -54,7 +59,10 @@ export default async function AdminFamilyPage({ params }: { params: Promise<{ id
   const family = await adminHouseholdDetail(id);
   if (!family) notFound();
   await noteAdminAccess(session.user.id, "familia:detalhe", { householdId: id });
-  const assistant = await adminHouseholdAssistant(id, todayIn());
+  const [assistant, accountType] = await Promise.all([
+    adminHouseholdAssistant(id, todayIn()),
+    householdAccountType(id),
+  ]);
 
   const suspended = family.suspendedAt !== null;
   const hidden = { id: family.id };
@@ -76,6 +84,9 @@ export default async function AdminFamilyPage({ params }: { params: Promise<{ id
         <div className="flex min-w-0 flex-col gap-6 xl:col-span-2">
           <Card title="Resumo">
             <Facts>
+              <Fact label="Tipo de conta">
+                {accountType === "pj" ? "Empresa, PJ" : "Família, PF"}
+              </Fact>
               <Fact label="Criada em">{formatDate(family.createdAt)}</Fact>
               <Fact label="Última atividade">
                 {family.lastActivityAt ? formatDateTime(family.lastActivityAt) : "Nunca"}

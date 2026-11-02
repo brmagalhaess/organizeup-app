@@ -3,6 +3,7 @@
 import { readFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { newCpf } from "./documents";
 
 const captureFile = process.env.EMAIL_CAPTURE_FILE;
 const password = "senha-segura-123!";
@@ -46,6 +47,7 @@ async function expectAccessible(page: Page) {
 async function signUp(page: Page, email: string) {
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill("Ana Teste");
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByLabel("Confirmar senha").fill(password);

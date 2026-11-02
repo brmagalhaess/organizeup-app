@@ -2,6 +2,7 @@
 // sem violação de acessibilidade e sem transbordo em 375 px. Com E2E_SHOTS, grava as telas mais densas.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { newCpf } from "./documents";
 
 const password = "senha-segura-123!";
 const shots = process.env.E2E_SHOTS;
@@ -13,6 +14,7 @@ function uniqueEmail(prefix: string) {
 async function signUpAndCreateFamily(page: Page, name: string) {
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill(name);
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(uniqueEmail(name.toLowerCase()));
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByLabel("Confirmar senha").fill(password);

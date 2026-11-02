@@ -17,6 +17,7 @@ import {
 import { brazilRulesApply, CARD_CATEGORY, todayIn } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import { Card, PageHeader } from "@/components/ui";
+import { familyAccountType } from "@/i18n/account-server";
 import { agentText } from "@/i18n/agent-text";
 import { resolveLocale } from "@/i18n/resolve";
 import { systemTextOf } from "@/i18n/system-text";
@@ -82,7 +83,10 @@ export default async function ImportPage() {
     };
   });
   const accountName = new Map(data.accountRows.map((a) => [a.id, system.name(a.name)]));
-  const reportOf = new Map(data.reportRows.map((r) => [r.period, agentText(r, locale)]));
+  const accountType = await familyAccountType();
+  const reportOf = new Map(
+    data.reportRows.map((r) => [r.period, agentText(r, locale, accountType)]),
+  );
 
   return (
     <div className="flex flex-col gap-6">

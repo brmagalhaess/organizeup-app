@@ -5,6 +5,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { newCpf } from "./documents";
 
 const shots = process.env.E2E_SHOTS_DIR;
 const workerUrl = process.env.E2E_WORKER_DATABASE_URL ?? "";
@@ -22,6 +23,8 @@ const monthFrom = (delta: number) => {
 async function signUp(page: Page, family: string, english = false) {
   await page.goto(english ? "/cadastro?lang=en" : "/cadastro");
   await page.getByLabel(english ? "Your name" : "Seu nome").fill("Bia");
+  // Em inglês o cadastro já vem em outro país, sem documento.
+  if (!english) await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel(english ? "Email" : "E-mail").fill(`painel.${unique()}@example.com`);
   await page.getByLabel(english ? "Password" : "Senha", { exact: true }).fill(password);
   await page.getByLabel(english ? "Confirm password" : "Confirmar senha").fill(password);

@@ -6,6 +6,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import {
   giveBackMessage,
+  householdAccountType,
   householdCurrency,
   householdTimezone,
   readFamilyAccess,
@@ -14,7 +15,7 @@ import {
   withHousehold,
   type TenantContext,
 } from "@organizeup/db";
-import { todayIn, type Currency, type FamilyAccess } from "@organizeup/domain";
+import { todayIn, type AccountType, type Currency, type FamilyAccess } from "@organizeup/domain";
 import { aiLimits, assistantState, serviceDay, type AiLimits, type AssistantState } from "./access";
 import { errorCode, reportFailure, type AssistantErrorCode } from "./api-errors";
 import type { ModelClient, ModelMessage, ModelStream, StreamParams } from "./client";
@@ -151,6 +152,7 @@ interface Prepared {
   history: MessageParam[];
   memories: TurnMemory[];
   currency: Currency;
+  accountType: AccountType;
   /** Mês em que a mensagem foi gasta. Null: chave desligada, nada foi contado. */
   usageMonth: string | null;
 }
@@ -193,6 +195,7 @@ async function prepare(
   const memories = await memoriesForTurn(ctx, prepared.today);
   return {
     ...prepared,
+    accountType: await householdAccountType(ctx.householdId),
     memories: memories.map((memory) => ({
       ...memory,
       texto: prepared.privacy.scrub(memory.texto),

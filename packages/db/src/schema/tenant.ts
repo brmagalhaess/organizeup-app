@@ -53,6 +53,8 @@ export const people = pgTable(
     /** Benefício mensal esperado (INSS ou previdência). Null = não informado. */
     expectedPension: numeric("expected_pension", { precision: 14, scale: 2 }),
     retirementAge: smallint("retirement_age"),
+    /** Participação do sócio em conta PJ, de 0 a 100. Opcional e só informativa (ADR-0022). */
+    ownershipPercent: numeric("ownership_percent", { precision: 5, scale: 2 }),
     createdAt: ts("created_at").notNull().defaultNow(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },

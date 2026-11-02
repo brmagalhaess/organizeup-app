@@ -19,24 +19,27 @@ import { todayIn, usageLevel } from "@organizeup/domain";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { AppShell, type ShellBanner, type ShellNotice } from "@/components/shell/app-shell";
+import { shouldAskDocument } from "@/lib/identity";
 import { onboardingStatus } from "@/lib/onboarding";
 import { countUnread } from "@/lib/notifications";
 import { isServiceAdmin, platformFlags, requireTenant } from "@/lib/session";
 import { countPending, noticeCookie, tolerateSchemaLag } from "@/lib/suggestions";
 
 const ONBOARDING_KEY = "onboarding";
+const DOCUMENT_KEY = "documento";
 
 /** Aviso e contagem do menu. Sem a migração ainda aplicada, o painel abre sem os dois. */
 async function shellStatus(ctx: TenantContext, writable: boolean) {
   const t = await getTranslations("shell");
-  const dismissed = (await cookies()).has(noticeCookie(ONBOARDING_KEY));
+  const store = await cookies();
+  const dismissed = store.has(noticeCookie(ONBOARDING_KEY));
   const onboarding: ShellNotice = {
     key: ONBOARDING_KEY,
     text: t("onboardingNotice"),
     href: "/app/completar",
     linkLabel: t("onboardingLink"),
   };
-  return tolerateSchemaLag(
+  const status = await tolerateSchemaLag(
     () =>
       withHousehold(ctx, async (tx) => {
         const pendingSuggestions = await countPending(tx);
@@ -45,6 +48,16 @@ async function shellStatus(ctx: TenantContext, writable: boolean) {
       }),
     { notice: null, pendingSuggestions: 0 },
   );
+  // O documento é da pessoa: aparece para qualquer papel e vem antes do cadastro da família.
+  const ask = !store.has(noticeCookie(DOCUMENT_KEY)) && (await shouldAskDocument(ctx.userId ?? ""));
+  if (!ask) return status;
+  const notice: ShellNotice = {
+    key: DOCUMENT_KEY,
+    text: t("documentNotice"),
+    href: "/app/completar?passo=documento",
+    linkLabel: t("documentLink"),
+  };
+  return { ...status, notice };
 }
 
 /** Faixas do serviço: manutenção (sempre visível) e avisos valendo agora, que dá para dispensar. */

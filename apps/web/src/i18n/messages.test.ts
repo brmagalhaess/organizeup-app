@@ -48,7 +48,9 @@ const variables = (text: string) => [...new Set(placeholders(parse(text)))].sort
 
 describe("catálogos", () => {
   it("existe um arquivo por idioma, e nenhum a mais", () => {
-    const files = readdirSync(path.resolve(import.meta.dirname, "../../messages"));
+    const files = readdirSync(path.resolve(import.meta.dirname, "../../messages")).filter((name) =>
+      name.endsWith(".json"),
+    );
     expect(files.sort()).toEqual(LOCALES.map((locale) => `${locale}.json`).sort());
   });
 

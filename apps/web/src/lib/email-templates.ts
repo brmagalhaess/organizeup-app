@@ -1,3 +1,4 @@
+import type { AccountType } from "@organizeup/domain";
 import { createTranslator } from "next-intl";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import { messagesFor } from "@/i18n/messages";
@@ -53,10 +54,10 @@ function cleanName(value: string) {
 }
 
 /** Textos do e-mail no idioma de quem recebe. */
-const textsFor = (locale: Locale) =>
+const textsFor = (locale: Locale, accountType: AccountType = "pf") =>
   createTranslator({
     locale,
-    messages: messagesFor(locale),
+    messages: messagesFor(locale, "BRL", accountType),
     namespace: "emails" as never,
   }) as unknown as (key: string, values?: Record<string, string | number>) => string;
 
@@ -153,9 +154,10 @@ export function invitationEmail(input: {
   familyName: string;
   inviterName: string;
   locale?: Locale;
+  accountType?: AccountType;
 }) {
-  const { id, familyName, inviterName, locale = DEFAULT_LOCALE } = input;
-  const t = textsFor(locale);
+  const { id, familyName, inviterName, locale = DEFAULT_LOCALE, accountType } = input;
+  const t = textsFor(locale, accountType);
   return render({
     locale,
     template: "convite",

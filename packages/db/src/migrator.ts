@@ -129,6 +129,10 @@ async function applyGrants(sql: postgres.Sql) {
     -- Base de conhecimento: mesma regra do mercado. O texto chega pelo migrador (ADR-0018).
     REVOKE INSERT, UPDATE, DELETE ON public.knowledge_chunks FROM ${app}, ${admin};
     REVOKE DELETE ON public.knowledge_chunks FROM ${worker};
+    -- Documento da conta: o worker não tem por que encostar, nem cifrado (ADR-0022).
+    REVOKE ALL ON public.user_identity FROM ${worker};
+    -- Reserva de documento: só pelas funções da 0037, nem a web lê a tabela.
+    REVOKE ALL ON public.identity_reservations FROM ${app}, ${worker}, ${admin};
     -- Planos (ADR-0023): catálogo só o painel grava. A assinatura é espelho da Stripe: só o worker grava,
     -- a família nunca escreve no próprio plano, e ninguém da aplicação apaga. Cascata vem do dono.
     REVOKE INSERT, UPDATE, DELETE ON public.billing_catalog FROM ${app}, ${worker};

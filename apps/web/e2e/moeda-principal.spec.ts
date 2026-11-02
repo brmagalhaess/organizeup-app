@@ -2,6 +2,7 @@
 // Fase 6). Precisa de cotação em market_fx, que o job de mercado do worker grava.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { newCpf } from "./documents";
 
 const password = "senha-segura-123!";
 const shots = process.env.E2E_SHOTS_DIR;
@@ -10,6 +11,7 @@ async function signUp(page: Page, name: string, currency?: string) {
   const email = `${name}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@example.com`;
   await page.goto("/cadastro");
   await page.getByLabel("Seu nome").fill(name);
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByLabel("Confirmar senha").fill(password);
@@ -167,6 +169,14 @@ async function journey(page: Page, label: string) {
       await page.goto(path);
       await axe(page);
       if (shots) await page.screenshot({ path: `${shots}/${label}-${slug}.png`, fullPage: true });
+    } else if (slug === "painel") {
+      // O painel abre o saldo da conta em real, e só isso aparece em real.
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await expect(page.getByRole("main").getByText(/R\$/)).toHaveText([
+        /^Na moeda da conta: R\$\s/,
+      ]);
+      await axe(page);
     } else {
       await screen(page, `${label}-${slug}`, path);
     }

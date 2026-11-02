@@ -1,3 +1,4 @@
+import { findDocuments } from "@organizeup/domain";
 import { z } from "zod";
 
 /**
@@ -10,12 +11,15 @@ const PERSONAL_DATA = [
     pattern: /[A-Z0-9._%+-]+@(?!example\.(com|org|net)\b)[A-Z0-9.-]+\.[A-Z]{2,}/i,
   },
   { label: "CPF", pattern: /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/ },
-  { label: "CNPJ", pattern: /\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/ },
+  { label: "CNPJ", pattern: /\b[\dA-Z]{2}\.[\dA-Z]{3}\.[\dA-Z]{3}\/[\dA-Z]{4}-\d{2}\b/i },
   { label: "telefone", pattern: /(?:\+55\s?)?\(?\b\d{2}\)?[\s-]?9\d{4}[\s-]?\d{4}\b/ },
   { label: "cartão", pattern: /\b(?:\d[ -]?){13,16}\b/ },
 ];
 
+/** Documento vem antes: 14 dígitos também parecem cartão. A busca é a mesma do filtro do assistente. */
 export function findPersonalData(text: string): string | null {
+  const [document] = findDocuments(text);
+  if (document) return document.kind === "cpf" ? "CPF" : "CNPJ";
   return PERSONAL_DATA.find(({ pattern }) => pattern.test(text))?.label ?? null;
 }
 

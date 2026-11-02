@@ -21,6 +21,7 @@ import { Boxes, Database, Globe, Server } from "lucide-react";
 import type { Metadata } from "next";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { stripeUsable } from "@/lib/billing/stripe-key";
+import { vaultReady } from "@/lib/document-vault";
 import { emailConfigured } from "@/lib/email";
 import { platformFlags, requireAdmin } from "@/lib/session";
 import { DICAS_AGENT } from "../agentes/catalogo";
@@ -127,6 +128,12 @@ export default async function AdminSystemPage() {
   const lastTest = aiTests[0];
   const integrations = [
     { name: "E-mail (Brevo)", where: "ou3-web", on: emailConfigured(), hint: "BREVO_API_KEY" },
+    {
+      name: "Cofre de documentos",
+      where: "ou3-web",
+      on: vaultReady(),
+      hint: "DOCUMENT_ENCRYPTION_KEY, sem ela o cadastro com CPF é recusado:",
+    },
     {
       name: "Cotações (brapi)",
       where: "ou3-worker",
