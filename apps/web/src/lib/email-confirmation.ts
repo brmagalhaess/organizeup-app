@@ -29,7 +29,7 @@ export async function sendConfirmation(
   if (await userIsBlocked(account.id)) return { status: "bloqueada" };
   if ((await platformFlags()).maintenance) return { status: "manutencao" };
   if (!emailCanSend()) return { status: "desligado" };
-  const slot = await reserveConfirmationEmail(account.id);
+  const slot = await reserveConfirmationEmail(account.email);
   if ("retryAfterSeconds" in slot) return { status: "aguarde", seconds: slot.retryAfterSeconds };
   const { secret } = await getAuth().$context;
   const token = await createEmailVerificationToken(

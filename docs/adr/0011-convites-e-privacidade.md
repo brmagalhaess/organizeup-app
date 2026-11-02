@@ -31,10 +31,18 @@ e-mail confirmado para entrar, usar o sistema ou aceitar convite. Só muda quem 
   `/send-verification-email` foi fechada em `disabledPaths`: ela aceita qualquer e-mail, sem sessão e fora do limite.
 - **Espera a Brevo.** O cadastro segue em segundo plano, mas aqui a tela só diz "enviado" se saiu. Por isso o token
   é criado direto, com `createEmailVerificationToken`, e não por `auth.api`, que passa pelo envio em segundo plano.
-- **Limite em `verification`, sem migração.** 1 por minuto e 5 por hora, por conta, somando pessoa e admin. O limitador
-  de `lib/rate-limit.ts` fica na memória de um processo e o do Better Auth é por IP. Uma linha por envio, com trava
-  `pg_advisory_xact_lock` por conta, vale entre instâncias e depois de um deploy. O Better Auth apaga linhas vencidas.
-  Envio que falhou devolve a vaga. O e-mail do cadastro não conta.
+- **Limite em `verification`, sem migração.** 1 por minuto e 5 por hora, por endereço (`lower(email)`), somando cadastro,
+  pessoa e admin. Por conta não bastava: cadastrar, apagar e repetir zerava o limite e mandava e-mail sem parar para o
+  endereço de outra pessoa. A linha guarda só o hash do endereço, e por isso pode ficar até uma hora depois de a conta
+  sair. O limitador de `lib/rate-limit.ts` fica na memória de um processo e o do Better Auth é por IP. Uma linha por
+  envio, com trava `pg_advisory_xact_lock` por endereço, vale entre instâncias e depois de um deploy. O Better Auth apaga
+  linhas vencidas. Envio que falhou devolve a vaga. Limite cheio no cadastro não muda a resposta: a conta nasce igual, só
+  sem o e-mail, e a pessoa pede de novo depois. Por isso quem acaba de se cadastrar espera um minuto para reenviar.
+- **E-mail do cadastro por último.** `sendOnSignUp` fica desligado, e o envio é a última coisa de `create.after`, depois
+  de `saveSignUpIdentity`. Esse gancho roda depois de o Better Auth fechar a transação e marcar o cookie: com o envio
+  dele, o documento recusado na última hora apagava a conta, mas a pessoa recebia o e-mail e o cookie junto do erro. O
+  gancho `after` da requisição tira o `Set-Cookie` de resposta de erro em `/sign-up/email`. Quem já tem conta passa pela
+  mesma reserva de documento do cadastro, em `storeOwnDocument`.
 - **Volta do link decidida antes do Better Auth**, em `verifyEmailLanding`. Sozinho, ele trata link repetido como
   sucesso, responde JSON quando falta `token` e, em conta bloqueada, confirma e só depois falha ao abrir a sessão. O
   gancho confere o token, ignora o `callbackURL` da URL, que fica sempre `/confirmar-email`, e leva conta bloqueada a

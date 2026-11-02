@@ -1,7 +1,11 @@
 import "server-only";
 import { betterAuth, type GenericEndpointContext } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import {
+  APIError,
+  createAuthMiddleware,
+  createEmailVerificationToken,
+} from "better-auth/api";
 import { verifyJWT } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
@@ -18,6 +22,8 @@ import {
   ne,
   readPlatformFlags,
   readUserLocale,
+  releaseConfirmationEmail,
+  reserveConfirmationEmail,
   saveUserLocale,
   sql,
   user,
@@ -167,6 +173,32 @@ async function saveSignUpIdentity(userId: string, body: SignUpBody) {
   throw new APIError("BAD_REQUEST", { message });
 }
 
+/**
+ * Confirmação do cadastro: a última coisa do gancho, para recusa nenhuma deixar e-mail para trás. Soma no
+ * mesmo limite do reenvio (ADR-0011). Limite cheio não muda a resposta: a conta nasce igual, só sem o e-mail,
+ * e quem pediu pode reenviar depois. A Brevo não segura o cadastro, e falhar aqui não barra ninguém.
+ */
+async function sendSignUpConfirmation(
+  account: { id: string; name: string; email: string },
+  ctx: GenericEndpointContext,
+) {
+  const slot = await reserveConfirmationEmail(account.email).catch(() => null);
+  if (!slot || !("id" in slot)) return;
+  const message = async () => {
+    const [token, locale] = await Promise.all([
+      createEmailVerificationToken(
+        ctx.context.secret,
+        account.email,
+        undefined,
+        VERIFY_LINK_HOURS * 60 * 60,
+      ),
+      emailLocale(account.id, ctx.request),
+    ]);
+    return { to: account.email, ...verifyEmail({ name: account.name, token, locale }) };
+  };
+  await sendEmailInBackground(message(), () => releaseConfirmationEmail(slot.id));
+}
+
 /** Rotas que escrevem e ficam fechadas na manutenção. Entrar, sair e abrir a família continuam. */
 const writesInMaintenance = (path: string) =>
   path === "/sign-up/email" ||
@@ -205,7 +237,7 @@ function createAuth() {
       // Sem tamanho mínimo, por decisão do fundador: vale a regra de lib/password.ts.
       minPasswordLength: 1,
       maxPasswordLength: 128,
-      // A confirmação de e-mail sai no cadastro e pode ser pedida de novo, mas não impede de entrar.
+      // A confirmação sai no fim do cadastro e pode ser pedida de novo, mas não impede de entrar.
       requireEmailVerification: false,
       // Trocar a senha derruba quem estiver dentro da conta.
       revokeSessionsOnPasswordReset: true,
@@ -226,17 +258,11 @@ function createAuth() {
         ),
     },
     emailVerification: {
-      sendOnSignUp: true,
+      // Quem envia é `sendSignUpConfirmation`: daqui o e-mail sairia antes de o documento ser gravado.
+      sendOnSignUp: false,
       // O link só confirma: quem tem o e-mail encaminhado não entra na conta sem a senha.
       autoSignInAfterVerification: false,
       expiresIn: VERIFY_LINK_HOURS * 60 * 60,
-      sendVerificationEmail: ({ user, token }, request) =>
-        sendEmailInBackground(
-          emailLocale(user.id, request).then((locale) => ({
-            to: user.email,
-            ...verifyEmail({ name: user.name, token, locale }),
-          })),
-        ),
     },
     user: {
       deleteUser: { enabled: true, beforeDelete: (user) => closeOwnHouseholds(user.id) },
@@ -255,14 +281,18 @@ function createAuth() {
             }
             await reserveSignUpDocument(ctx.body ?? {}, ctx.headers);
           },
+          // Roda depois de a transação fechar e de o Better Auth marcar o cookie da sessão: recusa aqui
+          // apaga a conta, e o gancho `after` da requisição tira o cookie da resposta de erro.
           after: async (user, ctx) => {
-            if (ctx?.path === "/sign-up/email") await saveSignUpIdentity(user.id, ctx.body ?? {});
+            const signUp = ctx?.path === "/sign-up/email" ? ctx : null;
+            if (signUp) await saveSignUpIdentity(user.id, signUp.body ?? {});
             await authDb()
               .insert(legalAcceptance)
               .values({ userId: user.id, version: LEGAL_VERSION });
             // O idioma escolhido antes de ter conta passa para a conta. Falhar aqui não barra ninguém.
             const chosen = ctx?.getCookie(LOCALE_COOKIE);
             if (isLocale(chosen)) await saveUserLocale(user.id, chosen).catch(() => false);
+            if (signUp) await sendSignUpConfirmation(user, signUp);
           },
         },
       },
@@ -289,6 +319,12 @@ function createAuth() {
         if (!writesInMaintenance(ctx.path)) return;
         if ((await readPlatformFlags()).maintenance) {
           throw new APIError("SERVICE_UNAVAILABLE", { message: "MAINTENANCE" });
+        }
+      }),
+      after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/sign-up/email") return;
+        if (ctx.context.returned instanceof APIError) {
+          ctx.context.responseHeaders?.delete("set-cookie");
         }
       }),
     },

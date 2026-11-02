@@ -138,10 +138,15 @@ export async function releaseDocument(identity: Identity): Promise<void> {
   }
 }
 
-/** Documento informado por quem já tem conta: com limite, e a recusa conta para o teto da hora. */
+/**
+ * Documento informado por quem já tem conta: com limite, e a recusa conta para o teto da hora. Passa pela
+ * mesma reserva do cadastro: gravar por cima de um cadastro em andamento derrubaria a conta que está nascendo.
+ */
 export async function storeOwnDocument(userId: string, identity: Identity): Promise<StoreResult> {
   if (identity.inBrazil && !allowDocumentTry(userId)) return "refused";
-  const result = await storeIdentity(userId, identity);
+  const reserved = await reserveDocument(identity);
+  const result = reserved === "ok" ? await storeIdentity(userId, identity) : reserved;
+  if (reserved === "ok") await releaseDocument(identity);
   if (result === "refused") noteRefusal(accountKey(userId));
   return result;
 }

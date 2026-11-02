@@ -86,14 +86,16 @@ export async function sendEmail(message: EmailMessage): Promise<boolean> {
 /**
  * Dispara e devolve na hora, para os ganchos do Better Auth. O cadastro roda numa transação e
  * "esqueci a senha" não pode demorar mais quando a conta existe: esperar a Brevo aqui seguraria
- * uma conexão do banco e revelaria quais e-mails têm conta.
+ * uma conexão do banco e revelaria quais e-mails têm conta. `onFailure` roda se nada saiu.
  */
 export function sendEmailInBackground(
   message: EmailMessage | Promise<EmailMessage>,
+  onFailure?: () => Promise<void>,
 ): Promise<void> {
   // Montar a mensagem pode ler o idioma no banco: também fica fora do tempo de quem pediu.
   void Promise.resolve(message)
     .then(sendEmail)
+    .then((sent) => (sent ? undefined : onFailure?.()))
     .catch(() => logFailure("indefinido", "render"));
   return Promise.resolve();
 }

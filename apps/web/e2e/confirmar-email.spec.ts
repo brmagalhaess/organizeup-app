@@ -16,13 +16,16 @@ const shotsFolder = process.env.E2E_SHOTS;
 const password = "senha-segura-123!";
 
 test.skip(!captureFile, "precisa de EMAIL_CAPTURE_FILE no servidor e no Playwright");
-test.describe.configure({ timeout: 180_000 });
+test.describe.configure({ timeout: 240_000 });
 
 test.beforeEach(async ({ page }, testInfo) => {
   if (testInfo.project.name === "mobile") await page.setViewportSize({ width: 375, height: 812 });
 });
 
 const unique = () => `${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
+
+/** O e-mail do cadastro ocupa a vaga do minuto, e o limite é de verdade: não há atalho aqui. */
+const LIMIT_MINUTE_MS = 61_000;
 
 type Captured = { to: string; template: string; text: string; subject: string };
 
@@ -128,16 +131,17 @@ for (const locale of LOCALES) {
     await expect.poll(async () => (await confirmations(email)).length).toBe(1);
 
     await banner.getByRole("button", { name: texts.send }).click();
+    await expect(banner.getByRole("alert")).toContainText(texts.waitSeconds.split(" ")[0]!);
+    await expect.poll(async () => (await confirmations(email)).length).toBe(1);
+    await expectGoodPage(page);
+    await shot(page, testInfo, `${locale.name}-3-aguarde`);
+
+    await page.waitForTimeout(LIMIT_MINUTE_MS);
+    await banner.getByRole("button", { name: texts.send }).click();
     await expect(banner.getByRole("status")).toContainText(texts.sent.split(".")[0]!);
     await expect.poll(async () => (await confirmations(email)).length).toBe(2);
     await expectGoodPage(page);
     await shot(page, testInfo, `${locale.name}-2-enviado`);
-
-    await banner.getByRole("button", { name: texts.send }).click();
-    await expect(banner.getByRole("alert")).toContainText(texts.waitSeconds.split(" ")[0]!);
-    await expect.poll(async () => (await confirmations(email)).length).toBe(2);
-    await expectGoodPage(page);
-    await shot(page, testInfo, `${locale.name}-3-aguarde`);
 
     // Link inválido com a sessão aberta: dá para pedir outro ali mesmo.
     await page.goto(
@@ -266,6 +270,7 @@ test("admin reenvia, a pessoa confirma e o painel mostra verificado", async ({
   await admin.goto(`/admin/usuarios/${user.id}`);
   await expect(admin.getByText("Não verificado", { exact: true })).toBeVisible({ timeout: 60_000 });
   await expect.poll(async () => (await confirmations(email)).length).toBe(1);
+  await page.waitForTimeout(LIMIT_MINUTE_MS);
   await admin.getByRole("button", { name: "Reenviar confirmação" }).click();
   await admin.getByRole("button", { name: "Enviar", exact: true }).click();
   await expect(admin.getByRole("status").filter({ hasText: "Confirmação enviada" })).toBeVisible();

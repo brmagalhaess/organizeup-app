@@ -26,8 +26,16 @@ process.env.ADMIN_DATABASE_URL = urls.admin;
 
 const db = await import("@organizeup/db");
 const { cnpjCheckDigits, parseIdentity } = await import("@organizeup/domain");
-const { identityForExport, identityView, openedIdentity, shouldAskDocument, storeIdentity } =
-  await import("./identity");
+const {
+  identityForExport,
+  identityView,
+  openedIdentity,
+  releaseDocument,
+  reserveDocument,
+  shouldAskDocument,
+  storeIdentity,
+  storeOwnDocument,
+} = await import("./identity");
 const { user } = db;
 
 const CPF = "000.000.001-91";
@@ -63,7 +71,7 @@ beforeAll(async () => {
   vi.stubEnv("DOCUMENT_ENCRYPTION_KEY", KEY);
   await db.withAdmin("seed do teste de documento", (admin) =>
     admin.insert(user).values(
-      ["pf", "pj", "pj-do-pf", "pj-dois", "dup", "cnpj-dup", "fora", "sem-chave"].map((id) => ({
+      ["pf", "pj", "pj-do-pf", "pj-dois", "dup", "cnpj-dup", "fora", "sem-chave", "propria"].map((id) => ({
         id,
         name: `Conta ${id}`,
         email: `doc.${id}@example.com`,
@@ -129,6 +137,17 @@ describe("guardar", () => {
 
   it("documento já informado não é trocado, e a resposta é a mesma", async () => {
     expect(await storeIdentity("pf", person("000.000.004-34"))).toBe("refused");
+  });
+
+  it("documento informado pela conta respeita a reserva de um cadastro em andamento", async () => {
+    const reserved = person("000.000.003-53");
+    expect(await reserveDocument(reserved)).toBe("ok");
+    expect(await storeOwnDocument("propria", reserved)).toBe("refused");
+    expect((await rowOf("propria"))?.cpfHash ?? null).toBeNull();
+
+    await releaseDocument(reserved);
+    expect(await storeOwnDocument("propria", reserved)).toBe("ok");
+    expect(await reserveDocument(reserved)).toBe("refused");
   });
 
   it("quem mora fora guarda só a resposta", async () => {

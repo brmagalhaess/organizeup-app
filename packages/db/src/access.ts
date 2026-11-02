@@ -1,6 +1,7 @@
 // Portão do serviço: conta bloqueada, família suspensa e chaves do sistema (ADR-0016). Roda a cada
 // requisição do app, então tudo aqui tolera a migração ainda não aplicada: a coluna ou a tabela nova
 // faltando vale como "liberado", e a web sobe antes do worker sem derrubar nada.
+import { createHash } from "node:crypto";
 import { and, desc, eq, lte, sql } from "drizzle-orm";
 import type { AccountType } from "@organizeup/domain";
 import { appPool } from "./client";
@@ -252,16 +253,21 @@ function confirmationWait(sentAt: number[], now: number) {
   return Math.max(0, Math.ceil(Math.max(...waits) / 1000));
 }
 
+/** Só o hash: a linha fica até uma hora depois de a conta ser apagada, e nela não sobra o endereço. */
+const confirmationKey = (email: string) =>
+  `confirmar-email:${createHash("sha256").update(email.trim().toLowerCase()).digest("hex")}`;
+
 /**
- * Vaga para reenviar a confirmação de e-mail: 1 por minuto e 5 por hora, por conta. Guarda cada envio em
- * `verification`, a tabela do Better Auth que apaga as linhas vencidas, para valer entre instâncias e depois
- * de um reinício sem migração. A trava por conta impede dois pedidos simultâneos de contarem a mesma vaga.
+ * Vaga para enviar a confirmação de e-mail: 1 por minuto e 5 por hora, por endereço, somando cadastro,
+ * reenvio e admin. Por endereço, e não por conta: apagar a conta e cadastrar de novo não zera a conta. Guarda
+ * cada envio em `verification`, a tabela do Better Auth que apaga as linhas vencidas, para valer entre
+ * instâncias e depois de um reinício sem migração. A trava impede dois pedidos de contarem a mesma vaga.
  */
 export async function reserveConfirmationEmail(
-  userId: string,
+  email: string,
   now = new Date(),
 ): Promise<ConfirmationSlot> {
-  const identifier = `confirmar-email:${userId}`;
+  const identifier = confirmationKey(email);
   return appPool().db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${identifier}, 0))`);
     await tx

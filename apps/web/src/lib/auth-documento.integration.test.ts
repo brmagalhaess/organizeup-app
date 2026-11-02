@@ -108,6 +108,8 @@ afterAll(async () => {
 describe("cadastro recusado", () => {
   beforeAll(async () => {
     expect((await signUp(mail(), pf(1))).status).toBe(200);
+    await settled();
+    emails.length = 0;
   });
 
   it("não deixa conta, cookie de sessão nem e-mail", async () => {

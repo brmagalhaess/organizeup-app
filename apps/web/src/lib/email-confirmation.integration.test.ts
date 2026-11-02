@@ -31,6 +31,16 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => undefined, getAll: () => [], has: () => false }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
+// Simula só o resultado da corrida: `storeIdentity` recusa depois de a reserva ter passado.
+const forced = vi.hoisted(() => ({ result: null as "refused" | "unavailable" | null }));
+vi.mock("@/lib/identity", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/identity")>();
+  return {
+    ...real,
+    storeIdentity: async (...args: Parameters<typeof real.storeIdentity>) =>
+      forced.result ?? real.storeIdentity(...args),
+  };
+});
 vi.mock("next-intl/server", async () => {
   const { createTranslator } = await import("next-intl");
   const { messagesFor } = await import("@/i18n/messages");
@@ -63,30 +73,45 @@ async function captured(to: string) {
 
 const linkIn = (email: Captured | undefined) => email?.text.match(/https?:\/\/\S+/)?.[0] ?? "";
 
-/** O cadastro envia em segundo plano: espera o primeiro e-mail, para os testes contarem só os seguintes. */
-async function signUp(email: string) {
-  const response = await getAuth().handler(
-    new Request(`${ORIGIN}/api/auth/sign-up/email`, {
+const post = (route: string, body: unknown, cookie = "") =>
+  getAuth().handler(
+    new Request(`${ORIGIN}/api/auth${route}`, {
       method: "POST",
-      headers: { "content-type": "application/json", origin: ORIGIN },
-      body: JSON.stringify({
-        name: "Pessoa Teste",
-        email,
-        password: "Senha#1234",
-        termsAccepted: true,
-        identity: { inBrazil: false },
-      }),
+      headers: { "content-type": "application/json", origin: ORIGIN, cookie },
+      body: JSON.stringify(body),
     }),
   );
-  expect(response.status).toBe(200);
-  await vi.waitFor(async () => expect(await captured(email)).toHaveLength(1));
-  const { user } = (await response.json()) as { user: { id: string } };
-  const cookie = response.headers
+
+const signUpRequest = (email: string) =>
+  post("/sign-up/email", {
+    name: "Pessoa Teste",
+    email,
+    password: "Senha#1234",
+    termsAccepted: true,
+    identity: { inBrazil: false },
+  });
+
+const cookieOf = (response: Response) =>
+  response.headers
     .getSetCookie()
     .map((value) => value.split(";")[0])
     .join("; ");
-  return { id: user.id, email, cookie };
+
+/** O cadastro envia em segundo plano: espera o primeiro e-mail, para os testes contarem só os seguintes. */
+async function signUp(email: string) {
+  const response = await signUpRequest(email);
+  expect(response.status).toBe(200);
+  await vi.waitFor(async () => expect(await captured(email)).toHaveLength(1));
+  const { user } = (await response.json()) as { user: { id: string } };
+  return { id: user.id, email, cookie: cookieOf(response) };
 }
+
+/** O e-mail do cadastro ocupa a vaga do minuto: adianta o relógio em vez de esperar de verdade. */
+const afterTheMinute = () =>
+  vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 61 * 1000 });
+
+/** Dá tempo ao envio em segundo plano antes de contar o que não deveria ter saído. */
+const settled = () => new Promise((resolve) => setTimeout(resolve, 400));
 
 const newAccount = () => signUp(`pessoa-${randomUUID()}@example.com`);
 
@@ -118,6 +143,8 @@ const asAccount = (cookie: string) => {
 
 afterEach(async () => {
   process.env.EMAIL_CAPTURE_FILE = captureFile;
+  forced.result = null;
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -130,6 +157,7 @@ describe("reenvio pela sessão", () => {
     const account = await newAccount();
     const other = await newAccount();
     asAccount(account.cookie);
+    afterTheMinute();
 
     expect(await resendConfirmation()).toEqual({
       ok: true,
@@ -184,6 +212,7 @@ describe("reenvio pela sessão", () => {
     expect(reply.ok).toBe(false);
     expect(reply.message).toContain("Nada foi enviado");
     process.env.EMAIL_CAPTURE_FILE = captureFile;
+    afterTheMinute();
     expect((await resendConfirmation()).ok).toBe(true);
   });
 
@@ -191,6 +220,7 @@ describe("reenvio pela sessão", () => {
     const account = await newAccount();
     asAccount(account.cookie);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+    afterTheMinute();
     process.env.EMAIL_CAPTURE_FILE = folder;
     expect(await resendConfirmation()).toEqual({
       ok: false,
@@ -218,13 +248,63 @@ describe("reenvio pela sessão", () => {
   });
 });
 
-describe("limite por conta", () => {
+describe("cadastro recusado depois da reserva", () => {
+  it.each(["refused", "unavailable"] as const)(
+    "%s: sem conta, sem e-mail e sem Set-Cookie na resposta de erro",
+    async (result) => {
+      const email = `recusa-${randomUUID()}@example.com`;
+      forced.result = result;
+      const response = await signUpRequest(email);
+      forced.result = null;
+      await settled();
+      expect(response.status).toBe(400);
+      expect(await response.text()).toMatch(/DOCUMENT_(REFUSED|UNAVAILABLE)/);
+      expect(response.headers.getSetCookie()).toEqual([]);
+      expect(await captured(email)).toEqual([]);
+      const { internalAdapter } = await getAuth().$context;
+      expect(await internalAdapter.findUserByEmail(email)).toBeNull();
+    },
+  );
+
+  it("cadastro que passa continua com sessão e e-mail", async () => {
+    const account = await newAccount();
+    expect(account.cookie).toContain("session_token");
+    expect(await captured(account.email)).toHaveLength(1);
+  });
+
+  it("o idioma escolhido antes da conta já vale para o primeiro e-mail", async () => {
+    const email = `idioma-${randomUUID()}@example.com`;
+    const response = await getAuth().handler(
+      new Request(`${ORIGIN}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: ORIGIN,
+          cookie: "organizeup_locale=en",
+        },
+        body: JSON.stringify({
+          name: "Pessoa Teste",
+          email,
+          password: "Senha#1234",
+          termsAccepted: true,
+          identity: { inBrazil: false },
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    await vi.waitFor(async () => expect(await captured(email)).toHaveLength(1));
+    const [mail] = await captured(email);
+    expect(mail?.text).toContain("Confirm");
+  });
+});
+
+describe("limite por endereço", () => {
   const MINUTE = 60 * 1000;
   const start = Date.now();
   const at = (minutes: number) => new Date(start + minutes * MINUTE);
 
   it("1 por minuto e 5 por hora, com o tempo certo de espera", async () => {
-    const id = randomUUID();
+    const id = `${randomUUID()}@example.com`;
     expect(await db.reserveConfirmationEmail(id, at(0))).toHaveProperty("id");
     expect(await db.reserveConfirmationEmail(id, new Date(at(0).getTime() + 15_000))).toEqual({
       retryAfterSeconds: 45,
@@ -235,6 +315,82 @@ describe("limite por conta", () => {
     expect(await db.reserveConfirmationEmail(id, at(10))).toEqual({ retryAfterSeconds: 50 * 60 });
     expect(await db.reserveConfirmationEmail(id, at(60))).toHaveProperty("id");
     expect(await db.reserveConfirmationEmail(randomUUID(), at(10))).toHaveProperty("id");
+  });
+
+  it("caixa e espaço não abrem outra vaga, e o endereço não fica gravado", async () => {
+    const email = `caixa-${randomUUID()}@example.com`;
+    expect(await db.reserveConfirmationEmail(email)).toHaveProperty("id");
+    expect(await db.reserveConfirmationEmail(`  ${email.toUpperCase()} `)).toHaveProperty(
+      "retryAfterSeconds",
+    );
+    const rows = await db.withAdmin("leitura do teste de limite", (admin) =>
+      admin.select({ identifier: db.verification.identifier }).from(db.verification),
+    );
+    expect(JSON.stringify(rows)).not.toContain(email);
+  });
+
+  it("o e-mail do cadastro conta: reenviar logo depois espera", async () => {
+    const account = await newAccount();
+    asAccount(account.cookie);
+    expect((await resendConfirmation()).message).toMatch(/^Aguarde/);
+    expect(await captured(account.email)).toHaveLength(1);
+  });
+
+  it("e-mail do cadastro que não saiu devolve a vaga", async () => {
+    const email = `falhou-${randomUUID()}@example.com`;
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    process.env.EMAIL_CAPTURE_FILE = folder;
+    const response = await signUpRequest(email);
+    await settled();
+    process.env.EMAIL_CAPTURE_FILE = captureFile;
+    expect(response.status).toBe(200);
+    asAccount(cookieOf(response));
+    expect((await resendConfirmation()).ok).toBe(true);
+  });
+
+  it("cadastrar, apagar e repetir não passa de 1 por minuto nem de 5 por hora, sem revelar conta", async () => {
+    const email = `alvo-${randomUUID()}@example.com`;
+    const round = async () => {
+      const response = await signUpRequest(email);
+      const body = (await response.json()) as { user: Record<string, unknown> };
+      const cookie = cookieOf(response);
+      asAccount(cookie);
+      await resendConfirmation();
+      const removed = await post("/delete-user", { password: "Senha#1234" }, cookie);
+      expect(removed.status).toBe(200);
+      return { status: response.status, keys: Object.keys(body.user).sort(), cookie: !!cookie };
+    };
+
+    const first = await round();
+    const repeated = [await round(), await round()];
+    await settled();
+    expect(await captured(email)).toHaveLength(1);
+    // Com ou sem e-mail, a resposta do cadastro é a mesma.
+    expect(first).toMatchObject({ status: 200, cookie: true });
+    for (const answer of repeated) expect(answer).toEqual(first);
+
+    const start = Date.now();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    for (let minute = 1; minute <= 9; minute += 1) {
+      vi.setSystemTime(start + minute * 61 * 1000);
+      await round();
+    }
+    await settled();
+    expect(await captured(email)).toHaveLength(5);
+
+    vi.setSystemTime(start + 61 * 60 * 1000);
+    await round();
+    await settled();
+    expect(await captured(email)).toHaveLength(6);
+  });
+
+  it("o nome de endereço com caixa diferente cai na mesma vaga do cadastro", async () => {
+    const email = `caixa-alta-${randomUUID()}@example.com`;
+    const first = await signUpRequest(email);
+    await post("/delete-user", { password: "Senha#1234" }, cookieOf(first));
+    expect((await signUpRequest(email.toUpperCase())).status).toBe(200);
+    await settled();
+    expect(await captured(email)).toHaveLength(1);
   });
 
   it("pedidos simultâneos, como de duas instâncias, ficam com uma vaga só", async () => {
@@ -387,6 +543,7 @@ describe("reenvio pelo admin", () => {
 
   it("envia, registra na auditoria e divide o limite com a pessoa", async () => {
     const account = await newAccount();
+    afterTheMinute();
     const reply = await resendFor(account.id);
     expect(reply).toEqual({
       ok: true,
