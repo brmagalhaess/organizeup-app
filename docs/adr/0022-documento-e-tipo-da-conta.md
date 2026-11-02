@@ -33,9 +33,13 @@ ADR-0020 (catálogos).
   nada, e nem o responsável lê o documento de outro membro. `ou_worker` não tem grant nenhum. `withHousehold` já aplica o
   `app.user_id`, então só a própria linha aparece ali também.
 - **Cifrado com AES-256-GCM**, com conta e campo como dado autenticado: copiar o valor para outra linha não abre. A razão
-  social também é cifrada, porque a de MEI costuma trazer o CPF.
-- **Chave: `DOCUMENT_ENCRYPTION_KEY`, só no `ou3-web`**, 32 bytes em base64. O worker e `packages/ai` não a recebem. A chave de
-  cifra e a do hash saem dela por HKDF, cada uma com o seu rótulo.
+  social também é cifrada, porque a de MEI costuma trazer o CPF. Formato `v1.<kid>.<iv>.<tag>.<dado>`, com IV de 12 bytes e
+  etiqueta de 16 conferidos ao abrir: etiqueta curta não passa.
+- **Chave: `DOCUMENT_ENCRYPTION_KEY`, só no `ou3-web`**, 32 bytes em base64 padrão, conferidos pelo formato. O worker e
+  `packages/ai` não a recebem. A chave de cifra, a do hash e a impressão digital saem dela por HKDF, cada uma com o seu rótulo.
+- **Chave trocada não desliga a duplicidade calada.** `kid` é a impressão digital da chave. Havendo documento com outro `kid`,
+  os hashes antigos não casam mais: `identity_key_mismatch` acusa, documento novo não entra, e `/admin` avisa. Quem mora fora e
+  quem já está dentro seguem.
 - **Hash de duplicidade: HMAC-SHA256, e não hash com sal comum.** O sal precisa ser secreto e igual para todos: CPF tem cerca
   de 10⁹ valores, e sal público cairia em força bruta em minutos. Sal por linha não acharia a duplicidade.
 - **Só o mascarado sai para as telas** (`***.456.789-**`, `**.ABC.345/01DE-**`). O documento não muda pela tela: correção é
@@ -60,10 +64,23 @@ digitado e deixaria o cadastro passar sem checar duplicidade, que é o que o ped
   recusado, e a mensagem do cadastro lembra de entrar pela conta que já existir.
 - **Casal:** cada um com a sua conta e o seu CPF, na mesma família, pelo convite. O limite é por conta, não por família, e
   uma conta pode estar em mais de uma família.
-- **Quem acha a duplicidade é o índice, depois de criar a conta.** A RLS esconde as outras linhas. Se ele recusar, a conta
-  recém-criada sai, e o e-mail fica livre para tentar de novo.
-- **Mensagem neutra**, a mesma de quem tenta trocar o documento, sem dizer que ele existe. Ainda é uma recusa, então há
-  limite: 20 cadastros por hora por IP e 5 tentativas por hora por conta em `/app/completar`.
+- **A recusa vem antes da conta (migração 0037).** A RLS esconde as outras linhas e a FK não deixa gravar antes de a conta
+  existir, então `reserve_identity_document`, `SECURITY DEFINER`, recebe só o hash e responde sim ou não, ainda em
+  `create.before`. Recusado, não há conta, cookie de sessão nem e-mail. A reserva dura 2 minutos: cobre dois cadastros ao mesmo
+  tempo e some sozinha se o cadastro morrer no meio. PF disputa o CPF; PJ, o CNPJ. O índice único continua como última barreira.
+- **Mensagem neutra**, a mesma de quem tenta trocar o documento, sem dizer que ele existe.
+- **Ainda é uma recusa, então há limite.** 20 cadastros por hora por IP e 5 tentativas por hora por conta, somando
+  `/app/completar` e o aceite de convite.
+- **IP confiável.** O cliente escreve o que quiser em `x-forwarded-for`, e cada proxy só acrescenta no fim. Por isso vale a
+  posição `TRUSTED_PROXY_HOPS` contada da direita, com padrão 1, o proxy do Dokploy: não há Cloudflare na frente. O limite de
+  pedidos do Better Auth lê o IP antes de qualquer plugin, então `getAuth().handler` reescreve o cabeçalho na entrada.
+- **Teto global.** Limite por IP segura um autor; vários IPs passam por ele. Com 30 recusas na hora, somando todo mundo, quem
+  já foi recusado, por IP ou por conta, deixa de consultar o documento até a hora virar, e sem consulta não aprende mais nada.
+  Quem nunca foi recusado segue normal, e quem mora fora nem consulta. `/admin` avisa. Fica na memória da web, que é um
+  processo só: reiniciar zera.
+- **Convite.** Quem chega por convite é pessoa no servidor, não só na tela: `parseInviteeIdentity` ignora tipo, CNPJ e razão
+  social que vierem no pedido, e o cadastro leva o id do convite até o hook. No aceite, destinatário, status e validade são
+  conferidos antes de tocar no documento, e a manutenção recusa tudo.
 
 ### Tipo da conta
 
@@ -91,9 +108,14 @@ digitado e deixaria o cadastro passar sem checar duplicidade, que é o que o ped
 
 ### Inteligência artificial
 
-O modelo nunca recebe o documento da conta. Nada em `packages/ai` lê `user_identity` nem conhece a chave, e um teste procura. O
-filtro de privacidade passou a mascarar CNPJ numérico e alfanumérico, com e sem pontuação, e corrigiu dois furos de antes:
-CPF no fim de frase escapava pelo ponto final, e número solto de 11 ou 14 dígitos passava como valor.
+O modelo nunca recebe o documento da conta. Nada em `packages/ai` lê `user_identity` nem conhece a chave, e um teste procura.
+
+CPF e CNPJ digitados ou vindos de extrato são outra história: chegam com barra, travessão, espaço, caractere invisível, dígito de
+outro alfabeto, colados em letra. `findDocuments`, em `packages/domain`, não olha a pontuação: anda por uma cópia só com letras e
+dígitos e confere o dígito verificador de cada janela de 11 e de 14 posições. Quem evita falso positivo são as fronteiras: a janela
+não começa nem termina no meio de uma sequência de dígitos, não cruza valor em dinheiro, data nem UUID, e o CNPJ com letra não vale
+dentro de código longo. O filtro do assistente e a barreira da Ops API usam a mesma busca. `scrubDeep` também trata string com sinal,
+número puro e chave de objeto.
 
 ### Exportação e painel
 
@@ -122,12 +144,17 @@ responsável. As telas de aposentadoria, viagens e metas continuam as de pessoa.
   período de teste consegue. A assinatura e a consulta do CNPJ na Receita fecham isso depois.
 - **Sócio com outro e-mail.** Convite vale por e-mail. Quem já tem conta PF com outro e-mail é recusado ao criar a segunda e precisa
   pedir o convite no e-mail da conta.
-- **Recusa ainda é sinal.** Quem tenta um CPF alheio percebe a recusa, mesmo neutra. O limite por IP e por conta encarece isso, mas
-  não elimina.
+- **Recusa ainda é sinal.** Quem tenta um CPF alheio percebe a recusa, mesmo neutra. Os limites e o teto encarecem isso, mas quem
+  tem muitos IPs ainda faz uma consulta por IP.
+- **Busca em texto livre não é perfeita.** Sequência que parece documento e fecha o dígito, como um telefone, vira `[documento]`
+  (cerca de 1 em 100). Valor de R$ 100 milhões ou mais escrito igual a um CPF válido também. Documento que cruza valor ou data, ou
+  separado por mais de 3 caracteres, passa. CPF com máscara exata é trocado mesmo com dígito errado.
 - **CPF válido de outra pessoa passa.** Validamos dígitos, não titularidade. O dono de verdade é recusado e precisa do suporte.
 - **`Outro país` dispensa o documento** para quem marcar, more onde morar. A assinatura decide o que fazer com isso.
-- **Perder a chave perde os documentos**, e trocá-la pede recifrar tudo, incluindo os hashes. O valor cifrado tem versão, `v1`, para
-  isso ser possível.
+- **Perder a chave perde os documentos**, e trocá-la pede recifrar tudo, incluindo os hashes. Enquanto isso, cadastro com documento
+  fica recusado. O valor cifrado tem versão e `kid` para a troca ser possível, mas a rotina de recifrar ainda não existe.
+- **Reserva depende do dono ser superusuário.** As funções `SECURITY DEFINER` passam pela RLS de `user_identity` porque o dono do banco
+  é superusuário (ADR-0002). Dono sem esse poder faria a função enxergar nada, e sobraria só o índice único.
 - **Cópias de segurança** guardam o cifrado por até 30 dias depois de apagar a conta.
 - **Texto antigo dos agentes:** linha sem chave fica no texto gravado, em português, e pode dizer família numa conta que virou PJ.
 - **Uma consulta a mais por requisição:** o tipo da conta, além da moeda.

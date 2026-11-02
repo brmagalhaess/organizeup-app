@@ -41,7 +41,11 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
      antes do deploy da versão que pede documento: sem ela, quem mora no Brasil não consegue se cadastrar, nada
      fica em texto puro, e `/admin` e `/admin/sistema` avisam (ADR-0022). Guarde uma cópia fora do Dokploy e fora
      das cópias de segurança do banco: perder a chave perde os documentos, e trocá-la exige recifrar todas as
-     linhas, porque o hash de duplicidade também depende dela.
+     linhas, porque o hash de duplicidade também depende dela. Com chave diferente da que cifrou o que está no banco,
+     cadastro com documento fica recusado e `/admin` avisa.
+     `TRUSTED_PROXY_HOPS` (opcional; padrão 1, no `ou3-web`: quantos proxies nossos ficam na frente da web, contados da
+     direita em `x-forwarded-for`. Hoje é só o proxy do Dokploy, sem Cloudflare. Número errado aqui faz o limite por IP olhar
+     o endereço errado: a mais, todo mundo cai no mesmo limite; a menos, o IP volta a ser forjável).
      `ANTHROPIC_API_KEY` (chave da API da Anthropic, no `ou3-web` e no `ou3-worker`, nunca com `NEXT_PUBLIC`; vazia, o assistente
      aparece como indisponível e o resto segue igual), `ANTHROPIC_WORKSPACE_ID` (`wrkspc_...`, obrigatório quando a
      chave não pertence a um workspace; o botão **Testar a IA** em `/admin/sistema` avisa), `AI_MONTHLY_BUDGET_USD` (opcional; padrão 50, teto do
