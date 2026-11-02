@@ -8,6 +8,7 @@ import {
   and,
   eq,
   gte,
+  householdAccountType,
   householdCurrency,
   householdInsights,
   INSIGHT_SCREENS,
@@ -19,7 +20,7 @@ import {
   type InsightScreen,
   type TenantContext,
 } from "@organizeup/db";
-import { normalizeDescription, type Currency } from "@organizeup/domain";
+import { normalizeDescription, type AccountType, type Currency } from "@organizeup/domain";
 import { z } from "zod";
 import {
   aiLimits,
@@ -202,6 +203,7 @@ interface Night {
   /** Idioma de quem definiu o aceite: é nele que as dicas ficam gravadas. */
   locale: AssistantLocale;
   currency: Currency;
+  accountType: AccountType;
 }
 
 async function ask(
@@ -227,7 +229,7 @@ async function chooseSpecialists(night: Night, reports: string): Promise<Special
       { role: "user", content: reports },
       {
         role: "system",
-        content: `${ORCHESTRATOR_BRIEF} ${turnContext({ today: night.day, currency: night.currency })}`,
+        content: `${ORCHESTRATOR_BRIEF} ${turnContext({ today: night.day, currency: night.currency, accountType: night.accountType })}`,
       },
     ],
     false,
@@ -250,6 +252,7 @@ async function runSpecialist(night: Night, name: Specialist, reports: string) {
         today: night.day,
         locale: night.locale,
         currency: night.currency,
+        accountType: night.accountType,
       })}`,
     },
   ];
@@ -350,7 +353,8 @@ export async function runNightlyInsights(input: NightInput): Promise<InsightRun>
   const privacy = await withHousehold(ctx, (tx) => loadPrivacyFilter(tx, ctx.householdId));
   const locale = await nightLocale(ctx);
   const currency = await withHousehold(ctx, householdCurrency);
-  const night: Night = { ctx, client, day, limits, privacy, locale, currency };
+  const accountType = await householdAccountType(ctx.householdId);
+  const night: Night = { ctx, client, day, limits, privacy, locale, currency, accountType };
   const tools = toolsFor(NIGHT_ROUTE);
   const report = await executeTool(tools, ctx, privacy, "relatorios_do_dia", {});
   if (!report.ok) return run;

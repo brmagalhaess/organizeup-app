@@ -20,8 +20,11 @@ export {
   FLAG_KEYS,
   NO_FLAGS,
   activeNotices,
+  householdAccountType,
   householdIsSuspended,
+  inviteAccountType,
   isSchemaLag,
+  markHouseholdAsCompany,
   parsePlatformFlags,
   readPlatformFlags,
   readUserLocale,
@@ -33,6 +36,13 @@ export {
   type PlatformNotice,
 } from "./access";
 export * from "./admin";
+export {
+  dismissIdentityPrompt,
+  readUserIdentity,
+  saveUserIdentity,
+  type IdentityColumns,
+  type UserIdentityRow,
+} from "./identity";
 export {
   PLATFORM_MODULES,
   collectPlatformStats,

@@ -39,6 +39,8 @@ export const userAccess = pgTable("user", {
 export const householdAccess = pgTable("household", {
   id: text("id").primaryKey(),
   suspendedAt: ts("suspended_at"),
+  /** Tipo da conta (migração 0035): 'pf' tem família, 'pj' tem sócios. Só `access.ts` usa. */
+  accountType: text("account_type").$type<"pf" | "pj">().notNull().default("pf"),
 });
 
 export const session = pgTable(
@@ -151,6 +153,27 @@ export const userPreferences = pgTable("user_preferences", {
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   locale: text("locale").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/**
+ * Documento de quem tem conta (ADR-0022). Fora de `user` pelo mesmo motivo de `userAccess`. As colunas
+ * `*_encrypted` só abrem com a chave da web, e a RLS deixa cada conta ver só a sua linha.
+ */
+export const userIdentity = pgTable("user_identity", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  /** true: mora no Brasil. false: outro país, sem documento. null: só dispensou o pedido. */
+  inBrazil: boolean("in_brazil"),
+  personType: text("person_type").$type<"pf" | "pj">(),
+  cpfEncrypted: text("cpf_encrypted"),
+  cpfHash: text("cpf_hash"),
+  cnpjEncrypted: text("cnpj_encrypted"),
+  cnpjHash: text("cnpj_hash"),
+  companyNameEncrypted: text("company_name_encrypted"),
+  dismissedAt: ts("dismissed_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 

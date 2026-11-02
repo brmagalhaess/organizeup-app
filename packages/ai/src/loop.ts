@@ -5,12 +5,13 @@
 // - no log, só código de erro e contagens. Nada de texto da conversa.
 import Anthropic from "@anthropic-ai/sdk";
 import {
+  householdAccountType,
   householdCurrency,
   householdTimezone,
   withHousehold,
   type TenantContext,
 } from "@organizeup/db";
-import { todayIn, type Currency } from "@organizeup/domain";
+import { todayIn, type AccountType, type Currency } from "@organizeup/domain";
 import { aiLimits, assistantState, serviceDay, type AiLimits, type AssistantState } from "./access";
 import { errorCode, reportFailure, type AssistantErrorCode } from "./api-errors";
 import type { ModelClient, ModelMessage, ModelStream, StreamParams } from "./client";
@@ -146,6 +147,7 @@ interface Prepared {
   history: MessageParam[];
   memories: TurnMemory[];
   currency: Currency;
+  accountType: AccountType;
 }
 
 /** Grava a pergunta antes de chamar o modelo: se a chamada cair, ela continua na conversa. */
@@ -170,6 +172,7 @@ async function prepare(input: ChatTurnInput): Promise<Prepared | null> {
   const memories = await memoriesForTurn(ctx, prepared.today);
   return {
     ...prepared,
+    accountType: await householdAccountType(ctx.householdId),
     memories: memories.map((memory) => ({
       ...memory,
       texto: prepared.privacy.scrub(memory.texto),

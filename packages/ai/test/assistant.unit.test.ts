@@ -1,4 +1,6 @@
 // Regras puras do assistente: privacidade, custo, verificação, endereço do modelo e esquemas.
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { aiLimits } from "../src/access";
 import { assistantConfigured, modelBaseUrl, workspaceHeaders } from "../src/client";
@@ -42,6 +44,46 @@ describe("privacidade", () => {
   it("mascara e-mail e CPF, com e sem pontuação", () => {
     expect(filter.scrub("fale com ana@example.com")).toBe("fale com [e-mail]");
     expect(filter.scrub("CPF 123.456.789-09 e 12345678909")).toBe("CPF [documento] e [documento]");
+  });
+
+  it("o ponto final da frase não protege o CPF", () => {
+    expect(filter.scrub("Meu CPF é 123.456.789-09.")).toBe("Meu CPF é [documento].");
+    expect(filter.scrub("CPF 12345678909. Obrigada")).toBe("CPF [documento]. Obrigada");
+  });
+
+  it("mascara CNPJ numérico e alfanumérico, com e sem pontuação", () => {
+    expect(filter.scrub("CNPJ 12.345.678/0001-95 pago")).toBe("CNPJ [documento] pago");
+    expect(filter.scrub("CNPJ 12.ABC.345/01DE-35.")).toBe("CNPJ [documento].");
+    expect(filter.scrub("cnpj 12.abc.345/01de-35")).toBe("cnpj [documento]");
+    expect(filter.scrub("doc 12ABC34501DE35 ok")).toBe("doc [documento] ok");
+    expect(filter.scrub("doc 00000000000191 ok")).toBe("doc [documento] ok");
+  });
+
+  it("sequência que não fecha o dígito verificador continua como está", () => {
+    expect(filter.scrub("MERCADOLIVRE12 compra")).toBe("MERCADOLIVRE12 compra");
+    const id = "6f1c2b8e-3a4d-4e5f-9a7b-1c2d3e4f5a6b";
+    expect(filter.scrub(id)).toBe(id);
+  });
+
+  it("documento em número solto não passa por valor", () => {
+    expect(
+      filter.scrubDeep({ a: "12345678909", b: "00000000000191", c: "1234.56", d: "100" }),
+    ).toEqual({ a: "[documento]", b: "[documento]", c: "1234.56", d: "100" });
+  });
+
+  it("nada que fala com o modelo lê o documento da conta", () => {
+    const files = readdirSync(path.join(import.meta.dirname, "..", "src"), {
+      recursive: true,
+      encoding: "utf8",
+    }).filter((file) => file.endsWith(".ts"));
+    expect(files.length).toBeGreaterThan(10);
+    const readers = files.filter((file) => {
+      const source = readFileSync(path.join(import.meta.dirname, "..", "src", file), "utf8");
+      return /userIdentity|user_identity\b(?!`)|readUserIdentity|DOCUMENT_ENCRYPTION_KEY/.test(
+        source.replace("nada em packages/ai lê `user_identity`", ""),
+      );
+    });
+    expect(readers).toEqual([]);
   });
 
   it("limpa objetos inteiros sem tocar em valores", () => {

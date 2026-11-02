@@ -1,5 +1,7 @@
 // O que sai para o modelo (§0 da especificação). Pessoas viram "titular", "cônjuge", "filho 1";
-// nome, e-mail e CPF não saem. Toda saída de ferramenta e toda pergunta passam por aqui.
+// nome, e-mail, CPF e CNPJ não saem. Toda saída de ferramenta e toda pergunta passam por aqui. O documento
+// da conta nem chega aqui: nada em packages/ai lê `user_identity` (assistant.unit.test.ts confere).
+import { isValidCnpj } from "@organizeup/domain";
 import { asc, eq, household, householdMember, people, user, type TenantTx } from "@organizeup/db";
 
 const RELATION_LABELS: Record<string, string> = {
@@ -77,8 +79,16 @@ const NOT_A_NAME = new Set([
 ]);
 
 const EMAIL = /[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+/g;
-const CPF = /(?<![\d.])\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}(?![\d.])/g;
+// Ponto final de frase não protege o CPF: só ponto seguido de número indica que a sequência continua.
+const CPF = /(?<![\d.])\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}(?!\d|\.\d)/g;
+/** Com máscara é CNPJ, numérico ou alfanumérico. A letra é de código: nome de loja não tem barra. */
+const CNPJ_MASKED =
+  /(?<![\dA-Za-z])[\dA-Za-z]{2}\.[\dA-Za-z]{3}\.[\dA-Za-z]{3}\/[\dA-Za-z]{4}-\d{2}(?!\d)/g;
+/** Sem máscara, o que tem 14 caracteres seguidos só vira documento se o dígito verificador fechar. */
+const CNPJ_BARE = /(?<![\dA-Za-z])[\dA-Za-z]{12}\d{2}(?![\dA-Za-z])/g;
 const NUMERIC = /^-?\d+(\.\d+)?$/;
+/** Número solto com tamanho de documento não é valor: valor sai sempre com centavos. */
+const DOCUMENT_SIZED = /^\d{11}$|^\d{14}$/;
 
 export interface PrivacyEntry {
   /** Nome como está no cadastro. */
@@ -114,7 +124,11 @@ export function createPrivacyFilter(entries: PrivacyEntry[]): PrivacyFilter {
         );
 
   const scrub = (text: string) => {
-    const masked = text.replace(EMAIL, "[e-mail]").replace(CPF, "[documento]");
+    const masked = text
+      .replace(EMAIL, "[e-mail]")
+      .replace(CNPJ_MASKED, "[documento]")
+      .replace(CNPJ_BARE, (found) => (isValidCnpj(found) ? "[documento]" : found))
+      .replace(CPF, "[documento]");
     return pattern
       ? masked.replace(pattern, (found) => labels.get(strip(found)) ?? "pessoa")
       : masked;
@@ -122,7 +136,7 @@ export function createPrivacyFilter(entries: PrivacyEntry[]): PrivacyFilter {
 
   const scrubDeep = <T>(value: T): T => {
     if (typeof value === "string") {
-      return (NUMERIC.test(value) ? value : scrub(value)) as T;
+      return (NUMERIC.test(value) && !DOCUMENT_SIZED.test(value) ? value : scrub(value)) as T;
     }
     if (Array.isArray(value)) return value.map((item) => scrubDeep(item)) as T;
     if (value && typeof value === "object") {

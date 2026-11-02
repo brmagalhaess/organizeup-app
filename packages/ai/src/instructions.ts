@@ -1,6 +1,6 @@
 // Instruções do assistente. O texto é fixo: nada de data, nome ou dado da família aqui, porque ele é
 // o começo do prefixo do cache de prompt. O que muda a cada conversa vai em `turnContext`.
-import { brazilRulesApply, type Currency } from "@organizeup/domain";
+import { brazilRulesApply, type AccountType, type Currency } from "@organizeup/domain";
 import type { TurnMemory } from "./memories";
 import { untrusted } from "./privacy";
 
@@ -73,6 +73,10 @@ const currencyNote = (currency: Currency, locale: AssistantLocale) =>
     "A base de buscar_conhecimento é do Brasil: se usar, diga que a regra é brasileira e pode não valer para a família.",
   ].join(" ");
 
+/** Conta de pessoa jurídica: o vocabulário, e o que o assistente não faz. Vale por cima das instruções. */
+const COMPANY_NOTE =
+  'Esta conta é de pessoa jurídica. Onde as instruções e as ferramentas dizem família, entenda empresa, e fale sempre em empresa e sócios: nunca diga família, cônjuge, filhos nem dependentes à pessoa. "Titular" é o sócio responsável, e "outra pessoa" é sócio. Não faça contabilidade nem divida valores entre sócios.';
+
 export interface TurnContext {
   /** AAAA-MM-DD no fuso da família. */
   today: string;
@@ -82,6 +86,8 @@ export interface TurnContext {
   locale?: AssistantLocale | undefined;
   /** Moeda principal da família. Sem ela, a das instruções: real. */
   currency?: Currency | undefined;
+  /** Tipo da conta. Sem ele, o das instruções: família. */
+  accountType?: AccountType | undefined;
 }
 
 /**
@@ -93,6 +99,7 @@ export function turnContext({
   memories = [],
   locale = "pt-BR",
   currency = "BRL",
+  accountType = "pf",
 }: TurnContext): string {
   const day = `Hoje é ${today}. "Este mês" é ${today.slice(0, 7)}.`;
   const brazil = brazilRulesApply(currency);
@@ -101,6 +108,7 @@ export function turnContext({
     day,
     language && brazil ? `${language} ${amountNote(currency, locale)}` : language,
     brazil ? null : currencyNote(currency, locale),
+    accountType === "pj" ? COMPANY_NOTE : null,
   ]
     .filter(Boolean)
     .join("\n\n");

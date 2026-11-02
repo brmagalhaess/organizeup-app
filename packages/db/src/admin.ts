@@ -4,7 +4,8 @@
 // O painel do serviço (/admin) usa só os helpers `admin*` abaixo. Leitura vai pelo pool SOMENTE
 // LEITURA (`default_transaction_read_only = on`) e devolve o mínimo: contagens e, por família, nome,
 // datas, papéis e módulos usados (sim ou não). Nome e e-mail só saem por `adminHouseholdOwner` e
-// `adminRevealUser`, que registram o acesso. Ação com efeito passa por `adminAct`: a mudança e o
+// `adminRevealUser`, e o documento só por `adminRevealIdentity`, cifrado, todos com o acesso registrado.
+// Ação com efeito passa por `adminAct`: a mudança e o
 // registro em ops.admin_access ficam na mesma transação. Nada aqui lê valores nem lançamentos.
 import {
   and,
@@ -43,6 +44,7 @@ import {
   session,
   user,
   userAccess,
+  userIdentity,
   type AiAutonomy,
 } from "./schema";
 
@@ -529,9 +531,22 @@ export interface AdminUserDetail {
   families: Array<{ id: string; name: string; role: string; suspendedAt: Date | null }>;
   /** Nome e e-mail só podem ser revelados de responsável ou de conta sem família. */
   canReveal: boolean;
+  /** Só se tem documento e de que tipo. O documento nunca vem aqui. */
+  personType: "pf" | "pj" | null;
 }
 
 export async function adminUserDetail(id: string): Promise<AdminUserDetail | null> {
+  const personType = await tolerateSchemaLag(
+    () =>
+      withAdminRead("painel admin: tipo do documento", async (db) => {
+        const [row] = await db
+          .select({ personType: userIdentity.personType })
+          .from(userIdentity)
+          .where(eq(userIdentity.userId, id));
+        return row?.personType ?? null;
+      }),
+    null,
+  );
   return withAdminRead("painel admin: detalhe do usuário", async (db) => {
     const [row] = await db
       .select({
@@ -573,8 +588,18 @@ export async function adminUserDetail(id: string): Promise<AdminUserDetail | nul
         suspendedAt: toDate(family.suspendedAt),
       })),
       canReveal: families.length === 0 || families.some((family) => family.role === "owner"),
+      personType,
     };
   });
+}
+
+/** Mesma regra da tela: responsável de família ou conta sem família. */
+async function canRevealAccount(tx: AdminTx, userId: string): Promise<boolean> {
+  const roles = await tx
+    .select({ role: householdMember.role })
+    .from(householdMember)
+    .where(eq(householdMember.userId, userId));
+  return roles.length === 0 || roles.some(({ role }) => role === "owner");
 }
 
 /** Nome e e-mail de uma conta, por ação registrada. Membro comum não é revelado (regra 5). */
@@ -589,12 +614,36 @@ export async function adminRevealUser(
       .from(user)
       .where(eq(user.id, userId));
     if (!row) return "not_found";
-    const roles = await tx
-      .select({ role: householdMember.role })
-      .from(householdMember)
-      .where(eq(householdMember.userId, userId));
-    const allowed = roles.length === 0 || roles.some(({ role }) => role === "owner");
-    return allowed ? row : "not_allowed";
+    return (await canRevealAccount(tx, userId)) ? row : "not_allowed";
+  });
+}
+
+export interface AdminSealedIdentity {
+  personType: "pf" | "pj";
+  cpfEncrypted: string;
+  cnpjEncrypted: string | null;
+  companyNameEncrypted: string | null;
+}
+
+/** Documento ainda cifrado, por ação registrada na mesma transação. Quem abre é a web (ADR-0022). */
+export async function adminRevealIdentity(
+  admin: AdminActor,
+  userId: string,
+): Promise<AdminSealedIdentity | "not_found" | "not_allowed"> {
+  const entry = { action: "usuario:revelar_documento", targetUserId: userId };
+  return adminAct(admin, entry, async (tx) => {
+    const [row] = await tx
+      .select({
+        personType: userIdentity.personType,
+        cpfEncrypted: userIdentity.cpfEncrypted,
+        cnpjEncrypted: userIdentity.cnpjEncrypted,
+        companyNameEncrypted: userIdentity.companyNameEncrypted,
+      })
+      .from(userIdentity)
+      .where(eq(userIdentity.userId, userId));
+    if (!row?.personType || !row.cpfEncrypted) return "not_found";
+    if (!(await canRevealAccount(tx, userId))) return "not_allowed";
+    return { ...row, personType: row.personType, cpfEncrypted: row.cpfEncrypted };
   });
 }
 

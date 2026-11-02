@@ -4009,6 +4009,220 @@ describe("idioma da pessoa", () => {
   });
 });
 
+describe("documento da conta", () => {
+  // Fictícios: aqui só importa que são opacos. Quem cifra é a web, e o teste de lá confere o resto.
+  const sealed = (tag: string) => ({
+    inBrazil: true,
+    personType: "pf" as const,
+    cpfEncrypted: `cifrado-${tag}`,
+    cpfHash: `hash-${tag}`,
+    cnpjEncrypted: null,
+    cnpjHash: null,
+    companyNameEncrypted: null,
+  });
+  /** Empresa: `cpf` é a marca do responsável, e `cnpj`, a da empresa. */
+  const company = (cpf: string, cnpj: string) => ({
+    ...sealed(cpf),
+    personType: "pj" as const,
+    cnpjEncrypted: `cifrado-${cnpj}`,
+    cnpjHash: `hash-${cnpj}`,
+    companyNameEncrypted: `cifrado-razao-${cnpj}`,
+  });
+  const empty = "user-doc-vazio";
+  const gone = "user-doc-apagado";
+  const firstCompany = "user-doc-empresa-1";
+  const secondCompany = "user-doc-empresa-2";
+  const thirdCompany = "user-doc-empresa-3";
+
+  beforeAll(async () => {
+    await db.withAdmin("seed do teste de documento", async (admin) => {
+      await admin.insert(user).values([
+        { id: empty, name: "Sem Doc", email: "sem.doc@example.com" },
+        { id: gone, name: "Vai Sair", email: "vai.sair@example.com" },
+        { id: firstCompany, name: "Empresa Um", email: "empresa.um@example.com" },
+        { id: secondCompany, name: "Empresa Dois", email: "empresa.dois@example.com" },
+        { id: thirdCompany, name: "Empresa Tres", email: "empresa.tres@example.com" },
+      ]);
+    });
+    expect(await db.saveUserIdentity(A.owner, sealed("ana"))).toBe("ok");
+    expect(await db.saveUserIdentity(A.adult, sealed("adu"))).toBe("ok");
+    expect(await db.saveUserIdentity(B.owner, sealed("beto"))).toBe("ok");
+  });
+
+  it("casal tem cada um o seu CPF, na mesma família", async () => {
+    expect((await db.readUserIdentity(A.owner))?.cpfHash).toBe("hash-ana");
+    expect((await db.readUserIdentity(A.adult))?.cpfHash).toBe("hash-adu");
+  });
+
+  it("CPF de pessoa física não abre segunda conta PF, e a RLS não esconde isso do índice", async () => {
+    expect(await db.saveUserIdentity(empty, sealed("beto"))).toBe("taken");
+    expect(await db.saveUserIdentity(empty, sealed("ana"))).toBe("taken");
+    expect(await db.readUserIdentity(empty)).toBeNull();
+  });
+
+  it("a mesma pessoa tem conta PF e responde por empresas, cada uma com o seu CNPJ", async () => {
+    expect(await db.saveUserIdentity(firstCompany, company("ana", "cnpj-um"))).toBe("ok");
+    expect(await db.saveUserIdentity(secondCompany, company("ana", "cnpj-dois"))).toBe("ok");
+  });
+
+  it("CNPJ repetido é recusado, mesmo com outro responsável", async () => {
+    expect(await db.saveUserIdentity(thirdCompany, company("outro", "cnpj-um"))).toBe("taken");
+    expect(await db.readUserIdentity(thirdCompany)).toBeNull();
+  });
+
+  it("CPF de responsável não reserva a conta PF de ninguém", async () => {
+    expect(await db.saveUserIdentity(thirdCompany, company("so-empresa", "cnpj-tres"))).toBe("ok");
+    expect(await db.saveUserIdentity(empty, sealed("so-empresa"))).toBe("ok");
+    await db.withAdmin("limpeza do teste de documento", (admin) =>
+      admin.delete(db.userIdentity).where(eq(db.userIdentity.userId, empty)),
+    );
+  });
+
+  it("documento já informado não muda pela tela", async () => {
+    expect(await db.saveUserIdentity(A.owner, sealed("outro"))).toBe("locked");
+    expect((await db.readUserIdentity(A.owner))?.cpfHash).toBe("hash-ana");
+  });
+
+  it("dispensar guarda a resposta sem documento, e depois ainda dá para informar", async () => {
+    await db.dismissIdentityPrompt(empty);
+    const row = await db.readUserIdentity(empty);
+    expect(row?.dismissedAt).toBeInstanceOf(Date);
+    expect(row?.personType).toBeNull();
+    expect(await db.saveUserIdentity(empty, sealed("depois"))).toBe("ok");
+  });
+
+  it("nem o responsável lê o documento de outro membro", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    const rows = await db.withHousehold(owner, (tx) => tx.select().from(db.userIdentity));
+    expect(rows.map((row) => row.userId)).toEqual([A.owner]);
+    const member = await ctxFor(A.adult, A.household);
+    const updated = await db.withHousehold(member, (tx) =>
+      tx
+        .update(db.userIdentity)
+        .set({ cpfHash: "trocado" })
+        .where(eq(db.userIdentity.userId, A.owner))
+        .returning({ id: db.userIdentity.userId }),
+    );
+    expect(updated).toEqual([]);
+  });
+
+  it("sem contexto de pessoa a conexão da web não vê nada, e o worker não tem acesso", async () => {
+    const app = postgres(urls.app, { max: 1 });
+    const worker = postgres(urls.worker, { max: 1 });
+    try {
+      expect(await app`select user_id from user_identity`).toEqual([]);
+      await expect(worker`select user_id from user_identity`).rejects.toMatchObject({
+        code: "42501",
+      });
+    } finally {
+      await app.end();
+      await worker.end();
+    }
+  });
+
+  it("a web não grava linha de outra pessoa nem apaga a própria", async () => {
+    const app = postgres(urls.app, { max: 1 });
+    try {
+      await app.begin(async (tx) => {
+        await tx`select set_config('app.user_id', ${A.adult}, true)`;
+        await expect(
+          tx.savepoint((sp) => sp`insert into user_identity (user_id) values (${empty})`),
+        ).rejects.toMatchObject({ code: "42501" });
+        const removed = await tx`delete from user_identity where user_id = ${A.adult} returning 1`;
+        expect(removed).toHaveLength(0);
+      });
+    } finally {
+      await app.end();
+    }
+  });
+
+  it("formato incompleto é recusado pelo banco: empresa sem CNPJ não entra", async () => {
+    await expect(
+      db.saveUserIdentity(gone, { ...sealed("incompleto"), personType: "pj" }),
+    ).rejects.toThrow();
+    expect(await db.readUserIdentity(gone)).toBeNull();
+  });
+
+  it("apagar a conta apaga o documento", async () => {
+    expect(await db.saveUserIdentity(gone, sealed("sai"))).toBe("ok");
+    await db.withAdmin("limpeza do teste de documento", (admin) =>
+      admin.delete(user).where(eq(user.id, gone)),
+    );
+    const raw = postgres(urls.owner, { max: 1, onnotice: () => {} });
+    try {
+      expect(await raw`select 1 from user_identity where user_id = ${gone}`).toHaveLength(0);
+    } finally {
+      await raw.end();
+    }
+  });
+
+  it("o painel lê só o tipo; o cifrado sai por ação registrada, e membro comum não sai", async () => {
+    const detail = await db.adminUserDetail(A.owner);
+    expect(detail?.personType).toBe("pf");
+    expect(JSON.stringify(detail)).not.toContain("cifrado");
+    const admin = { adminUserId: B.owner };
+    const shown = await db.adminRevealIdentity(admin, A.owner);
+    expect(shown).toMatchObject({ personType: "pf", cpfEncrypted: "cifrado-ana" });
+    expect(await db.adminRevealIdentity(admin, A.adult)).toBe("not_allowed");
+    const raw = postgres(urls.owner, { max: 1, onnotice: () => {} });
+    try {
+      const rows = await raw`select 1 from ops.admin_access
+        where action = 'usuario:revelar_documento' and target_user_id = ${A.owner}`;
+      expect(rows).toHaveLength(1);
+    } finally {
+      await raw.end();
+    }
+  });
+});
+
+describe("tipo da conta", () => {
+  const invitation = "convite-tipo-da-conta";
+
+  it("nasce família; empresa só por marcação, e convite e leitura sem sessão enxergam", async () => {
+    await db.withAdmin("seed do teste de tipo", (admin) =>
+      admin.insert(db.householdInvitation).values({
+        id: invitation,
+        organizationId: B.household,
+        email: "socio@example.com",
+        role: "adult",
+        status: "pending",
+        expiresAt: new Date(Date.now() + 86_400_000),
+        inviterId: B.owner,
+      }),
+    );
+    expect(await db.householdAccountType(B.household)).toBe("pf");
+    expect(await db.inviteAccountType(invitation)).toBe("pf");
+    await db.markHouseholdAsCompany(B.household);
+    expect(await db.householdAccountType(B.household)).toBe("pj");
+    expect(await db.inviteAccountType(invitation)).toBe("pj");
+    expect(await db.householdAccountType(A.household)).toBe("pf");
+    expect(await db.inviteAccountType("nao-existe")).toBe("pf");
+    await db.withAdmin("volta o tipo", (admin) =>
+      admin
+        .update(db.householdAccess)
+        .set({ accountType: "pf" })
+        .where(eq(db.householdAccess.id, B.household)),
+    );
+  });
+
+  it("participação do sócio é de 0 a 100, e a RLS de pessoas vale para ela", async () => {
+    const owner = await ctxFor(A.owner, A.household);
+    await expect(
+      db.withHousehold(owner, (tx) =>
+        tx.update(people).set({ ownershipPercent: "100.01" }).where(eq(people.id, personA)),
+      ),
+    ).rejects.toThrow();
+    const updated = await db.withHousehold(owner, (tx) =>
+      tx
+        .update(people)
+        .set({ ownershipPercent: "12.50" })
+        .where(eq(people.id, personB))
+        .returning({ id: people.id }),
+    );
+    expect(updated).toEqual([]);
+  });
+});
+
 describe("exportação e exclusão da família", () => {
   it("a exportação cobre toda tabela com household_id", async () => {
     const owner = await ctxFor(A.owner, A.household);

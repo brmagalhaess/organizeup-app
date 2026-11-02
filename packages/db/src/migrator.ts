@@ -129,6 +129,8 @@ async function applyGrants(sql: postgres.Sql) {
     -- Base de conhecimento: mesma regra do mercado. O texto chega pelo migrador (ADR-0018).
     REVOKE INSERT, UPDATE, DELETE ON public.knowledge_chunks FROM ${app}, ${admin};
     REVOKE DELETE ON public.knowledge_chunks FROM ${worker};
+    -- Documento da conta: o worker não tem por que encostar, nem cifrado (ADR-0022).
+    REVOKE ALL ON public.user_identity FROM ${worker};
 
     -- ops: web e worker registram deploys; worker registra heartbeat; leitura para a Ops API.
     GRANT SELECT ON ALL TABLES IN SCHEMA ops TO ${app}, ${worker}, ${admin};
