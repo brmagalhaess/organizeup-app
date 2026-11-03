@@ -3,11 +3,14 @@
 // não entendem, com o portão aberto, sempre fora de `withHousehold`. Falha em um arquivo não para os outros.
 // Só nasce rascunho: nada vai para o cadastro sem a aprovação na tela (regra 7). No log, só contagens.
 import {
+  applySmartReview,
   claimSmartFile,
   failSmartFile,
   notifySmartImport,
+  otherLotReading,
+  planSmartReview,
+  prepareSmartReview,
   priorSmartReading,
-  reviewSmartImport,
   saveSmartReading,
   startSmartImport,
 } from "@organizeup/agents";
@@ -30,7 +33,7 @@ import { loadPrivacyFilter, type PrivacyFilter } from "../privacy";
 import { recordUsage } from "../usage";
 import { importerGate } from "./gate";
 import type { SmartReadResult } from "./read-child";
-import { readInChild } from "./read-sandbox";
+import { planInChild, readInChild } from "./read-sandbox";
 import { answerOfMessage, IMPORTER_ROUTE, smartBlock, smartRequest } from "./reader";
 
 export interface SmartImportInput {
@@ -42,6 +45,9 @@ export interface SmartImportInput {
   day?: string;
   /** Quantos arquivos ler nesta rodada. O worker lê um e volta para o fim da fila: nenhuma família espera outra. */
   maxFiles?: number;
+  /** Cada família lê um lote por vez: quem tem dois não passa a frente de quem tem um. */
+  oneLotPerFamily?: boolean;
+  maxOpenItems?: number;
 }
 
 export interface SmartImportRun {
@@ -51,6 +57,8 @@ export interface SmartImportRun {
   failed: number;
   /** Ficou arquivo para a próxima rodada. */
   remaining: boolean;
+  /** Nada foi lido: outro lote da família está na vez, ou o arquivo segue em leitura. */
+  waiting: boolean;
 }
 
 interface Outcome {
@@ -145,6 +153,9 @@ function logFailure(error: unknown) {
 export async function runSmartImport(input: SmartImportInput): Promise<SmartImportRun | null> {
   const { ctx, importId, day = serviceDay(), maxFiles = Infinity } = input;
   const started = await withHousehold(ctx, async (tx) => {
+    if (input.oneLotPerFamily && (await otherLotReading(tx, importId))) {
+      return { deferred: true as const };
+    }
     const lot = await startSmartImport(tx, importId);
     if (!lot) return null;
     return {
@@ -154,8 +165,16 @@ export async function runSmartImport(input: SmartImportInput): Promise<SmartImpo
     };
   });
   if (!started) return null;
+  const run: SmartImportRun = {
+    files: 0,
+    byRules: 0,
+    byModel: 0,
+    failed: 0,
+    remaining: false,
+    waiting: false,
+  };
+  if ("deferred" in started) return { ...run, remaining: true, waiting: true };
   const { lot, privacy, today } = started;
-  const run: SmartImportRun = { files: 0, byRules: 0, byModel: 0, failed: 0, remaining: false };
 
   while (run.files < maxFiles) {
     const file = await withHousehold(ctx, (tx) => claimSmartFile(tx, importId));
@@ -171,20 +190,24 @@ export async function runSmartImport(input: SmartImportInput): Promise<SmartImpo
     if (typeof outcome !== "string") {
       const reading = outcome;
       const saved = await withHousehold(ctx, (tx) =>
-        saveSmartReading(tx, {
-          fileId: file.id,
-          importId,
-          householdId: ctx.householdId,
-          ...reading,
-        }),
+        saveSmartReading(
+          tx,
+          {
+            fileId: file.id,
+            importId,
+            householdId: ctx.householdId,
+            ...reading,
+          },
+          input.maxOpenItems,
+        ),
       ).then(
-        () => true,
+        (fits) => (fits ? null : "teto_itens"),
         (error: unknown) => {
           logFailure(error);
-          return false;
+          return "erro_interno";
         },
       );
-      if (!saved) outcome = "erro_interno";
+      if (saved) outcome = saved;
     }
     if (typeof outcome === "string") {
       const failure = outcome;
@@ -195,16 +218,16 @@ export async function runSmartImport(input: SmartImportInput): Promise<SmartImpo
     else run.byModel += 1;
   }
 
-  await withHousehold(ctx, async (tx) => {
+  const plan = await withHousehold(ctx, async (tx) => {
     // Família apagada no meio da leitura: não há o que abrir, nem a quem avisar.
     const [lotNow] = await tx
       .select({ id: smartImports.id })
       .from(smartImports)
       .where(eq(smartImports.id, importId));
-    if (!lotNow) return;
+    if (!lotNow) return null;
     // Outro processo ainda lendo: quem acabar por último abre a revisão.
     const open = await tx
-      .select({ id: smartImportFiles.id, status: smartImportFiles.status })
+      .select({ id: smartImportFiles.id })
       .from(smartImportFiles)
       .where(
         and(
@@ -214,9 +237,22 @@ export async function runSmartImport(input: SmartImportInput): Promise<SmartImpo
       );
     if (open.length > 0) {
       run.remaining = true;
-      return;
+      run.waiting = run.files === 0;
+      return null;
     }
-    const counts = await reviewSmartImport(tx, importId);
+    return prepareSmartReview(tx, ctx, importId);
+  });
+  if (!plan) return run;
+  // Fora de transação e fora deste processo: 50 mil itens não seguram nem o banco nem o worker.
+  const verdicts =
+    (await planInChild({
+      items: plan.refs,
+      known: plan.known,
+      sha: plan.sha,
+      scope: plan.scope,
+    })) ?? planSmartReview(plan);
+  await withHousehold(ctx, async (tx) => {
+    const counts = await applySmartReview(tx, ctx.householdId, plan, verdicts);
     await notifySmartImport(tx, ctx.householdId, importId, counts);
   });
   return run;

@@ -3,16 +3,17 @@
 // esperando. Logs só com id da família, código do erro e contagens.
 import { assistantConfigured, createModelClient } from "@organizeup/ai";
 import { runSmartImport } from "@organizeup/ai/importador";
-import { IMPORTADOR_AGENT, purgeSmartImports } from "@organizeup/agents";
+import { IMPORTADOR_AGENT, purgeSmartImports, smartImportIsPreview } from "@organizeup/agents";
 import {
   fromJob,
   listHouseholdIds,
   readPlatformFlags,
   recordAgentRun,
+  withHousehold,
   withWorkerHousehold,
   type SmartImportJob,
 } from "@organizeup/db";
-import { todayIn } from "@organizeup/domain";
+import { SMART_WAIT_SECONDS, todayIn } from "@organizeup/domain";
 import { reportAgentFailure } from "./diagnostics";
 
 interface Log {
@@ -42,20 +43,33 @@ function householdGone(err: unknown): boolean {
 export async function runSmartImportJob(
   log: Log,
   job: SmartImportJob,
-  requeue: (job: SmartImportJob) => Promise<unknown> = async () => undefined,
+  requeue: (job: SmartImportJob, options?: { startAfter: number }) => Promise<unknown> = async () =>
+    undefined,
 ): Promise<void> {
   if (!job.importId || !job.householdId) return purgeExpired(log);
   // Em manutenção a família só lê: a tela pede de novo depois.
-  if ((await readPlatformFlags()).maintenance) return;
+  const flags = await readPlatformFlags();
+  if (flags.maintenance) return;
   const startedAt = Date.now();
   const { householdId, importId } = job;
   try {
+    // Liberação em etapas: com a chave desligada, só o lote do admin do serviço passa.
+    if (!flags.smartImportEnabled) {
+      const preview = await withHousehold(fromJob({ householdId }), (tx) =>
+        smartImportIsPreview(tx, importId),
+      );
+      if (!preview) {
+        log.info({ householdId }, "importador desligado: lote recusado");
+        return;
+      }
+    }
     const run = await runSmartImport({
       ctx: fromJob({ householdId }),
       client: assistantConfigured() ? createModelClient() : null,
       importId,
       // Um arquivo por vez e volta para o fim da fila: um lote grande não segura as outras famílias.
       maxFiles: 1,
+      oneLotPerFamily: true,
     });
     if (!run) return;
     const before = job.tally;
@@ -66,7 +80,9 @@ export async function runSmartImportJob(
       failed: run.failed + (before?.failed ?? 0),
     };
     if (run.remaining) {
-      await requeue({ householdId, importId, tally });
+      // Sem leitura nesta rodada: reenfileirar na hora viraria um laço. Espera, e a tentativa conta lá na frente.
+      const wait = run.waiting ? { startAfter: SMART_WAIT_SECONDS } : undefined;
+      await requeue({ householdId, importId, tally }, wait);
       return;
     }
     const durationMs = Date.now() - startedAt;

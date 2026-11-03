@@ -149,6 +149,7 @@ const KNOWN_NAMES = new Set([
   "acao:admin_password_reset_failed",
   "acao:admin_pgboss_failed",
   "acao:admin_signup_failed",
+  "acao:admin_smart_import_failed",
   "acao:admin_stats_run_failed",
   "acao:admin_user_block_failed",
   "acao:admin_user_delete_failed",

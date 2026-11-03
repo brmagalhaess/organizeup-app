@@ -13,6 +13,7 @@ import {
   plausibleEntryDate,
   safeExcerpt,
   safeText,
+  smartFieldAllowed,
   smartNote,
   SMART_DESTINATIONS,
   SMART_DOC_TYPES,
@@ -191,14 +192,10 @@ const rawFields = (item: Item): SmartRawFields => ({
 /** Ninguém escreve mais que isto num campo. O resto nem passa pelo filtro. */
 const MAX_MODEL_TEXT = 1_000;
 
-const PERSONAL_LABEL =
-  /cpf|cnpj|\brg\b|identidade|endere|telefone|celular|e-?mail|nome|fiador|avalista|conjuge|dependente|agencia|conta\b|benefici|titular|testemunha|mutuari|segurad|consorciad|proponente|contratante|correntista|filiacao|\bmae\b|\bpai\b|herdeir|procurador|representante/i;
-
 function fieldsOf(raw: Array<{ rotulo: string; valor: string }>, privacy: PrivacyFilter) {
   const fields: SmartField[] = [];
   for (const { rotulo, valor } of raw) {
-    const plain = rotulo.normalize("NFD").replace(/\p{M}/gu, "");
-    if (PERSONAL_LABEL.test(plain)) continue;
+    if (!smartFieldAllowed(rotulo)) continue;
     const label = safeText(privacy.scrub(rotulo.slice(0, MAX_MODEL_TEXT)), 60);
     const value = safeText(privacy.scrub(valor.slice(0, MAX_MODEL_TEXT)), 120);
     if (label && value) fields.push({ label, value });
@@ -230,7 +227,10 @@ export function sanitizeSmartAnswer(
       const scrubbed = { ...rawFields(item), description: scrubShort(item.descricao) };
       const built = buildSmartPayload(item.destino, scrubbed, today);
       // Cada operação tem a própria linha: é ela que liga a proposta à gravação.
-      const dated = built.destination === "operacao" ? { ...built, line: index + 1 } : built;
+      const dated =
+        built.destination === "operacao" || built.destination === "provento"
+          ? { ...built, line: index + 1 }
+          : built;
       const moved =
         "date" in dated &&
         item.data.trim() !== "" &&

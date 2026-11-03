@@ -141,7 +141,9 @@ async function main() {
   await boss.work<SmartImportJob>(
     JOB_QUEUES.smartImport,
     reportingFailures(JOB_QUEUES.smartImport, ([job]) =>
-      runSmartImportJob(log, job?.data ?? {}, (next) => boss.send(JOB_QUEUES.smartImport, next)),
+      runSmartImportJob(log, job?.data ?? {}, (next, options) =>
+        boss.send(JOB_QUEUES.smartImport, next, options ?? {}),
+      ),
     ),
   );
   await boss.schedule(JOB_QUEUES.smartImport, "50 4 * * *", {}, { tz: "America/Sao_Paulo" });

@@ -89,6 +89,7 @@ import {
   type IncomeYearView,
   type PlanActionKind,
 } from "@organizeup/domain";
+import { smartFieldAllowed } from "@organizeup/domain";
 import { z } from "zod";
 import { personLabels, untrusted } from "../privacy";
 import { statementView } from "../statement-view";
@@ -358,10 +359,12 @@ const verDocumentos = defineTool({
         documentos: rows.map((row) => ({
           tipo: row.docType,
           emissor: untrusted(row.issuer),
-          campos: row.fields.map((field) => ({
-            campo: untrusted(field.label),
-            valor: untrusted(field.value),
-          })),
+          campos: row.fields
+            .filter((field) => smartFieldAllowed(field.label))
+            .map((field) => ({
+              campo: untrusted(field.label),
+              valor: untrusted(field.value),
+            })),
         })),
       };
     }),

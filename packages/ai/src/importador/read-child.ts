@@ -8,23 +8,40 @@ import { fileURLToPath } from "node:url";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
 import {
   decodeStatement,
+  planSmartDuplicates,
   recognizeSmartFile,
-  SMART_READ_MAX_OLD_MB,
-  SMART_READ_MAX_RSS_MB,
   type SmartContents,
   type SmartFileKind,
+  type SmartItemRef,
+  type SmartKnown,
   type SmartReading,
+  type SmartVerdict,
   type WorkbookSheet,
 } from "@organizeup/domain";
 import { assertPdfSize, assertZipSize, BombError, sheetsText } from "./read-limits";
 
 export type SmartReadFailure = "senha" | "ilegivel" | "bomba" | "demorado" | "isolamento";
 
+interface ChildJob {
+  read?: SmartReadRequest;
+  plan?: SmartPlanRequest;
+}
+
 export interface SmartReadRequest {
   kind: SmartFileKind;
   year: number;
   bytes: Uint8Array;
 }
+
+/** Comparação do lote: pura, mas pesada, e não pode segurar o worker. */
+export interface SmartPlanRequest {
+  items: SmartItemRef[];
+  known: SmartKnown;
+  sha: Record<string, string>;
+  scope: Record<string, { accountId: string | null; cardId: string | null }>;
+}
+
+export type SmartPlanResult = { ok: true; verdicts: Array<[string, SmartVerdict]> } | { ok: false };
 
 export type SmartReadResult =
   | {
@@ -131,13 +148,21 @@ async function work(request: SmartReadRequest): Promise<SmartReadResult> {
   }
 }
 
+function plan({ items, known, sha, scope }: SmartPlanRequest): SmartPlanResult {
+  const verdicts = planSmartDuplicates(items, known, {
+    shaOf: (id) => sha[id],
+    scope: (id) => scope[id] ?? { accountId: null, cardId: null },
+  });
+  return { ok: true, verdicts: [...verdicts] };
+}
+
 const readAll = async (): Promise<Buffer> => {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks);
 };
 
-function finish(result: SmartReadResult) {
+function finish(result: SmartReadResult | SmartPlanResult) {
   process.stdout.write(JSON.stringify(result), () => process.exit(0));
 }
 
@@ -145,33 +170,42 @@ async function main() {
   const input = await readAll();
   const size = input.readUInt32LE(0);
   const header = JSON.parse(input.subarray(4, 4 + size).toString("utf8")) as {
-    kind: SmartFileKind;
-    year: number;
+    mode: "read" | "plan";
+    kind?: SmartFileKind;
+    year?: number;
+    oldMb: number;
+    rssMb: number;
   };
-  const request: SmartReadRequest = { ...header, bytes: input.subarray(4 + size) };
+  const body = input.subarray(4 + size);
+  const job: ChildJob =
+    header.mode === "plan"
+      ? { plan: JSON.parse(body.toString("utf8")) as SmartPlanRequest }
+      : { read: { kind: header.kind!, year: header.year!, bytes: body } };
   let peak = 0;
   // Fora do heap do V8, em buffer de quem descomprime, o teto de heap não alcança. Este alcança.
   setInterval(() => {
     const rss = process.memoryUsage.rss() / (1024 * 1024);
     peak = Math.max(peak, rss);
-    if (rss > SMART_READ_MAX_RSS_MB) process.exit(MEMORY_EXIT);
+    if (rss > header.rssMb) process.exit(MEMORY_EXIT);
   }, WATCH_MS);
   const worker = new Worker(new URL(import.meta.url), {
-    workerData: { smartRead: request },
-    resourceLimits: { maxOldGenerationSizeMb: SMART_READ_MAX_OLD_MB, stackSizeMb: 8 },
+    workerData: { smartJob: job },
+    resourceLimits: { maxOldGenerationSizeMb: header.oldMb, stackSizeMb: 8 },
   });
-  worker.on("message", (result: SmartReadResult) => {
-    finish(result.ok ? { ...result, peakRssMb: Math.round(peak) } : result);
+  worker.on("message", (result: SmartReadResult | SmartPlanResult) => {
+    finish(result.ok && "text" in result ? { ...result, peakRssMb: Math.round(peak) } : result);
   });
   worker.on("error", (error: { code?: string }) => {
+    if (header.mode === "plan") finish({ ok: false });
     const memory = error.code === "ERR_WORKER_OUT_OF_MEMORY";
     finish({ ok: false, failure: memory ? "bomba" : "ilegivel" });
   });
 }
 
-const job = isMainThread ? null : (workerData as { smartRead?: SmartReadRequest } | null);
-if (job?.smartRead) {
-  parentPort!.postMessage(await work(job.smartRead));
+const assigned = isMainThread ? null : (workerData as { smartJob?: ChildJob } | null);
+if (assigned?.smartJob) {
+  const { read, plan: comparison } = assigned.smartJob;
+  parentPort!.postMessage(comparison ? plan(comparison) : await work(read!));
 } else if (
   isMainThread &&
   process.argv[1]?.endsWith(path.basename(fileURLToPath(import.meta.url)))

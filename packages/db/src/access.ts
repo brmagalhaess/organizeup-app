@@ -135,6 +135,8 @@ export const FLAG_KEYS = {
   ai: "ai",
   /** Cobrança. Desligada: todos têm acesso como hoje, e a tela de planos só aparece para admin. */
   billing: "billing_enabled",
+  /** Importador inteligente. Desligado, só o admin do serviço usa (ADR-0030). */
+  smartImport: "smart_import_enabled",
   agentOff: (agent: string) => `agente_desligado:${agent}`,
   notice: (id: string) => `aviso:${id}`,
 } as const;
@@ -163,6 +165,7 @@ export interface PlatformFlags {
   signupClosed: boolean;
   aiEnabled: boolean;
   billingEnabled: boolean;
+  smartImportEnabled: boolean;
   disabledAgents: string[];
   notices: PlatformNotice[];
 }
@@ -173,6 +176,7 @@ export const NO_FLAGS: PlatformFlags = {
   signupClosed: false,
   aiEnabled: true,
   billingEnabled: false,
+  smartImportEnabled: false,
   disabledAgents: [],
   notices: [],
 };
@@ -197,6 +201,8 @@ export function parsePlatformFlags(rows: FlagRow[]): PlatformFlags {
       flags.aiEnabled = enabled;
     } else if (key === FLAG_KEYS.billing) {
       flags.billingEnabled = enabled;
+    } else if (key === FLAG_KEYS.smartImport) {
+      flags.smartImportEnabled = enabled;
     } else if (key.startsWith(AGENT_PREFIX) && enabled) {
       const agent = key.slice(AGENT_PREFIX.length);
       const renamed = RENAMED_AGENTS[agent];
