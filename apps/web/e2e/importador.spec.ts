@@ -39,14 +39,18 @@ async function signInAsAdmin(page: Page) {
   await page.getByLabel("Senha").fill(password);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   const outcome = await Promise.race([
-    page.waitForURL(/\/app(\/|$)/).then(() => "entrou" as const),
+    page
+      .waitForURL(/\/app(\/|$)/, { timeout: 20_000 })
+      .then(() => "entrou" as const)
+      .catch(() => "sem conta" as const),
     page
       .getByText("E-mail ou senha incorretos.")
       .waitFor()
       .then(() => "sem conta" as const),
   ]);
   if (outcome === "entrou") return;
-  await page.goto("/cadastro");
+  // No `next dev`, a tela de entrar ainda pode recarregar depois de compilar.
+  await page.goto("/cadastro").catch(() => page.goto("/cadastro"));
   await page.getByLabel("Seu nome").fill("Admin");
   await page.getByLabel("CPF", { exact: true }).fill(newCpf());
   await page.getByLabel("E-mail").fill(adminEmail);
@@ -139,7 +143,12 @@ test("chave desligada: só o admin vê; ligar pelo painel libera e fica na audit
   await expect(family.getByRole("link", { name: "Importar arquivos" })).toHaveCount(0);
   await family.goto("/app/importar");
   await expect(family.getByRole("link", { name: "Importar arquivos" })).toHaveCount(0);
-  expect((await family.goto("/app/importar/arquivos"))?.status()).toBe(404);
+  // A tela do painel transmite aos poucos: o 404 vem na página, com a mesma resposta 200 dos outros carregamentos.
+  await family.goto("/app/importar/arquivos");
+  await expect(family.getByText("This page could not be found.")).toBeVisible();
+  await expect(family.getByRole("heading", { name: /Traga seus arquivos/ })).toHaveCount(0);
+  const refused = await family.request.get("/api/importador/arquivos/qualquer");
+  expect(refused.status()).toBe(404);
 
   // O admin segue vendo tudo, com a chave desligada.
   await admin.goto("/app");
