@@ -1,11 +1,18 @@
 // Importador inteligente, com o worker de verdade e o servidor falso do modelo. Precisa do servidor em `next dev`
 // com ANTHROPIC_API_KEY qualquer e AI_TEST_BASE_URL apontando para e2e/fake-model.mjs, do worker com as mesmas duas
-// variáveis e de E2E_ASSISTANT=1 no Playwright. Ver docs/runbooks/bootstrap.md. Nada aqui chama a API real.
+// variáveis e de E2E_ASSISTANT=1 no Playwright. Também de E2E_ADMIN_EMAIL, com ADMIN_EMAILS igual no servidor: a
+// chave do importador é global, então rode com --workers=1. Ver docs/runbooks/bootstrap.md. Nada aqui chama a API real.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { newCpf } from "./documents";
 
-test.skip(!process.env.E2E_ASSISTANT, "precisa do servidor com o modelo falso e do worker");
+const adminEmail = process.env.E2E_ADMIN_EMAIL ?? "";
+
+test.skip(
+  !process.env.E2E_ASSISTANT || !adminEmail,
+  "precisa do servidor com o modelo falso, do worker e de E2E_ADMIN_EMAIL",
+);
+test.describe.configure({ mode: "serial" });
 
 const password = "senha-segura-123!";
 
@@ -23,6 +30,43 @@ async function signUp(page: Page, name: string) {
   await page.getByLabel("Nome da família").fill(`Família ${name}`);
   await page.getByRole("button", { name: "Criar família" }).click();
   await expect(page).toHaveURL(/\/app$/);
+}
+
+/** Conta fixa: a lista de administradores é por e-mail. Num banco novo é cadastrada, depois só entra. */
+async function signInAsAdmin(page: Page) {
+  await page.goto("/entrar");
+  await page.getByLabel("E-mail").fill(adminEmail);
+  await page.getByLabel("Senha").fill(password);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  const outcome = await Promise.race([
+    page.waitForURL(/\/app(\/|$)/).then(() => "entrou" as const),
+    page
+      .getByText("E-mail ou senha incorretos.")
+      .waitFor()
+      .then(() => "sem conta" as const),
+  ]);
+  if (outcome === "entrou") return;
+  await page.goto("/cadastro");
+  await page.getByLabel("Seu nome").fill("Admin");
+  await page.getByLabel("CPF", { exact: true }).fill(newCpf());
+  await page.getByLabel("E-mail").fill(adminEmail);
+  await page.getByLabel("Senha", { exact: true }).fill(password);
+  await page.getByLabel("Confirmar senha").fill(password);
+  await page.getByRole("checkbox", { name: /Li e aceito/ }).check();
+  await page.getByRole("button", { name: "Criar conta" }).click();
+  await expect(page).toHaveURL(/\/app\/novo-household$/, { timeout: 30_000 });
+  await page.getByLabel("Nome da família").fill("Família Admin");
+  await page.getByRole("button", { name: "Criar família" }).click();
+  await expect(page).toHaveURL(/\/app$/, { timeout: 30_000 });
+}
+
+/** Deixa a chave como pedido, pelo painel. */
+async function setFlag(page: Page, on: boolean) {
+  await page.goto("/admin/cobranca");
+  const flag = page.getByRole("switch", { name: "Importador para todas as famílias" });
+  await expect(flag).toBeVisible({ timeout: 30_000 });
+  if ((await flag.getAttribute("aria-checked")) !== String(on)) await flag.click();
+  await expect(flag).toHaveAttribute("aria-checked", String(on));
 }
 
 const violations = async (page: Page) =>
@@ -72,6 +116,44 @@ async function activateAssistant(page: Page) {
   await expect(panel.getByLabel("Sua pergunta")).toBeVisible();
   await panel.getByRole("button", { name: "Fechar" }).click();
 }
+
+test("chave desligada: só o admin vê; ligar pelo painel libera e fica na auditoria", async ({
+  browser,
+}, info) => {
+  test.setTimeout(150_000);
+  const open = async () =>
+    (
+      await browser.newContext({
+        locale: "pt-BR",
+        baseURL: info.project.use.baseURL!,
+        ...(info.project.use.viewport ? { viewport: info.project.use.viewport } : {}),
+      })
+    ).newPage();
+  const admin = await open();
+  await signInAsAdmin(admin);
+  await setFlag(admin, false);
+
+  const family = await open();
+  await signUp(family, "Zeca");
+  await family.goto("/app");
+  await expect(family.getByRole("link", { name: "Importar arquivos" })).toHaveCount(0);
+  await family.goto("/app/importar");
+  await expect(family.getByRole("link", { name: "Importar arquivos" })).toHaveCount(0);
+  expect((await family.goto("/app/importar/arquivos"))?.status()).toBe(404);
+
+  // O admin segue vendo tudo, com a chave desligada.
+  await admin.goto("/app");
+  await expect(admin.getByRole("link", { name: "Importar arquivos" }).first()).toBeVisible();
+  expect((await admin.goto("/app/importar/arquivos"))?.status()).toBe(200);
+
+  await setFlag(admin, true);
+  await admin.goto("/admin/auditoria");
+  await expect(admin.getByText("Ligou o importador para todas as famílias").first()).toBeVisible();
+  await family.goto("/app");
+  await expect(family.getByRole("link", { name: "Importar arquivos" }).first()).toBeVisible();
+  await admin.context().close();
+  await family.context().close();
+});
 
 test("envia, lê em segundo plano, confere e aprova: pt-BR, com axe", async ({ page }, info) => {
   test.setTimeout(150_000);
@@ -141,6 +223,15 @@ test("envia, lê em segundo plano, confere e aprova: pt-BR, com axe", async ({ p
   const value = await account.locator("option").nth(1).getAttribute("value");
   await account.selectOption(value ?? "");
   await consortium.getByLabel("Conta deste arquivo").selectOption(value ?? "");
+
+  // Marcar todos pergunta antes, com quantos e quanto.
+  await page.getByRole("button", { name: "Marcar todos", exact: true }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toContainText(/Isso marca \d+ itens/);
+  await expect(sheet).toContainText("de saída");
+  await sheet.getByRole("button", { name: /^Marcar \d+ ite/ }).click();
+  await expect(sheet).toHaveCount(0);
+
   await statement.getByRole("checkbox", { name: "Incluir FARMACIA EXEMPLO" }).uncheck();
   await expect(
     statement.getByRole("checkbox", { name: "Incluir FARMACIA EXEMPLO" }),

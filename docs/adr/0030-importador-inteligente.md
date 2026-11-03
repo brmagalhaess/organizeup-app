@@ -140,6 +140,59 @@ Regra 7: é dado informado, por aceite na tela. A rotina fica em `apps/web/src/l
 - **Operação não mexe em conta**, porque a conta de origem nasce vazia, como no ADR-0024.
 - **Atualizar dívida existente** continua em Dívidas > Importar: aqui a dívida parecida vira "possível duplicado".
 
+### Lote grande
+
+- **Comparação linear.** Os lançamentos conhecidos ficam indexados por tipo, valor e dia (`takeClosest` em
+  `statement.ts`). Lote com todas as linhas do mesmo valor deixou de ser quadrático: era o que travava 10 CSVs de 5.000
+  linhas por 406 s.
+- **Comparação fora da thread principal.** O job carrega o que precisa, compara no processo isolado (`planInChild`) sem
+  transação aberta e grava o veredito depois, sob a trava da família. Se o filho não responder, compara no processo.
+- **Teto de itens em aberto por família**, `SMART_MAX_OPEN_ITEMS`, medido no banco, no envio e na leitura.
+  Passou, o envio é recusado (`teto_itens`) com a saída: aprovar ou apagar um lote. Sem isso, um usuário empilharia lotes
+  até pesar o banco de todos.
+- **Justiça por família.** Cada job lê um arquivo e volta ao fim da fila, e a família tem um lote em leitura por vez: o
+  segundo espera `SMART_WAIT_SECONDS`, com hora marcada, em vez de reenfileirar na hora. Leitura presa também espera: não
+  há job que volte sem ler nem contar tentativa.
+- **Paginação.** A revisão mostra `SMART_REVIEW_PAGE_SIZE` itens. Os totais vêm de agregação no banco.
+
+### Aprovar o que foi visto (decisão do produto)
+
+- Item tem `seen`. A tela marca o que apareceu; `approveSmartImport` só grava `selected` e `seen`. Item marcado em outra
+  página continua proposto, e a tela diz quantos.
+- **Marcar todos** é o único caminho para aprovar o que não apareceu: pede confirmação com quantos itens, a soma de entrada
+  e saída e quantos ainda não apareceram. O servidor recalcula sob a trava e só aplica se a contagem for a da tela.
+- Item de baixa confiança nunca nasce marcado.
+- `toggleAll` virou `clearAll` e `confirmAll`, ambos sob `lockFamilyImport`, a mesma trava da aprovação, para as duas não se
+  esperarem em ordens diferentes. `failItems` não toca em item `gravado`.
+
+### Conta, extrato e fatura
+
+- **A impressão digital vale por conta.** Sem conta definida no arquivo, igualdade vira `possivel` com motivo `outra_conta`,
+  nunca `ja_lancado`. `setFileTarget` pede nova comparação, e o veredito se refaz com a conta escolhida.
+- **Extrato em um lote, fatura em outro:** ao ler a fatura, `findRecordedPayments` procura lançamento já gravado com texto de
+  fatura e valor que feche as compras, e propõe a baixa como `possivel` (`pagamento_gravado`). Aceitar transforma aquele
+  lançamento no pagamento da fatura, em vez de criar outro.
+- `pagamento_fatura` só com texto de fatura e valor que feche. `mergeSmartEdit` limpa `settlesFileId`: editar a linha desfaz
+  a suposição.
+- A baixa guarda em `result_id` o lançamento que ela criou ou encontrou.
+
+### Proventos
+
+CSV e XLSX Recebidos passam por `parseDividendFile` antes do reconhecedor de extrato: arquivo de proventos nunca vira
+lançamento, nem se passar do limite de linhas (entra pela metade, com aviso `itens_cortados`). A comparação é a de
+`planDividendImport`, e a gravação é a de `lib/dividend-write.ts`, a mesma de `/app/proventos/importar`, com
+`importedDividendId`, que é o que faz o Mercado e o Desfazer respeitarem a linha (ADR-0029).
+
+### Liberação em etapas (decisão do produto)
+
+`ops.feature_flags` ganha `smart_import_enabled`, desligada. O motivo: nunca rodou em Linux nem com IA real.
+
+- Desligada, só o admin do serviço (`isServiceAdmin`) vê o importador, com tudo funcionando. Família comum não vê botão nem
+  rota: tela, action e `/api/importador` respondem 404, no servidor (`requireSmartImport`).
+- Lote do admin nasce com `preview`, e o worker recusa lote sem `preview` enquanto a chave estiver desligada.
+- O admin liga em `/admin/cobranca`, com auditoria (`importador:ligar`, `importador:desligar`).
+- `canUse` continua valendo item a item.
+
 ### Retenção
 
 Lote sem nada aprovado some depois de 30 dias, no job das 04:50. Lote com aprovação fica, como anexo de dívida, até a
@@ -149,6 +202,23 @@ dívida, se couber.
 ### Para os agentes
 
 `ver_documentos` entrega tipo, emissor e campos do que a família aprovou como documento. O arquivo nunca vai ao assistente.
+
+## O que o processo isolado garante, e o que não
+
+No bundle do worker o filho roda com `--permission`, lendo só o próprio arquivo, sem escrita, sem `child_process`, sem
+addons, e com ambiente mínimo: nada de `DATABASE_URL` nem de chave do modelo. `--allow-worker` é necessário para a thread
+com limite de memória. O teste `apps/worker/src/smart-child.integration.test.ts` monta o bundle e prova isso em Windows.
+
+Não dá para garantir:
+
+- **Rede.** O Node 24 não tem flag para bloquear rede. Lá dentro não há código que a use nem credencial a roubar, mas um
+  escape no pdf.js alcançaria a rede do contêiner. Fechar de verdade pede rede interna no Dokploy ou `--network=none`.
+- **Linux.** Nada disso rodou em Linux: nem o modelo de permissão, nem os limites de memória, nem `SIGKILL`. Antes de ligar a
+  chave, rodar `smart-child.integration.test.ts` e as bombas no contêiner de produção.
+- **Modelo de permissão não é sandbox.** A documentação do Node avisa que ele não protege contra código malicioso que
+  consiga escapar do JavaScript. Ele reduz o estrago de um bug, e `seccomp` no contêiner seria a camada seguinte.
+- **Na fonte não há permissão.** Em dev e nos testes o filho roda pelo `tsx`, que grava cache e abre o esbuild. Produção usa
+  sempre o bundle.
 
 ## Riscos aceitos
 

@@ -63,6 +63,21 @@ de cada falha. Tentar de novo só refaz o que falhou.
 
 **Estados da revisão:** nada para aprovar (só documentos), tudo aprovado, lote apagado, e sem permissão.
 
+### Liberação em etapas
+
+Com `smart_import_enabled` desligada, botão, cartão e rotas só existem para o admin do serviço. Para a família comum é 404.
+O admin liga em `/admin/cobranca`. Ver ADR-0030.
+
+### Paginação e aprovação
+
+A revisão mostra 100 itens por página (`?pagina=N`). O que aparece conta como visto. Aprovar grava só o que está marcado e foi
+visto, e a tela diz quantos marcados faltam ver. **Marcar todos** abre uma confirmação com quantos itens, quanto entra, quanto
+sai e quantos ainda não apareceram. Baixa confiança nunca vem marcada. Trocar a conta do arquivo refaz a comparação.
+
+### Arquivo em outro envio aberto
+
+O envio avisa e oferece **Abrir aquele envio** ou **Descartar aquele envio**. Descartado, a pessoa escolhe o arquivo de novo.
+
 ## 2. Fluxo
 
 1. A tela cria o lote e envia um arquivo por vez à rota, que confere tipo pelo conteúdo, tamanho e cotas.
