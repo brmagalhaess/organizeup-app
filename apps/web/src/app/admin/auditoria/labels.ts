@@ -70,6 +70,8 @@ const LABELS: Record<string, string> = {
   "receita:ver": "Abriu receita e uso",
   "cobranca:ver": "Abriu a chave da cobrança",
   "cobranca:ligar": "Ligou a cobrança",
+  "importador:ligar": "Ligou o importador para todas as famílias",
+  "importador:desligar": "Deixou o importador só para o admin",
   "cobranca:desligar": "Desligou a cobrança",
 };
 

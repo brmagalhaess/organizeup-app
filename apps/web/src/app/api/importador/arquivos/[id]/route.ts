@@ -2,12 +2,12 @@
 // enviado. A RLS diz de quem é. Quem só vê também baixa, como nos anexos de dívida.
 import { loadSmartFileContent } from "@organizeup/agents";
 import { tolerateSchemaLag, withHousehold } from "@organizeup/db";
-import { requireTenant } from "@/lib/session";
+import { requireSmartImport } from "@/lib/importador/access";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   const { id } = await params;
   const file = await tolerateSchemaLag(
     () => withHousehold(ctx, (tx) => loadSmartFileContent(tx, id)),

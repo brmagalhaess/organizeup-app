@@ -1,6 +1,8 @@
 "use client";
 import { Download, FileText, RefreshCw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import type { SmartSummary } from "@organizeup/agents";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import {
@@ -15,6 +17,7 @@ import {
   Badge,
   Button,
   Card,
+  ConfirmSheet,
   EmptyState,
   Field,
   FormMessage,
@@ -27,11 +30,13 @@ import type { Locale } from "@/i18n/locales";
 import { useMoney } from "@/i18n/money";
 import {
   approveImport,
+  clearAll,
+  confirmAll,
+  markSeen,
   nudgeImport,
   reprocessFile,
   saveItem,
   setFileTarget,
-  toggleAll,
   toggleItem,
 } from "../actions";
 
@@ -41,6 +46,7 @@ export interface ItemView {
   destination: SmartDestination;
   status: string;
   selected: boolean;
+  seen: boolean;
   duplicate: "novo" | "possivel" | "ja_lancado";
   duplicateReason: string | null;
   otherFile: string | null;
@@ -443,7 +449,6 @@ function FileBlock({
   cards,
   categories,
   writable,
-  groupTotals,
   onToggle,
 }: {
   file: FileView;
@@ -452,7 +457,6 @@ function FileBlock({
   cards: Option[];
   categories: CategoryOption[];
   writable: boolean;
-  groupTotals: Record<string, number>;
   onToggle: (id: string, selected: boolean) => void;
 }) {
   const t = useTranslations("importador");
@@ -585,17 +589,8 @@ function FileBlock({
         {groups.map(({ destination, rows }) => (
           <div key={destination}>
             <h3 className="m-0 text-sm font-semibold">
-              {t(`destination.${destination}`)} (
-              {groupTotals[`${file.id}:${destination}`] ?? rows.length})
+              {t(`destination.${destination}`)} ({rows.length})
             </h3>
-            {(groupTotals[`${file.id}:${destination}`] ?? 0) > rows.length ? (
-              <p className="m-0 text-sm text-muted">
-                {t("review.hidden", {
-                  shown: rows.length,
-                  total: groupTotals[`${file.id}:${destination}`] ?? rows.length,
-                })}
-              </p>
-            ) : null}
             <ul className="m-0 flex list-none flex-col divide-y divide-line p-0">
               {rows.map((item) => (
                 <ItemRow
@@ -622,9 +617,9 @@ export function ReviewBoard({
   accounts,
   cards,
   categories,
-  totals,
   summary,
-  groupTotals,
+  page,
+  pages,
   writable,
 }: {
   importId: string;
@@ -634,9 +629,9 @@ export function ReviewBoard({
   accounts: Option[];
   cards: Option[];
   categories: CategoryOption[];
-  totals: { in: string; out: string };
-  summary: { novo: number; possivel: number; jaLancado: number; blocked: number; selected: number };
-  groupTotals: Record<string, number>;
+  summary: SmartSummary;
+  page: number;
+  pages: number;
   writable: boolean;
 }) {
   const t = useTranslations("importador");
@@ -644,6 +639,7 @@ export function ReviewBoard({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const reading = status === "na_fila" || status === "lendo";
 
   useEffect(() => {
@@ -662,8 +658,15 @@ export function ReviewBoard({
   };
   const toggle = (id: string, value: boolean) =>
     startTransition(async () => report(await toggleItem(id, value)));
-  const toggleEverything = (value: boolean) =>
-    startTransition(async () => report(await toggleAll(importId, value)));
+
+  // Só conta como visto o que a tela mostrou: esta página, depois de aparecer.
+  const unseen = items.filter((item) => !item.seen && !item.saved).map((item) => item.id);
+  const needsSeen = writable && !reading && unseen.length > 0;
+  const seenKey = unseen.join();
+  useEffect(() => {
+    if (!needsSeen) return;
+    void markSeen(importId, seenKey.split(",")).then(() => router.refresh());
+  }, [needsSeen, importId, seenKey, router]);
 
   const approve = () =>
     startTransition(async () => {
@@ -717,8 +720,8 @@ export function ReviewBoard({
           <StatTile label={t("review.totalSeen")} value={String(summary.jaLancado)} />
           <StatTile label={t("review.totalMaybe")} value={String(summary.possivel)} />
           <StatTile label={t("review.totalBlocked")} value={String(summary.blocked)} />
-          <StatTile label={t("review.totalIn")} value={moneyText(totals.in)} />
-          <StatTile label={t("review.totalOut")} value={moneyText(totals.out)} />
+          <StatTile label={t("review.totalIn")} value={moneyText(summary.readyIn)} />
+          <StatTile label={t("review.totalOut")} value={moneyText(summary.readyOut)} />
         </dl>
       ) : null}
       {files.map((file) => (
@@ -730,23 +733,56 @@ export function ReviewBoard({
           cards={cards}
           categories={categories}
           writable={writable}
-          groupTotals={groupTotals}
           onToggle={toggle}
         />
       ))}
+      {pages > 1 ? (
+        <nav aria-label={t("review.pages")} className="flex items-center justify-between gap-3">
+          {page > 1 ? (
+            <Link
+              href={`/app/importar/arquivos/${importId}?pagina=${page - 1}`}
+              className={buttonClass("secondary", true)}
+            >
+              {t("review.previous")}
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-sm text-muted">{t("review.pageOf", { page, pages })}</span>
+          {page < pages ? (
+            <Link
+              href={`/app/importar/arquivos/${importId}?pagina=${page + 1}`}
+              className={buttonClass("secondary", true)}
+            >
+              {t("review.next")}
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      ) : null}
       {!reading && writable ? (
         <Card>
           <div className="flex flex-col gap-3">
             <p className="m-0 text-sm text-muted">{t("review.nothingSaved")}</p>
+            {summary.unseen > 0 ? (
+              <p className="m-0 text-sm text-warning">
+                {t("review.unseen", { count: summary.unseen })}
+              </p>
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" onClick={approve} disabled={pending || summary.selected === 0}>
-                {t("review.approve", { count: summary.selected })}
+              <Button
+                type="button"
+                onClick={approve}
+                disabled={pending || needsSeen || summary.ready === 0}
+              >
+                {t("review.approve", { count: summary.ready })}
               </Button>
               <Button
                 type="button"
                 variant="secondary"
                 disabled={pending}
-                onClick={() => toggleEverything(true)}
+                onClick={() => setConfirming(true)}
               >
                 {t("review.selectAll")}
               </Button>
@@ -754,7 +790,7 @@ export function ReviewBoard({
                 type="button"
                 variant="secondary"
                 disabled={pending}
-                onClick={() => toggleEverything(false)}
+                onClick={() => startTransition(async () => report(await clearAll(importId)))}
               >
                 {t("review.selectNone")}
               </Button>
@@ -764,6 +800,20 @@ export function ReviewBoard({
         </Card>
       ) : null}
       {!writable ? <p className="text-sm text-muted">{t("noPermission")}</p> : null}
+      <ConfirmSheet
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title={t("review.confirmTitle", { count: summary.markable })}
+        text={t("review.confirmText", {
+          count: summary.markable,
+          unseen: summary.markableUnseen,
+          in: moneyText(summary.markableIn),
+          out: moneyText(summary.markableOut),
+        })}
+        confirmLabel={t("review.confirmAll", { count: summary.markable })}
+        action={confirmAll}
+        hidden={{ importId, count: String(summary.markable) }}
+      />
     </div>
   );
 }

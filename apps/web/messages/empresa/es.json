@@ -151,5 +151,7 @@
   "importador.upload.cota": "La empresa alcanzó el límite de 100 MB de archivos. Borra un lote antiguo para enviar.",
   "importador.review.somente_leitura": "Tu rol en esta empresa permite ver, pero no aprobar.",
   "importador.errors.noPermission": "Tu rol en esta empresa no permite esto.",
-  "importador.failure.so_brasil": "Solo para empresas en reales"
+  "importador.failure.so_brasil": "Solo para empresas en reales",
+  "importador.upload.teto_itens": "La empresa tiene demasiados ítems esperando aprobación. Aprueba o borra un envío antes de mandar otro.",
+  "importador.failure.teto_itens": "La empresa tiene demasiados ítems esperando aprobación. Aprueba o borra un envío y lee de nuevo."
 }

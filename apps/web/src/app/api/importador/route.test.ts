@@ -10,8 +10,19 @@ const db = vi.hoisted(() => ({
 }));
 vi.mock("@organizeup/agents", () => agents);
 vi.mock("@organizeup/db", () => db);
-vi.mock("@/lib/session", () => ({ requireTenant: async () => ({ ctx }) }));
+const gate = vi.hoisted(() => ({ on: true, admin: false }));
+vi.mock("@/lib/session", () => ({
+  requireTenant: async () => ({ ctx, session: { user: { id: "u1", email: "f@example.com" } } }),
+  platformFlags: async () => ({ smartImportEnabled: gate.on }),
+  isServiceAdmin: () => gate.admin,
+}));
+vi.mock("next/navigation", () => ({
+  notFound: () => {
+    throw new Error("NEXT_NOT_FOUND");
+  },
+}));
 vi.mock("@/lib/same-site", () => ({ sameSite: () => true }));
+vi.mock("server-only", () => ({}));
 vi.mock("next-intl/server", async () => {
   const { createTranslator } = await import("next-intl");
   const { messagesFor } = await import("@/i18n/messages");
@@ -47,6 +58,8 @@ const request = (body: ReadableStream<Uint8Array>, headers: Record<string, strin
 
 beforeEach(() => {
   vi.clearAllMocks();
+  gate.on = true;
+  gate.admin = false;
   agents.createSmartImport.mockResolvedValue("lote");
   agents.saveSmartFile.mockResolvedValue({ ok: true, id: "f", duplicate: false });
 });
@@ -92,6 +105,62 @@ describe("POST /api/importador", () => {
     expect(response.status).toBe(411);
     expect(retry.status).toBe(200);
     expect(agents.saveSmartFile).toHaveBeenCalledOnce();
+  });
+});
+
+const upload = async () => {
+  const prepared = new Request(url, {
+    method: "POST",
+    body: (() => {
+      const form = new FormData();
+      form.set("file", new File(["OFXHEADER:100\n<OFX></OFX>"], "extrato.ofx"));
+      return form;
+    })(),
+  });
+  const bytes = await prepared.arrayBuffer();
+  return POST(
+    new Request(url, {
+      method: "POST",
+      body: bytes,
+      headers: {
+        "content-type": prepared.headers.get("content-type") ?? "",
+        "content-length": String(bytes.byteLength),
+      },
+    }),
+  );
+};
+
+describe("liberação em etapas", () => {
+  it("chave desligada: família comum não envia, e o arquivo também é 404", async () => {
+    gate.on = false;
+    await expect(upload()).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(GET(new Request(url), { params: Promise.resolve({ id: "x" }) })).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+    expect(agents.saveSmartFile).not.toHaveBeenCalled();
+  });
+
+  it("chave desligada: o admin do serviço envia, e o lote nasce como prévia", async () => {
+    gate.on = false;
+    gate.admin = true;
+    expect((await upload()).status).toBe(200);
+    expect(agents.createSmartImport).toHaveBeenCalledWith({}, ctx, true);
+  });
+
+  it("chave ligada: lote comum", async () => {
+    expect((await upload()).status).toBe(200);
+    expect(agents.createSmartImport).toHaveBeenCalledWith({}, ctx, false);
+  });
+
+  it("arquivo em outro lote devolve o lote, para a tela oferecer abrir ou descartar", async () => {
+    agents.saveSmartFile.mockResolvedValue({
+      ok: false,
+      code: "em_outro_lote",
+      otherImportId: "outro",
+    } as never);
+    const answer = await upload();
+    expect(answer.status).toBe(413);
+    expect(await answer.json()).toMatchObject({ code: "em_outro_lote", otherImportId: "outro" });
   });
 });
 

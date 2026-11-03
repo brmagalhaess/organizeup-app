@@ -151,5 +151,7 @@
   "importador.upload.cota": "A empresa chegou ao limite de 100 MB de arquivos. Apague um lote antigo para enviar.",
   "importador.review.somente_leitura": "Seu papel nesta empresa permite ver, mas não aprovar.",
   "importador.errors.noPermission": "Seu papel nesta empresa não permite isto.",
-  "importador.failure.so_brasil": "Só para empresas em real"
+  "importador.failure.so_brasil": "Só para empresas em real",
+  "importador.upload.teto_itens": "A empresa tem itens demais esperando aprovação. Aprove ou apague um envio antes de mandar outro.",
+  "importador.failure.teto_itens": "A empresa tem itens demais esperando aprovação. Aprove ou apague um envio e leia de novo."
 }

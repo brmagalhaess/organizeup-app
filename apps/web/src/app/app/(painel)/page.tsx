@@ -30,6 +30,7 @@ import {
 } from "@/i18n/format";
 import { loadOverview } from "@/lib/finance-data";
 import { loadMonthInvestments } from "@/lib/investments";
+import { smartImportOpen } from "@/lib/importador/access";
 import { requireTenant } from "@/lib/session";
 import { loadTopSuggestions } from "@/lib/suggestions";
 import { loadNetWorth, loadReserve } from "@/lib/wealth";
@@ -177,6 +178,7 @@ export default async function OverviewPage({
   ]);
   const system = systemTextOf(tSystem);
   const writable = canWrite(ctx);
+  const smartImport = writable && (await smartImportOpen(session.user));
   const firstName = session.user.name.split(" ")[0] ?? "";
   const date = formatLongDate(data.today, locale);
   const label = formatMonthYear(month, locale);
@@ -254,7 +256,7 @@ export default async function OverviewPage({
       description={data.place ? t("todayAt", { date, place: data.place }) : t("today", { date })}
       actions={
         <div className="flex flex-wrap gap-2">
-          {writable ? (
+          {smartImport ? (
             <Link href="/app/importar/arquivos" className={buttonClass("secondary")}>
               <Upload className="size-4" aria-hidden="true" />
               {t("importFiles")}

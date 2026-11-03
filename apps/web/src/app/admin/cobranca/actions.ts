@@ -54,3 +54,21 @@ export async function disableBilling(form: FormData): Promise<AdminResult> {
     return done("Cobrança desligada. Todas as famílias voltam ao acesso livre.");
   });
 }
+
+/** Liberação do importador inteligente. Fica na auditoria, como toda chave do painel. */
+export async function toggleSmartImport(form: FormData): Promise<AdminResult> {
+  const session = await requireAdmin();
+  const on = form.get("enabled") === "true";
+  return runAdminAction("admin_smart_import_failed", async () => {
+    await adminSetFlag(
+      { adminUserId: session.user.id },
+      {
+        key: FLAG_KEYS.smartImport,
+        enabled: on,
+        action: on ? "importador:ligar" : "importador:desligar",
+      },
+    );
+    refresh();
+    return done(on ? "Importador ligado para todas as famílias." : "Importador só para o admin.");
+  });
+}

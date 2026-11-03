@@ -1,17 +1,19 @@
 "use client";
 import { CheckCircle2, CircleAlert, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ChangeEvent } from "react";
 import { SMART_ACCEPT, SMART_MAX_FILES } from "@organizeup/domain";
 import type { ImporterGate } from "@organizeup/ai";
 import { Button, Card, FormMessage } from "@/components/ui";
-import { acceptImporter, startImport } from "./actions";
+import { acceptImporter, removeImport, startImport } from "./actions";
 
 interface Sent {
   name: string;
   ok: boolean;
   message: string | null;
+  otherImportId: string | null;
 }
 
 interface Answer {
@@ -19,6 +21,8 @@ interface Answer {
   importId?: string;
   duplicate?: boolean;
   message?: string;
+  /** Este arquivo está num envio aberto: a pessoa pode abrir aquele ou descartar. */
+  otherImportId?: string;
 }
 
 export function UploadPanel({
@@ -85,11 +89,22 @@ export function UploadPanel({
               ? t("upload.repeated")
               : null
             : (answer.message ?? t("upload.failed")),
+          otherImportId: answer.otherImportId ?? null,
         },
       ]);
     }
     setSending(false);
   };
+
+  /** Lote abandonado não prende o arquivo: some, e a pessoa escolhe o arquivo de novo. */
+  const discard = (id: string) =>
+    startTransition(async () => {
+      const form = new FormData();
+      form.set("id", id);
+      await removeImport(form);
+      setSent((rows) => rows.filter((row) => row.otherImportId !== id));
+      setMessage(t("upload.discarded"));
+    });
 
   const begin = () => {
     if (!importId) return;
@@ -172,6 +187,23 @@ export function UploadPanel({
                 <span className="min-w-0 break-words">
                   {row.name}
                   {row.message ? <span className="text-muted"> · {row.message}</span> : null}
+                  {row.otherImportId ? (
+                    <span className="ml-2 inline-flex gap-2">
+                      <Link
+                        href={`/app/importar/arquivos/${row.otherImportId}`}
+                        className="font-medium text-brand-700 underline"
+                      >
+                        {t("upload.openOther")}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => discard(row.otherImportId!)}
+                        className="font-medium text-brand-700 underline"
+                      >
+                        {t("upload.discardOther")}
+                      </button>
+                    </span>
+                  ) : null}
                 </span>
               </li>
             ))}

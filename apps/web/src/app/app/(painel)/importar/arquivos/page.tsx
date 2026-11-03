@@ -9,7 +9,7 @@ import { buttonClass } from "@/components/styles";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { formatInstant } from "@/i18n/format";
 import { resolveLocale } from "@/i18n/resolve";
-import { requireTenant } from "@/lib/session";
+import { requireSmartImport } from "@/lib/importador/access";
 import { DeleteImport } from "./delete-import";
 import { UploadPanel } from "./upload-panel";
 
@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function SmartImportPage() {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   const [t, locale] = await Promise.all([getTranslations("importador"), resolveLocale()]);
   const lots = await tolerateSchemaLag(
     () =>

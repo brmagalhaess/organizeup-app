@@ -4724,7 +4724,11 @@
       "cota_lote": "O envio passou de 40 MB. Mande o resto em outro.",
       "cota": "A família chegou ao limite de 100 MB de arquivos. Apague um lote antigo para enviar.",
       "noLength": "Não foi possível conferir o tamanho do envio. Tente de novo.",
-      "em_outro_lote": "Este arquivo já está em outro envio aberto. Aprove ou apague aquele antes."
+      "em_outro_lote": "Este arquivo já está em outro envio aberto.",
+      "openOther": "Abrir aquele envio",
+      "discardOther": "Descartar aquele envio",
+      "discarded": "Envio descartado. Escolha o arquivo de novo.",
+      "teto_itens": "A família tem itens demais esperando aprovação. Aprove ou apague um envio antes de mandar outro."
     },
     "empty": {
       "title": "Nenhum arquivo importado ainda",
@@ -4779,7 +4783,14 @@
       "nada": "Não há nada marcado para aprovar.",
       "somente_leitura": "Seu papel nesta família permite ver, mas não aprovar.",
       "lendo": "Espere a leitura terminar para aprovar.",
-      "hidden": "Mostrando os primeiros {shown} de {total}. Os outros seguem Marcar todos e Desmarcar todos."
+      "unseen": "{count, plural, one {# item marcado ainda não apareceu para você: abra as outras páginas, ou use Marcar todos.} other {# itens marcados ainda não apareceram para você: abra as outras páginas, ou use Marcar todos.}}",
+      "pages": "Páginas da revisão",
+      "previous": "Página anterior",
+      "next": "Próxima página",
+      "pageOf": "Página {page} de {pages}",
+      "confirmTitle": "{count, plural, one {Marcar # item?} other {Marcar # itens?}}",
+      "confirmText": "Isso marca {count, plural, one {# item} other {# itens}} para aprovar, somando {in} de entrada e {out} de saída. {unseen, plural, =0 {Você já viu todos.} one {# ainda não apareceu para você.} other {# ainda não apareceram para você.}} Entram também os possíveis duplicados e os de baixa confiança.",
+      "confirmAll": "{count, plural, one {Marcar # item} other {Marcar # itens}}"
     },
     "file": {
       "download": "Baixar",
@@ -4878,7 +4889,7 @@
     "note": {
       "linhas_ignoradas": "{count, plural, one {# linha ficou de fora} other {# linhas ficaram de fora}}.",
       "posicao": "A Posição da B3 não traz data nem preço pago. Para conferir a carteira, use Investimentos > Importar.",
-      "itens_cortados": "O arquivo tinha {count} itens, e entraram só os primeiros.",
+      "itens_cortados": "O arquivo tinha {count} itens, e entraram só os primeiros. Divida o arquivo para trazer o resto.",
       "total_nao_fecha": "A soma dos itens não fecha com o total do documento.",
       "parcelas_nao_fecham": "Parcela vezes quantidade não cobre o saldo. Confira os dois.",
       "texto_suspeito": "O arquivo tem um trecho estranho, que foi ignorado.",
@@ -4918,7 +4929,8 @@
       "duplicado_agora": "Já foi lançado depois da leitura",
       "linha_repetida": "Operações com a mesma linha: leia o arquivo de novo",
       "fatura_nao_gravada": "Grave as compras da fatura primeiro",
-      "fatura_nao_fecha": "O valor não fecha com a fatura gravada"
+      "fatura_nao_fecha": "O valor não fecha com a fatura gravada",
+      "teto_itens": "A família tem itens demais esperando aprovação. Aprove ou apague um envio e leia de novo."
     },
     "errors": {
       "noPermission": "Seu papel nesta família não permite isto.",

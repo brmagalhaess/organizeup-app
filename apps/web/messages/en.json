@@ -4724,7 +4724,11 @@
       "cota_lote": "This upload went over 40 MB. Send the rest in another one.",
       "cota": "The family reached the 100 MB file limit. Delete an old batch to send more.",
       "noLength": "We could not check the size of this upload. Try again.",
-      "em_outro_lote": "This file is already in another open upload. Approve or delete that one first."
+      "em_outro_lote": "This file is already in another open upload.",
+      "openOther": "Open that upload",
+      "discardOther": "Discard that upload",
+      "discarded": "Upload discarded. Choose the file again.",
+      "teto_itens": "The family has too many items waiting for approval. Approve or delete an upload before sending another."
     },
     "empty": {
       "title": "No files imported yet",
@@ -4779,7 +4783,14 @@
       "nada": "There is nothing selected to approve.",
       "somente_leitura": "Your role in this family can view, but not approve.",
       "lendo": "Wait for reading to finish before approving.",
-      "hidden": "Showing the first {shown} of {total}. The others follow Select all and Unselect all."
+      "unseen": "{count, plural, one {# selected item has not been shown to you: open the other pages, or use Select all.} other {# selected items have not been shown to you: open the other pages, or use Select all.}}",
+      "pages": "Review pages",
+      "previous": "Previous page",
+      "next": "Next page",
+      "pageOf": "Page {page} of {pages}",
+      "confirmTitle": "{count, plural, one {Select # item?} other {Select # items?}}",
+      "confirmText": "This selects {count, plural, one {# item} other {# items}} for approval, adding up to {in} coming in and {out} going out. {unseen, plural, =0 {You have seen them all.} one {# has not been shown to you.} other {# have not been shown to you.}} Possible duplicates and low-confidence items are included.",
+      "confirmAll": "{count, plural, one {Select # item} other {Select # items}}"
     },
     "file": {
       "download": "Download",
@@ -4878,7 +4889,7 @@
     "note": {
       "linhas_ignoradas": "{count, plural, one {# line was left out} other {# lines were left out}}.",
       "posicao": "The B3 Position file has no date or price paid. To check the portfolio, use Investments > Import.",
-      "itens_cortados": "The file had {count} items, and only the first ones came in.",
+      "itens_cortados": "The file had {count} items, and only the first ones came in. Split the file to bring the rest.",
       "total_nao_fecha": "The sum of the items does not match the document total.",
       "parcelas_nao_fecham": "Installment times quantity does not cover the balance. Check both.",
       "texto_suspeito": "The file has an odd passage, which was ignored.",
@@ -4918,7 +4929,8 @@
       "duplicado_agora": "It was recorded after the reading",
       "linha_repetida": "Trades with the same line: read the file again",
       "fatura_nao_gravada": "Save the bill's purchases first",
-      "fatura_nao_fecha": "The amount does not match the saved bill"
+      "fatura_nao_fecha": "The amount does not match the saved bill",
+      "teto_itens": "The family has too many items waiting for approval. Approve or delete an upload and read again."
     },
     "errors": {
       "noPermission": "Your role in this family does not allow this.",

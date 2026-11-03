@@ -4724,7 +4724,11 @@
       "cota_lote": "El envío superó los 40 MB. Manda el resto en otro.",
       "cota": "La familia alcanzó el límite de 100 MB de archivos. Borra un lote antiguo para enviar.",
       "noLength": "No pudimos comprobar el tamaño del envío. Inténtalo de nuevo.",
-      "em_outro_lote": "Este archivo ya está en otro envío abierto. Aprueba o borra aquel primero."
+      "em_outro_lote": "Este archivo ya está en otro envío abierto.",
+      "openOther": "Abrir ese envío",
+      "discardOther": "Descartar ese envío",
+      "discarded": "Envío descartado. Elige el archivo de nuevo.",
+      "teto_itens": "La familia tiene demasiados ítems esperando aprobación. Aprueba o borra un envío antes de mandar otro."
     },
     "empty": {
       "title": "Aún no hay archivos importados",
@@ -4779,7 +4783,14 @@
       "nada": "No hay nada marcado para aprobar.",
       "somente_leitura": "Tu rol en esta familia permite ver, pero no aprobar.",
       "lendo": "Espera a que termine la lectura para aprobar.",
-      "hidden": "Se muestran los primeros {shown} de {total}. Los demás siguen Marcar todos y Desmarcar todos."
+      "unseen": "{count, plural, one {# ítem marcado aún no se te mostró: abre las otras páginas, o usa Marcar todos.} other {# ítems marcados aún no se te mostraron: abre las otras páginas, o usa Marcar todos.}}",
+      "pages": "Páginas de la revisión",
+      "previous": "Página anterior",
+      "next": "Página siguiente",
+      "pageOf": "Página {page} de {pages}",
+      "confirmTitle": "{count, plural, one {¿Marcar # ítem?} other {¿Marcar # ítems?}}",
+      "confirmText": "Esto marca {count, plural, one {# ítem} other {# ítems}} para aprobar, sumando {in} de entrada y {out} de salida. {unseen, plural, =0 {Ya los viste todos.} one {# aún no se te mostró.} other {# aún no se te mostraron.}} También entran los posibles duplicados y los de baja confianza.",
+      "confirmAll": "{count, plural, one {Marcar # ítem} other {Marcar # ítems}}"
     },
     "file": {
       "download": "Descargar",
@@ -4878,7 +4889,7 @@
     "note": {
       "linhas_ignoradas": "{count, plural, one {# línea quedó fuera} other {# líneas quedaron fuera}}.",
       "posicao": "La Posición de B3 no trae fecha ni precio pagado. Para revisar la cartera, usa Inversiones > Importar.",
-      "itens_cortados": "El archivo tenía {count} ítems, y entraron solo los primeros.",
+      "itens_cortados": "El archivo tenía {count} ítems, y entraron solo los primeros. Divide el archivo para traer el resto.",
       "total_nao_fecha": "La suma de los ítems no coincide con el total del documento.",
       "parcelas_nao_fecham": "Cuota por cantidad no cubre el saldo. Revisa los dos.",
       "texto_suspeito": "El archivo tiene un pasaje extraño, que se ignoró.",
@@ -4918,7 +4929,8 @@
       "duplicado_agora": "Se registró después de la lectura",
       "linha_repetida": "Operaciones con la misma línea: lee el archivo de nuevo",
       "fatura_nao_gravada": "Graba primero las compras del resumen",
-      "fatura_nao_fecha": "El valor no coincide con el resumen grabado"
+      "fatura_nao_fecha": "El valor no coincide con el resumen grabado",
+      "teto_itens": "La familia tiene demasiados ítems esperando aprobación. Aprueba o borra un envío y lee de nuevo."
     },
     "errors": {
       "noPermission": "Tu rol en esta familia no permite esto.",

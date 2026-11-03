@@ -151,5 +151,7 @@
   "importador.upload.cota": "The company reached the 100 MB file limit. Delete an old batch to send more.",
   "importador.review.somente_leitura": "Your role in this company can view, but not approve.",
   "importador.errors.noPermission": "Your role in this company does not allow this.",
-  "importador.failure.so_brasil": "Only for companies in reais"
+  "importador.failure.so_brasil": "Only for companies in reais",
+  "importador.upload.teto_itens": "The company has too many items waiting for approval. Approve or delete an upload before sending another.",
+  "importador.failure.teto_itens": "The company has too many items waiting for approval. Approve or delete an upload and read again."
 }

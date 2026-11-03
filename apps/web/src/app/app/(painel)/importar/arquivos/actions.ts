@@ -8,6 +8,8 @@ import {
   deleteSmartImport,
   queueSmartImport,
   requeueSmartFile,
+  requestSmartReview,
+  summarizeSmartItems,
   touchSmartImport,
 } from "@organizeup/agents";
 import { acceptImporterFiles, canUseAssistant } from "@organizeup/ai";
@@ -20,7 +22,9 @@ import {
   eq,
   householdTimezone,
   inArray,
+  lockFamilyImport,
   ne,
+  notInArray,
   readFamilyAccess,
   smartImportFiles,
   smartImportItems,
@@ -33,13 +37,15 @@ import {
   SMART_DESTINATION_MODULE,
   SMART_DESTINATIONS,
   SMART_REQUEUE_MS,
+  SMART_REVIEW_PAGE_SIZE,
   todayIn,
+  type FamilyAccess,
   type SmartRawFields,
 } from "@organizeup/domain";
+import { requireSmartImport } from "@/lib/importador/access";
 import { approveSmartImport, type SmartApproval } from "@/lib/importador/commit";
 import { queueSmartImportJob } from "@/lib/importador/queue";
 import { LEGAL_VERSION } from "@/lib/legal";
-import { requireTenant } from "@/lib/session";
 
 const PATH = "/app/importar/arquivos";
 const refresh = () => revalidatePath(PATH, "layout");
@@ -50,7 +56,7 @@ const noPermission = async () => (await getTranslations("importador.errors"))("n
 
 /** Aceite que cobre qualquer arquivo. Fica gravada a versão dos textos de agora. */
 export async function acceptImporter(): Promise<ActionResult> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   if (!canWrite(ctx) || !canUseAssistant(ctx)) return { ok: false, message: await noPermission() };
   await acceptImporterFiles(ctx, LEGAL_VERSION);
   refresh();
@@ -59,7 +65,7 @@ export async function acceptImporter(): Promise<ActionResult> {
 
 /** Fecha o envio e chama o worker. Se o aviso falhar, o lote fica na fila e a tela pede de novo. */
 export async function startImport(importId: string, useAi: boolean): Promise<ActionResult> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   if (!canWrite(ctx)) return { ok: false, message: await noPermission() };
   const queued = await withHousehold(ctx, (tx) => queueSmartImport(tx, ctx, importId, useAi));
   if (!queued) {
@@ -72,7 +78,7 @@ export async function startImport(importId: string, useAi: boolean): Promise<Act
 
 /** A tela olha o lote parado. Na fila há tempo demais: repete o aviso. */
 export async function nudgeImport(importId: string): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   if (!canWrite(ctx)) return;
   const stale = await withHousehold(ctx, async (tx) => {
     const [lot] = await tx
@@ -88,7 +94,7 @@ export async function nudgeImport(importId: string): Promise<void> {
 }
 
 export async function reprocessFile(fileId: string): Promise<ActionResult> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   if (!canWrite(ctx)) return { ok: false, message: await noPermission() };
   const importId = await withHousehold(ctx, (tx) => requeueSmartFile(tx, ctx, fileId));
   if (!importId) {
@@ -100,14 +106,14 @@ export async function reprocessFile(fileId: string): Promise<ActionResult> {
 }
 
 export async function removeImport(form: FormData): Promise<void> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   await withHousehold(ctx, (tx) => deleteSmartImport(tx, ctx, String(form.get("id") ?? "")));
   refresh();
 }
 
 /** Um item. Sem corte: o que a tela não mostra segue por `toggleAll`. */
 export async function toggleItem(itemId: string, selected: boolean): Promise<ActionResult> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   if (!canWrite(ctx)) return { ok: false, message: await noPermission() };
   await withHousehold(ctx, (tx) =>
     tx
@@ -119,29 +125,67 @@ export async function toggleItem(itemId: string, selected: boolean): Promise<Act
   return { ok: true };
 }
 
-/** Lote inteiro, de uma vez, no servidor. Marcar pula o que é de módulo desligado. */
-export async function toggleAll(importId: string, selected: boolean): Promise<ActionResult> {
-  const { ctx } = await requireTenant();
-  if (!canWrite(ctx)) return { ok: false, message: await noPermission() };
-  const access = await readFamilyAccess(ctx);
-  const allowed = SMART_DESTINATIONS.filter((destination) => {
+const blockedOf = (access: FamilyAccess) =>
+  SMART_DESTINATIONS.filter((destination) => {
     const owner = SMART_DESTINATION_MODULE[destination];
-    return !selected || owner === null || canUse(access, owner);
+    return owner !== null && !canUse(access, owner);
   });
-  await withHousehold(ctx, (tx) =>
-    tx
+
+/** Desmarca o lote inteiro, no servidor, sem corte. */
+export async function clearAll(importId: string): Promise<ActionResult> {
+  const { ctx } = await requireSmartImport();
+  if (!canWrite(ctx)) return { ok: false, message: await noPermission() };
+  await withHousehold(ctx, async (tx) => {
+    await lockFamilyImport(tx, ctx.householdId);
+    await tx
       .update(smartImportItems)
-      .set({ selected, updatedAt: new Date() })
+      .set({ selected: false, updatedAt: new Date() })
+      .where(and(eq(smartImportItems.importId, importId), ne(smartImportItems.status, "gravado")));
+  });
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * "Marcar todos", depois de a tela mostrar quantos são e quanto somam. Só vale para a conta que a pessoa viu: se o
+ * lote mudou, nada acontece, e a tela mostra a conta nova. É o único jeito de aprovar o que não apareceu.
+ */
+export async function confirmAll(form: FormData): Promise<void> {
+  const { ctx } = await requireSmartImport();
+  if (!canWrite(ctx)) return;
+  const importId = String(form.get("importId") ?? "");
+  const expected = Number(form.get("count"));
+  const access = await readFamilyAccess(ctx);
+  const blocked = blockedOf(access);
+  await withHousehold(ctx, async (tx) => {
+    await lockFamilyImport(tx, ctx.householdId);
+    const summary = await summarizeSmartItems(tx, importId, blocked);
+    if (summary.markable !== expected) return;
+    await tx
+      .update(smartImportItems)
+      .set({ selected: true, seen: true, updatedAt: new Date() })
       .where(
         and(
           eq(smartImportItems.importId, importId),
           ne(smartImportItems.status, "gravado"),
-          inArray(smartImportItems.destination, allowed),
+          blocked.length > 0 ? notInArray(smartImportItems.destination, blocked) : undefined,
         ),
-      ),
+      );
+  });
+  refresh();
+}
+
+/** A página apareceu na tela: estes itens a pessoa viu. */
+export async function markSeen(importId: string, ids: string[]): Promise<void> {
+  const { ctx } = await requireSmartImport();
+  if (!canWrite(ctx) || ids.length > SMART_REVIEW_PAGE_SIZE) return;
+  await withHousehold(ctx, (tx) =>
+    tx
+      .update(smartImportItems)
+      .set({ seen: true })
+      .where(and(eq(smartImportItems.importId, importId), inArray(smartImportItems.id, ids))),
   );
   refresh();
-  return { ok: true };
 }
 
 const targetSchema = z.object({
@@ -152,34 +196,39 @@ const targetSchema = z.object({
 
 /** Conta e cartão do arquivo: valem para todo item sem escolha própria. */
 export async function setFileTarget(input: z.input<typeof targetSchema>): Promise<ActionResult> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   if (!canWrite(ctx)) return { ok: false, message: await noPermission() };
   const t = await getTranslations("importador.errors");
   const parsed = targetSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: t("invalid") };
   const { fileId, accountId, cardId } = parsed.data;
-  const done = await withHousehold(ctx, async (tx) => {
+  const importId = await withHousehold(ctx, async (tx) => {
+    await lockFamilyImport(tx, ctx.householdId);
     if (accountId) {
       const [row] = await tx
         .select({ id: accounts.id })
         .from(accounts)
         .where(eq(accounts.id, accountId));
-      if (!row) return false;
+      if (!row) return null;
     }
     if (cardId) {
       const [row] = await tx
         .select({ id: creditCards.id })
         .from(creditCards)
         .where(eq(creditCards.id, cardId));
-      if (!row) return false;
+      if (!row) return null;
     }
-    await tx
+    const [file] = await tx
       .update(smartImportFiles)
       .set({ accountId: accountId || null, cardId: cardId || null, updatedAt: new Date() })
-      .where(eq(smartImportFiles.id, fileId));
-    return true;
+      .where(eq(smartImportFiles.id, fileId))
+      .returning({ importId: smartImportFiles.importId });
+    // A comparação olha a conta do arquivo: mudou a conta, muda o veredito.
+    if (file) await requestSmartReview(tx, file.importId);
+    return file?.importId ?? null;
   });
-  if (!done) return { ok: false, message: t("invalid") };
+  if (!importId) return { ok: false, message: t("invalid") };
+  await queueSmartImportJob({ householdId: ctx.householdId, importId });
   refresh();
   return { ok: true };
 }
@@ -193,13 +242,14 @@ const editSchema = z.object({
 
 /** Salva a edição de um item. O que a pessoa digitou passa pelas mesmas conferências do que veio do arquivo. */
 export async function saveItem(input: z.input<typeof editSchema>): Promise<ActionResult> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   if (!canWrite(ctx)) return { ok: false, message: await noPermission() };
   const t = await getTranslations("importador.errors");
   const parsed = editSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: t("invalid") };
   const { id, fields, categoryId } = parsed.data;
   return withHousehold(ctx, async (tx) => {
+    await lockFamilyImport(tx, ctx.householdId);
     const [item] = await tx
       .select()
       .from(smartImportItems)
@@ -229,7 +279,7 @@ export async function saveItem(input: z.input<typeof editSchema>): Promise<Actio
 }
 
 export async function approveImport(importId: string): Promise<SmartApproval> {
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   const result = await approveSmartImport(ctx, importId);
   refresh();
   revalidatePath("/app", "layout");

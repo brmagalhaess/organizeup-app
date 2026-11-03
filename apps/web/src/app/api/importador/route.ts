@@ -7,7 +7,8 @@ import { checkSmartFile, SMART_FILE_MAX_BYTES } from "@organizeup/domain";
 import { getTranslations } from "next-intl/server";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { sameSite } from "@/lib/same-site";
-import { requireTenant } from "@/lib/session";
+import { requireSmartImport } from "@/lib/importador/access";
+import { platformFlags } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ const refuse = (code: string, message: string, status: number) =>
 
 export async function POST(request: Request) {
   if (!sameSite(request)) return new Response(null, { status: 403 });
-  const { ctx } = await requireTenant();
+  const { ctx } = await requireSmartImport();
   const t = await getTranslations("importador.upload");
   if (!canWrite(ctx)) return refuse("somente_leitura", t("readOnly"), 403);
   if (!allow(ctx.householdId)) return refuse("muitos_pedidos", t("tooMany"), 429);
@@ -77,11 +78,14 @@ export async function POST(request: Request) {
   }
 
   const given = form?.get("importId");
+  const { smartImportEnabled } = await platformFlags();
   const saved = await tolerateSchemaLag(
     () =>
       withHousehold(ctx, async (tx) => {
         const importId =
-          typeof given === "string" && given ? given : await createSmartImport(tx, ctx);
+          typeof given === "string" && given
+            ? given
+            : await createSmartImport(tx, ctx, !smartImportEnabled);
         if (!importId) return { ok: false as const, code: "somente_leitura" as const };
         const result = await saveSmartFile(tx, ctx, {
           importId,
@@ -95,7 +99,15 @@ export async function POST(request: Request) {
   );
   if (!saved) return refuse("atualizando", t("updating"), 503);
   if (!saved.ok) {
-    return refuse(saved.code, t(saved.code), saved.code === "somente_leitura" ? 403 : 413);
+    return Response.json(
+      {
+        ok: false,
+        code: saved.code,
+        message: t(saved.code),
+        otherImportId: "otherImportId" in saved ? saved.otherImportId : undefined,
+      },
+      { status: saved.code === "somente_leitura" ? 403 : 413 },
+    );
   }
   return Response.json(saved);
 }

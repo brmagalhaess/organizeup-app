@@ -21,6 +21,7 @@ import { familyAccountType } from "@/i18n/account-server";
 import { agentText } from "@/i18n/agent-text";
 import { resolveLocale } from "@/i18n/resolve";
 import { systemTextOf } from "@/i18n/system-text";
+import { smartImportOpen } from "@/lib/importador/access";
 import { requireTenant } from "@/lib/session";
 import { ImportWizard } from "./import-wizard";
 
@@ -30,7 +31,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ImportPage() {
-  const { ctx } = await requireTenant();
+  const { ctx, session } = await requireTenant();
+  const smartImport = await smartImportOpen(session.user);
   const [t, tSystem, locale] = await Promise.all([
     getTranslations("importar"),
     getTranslations("sistema"),
@@ -91,7 +93,7 @@ export default async function ImportPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
-      {canWrite(ctx) ? (
+      {canWrite(ctx) && smartImport ? (
         <Card title={t("smart.title")} description={t("smart.text")}>
           <Link href="/app/importar/arquivos" className={buttonClass()}>
             {t("smart.link")}
