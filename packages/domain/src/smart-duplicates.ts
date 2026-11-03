@@ -3,10 +3,19 @@
 // `planInvestmentImport` (operação como identidade) e `matchKnownDebt`. Roda de novo na gravação.
 import { yearMonthOf } from "./cashflow";
 import { matchKnownDebt, type DebtExtraction, type KnownDebt } from "./debt-file";
+import type { ParsedDividend } from "./dividend-file";
+import {
+  planDividendImport,
+  type DividendDoubt,
+  type DividendHolding,
+  type DividendState,
+  type MarketEventRef,
+} from "./dividend-import";
 import { planInvestmentImport, type KnownHolding, type PlannedTrade } from "./investment-import";
 import type { ParsedTrade } from "./investment-file";
 import { money, toDbAmount } from "./money";
 import type {
+  DividendPayload,
   EntryPayload,
   PurchasePayload,
   SmartDuplicateState,
@@ -20,8 +29,9 @@ import {
   type KnownEntry,
 } from "./statement";
 
-const DIVIDEND_NEAR_DAYS = 5;
-const PAYMENT_WORDS = /\b(fatura|cartao|pagamento|pagto|pgto)\b/;
+/** Pagamento qualquer não é fatura: precisa dizer que é, e o valor precisa fechar. */
+const PAYMENT_WORDS = /\b(fatura|cartao|card)\b/;
+const PAYMENT_WINDOW_DAYS = 45;
 
 export interface SmartItemRef {
   id: string;
@@ -38,9 +48,13 @@ export interface SmartKnown {
   incomes: Array<{ name: string; amount: string }>;
   plans: Array<{ description: string; amount: string; kind: string }>;
   goals: Array<{ name: string }>;
-  dividends: Array<{ ticker: string | null; date: string; gross: string }>;
+  /** Carteira, fonte de mercado e bloqueios: a mesma comparação de `/app/proventos/importar`. */
+  dividendHoldings: DividendHolding[];
+  dividendEvents: MarketEventRef[];
+  dividendBlocked: Array<[string, string[]]>;
+  today: string;
   /** Arquivos já guardados como documento: sha256 → id do arquivo. */
-  documents: ReadonlyMap<string, string>;
+  documents: Record<string, string>;
 }
 
 export interface SmartVerdict {
@@ -53,6 +67,8 @@ export interface SmartVerdict {
   matchMonth: string | null;
   /** Fatura do lote que esta linha paga. */
   settlesFileId: string | null;
+  /** Provento: o que o plano disse, para a gravação conferir que nada mudou. */
+  plan: { state: DividendState; doubt: DividendDoubt | null } | null;
 }
 
 const fresh: SmartVerdict = {
@@ -62,6 +78,7 @@ const fresh: SmartVerdict = {
   matchKey: null,
   matchMonth: null,
   settlesFileId: null,
+  plan: null,
 };
 
 const seen = (reason: string, otherFileId: string | null = null): SmartVerdict => ({
@@ -178,8 +195,10 @@ function judgeMoney(
       const result = reconciled.get(row.fingerprint)!;
       const other = lotPrints.get(row.fingerprint);
       if (other) out.set(item.id, seen("mesmo_item", other));
-      else if (result.state === "importado") out.set(item.id, seen("impressao_digital"));
-      else if (result.state === "previsto" && result.match) {
+      else if (result.state === "importado") {
+        // A impressão digital é por conta. Sem conta no arquivo, igual em outra conta é só parecido.
+        out.set(item.id, accountId ? seen("impressao_digital") : maybe("outra_conta"));
+      } else if (result.state === "previsto" && result.match) {
         out.set(item.id, {
           ...fresh,
           matchKey: result.match.key,
@@ -210,27 +229,73 @@ function judgeMoney(
  * com a soma das compras de outro arquivo vira possível duplicado; aprovada, ela dá baixa na fatura.
  */
 function judgePayments(items: SmartItemRef[], out: Map<string, SmartVerdict>) {
-  const totals = new Map<string, { sum: ReturnType<typeof money>; count: number }>();
-  for (const { fileId, payload } of items) {
-    if (payload.destination !== "compra_cartao" || !payload.amount) continue;
-    const total = totals.get(fileId) ?? { sum: money(0), count: 0 };
-    totals.set(fileId, { sum: total.sum.plus(payload.amount), count: total.count + 1 });
-  }
+  const totals = purchaseTotals(items);
   if (totals.size === 0) return;
-  const byAmount = new Map(
-    [...totals].map(([fileId, total]) => [toDbAmount(total.sum), { fileId, count: total.count }]),
-  );
+  const byAmount = new Map([...totals].map(([fileId, total]) => [toDbAmount(total.sum), fileId]));
   for (const item of items) {
     const { payload } = item;
     if (payload.destination !== "lancamento" || payload.kind !== "despesa") continue;
     if (!payload.amount) continue;
-    const found = byAmount.get(payload.amount);
-    if (!found || found.fileId === item.fileId) continue;
-    // Uma compra só pode ser a própria compra, vista no extrato: aí precisa dizer que é pagamento.
-    const words = normalizeDescription(payload.description ?? "");
-    if (found.count < 2 && !PAYMENT_WORDS.test(words)) continue;
-    out.set(item.id, { ...maybe("pagamento_fatura", found.fileId), settlesFileId: found.fileId });
+    const fileId = byAmount.get(toDbAmount(payload.amount));
+    if (!fileId || fileId === item.fileId) continue;
+    if (!PAYMENT_WORDS.test(normalizeDescription(payload.description ?? ""))) continue;
+    out.set(item.id, { ...maybe("pagamento_fatura", fileId), settlesFileId: fileId });
   }
+}
+
+function purchaseTotals(items: SmartItemRef[]) {
+  const totals = new Map<string, { sum: ReturnType<typeof money>; last: string }>();
+  for (const { fileId, payload } of items) {
+    if (payload.destination !== "compra_cartao" || !payload.amount) continue;
+    const total = totals.get(fileId) ?? { sum: money(0), last: "" };
+    const date = payload.date ?? "";
+    totals.set(fileId, {
+      sum: total.sum.plus(payload.amount),
+      last: date > total.last ? date : total.last,
+    });
+  }
+  return totals;
+}
+
+export interface RecordedPayment {
+  fileId: string;
+  transactionId: string;
+  description: string;
+  amount: string;
+  date: string;
+  accountId: string | null;
+}
+
+/**
+ * Lotes separados, com o extrato primeiro: o pagamento da fatura já é uma despesa gravada, e as compras vão contar
+ * de novo. Cada fatura do lote procura o lançamento que diz ser fatura e fecha com a soma das compras.
+ */
+export function findRecordedPayments(items: SmartItemRef[], known: SmartKnown): RecordedPayment[] {
+  const found: RecordedPayment[] = [];
+  const used = new Set<string>();
+  for (const [fileId, total] of purchaseTotals(items)) {
+    const amount = toDbAmount(total.sum);
+    const entry = known.realized.find(
+      (row) =>
+        row.kind === "despesa" &&
+        !row.settled &&
+        !used.has(row.key) &&
+        toDbAmount(row.amount) === amount &&
+        PAYMENT_WORDS.test(normalizeDescription(row.description)) &&
+        Math.abs(dayNumber(row.date) - dayNumber(total.last)) <= PAYMENT_WINDOW_DAYS,
+    );
+    if (!entry) continue;
+    used.add(entry.key);
+    found.push({
+      fileId,
+      transactionId: entry.key.slice(2),
+      description: entry.description,
+      amount,
+      date: entry.date,
+      accountId: entry.accountId ?? null,
+    });
+  }
+  return found;
 }
 
 export const toParsedTrade = (payload: TradePayload): ParsedTrade => ({
@@ -316,6 +381,63 @@ function judgeTrades(items: SmartItemRef[], known: SmartKnown, out: Map<string, 
   }
 }
 
+const dividendRow = (payload: DividendPayload): ParsedDividend | null => {
+  const { ticker, date, gross, net } = payload;
+  if (!ticker || !date || (!gross && !net)) return null;
+  return {
+    line: payload.line,
+    ticker,
+    kind: payload.kind,
+    paidOn: date,
+    gross,
+    withheld: payload.withheld,
+    net,
+    ...(payload.ambiguous ? { ambiguous: true as const } : {}),
+  };
+};
+
+export { dividendRow as toParsedDividend };
+
+type DividendItem = SmartItemRef & { payload: DividendPayload };
+
+const isDividend = (item: SmartItemRef): item is DividendItem =>
+  item.payload.destination === "provento";
+
+/** A comparação de `/app/proventos/importar`, arquivo por arquivo, com o que está na carteira. */
+function judgeDividends(items: SmartItemRef[], known: SmartKnown, out: Map<string, SmartVerdict>) {
+  const blocked = new Map(known.dividendBlocked.map(([id, list]) => [id, new Set(list)]));
+  const lot = new Map<string, string>();
+  for (const [fileId, group] of byFile(items.filter(isDividend))) {
+    const rows = group.flatMap((item) => {
+      const row = dividendRow(item.payload);
+      return row ? [{ item, row }] : [];
+    });
+    const planned = new Map(
+      planDividendImport({
+        rows: rows.map(({ row }) => row),
+        holdings: known.dividendHoldings,
+        events: known.dividendEvents,
+        blocked,
+        today: known.today,
+      }).map((row) => [row.line, row]),
+    );
+    for (const { item, row } of rows) {
+      const plan = planned.get(row.line)!;
+      const key = `${row.ticker}|${row.paidOn}|${row.kind}|${row.net ?? row.gross}`;
+      const other = lot.get(key);
+      const shape = { state: plan.state, doubt: plan.doubtReason };
+      let verdict: SmartVerdict;
+      if (plan.state === "existe") verdict = seen("provento_igual");
+      else if (plan.state === "conferir") verdict = maybe(plan.doubtReason ?? "conferir");
+      else if (plan.state === "ignorado") verdict = maybe(plan.ignoreReason ?? "ignorada");
+      else if (other && other !== fileId) verdict = seen("mesmo_item", other);
+      else verdict = fresh;
+      out.set(item.id, { ...verdict, plan: shape });
+      if (!other) lot.set(key, fileId);
+    }
+  }
+}
+
 const samePlainName = (a: string, b: string) =>
   normalizeDescription(a) !== "" && normalizeDescription(a) === normalizeDescription(b);
 
@@ -334,10 +456,7 @@ function judgeOthers(
   shaOf: (fileId: string) => string | undefined,
   out: Map<string, SmartVerdict>,
 ) {
-  const lot = {
-    debts: new Map<string, string>(),
-    dividends: new Map<string, string>(),
-  };
+  const lot = { debts: new Map<string, string>() };
   for (const item of items) {
     const { payload, fileId } = item;
     let verdict = fresh;
@@ -379,26 +498,9 @@ function judgeOthers(
         }
         break;
       }
-      case "provento": {
-        const { ticker, date, gross } = payload;
-        if (!date || !gross) break;
-        const near = known.dividends.filter(
-          (row) =>
-            row.ticker === ticker &&
-            Math.abs(dayNumber(row.date) - dayNumber(date)) <= DIVIDEND_NEAR_DAYS,
-        );
-        const key = `${ticker}|${date}|${gross}`;
-        const other = lot.dividends.get(key);
-        if (near.some((row) => row.date === date && money(row.gross).eq(gross))) {
-          verdict = seen("provento_igual");
-        } else if (near.length > 0) verdict = maybe("provento_parecido");
-        else if (other && other !== fileId) verdict = seen("mesmo_item", other);
-        if (!lot.dividends.has(key)) lot.dividends.set(key, fileId);
-        break;
-      }
       case "documento": {
         const sha = shaOf(fileId);
-        const other = sha ? known.documents.get(sha) : undefined;
+        const other = sha ? known.documents[sha] : undefined;
         if (other && other !== fileId) verdict = seen("documento_igual");
         break;
       }
@@ -424,6 +526,7 @@ export function planSmartDuplicates(
   judgeMoney(items, known, options.scope ?? NO_SCOPE, out);
   judgePayments(items, out);
   judgeTrades(items, known, out);
+  judgeDividends(items, known, out);
   judgeOthers(items, known, options.shaOf ?? (() => undefined), out);
   return out;
 }

@@ -10,6 +10,9 @@ import {
   parsePdfLines,
   plausibleEntryDate,
   planSmartDuplicates,
+  reconcileRows,
+  findRecordedPayments,
+  smartFieldAllowed,
   recognizeSmartFile,
   safeExcerpt,
   safeText,
@@ -225,6 +228,39 @@ describe("identificação sem IA", () => {
     expect(recognizeSmartFile(contents({ kind: "png" }))).toBeNull();
   });
 
+  it("CSV de proventos nunca vira lançamento", () => {
+    const text =
+      "Produto;Tipo de Evento;Data de pagamento;Quantidade;Valor líquido\nPETR4;Dividendo;01/10/2026;10;12,00\n";
+    const reading = recognizeSmartFile(contents({ kind: "csv", text }))!;
+    expect(reading.docType).toBe("proventos");
+    expect(reading.proposals.map((row) => row.payload.destination)).toEqual(["provento"]);
+    expect(reading.proposals[0]!.payload).toMatchObject({ ticker: "PETR4", net: "12.00" });
+  });
+
+  it("Recebidos da B3 em Excel vira proventos", () => {
+    const sheets = [
+      {
+        name: "Proventos",
+        rows: [
+          ["Produto", "Pagamento", "Tipo de Evento", "Instituição", "Quantidade", "Valor líquido"],
+          ["PETR4 - PETROBRAS", new Date("2026-10-01T00:00:00Z"), "Dividendo", "Corretora", 10, 12],
+        ],
+      },
+    ];
+    const reading = recognizeSmartFile(contents({ kind: "xlsx", sheets }))!;
+    expect(reading).toMatchObject({ docType: "proventos", issuer: "B3" });
+    expect(reading.proposals[0]!.payload).toMatchObject({ destination: "provento", net: "12.00" });
+  });
+
+  it("CSV de proventos sem linha aproveitável não cai no extrato", () => {
+    const text =
+      "Produto;Tipo de Evento;Data de pagamento;Valor líquido\nNADA;Coisa estranha;01/10/2026;12,00\n";
+    const reading = recognizeSmartFile(contents({ kind: "csv", text }));
+    expect(reading?.proposals.filter((row) => row.payload.destination === "lancamento")).toEqual(
+      [],
+    );
+  });
+
   it("reconhecedor novo entra na lista sem mexer no resto", () => {
     const reading = {
       docType: "proventos" as const,
@@ -367,8 +403,11 @@ const NONE: SmartKnown = {
   incomes: [],
   plans: [],
   goals: [],
-  dividends: [],
-  documents: new Map(),
+  dividendHoldings: [],
+  dividendEvents: [],
+  dividendBlocked: [],
+  today,
+  documents: {},
 };
 
 const entry = (id: string, fileId: string, over: Partial<EntryPayload> = {}): SmartItemRef => ({
@@ -415,8 +454,8 @@ const trade = (id: string, fileId: string, line: number, over: Partial<TradePayl
 });
 
 describe("duplicidade", () => {
-  it("mesma impressão digital: já lançado", () => {
-    const verdicts = planSmartDuplicates([entry("a", "f1", { fingerprint: "ofx:id:1#0" })], {
+  it("mesma impressão digital: já lançado com conta; sem conta, só parecido", () => {
+    const known = {
       ...NONE,
       realized: [
         {
@@ -424,14 +463,21 @@ describe("duplicidade", () => {
           description: "Mercado",
           amount: "150.00",
           date: "2026-10-01",
-          kind: "despesa",
+          kind: "despesa" as const,
           fingerprint: "ofx:id:1#0",
+          accountId: "conta",
         },
       ],
-    });
-    expect(verdicts.get("a")).toMatchObject({
+    };
+    const items = [entry("a", "f1", { fingerprint: "ofx:id:1#0" })];
+    const scope = () => ({ accountId: "conta", cardId: null });
+    expect(planSmartDuplicates(items, known, { scope }).get("a")).toMatchObject({
       duplicate: "ja_lancado",
       reason: "impressao_digital",
+    });
+    expect(planSmartDuplicates(items, known).get("a")).toMatchObject({
+      duplicate: "possivel",
+      reason: "outra_conta",
     });
   });
 
@@ -569,8 +615,26 @@ describe("duplicidade", () => {
         incomes: [{ name: "Empresa", amount: "5000.00" }],
         plans: [{ description: "Seguro", amount: "1.00", kind: "despesa" }],
         goals: [{ name: "Carro" }],
-        dividends: [{ ticker: "PETR4", date: "2026-10-01", gross: "12.00" }],
-        documents: new Map([["sha", "outro"]]),
+        dividendHoldings: [
+          {
+            id: "h",
+            name: "Petrobras",
+            ticker: "PETR4",
+            assetClass: "acao",
+            dividends: [
+              {
+                id: "d",
+                kind: "rendimento",
+                paidOn: "2026-10-01",
+                gross: "12.00",
+                withheld: "0.00",
+                source: "familia",
+                marketDividendId: null,
+              },
+            ],
+          },
+        ],
+        documents: { sha: "outro" },
       },
       { shaOf: () => "sha" },
     );
@@ -578,7 +642,11 @@ describe("duplicidade", () => {
     expect(verdicts.get("r")?.reason).toBe("renda_parecida");
     expect(verdicts.get("p")?.reason).toBe("previsao_parecida");
     expect(verdicts.get("m")?.reason).toBe("meta_parecida");
-    expect(verdicts.get("v")).toMatchObject({ duplicate: "ja_lancado", reason: "provento_igual" });
+    expect(verdicts.get("v")).toMatchObject({
+      duplicate: "ja_lancado",
+      reason: "provento_igual",
+      plan: { state: "existe" },
+    });
     expect(verdicts.get("o")).toMatchObject({ duplicate: "ja_lancado", reason: "documento_igual" });
   });
 
@@ -697,6 +765,21 @@ describe("revisão de segurança", () => {
     expect(Date.now() - started).toBeLessThan(1_000);
   });
 
+  it("mesmo valor em todas as linhas não fica quadrático", () => {
+    const rows = Array.from({ length: 50_000 }, (_, index) => ({
+      date: `2026-${String((index % 12) + 1).padStart(2, "0")}-${String((index % 28) + 1).padStart(2, "0")}`,
+      description: `Tarifa ${index}`,
+      amount: "12.90",
+      kind: "despesa" as const,
+      fingerprint: `p${index}`,
+    }));
+    const realized = rows.map((row, index) => ({ ...row, key: `t:${index}`, fingerprint: null }));
+    const started = Date.now();
+    const result = reconcileRows(rows, { realized, forecasts: [] });
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(result.filter((row) => row.state === "lancado")).toHaveLength(50_000);
+  });
+
   it("regras também param em 5.000 itens, com nota", () => {
     const lines = Array.from(
       { length: SMART_MAX_ITEMS_PER_FILE + 7 },
@@ -768,6 +851,80 @@ describe("revisão de segurança", () => {
       planSmartDuplicates([entry("a", "f1")], known, { scope: same }).get("a")?.duplicate,
     ).toBe("possivel");
     expect(planSmartDuplicates([entry("a", "f1")], known).get("a")?.duplicate).toBe("possivel");
+  });
+
+  it("linha que só fecha o valor, sem dizer que é fatura, não vira pagamento", () => {
+    const line = entry("p", "extrato", { description: "ALUGUEL", amount: "300.00" });
+    const compras = [100, 200].map((value, index) => ({
+      id: `c${index}`,
+      fileId: "fatura",
+      payload: buildSmartPayload(
+        "compra_cartao",
+        { description: `Loja ${index}`, amount: `${value}.00`, date: "2026-10-02" },
+        today,
+      ),
+    }));
+    expect(planSmartDuplicates([line, ...compras], NONE).get("p")?.reason).not.toBe(
+      "pagamento_fatura",
+    );
+  });
+
+  it("extrato gravado antes: acha o pagamento que fecha com a fatura do lote", () => {
+    const compras = [100, 200].map((value, index) => ({
+      id: `c${index}`,
+      fileId: "fatura",
+      payload: buildSmartPayload(
+        "compra_cartao",
+        { description: `Loja ${index}`, amount: `${value}.00`, date: "2026-10-02" },
+        today,
+      ),
+    }));
+    const realized = [
+      {
+        key: "t:paga",
+        description: "PAGAMENTO FATURA",
+        amount: "300.00",
+        date: "2026-10-20",
+        kind: "despesa" as const,
+        accountId: "c",
+      },
+      {
+        key: "t:outro",
+        description: "ALUGUEL",
+        amount: "300.00",
+        date: "2026-10-20",
+        kind: "despesa" as const,
+      },
+      {
+        key: "t:ja",
+        description: "Fatura Cartão",
+        amount: "300.00",
+        date: "2026-10-05",
+        kind: "despesa" as const,
+        settled: true,
+      },
+    ];
+    expect(findRecordedPayments(compras, { ...NONE, realized })).toEqual([
+      expect.objectContaining({ fileId: "fatura", transactionId: "paga", amount: "300.00" }),
+    ]);
+  });
+
+  it("editar tira a baixa de fatura", () => {
+    const current = {
+      ...(entry("p", "e").payload as EntryPayload),
+      settlesFileId: "fatura",
+    };
+    const next = mergeSmartEdit(current, { description: "Outra coisa" }, today) as EntryPayload;
+    expect(next.settlesFileId).toBeUndefined();
+  });
+
+  it("campo de documento: só o que está na lista", () => {
+    for (const label of ["Número do contrato", "Grupo", "Cota", "Valor do crédito", "CET ao ano"]) {
+      expect(smartFieldAllowed(label), label).toBe(true);
+    }
+    for (const label of ["Apelido", "Beneficiário", "Quem assina", "Observação", "Cliente"]) {
+      expect(smartFieldAllowed(label), label).toBe(false);
+    }
   });
 
   it("piorou desde a revisão", () => {

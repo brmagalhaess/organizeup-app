@@ -3,7 +3,17 @@
 import { parseB3Workbook, type WorkbookSheet } from "./b3-spreadsheet";
 import { parseBrokerageNotes } from "./brokerage-note";
 import { parseFiscalXml, looksLikeOfx, ofxHints } from "./fiscal-xml";
-import { cleanFileText, type ParsedInvestmentFile } from "./investment-file";
+import {
+  DividendFileError,
+  parseDividendFile,
+  type DividendFileInput,
+  type ParsedDividendFile,
+} from "./dividend-file";
+import {
+  cleanFileText,
+  INVESTMENT_FILE_MAX_LINES,
+  type ParsedInvestmentFile,
+} from "./investment-file";
 import {
   SMART_MAX_ITEMS_PER_FILE,
   smartNote,
@@ -247,6 +257,96 @@ const recognizeNote: SmartRecognizer = ({ lines, kind }) => {
   }
 };
 
+function dividendReading(parsed: ParsedDividendFile, cut: number | null): SmartReading {
+  const proposals: SmartProposal[] = parsed.rows.map((row) => ({
+    confidence: row.ambiguous ? "baixa" : "alta",
+    excerpt: `${row.paidOn} ${row.ticker} ${row.net ?? row.gross ?? ""}`.trim(),
+    payload: {
+      destination: "provento",
+      line: row.line,
+      ticker: row.ticker,
+      kind: row.kind,
+      date: row.paidOn,
+      gross: row.gross,
+      withheld: row.withheld,
+      net: row.net,
+      ...(row.ambiguous ? { ambiguous: true } : {}),
+    },
+  }));
+  return {
+    docType: "proventos",
+    issuer: parsed.kind === "csv" ? null : "B3",
+    confidence: "alta",
+    proposals,
+    fields: [],
+    notes: [
+      ...(parsed.ignored.length > 0 ? [smartNote("linhas_ignoradas", parsed.ignored.length)] : []),
+      ...(cut === null ? [] : [smartNote("itens_cortados", cut)]),
+    ],
+  };
+}
+
+/** Arquivo que é de proventos e passa do limite do parser entra pela metade, e nunca vira lançamento. */
+function parseDividends(
+  input: DividendFileInput,
+  cutInput: () => DividendFileInput,
+  total: number,
+) {
+  try {
+    return dividendReading(parseDividendFile(input), null);
+  } catch (error) {
+    if (!(error instanceof DividendFileError) || error.code !== "muitas_linhas") return null;
+  }
+  try {
+    return dividendReading(parseDividendFile(cutInput()), total);
+  } catch {
+    return null;
+  }
+}
+
+const countLines = (text: string) => text.split(/\r\n|\r|\n/).length;
+
+const recognizeDividendCsv: SmartRecognizer = ({ text, kind }) => {
+  if (!text || (kind !== "csv" && kind !== "txt")) return null;
+  const cut = () => ({
+    format: "csv" as const,
+    text: text
+      .split(/\r\n|\r|\n/)
+      .slice(0, INVESTMENT_FILE_MAX_LINES)
+      .join("\n"),
+  });
+  return parseDividends({ format: "csv", text }, cut, countLines(text));
+};
+
+/** Recebidos vem antes da B3; Movimentação, depois, para operação seguir sendo operação (ADR-0024). */
+const dividendSheet =
+  (only: ParsedDividendFile["kind"] | null): SmartRecognizer =>
+  ({ sheets }) => {
+    if (!sheets) return null;
+    const rows = sheets.reduce((acc, sheet) => acc + sheet.rows.length, 0);
+    const cut = () => ({
+      format: "xlsx" as const,
+      sheets: sheets.map((sheet) => ({
+        ...sheet,
+        rows: sheet.rows.slice(0, INVESTMENT_FILE_MAX_LINES),
+      })),
+    });
+    const reading = parseDividends({ format: "xlsx", sheets }, cut, rows);
+    if (!reading) return null;
+    return only === null || reading.issuer === "B3" ? reading : null;
+  };
+
+const recebidos = (sheets: WorkbookSheet[]) =>
+  sheets.some((sheet) =>
+    sheet.rows.slice(0, 15).some((row) => {
+      const names = row.map((cell) => normalizeDescription(String(cell ?? "")));
+      return names.includes("tipo de evento") && names.includes("valor liquido");
+    }),
+  );
+
+const recognizeDividendRecebidos: SmartRecognizer = (contents) =>
+  contents.sheets && recebidos(contents.sheets) ? dividendSheet("recebidos")(contents) : null;
+
 const cardHeader = (table: string[][], header: number) => {
   const names = (table[Math.max(header, 0)] ?? []).map(normalizeDescription);
   return names.includes("title") || names.some((name) => name.startsWith("estabelecimento"));
@@ -314,16 +414,16 @@ const recognizeLines: SmartRecognizer = ({ lines, kind, year }) => {
   });
 };
 
-/**
- * Em ordem. `parseDividendFile`, da frente `agente/importar-proventos`, entra aqui quando estiver em `main`:
- * ele devolve um `SmartReading` com destino `provento`, que a revisão e a gravação já conhecem.
- */
+/** Em ordem. Proventos antes do extrato: CSV de proventos nunca vira lançamento. */
 export const SMART_RECOGNIZERS: SmartRecognizer[] = [
   recognizeOfx,
   recognizeFiscal,
+  recognizeDividendRecebidos,
   recognizeB3,
   recognizeNote,
+  dividendSheet(null),
   recognizeSheet,
+  recognizeDividendCsv,
   recognizeCsv,
   recognizeLines,
 ];
@@ -335,7 +435,9 @@ export function recognizeSmartFile(
 ): SmartReading | null {
   for (const recognize of recognizers) {
     const reading = recognize(contents);
-    if (reading && reading.proposals.length > 0) return capped(reading);
+    if (!reading) continue;
+    // Arquivo de proventos sem linha aproveitável continua sendo de proventos: não cai no extrato.
+    if (reading.proposals.length > 0 || reading.docType === "proventos") return capped(reading);
   }
   return null;
 }

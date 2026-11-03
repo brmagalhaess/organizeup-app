@@ -2,6 +2,7 @@
 // validado. Puro. Conteúdo de arquivo e resposta do modelo são dados não confiáveis: nada aqui interpreta
 // instrução, e nenhum valor passa sem ser conferido. O que sai daqui é rascunho até a família aprovar.
 import type { CategorySource } from "./categorize";
+import type { DividendDoubt, DividendState } from "./dividend-import";
 import { checkDebtFile, safeFileName, type Confidence } from "./debt-file";
 import { fitsAmount } from "./fx";
 import { cleanFileText } from "./investment-file";
@@ -41,12 +42,22 @@ export const SMART_STALE_MS = 5 * 60_000;
 /** Lote parado na fila há mais que isto: o aviso se perdeu, e a tela pede de novo. */
 export const SMART_REQUEUE_MS = 2 * 60_000;
 export const SMART_MAX_ITEMS_PER_FILE = 5_000;
+/** Itens em aberto por família, somando todos os lotes. O banco é quem conta. */
+export const SMART_MAX_OPEN_ITEMS = 60_000;
+/** Itens por página da revisão. O que não apareceu na tela não é aprovado sem confirmação. */
+export const SMART_REVIEW_PAGE_SIZE = 100;
+/** Quanto esperar por um arquivo em leitura ou por outro lote da mesma família, em segundos. */
+export const SMART_WAIT_SECONDS = 60;
 /** Abrir e reconhecer um arquivo roda em processo isolado, com estes tetos (ADR-0030). */
 export const SMART_READ_TIMEOUT_MS = 30_000;
 export const SMART_READ_MAX_OLD_MB = 256;
 export const SMART_READ_MAX_RSS_MB = 640;
 /** Na segunda queda o arquivo fica como falho: quem derruba a leitura não volta para a fila. */
 export const SMART_READ_MAX_ATTEMPTS = 2;
+/** A comparação do lote também roda isolada, com mais folga: lê tudo o que a família tem no período. */
+export const SMART_PLAN_TIMEOUT_MS = 60_000;
+export const SMART_PLAN_MAX_OLD_MB = 1_024;
+export const SMART_PLAN_MAX_RSS_MB = 1_536;
 /** Bytes inflados de verdade, contados ao abrir, sem confiar no que o arquivo declara. */
 export const SMART_ZIP_MAX_INFLATED = 64 * 1024 * 1024;
 export const SMART_PDF_MAX_INFLATED = 128 * 1024 * 1024;
@@ -157,6 +168,8 @@ export interface EntryPayload extends CategoryChoice {
   matchMonth: string | null;
   /** Esta linha paga a fatura deste arquivo do lote: vira baixa, e não despesa. */
   settlesFileId?: string | null;
+  /** Lançamento já gravado que era o pagamento da fatura: ele vira a baixa. */
+  settlesTransactionId?: string | null;
 }
 
 export interface PurchasePayload extends CategoryChoice {
@@ -186,11 +199,18 @@ export interface TradePayload {
 
 export interface DividendPayload {
   destination: "provento";
+  /** Linha no arquivo, como em `ParsedDividend`: o plano e a gravação falam por ela. */
+  line: number;
   ticker: string | null;
   kind: (typeof SMART_DIVIDEND_KINDS)[number];
   date: string | null;
   gross: string | null;
-  withheld: string;
+  withheld: string | null;
+  net: string | null;
+  ambiguous?: true;
+  /** O que a pessoa viu na revisão: mudou até a gravação, a linha é pulada (ADR-0029). */
+  planState?: DividendState | null;
+  planDoubt?: DividendDoubt | null;
 }
 
 export interface DebtPayload {
@@ -503,11 +523,13 @@ export function buildSmartPayload(
     case "provento":
       return {
         destination,
+        line: 0,
         ticker: normalizeTicker(raw.ticker),
         kind: oneOf(raw.subtype, SMART_DIVIDEND_KINDS, "rendimento"),
         date,
         gross: amount,
-        withheld: zeroOr(raw.withheld),
+        withheld: amountField(raw.withheld),
+        net: null,
       };
     case "divida":
     case "consorcio": {
@@ -600,7 +622,7 @@ function rawOfPayload(payload: SmartPayload): SmartRawFields {
         subtype: payload.kind,
         date: payload.date ?? "",
         amount: payload.gross ?? "",
-        withheld: payload.withheld,
+        withheld: payload.withheld ?? "",
       };
     case "divida":
     case "consorcio":
@@ -643,6 +665,7 @@ function rawOfPayload(payload: SmartPayload): SmartRawFields {
   }
 }
 
+/** A baixa de fatura sai de propósito: editar a linha é dizer que ela não é o que parecia. */
 const KEPT_ON_EDIT = [
   "fingerprint",
   "source",
@@ -650,12 +673,15 @@ const KEPT_ON_EDIT = [
   "cardId",
   "matchKey",
   "matchMonth",
-  "settlesFileId",
   "categoryId",
   "newCategory",
   "categorySource",
   "line",
   "doubt",
+  "net",
+  "ambiguous",
+  "planState",
+  "planDoubt",
 ] as const;
 
 /** Só muda o que veio em `raw`. Identidade, conta, categoria e baixa ficam com o item. */
@@ -674,7 +700,13 @@ export function mergeSmartEdit(
       key in current ? [[key, (current as unknown as Record<string, unknown>)[key]]] : [],
     ),
   );
-  return { ...edited, ...keep } as SmartPayload;
+  const merged = { ...edited, ...keep } as SmartPayload;
+  // Bruto novo: o líquido do arquivo deixa de valer, e o plano refaz a conta.
+  if (merged.destination === "provento" && edited.destination === "provento") {
+    const before = current.destination === "provento" ? current.gross : null;
+    if (edited.gross !== before) merged.net = null;
+  }
+  return merged;
 }
 
 /** O que falta para gravar. `account` e `card` já somam o que o arquivo escolheu. */
@@ -683,6 +715,8 @@ export function missingSmartFields(
   file: { accountId: string | null; cardId: string | null } = { accountId: null, cardId: null },
 ): string[] {
   const missing: string[] = [];
+  // Baixa de fatura não cria lançamento com categoria própria: conta e categoria vêm da fatura.
+  if (payload.destination === "lancamento" && payload.settlesFileId) return [];
   const need = (field: string, value: unknown) => {
     if (value === null || value === undefined || value === "") missing.push(field);
   };
@@ -714,7 +748,7 @@ export function missingSmartFields(
     case "provento":
       need("ticker", payload.ticker);
       need("date", payload.date);
-      need("amount", payload.gross);
+      need("amount", payload.gross ?? payload.net);
       break;
     case "divida":
     case "consorcio":
@@ -760,8 +794,10 @@ export function smartFlow(payload: SmartPayload): { amount: string; in: boolean 
       return payload.amount ? { amount: payload.amount, in: payload.kind === "receita" } : null;
     case "compra_cartao":
       return payload.amount ? { amount: payload.amount, in: false } : null;
-    case "provento":
-      return payload.gross ? { amount: payload.gross, in: true } : null;
+    case "provento": {
+      const amount = payload.gross ?? payload.net;
+      return amount ? { amount, in: true } : null;
+    }
     case "operacao": {
       if (!payload.quantity || !payload.unitPrice) return null;
       const gross = toDbAmount(money(payload.quantity).times(payload.unitPrice));
@@ -822,6 +858,23 @@ export function withSmartFingerprints(proposals: SmartProposal[]): SmartProposal
     };
   });
   return out;
+}
+
+/**
+ * O que pode ir aos agentes e à tela como campo do documento. Lista do que é permitido, e não do que é proibido:
+ * rótulo novo fica de fora até alguém decidir, porque um nome de pessoa pode vir com qualquer título.
+ */
+const ALLOWED_FIELD =
+  /^(numero|n|no|nro|codigo)?\s*(do|da|de)?\s*(contrato|apolice|proposta|grupo|cota|plano|produto|modalidade|ramo)\b|^(valor|total|premio|credito|saldo|parcela|parcelas|prazo|vigencia|vencimento|inicio|fim|taxa|juros|cet|custo efetivo|competencia|periodo|ano|mes|franquia|cobertura|indice|correcao|produto \d+)/;
+
+export function smartFieldAllowed(label: string): boolean {
+  const plain = label
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .trim();
+  return ALLOWED_FIELD.test(plain);
 }
 
 /** Conta ou cartão com o nome do emissor, ou a única que existe. O resto a pessoa escolhe na revisão. */

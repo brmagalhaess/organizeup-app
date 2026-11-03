@@ -349,42 +349,61 @@ export interface KnownEntry {
   fingerprint?: string | null;
   /** Conta da linha. Ausente: sem conta definida, compara com tudo. */
   accountId?: string | null;
+  /** Já é o pagamento de uma fatura. */
+  settled?: boolean;
 }
 
 export type ReconciledRow = FingerprintedRow & { state: RowState; match: KnownEntry | null };
 
 const dayOf = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
 
-/** Agrupado por sentido e valor: procurar linha a linha fica quadrático em extrato grande. */
-type Pool = Map<string, KnownEntry[]>;
+/**
+ * Indexado por sentido e valor, e dentro disso por dia. Extrato com a mesma tarifa em todas as linhas deixaria um
+ * balde enorme: assim cada busca olha só os dias da janela.
+ */
+interface DayEntries {
+  entries: Array<{ entry: KnownEntry; order: number }>;
+  next: number;
+}
+type Pool = Map<string, Map<number, DayEntries>>;
 
 const poolKey = (entry: { kind: StatementKind; amount: string }) =>
   `${entry.kind}|${toDbAmount(entry.amount)}`;
 
 function poolOf(entries: KnownEntry[]): Pool {
   const pool: Pool = new Map();
-  for (const entry of entries) {
+  entries.forEach((entry, order) => {
     const key = poolKey(entry);
-    const bucket = pool.get(key);
-    if (bucket) bucket.push(entry);
-    else pool.set(key, [entry]);
-  }
+    const days = pool.get(key) ?? new Map<number, DayEntries>();
+    pool.set(key, days);
+    const day = dayOf(entry.date);
+    const list = days.get(day);
+    if (list) list.entries.push({ entry, order });
+    else days.set(day, { entries: [{ entry, order }], next: 0 });
+  });
   return pool;
 }
 
+const orderOf = (list: DayEntries | undefined) =>
+  list && list.next < list.entries.length ? list.entries[list.next]!.order : Infinity;
+
+/** O mais perto na janela; no empate de distância, o que veio primeiro. Cada um é usado uma vez. */
 function takeClosest(row: StatementRow, pool: Pool, window: number): KnownEntry | null {
-  const bucket = pool.get(poolKey(row));
-  if (!bucket) return null;
-  let best = -1;
-  let bestGap = Infinity;
-  bucket.forEach((entry, index) => {
-    const gap = Math.abs(dayOf(entry.date) - dayOf(row.date));
-    if (gap <= window && gap < bestGap) {
-      best = index;
-      bestGap = gap;
-    }
-  });
-  return best < 0 ? null : (bucket.splice(best, 1)[0] ?? null);
+  const days = pool.get(poolKey(row));
+  if (!days) return null;
+  const day = dayOf(row.date);
+  for (let gap = 0; gap <= window; gap += 1) {
+    const before = days.get(day - gap);
+    const after = gap === 0 ? undefined : days.get(day + gap);
+    const first = orderOf(before);
+    const second = orderOf(after);
+    if (first === Infinity && second === Infinity) continue;
+    const list = first <= second ? before! : after!;
+    const { entry } = list.entries[list.next]!;
+    list.next += 1;
+    return entry;
+  }
+  return null;
 }
 
 /**
