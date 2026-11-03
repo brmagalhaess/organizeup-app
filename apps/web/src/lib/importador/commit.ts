@@ -21,10 +21,10 @@ import {
   countEntries,
   creditCards,
   currencyFrozen,
-  dividends,
   ensureCategory,
   eq,
   fxQuoteIn,
+  lockFamilyImport,
   goals,
   householdCurrency,
   householdTimezone,
@@ -37,6 +37,7 @@ import {
   loadStockEvents,
   markCardPurchase,
   markEntries,
+  ne,
   readFamilyAccess,
   smartImportFiles,
   smartImportItems,
@@ -51,6 +52,7 @@ import {
 } from "@organizeup/db";
 import {
   brazilRulesApply,
+  dividendsToWrite,
   canUse,
   entryFromTyped,
   fitsAmount,
@@ -71,6 +73,7 @@ import {
   smartVerdictWorse,
   statementMonthOf,
   todayIn,
+  toParsedDividend,
   toParsedTrade,
   withResolvedTickers,
   type CatalogAsset,
@@ -89,8 +92,10 @@ import {
   type TradePayload,
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
+import { systemCategories } from "@/lib/commitments";
 import { confirmCommitment, type ImportMark } from "@/lib/confirm-entry";
 import { reportActionFailure } from "@/lib/diagnostics";
+import { planDividends, writeDividends } from "@/lib/dividend-write";
 import { MissingQuote, recordTradeCash } from "@/lib/trade-cash";
 
 type ItemRow = typeof smartImportItems.$inferSelect;
@@ -212,20 +217,29 @@ async function rememberCategory(
     });
 }
 
-/** Sem impressão digital a baixa acontece igual; só não fica a marca do arquivo. */
-const markOf = (fingerprint: string | null, batchId: string): ImportMark | Record<string, never> =>
-  fingerprint ? { importFingerprint: fingerprint, importBatchId: batchId } : {};
+async function markedEntry(tx: TenantTx, mark: ImportMark): Promise<string | null> {
+  const [row] = await tx
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.importBatchId, mark.importBatchId),
+        eq(transactions.importFingerprint, mark.importFingerprint),
+      ),
+    );
+  return row?.id ?? null;
+}
 
 /**
- * A linha do extrato paga a fatura de outro arquivo do lote. As compras já contam como despesa: gravar a linha
- * contaria de novo. Aqui ela vira a baixa da fatura, depois de as compras estarem gravadas, e só se fechar.
+ * A linha do extrato paga a fatura de um arquivo do lote. As compras já contam como despesa: gravar a linha contaria
+ * de novo. Aqui ela vira a baixa, depois de as compras estarem gravadas, e só se fechar. Se o extrato entrou antes,
+ * o lançamento já existe: ele vira o pagamento da fatura, em vez de nascer outro.
  */
 async function settleStatement(
   tx: TenantTx,
   ctx: TenantContext,
   payload: EntryPayload,
-  fingerprint: string | null,
-  batchId: string,
+  itemId: string,
 ): Promise<Saved> {
   const rows = await tx
     .select({ payload: smartImportItems.payload })
@@ -259,10 +273,59 @@ async function settleStatement(
   if (lines.length === 0 || !money(linesTotal(lines)).eq(payload.amount ?? "0")) {
     throw new ItemRefused("fatura_nao_fecha");
   }
-  const mark = markOf(fingerprint, batchId);
+  if (payload.settlesTransactionId) {
+    return adoptPayment(tx, ctx, payload.settlesTransactionId, cardId, month);
+  }
+  const mark = {
+    importFingerprint: payload.fingerprint ?? `item:${itemId}`,
+    importBatchId: await batchFor(
+      tx,
+      ctx,
+      payload.settlesFileId!,
+      card.payingAccountId,
+      payload.source,
+      payload.date!,
+    ),
+  };
   const { done } = await confirmCommitment(tx, ctx, `f:${cardId}:${month}`, month, mark);
   if (!done) throw new ItemRefused("fatura_nao_fecha");
-  return { table: "card_statement_payments", id: null };
+  return { table: "transactions", id: await markedEntry(tx, mark) };
+}
+
+/** O lançamento que já estava gravado passa a ser o pagamento da fatura, e sai das despesas. */
+async function adoptPayment(
+  tx: TenantTx,
+  ctx: TenantContext,
+  transactionId: string,
+  cardId: string,
+  statementMonth: string,
+): Promise<Saved> {
+  const { card: categoryId } = await systemCategories(tx);
+  if (!categoryId) throw new ItemRefused("fatura_nao_fecha");
+  const [paid] = await tx
+    .select({ id: cardStatementPayments.id })
+    .from(cardStatementPayments)
+    .where(
+      and(
+        eq(cardStatementPayments.cardId, cardId),
+        eq(cardStatementPayments.statementMonth, statementMonth),
+      ),
+    );
+  if (paid) throw new ItemRefused("fatura_paga");
+  const [changed] = await tx
+    .update(transactions)
+    .set({ categoryId, categorySource: "familia", updatedAt: new Date() })
+    .where(eq(transactions.id, transactionId))
+    .returning({ id: transactions.id });
+  if (!changed) throw new ItemRefused("fatura_nao_gravada");
+  await tx.insert(cardStatementPayments).values({
+    householdId: ctx.householdId,
+    cardId,
+    statementMonth,
+    transactionId,
+  });
+  await audit(tx, ctx, "confirm", "card_statement_payments", cardId);
+  return { table: "transactions", id: transactionId };
 }
 
 async function saveEntry(
@@ -271,10 +334,13 @@ async function saveEntry(
   payload: EntryPayload,
   file: FileTarget,
   access: FamilyAccess,
+  itemId: string,
 ): Promise<Saved> {
   const accountId = payload.accountId ?? file.accountId;
   const { date, amount, description } = payload;
   if (!date || !amount || !description) throw new ItemRefused("falta_dado");
+  // Baixa de fatura: conta e categoria são as da fatura, e a linha nem vira lançamento comum.
+  if (payload.settlesFileId) return settleStatement(tx, ctx, payload, itemId);
   const currency = await usableAccount(tx, accountId);
   const categoryId = await resolveCategory(tx, ctx, payload.kind, payload);
   const main = await householdCurrency(tx);
@@ -297,9 +363,9 @@ async function saveEntry(
     if (known) return ALREADY;
   }
   const batchId = await batchFor(tx, ctx, file.id, accountId!, payload.source, date);
-  if (payload.settlesFileId) return settleStatement(tx, ctx, payload, fingerprint, batchId);
   if (payload.matchKey) {
-    const mark = markOf(fingerprint, batchId);
+    // Baixa cria ou encontra o lançamento: a marca é o que permite achar qual foi, e guardar em `result_id`.
+    const mark = { importFingerprint: fingerprint ?? `item:${itemId}`, importBatchId: batchId };
     const { done } = await confirmCommitment(
       tx,
       ctx,
@@ -307,7 +373,7 @@ async function saveEntry(
       payload.matchMonth ?? "",
       mark,
     );
-    if (done) return { table: "transactions", id: null };
+    if (done) return { table: "transactions", id: await markedEntry(tx, mark) };
   }
   const quota = await takeEntries(tx, access, ctx.householdId, 1);
   if (!quota.ok) throw new ItemRefused("cota");
@@ -384,43 +450,67 @@ async function savePurchase(
   return { table: "card_purchases", id: row!.id };
 }
 
-async function saveDividend(
-  tx: TenantTx,
-  ctx: TenantContext,
-  payload: DividendPayload,
-): Promise<Saved> {
-  const { ticker, date, gross } = payload;
-  if (!ticker || !date || !gross) throw new ItemRefused("falta_dado");
-  const holdings = await tx
-    .select({ id: investments.id, ticker: investments.ticker })
-    .from(investments);
-  const holding = holdings.find((row) => normalizeTicker(row.ticker) === ticker);
-  if (!holding) throw new ItemRefused("sem_ativo");
-  const [known] = await tx
-    .select({ id: dividends.id })
-    .from(dividends)
-    .where(
-      and(
-        eq(dividends.investmentId, holding.id),
-        eq(dividends.paidOn, date),
-        eq(dividends.gross, gross),
-      ),
-    );
-  if (known) return ALREADY;
-  const [row] = await tx
-    .insert(dividends)
-    .values({
-      householdId: ctx.householdId,
-      investmentId: holding.id,
-      kind: payload.kind,
-      paidOn: date,
-      gross,
-      withheld: payload.withheld,
-      source: "familia",
-    })
-    .returning({ id: dividends.id });
-  await audit(tx, ctx, "create", "dividends", row!.id);
-  return { table: "dividends", id: row!.id };
+/** Proventos de um arquivo, juntos, sob a trava: a mesma comparação e a mesma gravação da tela de Proventos. */
+async function saveDividendItems(ctx: TenantContext, items: ItemRow[]): Promise<Outcome[]> {
+  const ids = items.map((item) => item.id);
+  try {
+    return await withHousehold(ctx, async (tx) => {
+      await lockFamilyImport(tx, ctx.householdId);
+      const rows = await tx
+        .select()
+        .from(smartImportItems)
+        .where(inArray(smartImportItems.id, ids))
+        .for("update");
+      const open = rows.filter((row) => row.status !== "gravado");
+      if (open.length === 0) return rows.map(() => "pulado" as const);
+      if (!brazilRulesApply(await householdCurrency(tx))) throw new ItemRefused("so_brasil");
+      const parsed = open.flatMap((row) => {
+        const line = toParsedDividend(row.payload as DividendPayload);
+        return line ? [{ row, line }] : [];
+      });
+      if (new Set(parsed.map(({ line }) => line.line)).size !== parsed.length) {
+        throw new ItemRefused("linha_repetida");
+      }
+      const today = todayIn(await householdTimezone(tx, ctx.householdId));
+      const { rows: planned } = await planDividends(
+        tx,
+        parsed.map(({ line }) => line),
+        {},
+        today,
+      );
+      const byLine = new Map(planned.map((row) => [row.line, row]));
+      const seen = parsed.map(({ row, line }) => {
+        const { planState, planDoubt } = row.payload as DividendPayload;
+        // O ativo que faltava entrou na carteira: linha nova continua nova, sem outra conferência.
+        const settled = planDoubt === "sem_ativo" && byLine.get(line.line)?.state === "novo";
+        return settled
+          ? { line: line.line, state: "novo" as const, doubtReason: null }
+          : { line: line.line, state: planState ?? "novo", doubtReason: planDoubt ?? null };
+      });
+      const writing = dividendsToWrite(planned, new Set(seen.map((row) => row.line)), seen);
+      const { ids: written } = await writeDividends(tx, ctx, writing);
+      const outcomes: Outcome[] = [];
+      for (const { row, line } of parsed) {
+        const id = written.get(line.line);
+        const plan = byLine.get(line.line);
+        if (id) {
+          await markSaved(tx, ctx, row.id, { table: "dividends", id });
+          outcomes.push("gravado");
+        } else if (plan?.state === "existe") {
+          await markSaved(tx, ctx, row.id, ALREADY);
+          outcomes.push("existia");
+        } else {
+          const reason = plan?.doubtReason === "sem_ativo" ? "sem_ativo" : "duplicado_agora";
+          await failItems(tx, [row.id], reason);
+          outcomes.push("falhou");
+        }
+      }
+      return outcomes;
+    });
+  } catch (error) {
+    await markFailed(ctx, ids, codeOf(error));
+    return ids.map(() => "falhou" as const);
+  }
 }
 
 /** Consórcio é parcela fixa sem juro a abater: dívida `manual`, com o nome dizendo o que é (ADR-0030). */
@@ -575,17 +665,16 @@ async function saveDocument(
 function save(
   tx: TenantTx,
   ctx: TenantContext,
-  payload: Exclude<SmartPayload, TradePayload>,
+  payload: Exclude<SmartPayload, TradePayload | DividendPayload>,
   file: FileTarget,
   access: FamilyAccess,
+  itemId: string,
 ): Promise<Saved> {
   switch (payload.destination) {
     case "lancamento":
-      return saveEntry(tx, ctx, payload, file, access);
+      return saveEntry(tx, ctx, payload, file, access, itemId);
     case "compra_cartao":
       return savePurchase(tx, ctx, payload, file, access);
-    case "provento":
-      return saveDividend(tx, ctx, payload);
     case "divida":
     case "consorcio":
       return saveDebt(tx, ctx, payload, file);
@@ -619,18 +708,15 @@ const markSaved = (tx: TenantTx, ctx: TenantContext, id: string, saved: Saved) =
     })
     .where(eq(smartImportItems.id, id));
 
-const failItems = (tx: TenantTx, ids: string[], failure: string) =>
+/** Item gravado não volta a falho: repetir depois de um erro não pode apagar o que deu certo. */
+export const failItems = (tx: TenantTx, ids: string[], failure: string) =>
   tx
     .update(smartImportItems)
     .set({ status: "falhou", failure, updatedAt: new Date() })
-    .where(inArray(smartImportItems.id, ids));
+    .where(and(inArray(smartImportItems.id, ids), ne(smartImportItems.status, "gravado")));
 
 const markFailed = (ctx: TenantContext, ids: string[], failure: string) =>
   withHousehold(ctx, (tx) => failItems(tx, ids, failure));
-
-/** A mesma trava da importação da carteira: aprovações da família passam uma de cada vez. */
-const lockFamily = (tx: TenantTx, householdId: string) =>
-  tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${householdId}, 7311))`);
 
 /** Só nome e código: a mensagem do banco pode trazer dado da família. */
 function codeOf(error: unknown): string {
@@ -670,7 +756,7 @@ async function saveChunk(run: ChunkContext, chunk: ItemRow[]): Promise<Outcome[]
   const { ctx, importId, files, access } = run;
   const ids = chunk.map((item) => item.id);
   return withHousehold(ctx, async (tx) => {
-    await lockFamily(tx, ctx.householdId);
+    await lockFamilyImport(tx, ctx.householdId);
     const rows = await tx
       .select()
       .from(smartImportItems)
@@ -679,6 +765,7 @@ async function saveChunk(run: ChunkContext, chunk: ItemRow[]): Promise<Outcome[]
     const open = rows.filter((row) => row.status !== "gravado");
     const known = await loadSmartKnown(
       tx,
+      ctx,
       open.flatMap((row) => smartDatesOf(row.payload)),
       await ownResults(tx, importId),
     );
@@ -696,7 +783,7 @@ async function saveChunk(run: ChunkContext, chunk: ItemRow[]): Promise<Outcome[]
     const outcomes: Outcome[] = rows.filter((row) => row.status === "gravado").map(() => "pulado");
     for (const row of open) {
       const file = files.get(row.fileId)!;
-      const payload = row.payload as Exclude<SmartPayload, TradePayload>;
+      const payload = row.payload as Exclude<SmartPayload, TradePayload | DividendPayload>;
       const verdict = verdicts.get(row.id);
       const refused = !moduleAllowed(row, access)
         ? "modulo_desligado"
@@ -725,7 +812,7 @@ async function saveChunk(run: ChunkContext, chunk: ItemRow[]): Promise<Outcome[]
       }
       try {
         const saved = await tx.transaction(async (step) => {
-          const done = await save(step, ctx, payload, file, access);
+          const done = await save(step, ctx, payload, file, access, row.id);
           await markSaved(step, ctx, row.id, done);
           return done;
         });
@@ -797,7 +884,7 @@ async function saveTrades(
   const ids = items.map((item) => item.id);
   try {
     return await withHousehold(ctx, async (tx) => {
-      await lockFamily(tx, ctx.householdId);
+      await lockFamilyImport(tx, ctx.householdId);
       const rows = await tx
         .select()
         .from(smartImportItems)
@@ -926,6 +1013,8 @@ export async function approveSmartImport(
         and(
           eq(smartImportItems.importId, importId),
           eq(smartImportItems.selected, true),
+          // Marcado e fora da tela não grava: ou a pessoa viu, ou confirmou "Marcar todos" com a soma.
+          eq(smartImportItems.seen, true),
           inArray(smartImportItems.status, ["proposto", "falhou"]),
         ),
       )
@@ -989,7 +1078,25 @@ export async function approveSmartImport(
     access,
     files: new Map(files.map((file) => [file.id, file])),
   };
-  const rest = items.filter((item) => item.payload.destination !== "operacao");
+  const dividendItems = items.filter((item) => item.payload.destination === "provento");
+  if (dividendItems.length > 0) {
+    const open = dividendItems.filter((item) => {
+      if (!moduleAllowed(item, access)) return false;
+      return missingSmartFields(item.payload).length === 0;
+    });
+    for (const item of dividendItems.filter((row) => !open.includes(row))) {
+      const failure = moduleAllowed(item, access) ? "falta_dado" : "modulo_desligado";
+      await markFailed(ctx, [item.id], failure);
+      count("falhou");
+    }
+    for (const file of files) {
+      const group = open.filter((item) => item.fileId === file.id);
+      if (group.length > 0) (await saveDividendItems(ctx, group)).forEach(count);
+    }
+  }
+  const rest = items.filter(
+    (item) => item.payload.destination !== "operacao" && item.payload.destination !== "provento",
+  );
   // Compras primeiro; a baixa da fatura por último, porque ela soma as compras já gravadas.
   const ordered = [
     ...rest.filter((item) => item.destination === "compra_cartao"),

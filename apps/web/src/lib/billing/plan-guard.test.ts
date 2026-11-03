@@ -113,6 +113,8 @@ const MODULE_TABLES =
 const BASE_WRITERS: Record<string, string> = {
   // Baixa de parcela: `confirmCommitment` recusa `d:` e `g:` com o módulo desligado.
   "lib/confirm-entry.ts": "moduleOff",
+  // Gravação comum de proventos importados, de Proventos e do importador.
+  "lib/dividend-write.ts": 'canUse(await accessWithin(tx), "investimentos")',
   // Importador: item de módulo desligado aparece, e a aprovação recusa por aqui.
   "lib/importador/commit.ts": "SMART_DESTINATION_MODULE[item.destination]",
   // Cadastro complementar: pula o que é de módulo desligado.
