@@ -28,7 +28,14 @@ vi.mock("next-intl/server", async () => {
   };
 });
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
-vi.mock("@/lib/session", () => ({ requireTenant: async () => ({ ctx }) }));
+vi.mock("@/lib/session", () => ({
+  requireTenant: async () => ({
+    ctx,
+    session: { user: { id: ctx.userId, email: "dona-prov@example.com" } },
+  }),
+  platformFlags: async () => ({ smartImportEnabled: false }),
+  isServiceAdmin: () => false,
+}));
 
 const db = await import("@organizeup/db");
 const agents = await import("@organizeup/agents");
@@ -635,7 +642,7 @@ describe("revisão: Mercado", () => {
 
   it("a fonte só é lida para os códigos do arquivo", () => {
     const source = readFileSync(
-      path.resolve(import.meta.dirname, "../app/app/(painel)/proventos/importar/actions.ts"),
+      path.resolve(import.meta.dirname, "dividend-write.ts"),
       "utf8",
     );
     expect(source).toContain(".where(inArray(marketDividends.ticker, tickers))");

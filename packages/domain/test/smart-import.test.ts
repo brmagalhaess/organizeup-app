@@ -12,6 +12,7 @@ import {
   planSmartDuplicates,
   reconcileRows,
   findRecordedPayments,
+  INVESTMENT_FILE_MAX_LINES,
   smartFieldAllowed,
   recognizeSmartFile,
   safeExcerpt,
@@ -250,6 +251,21 @@ describe("identificação sem IA", () => {
     const reading = recognizeSmartFile(contents({ kind: "xlsx", sheets }))!;
     expect(reading).toMatchObject({ docType: "proventos", issuer: "B3" });
     expect(reading.proposals[0]!.payload).toMatchObject({ destination: "provento", net: "12.00" });
+  });
+
+  it("CSV de proventos grande entra pela metade, com aviso, e segue sem virar lançamento", () => {
+    const rows = Array.from(
+      { length: INVESTMENT_FILE_MAX_LINES + 50 },
+      (_, index) => `PETR4;Dividendo;01/10/2026;${index + 1};12,00`,
+    );
+    const text = `Produto;Tipo de Evento;Data de pagamento;Quantidade;Valor líquido\n${rows.join("\n")}\n`;
+    const reading = recognizeSmartFile(contents({ kind: "csv", text }))!;
+    expect(reading.docType).toBe("proventos");
+    expect(reading.proposals.length).toBeLessThanOrEqual(INVESTMENT_FILE_MAX_LINES);
+    expect(reading.notes.some((note) => note.startsWith("codigo:itens_cortados:"))).toBe(true);
+    expect(new Set(reading.proposals.map((row) => row.payload.destination))).toEqual(
+      new Set(["provento"]),
+    );
   });
 
   it("CSV de proventos sem linha aproveitável não cai no extrato", () => {
