@@ -3,7 +3,17 @@
 // confirmação que reconfere, quem pode e o isolamento. Dados fictícios.
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, inject, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  inject,
+  it,
+  vi,
+} from "vitest";
 import type { MarketDividendRow, TenantContext, TenantTx } from "@organizeup/db";
 
 declare module "vitest" {
@@ -193,7 +203,9 @@ beforeAll(async () => {
   viewer = await session(A.viewer, A.household);
   other = await session(B.owner, B.household);
   await inA(async (tx) => {
-    await tx.insert(householdSettings).values({ householdId: A.household });
+    await tx
+      .insert(householdSettings)
+      .values({ householdId: A.household, timezone: "America/Sao_Paulo" });
     const rows = await tx
       .insert(investments)
       .values([
@@ -214,6 +226,10 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  // Em UTC já é dia 3; no fuso da família ainda é o dia 2. Só Date é simulado,
+  // preservando os temporizadores reais usados pela conexão com o Postgres.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-03T02:30:00Z"));
   ctx = owner;
   round += 1;
   ticker = `TS${String.fromCharCode(65 + Math.floor(round / 26), 65 + (round % 26))}3`;
@@ -233,6 +249,8 @@ beforeEach(async () => {
     await tx.update(investments).set({ ticker });
   });
 });
+
+afterEach(() => vi.useRealTimers());
 
 afterAll(() => db.closeAllPools());
 
@@ -441,6 +459,26 @@ describe("confirmar", () => {
     expect(await stored()).toMatchObject([{ gross: "82.50", withheld: "0.00" }]);
   });
 
+  it.each([
+    { paidOn: "2026-11-01", created: 1 },
+    { paidOn: today, created: 1 },
+    { paidOn: "2026-11-03", created: 0 },
+  ])("reconfere a data $paidOn no fuso da família (cria $created)", async ({ paidOn, created }) => {
+    expect(domain.todayIn("America/Sao_Paulo")).toBe(today);
+    const rows: Line[] = [{ line: 1, paidOn }];
+    // Forja uma prévia válida para provar que a confirmação também rejeita o futuro.
+    expect(
+      await send(rows, { seen: [{ line: 1, state: "novo", doubtReason: null }] }),
+    ).toMatchObject({
+      ok: true,
+      created,
+      skipped: 1 - created,
+    });
+    const saved = await stored();
+    expect(saved).toHaveLength(created);
+    if (created) expect(saved[0]).toMatchObject({ paidOn });
+  });
+
   it("não confia no que vem do navegador", async () => {
     for (const bad of [
       { line: 1, ticker: "x'; drop table" },
@@ -641,10 +679,7 @@ describe("revisão: Mercado", () => {
   });
 
   it("a fonte só é lida para os códigos do arquivo", () => {
-    const source = readFileSync(
-      path.resolve(import.meta.dirname, "dividend-write.ts"),
-      "utf8",
-    );
+    const source = readFileSync(path.resolve(import.meta.dirname, "dividend-write.ts"), "utf8");
     expect(source).toContain(".where(inArray(marketDividends.ticker, tickers))");
   });
 });
