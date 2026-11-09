@@ -108,13 +108,17 @@ describe("B3, fundos listados", () => {
 
   it("converte datas e valores da B3, ignora amortização, sem pagamento e fora do histórico", async () => {
     const seen: string[] = [];
+    // A B3 devolve o JSON dentro de uma string (resposta real de 2026-11-09); o objeto puro também vale.
     const rows = await fetchB3FiiDividends("MXRF11", {
       ...options,
       fetch: async (url, init) => {
         seen.push(String(url));
-        return fetchWith(b3Body)(url, init);
+        return fetchWith(JSON.stringify(b3Body))(url, init);
       },
     });
+    expect(await fetchB3FiiDividends("MXRF11", { ...options, fetch: fetchWith(b3Body) })).toEqual(
+      rows,
+    );
     expect(rows).toEqual([
       {
         ticker: "MXRF11",

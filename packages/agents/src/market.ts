@@ -481,6 +481,14 @@ const b3CashDividend = z.object({
   rate: z.string(),
 });
 
+const parseLoose = (text: string): unknown => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
 /** "16/11/2026" → "2026-11-16". */
 const isoFromB3 = (value: string) =>
   `${value.slice(6, 10)}-${value.slice(3, 5)}-${value.slice(0, 2)}`;
@@ -501,16 +509,13 @@ export async function fetchB3FiiDividends(
   const payload = Buffer.from(
     JSON.stringify({ cnpj: "0", identifierFund: b3FundIdentifier(ticker), typeFund: 7 }),
   ).toString("base64");
-  const parsed = b3Supplement.safeParse(
-    await getJson(
-      `${B3_FUNDS_URL}/GetListedSupplementFunds/${payload}`,
-      {
-        ...options,
-        token: undefined,
-      },
-      BROWSER_HEADERS,
-    ),
+  const body = await getJson(
+    `${B3_FUNDS_URL}/GetListedSupplementFunds/${payload}`,
+    { ...options, token: undefined },
+    BROWSER_HEADERS,
   );
+  // A B3 ora devolve o objeto, ora o mesmo JSON dentro de uma string: os dois valem.
+  const parsed = b3Supplement.safeParse(typeof body === "string" ? parseLoose(body) : body);
   if (!parsed.success) throw new MarketError("formato");
   const since = shiftYears(options.today, -MARKET_RULES.historyYears);
   const usable = parseEach(b3CashDividend, parsed.data.cashDividends).flatMap((row) => {
