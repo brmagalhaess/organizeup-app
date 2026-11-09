@@ -77,7 +77,11 @@ function codeOfStatus(status: number, body: unknown): MarketErrorCode {
   return "servidor";
 }
 
-async function getJson(url: string, options: MarketClientOptions): Promise<unknown> {
+async function getJson(
+  url: string,
+  options: MarketClientOptions,
+  headers: Record<string, string> = {},
+): Promise<unknown> {
   const run = options.fetch ?? fetch;
   let response: Response;
   try {
@@ -85,6 +89,7 @@ async function getJson(url: string, options: MarketClientOptions): Promise<unkno
       headers: {
         accept: "application/json",
         ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
+        ...headers,
       },
       signal: AbortSignal.timeout(options.timeoutMs ?? FETCH_TIMEOUT_MS),
     });
@@ -393,5 +398,146 @@ export async function fetchFxSeries(
         source: FX_SOURCE,
       },
     ];
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fontes gratuitas (ADR-0032): cotação pelo Yahoo Finance e rendimentos de FII pela própria B3.
+// Nenhuma pede chave. As duas são as rotas que os sites usam, então o formato é conferido pelo zod
+// e qualquer mudança vira `formato`, nunca dado errado gravado.
+// ---------------------------------------------------------------------------------------------
+
+export const YAHOO_URL = "https://query1.finance.yahoo.com/v8/finance/chart";
+export const YAHOO_SOURCE = "yahoo";
+export const B3_FUNDS_URL = "https://sistemaswebb3-listados.b3.com.br/fundsProxy/fundsCall";
+export const B3_SOURCE = "b3";
+/** As rotas públicas recusam cliente sem identificação de navegador. */
+const BROWSER_HEADERS = {
+  "user-agent": "Mozilla/5.0 (compatible; OrganizeUp/1.0; +https://organizeup.crowntech.com.br)",
+};
+
+const yahooResponse = z.object({
+  chart: z.object({
+    result: z
+      .array(
+        z.object({
+          meta: z.object({
+            symbol: z.string(),
+            currency: z.string().nullish(),
+            regularMarketPrice: z.number().positive(),
+            regularMarketTime: z.number().int().positive(),
+            chartPreviousClose: z.number().positive().nullish(),
+            previousClose: z.number().positive().nullish(),
+          }),
+        }),
+      )
+      .nullish(),
+    error: z.object({ code: z.string().nullish() }).nullish(),
+  }),
+});
+
+export interface FreeQuote {
+  ticker: string;
+  price: string;
+  changePercent: string | null;
+  quotedAt: Date;
+}
+
+/** Cotação de um ticker da B3 no Yahoo (`PETR4.SA`). Sem chave e sem cota declarada. */
+export async function fetchYahooQuote(
+  ticker: string,
+  options: MarketClientOptions,
+): Promise<FreeQuote> {
+  const url = `${YAHOO_URL}/${encodeURIComponent(ticker)}.SA?range=5d&interval=1d`;
+  const parsed = yahooResponse.safeParse(
+    await getJson(url, { ...options, token: undefined }, BROWSER_HEADERS),
+  );
+  if (!parsed.success) throw new MarketError("formato");
+  const result = parsed.data.chart.result?.[0];
+  if (!result) throw new MarketError("nao_encontrado");
+  const { meta } = result;
+  if (meta.currency && meta.currency !== "BRL") throw new MarketError("nao_encontrado");
+  const previous = meta.chartPreviousClose ?? meta.previousClose ?? null;
+  const price = money(String(meta.regularMarketPrice));
+  return {
+    ticker,
+    price: price.toFixed(8),
+    changePercent:
+      previous === null
+        ? null
+        : price.minus(String(previous)).dividedBy(String(previous)).times(100).toFixed(4),
+    quotedAt: new Date(meta.regularMarketTime * 1000),
+  };
+}
+
+const b3Date = z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/);
+const b3Supplement = z.object({
+  cashDividends: z.array(z.unknown()).nullish(),
+});
+const b3CashDividend = z.object({
+  label: z.string(),
+  lastDatePrior: b3Date,
+  paymentDate: b3Date.nullish(),
+  rate: z.string(),
+});
+
+/** "16/11/2026" → "2026-11-16". */
+const isoFromB3 = (value: string) =>
+  `${value.slice(6, 10)}-${value.slice(3, 5)}-${value.slice(0, 2)}`;
+/** "0,09500000000" → "0.095". */
+const decimalFromB3 = (value: string) => value.replace(/\./g, "").replace(",", ".");
+
+/** Código de negociação → identificador do fundo na B3: MXRF11 → MXRF. */
+export const b3FundIdentifier = (ticker: string) => ticker.replace(/\d+B?$/, "");
+
+/**
+ * Rendimentos de um FII direto da B3 (lista de fundos listados), com data-com, pagamento e valor por
+ * cota. É a fonte oficial, então toda linha vale; amortização fica de fora como na brapi.
+ */
+export async function fetchB3FiiDividends(
+  ticker: string,
+  options: MarketClientOptions,
+): Promise<MarketDividendRow[]> {
+  const payload = Buffer.from(
+    JSON.stringify({ cnpj: "0", identifierFund: b3FundIdentifier(ticker), typeFund: 7 }),
+  ).toString("base64");
+  const parsed = b3Supplement.safeParse(
+    await getJson(
+      `${B3_FUNDS_URL}/GetListedSupplementFunds/${payload}`,
+      {
+        ...options,
+        token: undefined,
+      },
+      BROWSER_HEADERS,
+    ),
+  );
+  if (!parsed.success) throw new MarketError("formato");
+  const since = shiftYears(options.today, -MARKET_RULES.historyYears);
+  const usable = parseEach(b3CashDividend, parsed.data.cashDividends).flatMap((row) => {
+    const kind = LABEL_KINDS[row.label.trim().toUpperCase()];
+    if (!kind || !row.paymentDate) return [];
+    const comDate = isoFromB3(row.lastDatePrior);
+    const ratePerShare = money(decimalFromB3(row.rate)).toFixed(8);
+    if (comDate < since || money(ratePerShare).lte(0)) return [];
+    return [
+      {
+        ticker,
+        kind,
+        comDate,
+        exDate: null,
+        payDate: isoFromB3(row.paymentDate),
+        ratePerShare,
+        seq: 1,
+        source: B3_SOURCE,
+      },
+    ];
+  });
+  usable.sort((a, b) => money(b.ratePerShare).comparedTo(a.ratePerShare));
+  const seen = new Map<string, number>();
+  return usable.map((row) => {
+    const key = `${row.kind}|${row.comDate}|${row.payDate}`;
+    const seq = (seen.get(key) ?? 0) + 1;
+    seen.set(key, seq);
+    return { ...row, seq };
   });
 }

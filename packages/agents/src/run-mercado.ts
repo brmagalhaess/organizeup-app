@@ -34,14 +34,17 @@ import {
   todayIn,
 } from "@organizeup/domain";
 import {
+  B3_SOURCE,
   BRAPI_SOURCE,
+  fetchB3FiiDividends,
   fetchBrapiCatalog,
   fetchBrapiQuote,
   fetchFiiDividends,
   fetchFxSeries,
   fetchSgsSeries,
-  KEYLESS_TICKERS,
+  fetchYahooQuote,
   MarketError,
+  YAHOO_SOURCE,
   type MarketErrorCode,
 } from "./market";
 import { shiftDays } from "./shared";
@@ -201,15 +204,15 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
   result.tickers = tickers.size;
   result.failed += failed;
 
-  if (!token) log.warn({}, "mercado: sem BRAPI_TOKEN, consultando só os tickers de teste");
+  if (!token) log.info({}, "mercado: sem BRAPI_TOKEN, cotações pelo Yahoo e rendimentos pela B3");
   const known = new Map((await listMarketTickers()).map((row) => [row.ticker, row]));
   const due = [...tickers.keys()]
     .filter((ticker) => {
-      if (!token && !KEYLESS_TICKERS.includes(ticker)) return false;
       const row = known.get(ticker);
       if (!row) return true;
-      if (row.retryOn && row.retryOn > today) return false;
-      if (row.status === "falha") return true;
+      // O que a brapi recusou por plano agora vem das fontes gratuitas: volta na mesma hora.
+      if (row.retryOn && row.retryOn > today && row.status !== "sem_plano") return false;
+      if (row.status === "falha" || row.status === "sem_plano") return true;
       return now.getTime() - row.checkedAt.getTime() >= CHECK_INTERVAL_MS;
     })
     // Os mais antigos primeiro: quem nunca foi consultado vem na frente.
@@ -217,6 +220,8 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
       (a, b) => (known.get(a)?.checkedAt.getTime() ?? 0) - (known.get(b)?.checkedAt.getTime() ?? 0),
     );
   result.skipped = tickers.size - due.length;
+  if (due.some((ticker) => known.get(ticker)?.status === "sem_plano"))
+    log.info({}, "mercado: tickers recusados pela brapi voltam pelas fontes gratuitas");
 
   let available = maxCalls - (await marketCallsOn(today));
   const spend = async () => {
@@ -237,13 +242,57 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     }
   }
 
-  for (const [index, ticker] of due.entries()) {
-    if (available <= 0) {
-      result.skipped += due.length - index;
-      log.warn({ budget: maxCalls }, "mercado: teto de chamadas do dia atingido");
-      break;
+  /**
+   * Fontes gratuitas (ADR-0032): cotação no Yahoo e, em FII, rendimentos na B3. Não gastam a cota
+   * da brapi. Falha de rendimento não derruba a cotação: vira aviso e fica para a rodada seguinte.
+   */
+  const fetchFree = async (ticker: string) => {
+    const quote = await fetchYahooQuote(ticker, client);
+    await saveMarketQuote({
+      ...quote,
+      source: YAHOO_SOURCE,
+      lastStockEventOn: null,
+      lastStockEventNote: null,
+    });
+    result.quotes += 1;
+    if (tickers.get(ticker)) {
+      await sleep(pause);
+      try {
+        result.dividends += await saveMarketDividends(await fetchB3FiiDividends(ticker, client));
+      } catch (error) {
+        log.warn(
+          { code: codeOf(error), source: B3_SOURCE },
+          "mercado: rendimentos de FII indisponíveis",
+        );
+      }
     }
+    await saveMarketTicker({ ticker, status: "ok", retryOn: null, errorCode: null });
+  };
+
+  for (const [index, ticker] of due.entries()) {
     if (index > 0) await sleep(pause);
+    if (!token || available <= 0) {
+      // Sem token, ou com a cota da brapi esgotada, tudo vem das fontes gratuitas.
+      try {
+        await fetchFree(ticker);
+      } catch (error) {
+        const code = codeOf(error);
+        if (code === "nao_encontrado") {
+          result.unknown += 1;
+          await saveMarketTicker({
+            ticker,
+            status: "desconhecido",
+            retryOn: shiftDays(today, UNKNOWN_RETRY_DAYS),
+            errorCode: code,
+          });
+          continue;
+        }
+        result.failed += 1;
+        log.error({ code, source: YAHOO_SOURCE }, "mercado: consulta de ticker falhou");
+        await saveMarketTicker({ ticker, status: "falha", retryOn: null, errorCode: code });
+      }
+      continue;
+    }
     try {
       await spend();
       const { dividends, stockEvents, ...quote } = await fetchBrapiQuote(ticker, client);
@@ -286,11 +335,27 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
         break;
       }
       if (code === "nao_encontrado" || code === "plano") {
-        if (code === "nao_encontrado") result.unknown += 1;
-        else result.noPlan += 1;
+        // A brapi não cobre o ticker: as fontes gratuitas cobrem. Só desiste se elas também falharem.
+        if (code === "plano") result.noPlan += 1;
+        try {
+          await fetchFree(ticker);
+          continue;
+        } catch (fallback) {
+          const freeCode = codeOf(fallback);
+          if (freeCode !== "nao_encontrado") {
+            result.failed += 1;
+            log.error(
+              { code: freeCode, source: YAHOO_SOURCE },
+              "mercado: consulta de ticker falhou",
+            );
+            await saveMarketTicker({ ticker, status: "falha", retryOn: null, errorCode: freeCode });
+            continue;
+          }
+        }
+        result.unknown += 1;
         await saveMarketTicker({
           ticker,
-          status: code === "plano" ? "sem_plano" : "desconhecido",
+          status: "desconhecido",
           retryOn: shiftDays(today, UNKNOWN_RETRY_DAYS),
           errorCode: code,
         });
