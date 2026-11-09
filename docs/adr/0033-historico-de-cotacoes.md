@@ -17,16 +17,15 @@ alterado por coleta nova. O que faltava era o histórico de **preço** e uma cad
   para leitura rápida; `saveMarketQuote` grava nas duas. Repetir a mesma cotação (bolsa fechada,
   feriado) não duplica.
 - **Cadência por tipo de dado**, no mesmo job `market-data`:
-  - `quotes` (novo): a cada hora cheia das 10h às 17h, de segunda a sexta, só cotação, sem índices,
-    câmbio, catálogo nem proventos. Ticker consultado há menos de 50 minutos fica de fora.
-  - `full`: 18:30 (fechamento) e 03:30 (madrugada), como antes: índices, câmbio, catálogo, cotação e
-    proventos.
-  - **Proventos de FII pela B3: uma vez por semana por ativo** (`market_tickers.dividends_retry_on`),
-    só na rodada `full`. Anúncios de FII são mensais em dia irregular; semanal pega tudo com folga, e a
-    chave natural impede duplicar. Pela brapi, quando há token, a cotação já traz os proventos na mesma
-    chamada; a rota extra de FII segue com a regra de 30 dias em caso de `plano`.
-- **Feriados da B3** não são conhecidos pelo sistema: nesses dias a coleta horária repete a última
-  cotação do Yahoo e nada é gravado de novo. Vale uma tabela de feriados no futuro.
+  - `quotes` (novo): a cada hora cheia, o dia inteiro, só cotação, sem índices, câmbio, catálogo nem
+    proventos. Ticker consultado há menos de 50 minutos fica de fora. Fora do pregão a fonte repete a
+    última cotação e o histórico não duplica (decisão do fundador em 2026-11-09: simples e previsível,
+    sem depender de calendário de pregão nem de feriados).
+  - `full`: às 17:00, todo dia: índices, câmbio, catálogo, cotação e proventos. Substitui as rodadas de
+    18:30 e 03:30 do ADR-0017; os agentes das 04:00 leem o que a rodada das 17:00 deixou.
+  - **Proventos de FII pela B3: uma vez por dia por ativo** (`market_tickers.dividends_retry_on`), só
+    na rodada `full`. A chave natural impede duplicar. Pela brapi, quando há token, a cotação já traz
+    os proventos na mesma chamada; a rota extra de FII segue com a regra de 30 dias em caso de `plano`.
 - **Só quem tem dono**: o job continua coletando apenas tickers presentes em carteiras de famílias
   ativas (ADR-0017). Ativo que ninguém tem deixa de ser consultado sozinho.
 - **Compactação**: nada é apagado por enquanto (regra 3 do AGENTS.md). Com ~9 coletas por ativo por

@@ -16,15 +16,17 @@ interface Log {
 }
 
 /**
- * Fechamento, madrugada (antes dos agentes das 04:00) e, com a bolsa aberta, uma coleta só de
- * cotação a cada hora cheia das 10h às 17h (ADR-0033). Feriados da B3 não são conhecidos: nesses
- * dias a coleta horária só repete a última cotação, e o histórico não duplica.
+ * Cotação de hora em hora, o dia inteiro, e uma rodada completa às 17:00 todo dia (ADR-0033, pedido
+ * do fundador em 2026-11-09): a completa traz índices, câmbio, catálogo e proventos. Fora do pregão a
+ * fonte repete a última cotação e o histórico não duplica.
  */
 export const MARKET_SCHEDULES = [
-  { key: "fechamento", cron: "30 18 * * 1-5", mode: "full" },
-  { key: "madrugada", cron: "30 3 * * 2-6", mode: "full" },
-  { key: "pregao", cron: "0 10-17 * * 1-5", mode: "quotes" },
+  { key: "completa", cron: "0 17 * * *", mode: "full" },
+  { key: "cotacoes", cron: "0 0-16,18-23 * * *", mode: "quotes" },
 ] as const satisfies ReadonlyArray<{ key: string; cron: string; mode: MarketRunMode }>;
+
+/** Chaves de agendamento que já existiram no pg-boss e precisam ser removidas no boot. */
+export const LEGACY_MARKET_KEYS = ["fechamento", "madrugada", "pregao"] as const;
 
 export interface MarketDataJob {
   mode?: MarketRunMode;

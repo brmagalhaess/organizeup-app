@@ -29,6 +29,7 @@ import { todayIn } from "@organizeup/domain";
 import { dailyAgentsSentinel, runDailyAgents } from "./daily-agents";
 import { reportingFailures, reportJobFailure } from "./diagnostics";
 import {
+  LEGACY_MARKET_KEYS,
   MARKET_SCHEDULES,
   maxCallsPerDay,
   runMarketDataJob,
@@ -166,6 +167,8 @@ async function main() {
       JOB_QUEUES.marketData,
       reportingFailures(JOB_QUEUES.marketData, ([job]) => runMarketDataJob(log, job?.data ?? {})),
     );
+    // Agendas antigas (ADR-0017 e a primeira versão do ADR-0033) saem para não rodar em dobro.
+    for (const key of LEGACY_MARKET_KEYS) await boss.unschedule(JOB_QUEUES.marketData, key);
     for (const { key, cron, mode } of MARKET_SCHEDULES) {
       await boss.schedule(JOB_QUEUES.marketData, cron, { mode }, { tz: "America/Sao_Paulo", key });
     }

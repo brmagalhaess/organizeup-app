@@ -60,8 +60,8 @@ export const UNKNOWN_RETRY_DAYS = 30;
 export const CHECK_INTERVAL_MS = 12 * 3_600_000;
 /** No pregão a cotação muda; entre duas coletas horárias basta este intervalo (ADR-0033). */
 export const QUOTES_INTERVAL_MS = 50 * 60_000;
-/** Rendimentos de FII saem uma vez por mês: conferir toda semana pega tudo sem gastar (ADR-0033). */
-export const DIVIDENDS_INTERVAL_DAYS = 7;
+/** Proventos são conferidos na rodada completa de todo dia (ADR-0033). */
+export const DIVIDENDS_INTERVAL_DAYS = 1;
 /** Lançamento antigo precisa da cotação da data dele: a primeira rodada traz tudo isto. */
 export const FX_HISTORY_YEARS = 10;
 /** O histórico vem em blocos: uma resposta pequena, e quem falha no meio retoma de onde parou. */
@@ -226,6 +226,14 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
       // O que a brapi recusou por plano agora vem das fontes gratuitas: volta na mesma hora.
       if (row.retryOn && row.retryOn > today && row.status !== "sem_plano") return false;
       if (row.status === "falha" || row.status === "sem_plano") return true;
+      // Na rodada completa, FII com proventos a conferir entra mesmo que a cotação seja recente:
+      // a coleta horária não pode esconder a busca de rendimentos (ADR-0033).
+      if (
+        !quotesOnly &&
+        tickers.get(ticker) &&
+        (!row.dividendsRetryOn || row.dividendsRetryOn <= today)
+      )
+        return true;
       return (
         now.getTime() - row.checkedAt.getTime() >=
         (quotesOnly ? QUOTES_INTERVAL_MS : CHECK_INTERVAL_MS)
@@ -271,7 +279,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
       lastStockEventNote: null,
     });
     result.quotes += 1;
-    // Rendimentos: só na rodada completa e, por ativo, uma vez por semana (`dividendsRetryOn`).
+    // Rendimentos: só na rodada completa, uma vez por dia por ativo (`dividendsRetryOn`).
     const row = known.get(ticker);
     const dividendsDue = !quotesOnly && (!row?.dividendsRetryOn || row.dividendsRetryOn <= today);
     let dividendsRetryOn: string | null = null;

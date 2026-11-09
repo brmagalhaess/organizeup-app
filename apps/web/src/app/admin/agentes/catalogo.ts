@@ -52,7 +52,7 @@ export const PRODUCT_AGENTS: ProductAgent[] = [
     id: MERCADO_AGENT,
     name: "Mercado",
     text: "Busca cotações, proventos, índices e a lista de ativos da bolsa antes dos outros agentes.",
-    wake: "O Paperclip acorda às 03:45 se ainda não rodou. O worker roda às 18:30 nos dias úteis e às 03:30 de terça a sábado.",
+    wake: "O worker coleta cotações de hora em hora e faz a rodada completa, com proventos, às 17:00 todo dia. O Paperclip confere às 03:45.",
     controls: true,
   },
   {
