@@ -26,6 +26,7 @@ import {
   type Data,
 } from "../shared";
 import { useFamilyCurrency, useMoney } from "@/i18n/money";
+import { barSegments } from "@/lib/rebalance-bar";
 
 function TargetsForm({ data, onDone }: { data: Data; onDone: () => void }) {
   const t = useTranslations("investimentos");
@@ -68,6 +69,7 @@ function ClassBars({ data }: { data: Data }) {
       {data.summary.classes.map((share) => {
         const gap = share.toTarget === null ? null : money(share.toTarget);
         const percent = percentText(share.target ?? 0, locale);
+        const segments = barSegments(share.percent, share.target);
         return (
           <li key={share.assetClass} className="text-sm">
             <div className="flex items-baseline justify-between gap-3">
@@ -78,11 +80,21 @@ function ClassBars({ data }: { data: Data }) {
                 {moneyText(share.value)} · {percentText(share.percent, locale)}
               </span>
             </div>
-            <div className="relative mt-1.5 h-2 rounded-full bg-brand-50" aria-hidden="true">
+            <div className="relative mt-1.5 flex h-2 rounded-full bg-brand-50" aria-hidden="true">
               <div
-                className="h-2 rounded-full bg-brand-500"
-                style={{ width: `${Math.min(100, share.percent)}%` }}
+                className={
+                  segments.excess > 0
+                    ? "h-2 rounded-l-full bg-brand-500"
+                    : "h-2 rounded-full bg-brand-500"
+                }
+                style={{ width: `${segments.base}%` }}
               />
+              {segments.excess > 0 ? (
+                <div
+                  className="h-2 rounded-r-full bg-danger"
+                  style={{ width: `${segments.excess}%` }}
+                />
+              ) : null}
               {share.target !== null ? (
                 <span
                   className="absolute -top-1 h-4 w-0.5 bg-ink"
@@ -103,6 +115,13 @@ function ClassBars({ data }: { data: Data }) {
                         percent,
                         amount: moneyText(gap.abs()),
                       })}
+              </p>
+            ) : null}
+            {segments.overTarget !== null ? (
+              <p className="mt-0.5 text-xs font-medium text-danger">
+                {t("rebalance.byClass.overTarget", {
+                  points: percentText(segments.overTarget, locale),
+                })}
               </p>
             ) : null}
           </li>

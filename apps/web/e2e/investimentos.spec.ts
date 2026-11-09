@@ -115,6 +115,9 @@ test("carteira, proventos e patrimônio", async ({ page, browser }) => {
   await targets.getByLabel("Renda fixa (%)").fill("10");
   await targets.getByRole("button", { name: "Salvar metas" }).click();
   await expect(page.getByText(/Meta de 90%: R\$\s195,00 abaixo/)).toBeVisible();
+  // Renda fixa (15,5%) passou da meta de 10%: o excesso aparece em vermelho e em texto.
+  await expect(page.getByText(/Meta de 10%: R\$\s195,00 acima/)).toBeVisible();
+  await expect(page.getByText("5,5% acima da meta")).toBeVisible();
   await page.getByLabel("Valor do aporte (R$)").fill("100,00");
   await expect(page.getByRole("list", { name: "Divisão do aporte" })).toContainText("Ações");
 

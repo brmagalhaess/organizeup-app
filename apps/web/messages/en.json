@@ -471,7 +471,8 @@
         "list": "Portfolio by class",
         "onTarget": "Target of {percent}: on target",
         "below": "Target of {percent}: {amount} below",
-        "above": "Target of {percent}: {amount} above"
+        "above": "Target of {percent}: {amount} above",
+        "overTarget": "{points} above target"
       },
       "next": {
         "title": "If you contribute now",

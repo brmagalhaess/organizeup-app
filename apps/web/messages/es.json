@@ -471,7 +471,8 @@
         "list": "Cartera por clase",
         "onTarget": "Meta de {percent}: en la meta",
         "below": "Meta de {percent}: {amount} por debajo",
-        "above": "Meta de {percent}: {amount} por encima"
+        "above": "Meta de {percent}: {amount} por encima",
+        "overTarget": "{points} por encima de la meta"
       },
       "next": {
         "title": "Si aportas ahora",
