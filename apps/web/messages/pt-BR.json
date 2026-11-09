@@ -760,7 +760,10 @@
     "upcoming": {
       "title": "A receber",
       "description": "{amount} já anunciados, sem o imposto. Só entram nos totais na data do pagamento.",
-      "list": "Proventos a receber"
+      "list": "Proventos a receber",
+      "tomorrow": "amanhã",
+      "inDays": "em {days, plural, one {# dia} other {# dias}}",
+      "dayTotal": "{amount} neste dia"
     },
     "received": {
       "title": "Recebidos",
@@ -2098,6 +2101,23 @@
         "three": "Sugestões para aceitar, ignorar ou desfazer — você decide."
       },
       "footer": "Feito no Brasil para famílias brasileiras."
+    },
+    "twoFactor": {
+      "metaTitle": "Código de verificação",
+      "title": "Falta o código",
+      "subtitle": "Abra o aplicativo autenticador e digite o código desta conta.",
+      "codeLabel": "Código do aplicativo",
+      "codeHint": "6 dígitos, muda a cada 30 segundos.",
+      "backupLabel": "Código de reserva",
+      "backupHint": "Um dos códigos guardados quando você ativou a verificação. Vale uma vez.",
+      "useBackup": "Perdi o aparelho: usar um código de reserva",
+      "useApp": "Voltar para o código do aplicativo",
+      "submit": "Entrar",
+      "pending": "Conferindo…",
+      "invalid": "Código inválido. Confira a hora do aparelho e tente de novo.",
+      "tooMany": "Muitas tentativas. Entre com a senha de novo para gerar um novo pedido.",
+      "expired": "O pedido venceu. Entre com a senha de novo.",
+      "backToSignIn": "Voltar para entrar"
     }
   },
   "insights": {
@@ -2480,6 +2500,106 @@
       "invalid": "Escolha uma das moedas da lista.",
       "save": "Salvar moeda",
       "saved": "Moeda principal salva."
+    },
+    "twoFactor": {
+      "title": "Verificação em duas etapas",
+      "description": "Um código do aplicativo autenticador além da senha. Obrigatório para apagar a conta ou limpar dados; depois de ativado, também para entrar.",
+      "statusOn": "Ativada",
+      "statusOff": "Desativada",
+      "onText": "Entrar pede o código do autenticador. Guarde os códigos de reserva: eles entram no lugar do código se você perder o aparelho.",
+      "offText": "Ative para proteger a conta. Enquanto estiver desativada, não dá para apagar a conta nem limpar dados.",
+      "enable": "Ativar",
+      "disable": "Desativar",
+      "continue": "Continuar",
+      "activate": "Confirmar e ativar",
+      "enableText": "Confirme sua senha. Em seguida, leia o código com um aplicativo autenticador (Google Authenticator, Authy, 1Password…).",
+      "disableText": "Sem o segundo fator, entrar volta a pedir só a senha, e apagar a conta ou limpar dados fica bloqueado até ativar de novo.",
+      "scanText": "Leia o QR no aplicativo autenticador e digite o código de 6 dígitos que ele mostrar.",
+      "qrAlt": "QR para o aplicativo autenticador",
+      "manualKey": "Não consegue ler? Digite esta chave no aplicativo:",
+      "confirmLabel": "Código do aplicativo",
+      "codeLabel": "Código de verificação",
+      "codeHint": "6 dígitos do aplicativo autenticador, ou um código de reserva.",
+      "activated": "Verificação em duas etapas ativada.",
+      "backupText": "Guarde estes códigos de reserva em lugar seguro. Cada um vale uma vez e substitui o código do aplicativo se você perder o aparelho. Eles não aparecem de novo.",
+      "savedCodes": "Guardei os códigos",
+      "password": "Sua senha",
+      "wrongPassword": "Senha incorreta.",
+      "failed": "Não deu certo agora. Tente novamente.",
+      "codeRequired": "Informe o código de verificação.",
+      "codeInvalid": "Código inválido ou vencido.",
+      "requiredToContinue": "Para continuar, ative a verificação em duas etapas em Configurações."
+    },
+    "wipe": {
+      "open": "Limpar dados",
+      "text": "Escolha o que apagar. O que não for marcado fica. Pessoas, membros, ajustes e assinatura não entram aqui. Isso não pode ser desfeito.",
+      "choose": "O que apagar",
+      "selectAll": "Marcar tudo",
+      "clearAll": "Desmarcar tudo",
+      "pulls": "Leva junto: {list}.",
+      "goesAlong": "Vai junto com um módulo marcado.",
+      "confirmLabel": "Digite APAGAR para confirmar",
+      "confirmMismatch": "Digite APAGAR, em maiúsculas.",
+      "notAllowed": "Só quem responde pela conta pode limpar dados.",
+      "nothingChosen": "Marque pelo menos um módulo.",
+      "failed": "Não foi possível limpar agora. Nada foi apagado.",
+      "done": "Pronto: {count, plural, one {# módulo limpo} other {# módulos limpos}}.",
+      "pending": "Apagando…",
+      "submit": "{count, plural, =0 {Apagar} one {Apagar # módulo} other {Apagar # módulos}}",
+      "scopes": {
+        "lancamentos": {
+          "label": "Receitas e despesas",
+          "detail": "Lançamentos, transferências entre contas, importações de extrato e orçamento planejado. Recibos de renda e pagamentos de fatura ligados a eles também somem."
+        },
+        "cartoes": {
+          "label": "Cartões de crédito",
+          "detail": "Cartões, compras e pagamentos de fatura."
+        },
+        "renda": {
+          "label": "Renda",
+          "detail": "Fontes de renda (CLT, PJ, aluguel…), planos de 13º e férias e as baixas de recebimento."
+        },
+        "investimentos": {
+          "label": "Investimentos",
+          "detail": "Carteira, operações, eventos em ações, proventos, divisão alvo e meta de proventos."
+        },
+        "dividas": {
+          "label": "Dívidas",
+          "detail": "Dívidas, parcelas, documentos e relatórios de quitação. Um bem ligado a uma dívida fica, sem o vínculo."
+        },
+        "metas": {
+          "label": "Metas",
+          "detail": "Metas e as parcelas do plano."
+        },
+        "viagens": {
+          "label": "Viagens",
+          "detail": "Viagens, custos, quem vai e ideias de viagem."
+        },
+        "aposentadoria": {
+          "label": "Aposentadoria",
+          "detail": "Cenários e plano por proventos."
+        },
+        "patrimonio": {
+          "label": "Patrimônio e reserva",
+          "detail": "Bens, reserva de emergência, contas marcadas como reserva e fotos mensais do patrimônio."
+        },
+        "agenda": {
+          "label": "Agenda",
+          "detail": "Eventos do calendário. Viagens e o casamento perdem só o vínculo com o evento."
+        },
+        "importacoes": {
+          "label": "Arquivos enviados",
+          "detail": "Arquivos lidos pelo importador e o que foi proposto a partir deles."
+        },
+        "relatorios": {
+          "label": "Relatórios e avisos",
+          "detail": "Relatórios mensais e anuais, sugestões, notificações e dicas."
+        },
+        "contas": {
+          "label": "Contas e categorias",
+          "detail": "Apaga as contas e as categorias e recria as padrão. Como quase tudo aponta para elas, leva junto os módulos abaixo."
+        }
+      }
     }
   },
   "notificacoes": {

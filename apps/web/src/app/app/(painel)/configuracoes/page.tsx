@@ -24,6 +24,8 @@ import { DeleteAccount } from "./delete-account";
 import { IdentityCard } from "./identity-card";
 import { MemoriesBlock } from "./memories";
 import { CurrencyForm, PlanForm, SettingsForm } from "./settings-form";
+import { TwoFactorCard } from "./two-factor-card";
+import { WipeData } from "./wipe-data";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings");
@@ -56,6 +58,7 @@ export default async function SettingsPage() {
   const role = ["owner", "adult", "child", "viewer"].includes(memberRole)
     ? t(`roles.${memberRole as "owner"}`)
     : memberRole;
+  const twoFactorEnabled = Boolean(session.user.twoFactorEnabled);
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("title")} description={t("description")} />
@@ -137,6 +140,9 @@ export default async function SettingsPage() {
           </dl>
         </Card>
         <IdentityCard view={identity} />
+        <Card title={t("twoFactor.title")} description={t("twoFactor.description")}>
+          <TwoFactorCard enabled={twoFactorEnabled} />
+        </Card>
         <Card title={t("data.title")} description={t("data.description")}>
           <div className="flex flex-wrap gap-2">
             {memberRole === "owner" ? (
@@ -144,7 +150,8 @@ export default async function SettingsPage() {
                 {t("data.download")}
               </a>
             ) : null}
-            <DeleteAccount />
+            {memberRole === "owner" ? <WipeData twoFactorEnabled={twoFactorEnabled} /> : null}
+            <DeleteAccount twoFactorEnabled={twoFactorEnabled} />
           </div>
           <p className="mt-4 text-sm text-muted">
             {t.rich("data.legal", {

@@ -26,6 +26,7 @@ import {
   formatMonthYear,
   formatPercent,
   formatPercentExact,
+  formatWeekdayName,
   toFieldValue,
 } from "@/i18n/format";
 import type { loadDividends } from "@/lib/investments";
@@ -98,14 +99,24 @@ function DividendLine({
   row,
   writable,
   onRemove,
+  hideDate = false,
 }: {
   row: Row;
   writable: boolean;
   onRemove: (row: Row) => void;
+  /** Dentro do grupo por dia a data já está no cabeçalho. */
+  hideDate?: boolean;
 }) {
   const t = useTranslations("proventos");
   const locale = useLocale();
   const moneyText = useMoney();
+  const details = [
+    hideDate ? null : formatDate(row.paidOn, locale),
+    money(row.withheld).gt(0) ? t("line.gross", { amount: moneyText(row.gross) }) : null,
+    row.market
+      ? t("line.market", { date: formatDate(row.market.comDate, locale), source: row.market.source })
+      : null,
+  ].filter((part): part is string => part !== null);
   return (
     <li className="flex items-center gap-3 py-2 text-sm">
       <div className="min-w-0 flex-1">
@@ -115,18 +126,7 @@ function DividendLine({
           {row.source === "agente" ? <Badge tone="success">{t("line.automatic")}</Badge> : null}
           {cameFromFile(row) ? <Badge>{t("line.imported")}</Badge> : null}
         </p>
-        <p className="text-xs text-muted">
-          {formatDate(row.paidOn, locale)}
-          {money(row.withheld).gt(0)
-            ? ` · ${t("line.gross", { amount: moneyText(row.gross) })}`
-            : ""}
-          {row.market
-            ? ` · ${t("line.market", {
-                date: formatDate(row.market.comDate, locale),
-                source: row.market.source,
-              })}`
-            : ""}
-        </p>
+        {details.length > 0 ? <p className="text-xs text-muted">{details.join(" · ")}</p> : null}
       </div>
       <span className="whitespace-nowrap font-medium tabular-nums">
         {moneyText(netDividend(row))}
@@ -137,6 +137,69 @@ function DividendLine({
         </IconButton>
       ) : null}
     </li>
+  );
+}
+
+const DAY_MS = 86_400_000;
+const daysBetween = (from: string, to: string) =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
+
+/**
+ * A receber, agrupado pelo dia do pagamento: cabeçalho com a data por extenso, quando falta e quanto
+ * entra naquele dia; dentro, um ativo por linha. Olhando, dá para saber o que cai em cada dia.
+ */
+function UpcomingByDay({
+  rows,
+  today,
+  writable,
+  onRemove,
+}: {
+  rows: Row[];
+  today: string;
+  writable: boolean;
+  onRemove: (row: Row) => void;
+}) {
+  const t = useTranslations("proventos");
+  const locale = useLocale();
+  const moneyText = useMoney();
+  const groups = new Map<string, Row[]>();
+  for (const row of rows) groups.set(row.paidOn, [...(groups.get(row.paidOn) ?? []), row]);
+  return (
+    <ol aria-label={t("upcoming.list")} className="m-0 flex list-none flex-col gap-4 p-0">
+      {[...groups.entries()].map(([paidOn, items]) => {
+        const days = daysBetween(today, paidOn);
+        const total = items.reduce((acc, row) => acc.plus(netDividend(row)), money(0));
+        return (
+          <li key={paidOn} className="rounded-lg border border-line">
+            <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line bg-card-soft px-3 py-2">
+              <div className="min-w-0">
+                <p className="m-0 text-sm font-semibold capitalize">
+                  {formatWeekdayName(paidOn, locale)}
+                </p>
+                <p className="m-0 text-xs text-muted">
+                  {formatDate(paidOn, locale)} ·{" "}
+                  {days === 1 ? t("upcoming.tomorrow") : t("upcoming.inDays", { days })}
+                </p>
+              </div>
+              <p className="m-0 text-sm font-semibold tabular-nums">
+                {t("upcoming.dayTotal", { amount: moneyText(total.toFixed(2)) })}
+              </p>
+            </header>
+            <ul className="m-0 list-none divide-y divide-line p-0 px-3">
+              {items.map((row) => (
+                <DividendLine
+                  key={row.id}
+                  row={row}
+                  writable={writable}
+                  onRemove={onRemove}
+                  hideDate
+                />
+              ))}
+            </ul>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -353,14 +416,12 @@ export function DividendsBoard({
                 amount: moneyText(data.upcomingNet),
               })}
             >
-              <ul
-                aria-label={t("upcoming.list")}
-                className="m-0 list-none divide-y divide-line p-0"
-              >
-                {data.upcoming.map((row) => (
-                  <DividendLine key={row.id} row={row} writable={writable} onRemove={setRemoving} />
-                ))}
-              </ul>
+              <UpcomingByDay
+                rows={data.upcoming}
+                today={data.today}
+                writable={writable}
+                onRemove={setRemoving}
+              />
             </Card>
           ) : null}
 

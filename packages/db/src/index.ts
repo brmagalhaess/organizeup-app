@@ -191,3 +191,4 @@ export {
   or,
   sql,
 } from "drizzle-orm";
+export { wipeHouseholdData, type WipeReport } from "./wipe";

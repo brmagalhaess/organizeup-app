@@ -157,5 +157,6 @@
   "auth.layout.headline": "O dinheiro da empresa, com um plano para crescer com segurança.",
   "auth.layout.points.one": "Cada empresa tem seus dados isolados e protegidos.",
   "auth.layout.footer": "Feito no Brasil para quem cuida do próprio dinheiro.",
-  "familiaOnboarding.loading.title": "Abrindo o plano da sua empresa…"
+  "familiaOnboarding.loading.title": "Abrindo o plano da sua empresa…",
+  "settings.wipe.scopes.agenda.detail": "Eventos do calendário. Viagens perdem só o vínculo com o evento."
 }

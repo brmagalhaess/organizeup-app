@@ -44,3 +44,4 @@ export * from "./dividend-retirement";
 export * from "./goal";
 export * from "./trip-places";
 export * from "./trip-suggest";
+export * from "./wipe";

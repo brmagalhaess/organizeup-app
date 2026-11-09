@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Field, FormMessage, Input } from "@/components/ui";
-import { authClient } from "@/lib/auth-client";
+import { authClient, TWO_FACTOR_PATH } from "@/lib/auth-client";
 
 export function SignInForm({ invite }: { invite: string | null }) {
   const t = useTranslations("auth");
@@ -16,10 +16,15 @@ export function SignInForm({ invite }: { invite: string | null }) {
     setError(null);
     setPending(true);
     const form = new FormData(event.currentTarget);
-    const { error: signInError } = await authClient.signIn.email({
+    const { data, error: signInError } = await authClient.signIn.email({
       email: String(form.get("email") ?? ""),
       password: String(form.get("password") ?? ""),
     });
+    // Conta com o segundo fator ativo: a senha passou, falta o código (ADR-0034).
+    if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
+      router.replace(invite ? `${TWO_FACTOR_PATH}?convite=${invite}` : TWO_FACTOR_PATH);
+      return;
+    }
     if (signInError) {
       setPending(false);
       setError(

@@ -157,5 +157,6 @@
   "auth.layout.headline": "Your company's money, with a plan to grow safely.",
   "auth.layout.points.one": "Each company's data is isolated and protected.",
   "auth.layout.footer": "Made in Brazil for people who look after their own money.",
-  "familiaOnboarding.loading.title": "Opening your company's plan…"
+  "familiaOnboarding.loading.title": "Opening your company's plan…",
+  "settings.wipe.scopes.agenda.detail": "Calendar events. Trips only lose the link to the event."
 }

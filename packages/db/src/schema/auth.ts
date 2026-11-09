@@ -1,7 +1,16 @@
 // Tabelas do Better Auth. As CHAVES TypeScript seguem os nomes de campo que o Better Auth
 // espera (ex.: `organizationId`); os nomes de coluna no banco são os da migration 0001.
 // Mudanças aqui exigem migration SQL nova em packages/db/migrations (ver AGENTS.md).
-import { boolean, index, pgTable, primaryKey, text, timestamp, unique } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+} from "drizzle-orm/pg-core";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
@@ -11,9 +20,33 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  /** Plugin twoFactor (migração 0044, ADR-0034): com true, entrar exige o código do autenticador. */
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
+
+/**
+ * Segredo TOTP e códigos de reserva de cada conta, cifrados pelo Better Auth (ADR-0034). Uma linha por
+ * conta; some com ela. `verified` fica false entre pedir a ativação e confirmar o primeiro código.
+ */
+export const twoFactor = pgTable(
+  "two_factor",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
+    verified: boolean("verified").notNull().default(true),
+    failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+    lockedUntil: ts("locked_until"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.userId), index("two_factor_secret_idx").on(t.secret)],
+);
 
 /** household = "organization" do Better Auth. */
 export const household = pgTable("household", {
@@ -186,4 +219,5 @@ export const betterAuthSchema = {
   organization: household,
   member: householdMember,
   invitation: householdInvitation,
+  twoFactor,
 };

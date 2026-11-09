@@ -9,7 +9,7 @@ import {
 } from "better-auth/api";
 import { verifyJWT } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
-import { organization } from "better-auth/plugins";
+import { organization, twoFactor } from "better-auth/plugins";
 import {
   and,
   eq,
@@ -205,6 +205,8 @@ const writesInMaintenance = (path: string) =>
   path === "/sign-up/email" ||
   path === "/delete-user" ||
   path === "/update-user" ||
+  path === "/two-factor/enable" ||
+  path === "/two-factor/disable" ||
   (path.startsWith("/organization/") &&
     !["/organization/set-active", "/organization/list"].includes(path));
 
@@ -403,6 +405,15 @@ function createAuth() {
               }),
             })),
           ),
+      }),
+      // Verificação em duas etapas (ADR-0034): opcional até a pessoa ativar; depois, entrar exige o
+      // código do autenticador, e apagar a conta ou limpar dados sempre exigem (ver lib/two-factor.ts).
+      // Sem "lembrar este aparelho": a decisão do fundador foi exigir sempre.
+      twoFactor({
+        issuer: "OrganizeUp",
+        skipVerificationOnEnable: false,
+        totpOptions: { digits: 6, period: 30 },
+        backupCodeOptions: { amount: 8, length: 10 },
       }),
       nextCookies(),
     ],

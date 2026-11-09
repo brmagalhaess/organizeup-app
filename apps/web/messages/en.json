@@ -760,7 +760,10 @@
     "upcoming": {
       "title": "Upcoming",
       "description": "{amount} already announced, after tax. They only count toward totals on the payment date.",
-      "list": "Upcoming dividends"
+      "list": "Upcoming dividends",
+      "tomorrow": "tomorrow",
+      "inDays": "in {days, plural, one {# day} other {# days}}",
+      "dayTotal": "{amount} on this day"
     },
     "received": {
       "title": "Received",
@@ -2098,6 +2101,23 @@
         "three": "Suggestions to accept, ignore or undo — you decide."
       },
       "footer": "Made in Brazil for families."
+    },
+    "twoFactor": {
+      "metaTitle": "Verification code",
+      "title": "One more step",
+      "subtitle": "Open your authenticator app and type the code for this account.",
+      "codeLabel": "App code",
+      "codeHint": "6 digits, changes every 30 seconds.",
+      "backupLabel": "Backup code",
+      "backupHint": "One of the codes saved when you enabled verification. Works once.",
+      "useBackup": "Lost the device: use a backup code",
+      "useApp": "Back to the app code",
+      "submit": "Sign in",
+      "pending": "Checking…",
+      "invalid": "Invalid code. Check the device clock and try again.",
+      "tooMany": "Too many attempts. Sign in with your password again to start over.",
+      "expired": "The request expired. Sign in with your password again.",
+      "backToSignIn": "Back to sign in"
     }
   },
   "insights": {
@@ -2480,6 +2500,106 @@
       "invalid": "Choose one of the currencies on the list.",
       "save": "Save currency",
       "saved": "Main currency saved."
+    },
+    "twoFactor": {
+      "title": "Two-step verification",
+      "description": "A code from your authenticator app on top of the password. Required to delete the account or wipe data; once enabled, also to sign in.",
+      "statusOn": "Enabled",
+      "statusOff": "Disabled",
+      "onText": "Signing in asks for the authenticator code. Keep the backup codes: they replace the code if you lose the device.",
+      "offText": "Enable it to protect the account. While disabled, you cannot delete the account or wipe data.",
+      "enable": "Enable",
+      "disable": "Disable",
+      "continue": "Continue",
+      "activate": "Confirm and enable",
+      "enableText": "Confirm your password. Then scan the code with an authenticator app (Google Authenticator, Authy, 1Password…).",
+      "disableText": "Without the second factor, signing in goes back to password only, and deleting the account or wiping data is blocked until you enable it again.",
+      "scanText": "Scan the QR in your authenticator app and type the 6-digit code it shows.",
+      "qrAlt": "QR for the authenticator app",
+      "manualKey": "Can't scan? Type this key into the app:",
+      "confirmLabel": "App code",
+      "codeLabel": "Verification code",
+      "codeHint": "6 digits from the authenticator app, or a backup code.",
+      "activated": "Two-step verification enabled.",
+      "backupText": "Store these backup codes somewhere safe. Each works once and replaces the app code if you lose the device. They will not be shown again.",
+      "savedCodes": "I saved the codes",
+      "password": "Your password",
+      "wrongPassword": "Wrong password.",
+      "failed": "That didn't work. Try again.",
+      "codeRequired": "Enter the verification code.",
+      "codeInvalid": "Invalid or expired code.",
+      "requiredToContinue": "To continue, enable two-step verification in Settings."
+    },
+    "wipe": {
+      "open": "Wipe data",
+      "text": "Choose what to delete. Anything unchecked stays. People, members, settings and the subscription are not included. This cannot be undone.",
+      "choose": "What to delete",
+      "selectAll": "Select all",
+      "clearAll": "Clear all",
+      "pulls": "Also removes: {list}.",
+      "goesAlong": "Goes along with a selected module.",
+      "confirmLabel": "Type APAGAR to confirm",
+      "confirmMismatch": "Type APAGAR, in capitals.",
+      "notAllowed": "Only the account owner can wipe data.",
+      "nothingChosen": "Select at least one module.",
+      "failed": "Could not wipe right now. Nothing was deleted.",
+      "done": "Done: {count, plural, one {# module wiped} other {# modules wiped}}.",
+      "pending": "Deleting…",
+      "submit": "{count, plural, =0 {Delete} one {Delete # module} other {Delete # modules}}",
+      "scopes": {
+        "lancamentos": {
+          "label": "Income and expenses",
+          "detail": "Entries, transfers between accounts, statement imports and the planned budget. Income receipts and statement payments linked to them go too."
+        },
+        "cartoes": {
+          "label": "Credit cards",
+          "detail": "Cards, purchases and statement payments."
+        },
+        "renda": {
+          "label": "Income sources",
+          "detail": "Income sources (payroll, freelance, rent…), 13th-salary and vacation plans and receipt marks."
+        },
+        "investimentos": {
+          "label": "Investments",
+          "detail": "Portfolio, trades, stock events, dividends, target allocation and dividend goal."
+        },
+        "dividas": {
+          "label": "Debts",
+          "detail": "Debts, installments, documents and payoff reports. An asset linked to a debt stays, unlinked."
+        },
+        "metas": {
+          "label": "Goals",
+          "detail": "Goals and their plan installments."
+        },
+        "viagens": {
+          "label": "Trips",
+          "detail": "Trips, costs, travelers and trip ideas."
+        },
+        "aposentadoria": {
+          "label": "Retirement",
+          "detail": "Scenarios and the dividend-based plan."
+        },
+        "patrimonio": {
+          "label": "Net worth and reserve",
+          "detail": "Assets, emergency fund, accounts marked as reserve and monthly net-worth snapshots."
+        },
+        "agenda": {
+          "label": "Calendar",
+          "detail": "Calendar events. Trips and the wedding only lose the link to the event."
+        },
+        "importacoes": {
+          "label": "Uploaded files",
+          "detail": "Files read by the importer and what was proposed from them."
+        },
+        "relatorios": {
+          "label": "Reports and notices",
+          "detail": "Monthly and yearly reports, suggestions, notifications and tips."
+        },
+        "contas": {
+          "label": "Accounts and categories",
+          "detail": "Deletes accounts and categories and recreates the defaults. Almost everything points to them, so the modules below go too."
+        }
+      }
     }
   },
   "notificacoes": {

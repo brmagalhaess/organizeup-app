@@ -125,6 +125,7 @@ const KNOWN_ROUTES = [
   "/convite/[id]/aceitar",
   "/en",
   "/entrar",
+  "/entrar/codigo",
   "/es",
   "/esqueci-senha",
   "/privacidade",

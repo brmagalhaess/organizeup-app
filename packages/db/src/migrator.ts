@@ -131,6 +131,8 @@ async function applyGrants(sql: postgres.Sql) {
     REVOKE DELETE ON public.knowledge_chunks FROM ${worker};
     -- Documento da conta: o worker não tem por que encostar, nem cifrado (ADR-0022).
     REVOKE ALL ON public.user_identity FROM ${worker};
+    -- Segundo fator (ADR-0034): só o Better Auth, pela web, lê e grava. Cifrado, mas ninguém mais encosta.
+    REVOKE ALL ON public.two_factor FROM ${worker}, ${admin};
     -- Reserva de documento: só pelas funções da 0037, nem a web lê a tabela.
     REVOKE ALL ON public.identity_reservations FROM ${app}, ${worker}, ${admin};
     -- Planos (ADR-0023): catálogo só o painel grava. A assinatura é espelho da Stripe: só o worker grava,

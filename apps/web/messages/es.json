@@ -760,7 +760,10 @@
     "upcoming": {
       "title": "Por recibir",
       "description": "{amount} ya anunciados, sin el impuesto. Solo entran en los totales en la fecha de pago.",
-      "list": "Dividendos por recibir"
+      "list": "Dividendos por recibir",
+      "tomorrow": "mañana",
+      "inDays": "en {days, plural, one {# día} other {# días}}",
+      "dayTotal": "{amount} en este día"
     },
     "received": {
       "title": "Recibidos",
@@ -2098,6 +2101,23 @@
         "three": "Sugerencias para aceptar, ignorar o deshacer: tú decides."
       },
       "footer": "Hecho en Brasil para familias."
+    },
+    "twoFactor": {
+      "metaTitle": "Código de verificación",
+      "title": "Falta el código",
+      "subtitle": "Abre la app de autenticación y escribe el código de esta cuenta.",
+      "codeLabel": "Código de la app",
+      "codeHint": "6 dígitos, cambia cada 30 segundos.",
+      "backupLabel": "Código de respaldo",
+      "backupHint": "Uno de los códigos guardados al activar la verificación. Vale una vez.",
+      "useBackup": "Perdí el dispositivo: usar un código de respaldo",
+      "useApp": "Volver al código de la app",
+      "submit": "Entrar",
+      "pending": "Comprobando…",
+      "invalid": "Código inválido. Revisa la hora del dispositivo e inténtalo de nuevo.",
+      "tooMany": "Demasiados intentos. Entra con la contraseña de nuevo para empezar otra vez.",
+      "expired": "La solicitud venció. Entra con la contraseña de nuevo.",
+      "backToSignIn": "Volver a entrar"
     }
   },
   "insights": {
@@ -2480,6 +2500,106 @@
       "invalid": "Elige una de las monedas de la lista.",
       "save": "Guardar moneda",
       "saved": "Moneda principal guardada."
+    },
+    "twoFactor": {
+      "title": "Verificación en dos pasos",
+      "description": "Un código de la app de autenticación además de la contraseña. Obligatorio para borrar la cuenta o limpiar datos; una vez activada, también para entrar.",
+      "statusOn": "Activada",
+      "statusOff": "Desactivada",
+      "onText": "Entrar pide el código de la app. Guarda los códigos de respaldo: sustituyen al código si pierdes el dispositivo.",
+      "offText": "Actívala para proteger la cuenta. Mientras esté desactivada no se puede borrar la cuenta ni limpiar datos.",
+      "enable": "Activar",
+      "disable": "Desactivar",
+      "continue": "Continuar",
+      "activate": "Confirmar y activar",
+      "enableText": "Confirma tu contraseña. Luego lee el código con una app de autenticación (Google Authenticator, Authy, 1Password…).",
+      "disableText": "Sin el segundo factor, entrar vuelve a pedir solo la contraseña, y borrar la cuenta o limpiar datos queda bloqueado hasta activarlo de nuevo.",
+      "scanText": "Lee el QR en la app de autenticación y escribe el código de 6 dígitos que muestre.",
+      "qrAlt": "QR para la app de autenticación",
+      "manualKey": "¿No puedes leerlo? Escribe esta clave en la app:",
+      "confirmLabel": "Código de la app",
+      "codeLabel": "Código de verificación",
+      "codeHint": "6 dígitos de la app de autenticación, o un código de respaldo.",
+      "activated": "Verificación en dos pasos activada.",
+      "backupText": "Guarda estos códigos de respaldo en un lugar seguro. Cada uno vale una vez y sustituye al código de la app si pierdes el dispositivo. No se mostrarán de nuevo.",
+      "savedCodes": "Guardé los códigos",
+      "password": "Tu contraseña",
+      "wrongPassword": "Contraseña incorrecta.",
+      "failed": "No funcionó ahora. Inténtalo de nuevo.",
+      "codeRequired": "Escribe el código de verificación.",
+      "codeInvalid": "Código inválido o vencido.",
+      "requiredToContinue": "Para continuar, activa la verificación en dos pasos en Configuración."
+    },
+    "wipe": {
+      "open": "Limpiar datos",
+      "text": "Elige qué borrar. Lo que no marques se queda. Personas, miembros, ajustes y suscripción no entran aquí. No se puede deshacer.",
+      "choose": "Qué borrar",
+      "selectAll": "Marcar todo",
+      "clearAll": "Desmarcar todo",
+      "pulls": "Se lleva también: {list}.",
+      "goesAlong": "Va junto con un módulo marcado.",
+      "confirmLabel": "Escribe APAGAR para confirmar",
+      "confirmMismatch": "Escribe APAGAR, en mayúsculas.",
+      "notAllowed": "Solo quien responde por la cuenta puede limpiar datos.",
+      "nothingChosen": "Marca al menos un módulo.",
+      "failed": "No se pudo limpiar ahora. No se borró nada.",
+      "done": "Listo: {count, plural, one {# módulo limpiado} other {# módulos limpiados}}.",
+      "pending": "Borrando…",
+      "submit": "{count, plural, =0 {Borrar} one {Borrar # módulo} other {Borrar # módulos}}",
+      "scopes": {
+        "lancamentos": {
+          "label": "Ingresos y gastos",
+          "detail": "Movimientos, transferencias entre cuentas, importaciones de extracto y presupuesto planificado. Los recibos de ingresos y pagos de factura ligados a ellos también se van."
+        },
+        "cartoes": {
+          "label": "Tarjetas de crédito",
+          "detail": "Tarjetas, compras y pagos de factura."
+        },
+        "renda": {
+          "label": "Ingresos",
+          "detail": "Fuentes de ingreso (nómina, autónomo, alquiler…), planes de aguinaldo y vacaciones y las marcas de cobro."
+        },
+        "investimentos": {
+          "label": "Inversiones",
+          "detail": "Cartera, operaciones, eventos en acciones, dividendos, distribución objetivo y meta de dividendos."
+        },
+        "dividas": {
+          "label": "Deudas",
+          "detail": "Deudas, cuotas, documentos e informes de pago. Un bien ligado a una deuda se queda, sin el vínculo."
+        },
+        "metas": {
+          "label": "Metas",
+          "detail": "Metas y las cuotas del plan."
+        },
+        "viagens": {
+          "label": "Viajes",
+          "detail": "Viajes, costos, quién va e ideas de viaje."
+        },
+        "aposentadoria": {
+          "label": "Jubilación",
+          "detail": "Escenarios y plan por dividendos."
+        },
+        "patrimonio": {
+          "label": "Patrimonio y reserva",
+          "detail": "Bienes, fondo de emergencia, cuentas marcadas como reserva y fotos mensuales del patrimonio."
+        },
+        "agenda": {
+          "label": "Agenda",
+          "detail": "Eventos del calendario. Los viajes y la boda solo pierden el vínculo con el evento."
+        },
+        "importacoes": {
+          "label": "Archivos enviados",
+          "detail": "Archivos leídos por el importador y lo que se propuso a partir de ellos."
+        },
+        "relatorios": {
+          "label": "Informes y avisos",
+          "detail": "Informes mensuales y anuales, sugerencias, notificaciones y consejos."
+        },
+        "contas": {
+          "label": "Cuentas y categorías",
+          "detail": "Borra las cuentas y las categorías y recrea las predeterminadas. Casi todo apunta a ellas, así que se lleva los módulos de abajo."
+        }
+      }
     }
   },
   "notificacoes": {
