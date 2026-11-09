@@ -114,7 +114,10 @@ function DividendLine({
     hideDate ? null : formatDate(row.paidOn, locale),
     money(row.withheld).gt(0) ? t("line.gross", { amount: moneyText(row.gross) }) : null,
     row.market
-      ? t("line.market", { date: formatDate(row.market.comDate, locale), source: row.market.source })
+      ? t("line.market", {
+          date: formatDate(row.market.comDate, locale),
+          source: row.market.source,
+        })
       : null,
   ].filter((part): part is string => part !== null);
   return (

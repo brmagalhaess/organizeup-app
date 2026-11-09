@@ -7,7 +7,13 @@ import { deleteAccount } from "./actions";
 
 const initial: ActionState = { ok: false, message: null };
 
-function DeleteForm({ onCancel, twoFactorEnabled }: { onCancel: () => void; twoFactorEnabled: boolean }) {
+function DeleteForm({
+  onCancel,
+  twoFactorEnabled,
+}: {
+  onCancel: () => void;
+  twoFactorEnabled: boolean;
+}) {
   const t = useTranslations("settings.deleteAccount");
   const tTwo = useTranslations("settings.twoFactor");
   const tCommon = useTranslations("common");

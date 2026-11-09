@@ -8,7 +8,13 @@ import { wipeData } from "./actions";
 
 const initial: ActionState = { ok: false, message: null };
 
-function WipeForm({ onCancel, twoFactorEnabled }: { onCancel: () => void; twoFactorEnabled: boolean }) {
+function WipeForm({
+  onCancel,
+  twoFactorEnabled,
+}: {
+  onCancel: () => void;
+  twoFactorEnabled: boolean;
+}) {
   const t = useTranslations("settings.wipe");
   const tTwo = useTranslations("settings.twoFactor");
   const tCommon = useTranslations("common");
@@ -66,7 +72,9 @@ function WipeForm({ onCancel, twoFactorEnabled }: { onCancel: () => void; twoFac
                     })}
                   </span>
                 ) : null}
-                {implied ? <span className="block text-xs text-warning">{t("goesAlong")}</span> : null}
+                {implied ? (
+                  <span className="block text-xs text-warning">{t("goesAlong")}</span>
+                ) : null}
               </label>
             </li>
           );
@@ -86,9 +94,7 @@ function WipeForm({ onCancel, twoFactorEnabled }: { onCancel: () => void; twoFac
           className="flex-1"
           disabled={pending || !twoFactorEnabled || effective.size === 0}
         >
-          {pending
-            ? t("pending")
-            : t("submit", { count: effective.size })}
+          {pending ? t("pending") : t("submit", { count: effective.size })}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>
           {tCommon("cancel")}

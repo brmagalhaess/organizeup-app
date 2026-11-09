@@ -96,7 +96,9 @@ async function readFile(text: string) {
 
 beforeAll(async () => {
   await db.withAdmin("seed de proventos do importador", async (admin) => {
-    await admin.insert(user).values({ id: OWNER, name: "Dona", email: "dona-arquivo-provento@example.com" });
+    await admin
+      .insert(user)
+      .values({ id: OWNER, name: "Dona", email: "dona-arquivo-provento@example.com" });
     await admin.insert(household).values({ id: FAMILY, name: "Família", slug: FAMILY });
     await admin
       .insert(householdMember)

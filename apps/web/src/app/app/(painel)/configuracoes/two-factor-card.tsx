@@ -34,7 +34,8 @@ function EnableFlow({ onDone }: { onDone: () => void }) {
     let alive = true;
     QRCode.toDataURL(step.totpURI, { margin: 1, width: 220 })
       .then((qr) => {
-        if (alive) setStep((current) => (current.kind === "confirmar" ? { ...current, qr } : current));
+        if (alive)
+          setStep((current) => (current.kind === "confirmar" ? { ...current, qr } : current));
       })
       .catch(() => {});
     return () => {

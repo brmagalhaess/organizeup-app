@@ -40,8 +40,16 @@ async function seed() {
     await tx.insert(db.householdSettings).values({ householdId: H }).onConflictDoNothing();
     await db.ensureFinanceDefaults(tx, H);
     const [account] = await tx.select().from(db.accounts).limit(1);
-    const [category] = await tx.select().from(db.categories).where(eq(db.categories.kind, "despesa")).limit(1);
-    const [income] = await tx.select().from(db.categories).where(eq(db.categories.kind, "receita")).limit(1);
+    const [category] = await tx
+      .select()
+      .from(db.categories)
+      .where(eq(db.categories.kind, "despesa"))
+      .limit(1);
+    const [income] = await tx
+      .select()
+      .from(db.categories)
+      .where(eq(db.categories.kind, "receita"))
+      .limit(1);
     const accountId = account!.id;
     const [entry] = await tx
       .insert(db.transactions)
@@ -57,7 +65,13 @@ async function seed() {
       .returning({ id: db.transactions.id });
     const [goal] = await tx
       .insert(db.goals)
-      .values({ householdId: H, name: "Carro", kind: "veiculo", targetAmount: "50000.00", accountId })
+      .values({
+        householdId: H,
+        name: "Carro",
+        kind: "veiculo",
+        targetAmount: "50000.00",
+        accountId,
+      })
       .returning({ id: db.goals.id });
     await tx.insert(db.goalContributions).values({
       householdId: H,
@@ -68,7 +82,13 @@ async function seed() {
     });
     const [debt] = await tx
       .insert(db.debts)
-      .values({ householdId: H, accountId, name: "Carro", system: "price", originalBalance: "1000.00" })
+      .values({
+        householdId: H,
+        accountId,
+        name: "Carro",
+        system: "price",
+        originalBalance: "1000.00",
+      })
       .returning({ id: db.debts.id });
     await tx.insert(db.debtInstallments).values({
       householdId: H,
@@ -130,7 +150,13 @@ async function seed() {
     });
     const [card] = await tx
       .insert(db.creditCards)
-      .values({ householdId: H, name: "Cartão", closingDay: 1, dueDay: 10, payingAccountId: accountId })
+      .values({
+        householdId: H,
+        name: "Cartão",
+        closingDay: 1,
+        dueDay: 10,
+        payingAccountId: accountId,
+      })
       .returning({ id: db.creditCards.id });
     await tx.insert(db.cardPurchases).values({
       householdId: H,
@@ -146,7 +172,12 @@ async function seed() {
       .returning({ id: db.calendarEvents.id });
     const [trip] = await tx
       .insert(db.trips)
-      .values({ householdId: H, destination: "Lisboa", startOn: "2026-12-20", calendarEventId: event!.id })
+      .values({
+        householdId: H,
+        destination: "Lisboa",
+        startOn: "2026-12-20",
+        calendarEventId: event!.id,
+      })
       .returning({ id: db.trips.id });
     await tx
       .insert(db.tripCosts)
@@ -269,7 +300,9 @@ describe("limpeza de dados por módulo", () => {
 
   it("só quem pode escrever apaga: visualizador cai na RLS", async () => {
     await db.withAdmin("seed visualizador", async (admin) => {
-      await admin.insert(db.user).values({ id: "user-wipe-viewer", name: "V", email: "v-wipe@example.com" });
+      await admin
+        .insert(db.user)
+        .values({ id: "user-wipe-viewer", name: "V", email: "v-wipe@example.com" });
       await admin
         .insert(db.householdMember)
         .values({ id: "m-wipe-v", organizationId: H, userId: "user-wipe-viewer", role: "viewer" });

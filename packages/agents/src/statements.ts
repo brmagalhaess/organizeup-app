@@ -9,12 +9,7 @@ import {
   householdStatements,
   type TenantTx,
 } from "@organizeup/db";
-import {
-  addMonths,
-  yearMonthOf,
-  type Currency,
-  type ReportKind,
-} from "@organizeup/domain";
+import { addMonths, yearMonthOf, type Currency, type ReportKind } from "@organizeup/domain";
 
 /** Moeda principal da família. Sem linha de configurações, real. */
 export async function householdCurrency(tx: TenantTx, householdId: string): Promise<Currency> {

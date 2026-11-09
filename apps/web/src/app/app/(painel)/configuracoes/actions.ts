@@ -64,7 +64,11 @@ export async function wipeData(_prev: ActionState, formData: FormData): Promise<
   if (role !== "owner" || !canWrite(ctx)) return { ok: false, message: t("notAllowed") };
   const chosen = formData.getAll("scope").map(String).filter(isWipeScope);
   if (chosen.length === 0) return { ok: false, message: t("nothingChosen") };
-  if (String(formData.get("confirm") ?? "").trim().toUpperCase() !== "APAGAR") {
+  if (
+    String(formData.get("confirm") ?? "")
+      .trim()
+      .toUpperCase() !== "APAGAR"
+  ) {
     return { ok: false, message: null, fieldErrors: { confirm: t("confirmMismatch") } };
   }
   const refused = await secondFactorError(

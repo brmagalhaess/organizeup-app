@@ -134,10 +134,7 @@ export async function wipeHouseholdData(
     await wipeTable(tx, report, "net_worth_snapshots", netWorthSnapshots);
   }
   if (has("agenda")) {
-    await tx
-      .update(trips)
-      .set({ calendarEventId: null })
-      .where(isNotNull(trips.calendarEventId));
+    await tx.update(trips).set({ calendarEventId: null }).where(isNotNull(trips.calendarEventId));
     await tx
       .update(householdSettings)
       .set({ weddingEventId: null })

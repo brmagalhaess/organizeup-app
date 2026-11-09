@@ -20,7 +20,7 @@
     "test:e2e": "pnpm --filter @organizeup/web test:e2e",
     "db:migrate": "pnpm --filter @organizeup/db migrate",
     "db:local": "pnpm --filter @organizeup/db local-pg",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
