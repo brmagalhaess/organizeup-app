@@ -1,6 +1,11 @@
 // Prepara um banco de teste migrado. Em CI, TEST_DATABASE_OWNER_URL aponta para o service
 // container; localmente sobe um Postgres embutido descartável.
+//
+// Cada pacote (db, agents, web, worker) precisa começar do zero: localmente o embutido é apagado a
+// cada execução, e no CI o banco externo é recriado aqui, senão o que o teste de RLS semeia
+// (PETR4, câmbio, eventos) vaza para o teste do job de mercado e muda as contagens.
 import path from "node:path";
+import postgres from "postgres";
 import type { TestProject } from "vitest/node";
 import { migrate } from "../src/migrator";
 import { startLocalPostgres, type LocalPostgres } from "../src/testing/local-postgres";
@@ -31,10 +36,33 @@ function keepFailureExitCode() {
   process.exit = ((code?: number) => exit(code || process.exitCode)) as typeof process.exit;
 }
 
+/**
+ * Apaga e recria o banco de teste externo, pela base de manutenção `postgres` do mesmo servidor.
+ * Só para banco cujo nome diz "test": a variável nunca deve apontar para dado de verdade, e esta
+ * guarda evita o pior caso. Os papéis (ou_app, ou_worker, ou_admin) são do servidor e ficam.
+ */
+async function recreateDatabase(ownerUrl: string) {
+  const url = new URL(ownerUrl);
+  const database = url.pathname.replace(/^\//, "");
+  if (!/test/i.test(database)) {
+    throw new Error("TEST_DATABASE_OWNER_URL precisa apontar para um banco com 'test' no nome");
+  }
+  url.pathname = "/postgres";
+  const sql = postgres(url.toString(), { max: 1, onnotice: () => {} });
+  try {
+    await sql`drop database if exists ${sql(database)} with (force)`;
+    await sql`create database ${sql(database)}`;
+  } finally {
+    await sql.end();
+  }
+}
+
 export async function setup(project: TestProject) {
   keepFailureExitCode();
   let ownerUrl = process.env.TEST_DATABASE_OWNER_URL;
-  if (!ownerUrl) {
+  if (ownerUrl) {
+    await recreateDatabase(ownerUrl);
+  } else {
     local = await startLocalPostgres({
       dataDir: path.resolve(import.meta.dirname, "..", "..", "..", ".pg", "test"),
       port: Number(process.env.TEST_PG_PORT ?? 54339),
