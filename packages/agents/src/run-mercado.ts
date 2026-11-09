@@ -109,7 +109,10 @@ export interface MarketRunResult {
   unknown: number;
   noPlan: number;
   failed: number;
-  /** Tickers fora desta rodada: já consultados há pouco, sem token, ou sem cota. */
+  /**
+   * Tickers fora desta rodada: já consultados há pouco, ou os que sobraram quando a brapi mandou
+   * parar. Sem token ou sem cota ninguém fica de fora: a cotação vem do Yahoo (ADR-0032).
+   */
   skipped: number;
   /** Motivo de parar antes do fim: cota esgotada ou token recusado. */
   stoppedBy: MarketErrorCode | null;

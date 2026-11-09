@@ -37,3 +37,12 @@ alterado por coleta nova. O que faltava era o histórico de **preço** e uma cad
 - Gráfico de evolução da carteira e patrimônio de meses passados com o fechamento daquele dia em vez
   de estimativa; "atualizado às 15:00" nos dias de pregão. A leitura é `listMarketQuoteHistory`.
 - Nenhuma tela muda neste ADR; a primeira a usar o histórico entra em PR próprio.
+
+## Adendo (2026-11-09): códigos com dígito no histórico
+
+A migração `0043` criou `market_quote_history` com a `CHECK` antiga de ticker, anterior à `0041` (ADR-0029). Um código
+com dígito na raiz, como B3SA3 ou M1TA34, gravava a última cotação em `market_quotes` e falhava no histórico: o ticker
+ficava como `falha` e os proventos e eventos daquela rodada se perdiam. A `0045` troca a `CHECK` pela mesma forma de
+`TICKER_ROOTS`, do jeito da `0041` (`DROP CONSTRAINT` + `ADD CONSTRAINT`, sem apagar nem alterar linha). É exceção à
+regra 3 do AGENTS.md e **depende da aprovação do fundador**, como a da `0041`. O caso "código com dígito entra no
+catálogo, na coleta e na carteira" de `packages/agents/test/market.integration.test.ts` prova o defeito e a correção.

@@ -498,19 +498,58 @@ describe("job de mercado", () => {
     ],
   });
   const sgs = () => json([{ data: "29/10/2026", valor: "0.050788" }]);
+  /** Horário que nenhuma cotação gravada antes usa: o histórico não duplica a mesma coleta. */
+  const closedAt = Math.floor(Date.parse("2026-11-07T20:00:00Z") / 1000);
+  /** Formato real do Yahoo (ADR-0032): preço, fechamento anterior e horário em segundos. */
+  const yahoo = (symbol: string, price: number) => ({
+    chart: {
+      result: [
+        {
+          meta: {
+            currency: "BRL",
+            symbol: `${symbol}.SA`,
+            regularMarketPrice: price,
+            regularMarketTime: closedAt,
+            chartPreviousClose: price - 1,
+          },
+        },
+      ],
+      error: null,
+    },
+  });
+  const yahooNotFound = () => json({ chart: { result: null, error: { code: "Not Found" } } }, 404);
+  const isYahoo = (url: string) => url.includes("finance/chart/");
+  const isB3 = (url: string) => url.includes("GetListedSupplementFunds");
+  const isBrapi = (url: string) => url.includes("brapi.dev");
+  /** Cotação no formato da fonte que a URL pede: Yahoo sem token, brapi com token. */
+  const answer = (ticker: string, url: string, price: number) =>
+    isYahoo(url) ? json(yahoo(ticker, price)) : json(quote(ticker, price));
 
   function fakeFetch(handler: (ticker: string, url: string) => Response) {
     const calls: string[] = [];
-    const fn = (async (input: string | URL | Request) => {
+    /** URLs que receberam o token da brapi: nunca pode incluir Yahoo nem B3. */
+    const withToken: string[] = [];
+    const fn = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       // Câmbio fora destes testes: os blocos do histórico não têm nada aqui.
       if (url.includes("dataInicial")) return new Response("{}", { status: 404 });
       if (url.includes("bcdata.sgs")) return sgs();
-      const ticker = /quote\/([A-Z0-9]+)/.exec(url)?.[1] ?? /symbols=([A-Z0-9]+)/.exec(url)?.[1];
+      let ticker =
+        /quote\/([A-Z0-9]+)/.exec(url)?.[1] ??
+        /symbols=([A-Z0-9]+)/.exec(url)?.[1] ??
+        /chart\/([A-Z0-9]+)\.SA/.exec(url)?.[1];
+      if (isB3(url)) {
+        // A B3 recebe o identificador do fundo (HGLG) em base64; os FIIs daqui terminam em 11.
+        const payload = JSON.parse(
+          Buffer.from(url.split("/GetListedSupplementFunds/")[1]!, "base64").toString(),
+        ) as { identifierFund: string };
+        ticker = `${payload.identifierFund}11`;
+      }
+      if ((init?.headers as Record<string, string> | undefined)?.authorization) withToken.push(url);
       calls.push(url);
       return handler(ticker!, url);
     }) as typeof fetch;
-    return { fn, calls };
+    return { fn, calls, withToken };
   }
   const tickers = () => inC((tx) => tx.select().from(marketTickers));
   const resetChecks = () =>
@@ -600,20 +639,38 @@ describe("job de mercado", () => {
     });
   });
 
-  it("sem token, consulta só os tickers livres e segue", async () => {
-    const warnings: string[] = [];
-    const { fn, calls } = fakeFetch((ticker) => json(quote(ticker, 40)));
+  it("sem token, toda cotação vem do Yahoo, sem gastar a cota da brapi (ADR-0032)", async () => {
+    const infos: string[] = [];
+    const used = await db.marketCallsOn(domain.todayIn());
+    const { fn, calls, withToken } = fakeFetch((ticker, url) => answer(ticker, url, 40));
     const result = await agents.runMarketData({
-      log: { ...silent, warn: (_, message) => warnings.push(message) },
+      log: { ...silent, info: (_, message) => infos.push(message) },
       activeDays: 60,
       fetch: fn,
       pauseMs: 0,
     });
-    expect(calls.some((url) => url.includes("ABCD3"))).toBe(false);
-    expect(calls).toHaveLength(3);
-    expect(result.quotes).toBe(3);
-    expect(warnings.join()).toContain("BRAPI_TOKEN");
-    expect(calls.every((url) => !url.includes("token"))).toBe(true);
+    // PETR4, VALE3, ITUB4 e ABCD3: não há mais "ticker livre", todos entram.
+    expect(calls).toHaveLength(4);
+    expect(calls.every(isYahoo)).toBe(true);
+    expect(calls.some((url) => url.includes("ABCD3.SA"))).toBe(true);
+    expect(result).toMatchObject({ quotes: 4, calls: 0, unknown: 0, failed: 0, skipped: 0 });
+    expect(infos.join()).toContain("BRAPI_TOKEN");
+    expect(withToken).toEqual([]);
+    expect(await db.marketCallsOn(domain.todayIn())).toBe(used);
+    const [stored] = await inC((tx) =>
+      tx.select().from(marketQuotes).where(eq(marketQuotes.ticker, "PETR4")),
+    );
+    // Variação calculada do fechamento anterior (39 → 40), horário do pregão em segundos.
+    expect(stored).toMatchObject({
+      source: "yahoo",
+      price: "40.00000000",
+      changePercent: "2.5641",
+      quotedAt: new Date(closedAt * 1000),
+    });
+    const at = new Date(closedAt * 1000);
+    expect(await db.listMarketQuoteHistory("PETR4", at, at)).toMatchObject([
+      { price: "40.00000000", source: "yahoo" },
+    ]);
   });
 
   it("catálogo guarda ação, FII, ETF e BDR, e a busca acha por código e por nome", async () => {
@@ -656,7 +713,21 @@ describe("job de mercado", () => {
     expect(await db.findMarketAsset("FFIP11")).toBeNull();
   });
 
-  it("guarda só o que a fonte confirma, no valor pago na data", async () => {
+  it("com token a brapi traz proventos e eventos; guarda só o que a fonte confirma, no valor pago na data", async () => {
+    // O Yahoo não traz proventos nem desdobramentos: isto só vem da brapi, com token.
+    await resetChecks();
+    const { fn, calls, withToken } = fakeFetch((ticker, url) => answer(ticker, url, 40));
+    const result = await agents.runMarketData({
+      log: silent,
+      token: "token-de-teste",
+      activeDays: 60,
+      fetch: fn,
+      pauseMs: 0,
+    });
+    expect(calls).toHaveLength(4);
+    expect(calls.every(isBrapi)).toBe(true);
+    expect(withToken).toHaveLength(4);
+    expect(result).toMatchObject({ quotes: 4, calls: 4, stockEvents: 4 });
     const rows = await inC((tx) =>
       tx.select().from(marketDividends).where(eq(marketDividends.payDate, "2026-12-30")),
     );
@@ -668,6 +739,7 @@ describe("job de mercado", () => {
       tx.select().from(marketQuotes).where(eq(marketQuotes.ticker, "PETR4")),
     );
     expect(stored).toMatchObject({
+      source: "brapi.dev",
       lastStockEventOn: "2026-09-01",
       lastStockEventNote: "Desdobramento de 2 para 1",
       price: "40.00000000",
@@ -695,7 +767,8 @@ describe("job de mercado", () => {
 
   it("ticker desconhecido fica registrado; falha de um não para os outros", async () => {
     await resetChecks();
-    const { fn, calls } = fakeFetch((ticker) => {
+    const { fn, calls, withToken } = fakeFetch((ticker, url) => {
+      if (isYahoo(url)) return ticker === "ABCD3" ? yahooNotFound() : json(yahoo(ticker, 41));
       if (ticker === "ABCD3") return json({ error: true, code: "NOT_FOUND" }, 404);
       if (ticker === "PETR4") return json({ error: true }, 500);
       return json(quote(ticker, 41));
@@ -707,8 +780,11 @@ describe("job de mercado", () => {
       fetch: fn,
       pauseMs: 0,
     });
-    expect(result).toMatchObject({ unknown: 1, failed: 1, quotes: 2 });
-    expect(calls).toHaveLength(4);
+    expect(result).toMatchObject({ unknown: 1, failed: 1, quotes: 2, calls: 4 });
+    // Quatro na brapi; o que ela não achou passa pelo Yahoo antes de virar desconhecido.
+    expect(calls).toHaveLength(5);
+    expect(calls.filter(isYahoo)).toEqual([expect.stringContaining("ABCD3.SA")]);
+    expect(withToken.every(isBrapi)).toBe(true);
     const rows = await tickers();
     expect(rows.find((row) => row.ticker === "ABCD3")).toMatchObject({
       status: "desconhecido",
@@ -716,7 +792,7 @@ describe("job de mercado", () => {
     });
     expect(rows.find((row) => row.ticker === "PETR4")!.status).toBe("falha");
 
-    const next = fakeFetch((ticker) => json(quote(ticker, 42)));
+    const next = fakeFetch((ticker, url) => answer(ticker, url, 42));
     await agents.runMarketData({
       log: silent,
       token: "token-de-teste",
@@ -728,10 +804,10 @@ describe("job de mercado", () => {
     expect(next.calls.some((url) => url.includes("PETR4"))).toBe(true);
   });
 
-  it("o teto vale para o dia inteiro, somando as rodadas", async () => {
+  it("o teto da brapi vale para o dia inteiro, somando as rodadas; o que não cabe vem do Yahoo", async () => {
     await resetChecks();
     const used = await db.marketCallsOn(domain.todayIn());
-    const { fn, calls } = fakeFetch((ticker) => json(quote(ticker, 40)));
+    const { fn, calls } = fakeFetch((ticker, url) => answer(ticker, url, 40));
     const result = await agents.runMarketData({
       log: silent,
       token: "token-de-teste",
@@ -740,8 +816,10 @@ describe("job de mercado", () => {
       fetch: fn,
       pauseMs: 0,
     });
-    expect(calls).toHaveLength(2);
-    expect(result.skipped).toBeGreaterThanOrEqual(2);
+    expect(calls.filter(isBrapi)).toHaveLength(2);
+    expect(calls.filter(isYahoo)).toHaveLength(2);
+    // Ninguém fica de fora: a cota só decide a fonte.
+    expect(result).toMatchObject({ calls: 2, quotes: 4, skipped: 0, failed: 0 });
     expect(await db.marketCallsOn(domain.todayIn())).toBe(used + 2);
   });
 
@@ -836,6 +914,89 @@ describe("job de mercado", () => {
     expect(status.find((row) => row.ticker === "KNRI11")!.dividendsRetryOn).not.toBeNull();
   });
 
+  it("sem token, rendimento de FII vem da B3 uma vez por dia; a rodada de hora em hora só traz cotação", async () => {
+    // HGLG11 ficou sem dividendsRetryOn (a brapi respondeu): na rodada completa ele entra de novo,
+    // mesmo consultado há pouco. KNRI11 espera os 30 dias do `plano`; os outros não são FII.
+    await inC((tx) => tx.execute(db.sql`update market_tickers set checked_at = now()`));
+    const b3 = {
+      cashDividends: [
+        {
+          label: "RENDIMENTO",
+          lastDatePrior: "30/10/2026",
+          paymentDate: "16/11/2026",
+          rate: "1,20000000000",
+        },
+        {
+          label: "AMORTIZACAO",
+          lastDatePrior: "30/10/2026",
+          paymentDate: "16/11/2026",
+          rate: "2,0",
+        },
+        { label: "RENDIMENTO", lastDatePrior: "29/09/2026", paymentDate: null, rate: "1,0" },
+      ],
+    };
+    const { fn, calls, withToken } = fakeFetch((ticker, url) => {
+      if (isB3(url)) return json(JSON.stringify(b3));
+      return answer(ticker, url, 150);
+    });
+    const full = await agents.runMarketData({
+      log: silent,
+      activeDays: 60,
+      fetch: fn,
+      pauseMs: 0,
+    });
+    expect(calls).toEqual([
+      expect.stringContaining("finance/chart/HGLG11.SA"),
+      expect.stringContaining("GetListedSupplementFunds"),
+    ]);
+    expect(withToken).toEqual([]);
+    expect(full).toMatchObject({ calls: 0, quotes: 1, dividends: 1, failed: 0 });
+    const rows = await inC((tx) =>
+      tx.select().from(marketDividends).where(eq(marketDividends.ticker, "HGLG11")),
+    );
+    // Mesma chave natural do rendimento que a brapi trouxe: a B3 atualiza a linha, não duplica.
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      kind: "rendimento",
+      comDate: "2026-10-30",
+      payDate: "2026-11-16",
+      ratePerShare: "1.20000000",
+      source: "b3",
+    });
+    const hglg = (await tickers()).find((row) => row.ticker === "HGLG11")!;
+    expect(hglg.status).toBe("ok");
+    // Amanhã: a B3 só é consultada de novo na rodada completa do dia seguinte.
+    expect(hglg.dividendsRetryOn! > domain.todayIn(domain.MARKET_RULES.timezone)).toBe(true);
+
+    // Rodada de hora em hora (ADR-0033): só cotação, sem índices, câmbio, catálogo nem proventos.
+    await inC((tx) => tx.execute(db.sql`update market_tickers set checked_at = 'epoch'`));
+    const hourly = fakeFetch((ticker, url) => answer(ticker, url, 151));
+    const quotes = await agents.runMarketData({
+      log: silent,
+      mode: "quotes",
+      catalog: true,
+      activeDays: 60,
+      fetch: hourly.fn,
+      pauseMs: 0,
+    });
+    expect(hourly.calls.every(isYahoo)).toBe(true);
+    expect(hourly.calls).toHaveLength(6);
+    expect(quotes).toMatchObject({ quotes: 6, dividends: 0, indices: 0, fx: 0, assets: 0 });
+    // Mesma cotação repetida (bolsa fechada) não duplica o histórico.
+    const at = new Date(closedAt * 1000);
+    expect(await db.listMarketQuoteHistory("HGLG11", at, at)).toHaveLength(1);
+    const soon = fakeFetch((ticker, url) => answer(ticker, url, 152));
+    await agents.runMarketData({
+      log: silent,
+      mode: "quotes",
+      activeDays: 60,
+      fetch: soon.fn,
+      pauseMs: 0,
+    });
+    // Consultados há menos de 50 minutos (checked_at é o relógio do banco): ninguém entra.
+    expect(soon.calls).toHaveLength(0);
+  });
+
   it("registra só contagens em ops, com o nome do job", async () => {
     const runs = await db.listAgentRuns(5);
     const row = runs.find((item) => item.agent === agents.MERCADO_AGENT);
@@ -902,8 +1063,8 @@ describe("job de mercado", () => {
         fees: "0.00",
       }),
     );
-    const { fn, calls } = fakeFetch((ticker) => json(quote(ticker, 40)));
-    await agents.runMarketData({
+    const { fn, calls } = fakeFetch((ticker, url) => answer(ticker, url, 40));
+    const collected = await agents.runMarketData({
       log: silent,
       token: "token-de-teste",
       activeDays: 60,
@@ -911,6 +1072,13 @@ describe("job de mercado", () => {
       pauseMs: 0,
     });
     expect(calls.some((url) => url.includes("quote/B3SA3"))).toBe(true);
+    // A cotação, o histórico (migração 0045) e os proventos entram na mesma rodada, sem "falha".
+    expect(collected).toMatchObject({ failed: 0 });
+    expect((await tickers()).find((row) => row.ticker === "B3SA3")).toMatchObject({ status: "ok" });
+    const at = new Date("2026-10-30T21:00:00.000Z");
+    expect(await db.listMarketQuoteHistory("B3SA3", at, at)).toMatchObject([
+      { price: "40.00000000", source: "brapi.dev" },
+    ]);
     await run();
     const [asset] = await inC((tx) =>
       tx.select().from(investments).where(eq(investments.id, holding!.id)),

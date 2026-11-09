@@ -138,6 +138,7 @@ export {
 } from "./diagnostics";
 export {
   addMarketCalls,
+  listMarketQuoteHistory,
   listMarketTickers,
   marketCallsOn,
   marketStatus,
