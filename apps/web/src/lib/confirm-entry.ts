@@ -68,7 +68,7 @@ class FrozenCurrency extends Error {
 }
 
 /** Compromisso na moeda principal, lançado na conta. Null só se a conta não existir mais. */
-async function commitmentEntry(
+export async function commitmentEntry(
   tx: TenantTx,
   accountId: string,
   value: string,

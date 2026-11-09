@@ -8,6 +8,7 @@ import {
   calculateVacation,
   money,
   parseMoney,
+  planForYear,
   toDbAmount,
   type IncomeKind,
   type Payslip,
@@ -35,6 +36,7 @@ import { formatDayMonth, formatMonthYear, monthName, toAmountInput } from "@/i18
 import type { loadIncome } from "@/lib/income-data";
 import { systemTextOf } from "@/i18n/system-text";
 import { saveIncome, stopIncome, type IncomeFormState } from "./actions";
+import { SeveranceCard } from "./severance-card";
 import { PayChoices, type LivePay } from "./pay-choices";
 import { useBrazilRules, useMoney } from "@/i18n/money";
 
@@ -698,6 +700,24 @@ function SourceCard({
           {source.yearView.vacations.length === 0 ? (
             <p className="text-xs text-muted">{t("extra.noVacation")}</p>
           ) : null}
+          <SeveranceCard
+            source={{
+              id: source.id,
+              name: source.name,
+              gross: source.amount,
+              dependents: source.dependents,
+              pension: source.pensionAmount,
+              jobStartedOn: planForYear(source.plans, data.year, source.vacationMonth).jobStartedOn,
+              thirteenthAdvancePaid:
+                source.firstPaid?.[data.year] ??
+                (planForYear(source.plans, data.year, source.vacationMonth).firstReceived
+                  ? (planForYear(source.plans, data.year, source.vacationMonth).firstAmount ?? "0")
+                  : "0"),
+            }}
+            tables={data.tables}
+            today={data.today}
+            writable={writable}
+          />
           {source.orphanMonths.map((month) => (
             <p
               key={month}

@@ -3521,6 +3521,45 @@
       "bad_job_date": "Enter a start date that exists.",
       "bad_sold": "Enter how many days, from 1 to 10.",
       "bad_month": "Check the details and try again."
+    },
+    "severance": {
+      "title": "Estimated severance",
+      "subtitle": "Leaving on {date} would pay about {total}, FGTS not included.",
+      "show": "Show details",
+      "hide": "Hide",
+      "exitDate": "Exit date",
+      "reason": "Reason",
+      "reasons": {
+        "sem_justa_causa": "Dismissal without cause",
+        "pedido": "Resignation",
+        "acordo": "Mutual agreement (CLT, art. 484-A)"
+      },
+      "fgts": "FGTS balance (¤)",
+      "fgtsHint": "Blank: estimated at 8% per month of service.",
+      "noticeIndemnified": "Notice paid in lieu (not worked)",
+      "lines": {
+        "salaryBalance": "Salary balance · {days} days",
+        "taxed": "INSS {inss} · tax {tax}",
+        "notice": "Notice in lieu · {days} days",
+        "thirteenth": "Proportional 13th · {twelfths}/12",
+        "vacation": "Proportional vacation + 1/3 · {twelfths}/12",
+        "total": "Net severance total",
+        "fgts": "FGTS to withdraw (balance + fine)",
+        "fgtsEstimated": "Estimated balance {balance} · fine {fine}",
+        "fgtsInformed": "Informed balance {balance} · fine {fine}"
+      },
+      "notes": {
+        "sem_inicio": "Without the job start date (in Adjust 13th and vacation), twelfths and FGTS use the current year.",
+        "ferias_vencidas_fora": "Accrued vacation not taken is not included: check the termination form.",
+        "pedido_sem_fgts": "Resignation has no fine and no FGTS withdrawal.",
+        "estimate": "Estimate with the month's official tables. Absences, overtime, bonuses and averages are not included. Check the company's termination form."
+      },
+      "settle": "Record severance",
+      "confirm": {
+        "title": "Record severance",
+        "text": "We will record {total} as income on {date} and end the income {name} in that month. FGTS stays out: record the withdrawal if you wish.",
+        "action": "Record and end income"
+      }
     }
   },
   "calendario": {

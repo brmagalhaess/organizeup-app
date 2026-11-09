@@ -22,8 +22,11 @@ Status: aceito (2026-10-30)
   `ScheduledEntry`. Assim o mês, o calendário, os vencimentos e a importação de extrato usam a renda sem
   código novo. Receber cria um lançamento e um `income_receipts`, que tira a previsão do mês. Apagar o
   lançamento devolve a previsão, e a chave única impede receber duas vezes.
-- **Início**: se o pagamento deste mês já passou, a renda começa no mês seguinte. O que já caiu na conta não
-  pode virar previsão atrasada nem somar no saldo previsto do calendário.
+- **Início** (revisto em 2026-11-09, a pedido do fundador): a renda aparece em todo mês desde o mês do
+  cadastro até ser encerrada, mesmo que o dia do pagamento já tenha passado. O que já caiu na conta a família
+  marca como recebido ("Receber"); a previsão atrasada é o aviso para isso, não um erro. O primeiro mês fica
+  editável em "Prevista desde" para corrigir rendas criadas pela regra anterior, que começavam no mês
+  seguinte e deixavam o mês do cadastro sem salário no painel e em Lançamentos.
 - **Só a CLT é calculada**. Nos outros tipos, o valor informado é o que cai na conta.
 
 ## Ponto em aberto: redução nas férias

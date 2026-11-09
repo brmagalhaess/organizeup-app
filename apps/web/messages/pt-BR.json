@@ -3521,6 +3521,45 @@
       "bad_job_date": "Informe a data de início em um dia que existe.",
       "bad_sold": "Informe quantos dias, de 1 a 10.",
       "bad_month": "Confira os dados e tente de novo."
+    },
+    "severance": {
+      "title": "Rescisão estimada",
+      "subtitle": "Se saísse em {date}, levaria cerca de {total}, sem o FGTS.",
+      "show": "Ver detalhes",
+      "hide": "Ocultar",
+      "exitDate": "Data da saída",
+      "reason": "Motivo",
+      "reasons": {
+        "sem_justa_causa": "Dispensa sem justa causa",
+        "pedido": "Pedido de demissão",
+        "acordo": "Acordo (CLT, art. 484-A)"
+      },
+      "fgts": "Saldo do FGTS (¤)",
+      "fgtsHint": "Em branco, estimamos 8% por mês de serviço.",
+      "noticeIndemnified": "Aviso prévio indenizado (sem trabalhar os dias)",
+      "lines": {
+        "salaryBalance": "Saldo de salário · {days} dias",
+        "taxed": "INSS {inss} · IR {tax}",
+        "notice": "Aviso prévio indenizado · {days} dias",
+        "thirteenth": "13º proporcional · {twelfths}/12",
+        "vacation": "Férias proporcionais + 1/3 · {twelfths}/12",
+        "total": "Total líquido da rescisão",
+        "fgts": "FGTS a sacar (saldo + multa)",
+        "fgtsEstimated": "Saldo estimado {balance} · multa {fine}",
+        "fgtsInformed": "Saldo informado {balance} · multa {fine}"
+      },
+      "notes": {
+        "sem_inicio": "Sem a data de início do emprego (em Ajustar 13º e férias), os avos e o FGTS são do ano corrente.",
+        "ferias_vencidas_fora": "Férias vencidas e não tiradas não entram: confira no TRCT.",
+        "pedido_sem_fgts": "No pedido de demissão não há multa nem saque do FGTS.",
+        "estimate": "Estimativa com as tabelas oficiais do mês. Faltas, horas extras, adicionais e médias não entram. Confira o TRCT da empresa."
+      },
+      "settle": "Lançar rescisão",
+      "confirm": {
+        "title": "Lançar rescisão",
+        "text": "Vamos lançar {total} como receita em {date} e encerrar a renda {name} nesse mês. O FGTS fica fora: lance o saque se quiser.",
+        "action": "Lançar e encerrar renda"
+      }
     }
   },
   "calendario": {

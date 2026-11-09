@@ -14,17 +14,21 @@ import {
   incomeSources,
   incomeYearPlans,
   people,
+  transactions,
   withHousehold,
   type TenantTx,
 } from "@organizeup/db";
 import {
   addMonths,
   brazilRulesApply,
+  calculateSeverance,
   carryVacationKeys,
+  fiscalTableFor,
   incomeKey,
   parseMoney,
   planForYear,
   settleReceived,
+  SEVERANCE_REASONS,
   thirteenthPlan,
   toDbAmount,
   todayIn,
@@ -32,6 +36,7 @@ import {
   yearMonthOf,
   type IncomeYearPlan,
   type PlanIssueCode,
+  type SeveranceReason,
 } from "@organizeup/domain";
 import {
   incomePlansBySource,
@@ -41,7 +46,7 @@ import {
 } from "@organizeup/agents";
 import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
-import { confirmCommitment } from "@/lib/confirm-entry";
+import { commitmentEntry, confirmCommitment } from "@/lib/confirm-entry";
 import { incomePlanStoreReady } from "@/lib/income-data";
 import { requireTenant } from "@/lib/session";
 import { planFromFields, samePlan, vacationReceiptMonths, type PeriodFields } from "./plan-fields";
@@ -412,3 +417,68 @@ export async function stopIncome(form: FormData): Promise<void> {
   });
   revalidatePath("/app", "layout");
 }
+
+/**
+ * Lança a rescisão estimada (ADR-0031): recalcula no servidor com a tabela do mês da saída, cria a
+ * receita realizada na conta e categoria da renda e encerra a renda no mês da saída.
+ */
+export async function settleSeverance(form: FormData): Promise<void> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx)) return;
+  const id = String(form.get("id") ?? "");
+  const exitDate = String(form.get("exitDate") ?? "");
+  const reason = String(form.get("reason") ?? "");
+  const fgtsRaw = String(form.get("fgtsBalance") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(exitDate) || !isSeveranceReason(reason)) return;
+  if (fgtsRaw && !/^\d+(\.\d{1,2})?$/.test(fgtsRaw)) return;
+  await withHousehold(ctx, async (tx) => {
+    const [row] = await tx.select().from(incomeSources).where(eq(incomeSources.id, id));
+    if (!row || row.kind !== "clt" || !row.isGross) return;
+    const [source] = await withIncomePlans(tx, [row]);
+    const year = Number(exitDate.slice(0, 4));
+    const plan = planForYear(source!.plans, year, row.vacationMonth);
+    const tables = await loadFiscalTables(tx);
+    const result = calculateSeverance(
+      {
+        gross: row.amount,
+        dependents: row.dependents,
+        pension: row.pensionAmount,
+        otherDiscounts: "0",
+        jobStartedOn: plan.jobStartedOn,
+        exitDate,
+        reason,
+        noticeIndemnified: form.get("noticeIndemnified") === "on",
+        thirteenthAdvancePaid:
+          source!.firstPaid?.[year] ?? (plan.firstReceived ? (plan.firstAmount ?? "0") : "0"),
+        fgtsBalance: fgtsRaw || null,
+      },
+      fiscalTableFor(tables, exitDate.slice(0, 7)),
+    );
+    const entryMoney = await commitmentEntry(tx, row.accountId, result.total, exitDate);
+    if (!entryMoney) return;
+    const [created] = await tx
+      .insert(transactions)
+      .values({
+        householdId: ctx.householdId,
+        accountId: row.accountId,
+        categoryId: row.categoryId,
+        kind: "receita",
+        description: `Rescisão · ${row.name}`,
+        ...entryMoney,
+        occurredOn: exitDate,
+        status: "realizado",
+        createdBy: ctx.userId,
+      })
+      .returning({ id: transactions.id });
+    await tx
+      .update(incomeSources)
+      .set({ endMonth: yearMonthOf(exitDate) })
+      .where(eq(incomeSources.id, id));
+    await audit(tx, ctx, "settle", "income_sources", id);
+    void created;
+  });
+  revalidatePath("/app", "layout");
+}
+
+const isSeveranceReason = (value: string): value is SeveranceReason =>
+  (SEVERANCE_REASONS as readonly string[]).includes(value);

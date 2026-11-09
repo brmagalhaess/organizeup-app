@@ -3521,6 +3521,45 @@
       "bad_job_date": "Escribe una fecha de inicio que exista.",
       "bad_sold": "Escribe cuántos días, de 1 a 10.",
       "bad_month": "Revisa los datos e inténtalo de nuevo."
+    },
+    "severance": {
+      "title": "Liquidación estimada",
+      "subtitle": "Saliendo el {date}, recibirías cerca de {total}, sin el FGTS.",
+      "show": "Ver detalles",
+      "hide": "Ocultar",
+      "exitDate": "Fecha de salida",
+      "reason": "Motivo",
+      "reasons": {
+        "sem_justa_causa": "Despido sin justa causa",
+        "pedido": "Renuncia",
+        "acordo": "Acuerdo (CLT, art. 484-A)"
+      },
+      "fgts": "Saldo del FGTS (¤)",
+      "fgtsHint": "En blanco, estimamos 8% por mes de servicio.",
+      "noticeIndemnified": "Preaviso indemnizado (sin trabajar los días)",
+      "lines": {
+        "salaryBalance": "Saldo de sueldo · {days} días",
+        "taxed": "INSS {inss} · IR {tax}",
+        "notice": "Preaviso indemnizado · {days} días",
+        "thirteenth": "13º proporcional · {twelfths}/12",
+        "vacation": "Vacaciones proporcionales + 1/3 · {twelfths}/12",
+        "total": "Total neto de la liquidación",
+        "fgts": "FGTS a retirar (saldo + multa)",
+        "fgtsEstimated": "Saldo estimado {balance} · multa {fine}",
+        "fgtsInformed": "Saldo informado {balance} · multa {fine}"
+      },
+      "notes": {
+        "sem_inicio": "Sin la fecha de inicio del empleo (en Ajustar 13º y vacaciones), los avos y el FGTS son del año corriente.",
+        "ferias_vencidas_fora": "Las vacaciones vencidas no tomadas no entran: revisa el TRCT.",
+        "pedido_sem_fgts": "En la renuncia no hay multa ni retiro del FGTS.",
+        "estimate": "Estimación con las tablas oficiales del mes. Faltas, horas extra, adicionales y promedios no entran. Revisa el TRCT de la empresa."
+      },
+      "settle": "Registrar liquidación",
+      "confirm": {
+        "title": "Registrar liquidación",
+        "text": "Registraremos {total} como ingreso el {date} y cerraremos el ingreso {name} en ese mes. El FGTS queda fuera: registra el retiro si quieres.",
+        "action": "Registrar y cerrar ingreso"
+      }
     }
   },
   "calendario": {
