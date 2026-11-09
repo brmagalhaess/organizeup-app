@@ -545,15 +545,19 @@ function IncomeForm({
           />
         </Field>
       </div>
-      {/* Renda nova com dia de pagamento já passado: sem isto, o mês atual ficava sem o salário. */}
-      {!source && Number(live.payDay) < Number(data.today.slice(8, 10)) ? (
-        <label className="flex items-start gap-3 rounded-xl bg-card-soft p-3 text-sm">
-          <input type="checkbox" name="includeCurrentMonth" className="mt-1" />
-          <span>
-            <span className="block font-medium">{tForm("includeCurrentMonth")}</span>
-            <span className="block text-xs text-muted">{tForm("includeCurrentMonthHint")}</span>
-          </span>
-        </label>
+      {/* Mês em que a previsão começa. Renda criada depois do dia do pagamento nascia no mês seguinte,
+          e o mês atual ficava sem salário: aqui a pessoa corrige. */}
+      {source ? (
+        <Field label={tForm("startMonth")} hint={tForm("startMonthHint")} error={errors.startMonth}>
+          <Input
+            name="startMonth"
+            type="month"
+            min="2000-01"
+            max="2100-12"
+            required
+            defaultValue={source.startMonth}
+          />
+        </Field>
       ) : null}
       {clt ? (
         <>

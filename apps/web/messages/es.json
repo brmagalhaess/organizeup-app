@@ -364,11 +364,11 @@
     },
     "portfolio": {
       "description": "Cuánto vale hoy lo que registraste.",
-      "newInvestment": "Nueva inversión",
+      "newInvestment": "Registrar operación",
       "empty": {
         "title": "Tu cartera empieza aquí",
         "text": "Registra acciones, fondos, renta fija o planes de pensiones. El valor entra en tu patrimonio. Si ya tienes ese dinero en una cuenta de inversión en el sistema, usa solo una de las dos opciones.",
-        "action": "Agregar inversión",
+        "action": "Registrar primera compra",
         "textAnywhere": "Registra inversiones en el exterior, fondos, renta fija o planes de pensiones. El valor entra en tu patrimonio. Si ya tienes ese dinero en una cuenta de inversión en el sistema, usa solo una de las dos opciones."
       },
       "stats": {
@@ -404,10 +404,11 @@
       },
       "disclaimer": "Las acciones, los FII (fondos inmobiliarios de Brasil), los ETF (fondos cotizados) y los BDR (certificados brasileños de acciones extranjeras) con código válido tienen precio automático, actualizado después del cierre de la B3 (bolsa de Brasil) y siempre con retraso. El resto lo informas tú. OrganizeUp organiza y compara, y no recomienda comprar ni vender inversiones. Consulta también los <link>dividendos</link>.",
       "sheets": {
-        "new": "Nueva inversión",
+        "new": "Registrar operación",
         "edit": "Editar inversión",
         "trade": "Registrar operación",
-        "value": "Actualizar valor"
+        "value": "Actualizar valor",
+        "operation": "Registrar operación"
       },
       "remove": {
         "title": "Eliminar inversión",
@@ -435,10 +436,10 @@
     "trades": {
       "title": "Movimientos",
       "description": "Todo lo que entró y salió de la cartera.",
-      "new": "Nueva operación",
+      "new": "Registrar operación",
       "empty": {
         "title": "Todavía no hay operaciones",
-        "text": "Agrega una inversión en Cartera y las compras aparecen aquí."
+        "text": "Registra la primera compra: la inversión y la operación nacen juntas."
       },
       "balance": "Saldo invertido en el período: {amount}",
       "balanceHint": "Compras menos ventas de las operaciones de abajo.",
@@ -660,6 +661,13 @@
         "noQuote": "Falta la cotización de la moneda de la cuenta en la fecha de alguna operación.",
         "failed": "No pudimos terminar ahora. No se guardó nada. Inténtalo de nuevo."
       }
+    },
+    "operation": {
+      "which": "¿Qué inversión?",
+      "choose": "Elige una inversión de la cartera",
+      "newOption": "Nueva inversión (todavía no está en la cartera)",
+      "newHint": "Registra el activo y la primera compra de una vez.",
+      "firstHint": "Primera operación: la inversión y la compra nacen juntas."
     }
   },
   "proventos": {
@@ -3399,8 +3407,8 @@
       "family": "De la familia",
       "received": "Lo que ya cobraste no cambia. El cambio vale para las próximas previsiones.",
       "save": "Guardar ingreso",
-      "includeCurrentMonth": "Todavía no cobré este mes",
-      "includeCurrentMonthHint": "El día de pago ya pasó. Marcado, el sueldo de este mes queda previsto; sin marcar, el ingreso empieza el mes que viene."
+      "startMonth": "Prevista desde",
+      "startMonthHint": "Primer mes en que el sueldo entra en las previsiones. Si este mes quedó sin sueldo, elige este mes."
     },
     "card": {
       "payDay": "cada día {day}",
@@ -3438,7 +3446,8 @@
       "firstAmount": "Escribe el importe como 3.000,00.",
       "planLater": "Todavía no pudimos guardar esta elección. Inténtalo de nuevo en unos minutos.",
       "registerFailed": "Marcamos la 1.ª cuota como recibida, pero no pudimos crear el movimiento. Regístralo en Movimientos.",
-      "invalid": "Revisa los datos e inténtalo de nuevo."
+      "invalid": "Revisa los datos e inténtalo de nuevo.",
+      "startMonth": "Indica el primer mes, como 2026-11."
     },
     "choices": {
       "thirteenth": "Aguinaldo (13.º salario)",

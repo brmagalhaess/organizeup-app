@@ -364,11 +364,11 @@
     },
     "portfolio": {
       "description": "What everything you recorded is worth today.",
-      "newInvestment": "New investment",
+      "newInvestment": "Record a trade",
       "empty": {
         "title": "Your portfolio starts here",
         "text": "Add stocks, funds, fixed income or private pensions. The value goes into your net worth. If you already keep this money in an investment account in the system, use only one of the two.",
-        "action": "Add investment",
+        "action": "Record first purchase",
         "textAnywhere": "Add foreign investments, funds, fixed income or private pensions. The value goes into your net worth. If you already keep this money in an investment account in the system, use only one of the two."
       },
       "stats": {
@@ -404,10 +404,11 @@
       },
       "disclaimer": "Stocks, FIIs (Brazilian real estate funds), ETFs (exchange-traded funds) and BDRs (Brazilian receipts for foreign stocks) with a valid ticker get automatic prices, updated after the B3 (Brazilian stock exchange) closes and always delayed. Everything else is entered by you. OrganizeUp organizes and compares, and does not recommend buying or selling investments. See also <link>dividends</link>.",
       "sheets": {
-        "new": "New investment",
+        "new": "Record a trade",
         "edit": "Edit investment",
-        "trade": "Record trade",
-        "value": "Update value"
+        "trade": "Record a trade",
+        "value": "Update value",
+        "operation": "Record a trade"
       },
       "remove": {
         "title": "Delete investment",
@@ -435,10 +436,10 @@
     "trades": {
       "title": "Transactions",
       "description": "Everything that went in and out of the portfolio.",
-      "new": "New trade",
+      "new": "Record a trade",
       "empty": {
         "title": "No trades yet",
-        "text": "Add an investment in Portfolio and the purchases show up here."
+        "text": "Record the first purchase: the investment and the trade are created together."
       },
       "balance": "Net invested in the period: {amount}",
       "balanceHint": "Buys minus sells in the trades below.",
@@ -660,6 +661,13 @@
         "noQuote": "The account currency has no exchange rate on the date of a trade.",
         "failed": "We could not finish right now. Nothing was saved. Please try again."
       }
+    },
+    "operation": {
+      "which": "Which investment?",
+      "choose": "Pick an investment from your portfolio",
+      "newOption": "New investment (not in the portfolio yet)",
+      "newHint": "Add the asset and its first purchase at once.",
+      "firstHint": "First trade: the investment and the purchase are created together."
     }
   },
   "proventos": {
@@ -3399,8 +3407,8 @@
       "family": "The family's",
       "received": "What you've already received doesn't change. The change applies to upcoming forecasts.",
       "save": "Save income",
-      "includeCurrentMonth": "I haven't been paid this month yet",
-      "includeCurrentMonthHint": "Payday has already passed. Checked, this month's salary is forecast; unchecked, the income starts next month."
+      "startMonth": "Forecast since",
+      "startMonthHint": "First month the salary enters the forecasts. If this month is missing the salary, pick this month."
     },
     "card": {
       "payDay": "every month on day {day}",
@@ -3438,7 +3446,8 @@
       "firstAmount": "Enter the amount like 3,000.00.",
       "planLater": "We couldn't save this choice yet. Try again in a few minutes.",
       "registerFailed": "We marked the 1st installment as received, but couldn't create the transaction. Record it in Transactions.",
-      "invalid": "Check the details and try again."
+      "invalid": "Check the details and try again.",
+      "startMonth": "Enter the first month, like 2026-11."
     },
     "choices": {
       "thirteenth": "13th salary",

@@ -364,11 +364,11 @@
     },
     "portfolio": {
       "description": "Quanto vale hoje o que você registrou.",
-      "newInvestment": "Novo investimento",
+      "newInvestment": "Registrar operação",
       "empty": {
         "title": "Sua carteira começa aqui",
         "text": "Cadastre ações, fundos, renda fixa ou previdência. O valor entra no seu patrimônio. Se já tiver esse dinheiro em uma conta de investimento no sistema, use só um dos dois.",
-        "action": "Adicionar investimento",
+        "action": "Registrar primeira compra",
         "textAnywhere": "Cadastre investimentos no exterior, fundos, renda fixa ou previdência. O valor entra no seu patrimônio. Se já tiver esse dinheiro em uma conta de investimento no sistema, use só um dos dois."
       },
       "stats": {
@@ -404,10 +404,11 @@
       },
       "disclaimer": "Ações, fundos imobiliários, ETFs e BDRs com código válido têm preço automático, atualizado depois do fechamento da bolsa e sempre com atraso. O resto é informado por você. O OrganizeUp organiza e compara, e não recomenda compra ou venda de investimentos. Veja também os <link>proventos</link>.",
       "sheets": {
-        "new": "Novo investimento",
+        "new": "Registrar operação",
         "edit": "Editar investimento",
         "trade": "Registrar operação",
-        "value": "Atualizar valor"
+        "value": "Atualizar valor",
+        "operation": "Registrar operação"
       },
       "remove": {
         "title": "Excluir investimento",
@@ -435,10 +436,10 @@
     "trades": {
       "title": "Lançamentos",
       "description": "Tudo o que entrou e saiu da carteira.",
-      "new": "Nova operação",
+      "new": "Registrar operação",
       "empty": {
         "title": "Nenhuma operação ainda",
-        "text": "Adicione um investimento na Carteira e as compras aparecem aqui."
+        "text": "Registre a primeira compra: o investimento e a operação nascem juntos."
       },
       "balance": "Saldo aplicado no período: {amount}",
       "balanceHint": "Compras menos vendas das operações abaixo.",
@@ -660,6 +661,13 @@
         "noQuote": "Falta a cotação da moeda da conta na data de alguma operação.",
         "failed": "Não conseguimos concluir agora. Nada foi gravado. Tente de novo."
       }
+    },
+    "operation": {
+      "which": "Qual investimento?",
+      "choose": "Escolha um investimento da carteira",
+      "newOption": "Novo investimento (ainda não está na carteira)",
+      "newHint": "Cadastre o ativo e a primeira compra de uma vez.",
+      "firstHint": "Primeira operação: o investimento e a compra nascem juntos."
     }
   },
   "proventos": {
@@ -3399,8 +3407,8 @@
       "family": "Da família",
       "received": "O que você já recebeu não muda. A alteração vale para as próximas previsões.",
       "save": "Salvar renda",
-      "includeCurrentMonth": "Ainda não recebi neste mês",
-      "includeCurrentMonthHint": "O dia do pagamento já passou. Marcado, o salário deste mês entra como previsto; desmarcado, a renda começa no mês que vem."
+      "startMonth": "Prevista desde",
+      "startMonthHint": "Primeiro mês em que o salário entra nas previsões. Se o mês atual ficou sem salário, escolha este mês."
     },
     "card": {
       "payDay": "todo dia {day}",
@@ -3438,7 +3446,8 @@
       "firstAmount": "Informe o valor como 3.000,00.",
       "planLater": "Ainda não deu para guardar esta escolha. Tente de novo em alguns minutos.",
       "registerFailed": "Marcamos a 1ª parcela como recebida, mas não deu para criar o lançamento. Use Lançamentos para registrar.",
-      "invalid": "Confira os dados e tente de novo."
+      "invalid": "Confira os dados e tente de novo.",
+      "startMonth": "Informe o mês inicial, como 2026-11."
     },
     "choices": {
       "thirteenth": "13º salário",

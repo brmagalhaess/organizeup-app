@@ -21,7 +21,6 @@ import {
   addMonths,
   brazilRulesApply,
   carryVacationKeys,
-  firstIncomeMonth,
   incomeKey,
   parseMoney,
   planForYear,
@@ -322,9 +321,16 @@ export async function saveIncome(_prev: IncomeFormState, form: FormData): Promis
     if (data.id) {
       // `vacation_month` é o padrão dos anos sem escolha: escolher um ano não pode mudar os outros.
       const { vacationMonth, ...rest } = values;
+      // Primeiro mês da previsão, editável: corrige a renda que nasceu no mês seguinte ao cadastro.
+      const startRaw = String(form.get("startMonth") ?? "");
+      const startMonth = /^(20\d{2}|2100)-(0[1-9]|1[0-2])$/.test(startRaw) ? startRaw : null;
+      if (startRaw && !startMonth) return refuse(t("errors.startMonth"));
       await tx
         .update(incomeSources)
-        .set(clt ? rest : { ...rest, vacationMonth })
+        .set({
+          ...(clt ? rest : { ...rest, vacationMonth }),
+          ...(startMonth ? { startMonth } : {}),
+        })
         .where(eq(incomeSources.id, data.id));
       await audit(tx, ctx, "update", "income_sources", data.id);
     } else {
@@ -333,11 +339,9 @@ export async function saveIncome(_prev: IncomeFormState, form: FormData): Promis
         .values({
           ...values,
           householdId: ctx.householdId,
-          // Quem ainda não recebeu neste mês quer ver o salário previsto já neste mês.
-          startMonth:
-            form.get("includeCurrentMonth") === "on"
-              ? yearMonthOf(today)
-              : firstIncomeMonth(today, data.payDay),
+          // A renda aparece em todo mês desde o cadastro até ser encerrada, mesmo que o dia do
+          // pagamento já tenha passado: o que já caiu na conta a pessoa marca como recebido.
+          startMonth: yearMonthOf(today),
         })
         .returning({ id: incomeSources.id });
       await audit(tx, ctx, "create", "income_sources", created!.id);

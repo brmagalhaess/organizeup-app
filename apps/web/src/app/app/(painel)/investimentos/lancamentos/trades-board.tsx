@@ -18,8 +18,8 @@ import {
 import { formatDate } from "@/i18n/format";
 import { systemTextOf } from "@/i18n/system-text";
 import { deleteTrade } from "../actions";
+import { OperationForm } from "../operation-form";
 import { quantityText, type Data, type Trade } from "../shared";
-import { TradeForm } from "../trade-form";
 import { useMoney } from "@/i18n/money";
 
 const sideKey = (unit: boolean, buying: boolean) =>
@@ -42,7 +42,6 @@ export function TradesBoard({
   const router = useRouter();
   const [removing, setRemoving] = useState<Trade | null>(null);
   const [adding, setAdding] = useState<{ nonce: number } | null>(null);
-  const [target, setTarget] = useState(assetId ?? data.rows[0]?.id ?? "");
   const close = () => setAdding(null);
 
   const lines = useMemo(
@@ -57,7 +56,6 @@ export function TradesBoard({
     const value = money(trade.quantity).times(trade.unitPrice);
     return trade.side === "compra" ? acc.plus(value) : acc.minus(value);
   }, money(0));
-  const selected = data.rows.find((row) => row.id === target) ?? null;
 
   return (
     <>
@@ -66,7 +64,7 @@ export function TradesBoard({
         title={t("trades.title")}
         description={t("trades.description")}
         actions={
-          writable && data.rows.length > 0 ? (
+          writable ? (
             <Button variant="secondary" onClick={() => setAdding({ nonce: Date.now() })}>
               <Plus className="size-4" aria-hidden="true" />
               {t("trades.new")}
@@ -77,7 +75,17 @@ export function TradesBoard({
 
       {data.rows.length === 0 ? (
         <Card>
-          <EmptyState title={t("trades.empty.title")} text={t("trades.empty.text")} />
+          <EmptyState
+            title={t("trades.empty.title")}
+            text={t("trades.empty.text")}
+            action={
+              writable ? (
+                <Button variant="secondary" small onClick={() => setAdding({ nonce: Date.now() })}>
+                  {t("trades.new")}
+                </Button>
+              ) : undefined
+            }
+          />
         </Card>
       ) : (
         <Card
@@ -157,26 +165,9 @@ export function TradesBoard({
       )}
 
       <Sheet open={adding !== null} onClose={close} title={t("trades.new")}>
-        <div className="flex flex-col gap-4">
-          <Field label={t("trades.investment")}>
-            <Select value={target} onChange={(event) => setTarget(event.target.value)}>
-              {data.rows.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.ticker ?? row.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          {selected ? (
-            <TradeForm
-              key={`${adding?.nonce}-${selected.id}`}
-              row={selected}
-              accounts={data.accounts}
-              today={data.today}
-              onDone={close}
-            />
-          ) : null}
-        </div>
+        {adding ? (
+          <OperationForm key={adding.nonce} data={data} assetId={assetId} onDone={close} />
+        ) : null}
       </Sheet>
       <ConfirmSheet
         open={removing !== null}

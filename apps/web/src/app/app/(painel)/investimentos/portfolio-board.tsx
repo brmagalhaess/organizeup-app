@@ -28,8 +28,8 @@ import {
   SuggestionFeedback,
   useSuggestionActions,
 } from "../sugestoes/suggestion-controls";
-import { AddAssetForm } from "./add-asset-form";
 import { deleteInvestment, saveInvestment, updateValue } from "./actions";
+import { OperationForm } from "./operation-form";
 import {
   classesFor,
   initial,
@@ -40,7 +40,6 @@ import {
   type Data,
   type Row,
 } from "./shared";
-import { TradeForm } from "./trade-form";
 import { useBrazilRules, useFamilyCurrency, useMoney } from "@/i18n/money";
 
 const daysSince = (date: string, today: string) =>
@@ -198,7 +197,8 @@ function PortfolioSuggestions({ items, writable }: { items: PendingItem[]; writa
 }
 
 type Sheet_ =
-  { type: "new"; nonce: number } | { type: "edit" | "trade" | "value"; nonce: number; id: string };
+  | { type: "operation"; nonce: number; id: string | null }
+  | { type: "edit" | "value"; nonce: number; id: string };
 
 export function PortfolioBoard({
   data,
@@ -221,11 +221,13 @@ export function PortfolioBoard({
   const [sheet, setSheet] = useState<Sheet_ | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
   const close = () => setSheet(null);
-  const open = (type: "new") => setSheet((s) => ({ type, nonce: (s?.nonce ?? 0) + 1 }));
-  const openRow = (type: "edit" | "trade" | "value", id: string) =>
+  // Uma operação só: com `id` nulo a pessoa escolhe o investimento (ou cria um) dentro do painel.
+  const openOperation = (id: string | null = null) =>
+    setSheet((s) => ({ type: "operation", id, nonce: (s?.nonce ?? 0) + 1 }));
+  const openRow = (type: "edit" | "value", id: string) =>
     setSheet((s) => ({ type, id, nonce: (s?.nonce ?? 0) + 1 }));
   const selected =
-    sheet && "id" in sheet ? (data.rows.find((row) => row.id === sheet.id) ?? null) : null;
+    sheet && sheet.id ? (data.rows.find((row) => row.id === sheet.id) ?? null) : null;
   const { summary } = data;
   const gain = money(summary.gain);
 
@@ -237,7 +239,7 @@ export function PortfolioBoard({
         description={t("portfolio.description")}
         actions={
           writable ? (
-            <Button variant="secondary" onClick={() => open("new")}>
+            <Button variant="secondary" onClick={() => openOperation()}>
               <Plus className="size-4" aria-hidden="true" />
               {t("portfolio.newInvestment")}
             </Button>
@@ -255,7 +257,7 @@ export function PortfolioBoard({
             text={t(brazil ? "portfolio.empty.text" : "portfolio.empty.textAnywhere")}
             action={
               writable ? (
-                <Button variant="secondary" small onClick={() => open("new")}>
+                <Button variant="secondary" small onClick={() => openOperation()}>
                   {t("portfolio.empty.action")}
                 </Button>
               ) : undefined
@@ -376,7 +378,7 @@ export function PortfolioBoard({
                               variant="secondary"
                               small
                               aria-label={t("portfolio.actions.tradeLabel", { name: row.name })}
-                              onClick={() => openRow("trade", row.id)}
+                              onClick={() => openOperation(row.id)}
                             >
                               {t("portfolio.actions.trade")}
                             </Button>
@@ -441,25 +443,11 @@ export function PortfolioBoard({
         onClose={close}
         title={sheet ? t(`portfolio.sheets.${sheet.type}`) : ""}
       >
-        {sheet?.type === "new" ? (
-          <AddAssetForm
-            key={sheet.nonce}
-            today={data.today}
-            accounts={data.accounts}
-            onDone={close}
-          />
+        {sheet?.type === "operation" ? (
+          <OperationForm key={sheet.nonce} data={data} assetId={sheet.id} onDone={close} />
         ) : null}
         {sheet?.type === "edit" && selected ? (
           <InvestmentForm key={sheet.nonce} row={selected} onDone={close} />
-        ) : null}
-        {sheet?.type === "trade" && selected ? (
-          <TradeForm
-            key={sheet.nonce}
-            row={selected}
-            accounts={data.accounts}
-            today={data.today}
-            onDone={close}
-          />
         ) : null}
         {sheet?.type === "value" && selected ? (
           <ValueForm key={sheet.nonce} row={selected} today={data.today} onDone={close} />
