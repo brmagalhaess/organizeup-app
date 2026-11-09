@@ -32,17 +32,21 @@ sempre (`summarizeMonth`, `spendingByCategory`, `incomeByCategory`, `summarizePo
 7. **Evolução e próximos vencimentos.** Doze meses até o escolhido, receitas e despesas no mesmo eixo, feito cheio e previsto
    claro, mês escolhido destacado. Cada mês é um link para ele. Tooltip e tabela para leitor de tela. Próximos vencimentos
    segue a data de hoje, com os 4 mais próximos, 3 no celular; fora do mês atual, o texto diz isso.
-8. **Por categoria.** Despesas, receitas e, quando houver, aportes, as maiores 6 e "Outras". Valor, percentual e barra com feito e previsto. Cada linha abre
+8. **Lançamentos do mês.** Até 40 receitas e despesas do mês escolhido, realizadas e previstas, cada uma com data, descrição,
+   valor e status (Realizado; Previsto; ou Atrasado quando prevista e a data já passou). Link "Ver todos em Lançamentos" abre
+   `/app/lancamentos` do mês escolhido. Passando de 40, um aviso abaixo da lista diz quantos itens ficaram de fora, com o mesmo
+   link.
+9. **Por categoria.** Despesas, receitas e, quando houver, aportes, as maiores 6 e "Outras". Valor, percentual e barra com feito e previsto. Cada linha abre
    `/app/lancamentos` filtrado. Despesa abre o cartão compra a compra, como no relatório de categorias, e soma feito e previsto.
-9. **Por conta.** Cada conta com receitas, despesas e saldo. Conta arquivada só aparece se teve movimento no mês. Cada cartão com
-   a fatura do mês, a situação dela e o que já está nas faturas seguintes. A fatura paga entra nas despesas da conta que paga: a
-   linha do cartão é detalhe e não soma de novo.
-10. **Investimentos.** Em todo mês: aportes e resgates do mês, das operações. Em mês passado: valor aplicado até o fim do mês,
+10. **Por conta.** Cada conta com receitas, despesas e saldo. Conta arquivada só aparece se teve movimento no mês. Cada cartão com
+    a fatura do mês, a situação dela e o que já está nas faturas seguintes. A fatura paga entra nas despesas da conta que paga: a
+    linha do cartão é detalhe e não soma de novo.
+11. **Investimentos.** Em todo mês: aportes e resgates do mês, das operações. Em mês passado: valor aplicado até o fim do mês,
     calculado das operações, com o rótulo "histórico". Carteira, ganho e divisão por classe são sempre a posição de hoje, com o rótulo
     "hoje": não existe histórico de preço (`market_quotes` guarda só a última cotação).
-11. **Proventos.** Recebidos no mês, anunciados com pagamento no mês, anunciados depois dele e total dos 12 meses até o escolhido.
+12. **Proventos.** Recebidos no mês, anunciados com pagamento no mês, anunciados depois dele e total dos 12 meses até o escolhido.
     Estimativa pelo histórico aparece à parte, com esse nome, do mês atual em diante. Só para família em real, como a tela de proventos.
-12. **Reserva e patrimônio.** Sempre a posição de hoje; fora do mês atual, o título diz "hoje". No computador ficam abaixo de
+13. **Reserva e patrimônio.** Sempre a posição de hoje; fora do mês atual, o título diz "hoje". No computador ficam abaixo de
     "Por conta".
 
 ## Regras da conta
