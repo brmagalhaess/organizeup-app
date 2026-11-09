@@ -588,6 +588,90 @@ describe("duplicidade", () => {
     expect(verdicts.get("a")).toMatchObject({ duplicate: "ja_lancado", reason: "operacao_igual" });
   });
 
+  it("nota sem código: o nome do papel vira código pelo catálogo ou pela carteira", () => {
+    const byName = (id: string, title: string, over: Partial<TradePayload> = {}) =>
+      trade(id, "f1", Number(id.slice(1)), { ticker: null, title, ...over });
+    const known: SmartKnown = {
+      ...NONE,
+      catalog: [
+        { ticker: "ABCD3", name: "ABCD SA ON NM" },
+        { ticker: "ABCD4", name: "ABCD SA PN" },
+      ],
+      holdings: [
+        {
+          id: "h",
+          name: "Fundo Exemplo CI",
+          ticker: "FEXM11",
+          assetClass: "fii",
+          events: [],
+          trades: [],
+        },
+      ],
+    };
+    const verdicts = planSmartDuplicates(
+      [
+        byName("l1", "ABCD SA ON"),
+        byName("l2", "FUNDO EXEMPLO CI"),
+        byName("l3", "EMPRESA DESCONHECIDA PN"),
+        // Dois papéis da mesma empresa sem o tipo: ninguém escolhe por ela.
+        byName("l4", "ABCD SA"),
+      ],
+      known,
+    );
+    expect(verdicts.get("l1")).toMatchObject({ duplicate: "novo", ticker: "ABCD3" });
+    expect(verdicts.get("l2")).toMatchObject({ duplicate: "novo", ticker: "FEXM11" });
+    expect(verdicts.get("l3")).toMatchObject({
+      duplicate: "possivel",
+      reason: "sem_codigo",
+      ticker: null,
+    });
+    expect(verdicts.get("l4")).toMatchObject({ reason: "sem_codigo", ticker: null });
+  });
+
+  it("código achado pelo nome entra na comparação com a carteira e com o outro arquivo", () => {
+    const owned: SmartKnown = {
+      ...NONE,
+      catalog: [{ ticker: "PETR4", name: "PETROBRAS PN" }],
+      holdings: [
+        {
+          id: "h",
+          name: "Petrobras",
+          ticker: "PETR4",
+          assetClass: "acao",
+          events: [],
+          trades: [
+            {
+              id: "t",
+              transactionId: null,
+              side: "compra",
+              occurredOn: "2026-10-10",
+              quantity: "10",
+              unitPrice: "30.00",
+              fees: "0.00",
+            },
+          ],
+        },
+      ],
+    };
+    const same = planSmartDuplicates(
+      [trade("a", "f1", 1, { ticker: null, title: "PETROBRAS PN N2" })],
+      owned,
+    );
+    expect(same.get("a")).toMatchObject({ duplicate: "ja_lancado", ticker: "PETR4" });
+    // Código já no arquivo: o veredito não repete o que a pessoa já tem.
+    const typed = planSmartDuplicates([trade("b", "f1", 1)], owned);
+    expect(typed.get("b")).toMatchObject({ duplicate: "ja_lancado", ticker: null });
+    const two = planSmartDuplicates(
+      [
+        trade("c", "f1", 1, { ticker: null, title: "PETROBRAS PN" }),
+        trade("d", "f2", 1, { ticker: null, title: "PETROBRAS PN" }),
+      ],
+      { ...NONE, catalog: [{ ticker: "PETR4", name: "PETROBRAS PN" }] },
+    );
+    expect(two.get("c")).toMatchObject({ duplicate: "novo", ticker: "PETR4" });
+    expect(two.get("d")).toMatchObject({ duplicate: "possivel", reason: "outro_arquivo" });
+  });
+
   it("dívida, renda, previsão, meta, provento e documento", () => {
     const debt: SmartItemRef = {
       id: "d",

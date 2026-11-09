@@ -30,6 +30,7 @@ import {
   loadStockEvents,
   lt,
   lte,
+  marketAssets,
   marketDividends,
   ne,
   or,
@@ -658,6 +659,10 @@ export async function loadSmartKnown(
         .where(inArray(marketDividends.ticker, tickers))
     : [];
   const blocks = await loadBlocks(tx);
+  // Tabela global, sem dado de família: a nota escreve o nome do papel, e o código vem daqui.
+  const catalog = await tx
+    .select({ ticker: marketAssets.ticker, name: marketAssets.name })
+    .from(marketAssets);
   const documents = await tx
     .select({ id: smartImportFiles.id, sha256: smartImportFiles.sha256 })
     .from(smartImportFiles)
@@ -676,6 +681,7 @@ export async function loadSmartKnown(
       trades: trades.filter((trade) => trade.investmentId === holding.id),
       events: stockEvents.filter((event) => event.investmentId === holding.id),
     })),
+    catalog,
     debts: kept(openDebts).map((debt) => {
       const rows = open.filter((row) => row.debtId === debt.id);
       const next = rows.toSorted((a, b) => a.number - b.number)[0];
@@ -891,6 +897,7 @@ export async function applySmartReview(
         : (verdict?.settlesFileId ?? null),
       plan_state: verdict?.plan?.state ?? null,
       plan_doubt: verdict?.plan?.doubt ?? null,
+      ticker: verdict?.ticker ?? null,
     };
   });
   for (let at = 0; at < rows.length; at += VERDICT_CHUNK) {
@@ -910,10 +917,14 @@ export async function applySmartReview(
             when 'provento' then item.payload || jsonb_build_object(
               'planState', verdict.plan_state,
               'planDoubt', verdict.plan_doubt)
+            when 'operacao' then case
+              when verdict.ticker is null then item.payload
+              else item.payload || jsonb_build_object('ticker', verdict.ticker) end
             else item.payload end
       from jsonb_to_recordset(${chunk}::jsonb) as verdict(
         id text, duplicate text, reason text, file text, selected boolean,
-        match_key text, match_month text, settles text, plan_state text, plan_doubt text)
+        match_key text, match_month text, settles text, plan_state text, plan_doubt text,
+        ticker text)
       where item.id = verdict.id`);
   }
   await tx

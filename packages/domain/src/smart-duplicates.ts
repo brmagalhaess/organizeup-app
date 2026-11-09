@@ -11,7 +11,12 @@ import {
   type DividendState,
   type MarketEventRef,
 } from "./dividend-import";
-import { planInvestmentImport, type KnownHolding, type PlannedTrade } from "./investment-import";
+import {
+  planInvestmentImport,
+  withResolvedTickers,
+  type KnownHolding,
+  type PlannedTrade,
+} from "./investment-import";
 import type { ParsedTrade } from "./investment-file";
 import { money, toDbAmount } from "./money";
 import type {
@@ -44,6 +49,8 @@ export interface SmartKnown {
   forecasts: KnownEntry[];
   purchases: Array<{ description: string; amount: string; date: string; cardId?: string | null }>;
   holdings: KnownHolding[];
+  /** Catálogo da bolsa: a nota de corretagem escreve o nome do papel, e o código sai daqui ou da carteira. */
+  catalog?: Array<{ ticker: string; name: string }>;
   debts: KnownDebt[];
   incomes: Array<{ name: string; amount: string }>;
   plans: Array<{ description: string; amount: string; kind: string }>;
@@ -69,6 +76,8 @@ export interface SmartVerdict {
   settlesFileId: string | null;
   /** Provento: o que o plano disse, para a gravação conferir que nada mudou. */
   plan: { state: DividendState; doubt: DividendDoubt | null } | null;
+  /** Operação sem código no arquivo: o que o catálogo ou a carteira disseram pelo nome do papel. */
+  ticker: string | null;
 }
 
 const fresh: SmartVerdict = {
@@ -79,6 +88,7 @@ const fresh: SmartVerdict = {
   matchMonth: null,
   settlesFileId: null,
   plan: null,
+  ticker: null,
 };
 
 const seen = (reason: string, otherFileId: string | null = null): SmartVerdict => ({
@@ -324,8 +334,18 @@ const planLines = (rows: PlannedTrade[]) => new Map(rows.map((row) => [row.line,
 /** Operações do lote viram carteira de faz de conta para o arquivo seguinte: nota e Negociação se acham. */
 function judgeTrades(items: SmartItemRef[], known: SmartKnown, out: Map<string, SmartVerdict>) {
   const pending = new Map<string, Array<KnownHolding["trades"][number] & { fileId: string }>>();
+  const names = [...(known.catalog ?? []), ...known.holdings];
   for (const [fileId, trades] of byFile(items.filter(isCompleteTrade))) {
-    const parsed = trades.map((item) => toParsedTrade(item.payload));
+    // A nota traz o nome do papel, não o código: sem resolver aqui, toda linha ficaria "sem código".
+    const parsed = withResolvedTickers(
+      trades.map((item) => toParsedTrade(item.payload)),
+      names,
+    );
+    const tickerOf = new Map(parsed.map((row) => [row.line, row.ticker]));
+    const judge = (item: TradeItem, verdict: SmartVerdict) => {
+      const ticker = tickerOf.get(item.payload.line) ?? null;
+      out.set(item.id, ticker && !item.payload.ticker ? { ...verdict, ticker } : verdict);
+    };
     const real = planLines(planInvestmentImport({ trades: parsed, holdings: known.holdings }));
     const tickers = new Set(known.holdings.map((holding) => holding.ticker));
     const withLot: KnownHolding[] = [
@@ -349,20 +369,21 @@ function judgeTrades(items: SmartItemRef[], known: SmartKnown, out: Map<string, 
       const row = real.get(item.payload.line)!;
       const inLot = lot.get(item.payload.line)!;
       if (row.state === "existe" || row.state === "taxas") {
-        out.set(item.id, seen("operacao_igual"));
+        judge(item, seen("operacao_igual"));
       } else if (row.state === "conferir") {
-        out.set(item.id, maybe(row.doubtReason ?? "parecida"));
+        judge(item, maybe(row.doubtReason ?? "parecida"));
       } else if (row.state === "ignorado") {
-        out.set(item.id, maybe(row.ignoreReason ?? "ignorada"));
+        judge(item, maybe(row.ignoreReason ?? "ignorada"));
       } else if (inLot.state === "existe" || inLot.state === "conferir") {
         const other = pending
-          .get(item.payload.ticker ?? "")
+          .get(tickerOf.get(item.payload.line) ?? "")
           ?.find((trade) => trade.fileId !== fileId);
-        out.set(item.id, maybe("outro_arquivo", other?.fileId ?? null));
-      } else out.set(item.id, fresh);
+        judge(item, maybe("outro_arquivo", other?.fileId ?? null));
+      } else judge(item, fresh);
     }
     for (const item of trades) {
-      const { ticker, side, date, quantity, unitPrice, fees } = item.payload;
+      const { side, date, quantity, unitPrice, fees } = item.payload;
+      const ticker = tickerOf.get(item.payload.line);
       if (!ticker) continue;
       const entry = {
         id: `lote:${item.id}`,

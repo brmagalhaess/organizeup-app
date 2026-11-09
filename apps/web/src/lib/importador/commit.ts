@@ -916,14 +916,7 @@ async function saveTrades(
         const payload = row.payload as TradePayload;
         const planned = byLine.get(payload.line);
         if (!planned || planned.state === "ignorado") {
-          await tx
-            .update(smartImportItems)
-            .set({
-              status: "falhou",
-              failure: planned?.ignoreReason ?? "falta_dado",
-              updatedAt: new Date(),
-            })
-            .where(eq(smartImportItems.id, row.id));
+          await failItems(tx, [row.id], planned?.ignoreReason ?? "falta_dado");
           outcomes.push("falhou");
           continue;
         }
@@ -938,34 +931,44 @@ async function saveTrades(
           outcomes.push("existia");
           continue;
         }
-        if (planned.date > today) throw new ItemRefused("data_futura");
-        const ticker = planned.ticker!;
-        const investmentId =
-          idOf.get(ticker) ??
-          (await createAsset(tx, ctx, ticker, holdings, catalog, today, currency));
-        if (!investmentId) throw new ItemRefused("sem_ativo");
-        idOf.set(ticker, investmentId);
-        const trade = {
-          side: planned.side,
-          occurredOn: planned.date,
-          quantity: planned.quantity,
-          unitPrice: planned.unitPrice,
-          fees: planned.fees,
-        };
-        const transactionId = payload.accountId
-          ? await recordTradeCash(tx, ctx, {
-              accountId: payload.accountId,
+        // Cada operação no seu savepoint: um papel que a carteira não conhece, ou uma data errada, deixa de
+        // fora só a própria linha, com o motivo dela, e as outras da nota gravam.
+        try {
+          await tx.transaction(async (step) => {
+            if (planned.date > today) throw new ItemRefused("data_futura");
+            const ticker = planned.ticker!;
+            const investmentId =
+              idOf.get(ticker) ??
+              (await createAsset(step, ctx, ticker, holdings, catalog, today, currency));
+            if (!investmentId) throw new ItemRefused("sem_ativo");
+            const trade = {
               side: planned.side,
-              name: ticker,
-              trade,
-            })
-          : null;
-        const [created] = await tx
-          .insert(investmentTrades)
-          .values({ householdId: ctx.householdId, investmentId, transactionId, ...trade })
-          .returning({ id: investmentTrades.id });
-        await markSaved(tx, ctx, row.id, { table: "investment_trades", id: created!.id });
-        outcomes.push("gravado");
+              occurredOn: planned.date,
+              quantity: planned.quantity,
+              unitPrice: planned.unitPrice,
+              fees: planned.fees,
+            };
+            const transactionId = payload.accountId
+              ? await recordTradeCash(step, ctx, {
+                  accountId: payload.accountId,
+                  side: planned.side,
+                  name: ticker,
+                  trade,
+                })
+              : null;
+            const [created] = await step
+              .insert(investmentTrades)
+              .values({ householdId: ctx.householdId, investmentId, transactionId, ...trade })
+              .returning({ id: investmentTrades.id });
+            await markSaved(step, ctx, row.id, { table: "investment_trades", id: created!.id });
+            // Só depois de o savepoint fechar: o ativo criado numa linha que falhou não existe mais.
+            idOf.set(ticker, investmentId);
+          });
+          outcomes.push("gravado");
+        } catch (error) {
+          await failItems(tx, [row.id], codeOf(error));
+          outcomes.push("falhou");
+        }
       }
       await audit(tx, ctx, "import", "investment_trades");
       return outcomes;
@@ -979,6 +982,13 @@ async function saveTrades(
 export type SmartApproval =
   | { ok: true; saved: number; existed: number; failed: number }
   | { ok: false; code: "somente_leitura" | "nada" | "cota" | "lendo"; left?: number };
+
+/**
+ * A nota escreve o nome do papel, não o código. Com o nome, a linha segue para a gravação, que procura o código
+ * no catálogo e na carteira; o que não achar sai como `sem_codigo`, e não como dado faltando.
+ */
+const missingTradeFields = (payload: TradePayload) =>
+  missingSmartFields(payload).filter((field) => field !== "ticker" || !payload.title);
 
 const countsAsEntry = (item: ItemRow) =>
   item.destination === "lancamento" || item.destination === "compra_cartao";
@@ -1054,7 +1064,7 @@ export async function approveSmartImport(
   if (trades.length > 0) {
     const open = trades.filter((item) => {
       if (!moduleAllowed(item, access)) return false;
-      return missingSmartFields(item.payload).length === 0;
+      return missingTradeFields(item.payload as TradePayload).length === 0;
     });
     const blocked = trades.filter((item) => !open.includes(item));
     for (const item of blocked) {

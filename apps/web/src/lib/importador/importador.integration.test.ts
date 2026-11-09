@@ -79,6 +79,16 @@ const session = async (userId: string, householdId: string) => {
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
+/** O catálogo da bolsa só o worker grava. O pool é escolhido na hora da chamada. */
+async function asWorker<T>(fn: () => Promise<T>): Promise<T> {
+  process.env.DATABASE_URL = urls.worker;
+  try {
+    return await fn();
+  } finally {
+    process.env.DATABASE_URL = urls.app;
+  }
+}
+
 const OFX = (lines: Array<[id: string, amount: string, memo: string]>) => `OFXHEADER:100
 <OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
 ${lines
@@ -686,6 +696,110 @@ describe("revisão de segurança", () => {
     );
     expect(rows.every((row) => row.failure === "linha_repetida")).toBe(true);
     expect(await db.withHousehold(owner, (tx) => tx.select().from(investmentTrades))).toEqual([]);
+  });
+
+  it("nota sem código: o nome do papel vira código pelo catálogo, e a operação grava", async () => {
+    await asWorker(() =>
+      db.saveMarketAssets([
+        {
+          ticker: "NOTA3",
+          name: "NOTA EXEMPLO ON NM",
+          assetClass: "acao",
+          sector: null,
+          close: null,
+        },
+        { ticker: "NOTA4", name: "NOTA EXEMPLO PN", assetClass: "acao", sector: null, close: null },
+      ]),
+    );
+    const byName = (descricao: string) => ({
+      destino: "operacao",
+      descricao,
+      operacao: "compra",
+      data: "2026-03-05",
+      quantidade: "100",
+      preco_unitario: "10.00",
+    });
+    const importId = await lotOf(owner, [["nota.txt", encode("nota por nome")]]);
+    const items = await read(
+      importId,
+      modelSays(answerOf("nota_corretagem", [byName("NOTA EXEMPLO ON"), byName("OUTRA PN")])),
+    );
+    const trades = items.filter((item) => item.destination === "operacao");
+    const found = trades.find(
+      (item) => item.payload.destination === "operacao" && item.payload.ticker,
+    );
+    const unknown = trades.find((item) => item !== found)!;
+    // Achou pelo nome: o código entra na proposta, a linha nasce nova e marcada.
+    expect(found).toMatchObject({
+      duplicate: "novo",
+      selected: true,
+      payload: { ticker: "NOTA3", title: "NOTA EXEMPLO ON" },
+    });
+    // Não achou: a dúvida diz que falta o código, em vez de "possível duplicado", e não nasce marcada.
+    expect(unknown).toMatchObject({
+      duplicate: "possivel",
+      duplicateReason: "sem_codigo",
+      selected: false,
+      payload: { ticker: null },
+    });
+    await db.withHousehold(owner, (tx) =>
+      tx
+        .update(smartImportItems)
+        .set({ selected: true })
+        .where(eq(smartImportItems.id, unknown.id)),
+    );
+    expect(await approveSmartImport(owner, importId)).toMatchObject({ saved: 2, failed: 1 });
+    const rows = await db.withHousehold(owner, (tx) =>
+      tx
+        .select({ ticker: investments.ticker, quantity: investmentTrades.quantity })
+        .from(investmentTrades)
+        .innerJoin(investments, eq(investments.id, investmentTrades.investmentId)),
+    );
+    expect(rows.map((row) => [row.ticker, Number(row.quantity)])).toEqual([["NOTA3", 100]]);
+    const [refused] = await db.withHousehold(owner, (tx) =>
+      tx.select().from(smartImportItems).where(eq(smartImportItems.id, unknown.id)),
+    );
+    // Falhou pelo motivo certo: a pessoa sabe que é o código que falta, e pode digitar na revisão.
+    expect(refused!.failure).toBe("sem_codigo");
+  });
+
+  it("papel que a carteira não conhece deixa de fora só a própria linha", async () => {
+    const trade = (ticker: string) => ({
+      destino: "operacao",
+      codigo_ativo: ticker,
+      operacao: "compra",
+      data: "2026-03-05",
+      quantidade: "10",
+      preco_unitario: "20.00",
+    });
+    await db.withHousehold(owner, (tx) =>
+      tx.insert(investments).values({
+        householdId: A.household,
+        name: "ABCD",
+        ticker: "ABCD3",
+        assetClass: "acao",
+      }),
+    );
+    const importId = await lotOf(owner, [["nota.txt", encode("nota com fii")]]);
+    await read(
+      importId,
+      // Final 11 fora do catálogo: FII, ETF ou unit, ninguém sabe. Antes, a nota inteira falhava junto.
+      modelSays(answerOf("nota_corretagem", [trade("ABCD3"), trade("ZZZZ11"), trade("WXYZ3")])),
+    );
+    expect(await approveSmartImport(owner, importId)).toMatchObject({ saved: 3, failed: 1 });
+    const rows = await db.withHousehold(owner, (tx) =>
+      tx.select().from(smartImportItems).where(eq(smartImportItems.destination, "operacao")),
+    );
+    const byTicker = new Map(
+      rows.map((row) => [(row.payload as { ticker: string }).ticker, row] as const),
+    );
+    expect(byTicker.get("ZZZZ11")).toMatchObject({ status: "falhou", failure: "ativo_sem_tipo" });
+    expect(byTicker.get("ABCD3")).toMatchObject({ status: "gravado" });
+    expect(byTicker.get("WXYZ3")).toMatchObject({ status: "gravado" });
+    const saved = await db.withHousehold(owner, (tx) =>
+      tx.select({ ticker: investments.ticker }).from(investments),
+    );
+    expect(saved.map((row) => row.ticker).toSorted()).toEqual(["ABCD3", "WXYZ3"]);
   });
 
   it("pagamento de fatura: as compras e a baixa, sem contar duas vezes", async () => {

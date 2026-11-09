@@ -377,7 +377,7 @@ function ItemRow({
             ) : item.duplicate === "ja_lancado" ? (
               <Badge tone="neutral">{t("duplicate.ja_lancado")}</Badge>
             ) : item.duplicate === "possivel" ? (
-              <Badge tone="warning">{t("duplicate.possivel")}</Badge>
+              <Badge tone="warning">{doubtText(t, item.duplicateReason)}</Badge>
             ) : (
               <Badge tone="success">{t("duplicate.novo")}</Badge>
             )}
@@ -434,6 +434,16 @@ function noteText(note: string, translate: unknown): string {
   const [mark, code, count] = note.split(":");
   if (mark !== "codigo" || !code || !t.has(`note.${code}`)) return note;
   return t(`note.${code}`, { count: Number(count ?? 0) });
+}
+
+/**
+ * "Possível duplicado" é o veredito genérico. Quando a comparação deu um motivo que a tela sabe explicar (sem
+ * código do ativo, venda maior que a posição...), é ele que aparece: a pessoa precisa saber o que corrigir.
+ */
+function doubtText(translate: unknown, reason: string | null): string {
+  const t = loose(translate);
+  if (reason && t.has(`failure.${reason}`)) return t(`failure.${reason}`);
+  return t("duplicate.possivel");
 }
 
 function failureText(translate: unknown, failure: string): string {
