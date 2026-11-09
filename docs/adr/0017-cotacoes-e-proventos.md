@@ -1,6 +1,6 @@
 # ADR-0017 — Cotações e proventos automáticos
 
-Status: aceito (2026-10-31)
+Status: aceito (2026-10-31). A cadência de coleta (rodadas às 18:30 e às 03:30) foi substituída pelo ADR-0033.
 
 Substitui a parte do ADR-0012 sobre cotação manual ("Preços vêm da família") e a frase "sem cotação
 externa" do ADR-0015 para o que está aqui. O AGENTS.md, regra 9, ainda diz "sem cotação externa"; continua
