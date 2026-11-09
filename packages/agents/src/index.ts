@@ -26,6 +26,7 @@ export {
   runMarketData,
   type MarketRunOptions,
   type MarketRunResult,
+  type MarketRunMode,
 } from "./run-mercado";
 export {
   cardBook,

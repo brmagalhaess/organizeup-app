@@ -28,7 +28,12 @@ import { migrate, migrateOptionsFromEnv } from "@organizeup/db/migrator";
 import { todayIn } from "@organizeup/domain";
 import { dailyAgentsSentinel, runDailyAgents } from "./daily-agents";
 import { reportingFailures, reportJobFailure } from "./diagnostics";
-import { MARKET_SCHEDULES, maxCallsPerDay, runMarketDataJob } from "./market-data";
+import {
+  MARKET_SCHEDULES,
+  maxCallsPerDay,
+  runMarketDataJob,
+  type MarketDataJob,
+} from "./market-data";
 import { runInsightsJob } from "./insights";
 import { snapshotNetWorth } from "./net-worth";
 import { runSmartImportJob } from "./smart-import";
@@ -157,12 +162,12 @@ async function main() {
     for (const { key } of MARKET_SCHEDULES) await boss.unschedule(JOB_QUEUES.marketData, key);
     log.info("agentes diários desligados (DAILY_AGENTS_ENABLED=false)");
   } else {
-    await boss.work(
+    await boss.work<MarketDataJob>(
       JOB_QUEUES.marketData,
-      reportingFailures(JOB_QUEUES.marketData, () => runMarketDataJob(log)),
+      reportingFailures(JOB_QUEUES.marketData, ([job]) => runMarketDataJob(log, job?.data ?? {})),
     );
-    for (const { key, cron } of MARKET_SCHEDULES) {
-      await boss.schedule(JOB_QUEUES.marketData, cron, null, { tz: "America/Sao_Paulo", key });
+    for (const { key, cron, mode } of MARKET_SCHEDULES) {
+      await boss.schedule(JOB_QUEUES.marketData, cron, { mode }, { tz: "America/Sao_Paulo", key });
     }
     await boss.work<DailyAgentsJob>(
       JOB_QUEUES.dailyAgents,

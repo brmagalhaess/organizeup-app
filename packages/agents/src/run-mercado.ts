@@ -58,6 +58,10 @@ export const DEFAULT_PAUSE_MS = 300;
 export const UNKNOWN_RETRY_DAYS = 30;
 /** Um ticker consultado há menos que isto fica de fora: a rodada seguinte cobre só o que faltou. */
 export const CHECK_INTERVAL_MS = 12 * 3_600_000;
+/** No pregão a cotação muda; entre duas coletas horárias basta este intervalo (ADR-0033). */
+export const QUOTES_INTERVAL_MS = 50 * 60_000;
+/** Rendimentos de FII saem uma vez por mês: conferir toda semana pega tudo sem gastar (ADR-0033). */
+export const DIVIDENDS_INTERVAL_DAYS = 7;
 /** Lançamento antigo precisa da cotação da data dele: a primeira rodada traz tudo isto. */
 export const FX_HISTORY_YEARS = 10;
 /** O histórico vem em blocos: uma resposta pequena, e quem falha no meio retoma de onde parou. */
@@ -71,9 +75,16 @@ interface Log {
   warn: (data: object, message: string) => void;
 }
 
+export type MarketRunMode = "full" | "quotes";
+
 export interface MarketRunOptions {
   /** Atualiza o catálogo de ativos. O job do worker sempre liga. */
   catalog?: boolean;
+  /**
+   * `quotes` (ADR-0033): só cotação, de hora em hora com a bolsa aberta; nada de índices, câmbio,
+   * catálogo ou proventos. `full` é a rodada de fechamento e da madrugada.
+   */
+  mode?: MarketRunMode;
   log: Log;
   token?: string | undefined;
   maxCallsPerDay?: number;
@@ -141,6 +152,8 @@ async function collectTickers(
 
 export async function runMarketData(options: MarketRunOptions): Promise<MarketRunResult> {
   const { log, token } = options;
+  const mode: MarketRunMode = options.mode ?? "full";
+  const quotesOnly = mode === "quotes";
   const startedAt = Date.now();
   const now = options.now ?? new Date();
   const today = todayIn(MARKET_RULES.timezone, now);
@@ -171,7 +184,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
   };
 
   // Índices primeiro: são de graça e não dependem de carteira.
-  for (const code of MARKET_INDEX_CODES) {
+  for (const code of quotesOnly ? [] : MARKET_INDEX_CODES) {
     try {
       result.indices += await saveMarketIndices(await fetchSgsSeries(code, client));
     } catch (error) {
@@ -181,7 +194,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
   }
 
   // Câmbio: do dia seguinte ao último gravado até hoje. Falhar deixa o resto para a próxima rodada.
-  for (const currency of FX_CURRENCIES) {
+  for (const currency of quotesOnly ? [] : FX_CURRENCIES) {
     try {
       const last = await lastMarketFxDate(currency);
       let from = last ? shiftDays(last, 1) : shiftYears(today, -FX_HISTORY_YEARS);
@@ -213,7 +226,10 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
       // O que a brapi recusou por plano agora vem das fontes gratuitas: volta na mesma hora.
       if (row.retryOn && row.retryOn > today && row.status !== "sem_plano") return false;
       if (row.status === "falha" || row.status === "sem_plano") return true;
-      return now.getTime() - row.checkedAt.getTime() >= CHECK_INTERVAL_MS;
+      return (
+        now.getTime() - row.checkedAt.getTime() >=
+        (quotesOnly ? QUOTES_INTERVAL_MS : CHECK_INTERVAL_MS)
+      );
     })
     // Os mais antigos primeiro: quem nunca foi consultado vem na frente.
     .sort(
@@ -231,7 +247,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
   };
 
   // O catálogo vem primeiro: é uma chamada para a bolsa inteira, e o cadastro depende dele.
-  if (options.catalog && available > 0) {
+  if (options.catalog && !quotesOnly && available > 0) {
     try {
       const catalog = await fetchBrapiCatalog(client);
       for (let page = 0; page < catalog.pages; page += 1) await spend();
@@ -255,10 +271,15 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
       lastStockEventNote: null,
     });
     result.quotes += 1;
-    if (tickers.get(ticker)) {
+    // Rendimentos: só na rodada completa e, por ativo, uma vez por semana (`dividendsRetryOn`).
+    const row = known.get(ticker);
+    const dividendsDue = !quotesOnly && (!row?.dividendsRetryOn || row.dividendsRetryOn <= today);
+    let dividendsRetryOn: string | null = null;
+    if (tickers.get(ticker) && dividendsDue) {
       await sleep(pause);
       try {
         result.dividends += await saveMarketDividends(await fetchB3FiiDividends(ticker, client));
+        dividendsRetryOn = shiftDays(today, DIVIDENDS_INTERVAL_DAYS);
       } catch (error) {
         log.warn(
           { code: codeOf(error), source: B3_SOURCE },
@@ -266,7 +287,13 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
         );
       }
     }
-    await saveMarketTicker({ ticker, status: "ok", retryOn: null, errorCode: null });
+    await saveMarketTicker({
+      ticker,
+      status: "ok",
+      retryOn: null,
+      errorCode: null,
+      dividendsRetryOn,
+    });
   };
 
   for (const [index, ticker] of due.entries()) {
@@ -307,7 +334,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
       let dividendsRetryOn: string | null = null;
       const row = known.get(ticker);
       const fiiDue = !row?.dividendsRetryOn || row.dividendsRetryOn <= today;
-      if (tickers.get(ticker) && dividends.length === 0 && fiiDue && available > 0) {
+      if (!quotesOnly && tickers.get(ticker) && dividends.length === 0 && fiiDue && available > 0) {
         await sleep(pause);
         await spend();
         try {
@@ -375,6 +402,6 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     applied: result.dividends + result.stockEvents + result.indices + result.fx,
     durationMs: Date.now() - startedAt,
   });
-  log.info({ ...result }, "mercado: rodada concluída");
+  log.info({ ...result, mode }, "mercado: rodada concluída");
   return result;
 }

@@ -1,6 +1,6 @@
 // Helpers das tabelas globais de mercado (ADR-0017). Sem dado de família e sem RLS de tenant: rodam
 // fora de withHousehold, como os do schema `ops`. Gravar exige a conexão ou_worker.
-import { asc, count, eq, ilike, like, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, gte, ilike, like, lte, or, sql } from "drizzle-orm";
 import type { FxCurrency } from "@organizeup/domain";
 import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
@@ -9,6 +9,7 @@ import {
   marketDividends,
   marketFx,
   marketIndices,
+  marketQuoteHistory,
   marketQuotes,
   marketStockEvents,
   marketTickers,
@@ -115,6 +116,26 @@ export async function saveMarketQuote(quote: MarketQuoteRow): Promise<void> {
       target: marketQuotes.ticker,
       set: { ...quote, updatedAt: sql`now()` },
     });
+  // Histórico (ADR-0033): uma linha por coleta; a mesma cotação repetida não duplica.
+  await appPool()
+    .db.insert(marketQuoteHistory)
+    .values({
+      ticker: quote.ticker,
+      quotedAt: quote.quotedAt,
+      price: quote.price,
+      source: quote.source,
+    })
+    .onConflictDoNothing();
+}
+
+/** Cotações coletadas de um ticker no intervalo, da mais antiga à mais nova (ADR-0033). */
+export async function listMarketQuoteHistory(ticker: string, from: Date, to: Date) {
+  const t = marketQuoteHistory;
+  return appPool()
+    .db.select({ quotedAt: t.quotedAt, price: t.price, source: t.source })
+    .from(t)
+    .where(and(eq(t.ticker, ticker), gte(t.quotedAt, from), lte(t.quotedAt, to)))
+    .orderBy(asc(t.quotedAt));
 }
 
 export interface MarketDividendRow {

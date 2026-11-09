@@ -927,6 +927,19 @@ export const marketQuotes = pgTable("market_quotes", {
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
+/** Cada coleta de preço (ADR-0033): de hora em hora no pregão e no fechamento. Append-only. */
+export const marketQuoteHistory = pgTable(
+  "market_quote_history",
+  {
+    ticker: text("ticker").notNull(),
+    quotedAt: ts("quoted_at").notNull(),
+    price: quantity("price").notNull(),
+    source: text("source").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.ticker, t.quotedAt] })],
+);
+
 /** `ratePerShare` é o valor pago na data, sem o ajuste por desdobramento que a fonte aplica. */
 export const marketDividends = pgTable(
   "market_dividends",
