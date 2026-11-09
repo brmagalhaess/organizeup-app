@@ -153,5 +153,9 @@
   "importador.errors.noPermission": "Tu rol en esta empresa no permite esto.",
   "importador.failure.so_brasil": "Solo para empresas en reales",
   "importador.upload.teto_itens": "La empresa tiene demasiados ítems esperando aprobación. Aprueba o borra un envío antes de mandar otro.",
-  "importador.failure.teto_itens": "La empresa tiene demasiados ítems esperando aprobación. Aprueba o borra un envío y lee de nuevo."
+  "importador.failure.teto_itens": "La empresa tiene demasiados ítems esperando aprobación. Aprueba o borra un envío y lee de nuevo.",
+  "auth.layout.headline": "El dinero de la empresa, con un plan para crecer con seguridad.",
+  "auth.layout.points.one": "Los datos de cada empresa están aislados y protegidos.",
+  "auth.layout.footer": "Hecho en Brasil para quien cuida su propio dinero.",
+  "familiaOnboarding.loading.title": "Abriendo el plan de tu empresa…"
 }

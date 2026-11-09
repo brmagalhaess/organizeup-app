@@ -153,5 +153,9 @@
   "importador.errors.noPermission": "Your role in this company does not allow this.",
   "importador.failure.so_brasil": "Only for companies in reais",
   "importador.upload.teto_itens": "The company has too many items waiting for approval. Approve or delete an upload before sending another.",
-  "importador.failure.teto_itens": "The company has too many items waiting for approval. Approve or delete an upload and read again."
+  "importador.failure.teto_itens": "The company has too many items waiting for approval. Approve or delete an upload and read again.",
+  "auth.layout.headline": "Your company's money, with a plan to grow safely.",
+  "auth.layout.points.one": "Each company's data is isolated and protected.",
+  "auth.layout.footer": "Made in Brazil for people who look after their own money.",
+  "familiaOnboarding.loading.title": "Opening your company's plan…"
 }

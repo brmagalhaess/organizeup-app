@@ -2079,6 +2079,17 @@
       "signInHint": "Entre na sua conta e peça outro em Configurações.",
       "goToPanel": "Ir para o painel",
       "signIn": "Entrar"
+    },
+    "layout": {
+      "eyebrow": "OrganizeUp",
+      "headline": "O dinheiro da família, com um plano até a aposentadoria.",
+      "lead": "Lançamentos, cartões, dívidas, investimentos e metas em um só lugar, com agentes que organizam tudo de madrugada.",
+      "points": {
+        "one": "Cada família tem seus dados isolados e protegidos.",
+        "two": "Receitas, despesas e previsões aparecem sozinhas no mês.",
+        "three": "Sugestões para aceitar, ignorar ou desfazer — você decide."
+      },
+      "footer": "Feito no Brasil para famílias brasileiras."
     }
   },
   "insights": {
@@ -2310,7 +2321,17 @@
       "text": "Aportes e resgates agora aparecem separados de despesas e receitas: guardar dinheiro não é gasto. O saldo das contas não mudou.",
       "action": "Entendi"
     },
-    "importFiles": "Importar arquivos"
+    "importFiles": "Importar arquivos",
+    "entries": {
+      "title": "Lançamentos do mês",
+      "description": "Tudo o que entrou, saiu ou está previsto em {month}: {count} itens.",
+      "descriptionEmpty": "Nada lançado nem previsto em {month}.",
+      "viewAll": "Ver todos em Lançamentos",
+      "more": "E mais {count} itens em Lançamentos.",
+      "planned": "Previsto",
+      "done": "Realizado",
+      "overdue": "Atrasado"
+    }
   },
   "settings": {
     "metaTitle": "Configurações",
@@ -3377,7 +3398,9 @@
       "person": "De quem é",
       "family": "Da família",
       "received": "O que você já recebeu não muda. A alteração vale para as próximas previsões.",
-      "save": "Salvar renda"
+      "save": "Salvar renda",
+      "includeCurrentMonth": "Ainda não recebi neste mês",
+      "includeCurrentMonthHint": "O dia do pagamento já passou. Marcado, o salário deste mês entra como previsto; desmarcado, a renda começa no mês que vem."
     },
     "card": {
       "payDay": "todo dia {day}",
@@ -3815,6 +3838,10 @@
       "goalAmountFormat": "Informe o valor como 80.000,00.",
       "goalAmount": "Informe quanto custa.",
       "goalAccount": "Escolha a conta de onde sai."
+    },
+    "loading": {
+      "title": "Abrindo o plano da sua família…",
+      "text": "Um instante: estamos carregando suas contas, previsões e sugestões."
     }
   },
   "agentes": {

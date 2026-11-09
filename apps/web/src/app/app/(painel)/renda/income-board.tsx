@@ -545,6 +545,16 @@ function IncomeForm({
           />
         </Field>
       </div>
+      {/* Renda nova com dia de pagamento já passado: sem isto, o mês atual ficava sem o salário. */}
+      {!source && Number(live.payDay) < Number(data.today.slice(8, 10)) ? (
+        <label className="flex items-start gap-3 rounded-xl bg-card-soft p-3 text-sm">
+          <input type="checkbox" name="includeCurrentMonth" className="mt-1" />
+          <span>
+            <span className="block font-medium">{tForm("includeCurrentMonth")}</span>
+            <span className="block text-xs text-muted">{tForm("includeCurrentMonthHint")}</span>
+          </span>
+        </label>
+      ) : null}
       {clt ? (
         <>
           {features.dependents ? (

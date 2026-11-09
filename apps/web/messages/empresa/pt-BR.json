@@ -153,5 +153,9 @@
   "importador.errors.noPermission": "Seu papel nesta empresa não permite isto.",
   "importador.failure.so_brasil": "Só para empresas em real",
   "importador.upload.teto_itens": "A empresa tem itens demais esperando aprovação. Aprove ou apague um envio antes de mandar outro.",
-  "importador.failure.teto_itens": "A empresa tem itens demais esperando aprovação. Aprove ou apague um envio e leia de novo."
+  "importador.failure.teto_itens": "A empresa tem itens demais esperando aprovação. Aprove ou apague um envio e leia de novo.",
+  "auth.layout.headline": "O dinheiro da empresa, com um plano para crescer com segurança.",
+  "auth.layout.points.one": "Cada empresa tem seus dados isolados e protegidos.",
+  "auth.layout.footer": "Feito no Brasil para quem cuida do próprio dinheiro.",
+  "familiaOnboarding.loading.title": "Abrindo o plano da sua empresa…"
 }

@@ -2079,6 +2079,17 @@
       "signInHint": "Sign in to your account and ask for another one in Settings.",
       "goToPanel": "Go to the dashboard",
       "signIn": "Sign in"
+    },
+    "layout": {
+      "eyebrow": "OrganizeUp",
+      "headline": "Your family's money, with a plan all the way to retirement.",
+      "lead": "Transactions, cards, debts, investments and goals in one place, with agents that tidy everything overnight.",
+      "points": {
+        "one": "Each family's data is isolated and protected.",
+        "two": "Income, expenses and forecasts show up in the month by themselves.",
+        "three": "Suggestions to accept, ignore or undo — you decide."
+      },
+      "footer": "Made in Brazil for families."
     }
   },
   "insights": {
@@ -2310,7 +2321,17 @@
       "text": "Contributions and redemptions now appear apart from expenses and income: saving money is not spending. Your account balances have not changed.",
       "action": "Got it"
     },
-    "importFiles": "Import files"
+    "importFiles": "Import files",
+    "entries": {
+      "title": "This month's entries",
+      "description": "Everything that came in, went out or is planned in {month}: {count} items.",
+      "descriptionEmpty": "Nothing recorded or planned in {month}.",
+      "viewAll": "See all in Transactions",
+      "more": "And {count} more in Transactions.",
+      "planned": "Planned",
+      "done": "Done",
+      "overdue": "Overdue"
+    }
   },
   "settings": {
     "metaTitle": "Settings",
@@ -3377,7 +3398,9 @@
       "person": "Whose income",
       "family": "The family's",
       "received": "What you've already received doesn't change. The change applies to upcoming forecasts.",
-      "save": "Save income"
+      "save": "Save income",
+      "includeCurrentMonth": "I haven't been paid this month yet",
+      "includeCurrentMonthHint": "Payday has already passed. Checked, this month's salary is forecast; unchecked, the income starts next month."
     },
     "card": {
       "payDay": "every month on day {day}",
@@ -3815,6 +3838,10 @@
       "goalAmountFormat": "Enter the amount like 80,000.00.",
       "goalAmount": "Enter how much it costs.",
       "goalAccount": "Choose the account it comes from."
+    },
+    "loading": {
+      "title": "Opening your family's plan…",
+      "text": "One moment: loading your accounts, forecasts and suggestions."
     }
   },
   "agentes": {

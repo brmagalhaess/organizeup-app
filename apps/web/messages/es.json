@@ -2079,6 +2079,17 @@
       "signInHint": "Entra en tu cuenta y pide otro en Configuración.",
       "goToPanel": "Ir al panel",
       "signIn": "Entrar"
+    },
+    "layout": {
+      "eyebrow": "OrganizeUp",
+      "headline": "El dinero de la familia, con un plan hasta la jubilación.",
+      "lead": "Movimientos, tarjetas, deudas, inversiones y metas en un solo lugar, con agentes que ordenan todo de madrugada.",
+      "points": {
+        "one": "Los datos de cada familia están aislados y protegidos.",
+        "two": "Ingresos, gastos y previsiones aparecen solos en el mes.",
+        "three": "Sugerencias para aceptar, ignorar o deshacer: tú decides."
+      },
+      "footer": "Hecho en Brasil para familias."
     }
   },
   "insights": {
@@ -2310,7 +2321,17 @@
       "text": "Los aportes y rescates ahora aparecen separados de gastos e ingresos: guardar dinero no es gastar. El saldo de las cuentas no cambió.",
       "action": "Entendido"
     },
-    "importFiles": "Importar archivos"
+    "importFiles": "Importar archivos",
+    "entries": {
+      "title": "Movimientos del mes",
+      "description": "Todo lo que entró, salió o está previsto en {month}: {count} ítems.",
+      "descriptionEmpty": "Nada registrado ni previsto en {month}.",
+      "viewAll": "Ver todos en Movimientos",
+      "more": "Y {count} más en Movimientos.",
+      "planned": "Previsto",
+      "done": "Realizado",
+      "overdue": "Atrasado"
+    }
   },
   "settings": {
     "metaTitle": "Configuración",
@@ -3377,7 +3398,9 @@
       "person": "De quién es",
       "family": "De la familia",
       "received": "Lo que ya cobraste no cambia. El cambio vale para las próximas previsiones.",
-      "save": "Guardar ingreso"
+      "save": "Guardar ingreso",
+      "includeCurrentMonth": "Todavía no cobré este mes",
+      "includeCurrentMonthHint": "El día de pago ya pasó. Marcado, el sueldo de este mes queda previsto; sin marcar, el ingreso empieza el mes que viene."
     },
     "card": {
       "payDay": "cada día {day}",
@@ -3815,6 +3838,10 @@
       "goalAmountFormat": "Escribe el importe como 80.000,00.",
       "goalAmount": "Indica cuánto cuesta.",
       "goalAccount": "Elige la cuenta de donde sale."
+    },
+    "loading": {
+      "title": "Abriendo el plan de tu familia…",
+      "text": "Un momento: cargando tus cuentas, previsiones y sugerencias."
     }
   },
   "agentes": {

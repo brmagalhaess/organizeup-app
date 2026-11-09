@@ -153,6 +153,85 @@ function Upcoming({
   );
 }
 
+const ENTRIES_SHOWN = 40;
+
+/** Tudo o que entrou, saiu ou está previsto no mês, para conferir sem sair do painel. */
+function MonthEntries({
+  data,
+  label,
+  moneyText,
+  describe,
+}: {
+  data: Overview;
+  label: string;
+  moneyText: MoneyText;
+  describe: (entry: Overview["entries"][number]) => string;
+}) {
+  const t = useTranslations("dashboard.entries");
+  const locale = useLocale();
+  const total = data.entries.length;
+  const shown = data.entries.slice(0, ENTRIES_SHOWN);
+  const href = `/app/lancamentos?m=${data.period.month}`;
+  return (
+    <Card
+      title={t("title")}
+      description={
+        total === 0
+          ? t("descriptionEmpty", { month: label })
+          : t("description", { month: label, count: total })
+      }
+      actions={
+        <Link href={href} className="text-sm font-medium underline-offset-2 hover:underline">
+          {t("viewAll")}
+        </Link>
+      }
+    >
+      {total === 0 ? null : (
+        <>
+          <ul className="m-0 list-none divide-y divide-line p-0" aria-label={t("title")}>
+            {shown.map((entry) => {
+              const overdue = entry.status === "previsto" && entry.date < data.today;
+              return (
+                <li key={entry.key} className="flex items-center gap-3 py-2.5">
+                  <span className="w-12 shrink-0 text-sm tabular-nums text-muted">
+                    {formatDayMonth(entry.date, locale)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{describe(entry)}</p>
+                    <p className="text-xs text-muted">
+                      {entry.status === "realizado"
+                        ? t("done")
+                        : overdue
+                          ? t("overdue")
+                          : t("planned")}
+                    </p>
+                  </div>
+                  <p
+                    className={cx(
+                      "whitespace-nowrap text-sm font-medium tabular-nums",
+                      amountClass(entry.kind),
+                    )}
+                  >
+                    {entry.kind === "receita" ? "+ " : "− "}
+                    {moneyText(entry.amount)}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+          {total > shown.length ? (
+            <p className="mt-3 text-xs text-muted">
+              <Link href={href} className="underline underline-offset-2">
+                {t("more", { count: total - shown.length })}
+              </Link>
+            </p>
+          ) : null}
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default async function OverviewPage({
   searchParams,
 }: {
@@ -550,6 +629,18 @@ export default async function OverviewPage({
           }
         />
       </div>
+
+      <MonthEntries
+        data={data}
+        label={label}
+        moneyText={moneyText}
+        describe={(entry) =>
+          system.description(entry.description, {
+            category: data.categoryNames.get(entry.categoryId),
+            bill: entry.source === "fatura",
+          })
+        }
+      />
 
       <div id="categorias" className="scroll-mt-20">
         <Card

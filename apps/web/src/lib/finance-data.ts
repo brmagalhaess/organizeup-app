@@ -273,6 +273,8 @@ export async function loadOverview(ctx: TenantContext, requestedMonth?: unknown)
       },
       summary: summaryOf(month),
       previousSummary: summaryOf(addMonths(month, -1)),
+      /** Tudo do mês escolhido, lançado ou previsto, do mais recente ao mais antigo: a lista do painel. */
+      entries: [...inMonth(month)].sort((a, b) => b.date.localeCompare(a.date)),
       series: months.map((ym) => planPoint(ym, summaryOf(ym))),
       expenses: expenseLines(flows, lines, cardCategoryId, rule),
       incomes: incomeLines(flows, rule),

@@ -333,7 +333,11 @@ export async function saveIncome(_prev: IncomeFormState, form: FormData): Promis
         .values({
           ...values,
           householdId: ctx.householdId,
-          startMonth: firstIncomeMonth(today, data.payDay),
+          // Quem ainda não recebeu neste mês quer ver o salário previsto já neste mês.
+          startMonth:
+            form.get("includeCurrentMonth") === "on"
+              ? yearMonthOf(today)
+              : firstIncomeMonth(today, data.payDay),
         })
         .returning({ id: incomeSources.id });
       await audit(tx, ctx, "create", "income_sources", created!.id);
