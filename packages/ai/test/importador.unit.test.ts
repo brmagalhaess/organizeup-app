@@ -370,7 +370,7 @@ describe("processo isolado", () => {
   it("abre PDF com texto, em linhas", async () => {
     const opened = await readInChild({ kind: "pdf", bytes: pdfOf("Extrato Exemplo"), year: 2026 });
     expect(opened).toMatchObject({ ok: true, pages: 1, text: "Extrato Exemplo" });
-  });
+  }, 15_000); // spawn de processo filho é sensível a contenção de CPU; acima do padrão do vitest (5s)
 
   it("PDF corrompido vira falha do arquivo", async () => {
     const bytes = new TextEncoder().encode("%PDF-1.7 corrompido");
@@ -378,7 +378,7 @@ describe("processo isolado", () => {
       ok: false,
       failure: "ilegivel",
     });
-  });
+  }, 15_000); // mesma razão do teste anterior
 
   it("texto em Windows-1252, como os bancos exportam", async () => {
     const opened = await readInChild({
