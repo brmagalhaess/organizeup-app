@@ -756,7 +756,10 @@
     },
     "monthly": {
       "title": "Mês a mês",
-      "setGoal": "Definir meta"
+      "setGoal": "Definir meta",
+      "emptyTitle": "Nenhum provento pago nos últimos 12 meses",
+      "emptyText": "O gráfico mostra, mês a mês, o que já foi pago nos últimos 12 meses.",
+      "emptyUpcoming": "Há {amount} anunciados, com o primeiro pagamento em {date}. Cada provento entra no gráfico no dia em que é pago."
     },
     "upcoming": {
       "title": "A receber",

@@ -756,7 +756,10 @@
     },
     "monthly": {
       "title": "Month by month",
-      "setGoal": "Set goal"
+      "setGoal": "Set goal",
+      "emptyTitle": "No dividends paid in the last 12 months",
+      "emptyText": "The chart shows, month by month, what was paid in the last 12 months.",
+      "emptyUpcoming": "{amount} is announced, with the first payment on {date}. Each dividend joins the chart on the day it is paid."
     },
     "upcoming": {
       "title": "Upcoming",

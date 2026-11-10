@@ -32,6 +32,7 @@ import {
 import type { loadDividends } from "@/lib/investments";
 import { addDividend, deleteDividend, saveGoal, type FormState } from "./actions";
 import { DividendsChart } from "./dividends-chart";
+import { monthlyChartState } from "@/lib/dividends-chart-state";
 import type { loadDividendOutlook } from "./outlook";
 import { useMoney } from "@/i18n/money";
 
@@ -330,6 +331,7 @@ export function DividendsBoard({
   const close = () => setSheet(null);
   const open = (type: "new" | "goal") => setSheet((s) => ({ type, nonce: (s?.nonce ?? 0) + 1 }));
   const { summary } = data;
+  const chartState = monthlyChartState(summary.months, data.upcoming.length);
   const canAdd = writable && data.investments.length > 0;
 
   return (
@@ -407,7 +409,19 @@ export function DividendsBoard({
               ) : null
             }
           >
-            <DividendsChart points={summary.months} />
+            {chartState === "barras" ? (
+              <DividendsChart points={summary.months} />
+            ) : chartState === "a_receber" ? (
+              <EmptyState
+                title={t("monthly.emptyTitle")}
+                text={t("monthly.emptyUpcoming", {
+                  amount: moneyText(data.upcomingNet),
+                  date: formatDate(data.upcoming[0]!.paidOn, locale),
+                })}
+              />
+            ) : (
+              <EmptyState title={t("monthly.emptyTitle")} text={t("monthly.emptyText")} />
+            )}
           </Card>
 
           {outlook ? <ForecastCard months={outlook.forecast} /> : null}

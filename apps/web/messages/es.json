@@ -756,7 +756,10 @@
     },
     "monthly": {
       "title": "Mes a mes",
-      "setGoal": "Definir meta"
+      "setGoal": "Definir meta",
+      "emptyTitle": "Ningún dividendo pagado en los últimos 12 meses",
+      "emptyText": "El gráfico muestra, mes a mes, lo que ya se pagó en los últimos 12 meses.",
+      "emptyUpcoming": "Hay {amount} anunciados, con el primer pago el {date}. Cada dividendo entra en el gráfico el día en que se paga."
     },
     "upcoming": {
       "title": "Por recibir",
