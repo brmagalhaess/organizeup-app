@@ -22,6 +22,8 @@ import {
 } from "@organizeup/db";
 import {
   addMonths,
+  DIVIDEND_PERIODS,
+  dividendMonths,
   dividendsInMonth,
   investedUntil,
   marketDateOf,
@@ -34,11 +36,13 @@ import {
   receivedDividends,
   summarizeDividends,
   summarizePortfolio,
-  toDbAmount,
   todayIn,
+  toDbAmount,
   tradesByMonth,
   upcomingDividends,
   yearMonthOf,
+  type DividendMonth,
+  type DividendPeriod,
 } from "@organizeup/domain";
 
 /** Carteira com posição, valor, situação da cotação e comparação com as metas por classe. */
@@ -87,18 +91,26 @@ export async function loadPortfolio(ctx: TenantContext) {
     }));
     const summary = summarizePortfolio(list, targets);
     const received = summarizeDividends(receivedDividends(paid, today), yearMonthOf(today), null);
+    const dividends12Of = new Map(
+      received.byInvestment.map((item) => [item.investmentId, item.net]),
+    );
+    const upcomingNet = toDbAmount(
+      upcomingDividends(paid, today).reduce((acc, row) => acc.plus(netDividend(row)), money(0)),
+    );
     return {
       today,
       summary,
       targets,
       accounts: accountRows.filter((row) => !row.archived),
       dividends12: received.last12,
+      dividendsUpcomingNet: upcomingNet,
       rows: list.map((holding, index) => {
         const ticker = normalizeTicker(holding.ticker);
         const quote = ticker ? quoteOf.get(ticker) : undefined;
         return {
           ...holding,
           ...summary.rows[index]!,
+          dividends12: dividends12Of.get(holding.id) ?? null,
           quoteState: quoteStateOf({
             assetClass: holding.assetClass,
             ticker: holding.ticker,
@@ -186,6 +198,15 @@ export async function loadDividends(ctx: TenantContext) {
     const received = receivedDividends(rows, today);
     const upcoming = upcomingDividends(rows, today);
     const summary = summarizeDividends(received, yearMonthOf(today), goal?.monthlyAmount ?? null);
+    // "Desde o início" começa no mês do primeiro ativo: a primeira operação, ou o primeiro provento.
+    const firstDates = [
+      ...trades.map((trade) => trade.occurredOn),
+      ...rows.map((row) => row.paidOn),
+    ];
+    const start = firstDates.length === 0 ? null : yearMonthOf(firstDates.sort()[0]!);
+    const chart = Object.fromEntries(
+      DIVIDEND_PERIODS.map((period) => [period, dividendMonths(rows, today, period, start)]),
+    ) as Record<DividendPeriod, DividendMonth[]>;
     const nameOf = new Map(holdings.map((h) => [h.id, h.ticker ?? h.name]));
     const portfolio = summarizePortfolio(
       holdings.map((holding) => ({
@@ -216,6 +237,7 @@ export async function loadDividends(ctx: TenantContext) {
     return {
       today,
       summary,
+      chart,
       goal: goal?.monthlyAmount ?? null,
       investments: holdings.map((h) => ({ id: h.id, label: h.ticker ?? h.name })),
       rows: received.slice(0, 60).map(withLabel),

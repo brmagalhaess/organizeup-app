@@ -296,7 +296,13 @@ export function PortfolioBoard({
             <StatTile
               label={t("portfolio.stats.dividends")}
               value={moneyText(data.dividends12)}
-              hint={t("portfolio.stats.dividendsHint")}
+              hint={
+                money(data.dividendsUpcomingNet).gt(0)
+                  ? t("portfolio.stats.dividendsUpcoming", {
+                      amount: moneyText(data.dividendsUpcomingNet),
+                    })
+                  : t("portfolio.stats.dividendsHint")
+              }
             />
           </dl>
 
@@ -352,6 +358,11 @@ export function PortfolioBoard({
                               </p>
                             );
                           })}
+                          {row.dividends12 && money(row.dividends12).gt(0) ? (
+                            <p className="text-xs text-muted">
+                              {t("portfolio.dividends12", { amount: moneyText(row.dividends12) })}
+                            </p>
+                          ) : null}
                           {row.position.oversold ? (
                             <p className="text-xs text-danger">{t("portfolio.oversold")}</p>
                           ) : null}

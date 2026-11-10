@@ -1,18 +1,16 @@
-// O que o gráfico "Mês a mês" de proventos mostra quando os 12 meses somam zero.
+// O que o gráfico "Mês a mês" de proventos mostra quando o período inteiro soma zero.
 import { money } from "@organizeup/domain";
 
 export type MonthlyChartState =
-  /** Há valor em algum mês: as barras aparecem. */
+  /** Há valor pago ou anunciado em algum mês: as barras aparecem. */
   | "barras"
-  /** Nada pago nos 12 meses, mas há provento anunciado: o aviso diz quando ele entra. */
-  | "a_receber"
-  /** Nada pago e nada anunciado. */
+  /** Nada pago nem anunciado no período. */
   | "vazio";
 
 export function monthlyChartState(
-  points: ReadonlyArray<{ net: string }>,
-  upcomingCount: number,
+  points: ReadonlyArray<{ paid: string; announced: string }>,
 ): MonthlyChartState {
-  if (points.some((point) => money(point.net).gt(0))) return "barras";
-  return upcomingCount > 0 ? "a_receber" : "vazio";
+  return points.some((point) => money(point.paid).gt(0) || money(point.announced).gt(0))
+    ? "barras"
+    : "vazio";
 }

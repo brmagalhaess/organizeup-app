@@ -38,6 +38,14 @@ vi.mock("next-intl/server", async () => {
   };
 });
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
+// A fila do worker não existe no teste: o pedido de coleta só é contado, como se tivesse entrado.
+const marketQueue = vi.hoisted(() => ({ calls: 0 }));
+vi.mock("@/lib/market-queue", () => ({
+  queueMarketDataJob: async () => {
+    marketQueue.calls += 1;
+    return true;
+  },
+}));
 vi.mock("@/lib/session", () => ({
   requireTenant: async () => ({
     ctx,
@@ -51,7 +59,7 @@ const db = await import("@organizeup/db");
 const agents = await import("@organizeup/agents");
 const { commitDividendImport, prepareDividendImport } =
   await import("@/app/app/(painel)/proventos/importar/actions");
-const { deleteDividend } = await import("@/app/app/(painel)/proventos/actions");
+const { checkDividends, deleteDividend } = await import("@/app/app/(painel)/proventos/actions");
 const { commitInvestmentImport } =
   await import("@/app/app/(painel)/investimentos/importar/actions");
 const { loadDividends, loadPortfolio } = await import("@/lib/investments");
@@ -391,6 +399,46 @@ describe("Mercado antes e depois da importação", () => {
     expect(commit).toMatchObject({ ok: true });
     await mercado();
     expect(await stored()).toHaveLength(1);
+  });
+});
+
+describe("Ver proventos", () => {
+  const check = () => checkDividends({ ok: false, message: null }, new FormData());
+
+  it("concilia na hora o que o mercado já trouxe, inclusive mês passado, e pede coleta nova", async () => {
+    await seedMarket([provento({}), provento({ comDate: "2026-11-20", payDate: "2026-12-10" })]);
+    marketQueue.calls = 0;
+    const first = await check();
+    expect(first.ok).toBe(true);
+    expect(first.message).toMatch(/2 proventos encontrados, 1 a receber \(R\$\s50,00\)\./);
+    expect(first.message).toContain("A fonte será consultada de novo");
+    expect(marketQueue.calls).toBe(1);
+    const rows = await stored();
+    expect(rows.map((row) => [row.paidOn, row.source, row.gross])).toEqual([
+      ["2026-03-10", "agente", "50.00"],
+      ["2026-12-10", "agente", "50.00"],
+    ]);
+    const { chart, upcoming } = await loadDividends(owner);
+    expect(chart["12m"].find((m) => m.month === "2026-03")).toEqual({
+      month: "2026-03",
+      paid: "50.00",
+      announced: "0.00",
+    });
+    expect(chart["12m"].at(-1)).toEqual({ month: "2026-12", paid: "0.00", announced: "50.00" });
+    expect(chart.ano[0]!.month).toBe("2026-01");
+    expect(chart.inicio[0]!.month).toBe("2026-01");
+    expect(upcoming).toHaveLength(1);
+
+    const again = await check();
+    expect(again.message).toContain("Nada novo");
+    expect(await stored()).toHaveLength(2);
+  });
+
+  it("quem só lê não dispara a conciliação", async () => {
+    ctx = viewer;
+    const result = await check();
+    expect(result.ok).toBe(false);
+    expect(await stored()).toHaveLength(0);
   });
 });
 

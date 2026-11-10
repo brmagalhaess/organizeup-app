@@ -379,7 +379,8 @@
         "realized": "Já realizado",
         "realizedHint": "Resultado das vendas e resgates.",
         "dividends": "Proventos",
-        "dividendsHint": "Recebidos em 12 meses."
+        "dividendsHint": "Recebidos em 12 meses.",
+        "dividendsUpcoming": "Recebidos em 12 meses. {amount} a receber."
       },
       "list": "Carteira",
       "zeroed": {
@@ -436,7 +437,8 @@
         "hintStatement": "Como aparece no extrato.",
         "submit": "Salvar valor"
       },
-      "disclaimerAnywhere": "O valor de cada investimento é informado por você, sem cotação automática. O OrganizeUp organiza e compara, e não recomenda compra ou venda de investimentos."
+      "disclaimerAnywhere": "O valor de cada investimento é informado por você, sem cotação automática. O OrganizeUp organiza e compara, e não recomenda compra ou venda de investimentos.",
+      "dividends12": "Proventos: {amount} em 12 meses"
     },
     "trades": {
       "title": "Lançamentos",
@@ -762,9 +764,18 @@
     "monthly": {
       "title": "Mês a mês",
       "setGoal": "Definir meta",
-      "emptyTitle": "Nenhum provento pago nos últimos 12 meses",
-      "emptyText": "O gráfico mostra, mês a mês, o que já foi pago nos últimos 12 meses.",
-      "emptyUpcoming": "Há {amount} anunciados, com o primeiro pagamento em {date}. Cada provento entra no gráfico no dia em que é pago."
+      "periodLabel": "Período do gráfico",
+      "periods": {
+        "12m": "12 meses",
+        "ano": "Este ano",
+        "inicio": "Desde o início"
+      },
+      "empty": {
+        "12m": "Nenhum provento nos últimos 12 meses",
+        "ano": "Nenhum provento neste ano",
+        "inicio": "Nenhum provento desde o primeiro ativo"
+      },
+      "emptyText": "O gráfico mostra, mês a mês, o que já foi pago e o que está anunciado. Use Ver proventos para buscar os da sua carteira."
     },
     "upcoming": {
       "title": "A receber",
@@ -794,9 +805,10 @@
     },
     "chart": {
       "zero": "¤ 0",
-      "caption": "Proventos líquidos por mês",
+      "caption": "Proventos líquidos por mês, pagos e anunciados",
       "month": "Mês",
-      "net": "Valor líquido"
+      "paid": "Pago",
+      "announced": "Anunciado"
     },
     "errors": {
       "investmentRequired": "Escolha o investimento.",
@@ -953,7 +965,14 @@
         "amountsOff": "Bruto, imposto e líquido de alguma linha não fecham. Confira o arquivo."
       }
     },
-    "importLink": "Importar arquivo"
+    "importLink": "Importar arquivo",
+    "check": {
+      "button": "Ver proventos",
+      "pending": "Buscando…",
+      "created": "{count, plural, one {# provento encontrado} other {# proventos encontrados}}, {upcoming, plural, =0 {todos já pagos} one {# a receber ({amount})} other {# a receber ({amount})}}.",
+      "nothing": "Nada novo: os proventos que o mercado conhece já estão aqui.",
+      "queued": "A fonte será consultada de novo em alguns minutos; se aparecer algo, entra sozinho."
+    }
   },
   "metas": {
     "metaTitle": "Metas",

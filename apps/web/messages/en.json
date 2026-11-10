@@ -379,7 +379,8 @@
         "realized": "Realized",
         "realizedHint": "Result of sales and withdrawals.",
         "dividends": "Dividends",
-        "dividendsHint": "Received over 12 months."
+        "dividendsHint": "Received over 12 months.",
+        "dividendsUpcoming": "Received over 12 months. {amount} upcoming."
       },
       "list": "Portfolio",
       "zeroed": {
@@ -436,7 +437,8 @@
         "hintStatement": "As shown on the statement.",
         "submit": "Save value"
       },
-      "disclaimerAnywhere": "You enter the value of each investment, with no automatic prices. OrganizeUp organizes and compares, and does not recommend buying or selling investments."
+      "disclaimerAnywhere": "You enter the value of each investment, with no automatic prices. OrganizeUp organizes and compares, and does not recommend buying or selling investments.",
+      "dividends12": "Dividends: {amount} over 12 months"
     },
     "trades": {
       "title": "Transactions",
@@ -762,9 +764,18 @@
     "monthly": {
       "title": "Month by month",
       "setGoal": "Set goal",
-      "emptyTitle": "No dividends paid in the last 12 months",
-      "emptyText": "The chart shows, month by month, what was paid in the last 12 months.",
-      "emptyUpcoming": "{amount} is announced, with the first payment on {date}. Each dividend joins the chart on the day it is paid."
+      "periodLabel": "Chart period",
+      "periods": {
+        "12m": "12 months",
+        "ano": "This year",
+        "inicio": "Since the start"
+      },
+      "empty": {
+        "12m": "No dividends in the last 12 months",
+        "ano": "No dividends this year",
+        "inicio": "No dividends since your first asset"
+      },
+      "emptyText": "The chart shows, month by month, what was paid and what is announced. Use Check dividends to fetch your portfolio's."
     },
     "upcoming": {
       "title": "Upcoming",
@@ -793,10 +804,11 @@
       "confirm": "Delete"
     },
     "chart": {
-      "zero": "¤0",
-      "caption": "Net dividends by month",
+      "zero": "¤ 0",
+      "caption": "Net dividends by month, paid and announced",
       "month": "Month",
-      "net": "Net amount"
+      "paid": "Paid",
+      "announced": "Announced"
     },
     "errors": {
       "investmentRequired": "Choose the investment.",
@@ -953,7 +965,14 @@
         "amountsOff": "Gross, tax and net do not add up on some line. Check the file."
       }
     },
-    "importLink": "Import file"
+    "importLink": "Import file",
+    "check": {
+      "button": "Check dividends",
+      "pending": "Checking…",
+      "created": "{count, plural, one {# dividend found} other {# dividends found}}, {upcoming, plural, =0 {all already paid} one {# upcoming ({amount})} other {# upcoming ({amount})}}.",
+      "nothing": "Nothing new: the dividends the market knows about are already here.",
+      "queued": "The source will be checked again in a few minutes; anything new is added on its own."
+    }
   },
   "metas": {
     "metaTitle": "Goals",

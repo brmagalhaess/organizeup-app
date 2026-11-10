@@ -1,21 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { monthlyChartState } from "./dividends-chart-state";
 
-const months = (...nets: string[]) =>
-  nets.map((net, index) => ({ month: `2026-${index + 1}`, net }));
+const month = (paid: string, announced = "0.00") => ({ paid, announced });
 
 describe("estado do gráfico mês a mês", () => {
-  it("com valor em algum mês, mostra as barras", () => {
-    expect(monthlyChartState(months("0.00", "12.50", "0.00"), 0)).toBe("barras");
-    expect(monthlyChartState(months("0.01"), 3)).toBe("barras");
+  it("com valor pago em algum mês, mostra as barras", () => {
+    expect(monthlyChartState([month("0.00"), month("12.50"), month("0.00")])).toBe("barras");
   });
 
-  it("sem nada pago, mas com provento anunciado, avisa que está a receber", () => {
-    expect(monthlyChartState(months("0.00", "0.00"), 2)).toBe("a_receber");
+  it("só anunciado também mostra as barras", () => {
+    expect(monthlyChartState([month("0.00", "0.00"), month("0.00", "30.00")])).toBe("barras");
   });
 
   it("sem nada pago nem anunciado, fica vazio", () => {
-    expect(monthlyChartState(months("0.00", "0.00"), 0)).toBe("vazio");
-    expect(monthlyChartState([], 0)).toBe("vazio");
+    expect(monthlyChartState([month("0.00"), month("0.00")])).toBe("vazio");
+    expect(monthlyChartState([])).toBe("vazio");
   });
 });

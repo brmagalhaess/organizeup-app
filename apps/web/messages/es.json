@@ -379,7 +379,8 @@
         "realized": "Ya realizado",
         "realizedHint": "Resultado de ventas y rescates.",
         "dividends": "Dividendos",
-        "dividendsHint": "Recibidos en 12 meses."
+        "dividendsHint": "Recibidos en 12 meses.",
+        "dividendsUpcoming": "Recibidos en 12 meses. {amount} por recibir."
       },
       "list": "Cartera",
       "zeroed": {
@@ -436,7 +437,8 @@
         "hintStatement": "Como aparece en el extracto.",
         "submit": "Guardar valor"
       },
-      "disclaimerAnywhere": "El valor de cada inversión lo informas tú, sin cotización automática. OrganizeUp organiza y compara, y no recomienda comprar ni vender inversiones."
+      "disclaimerAnywhere": "El valor de cada inversión lo informas tú, sin cotización automática. OrganizeUp organiza y compara, y no recomienda comprar ni vender inversiones.",
+      "dividends12": "Dividendos: {amount} en 12 meses"
     },
     "trades": {
       "title": "Movimientos",
@@ -762,9 +764,18 @@
     "monthly": {
       "title": "Mes a mes",
       "setGoal": "Definir meta",
-      "emptyTitle": "Ningún dividendo pagado en los últimos 12 meses",
-      "emptyText": "El gráfico muestra, mes a mes, lo que ya se pagó en los últimos 12 meses.",
-      "emptyUpcoming": "Hay {amount} anunciados, con el primer pago el {date}. Cada dividendo entra en el gráfico el día en que se paga."
+      "periodLabel": "Período del gráfico",
+      "periods": {
+        "12m": "12 meses",
+        "ano": "Este año",
+        "inicio": "Desde el inicio"
+      },
+      "empty": {
+        "12m": "Ningún dividendo en los últimos 12 meses",
+        "ano": "Ningún dividendo este año",
+        "inicio": "Ningún dividendo desde tu primer activo"
+      },
+      "emptyText": "El gráfico muestra, mes a mes, lo pagado y lo anunciado. Usa Ver dividendos para buscar los de tu cartera."
     },
     "upcoming": {
       "title": "Por recibir",
@@ -793,10 +804,11 @@
       "confirm": "Eliminar"
     },
     "chart": {
-      "zero": "0 ¤",
-      "caption": "Dividendos netos por mes",
+      "zero": "¤ 0",
+      "caption": "Dividendos netos por mes, pagados y anunciados",
       "month": "Mes",
-      "net": "Valor neto"
+      "paid": "Pagado",
+      "announced": "Anunciado"
     },
     "errors": {
       "investmentRequired": "Elige la inversión.",
@@ -953,7 +965,14 @@
         "amountsOff": "Bruto, impuesto y neto de alguna línea no cuadran. Revisa el archivo."
       }
     },
-    "importLink": "Importar archivo"
+    "importLink": "Importar archivo",
+    "check": {
+      "button": "Ver dividendos",
+      "pending": "Buscando…",
+      "created": "{count, plural, one {# dividendo encontrado} other {# dividendos encontrados}}, {upcoming, plural, =0 {todos ya pagados} one {# por recibir ({amount})} other {# por recibir ({amount})}}.",
+      "nothing": "Nada nuevo: los dividendos que el mercado conoce ya están aquí.",
+      "queued": "La fuente se consultará de nuevo en unos minutos; si aparece algo, entra solo."
+    }
   },
   "metas": {
     "metaTitle": "Metas",

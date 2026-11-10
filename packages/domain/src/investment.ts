@@ -1,7 +1,7 @@
 // Carteira de investimentos e proventos. Puro: o preço médio segue a regra usual da B3 e da Receita
 // (compra soma custo e taxas; venda baixa pelo preço médio, sem mudá-lo). Só organiza, não indica ativo.
 import Decimal from "decimal.js";
-import { recentMonths, yearMonthOf } from "./cashflow";
+import { addMonths, recentMonths, yearMonthOf } from "./cashflow";
 import { money, toDbAmount, type MoneyValue } from "./money";
 
 /** Classes que valem quantidade × preço. As demais valem o total informado. */
@@ -258,6 +258,57 @@ export interface DividendSummary {
 }
 
 /** Provento com pagamento até hoje. O que vem depois é "a receber" e fica fora de toda soma. */
+/** Período do gráfico mês a mês: últimos 12 meses, o ano corrente ou desde o primeiro ativo. */
+export type DividendPeriod = "12m" | "ano" | "inicio";
+export const DIVIDEND_PERIODS: readonly DividendPeriod[] = ["12m", "ano", "inicio"];
+
+export interface DividendMonth {
+  month: string;
+  /** Pago até hoje, líquido. */
+  paid: string;
+  /** Anunciado com pagamento depois de hoje, líquido. */
+  announced: string;
+}
+
+/** Quantos meses à frente o gráfico mostra provento anunciado. */
+const ANNOUNCED_MONTHS_AHEAD = 12;
+
+/**
+ * Proventos líquidos por mês, pagos e anunciados, do começo do período até o mês atual, mais os meses à
+ * frente que têm provento anunciado. `start` é o mês do primeiro ativo (primeira operação ou provento), para
+ * "desde o início"; sem ele, "desde o início" vira os 12 meses.
+ */
+export function dividendMonths(
+  rows: Array<Pick<DividendInput, "paidOn" | "gross" | "withheld">>,
+  today: string,
+  period: DividendPeriod,
+  start: string | null = null,
+): DividendMonth[] {
+  const current = yearMonthOf(today);
+  const first =
+    period === "ano"
+      ? `${current.slice(0, 4)}-01`
+      : period === "inicio" && start !== null && start < current
+        ? start
+        : addMonths(current, -11);
+  const future = rows
+    .filter((row) => row.paidOn > today)
+    .map((row) => yearMonthOf(row.paidOn))
+    .filter((month) => month <= addMonths(current, ANNOUNCED_MONTHS_AHEAD))
+    .sort();
+  const last = future.length > 0 ? future[future.length - 1]! : current;
+  const months: string[] = [];
+  for (let month = first; month <= last; month = addMonths(month, 1)) months.push(month);
+  return months.map((month) => {
+    const inMonth = rows.filter((row) => yearMonthOf(row.paidOn) === month);
+    return {
+      month,
+      paid: toDbAmount(sumOf(inMonth.filter((row) => row.paidOn <= today).map(netDividend))),
+      announced: toDbAmount(sumOf(inMonth.filter((row) => row.paidOn > today).map(netDividend))),
+    };
+  });
+}
+
 export const receivedDividends = <T extends { paidOn: string }>(rows: T[], today: string): T[] =>
   rows.filter((row) => row.paidOn <= today);
 

@@ -38,7 +38,7 @@ export {
   systemCategories,
   withIncomePlans,
 } from "./commitments";
-export { loadBlocks } from "./market-sync";
+export { loadBlocks, syncMarketData } from "./market-sync";
 export { calendarMonth } from "./calendar-view";
 export type { CalendarItemType } from "./calendar-types";
 export { currentDebtPlan, type DebtPlanView } from "./debt-view";

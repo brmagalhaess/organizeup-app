@@ -1,10 +1,16 @@
 "use client";
-import { Plus, Target, Trash2, Upload } from "lucide-react";
+import { Plus, RefreshCw, Target, Trash2, Upload } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useEffect, useState, type ReactNode } from "react";
-import { cameFromFile, money, netDividend } from "@organizeup/domain";
-import { buttonClass } from "@/components/styles";
+import {
+  cameFromFile,
+  DIVIDEND_PERIODS,
+  money,
+  netDividend,
+  type DividendPeriod,
+} from "@organizeup/domain";
+import { buttonClass, cx } from "@/components/styles";
 import {
   Badge,
   Button,
@@ -30,7 +36,7 @@ import {
   toFieldValue,
 } from "@/i18n/format";
 import type { loadDividends } from "@/lib/investments";
-import { addDividend, deleteDividend, saveGoal, type FormState } from "./actions";
+import { addDividend, checkDividends, deleteDividend, saveGoal, type FormState } from "./actions";
 import { DividendsChart } from "./dividends-chart";
 import { monthlyChartState } from "@/lib/dividends-chart-state";
 import type { loadDividendOutlook } from "./outlook";
@@ -331,8 +337,11 @@ export function DividendsBoard({
   const close = () => setSheet(null);
   const open = (type: "new" | "goal") => setSheet((s) => ({ type, nonce: (s?.nonce ?? 0) + 1 }));
   const { summary } = data;
-  const chartState = monthlyChartState(summary.months, data.upcoming.length);
+  const [period, setPeriod] = useState<DividendPeriod>("12m");
+  const points = data.chart[period];
+  const chartState = monthlyChartState(points);
   const canAdd = writable && data.investments.length > 0;
+  const [checkState, checkAction, checking] = useActionState(checkDividends, initial);
 
   return (
     <div className="flex flex-col gap-6">
@@ -343,6 +352,15 @@ export function DividendsBoard({
         actions={
           canAdd ? (
             <>
+              <form action={checkAction} className="contents">
+                <Button type="submit" variant="secondary" disabled={checking}>
+                  <RefreshCw
+                    className={cx("size-4", checking && "animate-spin")}
+                    aria-hidden="true"
+                  />
+                  {checking ? t("check.pending") : t("check.button")}
+                </Button>
+              </form>
               <Link href="/app/proventos/importar" className={buttonClass("secondary")}>
                 <Upload className="size-4" aria-hidden="true" />
                 {t("importLink")}
@@ -356,6 +374,11 @@ export function DividendsBoard({
         }
       />
       {insights}
+      {checkState.message ? (
+        <p role="status" className="m-0 rounded-xl bg-brand-50 px-4 py-3 text-sm text-ink">
+          {checkState.message}
+        </p>
+      ) : null}
 
       {data.investments.length === 0 ? (
         <Card>
@@ -409,18 +432,32 @@ export function DividendsBoard({
               ) : null
             }
           >
+            <div
+              role="group"
+              aria-label={t("monthly.periodLabel")}
+              className="mb-4 flex flex-wrap gap-2"
+            >
+              {DIVIDEND_PERIODS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={period === value}
+                  onClick={() => setPeriod(value)}
+                  className={cx(
+                    "inline-flex min-h-9 items-center rounded-full border px-3 text-sm font-medium transition",
+                    period === value
+                      ? "border-brand-500 bg-brand-900 text-white"
+                      : "border-line bg-card text-ink hover:bg-brand-50",
+                  )}
+                >
+                  {t(`monthly.periods.${value}`)}
+                </button>
+              ))}
+            </div>
             {chartState === "barras" ? (
-              <DividendsChart points={summary.months} />
-            ) : chartState === "a_receber" ? (
-              <EmptyState
-                title={t("monthly.emptyTitle")}
-                text={t("monthly.emptyUpcoming", {
-                  amount: moneyText(data.upcomingNet),
-                  date: formatDate(data.upcoming[0]!.paidOn, locale),
-                })}
-              />
+              <DividendsChart points={points} />
             ) : (
-              <EmptyState title={t("monthly.emptyTitle")} text={t("monthly.emptyText")} />
+              <EmptyState title={t(`monthly.empty.${period}`)} text={t("monthly.emptyText")} />
             )}
           </Card>
 

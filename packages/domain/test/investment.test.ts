@@ -6,6 +6,7 @@ import {
   netDividend,
   positionOf,
   redemptionOf,
+  dividendMonths,
   summarizeDividends,
   summarizePortfolio,
   type TradeInput,
@@ -342,6 +343,73 @@ describe("proventos", () => {
     expect(summary.withheld12).toBe("15.00");
     expect(summary.goalPercent).toBe(21);
     expect(summary.byInvestment[0]).toEqual({ investmentId: "a", net: "135.00" });
+  });
+
+  describe("mês a mês, pago e anunciado", () => {
+    const today = "2026-10-20";
+    const announced = [
+      ...rows,
+      { investmentId: "a", kind: "jcp" as const, paidOn: "2026-10-28", gross: "40", withheld: "7" },
+      {
+        investmentId: "b",
+        kind: "dividendo" as const,
+        paidOn: "2026-12-05",
+        gross: "30",
+        withheld: "0",
+      },
+    ];
+
+    it("12 meses: do mês de há 11 meses até o atual, e o anunciado no mesmo mês", () => {
+      const months = dividendMonths(announced, today, "12m");
+      expect(months[0]).toEqual({ month: "2025-11", paid: "50.00", announced: "0.00" });
+      expect(months.find((m) => m.month === "2026-10")).toEqual({
+        month: "2026-10",
+        paid: "85.00",
+        announced: "33.00",
+      });
+      // O anunciado de dezembro estende o gráfico até lá; novembro fica vazio.
+      expect(months.map((m) => m.month).slice(-3)).toEqual(["2026-10", "2026-11", "2026-12"]);
+      expect(months.at(-1)).toEqual({ month: "2026-12", paid: "0.00", announced: "30.00" });
+      expect(months).toHaveLength(14);
+    });
+
+    it("ano: de janeiro até o mês atual", () => {
+      const months = dividendMonths(rows, today, "ano");
+      expect(months.map((m) => m.month)).toEqual([
+        "2026-01",
+        "2026-02",
+        "2026-03",
+        "2026-04",
+        "2026-05",
+        "2026-06",
+        "2026-07",
+        "2026-08",
+        "2026-09",
+        "2026-10",
+      ]);
+      expect(months[1]).toEqual({ month: "2026-02", paid: "120.00", announced: "0.00" });
+    });
+
+    it("desde o início: do mês do primeiro ativo; sem início, vale 12 meses", () => {
+      expect(dividendMonths(rows, today, "inicio", "2025-06")[0]!.month).toBe("2025-06");
+      expect(dividendMonths(rows, today, "inicio", "2025-06")).toHaveLength(17);
+      expect(dividendMonths(rows, today, "inicio", null)[0]!.month).toBe("2025-11");
+      // Início depois do mês atual não faz sentido: cai nos 12 meses.
+      expect(dividendMonths(rows, today, "inicio", "2027-01")[0]!.month).toBe("2025-11");
+    });
+
+    it("anunciado muito à frente fica de fora do eixo", () => {
+      const far = [
+        {
+          investmentId: "a",
+          kind: "dividendo" as const,
+          paidOn: "2028-01-10",
+          gross: "1",
+          withheld: "0",
+        },
+      ];
+      expect(dividendMonths(far, today, "12m").at(-1)!.month).toBe("2026-10");
+    });
   });
 
   it("não inventa meta", () => {

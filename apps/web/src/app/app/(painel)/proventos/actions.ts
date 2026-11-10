@@ -2,20 +2,24 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { recordDividendRemoval } from "@organizeup/agents";
+import { recordDividendRemoval, syncMarketData } from "@organizeup/agents";
 import {
   canWrite,
   DIVIDEND_KINDS,
   dividendGoals,
   dividends,
   eq,
+  householdCurrency,
+  householdTimezone,
   investments,
   withHousehold,
 } from "@organizeup/db";
-import { money, parseMoney, toDbAmount } from "@organizeup/domain";
+import { money, parseMoney, toDbAmount, todayIn } from "@organizeup/domain";
 import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { requireModule } from "@/lib/billing/plan-gate";
+import { queueMarketDataJob } from "@/lib/market-queue";
+import { moneyTextFor } from "@/i18n/format";
 
 export interface FormState {
   ok: boolean;
@@ -135,4 +139,33 @@ export async function saveGoal(_prev: FormState, form: FormData): Promise<FormSt
   });
   revalidatePath("/app", "layout");
   return { ok: true, message: null };
+}
+
+/**
+ * "Ver proventos": concilia agora a carteira com o que o mercado já trouxe, inclusive meses passados em que a
+ * família já tinha o ativo, e pede ao worker uma coleta nova para o que ainda não foi consultado. A mesma
+ * rotina do agente diário, só que na hora (ADR-0017).
+ */
+export async function checkDividends(_prev: FormState, _form: FormData): Promise<FormState> {
+  const { ctx } = await requireModule("investimentos");
+  if (!canWrite(ctx)) return blocked();
+  const [t, locale] = await Promise.all([getTranslations("proventos.check"), getLocale()]);
+  const { result, currency } = await withHousehold(ctx, async (tx) => {
+    const today = todayIn(await householdTimezone(tx, ctx.householdId));
+    const synced = await syncMarketData(tx, { today, householdId: ctx.householdId });
+    await audit(tx, ctx, "sync", "dividends", ctx.householdId);
+    return { result: synced, currency: await householdCurrency(tx) };
+  });
+  const moneyText = moneyTextFor(locale, currency);
+  const queued = await queueMarketDataJob();
+  revalidatePath("/app", "layout");
+  const message =
+    result.created > 0
+      ? t("created", {
+          count: result.created,
+          upcoming: result.upcoming,
+          amount: moneyText(result.upcomingNet),
+        })
+      : t("nothing");
+  return { ok: true, message: queued ? `${message} ${t("queued")}` : message };
 }
