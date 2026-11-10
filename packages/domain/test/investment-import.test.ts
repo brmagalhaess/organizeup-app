@@ -448,6 +448,115 @@ function noteLines(options: {
   ];
 }
 
+/** Nota no modelo da XP (2026): "Nº Nota" com a data antes do número, "Negociações" e subtotal por papel. */
+function xpNoteLines(trades: string[]) {
+  return [
+    "Nota de Negociação",
+    "Data da Consulta: 09/11/2026 21:33",
+    "Data de Referência: 30/09/2026",
+    "Cliente Fictícia da Silva C.P.F./C.N.P.J 000.000.000-00",
+    "Conta XP 0000000",
+    "Data pregão Nº Nota",
+    "30/09/2026 145311273",
+    "- N",
+    "Banco Agência Conta Corrente Acionista Administrador Complemento nome",
+    "Bovespa - Depósito / Vista",
+    "Negociações",
+    "Q Negociação C/V Tipo mercado Prazo Especificação do título Obs. (*) Quantidade Preço / Ajuste Valor Operação / Ajuste D/C",
+    ...trades,
+    "Resumo dos Negócios Resumo Financeiro D/C",
+    "Debêntures 0,00 CBLC",
+    "Vendas à Vista 1.590,00 Valor líquido das operações 1.446,04 C",
+    "Compras à Vista 143,96 Taxa de liquidação 0,03 D",
+    "Opções - Compras 0,00 Taxa de Registro 0,00",
+    "Total CBLC 1.446,01 C",
+    "Taxa A.N.A. 0,00",
+    "Emolumentos 0,00",
+    "A coluna Q indica a Corretagem 0,00 D",
+    "ISS*(SÃO PAULO) 0,00 D",
+    "I.R.R.F. s/ operações, base R$0,00 0,00 D",
+    "Total Corretagem / Despesas 0,00",
+    "Líquido para 02/10/2026 1.446,01 C",
+  ];
+}
+
+describe("nota no modelo da XP", () => {
+  it("lê o cabeçalho com a data antes do número, a seção Negociações e ignora o subtotal", () => {
+    const parsed = parseBrokerageNotes(
+      xpNoteLines([
+        "1-BOVESPA C VISTA FII TRX REAL TRXF11 CI @ 2 71,98 143,96 D",
+        "FII TRX REAL TRXF11 CI Quantidade Total: 2 Preço Médio: 71,9800",
+        "1-BOVESPA V VISTA AMBEV S/A ABEV3 ON @# 100 15,90 1.590,00 C",
+        "AMBEV S/A ABEV3 ON Quantidade Total: 100 Preço Médio: 15,9000",
+      ]),
+    );
+    expect(parsed.ignored).toEqual([]);
+    expect(parsed.trades).toEqual([
+      expect.objectContaining({
+        ticker: "TRXF11",
+        side: "compra",
+        date: "2026-09-30",
+        quantity: "2",
+        unitPrice: "71.98",
+        doubt: null,
+      }),
+      expect.objectContaining({
+        ticker: "ABEV3",
+        side: "venda",
+        date: "2026-09-30",
+        quantity: "100",
+        unitPrice: "15.9",
+        doubt: null,
+      }),
+    ]);
+    // A taxa de liquidação é rateada pelo valor das linhas.
+    expect(parsed.trades.map((row) => row.fees)).toEqual(["0.00", "0.03"]);
+  });
+
+  it("taxa de transferência de ativos e 'Outras Bovespa' entram no custo, e a nota fecha", () => {
+    // Resumo real de uma nota da XP (modelo SINACOR, 2026-08): sem essas duas taxas a nota não fechava.
+    const lines = [
+      "NOTA DE NEGOCIAÇÃO",
+      "Nr. nota Folha Data pregão",
+      "141275067 1 03/08/2026",
+      "Negócios realizados",
+      "Q Negociação C/V Tipo mercado Prazo Especificação do título Obs. (*) Quantidade Preço / Ajuste Valor Operação / Ajuste D/C",
+      "1-BOVESPA V VISTA CAIXA SEGURI CXSE3 ON NM @# 100 19,88 1.988,00 C",
+      "Resumo dos Negócios Resumo Financeiro",
+      "Vendas à vista 1.988,00 Valor líquido das operações 1.988,00 C",
+      "Compras à vista 0,00 Taxa de liquidação 0,50 D",
+      "Emolumentos 0,10 D",
+      "Taxa de Transf. de Ativos 0,57 D",
+      "Taxa Operacional 8,00 D",
+      "Impostos 0,90 D",
+      "I.R.R.F. s/ operações, base R$1.988,00 0,10 D",
+      "Outras Bovespa 0,01 D",
+      "Total Custos / Despesas 10,08 D",
+      "Líquido para 05/08/2026 1.977,82 C",
+    ];
+    const parsed = parseBrokerageNotes(lines);
+    expect(parsed.trades).toEqual([
+      expect.objectContaining({ ticker: "CXSE3", side: "venda", fees: "10.08", doubt: null }),
+    ]);
+  });
+
+  it("segunda folha com o mesmo cabeçalho continua a mesma nota", () => {
+    const lines = xpNoteLines(["1-BOVESPA C VISTA FII TRX REAL TRXF11 CI @ 2 71,98 143,96 D"]);
+    const second = [
+      "Data pregão Nº Nota",
+      "30/09/2026 145311273",
+      "Negociações",
+      "1-BOVESPA V VISTA AMBEV S/A ABEV3 ON @# 100 15,90 1.590,00 C",
+    ];
+    const at = lines.findIndex((line) => line.startsWith("Resumo dos Negócios"));
+    const parsed = parseBrokerageNotes([...lines.slice(0, at), ...second, ...lines.slice(at)]);
+    expect(parsed.trades.map((row) => [row.ticker, row.side])).toEqual([
+      ["TRXF11", "compra"],
+      ["ABEV3", "venda"],
+    ]);
+  });
+});
+
 describe("nota de corretagem", () => {
   const buy = "1-BOVESPA C VISTA ABCD SA ON NM # 100 10,00 1.000,00 D";
 

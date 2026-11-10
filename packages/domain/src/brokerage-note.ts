@@ -44,17 +44,24 @@ const FEES = [
   feePattern(String.raw`CORRETAGEM`),
   feePattern(String.raw`EXECUCAO(?: CASA)?`),
   feePattern(String.raw`TAXA DE CUSTODIA`),
+  feePattern(String.raw`TAXA DE TRANSF\.? DE ATIVOS`),
   feePattern(String.raw`IMPOSTOS`),
-  feePattern(String.raw`I\.?S\.?S\.?`),
-  feePattern(String.raw`OUTROS`),
+  feePattern(String.raw`I\.?S\.?S\.?\*?`),
+  feePattern(String.raw`OUTR[OA]S(?: BOVESPA)?`),
 ];
 const IRRF = new RegExp(
   String.raw`\bI\.?R\.?R\.?F\.?[^\d]*?(?:BASE\s*(?:R\$)?\s*[\d.,]+\s+)?${AMOUNT}`,
 );
 const NET = new RegExp(String.raw`\bLIQUIDO PARA\s*\d{2}/\d{2}/\d{4}\s*${AMOUNT}(?:\s*([DC])\b)?`);
-const NOTE_NUMBER = /\bNR\.?\s*(?:DA\s*)?NOTA\b/;
-const NOTE_FIELDS = /(?:^|\D)(\d[\d.]*)\b[\s\S]*?(\d{2}\/\d{2}\/\d{4})/;
-const TRADES_START = /\bNEGOCIOS REALIZADOS\b/;
+/** "Nr. nota" no padrão SINACOR; "Nº Nota" (ou "No Nota") no modelo da XP. */
+const NOTE_NUMBER = /\b(?:NR\.?\s*(?:DA\s*)?NOTA|N[ºO°]\.?\s*NOTA)\b/;
+const NOTE_DATE = /\d{2}\/\d{2}\/\d{4}/;
+/** O número da nota tem três dígitos ou mais; "Folha 1" tem um só. */
+const NOTE_NUMBER_VALUE = /(?:^|\D)(\d{3,}[\d.]*)\b/;
+/** "Negócios realizados" no SINACOR; "Negociações" no modelo da XP. */
+const TRADES_START = /\b(?:NEGOCIOS REALIZADOS|NEGOCIACOES)\b/;
+/** Subtotal por papel no modelo da XP: não é operação. */
+const TRADES_SUBTOTAL = /\bQUANTIDADE TOTAL\b/;
 const TRADES_END = /\bRESUMO DOS NEGOCIOS\b/;
 const TRADE_LINE = new RegExp(
   String.raw`^(?:.*?\s)?([CV])\s+(.+?)\s+(\d[\d.]*)\s+(\d[\d.]*,\d{2,8})\s+${AMOUNT}\s*([DC])?$`,
@@ -167,10 +174,13 @@ function notesOf(lines: string[]): Note[] {
     if (NOTE_NUMBER.test(text)) {
       const label = text.slice(NOTE_NUMBER.exec(text)!.index);
       const block = [label, ...lines.slice(index + 1, index + 1 + HEADER_LOOKAHEAD)].join(" ");
-      const fields = NOTE_FIELDS.exec(plainText(block).replace(NOTE_NUMBER, ""));
-      const date = fields ? parseStatementDate(fields[2]!) : null;
-      if (!fields || !date) throw new InvestmentFileError("layout");
-      const key = `${fields[1]}|${date}`;
+      const plain = plainText(block).replace(NOTE_NUMBER, "");
+      // SINACOR escreve "número folha data"; a XP escreve "data número": cada campo é achado por si.
+      const dateText = NOTE_DATE.exec(plain)?.[0];
+      const number = NOTE_NUMBER_VALUE.exec(dateText ? plain.replace(dateText, " ") : plain)?.[1];
+      const date = dateText ? parseStatementDate(dateText) : null;
+      if (!number || !date) throw new InvestmentFileError("layout");
+      const key = `${number}|${date}`;
       current =
         notes.get(key) ??
         ({ date, lines: [], unread: [], fees: new Map(), irrf: money(0), net: null } as Note);
@@ -185,6 +195,7 @@ function notesOf(lines: string[]): Note[] {
     }
     if (TRADES_END.test(text)) inTrades = false;
     if (inTrades) {
+      if (TRADES_SUBTOTAL.test(text)) return;
       const trade = readTradeLine(text, index);
       if (trade) current.lines.push(trade);
       else if (/\d,\d{2}/.test(text)) {
