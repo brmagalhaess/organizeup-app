@@ -4,7 +4,6 @@ const readPlatformFlags = vi.fn();
 const runMarketData = vi.fn();
 vi.mock("@organizeup/db", () => ({ readPlatformFlags }));
 vi.mock("@organizeup/agents", () => ({
-  DEFAULT_MAX_CALLS_PER_DAY: 400,
   MERCADO_AGENT: "mercado",
   runMarketData,
 }));

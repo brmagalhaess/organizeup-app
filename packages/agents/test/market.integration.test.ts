@@ -451,52 +451,53 @@ describe("agente de investimentos com dados de mercado", () => {
 describe("job de mercado", () => {
   const silent = { error: () => {}, info: () => {}, warn: () => {} };
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
-  const quote = (symbol: string, price: number) => ({
-    results: [
-      {
-        symbol,
-        regularMarketPrice: price,
-        regularMarketChangePercent: 1.5,
-        regularMarketTime: "2026-10-30T21:00:00.000Z",
-        dividendsData: {
-          cashDividends: [
-            {
-              rate: 0.5,
-              label: "DIVIDENDO",
-              lastDatePrior: "2026-08-21T03:00:00.000Z",
-              exDate: "2026-08-24T03:00:00.000Z",
-              paymentDate: "2026-12-30T03:00:00.000Z",
-              verified: true,
-            },
-            // Fora: sem verificação, ou sem data de pagamento.
-            {
-              rate: 0.1,
-              label: "RENDIMENTO",
-              lastDatePrior: "2026-08-21T03:00:00.000Z",
-              paymentDate: "2026-12-30T03:00:00.000Z",
-              verified: false,
-            },
-            {
-              rate: 0.2,
-              label: "JCP",
-              lastDatePrior: "2026-08-21T03:00:00.000Z",
-              paymentDate: null,
-              verified: true,
-            },
-          ],
-          stockDividends: [
-            {
-              factor: 2,
-              completeFactor: "2 para 1",
-              label: "DESDOBRAMENTO",
-              lastDatePrior: "2026-09-01T03:00:00.000Z",
-            },
-            { factor: 1, label: "CIS RED CAP", lastDatePrior: "2026-10-01T03:00:00.000Z" },
-          ],
+  /** ISIN de uma classe no padrão da B3: PETR4 → BRPETRACNPR0, VALE3 → BRVALEACNOR0. */
+  const isinOf = (ticker: string) =>
+    `BR${ticker.slice(0, 4)}ACN${ticker.endsWith("4") ? "PR" : "OR"}0`;
+  /** Resposta da lista de empresas da B3 (ADR-0035): proventos e eventos da classe, mais o que fica de fora. */
+  const company = (ticker: string) => [
+    {
+      code: ticker.slice(0, 4),
+      cashDividends: [
+        {
+          assetIssued: isinOf(ticker),
+          rate: "1,00000000000",
+          label: "DIVIDENDO",
+          lastDatePrior: "21/08/2026",
+          paymentDate: "30/12/2026",
         },
-      },
-    ],
-  });
+        // Fora: sem data de pagamento, e a outra classe da mesma emissora.
+        {
+          assetIssued: isinOf(ticker),
+          rate: "0,20000000000",
+          label: "JRS CAP PROPRIO",
+          lastDatePrior: "21/08/2026",
+          paymentDate: null,
+        },
+        {
+          assetIssued: `BR${ticker.slice(0, 4)}ACNPA0`,
+          rate: "9,00000000000",
+          label: "DIVIDENDO",
+          lastDatePrior: "21/08/2026",
+          paymentDate: "30/12/2026",
+        },
+      ],
+      stockDividends: [
+        {
+          assetIssued: isinOf(ticker),
+          factor: "100,00000000000",
+          label: "DESDOBRAMENTO",
+          lastDatePrior: "01/09/2026",
+        },
+        {
+          assetIssued: isinOf(ticker),
+          factor: "100,00000000000",
+          label: "CIS RED CAP",
+          lastDatePrior: "01/10/2026",
+        },
+      ],
+    },
+  ];
   const sgs = () => json([{ data: "29/10/2026", valor: "0.050788" }]);
   /** Horário que nenhuma cotação gravada antes usa: o histórico não duplica a mesma coleta. */
   const closedAt = Math.floor(Date.parse("2026-11-07T20:00:00Z") / 1000);
@@ -520,30 +521,45 @@ describe("job de mercado", () => {
   const yahooNotFound = () => json({ chart: { result: null, error: { code: "Not Found" } } }, 404);
   const isYahoo = (url: string) => url.includes("finance/chart/");
   const isB3 = (url: string) => url.includes("GetListedSupplementFunds");
-  const isBrapi = (url: string) => url.includes("brapi.dev");
-  /** Cotação no formato da fonte que a URL pede: Yahoo sem token, brapi com token. */
+  const isCompany = (url: string) => url.includes("GetListedSupplementCompany");
+  /** Resposta no formato da fonte que a URL pede: Yahoo para cotação, B3 para proventos e eventos. */
   const answer = (ticker: string, url: string, price: number) =>
-    isYahoo(url) ? json(yahoo(ticker, price)) : json(quote(ticker, price));
+    isYahoo(url)
+      ? json(yahoo(ticker, price))
+      : isCompany(url)
+        ? json(company(ticker))
+        : json({ cashDividends: [] });
+  /** Código da carteira de teste a partir da raiz que a rota de empresas recebe. */
+  const TICKER_OF_ROOT: Record<string, string> = {
+    PETR: "PETR4",
+    VALE: "VALE3",
+    ITUB: "ITUB4",
+    ABCD: "ABCD3",
+    B3SA: "B3SA3",
+  };
 
   function fakeFetch(handler: (ticker: string, url: string) => Response) {
     const calls: string[] = [];
-    /** URLs que receberam o token da brapi: nunca pode incluir Yahoo nem B3. */
+    /** URLs que receberam alguma chave: nunca pode acontecer, as fontes são públicas. */
     const withToken: string[] = [];
     const fn = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       // Câmbio fora destes testes: os blocos do histórico não têm nada aqui.
       if (url.includes("dataInicial")) return new Response("{}", { status: 404 });
       if (url.includes("bcdata.sgs")) return sgs();
-      let ticker =
-        /quote\/([A-Z0-9]+)/.exec(url)?.[1] ??
-        /symbols=([A-Z0-9]+)/.exec(url)?.[1] ??
-        /chart\/([A-Z0-9]+)\.SA/.exec(url)?.[1];
+      let ticker = /chart\/([A-Z0-9]+)\.SA/.exec(url)?.[1];
       if (isB3(url)) {
         // A B3 recebe o identificador do fundo (HGLG) em base64; os FIIs daqui terminam em 11.
         const payload = JSON.parse(
           Buffer.from(url.split("/GetListedSupplementFunds/")[1]!, "base64").toString(),
         ) as { identifierFund: string };
         ticker = `${payload.identifierFund}11`;
+      }
+      if (isCompany(url)) {
+        const payload = JSON.parse(
+          Buffer.from(url.split("/GetListedSupplementCompany/")[1]!, "base64").toString(),
+        ) as { issuingCompany: string };
+        ticker = TICKER_OF_ROOT[payload.issuingCompany] ?? `${payload.issuingCompany}3`;
       }
       if ((init?.headers as Record<string, string> | undefined)?.authorization) withToken.push(url);
       calls.push(url);
@@ -554,7 +570,9 @@ describe("job de mercado", () => {
   const tickers = () => inC((tx) => tx.select().from(marketTickers));
   const resetChecks = () =>
     inC((tx) =>
-      tx.execute(db.sql`update market_tickers set checked_at = 'epoch', retry_on = null`),
+      tx.execute(
+        db.sql`update market_tickers set checked_at = 'epoch', retry_on = null, dividends_retry_on = null`,
+      ),
     );
 
   describe("câmbio (ADR-0020)", () => {
@@ -639,24 +657,27 @@ describe("job de mercado", () => {
     });
   });
 
-  it("sem token, toda cotação vem do Yahoo, sem gastar a cota da brapi (ADR-0032)", async () => {
-    const infos: string[] = [];
-    const used = await db.marketCallsOn(domain.todayIn());
+  it("cotação vem do Yahoo; proventos e eventos de ação vêm da B3, no valor pago na data (ADR-0035)", async () => {
     const { fn, calls, withToken } = fakeFetch((ticker, url) => answer(ticker, url, 40));
     const result = await agents.runMarketData({
-      log: { ...silent, info: (_, message) => infos.push(message) },
+      log: silent,
       activeDays: 60,
       fetch: fn,
       pauseMs: 0,
     });
-    // PETR4, VALE3, ITUB4 e ABCD3: não há mais "ticker livre", todos entram.
-    expect(calls).toHaveLength(4);
-    expect(calls.every(isYahoo)).toBe(true);
+    // PETR4, VALE3, ITUB4 e ABCD3: cada um uma cotação no Yahoo e uma consulta à lista de empresas.
+    expect(calls.filter(isYahoo)).toHaveLength(4);
+    expect(calls.filter(isCompany)).toHaveLength(4);
+    expect(calls).toHaveLength(8);
     expect(calls.some((url) => url.includes("ABCD3.SA"))).toBe(true);
-    expect(result).toMatchObject({ quotes: 4, calls: 0, unknown: 0, failed: 0, skipped: 0 });
-    expect(infos.join()).toContain("BRAPI_TOKEN");
     expect(withToken).toEqual([]);
-    expect(await db.marketCallsOn(domain.todayIn())).toBe(used);
+    expect(result).toMatchObject({
+      quotes: 4,
+      dividends: 4,
+      stockEvents: 4,
+      unknown: 0,
+      failed: 0,
+    });
     const [stored] = await inC((tx) =>
       tx.select().from(marketQuotes).where(eq(marketQuotes.ticker, "PETR4")),
     );
@@ -666,11 +687,38 @@ describe("job de mercado", () => {
       price: "40.00000000",
       changePercent: "2.5641",
       quotedAt: new Date(closedAt * 1000),
+      lastStockEventOn: "2026-09-01",
+      lastStockEventNote: "Desdobramento de 2 para 1",
     });
     const at = new Date(closedAt * 1000);
     expect(await db.listMarketQuoteHistory("PETR4", at, at)).toMatchObject([
       { price: "40.00000000", source: "yahoo" },
     ]);
+    const rows = await inC((tx) =>
+      tx.select().from(marketDividends).where(eq(marketDividends.payDate, "2026-12-30")),
+    );
+    // Só a classe do código: a PNA da mesma emissora e o JCP sem data ficam de fora.
+    const own = rows.filter((row) => row.ticker === "PETR4");
+    expect(own).toHaveLength(1);
+    expect(own[0]).toMatchObject({
+      kind: "dividendo",
+      comDate: "2026-08-21",
+      ratePerShare: "1.00000000",
+      source: "b3",
+    });
+    const stockEvents = await inC((tx) =>
+      tx.select().from(marketStockEvents).where(eq(marketStockEvents.ticker, "PETR4")),
+    );
+    expect(stockEvents).toHaveLength(1);
+    expect(stockEvents[0]).toMatchObject({
+      comDate: "2026-09-01",
+      factor: "2.00000000",
+      note: "Desdobramento de 2 para 1",
+      source: "b3",
+    });
+    const indices = await inC((tx) => tx.select().from(marketIndices));
+    expect(indices.map((row) => row.code).sort()).toEqual(["CDI", "IPCA", "SELIC"]);
+    expect(indices[0]).toMatchObject({ date: "2026-10-29", value: "0.05078800" });
   });
 
   it("catálogo guarda ação, FII, ETF e BDR, e a busca acha por código e por nome", async () => {
@@ -713,54 +761,8 @@ describe("job de mercado", () => {
     expect(await db.findMarketAsset("FFIP11")).toBeNull();
   });
 
-  it("com token a brapi traz proventos e eventos; guarda só o que a fonte confirma, no valor pago na data", async () => {
-    // O Yahoo não traz proventos nem desdobramentos: isto só vem da brapi, com token.
-    await resetChecks();
-    const { fn, calls, withToken } = fakeFetch((ticker, url) => answer(ticker, url, 40));
-    const result = await agents.runMarketData({
-      log: silent,
-      token: "token-de-teste",
-      activeDays: 60,
-      fetch: fn,
-      pauseMs: 0,
-    });
-    expect(calls).toHaveLength(4);
-    expect(calls.every(isBrapi)).toBe(true);
-    expect(withToken).toHaveLength(4);
-    expect(result).toMatchObject({ quotes: 4, calls: 4, stockEvents: 4 });
-    const rows = await inC((tx) =>
-      tx.select().from(marketDividends).where(eq(marketDividends.payDate, "2026-12-30")),
-    );
-    const own = rows.filter((row) => row.ticker === "PETR4");
-    expect(own).toHaveLength(1);
-    // O desdobramento de 2 para 1 veio depois da data-com: a fonte traz 0,50 e foi pago 1,00.
-    expect(own[0]).toMatchObject({ kind: "dividendo", ratePerShare: "1.00000000" });
-    const [stored] = await inC((tx) =>
-      tx.select().from(marketQuotes).where(eq(marketQuotes.ticker, "PETR4")),
-    );
-    expect(stored).toMatchObject({
-      source: "brapi.dev",
-      lastStockEventOn: "2026-09-01",
-      lastStockEventNote: "Desdobramento de 2 para 1",
-      price: "40.00000000",
-    });
-    const stockEvents = await inC((tx) =>
-      tx.select().from(marketStockEvents).where(eq(marketStockEvents.ticker, "PETR4")),
-    );
-    expect(stockEvents).toHaveLength(1);
-    expect(stockEvents[0]).toMatchObject({
-      comDate: "2026-09-01",
-      factor: "2.00000000",
-      note: "Desdobramento de 2 para 1",
-      source: "brapi.dev",
-    });
-    const indices = await inC((tx) => tx.select().from(marketIndices));
-    expect(indices.map((row) => row.code).sort()).toEqual(["CDI", "IPCA", "SELIC"]);
-    expect(indices[0]).toMatchObject({ date: "2026-10-29", value: "0.05078800" });
-  });
-
   it("não repete ticker consultado há pouco", async () => {
-    const { fn, calls } = fakeFetch((ticker) => json(quote(ticker, 40)));
+    const { fn, calls } = fakeFetch((ticker, url) => answer(ticker, url, 40));
     await agents.runMarketData({ log: silent, activeDays: 60, fetch: fn, pauseMs: 0 });
     expect(calls).toHaveLength(0);
   });
@@ -768,23 +770,21 @@ describe("job de mercado", () => {
   it("ticker desconhecido fica registrado; falha de um não para os outros", async () => {
     await resetChecks();
     const { fn, calls, withToken } = fakeFetch((ticker, url) => {
-      if (isYahoo(url)) return ticker === "ABCD3" ? yahooNotFound() : json(yahoo(ticker, 41));
-      if (ticker === "ABCD3") return json({ error: true, code: "NOT_FOUND" }, 404);
-      if (ticker === "PETR4") return json({ error: true }, 500);
-      return json(quote(ticker, 41));
+      if (isYahoo(url) && ticker === "ABCD3") return yahooNotFound();
+      if (isYahoo(url) && ticker === "PETR4") return json({ error: true }, 500);
+      return answer(ticker, url, 41);
     });
     const result = await agents.runMarketData({
       log: silent,
-      token: "token-de-teste",
       activeDays: 60,
       fetch: fn,
       pauseMs: 0,
     });
-    expect(result).toMatchObject({ unknown: 1, failed: 1, quotes: 2, calls: 4 });
-    // Quatro na brapi; o que ela não achou passa pelo Yahoo antes de virar desconhecido.
-    expect(calls).toHaveLength(5);
-    expect(calls.filter(isYahoo)).toEqual([expect.stringContaining("ABCD3.SA")]);
-    expect(withToken.every(isBrapi)).toBe(true);
+    expect(result).toMatchObject({ unknown: 1, failed: 1, quotes: 2 });
+    // Quatro no Yahoo; só quem tem cotação segue para os proventos na B3.
+    expect(calls.filter(isYahoo)).toHaveLength(4);
+    expect(calls.filter(isCompany)).toHaveLength(2);
+    expect(withToken).toEqual([]);
     const rows = await tickers();
     expect(rows.find((row) => row.ticker === "ABCD3")).toMatchObject({
       status: "desconhecido",
@@ -793,131 +793,20 @@ describe("job de mercado", () => {
     expect(rows.find((row) => row.ticker === "PETR4")!.status).toBe("falha");
 
     const next = fakeFetch((ticker, url) => answer(ticker, url, 42));
-    await agents.runMarketData({
-      log: silent,
-      token: "token-de-teste",
-      activeDays: 60,
-      fetch: next.fn,
-      pauseMs: 0,
-    });
+    await agents.runMarketData({ log: silent, activeDays: 60, fetch: next.fn, pauseMs: 0 });
     expect(next.calls.some((url) => url.includes("ABCD3"))).toBe(false);
     expect(next.calls.some((url) => url.includes("PETR4"))).toBe(true);
   });
 
-  it("o teto da brapi vale para o dia inteiro, somando as rodadas; o que não cabe vem do Yahoo", async () => {
-    await resetChecks();
-    const used = await db.marketCallsOn(domain.todayIn());
-    const { fn, calls } = fakeFetch((ticker, url) => answer(ticker, url, 40));
-    const result = await agents.runMarketData({
-      log: silent,
-      token: "token-de-teste",
-      activeDays: 60,
-      maxCallsPerDay: used + 2,
-      fetch: fn,
-      pauseMs: 0,
-    });
-    expect(calls.filter(isBrapi)).toHaveLength(2);
-    expect(calls.filter(isYahoo)).toHaveLength(2);
-    // Ninguém fica de fora: a cota só decide a fonte.
-    expect(result).toMatchObject({ calls: 2, quotes: 4, skipped: 0, failed: 0 });
-    expect(await db.marketCallsOn(domain.todayIn())).toBe(used + 2);
-  });
-
-  it("para ao esgotar a cota, sem insistir", async () => {
-    await resetChecks();
-    const { fn, calls } = fakeFetch(() => json({ error: true }, 429));
-    const result = await agents.runMarketData({
-      log: silent,
-      token: "token-de-teste",
-      activeDays: 60,
-      fetch: fn,
-      pauseMs: 0,
-    });
-    expect(result.stoppedBy).toBe("limite");
-    expect(calls).toHaveLength(1);
-  });
-
-  it("rendimento de FII vem da rota própria e o plano sem acesso não insiste", async () => {
+  it("rendimento de FII vem da B3 uma vez por dia; a rodada de hora em hora só traz cotação", async () => {
+    // Os FIIs nunca foram consultados: entram na rodada completa mesmo com os outros recentes.
     await inC(async (tx) => {
       await tx.execute(db.sql`update market_tickers set checked_at = now()`);
       await tx.insert(investments).values([
         { householdId: C.household, name: "Fundo", ticker: "HGLG11", assetClass: "fii" },
-        { householdId: C.household, name: "Sem plano", ticker: "KNRI11", assetClass: "fii" },
+        { householdId: C.household, name: "Outro fundo", ticker: "KNRI11", assetClass: "fii" },
       ]);
     });
-    const fii = {
-      dividends: [
-        {
-          rate: 1.17,
-          rawRate: 1.17,
-          label: "RENDIMENTO",
-          lastDatePrior: "2026-10-30T03:00:00.000Z",
-          exDate: null,
-          paymentDate: "2026-11-16T03:00:00.000Z",
-          verified: true,
-          remarks: "",
-        },
-        {
-          rate: 2,
-          rawRate: 2,
-          label: "AMORTIZAÇÃO",
-          lastDatePrior: "2026-10-30T03:00:00.000Z",
-          paymentDate: "2026-11-16T03:00:00.000Z",
-          verified: true,
-          remarks: "",
-        },
-        {
-          rate: 3,
-          rawRate: 3,
-          label: "RENDIMENTO",
-          lastDatePrior: "2026-09-30T03:00:00.000Z",
-          paymentDate: "2026-09-30T03:00:00.000Z",
-          verified: true,
-          remarks: "Data de referência do informe mensal",
-        },
-      ],
-    };
-    const { fn, calls } = fakeFetch((ticker, url) => {
-      if (!url.includes("/fii/dividends")) {
-        return json({
-          results: [
-            {
-              symbol: ticker,
-              regularMarketPrice: 150,
-              regularMarketTime: "2026-10-30T21:00:00.000Z",
-            },
-          ],
-        });
-      }
-      return ticker === "HGLG11" ? json(fii) : json({ error: true }, 403);
-    });
-    await agents.runMarketData({
-      log: silent,
-      token: "token-de-teste",
-      activeDays: 60,
-      fetch: fn,
-      pauseMs: 0,
-    });
-    expect(calls).toHaveLength(4);
-    const rows = await inC((tx) =>
-      tx.select().from(marketDividends).where(eq(marketDividends.ticker, "HGLG11")),
-    );
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      kind: "rendimento",
-      comDate: "2026-10-30",
-      exDate: null,
-      ratePerShare: "1.17000000",
-    });
-    const status = await tickers();
-    expect(status.find((row) => row.ticker === "KNRI11")).toMatchObject({ status: "ok" });
-    expect(status.find((row) => row.ticker === "KNRI11")!.dividendsRetryOn).not.toBeNull();
-  });
-
-  it("sem token, rendimento de FII vem da B3 uma vez por dia; a rodada de hora em hora só traz cotação", async () => {
-    // HGLG11 ficou sem dividendsRetryOn (a brapi respondeu): na rodada completa ele entra de novo,
-    // mesmo consultado há pouco. KNRI11 espera os 30 dias do `plano`; os outros não são FII.
-    await inC((tx) => tx.execute(db.sql`update market_tickers set checked_at = now()`));
     const b3 = {
       cashDividends: [
         {
@@ -945,16 +834,17 @@ describe("job de mercado", () => {
       fetch: fn,
       pauseMs: 0,
     });
-    expect(calls).toEqual([
+    expect(calls).toHaveLength(4);
+    expect(calls.filter(isYahoo)).toEqual([
       expect.stringContaining("finance/chart/HGLG11.SA"),
-      expect.stringContaining("GetListedSupplementFunds"),
+      expect.stringContaining("finance/chart/KNRI11.SA"),
     ]);
+    expect(calls.filter(isB3)).toHaveLength(2);
     expect(withToken).toEqual([]);
-    expect(full).toMatchObject({ calls: 0, quotes: 1, dividends: 1, failed: 0 });
+    expect(full).toMatchObject({ quotes: 2, dividends: 2, failed: 0 });
     const rows = await inC((tx) =>
       tx.select().from(marketDividends).where(eq(marketDividends.ticker, "HGLG11")),
     );
-    // Mesma chave natural do rendimento que a brapi trouxe: a B3 atualiza a linha, não duplica.
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       kind: "rendimento",
@@ -979,9 +869,10 @@ describe("job de mercado", () => {
       fetch: hourly.fn,
       pauseMs: 0,
     });
+    // ABCD3 é desconhecido e espera os 30 dias; os outros cinco entram.
     expect(hourly.calls.every(isYahoo)).toBe(true);
-    expect(hourly.calls).toHaveLength(6);
-    expect(quotes).toMatchObject({ quotes: 6, dividends: 0, indices: 0, fx: 0, assets: 0 });
+    expect(hourly.calls).toHaveLength(5);
+    expect(quotes).toMatchObject({ quotes: 5, dividends: 0, indices: 0, fx: 0, assets: 0 });
     // Mesma cotação repetida (bolsa fechada) não duplica o histórico.
     const at = new Date(closedAt * 1000);
     expect(await db.listMarketQuoteHistory("HGLG11", at, at)).toHaveLength(1);
@@ -1014,14 +905,8 @@ describe("job de mercado", () => {
       }),
     );
     await inC((tx) => tx.execute(db.sql`update market_tickers set checked_at = now()`));
-    const { fn, calls } = fakeFetch((ticker) => json(quote(ticker, 40)));
-    await agents.runMarketData({
-      log: silent,
-      token: "token-de-teste",
-      activeDays: 60,
-      fetch: fn,
-      pauseMs: 0,
-    });
+    const { fn, calls } = fakeFetch((ticker, url) => answer(ticker, url, 40));
+    await agents.runMarketData({ log: silent, activeDays: 60, fetch: fn, pauseMs: 0 });
     expect(calls.some((url) => url.includes("ZZZZ3"))).toBe(false);
   });
 
@@ -1066,18 +951,17 @@ describe("job de mercado", () => {
     const { fn, calls } = fakeFetch((ticker, url) => answer(ticker, url, 40));
     const collected = await agents.runMarketData({
       log: silent,
-      token: "token-de-teste",
       activeDays: 60,
       fetch: fn,
       pauseMs: 0,
     });
-    expect(calls.some((url) => url.includes("quote/B3SA3"))).toBe(true);
+    expect(calls.some((url) => url.includes("B3SA3.SA"))).toBe(true);
     // A cotação, o histórico (migração 0045) e os proventos entram na mesma rodada, sem "falha".
     expect(collected).toMatchObject({ failed: 0 });
     expect((await tickers()).find((row) => row.ticker === "B3SA3")).toMatchObject({ status: "ok" });
-    const at = new Date("2026-10-30T21:00:00.000Z");
+    const at = new Date(closedAt * 1000);
     expect(await db.listMarketQuoteHistory("B3SA3", at, at)).toMatchObject([
-      { price: "40.00000000", source: "brapi.dev" },
+      { price: "40.00000000", source: "yahoo" },
     ]);
     await run();
     const [asset] = await inC((tx) =>

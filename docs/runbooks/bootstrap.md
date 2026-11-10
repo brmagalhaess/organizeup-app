@@ -23,10 +23,8 @@ Referência para recriar o ambiente. Nada aqui é feito por agentes.
    - Worker: `MIGRATION_DATABASE_URL` (Internal Connection URL do `ou3-db`), `DATABASE_URL` (ou_worker),
      `OU_APP_DB_PASSWORD`, `OU_WORKER_DB_PASSWORD`, `OU_ADMIN_DB_PASSWORD`, `DAILY_AGENTS_ENABLED`
      (opcional; `false` desliga os agentes diários do produto e a coleta de cotações sem novo deploy,
-     ADR-0015), `BRAPI_TOKEN` (chave da brapi.dev, só no `ou3-worker`; opcional desde o ADR-0032: vazia, cotações
-     vêm do Yahoo e rendimentos de FII da B3), `BRAPI_MAX_CALLS_PER_DAY` (opcional; padrão 400, soma todas as rodadas do
-     dia: passar do limite do plano encerra a licença, ADR-0017). Antes de colocar o token em produção,
-     confirme o plano: o grátis é descrito pela brapi para validar a integração.
+     ADR-0015). Cotações vêm do Yahoo e proventos da B3, sem chave (ADR-0032 e ADR-0035); `BRAPI_TOKEN` e
+     `BRAPI_MAX_CALLS_PER_DAY` deixaram de existir e podem ser apagados do Dokploy.
    - Web: `DATABASE_URL` (ou_app), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `OPS_TOKEN_HASHES`,
      `ADMIN_USER_IDS` (ids da tabela `user` que podem abrir `/admin`, separados por vírgula; cada um copia o
      seu em Configurações › "ID da conta"), `ADMIN_DATABASE_URL` (conexão `ou_admin`, usada só pelo painel

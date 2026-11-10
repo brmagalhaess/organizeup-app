@@ -219,7 +219,6 @@ describe("rodada do dia em dólar", () => {
       activeDays: 60,
       log: { error: () => undefined, info: () => undefined, warn: () => undefined },
       pauseMs: 0,
-      token: "teste",
       fetch: (async (url: string | URL | Request) => {
         asked.push(String(url));
         return new Response("[]", { status: 200 });

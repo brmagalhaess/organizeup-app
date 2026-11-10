@@ -1,4 +1,3 @@
-import { DEFAULT_MAX_CALLS_PER_DAY } from "@organizeup/agents";
 import { assistantConfigured, MODEL, monthSpend } from "@organizeup/ai";
 import {
   adminAccessList,
@@ -112,7 +111,7 @@ export default async function AdminSystemPage() {
     listAiStats(since),
     listAgentRuns(USAGE_DAYS),
     listAgentDiscards(since),
-    marketStatus(today),
+    marketStatus(),
     knowledgeStatus(),
     hasAdminDatabase() ? adminAccessList({ actions: [AI_TEST_OK, AI_TEST_FAILED], limit: 1 }) : [],
   ]);
@@ -121,8 +120,6 @@ export default async function AdminSystemPage() {
   const workerOk = freshest !== null && freshest <= WORKER_STALE_MINUTES;
   const workerInfo = (workers[0]?.info ?? {}) as {
     ai?: boolean;
-    brapi?: boolean;
-    brapiMaxCalls?: number;
     dailyAgents?: boolean;
   };
   const lastTest = aiTests[0];
@@ -133,12 +130,6 @@ export default async function AdminSystemPage() {
       where: "ou3-web",
       on: vaultReady(),
       hint: "DOCUMENT_ENCRYPTION_KEY, sem ela o cadastro com CPF é recusado:",
-    },
-    {
-      name: "Cotações (brapi)",
-      where: "ou3-worker",
-      on: workerInfo.brapi === true,
-      hint: "BRAPI_TOKEN",
     },
     {
       name: "Agentes diários",
@@ -275,11 +266,7 @@ export default async function AdminSystemPage() {
           windowDays={USAGE_DAYS}
         />
         <div className="flex min-w-0 flex-col gap-6">
-          <MarketCard
-            status={market}
-            maxCalls={workerInfo.brapiMaxCalls ?? DEFAULT_MAX_CALLS_PER_DAY}
-            now={new Date()}
-          />
+          <MarketCard status={market} now={new Date()} />
           <KnowledgeCard status={knowledge} today={today} />
         </div>
       </div>

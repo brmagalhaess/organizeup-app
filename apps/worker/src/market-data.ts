@@ -1,11 +1,6 @@
 // Job `market-data` (ADR-0017): cotações, proventos e índices públicos, gravados nas tabelas globais
 // antes de os agentes da madrugada lerem. A rotina fica em @organizeup/agents.
-import {
-  DEFAULT_MAX_CALLS_PER_DAY,
-  MERCADO_AGENT,
-  runMarketData,
-  type MarketRunMode,
-} from "@organizeup/agents";
+import { MERCADO_AGENT, runMarketData, type MarketRunMode } from "@organizeup/agents";
 import { readPlatformFlags } from "@organizeup/db";
 import { ACTIVE_DAYS } from "./daily-agents";
 
@@ -32,11 +27,6 @@ export interface MarketDataJob {
   mode?: MarketRunMode;
 }
 
-export function maxCallsPerDay(): number {
-  const parsed = Number.parseInt(process.env.BRAPI_MAX_CALLS_PER_DAY ?? "", 10);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_MAX_CALLS_PER_DAY;
-}
-
 export async function runMarketDataJob(log: Log, job: MarketDataJob = {}): Promise<void> {
   // Como os outros agentes: o painel desliga, e o modo manutenção para tudo.
   const flags = await readPlatformFlags();
@@ -48,8 +38,6 @@ export async function runMarketDataJob(log: Log, job: MarketDataJob = {}): Promi
     log,
     mode: job.mode ?? "full",
     catalog: true,
-    token: process.env.BRAPI_TOKEN || undefined,
-    maxCallsPerDay: maxCallsPerDay(),
     activeDays: ACTIVE_DAYS,
   });
 }

@@ -236,15 +236,7 @@ export function InsightsCard({
   );
 }
 
-export function MarketCard({
-  status,
-  maxCalls,
-  now,
-}: {
-  status: MarketStatus;
-  maxCalls: number;
-  now: Date;
-}) {
+export function MarketCard({ status, now }: { status: MarketStatus; now: Date }) {
   const stale = status.assetsUpdatedAt ? catalogStale(status.assetsUpdatedAt, now) : false;
   return (
     <Card
@@ -264,9 +256,6 @@ export function MarketCard({
             {status.assetsUpdatedAt ? formatDateTime(status.assetsUpdatedAt) : "Nunca"}
           </Fact>
           <Fact label="Ativos acompanhados">{formatCount(status.tickers)}</Fact>
-          <Fact label="Chamadas da brapi hoje">
-            {formatCount(status.callsToday)} de {formatCount(maxCalls)}
-          </Fact>
           <Fact label="Eventos em ações">{formatCount(status.stockEvents)}</Fact>
           <Fact label="Cotações de dólar e euro">
             {status.fxLatest

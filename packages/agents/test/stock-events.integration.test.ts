@@ -405,38 +405,54 @@ describe("coleta dos eventos em ações", () => {
     expect(rows[0]!.factor).toBe("3.00000000");
   });
 
-  it("traz todos os eventos que mudam a quantidade, com o fator da fonte", async () => {
-    const body = {
-      results: [
-        {
-          symbol: "ITUB4",
-          regularMarketPrice: 38.69,
-          regularMarketTime: "2026-10-30T21:00:00.000Z",
-          dividendsData: {
-            stockDividends: [
-              {
-                factor: 1.03,
-                completeFactor: "103 para 100",
-                label: "BONIFICACAO",
-                lastDatePrior: "2025-12-23T03:00:00.000Z",
-              },
-              { factor: 0.1, label: "GRUPAMENTO", lastDatePrior: "2020-03-02T03:00:00.000Z" },
-              { factor: 1, label: "CIS RED CAP", lastDatePrior: "2021-10-01T03:00:00.000Z" },
-              // Arredondaria para zero na coluna de 8 casas.
-              { factor: 1e-10, label: "GRUPAMENTO", lastDatePrior: "2019-03-02T03:00:00.000Z" },
-            ],
+  it("traz todos os eventos que mudam a quantidade, com o fator da B3 virando multiplicador", async () => {
+    // Resposta da lista de empresas da B3 (ADR-0035): a ITUB tem ON e PN; só a PN é ITUB4.
+    const body = [
+      {
+        code: "ITUB",
+        cashDividends: [],
+        stockDividends: [
+          {
+            assetIssued: "BRITUBACNPR1",
+            factor: "3,00000000000",
+            label: "BONIFICACAO",
+            lastDatePrior: "23/12/2025",
           },
-        },
-      ],
-    };
-    const result = await agents.fetchBrapiQuote("ITUB4", {
+          {
+            assetIssued: "BRITUBACNOR4",
+            factor: "3,00000000000",
+            label: "BONIFICACAO",
+            lastDatePrior: "23/12/2025",
+          },
+          {
+            assetIssued: "BRITUBACNPR1",
+            factor: "0,10000000000",
+            label: "GRUPAMENTO",
+            lastDatePrior: "02/03/2020",
+          },
+          {
+            assetIssued: "BRITUBACNPR1",
+            factor: "100,00000000000",
+            label: "CIS RED CAP",
+            lastDatePrior: "01/10/2021",
+          },
+          // Arredondaria para zero na coluna de 8 casas.
+          {
+            assetIssued: "BRITUBACNPR1",
+            factor: "0,00000000010",
+            label: "GRUPAMENTO",
+            lastDatePrior: "02/03/2019",
+          },
+        ],
+      },
+    ];
+    const result = await agents.fetchB3CompanyEvents("ITUB4", {
       today: day,
       fetch: (async () => new Response(JSON.stringify(body))) as typeof fetch,
     });
     expect(result.stockEvents).toEqual([
-      { comDate: "2025-12-23", factor: "1.03000000", note: "Bonificação de 103 para 100" },
-      { comDate: "2020-03-02", factor: "0.10000000", note: "Grupamento" },
+      { comDate: "2020-03-02", factor: "0.10000000", note: "Grupamento de 10 para 1" },
+      { comDate: "2025-12-23", factor: "1.03000000", note: "Bonificação de 3%" },
     ]);
-    expect(result.lastStockEventOn).toBe("2025-12-23");
   });
 });

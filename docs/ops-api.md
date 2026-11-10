@@ -73,9 +73,9 @@ verificador reprovou vai para `ops.agent_discards`, por dia e agente, e aparece 
 soma a cada rodada, sem texto.
 
 A chave `agente_desligado:<agente>` vale para todos eles, `mercado` e `dicas` inclusive, e o modo manutenção também
-para o `mercado`: o job confere as duas antes de gastar cota da brapi. Nada fica registrado em `agentRuns` nesses
-dias, então agente desligado não gera alerta de rodada. O heartbeat do worker (`workers[].info`) traz `ai` e `brapi`
-(se a chave existe, nunca o valor) e `brapiMaxCalls`, o teto diário que o painel compara com as chamadas do dia.
+para o `mercado`: o job confere as duas antes de consultar as fontes. Nada fica registrado em `agentRuns` nesses
+dias, então agente desligado não gera alerta de rodada. O heartbeat do worker (`workers[].info`) traz `ai` (se a
+chave existe, nunca o valor). Desde o ADR-0035 não há chave nem cota de mercado: Yahoo e B3 respondem sem token.
 
 ## Erros (`ops.diagnostics`)
 

@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   if (flags.disabledAgents.includes(agent)) {
     return Response.json({ queued: false, agent, day, reason: "desligado" });
   }
-  // A cota da brapi é por dia: quem já rodou no horário do worker não gasta outra rodada.
+  // As fontes públicas não declaram cota: quem já rodou no horário do worker não repete a rodada.
   if (agent === MERCADO_AGENT && (await hasAgentRunToday(day, agent))) {
     return Response.json({ queued: false, agent, day, reason: "ja_rodou" });
   }

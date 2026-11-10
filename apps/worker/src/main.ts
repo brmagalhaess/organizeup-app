@@ -31,7 +31,6 @@ import { reportingFailures, reportJobFailure } from "./diagnostics";
 import {
   LEGACY_MARKET_KEYS,
   MARKET_SCHEDULES,
-  maxCallsPerDay,
   runMarketDataJob,
   type MarketDataJob,
 } from "./market-data";
@@ -48,8 +47,6 @@ const dailyAgentsOn = process.env.DAILY_AGENTS_ENABLED !== "false";
 /** O painel do serviço mostra se a chave existe, nunca o valor. O teto de chamadas não é segredo. */
 const integrations = {
   dailyAgents: dailyAgentsOn,
-  brapi: Boolean(process.env.BRAPI_TOKEN),
-  brapiMaxCalls: maxCallsPerDay(),
   ai: assistantConfigured(),
 };
 
@@ -190,8 +187,7 @@ async function main() {
     );
     await boss.schedule(JOB_QUEUES.aiInsights, "45 5 * * *", null, { tz: "America/Sao_Paulo" });
     const today = todayIn();
-    // Com chave, o boot atualiza já: quem acabou de colar o token não espera o próximo pregão.
-    if (integrations.brapi || !(await hasAgentRunToday(today, MERCADO_AGENT))) {
+    if (!(await hasAgentRunToday(today, MERCADO_AGENT))) {
       await boss.send(JOB_QUEUES.marketData, null, { singletonKey: `market:${today}` });
     }
     const sentinel = dailyAgentsSentinel((await readPlatformFlags()).disabledAgents);

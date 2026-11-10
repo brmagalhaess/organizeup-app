@@ -9,19 +9,17 @@ export {
   type ApplyResult,
 } from "./apply";
 export {
-  BRAPI_SOURCE,
-  fetchBrapiQuote,
-  fetchFiiDividends,
+  b3TickerOfIsin,
+  fetchB3CompanyEvents,
+  fetchB3FiiDividends,
   fetchFxSeries,
   fetchSgsSeries,
-  KEYLESS_TICKERS,
   MarketError,
   SGS_SERIES,
-  type BrapiQuote,
+  type B3CompanyEvents,
   type MarketErrorCode,
 } from "./market";
 export {
-  DEFAULT_MAX_CALLS_PER_DAY,
   MERCADO_AGENT,
   runMarketData,
   type MarketRunOptions,

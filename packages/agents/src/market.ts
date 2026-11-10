@@ -1,13 +1,12 @@
-// Clientes da brapi e do SGS do Banco Central (ADR-0017). Sem banco e sem dado de família: só recebem
-// um ticker válido. Toda chamada roda fora de withHousehold (regra do tenant.ts). Formatos conferidos
-// contra as APIs reais em 2026-10-31. O erro leva só um código: nem o endereço nem a resposta, e o
-// token vai no cabeçalho, como pede a documentação, para não parar em log de ninguém.
+// Clientes das fontes de mercado (ADR-0017, ADR-0032, ADR-0035): Yahoo para cotação, B3 para proventos
+// e eventos de ações e rendimentos de FII, SGS do Banco Central para índices e câmbio, e a rota pública
+// da brapi só para o catálogo de nomes. Sem banco e sem dado de família: só recebem um ticker válido.
+// Toda chamada roda fora de withHousehold (regra do tenant.ts). O erro leva só um código: nem o
+// endereço nem a resposta, para não parar em log de ninguém.
 import {
-  marketDateOf,
   MARKET_RULES,
   money,
   normalizeTicker,
-  paidRate,
   shiftYears,
   type DividendKind,
   type FxCurrency,
@@ -21,11 +20,9 @@ import type {
 } from "@organizeup/db";
 import { z } from "zod";
 
+/** Só o catálogo de nomes vem daqui, pela rota pública, sem chave (ADR-0035). */
 export const BRAPI_URL = "https://brapi.dev";
 export const SGS_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs";
-export const BRAPI_SOURCE = "brapi.dev";
-/** Respondem sem token (documentação da brapi, "Teste sem chave"). */
-export const KEYLESS_TICKERS: readonly string[] = ["PETR4", "VALE3", "MGLU3", "ITUB4"];
 export const FETCH_TIMEOUT_MS = 15_000;
 
 /** Séries do SGS: CDI e SELIC em % ao dia, IPCA em % ao mês. */
@@ -39,15 +36,7 @@ export const FX_SOURCE = "bcb.sgs";
 /** Máximo de pontos pedidos a cada série: basta para cobrir semanas sem rodar. */
 const SGS_LAST_POINTS = 20;
 
-export type MarketErrorCode =
-  | "nao_encontrado"
-  | "sem_token"
-  | "token_invalido"
-  | "plano"
-  | "limite"
-  | "servidor"
-  | "rede"
-  | "formato";
+export type MarketErrorCode = "nao_encontrado" | "limite" | "servidor" | "rede" | "formato";
 
 export class MarketError extends Error {
   readonly code: MarketErrorCode;
@@ -59,20 +48,14 @@ export class MarketError extends Error {
 }
 
 export interface MarketClientOptions {
-  token?: string | undefined;
   /** Hoje na B3; define até onde vai o histórico coletado. */
   today: string;
   fetch?: typeof fetch;
   timeoutMs?: number;
 }
 
-function codeOfStatus(status: number, body: unknown): MarketErrorCode {
+function codeOfStatus(status: number): MarketErrorCode {
   if (status === 400 || status === 404) return "nao_encontrado";
-  if (status === 401) {
-    const code = (body as { code?: unknown } | null)?.code;
-    return code === "MISSING_TOKEN" ? "sem_token" : "token_invalido";
-  }
-  if (status === 403) return "plano";
   if (status === 429) return "limite";
   return "servidor";
 }
@@ -86,11 +69,7 @@ async function getJson(
   let response: Response;
   try {
     response = await run(url, {
-      headers: {
-        accept: "application/json",
-        ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
-        ...headers,
-      },
+      headers: { accept: "application/json", ...headers },
       signal: AbortSignal.timeout(options.timeoutMs ?? FETCH_TIMEOUT_MS),
     });
   } catch {
@@ -102,61 +81,17 @@ async function getJson(
   } catch {
     if (response.ok) throw new MarketError("formato");
   }
-  if (!response.ok) throw new MarketError(codeOfStatus(response.status, body));
+  if (!response.ok) throw new MarketError(codeOfStatus(response.status));
   return body;
 }
 
-// A brapi manda número em JSON. Passa a texto na borda para não fazer conta com `number` (regra 4).
-const decimal = z.number().transform((value) => String(value));
-const moment = z.iso.datetime({ offset: true });
-
-const cashDividend = z.object({
-  rate: decimal,
-  rawRate: decimal.nullish(),
-  label: z.string(),
-  lastDatePrior: moment.nullish(),
-  exDate: moment.nullish(),
-  paymentDate: moment.nullish(),
-  verified: z.boolean().nullish(),
-  remarks: z.string().nullish(),
-});
-type CashDividend = z.infer<typeof cashDividend>;
-
-const stockDividend = z.object({
-  factor: decimal,
-  completeFactor: z.string().nullish(),
-  label: z.string(),
-  lastDatePrior: moment.nullish(),
-});
-type StockDividend = z.infer<typeof stockDividend>;
-
-/** Só eventos que mudam a quantidade de ações e o preço. Cisão e afins ficam de fora. */
-const STOCK_EVENT_LABELS: Record<string, string> = {
-  DESDOBRAMENTO: "Desdobramento",
-  GRUPAMENTO: "Grupamento",
-  BONIFICACAO: "Bonificação",
-};
-
-const quoteResult = z.object({
-  symbol: z.string(),
-  regularMarketPrice: z.number().positive(),
-  regularMarketChangePercent: z.number().nullish(),
-  regularMarketTime: moment,
-  dividendsData: z
-    .object({
-      cashDividends: z.array(z.unknown()).nullish(),
-      stockDividends: z.array(z.unknown()).nullish(),
-    })
-    .nullish(),
-});
-
-const quoteResponse = z.object({ results: z.array(z.unknown()).min(1) });
-const fiiResponse = z.object({ dividends: z.array(z.unknown()) });
 const sgsResponse = z.array(z.object({ data: z.string(), valor: z.string() }));
 
+/** Rótulos da B3 e da brapi para os três tipos que o sistema lança. */
 const LABEL_KINDS: Record<string, DividendKind> = {
   DIVIDENDO: "dividendo",
   JCP: "jcp",
+  "JRS CAP PROPRIO": "jcp",
   RENDIMENTO: "rendimento",
 };
 
@@ -166,17 +101,6 @@ const parseEach = <T>(schema: z.ZodType<T>, rows: unknown[] | null | undefined):
     return parsed.success ? [parsed.data] : [];
   });
 
-function stockEventsOf(rows: StockDividend[]): Array<StockEvent & { note: string }> {
-  return rows.flatMap((row) => {
-    const label = STOCK_EVENT_LABELS[row.label];
-    if (!label || !row.lastDatePrior) return [];
-    const note = row.completeFactor ? `${label} de ${row.completeFactor}` : label;
-    return [
-      { comDate: marketDateOf(row.lastDatePrior), factor: row.factor, note: note.slice(0, 120) },
-    ];
-  });
-}
-
 /** Eventos como a tabela guarda: 8 casas, sem o que arredondaria para zero (a fonte não confirma). */
 const storableStockEvents = (events: Array<StockEvent & { note: string }>) =>
   events.flatMap((event) => {
@@ -185,40 +109,18 @@ const storableStockEvents = (events: Array<StockEvent & { note: string }>) =>
   });
 
 /**
- * Filtra o que dá para usar. Fica de fora o que a fonte não confirma: `verified` falso (em ações,
- * sobra só correção de provento), sem data de pagamento e rótulo fora dos três tipos, como
- * amortização, que devolve capital. Pagamentos iguais com valores diferentes ganham `seq`.
+ * Pagamentos iguais com valores diferentes ganham `seq`; linha repetida (a B3 lista a mesma classe
+ * em mais de uma série de ISIN) entra uma vez só.
  */
-function dividendRows(
-  ticker: string,
-  rows: CashDividend[],
-  today: string,
-  rateOf: (row: CashDividend, comDate: string) => string,
-): MarketDividendRow[] {
-  const since = shiftYears(today, -MARKET_RULES.historyYears);
-  const usable = rows.flatMap((row) => {
-    const kind = LABEL_KINDS[row.label];
-    if (!kind || row.verified !== true || !row.lastDatePrior || !row.paymentDate) return [];
-    const comDate = marketDateOf(row.lastDatePrior);
-    if (comDate < since) return [];
-    const ratePerShare = rateOf(row, comDate);
-    if (money(ratePerShare).lte(0)) return [];
-    return [
-      {
-        ticker,
-        kind,
-        comDate,
-        exDate: row.exDate ? marketDateOf(row.exDate) : null,
-        payDate: marketDateOf(row.paymentDate),
-        ratePerShare,
-        seq: 1,
-        source: BRAPI_SOURCE,
-      },
-    ];
-  });
-  usable.sort((a, b) => money(b.ratePerShare).comparedTo(a.ratePerShare));
+function withSeq(rows: MarketDividendRow[]): MarketDividendRow[] {
+  const unique = [
+    ...new Map(
+      rows.map((row) => [`${row.kind}|${row.comDate}|${row.payDate}|${row.ratePerShare}`, row]),
+    ).values(),
+  ];
+  unique.sort((a, b) => money(b.ratePerShare).comparedTo(a.ratePerShare));
   const seen = new Map<string, number>();
-  return usable.map((row) => {
+  return unique.map((row) => {
     const key = `${row.kind}|${row.comDate}|${row.payDate}`;
     const seq = (seen.get(key) ?? 0) + 1;
     seen.set(key, seq);
@@ -279,81 +181,13 @@ export async function fetchBrapiCatalog(options: MarketClientOptions) {
   return { rows, pages };
 }
 
-export interface BrapiQuote {
-  ticker: string;
-  price: string;
-  changePercent: string | null;
-  quotedAt: Date;
-  lastStockEventOn: string | null;
-  lastStockEventNote: string | null;
-  /** Todos os desdobramentos, grupamentos e bonificações que a fonte traz. */
-  stockEvents: Array<StockEvent & { note: string }>;
-  dividends: MarketDividendRow[];
-}
-
-/**
- * Cotação e proventos de um ticker numa chamada só. A rota antiga continua ativa, sem data de remoção,
- * e a v2 pede uma chamada para cada tipo de dado, o que dobraria o gasto da cota.
- */
-export async function fetchBrapiQuote(
-  ticker: string,
-  options: MarketClientOptions,
-): Promise<BrapiQuote> {
-  const url = `${BRAPI_URL}/api/quote/${encodeURIComponent(ticker)}?dividends=true`;
-  const envelope = quoteResponse.safeParse(await getJson(url, options));
-  if (!envelope.success) throw new MarketError("formato");
-  const parsed = quoteResult.safeParse(envelope.data.results[0]);
-  if (!parsed.success) throw new MarketError("formato");
-  const quote = parsed.data;
-
-  const events = stockEventsOf(parseEach(stockDividend, quote.dividendsData?.stockDividends));
-  const latest = [...events].sort((a, b) => b.comDate.localeCompare(a.comDate))[0];
-  const dividends = dividendRows(
-    ticker,
-    parseEach(cashDividend, quote.dividendsData?.cashDividends),
-    options.today,
-    (row, comDate) => paidRate(row.rate, comDate, events),
-  );
-  return {
-    ticker,
-    price: money(String(quote.regularMarketPrice)).toFixed(8),
-    changePercent:
-      quote.regularMarketChangePercent == null
-        ? null
-        : money(String(quote.regularMarketChangePercent)).toFixed(4),
-    quotedAt: new Date(quote.regularMarketTime),
-    lastStockEventOn: latest?.comDate ?? null,
-    lastStockEventNote: latest?.note ?? null,
-    stockEvents: storableStockEvents(events),
-    dividends,
-  };
-}
-
-/**
- * Rendimentos de FII, que têm rota própria e trazem `rawRate`, o valor pago na data. Quando a fonte
- * não tem as datas reais, usa a data do informe mensal e explica em `remarks`: isso fica de fora,
- * porque a data-com errada daria direito errado.
- */
-export async function fetchFiiDividends(
-  ticker: string,
-  options: MarketClientOptions,
-): Promise<MarketDividendRow[]> {
-  const url = `${BRAPI_URL}/api/v2/fii/dividends?symbols=${encodeURIComponent(ticker)}`;
-  const parsed = fiiResponse.safeParse(await getJson(url, options));
-  if (!parsed.success) throw new MarketError("formato");
-  const rows = parseEach(cashDividend, parsed.data.dividends).filter((row) => !row.remarks?.trim());
-  return dividendRows(ticker, rows, options.today, (row) =>
-    money(row.rawRate ?? row.rate).toFixed(8),
-  );
-}
-
 /** Últimos pontos de uma série do SGS. Serviço público, sem chave. */
 export async function fetchSgsSeries(
   code: MarketIndexCode,
   options: MarketClientOptions,
 ): Promise<Array<{ code: MarketIndexCode; date: string; value: string }>> {
   const url = `${SGS_URL}.${SGS_SERIES[code]}/dados/ultimos/${SGS_LAST_POINTS}?formato=json`;
-  const parsed = sgsResponse.safeParse(await getJson(url, { ...options, token: undefined }));
+  const parsed = sgsResponse.safeParse(await getJson(url, options));
   if (!parsed.success) throw new MarketError("formato");
   return parsed.data.flatMap(({ data, valor }) => {
     const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data);
@@ -380,7 +214,7 @@ export async function fetchFxSeries(
     `&dataInicial=${sgsDate(from)}&dataFinal=${sgsDate(to)}`;
   let body: unknown;
   try {
-    body = await getJson(url, { ...options, token: undefined });
+    body = await getJson(url, options);
   } catch (error) {
     if (error instanceof MarketError && error.code === "nao_encontrado") return [];
     throw error;
@@ -402,14 +236,16 @@ export async function fetchFxSeries(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Fontes gratuitas (ADR-0032): cotação pelo Yahoo Finance e rendimentos de FII pela própria B3.
-// Nenhuma pede chave. As duas são as rotas que os sites usam, então o formato é conferido pelo zod
-// e qualquer mudança vira `formato`, nunca dado errado gravado.
+// Fontes gratuitas (ADR-0032 e ADR-0035): cotação pelo Yahoo Finance; rendimentos de FII, proventos e
+// eventos de ações pela própria B3. Nenhuma pede chave. São as rotas que os sites usam, então o formato
+// é conferido pelo zod e qualquer mudança vira `formato`, nunca dado errado gravado.
 // ---------------------------------------------------------------------------------------------
 
 export const YAHOO_URL = "https://query1.finance.yahoo.com/v8/finance/chart";
 export const YAHOO_SOURCE = "yahoo";
 export const B3_FUNDS_URL = "https://sistemaswebb3-listados.b3.com.br/fundsProxy/fundsCall";
+export const B3_COMPANIES_URL =
+  "https://sistemaswebb3-listados.b3.com.br/listedCompaniesProxy/CompanyCall";
 export const B3_SOURCE = "b3";
 /** As rotas públicas recusam cliente sem identificação de navegador. */
 const BROWSER_HEADERS = {
@@ -449,9 +285,7 @@ export async function fetchYahooQuote(
   options: MarketClientOptions,
 ): Promise<FreeQuote> {
   const url = `${YAHOO_URL}/${encodeURIComponent(ticker)}.SA?range=5d&interval=1d`;
-  const parsed = yahooResponse.safeParse(
-    await getJson(url, { ...options, token: undefined }, BROWSER_HEADERS),
-  );
+  const parsed = yahooResponse.safeParse(await getJson(url, options, BROWSER_HEADERS));
   if (!parsed.success) throw new MarketError("formato");
   const result = parsed.data.chart.result?.[0];
   if (!result) throw new MarketError("nao_encontrado");
@@ -473,12 +307,20 @@ export async function fetchYahooQuote(
 const b3Date = z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/);
 const b3Supplement = z.object({
   cashDividends: z.array(z.unknown()).nullish(),
+  stockDividends: z.array(z.unknown()).nullish(),
 });
 const b3CashDividend = z.object({
+  assetIssued: z.string().nullish(),
   label: z.string(),
   lastDatePrior: b3Date,
   paymentDate: b3Date.nullish(),
   rate: z.string(),
+});
+const b3StockDividend = z.object({
+  assetIssued: z.string().nullish(),
+  label: z.string(),
+  lastDatePrior: b3Date,
+  factor: z.string(),
 });
 
 const parseLoose = (text: string): unknown => {
@@ -495,7 +337,13 @@ const isoFromB3 = (value: string) =>
 /** "0,09500000000" → "0.095". */
 const decimalFromB3 = (value: string) => value.replace(/\./g, "").replace(",", ".");
 
-/** Código de negociação → identificador do fundo na B3: MXRF11 → MXRF. */
+/** A B3 ora devolve o objeto, ora o mesmo JSON dentro de uma string: os dois valem. */
+async function getB3(url: string, options: MarketClientOptions) {
+  const body = await getJson(url, options, BROWSER_HEADERS);
+  return typeof body === "string" ? parseLoose(body) : body;
+}
+
+/** Código de negociação → identificador na B3 (fundo ou emissora): MXRF11 → MXRF, PETR4 → PETR. */
 export const b3FundIdentifier = (ticker: string) => ticker.replace(/\d+B?$/, "");
 
 /**
@@ -509,13 +357,9 @@ export async function fetchB3FiiDividends(
   const payload = Buffer.from(
     JSON.stringify({ cnpj: "0", identifierFund: b3FundIdentifier(ticker), typeFund: 7 }),
   ).toString("base64");
-  const body = await getJson(
-    `${B3_FUNDS_URL}/GetListedSupplementFunds/${payload}`,
-    { ...options, token: undefined },
-    BROWSER_HEADERS,
+  const parsed = b3Supplement.safeParse(
+    await getB3(`${B3_FUNDS_URL}/GetListedSupplementFunds/${payload}`, options),
   );
-  // A B3 ora devolve o objeto, ora o mesmo JSON dentro de uma string: os dois valem.
-  const parsed = b3Supplement.safeParse(typeof body === "string" ? parseLoose(body) : body);
   if (!parsed.success) throw new MarketError("formato");
   const since = shiftYears(options.today, -MARKET_RULES.historyYears);
   const usable = parseEach(b3CashDividend, parsed.data.cashDividends).flatMap((row) => {
@@ -537,12 +381,102 @@ export async function fetchB3FiiDividends(
       },
     ];
   });
-  usable.sort((a, b) => money(b.ratePerShare).comparedTo(a.ratePerShare));
-  const seen = new Map<string, number>();
-  return usable.map((row) => {
-    const key = `${row.kind}|${row.comDate}|${row.payDate}`;
-    const seq = (seen.get(key) ?? 0) + 1;
-    seen.set(key, seq);
-    return { ...row, seq };
+  return withSeq(usable);
+}
+
+/**
+ * Classe do papel pelo ISIN da B3: `BRPETRACNOR9` é PETR3 (ON), `BRPETRACNPR6` é PETR4 (PN),
+ * `BRTAEECDAM10` é TAEE11 (unit). Séries antigas da mesma classe (`BRBBASA04OR8`) caem no mesmo código.
+ * Fora disso (debênture, recibo, BDR) devolve null.
+ */
+export function b3TickerOfIsin(isin: string): string | null {
+  if (!/^BR[A-Z0-9]{4}[A-Z0-9]{3}[A-Z0-9]{2}\d$/.test(isin)) return null;
+  const root = isin.slice(2, 6);
+  if (isin.slice(6, 10) === "CDAM") return `${root}11`;
+  const suffix: Record<string, string> = { OR: "3", PR: "4", PA: "5", PB: "6", PC: "7", PD: "8" };
+  const code = suffix[isin.slice(9, 11)];
+  return code ? `${root}${code}` : null;
+}
+
+/** Fatores da B3: desdobramento e bonificação em % a acrescentar; grupamento é o próprio multiplicador. */
+const B3_STOCK_EVENTS: Record<string, (pct: string) => { factor: string; note: string }> = {
+  DESDOBRAMENTO: (pct) => {
+    const factor = money(1).plus(money(pct).dividedBy(100));
+    const whole = factor.isInteger();
+    return {
+      factor: factor.toFixed(8),
+      note: whole ? `Desdobramento de ${factor.toFixed(0)} para 1` : `Desdobramento de ${pct}%`,
+    };
+  },
+  BONIFICACAO: (pct) => ({
+    factor: money(1).plus(money(pct).dividedBy(100)).toFixed(8),
+    note: `Bonificação de ${money(pct)
+      .toFixed(2)
+      .replace(/\.?0+$/, "")}%`,
+  }),
+  GRUPAMENTO: (factor) => {
+    const inverse = money(factor).isZero() ? money(0) : money(1).dividedBy(factor);
+    return {
+      factor: money(factor).toFixed(8),
+      note: inverse.isInteger() ? `Grupamento de ${inverse.toFixed(0)} para 1` : "Grupamento",
+    };
+  },
+};
+
+export interface B3CompanyEvents {
+  dividends: MarketDividendRow[];
+  /** Desdobramentos, grupamentos e bonificações da classe do papel, do mais antigo ao mais novo. */
+  stockEvents: Array<StockEvent & { note: string }>;
+}
+
+/**
+ * Proventos e eventos de uma ação direto da B3 (empresas listadas), pela raiz do código (PETR). A
+ * resposta traz todas as classes da emissora, cada uma pelo ISIN: fica só o que é deste código. O valor
+ * por ação é o pago na data, sem ajuste por eventos posteriores (ADR-0035).
+ */
+export async function fetchB3CompanyEvents(
+  ticker: string,
+  options: MarketClientOptions,
+): Promise<B3CompanyEvents> {
+  const payload = Buffer.from(
+    JSON.stringify({ issuingCompany: b3FundIdentifier(ticker), language: "pt-br" }),
+  ).toString("base64");
+  const body = await getB3(`${B3_COMPANIES_URL}/GetListedSupplementCompany/${payload}`, options);
+  const first = Array.isArray(body) ? body[0] : body;
+  if (first == null) throw new MarketError("nao_encontrado");
+  const parsed = b3Supplement.safeParse(first);
+  if (!parsed.success) throw new MarketError("formato");
+  const own = (isin: string | null | undefined) => isin != null && b3TickerOfIsin(isin) === ticker;
+  const since = shiftYears(options.today, -MARKET_RULES.historyYears);
+  const dividends = parseEach(b3CashDividend, parsed.data.cashDividends).flatMap((row) => {
+    const kind = LABEL_KINDS[row.label.trim().toUpperCase()];
+    if (!kind || !row.paymentDate || !own(row.assetIssued)) return [];
+    const comDate = isoFromB3(row.lastDatePrior);
+    const ratePerShare = money(decimalFromB3(row.rate)).toFixed(8);
+    if (comDate < since || money(ratePerShare).lte(0)) return [];
+    return [
+      {
+        ticker,
+        kind,
+        comDate,
+        exDate: null,
+        payDate: isoFromB3(row.paymentDate),
+        ratePerShare,
+        seq: 1,
+        source: B3_SOURCE,
+      },
+    ];
   });
+  const events = parseEach(b3StockDividend, parsed.data.stockDividends).flatMap((row) => {
+    const build = B3_STOCK_EVENTS[row.label.trim().toUpperCase()];
+    if (!build || !own(row.assetIssued)) return [];
+    const { factor, note } = build(decimalFromB3(row.factor));
+    return [{ comDate: isoFromB3(row.lastDatePrior), factor, note: note.slice(0, 120) }];
+  });
+  const stockEvents = [
+    ...new Map(
+      storableStockEvents(events).map((event) => [`${event.comDate}|${event.note}`, event]),
+    ).values(),
+  ].sort((a, b) => a.comDate.localeCompare(b.comDate));
+  return { dividends: withSeq(dividends), stockEvents };
 }

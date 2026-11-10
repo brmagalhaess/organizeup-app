@@ -2,6 +2,8 @@
 
 Status: aceito (2026-11-09). Pedido do fundador: a brapi é cara e o plano atual recusou o MXRF11
 (`sem_plano`); a coleta precisa ser automática e diária para todos os ativos de todas as famílias.
+Complementado pelo ADR-0035 (2026-11-09): a brapi saiu da coleta de cotação, proventos e eventos, que
+passou a vir só do Yahoo e da B3; ela ficou apenas no catálogo de nomes, pela rota pública.
 
 ## Decisão
 

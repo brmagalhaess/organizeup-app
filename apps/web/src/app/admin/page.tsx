@@ -120,7 +120,7 @@ export default async function AdminOverviewPage() {
     monthSpend(),
     listDiagnostics({ limit: 100 }),
     adminAssistantCounts({ insightsConsentVersion: INSIGHTS_CONSENT_VERSION }),
-    marketStatus(today),
+    marketStatus(),
     knowledgeStatus(),
     adminAccessList({ actions: [AI_TEST_OK, AI_TEST_FAILED], limit: 1 }),
     adminVipList(),

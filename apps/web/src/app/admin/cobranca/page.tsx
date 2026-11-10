@@ -33,7 +33,6 @@ const BEFORE_CHARGING = [
   "Emissão de NFS-e para as faturas pagas na Stripe.",
   "Termos com cobrança, renovação, cancelamento e devolução, revisados por advogado, incluindo a pergunta sobre sugestões de investimento por IA e a CVM.",
   "Resposta por escrito da Stripe sobre parcelamento, Pix e cobrança em dólar e euro.",
-  "Plano pago da brapi: o grátis é para protótipos sem receita.",
 ];
 
 const errorColumns: Column[] = [

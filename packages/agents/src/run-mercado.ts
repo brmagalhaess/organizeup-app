@@ -2,7 +2,6 @@
 // famílias só para saber quais tickers existem, sem guardar quem tem o quê, e grava nas tabelas
 // globais. Consulta cada ticker uma vez. Logs só com contagens e código de erro.
 import {
-  addMarketCalls,
   fromJob,
   householdCurrency,
   inArray,
@@ -12,7 +11,6 @@ import {
   readFamilyAccess,
   readPlatformFlags,
   listMarketTickers,
-  marketCallsOn,
   MARKET_INDEX_CODES,
   recordAgentRun,
   saveMarketAssets,
@@ -35,11 +33,9 @@ import {
 } from "@organizeup/domain";
 import {
   B3_SOURCE,
-  BRAPI_SOURCE,
+  fetchB3CompanyEvents,
   fetchB3FiiDividends,
   fetchBrapiCatalog,
-  fetchBrapiQuote,
-  fetchFiiDividends,
   fetchFxSeries,
   fetchSgsSeries,
   fetchYahooQuote,
@@ -50,9 +46,7 @@ import {
 import { shiftDays } from "./shared";
 
 export const MERCADO_AGENT = "mercado";
-/** Teto padrão de chamadas por dia: 400 × 31 fica abaixo das 15.000 do plano grátis. */
-export const DEFAULT_MAX_CALLS_PER_DAY = 400;
-/** O plano grátis aceita uma chamada por vez; a pausa evita encostar nisso. */
+/** Pausa entre consultas: as rotas públicas não declaram cota, e espaçar evita bloqueio. */
 export const DEFAULT_PAUSE_MS = 300;
 /** Código que a fonte não reconhece só é consultado de novo depois disto. */
 export const UNKNOWN_RETRY_DAYS = 30;
@@ -60,7 +54,7 @@ export const UNKNOWN_RETRY_DAYS = 30;
 export const CHECK_INTERVAL_MS = 12 * 3_600_000;
 /** No pregão a cotação muda; entre duas coletas horárias basta este intervalo (ADR-0033). */
 export const QUOTES_INTERVAL_MS = 50 * 60_000;
-/** Proventos são conferidos na rodada completa de todo dia (ADR-0033). */
+/** Proventos e eventos são conferidos na rodada completa de todo dia (ADR-0033). */
 export const DIVIDENDS_INTERVAL_DAYS = 1;
 /** Lançamento antigo precisa da cotação da data dele: a primeira rodada traz tudo isto. */
 export const FX_HISTORY_YEARS = 10;
@@ -78,7 +72,7 @@ interface Log {
 export type MarketRunMode = "full" | "quotes";
 
 export interface MarketRunOptions {
-  /** Atualiza o catálogo de ativos. O job do worker sempre liga. */
+  /** Atualiza o catálogo de nomes. O job do worker sempre liga. */
   catalog?: boolean;
   /**
    * `quotes` (ADR-0033): só cotação, de hora em hora com a bolsa aberta; nada de índices, câmbio,
@@ -86,8 +80,6 @@ export interface MarketRunOptions {
    */
   mode?: MarketRunMode;
   log: Log;
-  token?: string | undefined;
-  maxCallsPerDay?: number;
   /** Famílias com sessão nestes dias entram na coleta. */
   activeDays: number;
   pauseMs?: number;
@@ -99,7 +91,6 @@ export interface MarketRunOptions {
 export interface MarketRunResult {
   households: number;
   tickers: number;
-  calls: number;
   quotes: number;
   dividends: number;
   stockEvents: number;
@@ -107,25 +98,25 @@ export interface MarketRunResult {
   indices: number;
   fx: number;
   unknown: number;
-  noPlan: number;
   failed: number;
-  /**
-   * Tickers fora desta rodada: já consultados há pouco, ou os que sobraram quando a brapi mandou
-   * parar. Sem token ou sem cota ninguém fica de fora: a cotação vem do Yahoo (ADR-0032).
-   */
+  /** Tickers fora desta rodada: já consultados há pouco. */
   skipped: number;
-  /** Motivo de parar antes do fim: cota esgotada ou token recusado. */
-  stoppedBy: MarketErrorCode | null;
 }
 
 const codeOf = (error: unknown): MarketErrorCode =>
   error instanceof MarketError ? error.code : "rede";
 
+type PricedClass = (typeof PRICED_CLASSES)[number];
+
+/** Quem traz proventos: ações e FIIs pela B3; ETF e BDR só têm cotação. */
+const hasDividends = (assetClass: PricedClass | undefined) =>
+  assetClass === "acao" || assetClass === "fii";
+
 async function collectTickers(
   ids: string[],
   log: Log,
-): Promise<{ tickers: Map<string, boolean>; failed: number }> {
-  const tickers = new Map<string, boolean>();
+): Promise<{ tickers: Map<string, PricedClass>; failed: number }> {
+  const tickers = new Map<string, PricedClass>();
   let failed = 0;
   const flags = await readPlatformFlags();
   for (const householdId of ids) {
@@ -143,7 +134,12 @@ async function collectTickers(
       );
       for (const row of rows) {
         const ticker = normalizeTicker(row.ticker);
-        if (ticker) tickers.set(ticker, (tickers.get(ticker) ?? false) || row.assetClass === "fii");
+        if (!ticker) continue;
+        // Duas famílias com classes diferentes para o mesmo código: fica a que traz proventos.
+        const current = tickers.get(ticker);
+        if (!current || (!hasDividends(current) && hasDividends(row.assetClass as PricedClass))) {
+          tickers.set(ticker, row.assetClass as PricedClass);
+        }
       }
     } catch (error) {
       failed += 1;
@@ -154,25 +150,19 @@ async function collectTickers(
 }
 
 export async function runMarketData(options: MarketRunOptions): Promise<MarketRunResult> {
-  const { log, token } = options;
+  const { log } = options;
   const mode: MarketRunMode = options.mode ?? "full";
   const quotesOnly = mode === "quotes";
   const startedAt = Date.now();
   const now = options.now ?? new Date();
   const today = todayIn(MARKET_RULES.timezone, now);
-  const maxCalls = options.maxCallsPerDay ?? DEFAULT_MAX_CALLS_PER_DAY;
   const pause = options.pauseMs ?? DEFAULT_PAUSE_MS;
   const sleep = options.sleep ?? ((ms: number) => new Promise((done) => setTimeout(done, ms)));
-  const client = {
-    token,
-    today,
-    ...(options.fetch ? { fetch: options.fetch } : {}),
-  };
+  const client = { today, ...(options.fetch ? { fetch: options.fetch } : {}) };
 
   const result: MarketRunResult = {
     households: 0,
     tickers: 0,
-    calls: 0,
     quotes: 0,
     dividends: 0,
     stockEvents: 0,
@@ -180,10 +170,8 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     indices: 0,
     fx: 0,
     unknown: 0,
-    noPlan: 0,
     failed: 0,
     skipped: 0,
-    stoppedBy: null,
   };
 
   // Índices primeiro: são de graça e não dependem de carteira.
@@ -220,20 +208,18 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
   result.tickers = tickers.size;
   result.failed += failed;
 
-  if (!token) log.info({}, "mercado: sem BRAPI_TOKEN, cotações pelo Yahoo e rendimentos pela B3");
   const known = new Map((await listMarketTickers()).map((row) => [row.ticker, row]));
   const due = [...tickers.keys()]
     .filter((ticker) => {
       const row = known.get(ticker);
       if (!row) return true;
-      // O que a brapi recusou por plano agora vem das fontes gratuitas: volta na mesma hora.
-      if (row.retryOn && row.retryOn > today && row.status !== "sem_plano") return false;
+      if (row.retryOn && row.retryOn > today) return false;
       if (row.status === "falha" || row.status === "sem_plano") return true;
-      // Na rodada completa, FII com proventos a conferir entra mesmo que a cotação seja recente:
-      // a coleta horária não pode esconder a busca de rendimentos (ADR-0033).
+      // Na rodada completa, quem tem proventos a conferir entra mesmo que a cotação seja recente:
+      // a coleta horária não pode esconder a busca de proventos (ADR-0033).
       if (
         !quotesOnly &&
-        tickers.get(ticker) &&
+        hasDividends(tickers.get(ticker)) &&
         (!row.dividendsRetryOn || row.dividendsRetryOn <= today)
       )
         return true;
@@ -247,21 +233,11 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
       (a, b) => (known.get(a)?.checkedAt.getTime() ?? 0) - (known.get(b)?.checkedAt.getTime() ?? 0),
     );
   result.skipped = tickers.size - due.length;
-  if (due.some((ticker) => known.get(ticker)?.status === "sem_plano"))
-    log.info({}, "mercado: tickers recusados pela brapi voltam pelas fontes gratuitas");
 
-  let available = maxCalls - (await marketCallsOn(today));
-  const spend = async () => {
-    available -= 1;
-    result.calls += 1;
-    await addMarketCalls(today, 1);
-  };
-
-  // O catálogo vem primeiro: é uma chamada para a bolsa inteira, e o cadastro depende dele.
-  if (options.catalog && !quotesOnly && available > 0) {
+  // O catálogo de nomes vem primeiro: uma chamada para a bolsa inteira, e o cadastro depende dele.
+  if (options.catalog && !quotesOnly) {
     try {
       const catalog = await fetchBrapiCatalog(client);
-      for (let page = 0; page < catalog.pages; page += 1) await spend();
       result.assets = await saveMarketAssets(catalog.rows);
     } catch (error) {
       result.failed += 1;
@@ -270,92 +246,52 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
   }
 
   /**
-   * Fontes gratuitas (ADR-0032): cotação no Yahoo e, em FII, rendimentos na B3. Não gastam a cota
-   * da brapi. Falha de rendimento não derruba a cotação: vira aviso e fica para a rodada seguinte.
+   * Proventos e eventos na rodada completa, uma vez por dia por ativo (`dividendsRetryOn`): FII pela
+   * lista de fundos da B3, ação pela lista de empresas (ADR-0035). Falha aqui não derruba a cotação:
+   * vira aviso e fica para a rodada seguinte. Devolve a data para a próxima conferência e o último
+   * evento, que a cotação guarda.
    */
-  const fetchFree = async (ticker: string) => {
-    const quote = await fetchYahooQuote(ticker, client);
-    await saveMarketQuote({
-      ...quote,
-      source: YAHOO_SOURCE,
-      lastStockEventOn: null,
-      lastStockEventNote: null,
-    });
-    result.quotes += 1;
-    // Rendimentos: só na rodada completa, uma vez por dia por ativo (`dividendsRetryOn`).
+  const fetchDividends = async (ticker: string) => {
+    const assetClass = tickers.get(ticker);
     const row = known.get(ticker);
-    const dividendsDue = !quotesOnly && (!row?.dividendsRetryOn || row.dividendsRetryOn <= today);
-    let dividendsRetryOn: string | null = null;
-    if (tickers.get(ticker) && dividendsDue) {
-      await sleep(pause);
-      try {
+    const due = !quotesOnly && (!row?.dividendsRetryOn || row.dividendsRetryOn <= today);
+    const none = { dividendsRetryOn: null, lastStockEventOn: null, lastStockEventNote: null };
+    if (!hasDividends(assetClass) || !due) return none;
+    await sleep(pause);
+    try {
+      if (assetClass === "fii") {
         result.dividends += await saveMarketDividends(await fetchB3FiiDividends(ticker, client));
-        dividendsRetryOn = shiftDays(today, DIVIDENDS_INTERVAL_DAYS);
-      } catch (error) {
-        log.warn(
-          { code: codeOf(error), source: B3_SOURCE },
-          "mercado: rendimentos de FII indisponíveis",
-        );
+        return { ...none, dividendsRetryOn: shiftDays(today, DIVIDENDS_INTERVAL_DAYS) };
       }
+      const { dividends, stockEvents } = await fetchB3CompanyEvents(ticker, client);
+      result.dividends += await saveMarketDividends(dividends);
+      result.stockEvents += await saveMarketStockEvents(
+        stockEvents.map((event) => ({ ...event, ticker, source: B3_SOURCE })),
+      );
+      const latest = stockEvents.at(-1);
+      return {
+        dividendsRetryOn: shiftDays(today, DIVIDENDS_INTERVAL_DAYS),
+        lastStockEventOn: latest?.comDate ?? null,
+        lastStockEventNote: latest?.note ?? null,
+      };
+    } catch (error) {
+      log.warn(
+        { code: codeOf(error), source: B3_SOURCE },
+        assetClass === "fii"
+          ? "mercado: rendimentos de FII indisponíveis"
+          : "mercado: proventos da ação indisponíveis",
+      );
+      return none;
     }
-    await saveMarketTicker({
-      ticker,
-      status: "ok",
-      retryOn: null,
-      errorCode: null,
-      dividendsRetryOn,
-    });
   };
 
   for (const [index, ticker] of due.entries()) {
     if (index > 0) await sleep(pause);
-    if (!token || available <= 0) {
-      // Sem token, ou com a cota da brapi esgotada, tudo vem das fontes gratuitas.
-      try {
-        await fetchFree(ticker);
-      } catch (error) {
-        const code = codeOf(error);
-        if (code === "nao_encontrado") {
-          result.unknown += 1;
-          await saveMarketTicker({
-            ticker,
-            status: "desconhecido",
-            retryOn: shiftDays(today, UNKNOWN_RETRY_DAYS),
-            errorCode: code,
-          });
-          continue;
-        }
-        result.failed += 1;
-        log.error({ code, source: YAHOO_SOURCE }, "mercado: consulta de ticker falhou");
-        await saveMarketTicker({ ticker, status: "falha", retryOn: null, errorCode: code });
-      }
-      continue;
-    }
     try {
-      await spend();
-      const { dividends, stockEvents, ...quote } = await fetchBrapiQuote(ticker, client);
-      await saveMarketQuote({ ...quote, source: BRAPI_SOURCE });
+      const quote = await fetchYahooQuote(ticker, client);
+      const { dividendsRetryOn, ...events } = await fetchDividends(ticker);
+      await saveMarketQuote({ ...quote, source: YAHOO_SOURCE, ...events });
       result.quotes += 1;
-      result.dividends += await saveMarketDividends(dividends);
-      result.stockEvents += await saveMarketStockEvents(
-        stockEvents.map((event) => ({ ...event, ticker, source: BRAPI_SOURCE })),
-      );
-
-      // FII: a rota de ações não traz rendimentos; a própria tem uma chamada a mais.
-      let dividendsRetryOn: string | null = null;
-      const row = known.get(ticker);
-      const fiiDue = !row?.dividendsRetryOn || row.dividendsRetryOn <= today;
-      if (!quotesOnly && tickers.get(ticker) && dividends.length === 0 && fiiDue && available > 0) {
-        await sleep(pause);
-        await spend();
-        try {
-          result.dividends += await saveMarketDividends(await fetchFiiDividends(ticker, client));
-        } catch (error) {
-          const code = codeOf(error);
-          if (code === "plano") dividendsRetryOn = shiftDays(today, UNKNOWN_RETRY_DAYS);
-          log.warn({ code }, "mercado: rendimentos de FII indisponíveis");
-        }
-      }
       await saveMarketTicker({
         ticker,
         status: "ok",
@@ -365,31 +301,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
       });
     } catch (error) {
       const code = codeOf(error);
-      if (code === "limite" || code === "token_invalido" || code === "sem_token") {
-        // Insistir só piora: exceder a cota pode encerrar a licença.
-        result.stoppedBy = code;
-        result.skipped += due.length - index;
-        log.error({ code }, "mercado: rodada interrompida");
-        break;
-      }
-      if (code === "nao_encontrado" || code === "plano") {
-        // A brapi não cobre o ticker: as fontes gratuitas cobrem. Só desiste se elas também falharem.
-        if (code === "plano") result.noPlan += 1;
-        try {
-          await fetchFree(ticker);
-          continue;
-        } catch (fallback) {
-          const freeCode = codeOf(fallback);
-          if (freeCode !== "nao_encontrado") {
-            result.failed += 1;
-            log.error(
-              { code: freeCode, source: YAHOO_SOURCE },
-              "mercado: consulta de ticker falhou",
-            );
-            await saveMarketTicker({ ticker, status: "falha", retryOn: null, errorCode: freeCode });
-            continue;
-          }
-        }
+      if (code === "nao_encontrado") {
         result.unknown += 1;
         await saveMarketTicker({
           ticker,
@@ -400,7 +312,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
         continue;
       }
       result.failed += 1;
-      log.error({ code }, "mercado: consulta de ticker falhou");
+      log.error({ code, source: YAHOO_SOURCE }, "mercado: consulta de ticker falhou");
       await saveMarketTicker({ ticker, status: "falha", retryOn: null, errorCode: code });
     }
   }

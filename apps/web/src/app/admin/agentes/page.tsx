@@ -14,7 +14,7 @@ import { AdminPage } from "../kit";
 import { noteAdminAccess } from "../painel";
 import { recountPlatform, runAgentsNow } from "./actions";
 import { AgentCard, Metrics, type Run } from "./agent-card";
-import { agentName, agentsInView, DICAS_AGENT, MERCADO_AGENT, onlyAgents } from "./catalogo";
+import { agentName, agentsInView, DICAS_AGENT, onlyAgents } from "./catalogo";
 import { TeamSection } from "./team";
 
 export const metadata: Metadata = { title: "Agentes" };
@@ -50,7 +50,7 @@ export default async function AdminAgentsPage() {
         ...(workerInfo?.ai === false ? ["Worker sem a chave"] : []),
       ];
     }
-    return agent === MERCADO_AGENT && workerInfo?.brapi === false ? ["Sem chave de cotações"] : [];
+    return [];
   };
   const records = [
     ...activity,

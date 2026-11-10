@@ -1,6 +1,13 @@
 // Fontes gratuitas de mercado (ADR-0032), com respostas gravadas em 2026-11-09.
 import { describe, expect, it } from "vitest";
-import { b3FundIdentifier, fetchB3FiiDividends, fetchYahooQuote, MarketError } from "../src/market";
+import {
+  b3FundIdentifier,
+  b3TickerOfIsin,
+  fetchB3CompanyEvents,
+  fetchB3FiiDividends,
+  fetchYahooQuote,
+  MarketError,
+} from "../src/market";
 
 const yahooBody = {
   chart: {
@@ -82,7 +89,7 @@ describe("Yahoo Finance", () => {
       quotedAt: new Date(1793998980 * 1000),
     });
     expect(seen[0]).toContain("/MXRF11.SA?");
-    // A rota pública exige identificação de navegador, e o token da brapi nunca vai para lá.
+    // A rota pública exige identificação de navegador, e nenhuma chave vai para lá.
     expect(seen[1]).toContain("user-agent");
     expect(seen[1]).not.toContain("authorization");
   });
@@ -145,5 +152,147 @@ describe("B3, fundos listados", () => {
       Buffer.from(seen[0]!.split("/GetListedSupplementFunds/")[1]!, "base64").toString(),
     );
     expect(payload).toEqual({ cnpj: "0", identifierFund: "MXRF", typeFund: 7 });
+  });
+});
+
+describe("B3, empresas listadas (ADR-0035)", () => {
+  it("acha o código de negociação pelo ISIN", () => {
+    expect(b3TickerOfIsin("BRPETRACNOR9")).toBe("PETR3");
+    expect(b3TickerOfIsin("BRPETRACNPR6")).toBe("PETR4");
+    expect(b3TickerOfIsin("BRTAEECDAM10")).toBe("TAEE11");
+    // Série antiga da mesma classe cai no mesmo código.
+    expect(b3TickerOfIsin("BRBBASA04OR8")).toBe("BBAS3");
+    expect(b3TickerOfIsin("BRPETRDBS092")).toBeNull();
+    expect(b3TickerOfIsin("US0378331005")).toBeNull();
+  });
+
+  it("traz proventos e eventos só da classe pedida, no valor pago, sem repetir séries", async () => {
+    // Resposta real da PETR em 2026-11-09, reduzida: ON e PN com os mesmos pagamentos.
+    const petr = [
+      {
+        code: "PETR",
+        cashDividends: [
+          {
+            assetIssued: "BRPETRACNOR9",
+            paymentDate: "21/12/2026",
+            rate: "0,47156696000",
+            label: "DIVIDENDO",
+            lastDatePrior: "21/08/2026",
+          },
+          {
+            assetIssued: "BRPETRACNPR6",
+            paymentDate: "21/12/2026",
+            rate: "0,47156696000",
+            label: "DIVIDENDO",
+            lastDatePrior: "21/08/2026",
+          },
+          {
+            assetIssued: "BRPETRACNPR6",
+            paymentDate: "23/11/2026",
+            rate: "0,67407131000",
+            label: "JRS CAP PROPRIO",
+            lastDatePrior: "21/08/2026",
+          },
+          // Mesma linha em série antiga da PN: entra uma vez.
+          {
+            assetIssued: "BRPETRA01PR2",
+            paymentDate: "23/11/2026",
+            rate: "0,67407131000",
+            label: "JRS CAP PROPRIO",
+            lastDatePrior: "21/08/2026",
+          },
+          // Dois JCP iguais nas datas, valores diferentes: ganham seq.
+          {
+            assetIssued: "BRPETRACNPR6",
+            paymentDate: "23/11/2026",
+            rate: "0,20250435000",
+            label: "JRS CAP PROPRIO",
+            lastDatePrior: "21/08/2026",
+          },
+          {
+            assetIssued: "BRPETRACNPR6",
+            paymentDate: null,
+            rate: "1,0",
+            label: "DIVIDENDO",
+            lastDatePrior: "01/06/2026",
+          },
+          {
+            assetIssued: "BRPETRACNPR6",
+            paymentDate: "20/08/2016",
+            rate: "1,0",
+            label: "DIVIDENDO",
+            lastDatePrior: "01/06/2016",
+          },
+        ],
+        stockDividends: [
+          {
+            assetIssued: "BRPETRACNPR6",
+            factor: "100,00000000000",
+            label: "DESDOBRAMENTO",
+            lastDatePrior: "25/04/2008",
+          },
+          {
+            assetIssued: "BRPETRACNOR9",
+            factor: "100,00000000000",
+            label: "DESDOBRAMENTO",
+            lastDatePrior: "25/04/2008",
+          },
+        ],
+      },
+    ];
+    const seen: string[] = [];
+    const result = await fetchB3CompanyEvents("PETR4", {
+      ...options,
+      fetch: async (url, init) => {
+        seen.push(String(url));
+        return fetchWith(petr)(url, init);
+      },
+    });
+    const payload = JSON.parse(
+      Buffer.from(seen[0]!.split("/GetListedSupplementCompany/")[1]!, "base64").toString(),
+    );
+    expect(payload).toEqual({ issuingCompany: "PETR", language: "pt-br" });
+    expect(result.dividends).toEqual([
+      {
+        ticker: "PETR4",
+        kind: "jcp",
+        comDate: "2026-08-21",
+        exDate: null,
+        payDate: "2026-11-23",
+        ratePerShare: "0.67407131",
+        seq: 1,
+        source: "b3",
+      },
+      {
+        ticker: "PETR4",
+        kind: "dividendo",
+        comDate: "2026-08-21",
+        exDate: null,
+        payDate: "2026-12-21",
+        ratePerShare: "0.47156696",
+        seq: 1,
+        source: "b3",
+      },
+      {
+        ticker: "PETR4",
+        kind: "jcp",
+        comDate: "2026-08-21",
+        exDate: null,
+        payDate: "2026-11-23",
+        ratePerShare: "0.20250435",
+        seq: 2,
+        source: "b3",
+      },
+    ]);
+    expect(result.stockEvents).toEqual([
+      { comDate: "2008-04-25", factor: "2.00000000", note: "Desdobramento de 2 para 1" },
+    ]);
+    // O JSON dentro de uma string também vale.
+    expect(
+      await fetchB3CompanyEvents("PETR4", { ...options, fetch: fetchWith(JSON.stringify(petr)) }),
+    ).toEqual(result);
+    await expect(
+      fetchB3CompanyEvents("PETR4", { ...options, fetch: fetchWith([]) }),
+    ).rejects.toMatchObject({ code: "nao_encontrado" });
   });
 });

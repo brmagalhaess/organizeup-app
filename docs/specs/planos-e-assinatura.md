@@ -125,7 +125,6 @@ visível só para o admin. O sistema mostra se a chave da Stripe é de teste ou 
    investimento por IA e a CVM, porque agora há cobrança por esse recurso.
 4. Resposta por escrito da Stripe: parcelamento, acesso ao Pix e cobrança em dólar e euro. Sem parcelamento, o anual
    compete pior: concorrentes vendem em 12x.
-5. Plano pago da brapi: o grátis é descrito para protótipos sem receita.
 
 ## 8. Fases
 
