@@ -382,6 +382,11 @@
         "dividendsHint": "Received over 12 months."
       },
       "list": "Portfolio",
+      "zeroed": {
+        "hint": "{count, plural, one {# asset with zero balance is hidden from the list.} other {# assets with zero balance are hidden from the list.}}",
+        "show": "Show",
+        "hide": "Hide"
+      },
       "staleBadge": "price from {count} days ago",
       "position": "{quantity} at {price} on average",
       "adjusted": "Quantity adjusted for {kind} on {date}",

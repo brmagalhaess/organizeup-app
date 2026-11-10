@@ -382,6 +382,11 @@
         "dividendsHint": "Recibidos en 12 meses."
       },
       "list": "Cartera",
+      "zeroed": {
+        "hint": "{count, plural, one {# activo con saldo cero no aparece en la lista.} other {# activos con saldo cero no aparecen en la lista.}}",
+        "show": "Mostrar",
+        "hide": "Ocultar"
+      },
       "staleBadge": "precio de hace {count} días",
       "position": "{quantity} a {price} en promedio",
       "adjusted": "Cantidad ajustada por {kind} el {date}",

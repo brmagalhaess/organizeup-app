@@ -22,6 +22,7 @@ import {
   submitKeeping,
 } from "@/components/ui";
 import { formatDate } from "@/i18n/format";
+import { splitZeroed } from "@/lib/portfolio-zeroed";
 import type { PendingItem } from "@/lib/suggestions";
 import {
   DecisionButtons,
@@ -230,6 +231,10 @@ export function PortfolioBoard({
     sheet && sheet.id ? (data.rows.find((row) => row.id === sheet.id) ?? null) : null;
   const { summary } = data;
   const gain = money(summary.gain);
+  // Vendido ou resgatado por inteiro sai da lista; um botão traz de volta para editar ou ver o histórico.
+  const { visible, zeroed } = splitZeroed(data.rows);
+  const [showZeroed, setShowZeroed] = useState(false);
+  const listed = showZeroed ? data.rows : visible;
 
   return (
     <>
@@ -301,7 +306,7 @@ export function PortfolioBoard({
                 aria-label={t("portfolio.list")}
                 className="m-0 list-none divide-y divide-line p-0"
               >
-                {data.rows.map((row) => {
+                {listed.map((row) => {
                   const unit = isUnitPriced(row.assetClass);
                   const rowGain = money(row.gain);
                   // Com cotação automática, o aviso de preço velho não vale.
@@ -421,6 +426,18 @@ export function PortfolioBoard({
                   );
                 })}
               </ul>
+              {zeroed.length > 0 ? (
+                <p className="m-0 mt-3 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+                  <span>{t("portfolio.zeroed.hint", { count: zeroed.length })}</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowZeroed((value) => !value)}
+                    className="font-medium text-brand-700 underline"
+                  >
+                    {t(showZeroed ? "portfolio.zeroed.hide" : "portfolio.zeroed.show")}
+                  </button>
+                </p>
+              ) : null}
             </Card>
           </div>
         </>
