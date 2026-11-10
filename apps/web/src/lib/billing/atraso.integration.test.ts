@@ -91,7 +91,7 @@ const { loadMonth, loadOverview } = await import("@/lib/finance-data");
 const { loadTripIntentionItems } = await import("@/lib/suggestions");
 const { fakeClient, textReply } = await import("../../../../../packages/ai/test/fake-client");
 const { accounts, categories, creditCards, household, householdMember, householdSettings } = db;
-const { cardPurchases, cashflowPlans, transactions, trips, user } = db;
+const { cardPurchases, cashflowPlans, transactions, trips } = db;
 
 const family = "hh-atraso";
 const person = "user-atraso";
@@ -125,8 +125,14 @@ const save = (over: Record<string, string> = {}) =>
 beforeAll(async () => {
   auth.userId = person;
   auth.householdId = family;
+  // "user" ganhou a coluna two_factor_enabled na migration 0044: o Drizzle lista todas as colunas do
+  // schema atual num insert, e este banco simulado só tem as migrations até a 0035. Insert cru.
+  await late.unsafe(`insert into "user" (id, name, email) values ($1, $2, $3)`, [
+    person,
+    "T",
+    "atraso@example.com",
+  ]);
   await db.withAdmin("seed do teste de atraso", async (admin) => {
-    await admin.insert(user).values({ id: person, name: "T", email: "atraso@example.com" });
     await admin.insert(household).values({ id: family, name: "Família", slug: family });
     await admin
       .insert(householdMember)

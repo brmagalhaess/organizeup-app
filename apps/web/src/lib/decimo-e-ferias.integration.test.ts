@@ -397,12 +397,15 @@ describe("revisão", () => {
 
   it("D6: férias no dia 1 do primeiro mês da renda aparecem e dão baixa", async () => {
     at("2026-11-20");
+    // Renda nova começa no mês do cadastro (PR #12): startMonth fica em novembro, não em dezembro.
     await saveIncome(initial, base({ periodMonth: "12", periodDay: "1", periodDays: "30" }));
     const [source] = await sources();
-    expect(source!.startMonth).toBe("2026-12");
-    expect(await keysIn("2026-11", "2026-11")).toEqual(["2026-12:ferias"]);
+    expect(source!.startMonth).toBe("2026-11");
+    // A lei manda pagar as férias até 2 dias antes do início: começando no dia 1, a chave é de
+    // dezembro (mês do período), mas o pagamento aparece na janela de novembro.
+    expect(await keysIn("2026-11", "2026-11")).toContain("2026-12:ferias");
     expect(await confirm(`r:${source!.id}:2026-12:ferias`, "2026-11")).toEqual({ done: true });
-    expect(await keysIn("2026-11", "2026-11")).toEqual([]);
+    expect(await keysIn("2026-11", "2026-11")).not.toContain("2026-12:ferias");
   });
 
   it("D7: tudo de uma vez depois de receber a 1ª desconta o recebido", async () => {
