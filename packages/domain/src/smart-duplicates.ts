@@ -14,6 +14,7 @@ import {
 import {
   planInvestmentImport,
   withResolvedTickers,
+  type IssuerRef,
   type KnownHolding,
   type PlannedTrade,
 } from "./investment-import";
@@ -51,6 +52,8 @@ export interface SmartKnown {
   holdings: KnownHolding[];
   /** Catálogo da bolsa: a nota de corretagem escreve o nome do papel, e o código sai daqui ou da carteira. */
   catalog?: Array<{ ticker: string; name: string }>;
+  /** Emissoras da B3 (ADR-0036): o nome de pregão da nota vira raiz do código. */
+  issuers?: IssuerRef[];
   debts: KnownDebt[];
   incomes: Array<{ name: string; amount: string }>;
   plans: Array<{ description: string; amount: string; kind: string }>;
@@ -340,6 +343,8 @@ function judgeTrades(items: SmartItemRef[], known: SmartKnown, out: Map<string, 
     const parsed = withResolvedTickers(
       trades.map((item) => toParsedTrade(item.payload)),
       names,
+      {},
+      known.issuers ?? [],
     );
     const tickerOf = new Map(parsed.map((row) => [row.line, row.ticker]));
     const judge = (item: TradeItem, verdict: SmartVerdict) => {

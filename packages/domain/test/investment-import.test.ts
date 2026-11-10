@@ -18,6 +18,7 @@ import {
   positionOf,
   selectedByDefault,
   shareFees,
+  tickerOfIssuer,
   tickerOfTitle,
   tradeDateOfSettlement,
   withResolvedTickers,
@@ -1005,6 +1006,47 @@ describe("ativo novo", () => {
       { "ABCD SA ON NM": "qwer4f" },
     );
     expect(rows.map((row) => row.ticker)).toEqual(["QWER4", "QWER4", "WXYZ11"]);
+  });
+});
+
+describe("código pela emissora da B3 (ADR-0036)", () => {
+  const issuers = [
+    { issuer: "CXSE", tradingName: "CAIXA SEGURI", kind: "acao" as const },
+    { issuer: "PETR", tradingName: "PETROBRAS", kind: "acao" as const },
+    { issuer: "SANB", tradingName: "SANTANDER BR", kind: "acao" as const },
+    { issuer: "AAPL", tradingName: "APPLE", kind: "bdr" as const },
+    // Duas emissoras com o mesmo nome de pregão: ninguém responde.
+    { issuer: "ACEE", tradingName: "ACELEN", kind: "acao" as const },
+    { issuer: "ACIL", tradingName: "ACELEN", kind: "acao" as const },
+  ];
+
+  it("nome de pregão mais o tipo viram raiz mais final", () => {
+    expect(tickerOfIssuer("CAIXA SEGURI ON NM", issuers)).toBe("CXSE3");
+    expect(tickerOfIssuer("PETROBRAS PN N2", issuers)).toBe("PETR4");
+    expect(tickerOfIssuer("Petrobras ON EJ N2", issuers)).toBe("PETR3");
+    expect(tickerOfIssuer("SANTANDER BR UNT", issuers)).toBe("SANB11");
+  });
+
+  it("sem tipo, com nome repetido, BDR ou fundo, fica para o catálogo ou para a pessoa", () => {
+    expect(tickerOfIssuer("PETROBRAS", issuers)).toBeNull();
+    expect(tickerOfIssuer("ACELEN ON", issuers)).toBeNull();
+    expect(tickerOfIssuer("APPLE DRN", issuers)).toBeNull();
+    expect(tickerOfIssuer("FII MAXI REN CI ER", issuers)).toBeNull();
+    expect(tickerOfIssuer("NADA ON", issuers)).toBeNull();
+  });
+
+  it("na resolução das linhas, a emissora vem antes do catálogo e depois do que a pessoa digitou", () => {
+    const rows = withResolvedTickers(
+      [
+        trade({ line: 1, ticker: null, title: "CAIXA SEGURI ON NM" }),
+        trade({ line: 2, ticker: null, title: "PETROBRAS PN N2" }),
+        trade({ line: 3, ticker: null, title: "OUTRA ON" }),
+      ],
+      [{ ticker: "OUTR3", name: "OUTRA ON" }],
+      { "PETROBRAS PN N2": "petr3" },
+      issuers,
+    );
+    expect(rows.map((row) => row.ticker)).toEqual(["CXSE3", "PETR3", "OUTR3"]);
   });
 });
 

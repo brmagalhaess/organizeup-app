@@ -19,15 +19,17 @@ import {
   goals,
   gte,
   householdNotifications,
-  incomeSources,
+  householdTimezone,
   inArray,
+  incomeSources,
   investments,
   investmentTrades,
   isNotNull,
   isNull,
   isSchemaLag,
-  lockFamilyImport,
+  listMarketIssuers,
   loadStockEvents,
+  lockFamilyImport,
   lt,
   lte,
   marketAssets,
@@ -40,7 +42,6 @@ import {
   smartImports,
   sql,
   transactions,
-  householdTimezone,
   type TenantContext,
   type TenantTx,
 } from "@organizeup/db";
@@ -663,6 +664,8 @@ export async function loadSmartKnown(
   const catalog = await tx
     .select({ ticker: marketAssets.ticker, name: marketAssets.name })
     .from(marketAssets);
+  // Emissoras da B3 (ADR-0036): fora da transação, porque a tabela pode ainda não existir na web.
+  const issuers = await listMarketIssuers();
   const documents = await tx
     .select({ id: smartImportFiles.id, sha256: smartImportFiles.sha256 })
     .from(smartImportFiles)
@@ -682,6 +685,7 @@ export async function loadSmartKnown(
       events: stockEvents.filter((event) => event.investmentId === holding.id),
     })),
     catalog,
+    issuers,
     debts: kept(openDebts).map((debt) => {
       const rows = open.filter((row) => row.debtId === debt.id);
       const next = rows.toSorted((a, b) => a.number - b.number)[0];

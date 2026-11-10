@@ -1010,7 +1010,21 @@ export const marketTickers = pgTable("market_tickers", {
   errorCode: text("error_code"),
 });
 
-/** Chamadas à cota da brapi por dia, somando rodadas e reinícios do worker. */
+export const MARKET_ISSUER_KINDS = ["acao", "bdr"] as const;
+
+/** Emissoras da B3 (ADR-0036): nome de pregão e raiz do código, para achar o papel pelo nome da nota. */
+export const marketIssuers = pgTable("market_issuers", {
+  issuer: text("issuer").primaryKey(),
+  tradingName: text("trading_name").notNull(),
+  companyName: text("company_name").notNull(),
+  kind: text("kind", { enum: MARKET_ISSUER_KINDS }).notNull(),
+  segment: text("segment"),
+  codeCvm: text("code_cvm"),
+  source: text("source").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** Chamadas à cota da brapi por dia, somando rodadas e reinícios do worker. Sem uso desde o ADR-0035. */
 export const marketUsage = pgTable("market_usage", {
   day: date("day", { mode: "string" }).primaryKey(),
   calls: integer("calls").notNull().default(0),

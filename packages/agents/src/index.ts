@@ -12,6 +12,7 @@ export {
   b3TickerOfIsin,
   fetchB3CompanyEvents,
   fetchB3FiiDividends,
+  fetchB3Issuers,
   fetchFxSeries,
   fetchSgsSeries,
   MarketError,

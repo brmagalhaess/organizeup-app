@@ -5,6 +5,7 @@ import {
   b3TickerOfIsin,
   fetchB3CompanyEvents,
   fetchB3FiiDividends,
+  fetchB3Issuers,
   fetchYahooQuote,
   MarketError,
 } from "../src/market";
@@ -294,5 +295,107 @@ describe("B3, empresas listadas (ADR-0035)", () => {
     await expect(
       fetchB3CompanyEvents("PETR4", { ...options, fetch: fetchWith([]) }),
     ).rejects.toMatchObject({ code: "nao_encontrado" });
+  });
+});
+
+describe("B3, emissoras listadas (ADR-0036)", () => {
+  // Linhas reais da lista de empresas em 2026-11-10: ação, BDR e registros sem negociação.
+  const page = (pageNumber: number, results: unknown[]) => ({
+    page: { pageNumber, pageSize: 120, totalRecords: 3, totalPages: 2 },
+    results,
+  });
+  const first = page(1, [
+    {
+      codeCVM: "9512",
+      issuingCompany: "PETR",
+      companyName: "PETROLEO BRASILEIRO S.A. PETROBRAS",
+      tradingName: "PETROBRAS",
+      type: "1",
+      market: "N2",
+      typeBDR: "",
+      status: "A",
+    },
+    {
+      codeCVM: "50110",
+      issuingCompany: "CBTC",
+      companyName: "21SHARES BITCOIN CORE ETP",
+      tradingName: "21SH BITCOIN",
+      type: "4",
+      market: "DRE",
+      typeBDR: "DRE",
+      status: "A",
+    },
+    // Registro sem negociação (debênture, fundo fechado): fora.
+    {
+      codeCVM: "900049",
+      issuingCompany: "UQMU",
+      companyName: "1461 INVESTIMENTOS S.A",
+      tradingName: "1461 INVEST",
+      type: "7",
+      market: "",
+      typeBDR: "",
+      status: "A",
+    },
+  ]);
+  const second = page(2, [
+    {
+      codeCVM: "23795",
+      issuingCompany: "CXSE",
+      companyName: "CAIXA SEGURIDADE PARTICIPACOES S.A.",
+      tradingName: "CAIXA SEGURI",
+      type: "1",
+      market: "NM",
+      typeBDR: "",
+      status: "A",
+    },
+  ]);
+
+  it("lê as páginas até o fim e guarda só ações e BDRs ativos, com nome de pregão e raiz", async () => {
+    const seen: number[] = [];
+    const result = await fetchB3Issuers({
+      ...options,
+      fetch: async (url, init) => {
+        const payload = JSON.parse(
+          Buffer.from(String(url).split("/GetInitialCompanies/")[1]!, "base64").toString(),
+        ) as { pageNumber: number; pageSize: number; language: string };
+        seen.push(payload.pageNumber);
+        expect(payload).toMatchObject({ pageSize: 120, language: "pt-br" });
+        return fetchWith(payload.pageNumber === 1 ? first : second)(url, init);
+      },
+    });
+    expect(seen).toEqual([1, 2]);
+    expect(result.pages).toBe(2);
+    expect(result.rows).toEqual([
+      {
+        issuer: "PETR",
+        tradingName: "PETROBRAS",
+        companyName: "PETROLEO BRASILEIRO S.A. PETROBRAS",
+        kind: "acao",
+        segment: "N2",
+        codeCvm: "9512",
+        source: "b3",
+      },
+      {
+        issuer: "CBTC",
+        tradingName: "21SH BITCOIN",
+        companyName: "21SHARES BITCOIN CORE ETP",
+        kind: "bdr",
+        segment: "DRE",
+        codeCvm: "50110",
+        source: "b3",
+      },
+      {
+        issuer: "CXSE",
+        tradingName: "CAIXA SEGURI",
+        companyName: "CAIXA SEGURIDADE PARTICIPACOES S.A.",
+        kind: "acao",
+        segment: "NM",
+        codeCvm: "23795",
+        source: "b3",
+      },
+    ]);
+    await expect(
+      fetchB3Issuers({ ...options, fetch: fetchWith({ nada: true }) }),
+    ).rejects.toMatchObject({ code: "formato" });
   });
 });

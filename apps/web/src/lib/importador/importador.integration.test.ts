@@ -698,6 +698,52 @@ describe("revisão de segurança", () => {
     expect(await db.withHousehold(owner, (tx) => tx.select().from(investmentTrades))).toEqual([]);
   });
 
+  it("nota sem código: o nome de pregão da emissora da B3 vira código, mesmo fora do catálogo", async () => {
+    await asWorker(() =>
+      db.saveMarketIssuers([
+        {
+          issuer: "EMIS",
+          tradingName: "EMISSORA EX",
+          companyName: "EMISSORA EXEMPLO S.A.",
+          kind: "acao",
+          segment: "NM",
+          codeCvm: "1",
+          source: "b3",
+        },
+      ]),
+    );
+    const importId = await lotOf(owner, [["nota.txt", encode("nota por emissora")]]);
+    const items = await read(
+      importId,
+      modelSays(
+        answerOf("nota_corretagem", [
+          {
+            destino: "operacao",
+            descricao: "EMISSORA EX PN NM",
+            operacao: "compra",
+            data: "2026-03-05",
+            quantidade: "50",
+            preco_unitario: "20.00",
+          },
+        ]),
+      ),
+    );
+    const trade = items.find((item) => item.destination === "operacao")!;
+    expect(trade).toMatchObject({
+      duplicate: "novo",
+      selected: true,
+      payload: { ticker: "EMIS4", title: "EMISSORA EX PN NM" },
+    });
+    expect(await approveSmartImport(owner, importId)).toMatchObject({ failed: 0 });
+    const rows = await db.withHousehold(owner, (tx) =>
+      tx
+        .select({ ticker: investments.ticker, quantity: investmentTrades.quantity })
+        .from(investmentTrades)
+        .innerJoin(investments, eq(investments.id, investmentTrades.investmentId)),
+    );
+    expect(rows.map((row) => [row.ticker, Number(row.quantity)])).toEqual([["EMIS4", 50]]);
+  });
+
   it("nota sem código: o nome do papel vira código pelo catálogo, e a operação grava", async () => {
     await asWorker(() =>
       db.saveMarketAssets([

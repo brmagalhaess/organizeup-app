@@ -11,6 +11,7 @@ import {
   investments,
   investmentTrades,
   listMarketAssets,
+  listMarketIssuers,
   loadStockEvents,
   lockFamilyImport,
   TRADE_SIDES,
@@ -31,6 +32,7 @@ import {
   toDbAmount,
   withResolvedTickers,
   type CatalogAsset,
+  type IssuerRef,
   type KnownHolding,
   type NewAsset,
   type PlannedPosition,
@@ -134,20 +136,25 @@ async function loadHoldings(tx: TenantTx): Promise<KnownHolding[]> {
   }));
 }
 
-/** Catálogo por código. Sem o job de mercado ainda, vem vazio e a pessoa escolhe o tipo. */
-async function loadCatalog() {
-  const rows = await listMarketAssets();
-  return new Map<string, CatalogAsset>(rows.map((row) => [row.ticker, row]));
+interface Catalog {
+  assets: ReadonlyMap<string, CatalogAsset>;
+  issuers: IssuerRef[];
+}
+
+/** Catálogo por código e emissoras pelo nome de pregão. Sem o job de mercado ainda, vêm vazios. */
+async function loadCatalog(): Promise<Catalog> {
+  const [rows, issuers] = await Promise.all([listMarketAssets(), listMarketIssuers()]);
+  return { assets: new Map(rows.map((row) => [row.ticker, row])), issuers };
 }
 
 function planOf(
   input: z.output<typeof fileSchema>,
   holdings: KnownHolding[],
-  catalog: ReadonlyMap<string, CatalogAsset>,
+  catalog: Catalog,
   selected?: ReadonlySet<number>,
 ) {
-  const known = [...catalog.values(), ...holdings];
-  const trades = withResolvedTickers(input.trades, known, input.tickers);
+  const known = [...catalog.assets.values(), ...holdings];
+  const trades = withResolvedTickers(input.trades, known, input.tickers, catalog.issuers);
   const rows = planInvestmentImport({ trades, holdings, ...(selected ? { selected } : {}) });
   return { rows, positions: planPositions(input.positions, holdings) };
 }
@@ -173,7 +180,7 @@ export async function prepareInvestmentImport(input: ImportFileInput): Promise<P
       const assets = newAssetsOf(
         [...rows.filter(needsAsset), ...positions.filter((position) => position.state === "falta")],
         holdings,
-        catalog,
+        catalog.assets,
       );
       return { ok: true as const, rows, positions, assets, today };
     });
@@ -313,7 +320,7 @@ export async function commitInvestmentImport(input: ImportCommitInput): Promise<
       const assets = newAssetsOf(
         planned.map((item) => ({ ticker: item.ticker, name: nameOf.get(item.ticker) ?? null })),
         holdings,
-        catalog,
+        catalog.assets,
       );
       for (const asset of assets) {
         const assetClass = classOf(asset, data.classes);
@@ -333,7 +340,7 @@ export async function commitInvestmentImport(input: ImportCommitInput): Promise<
         ctx,
         assets,
         data.classes,
-        catalog,
+        catalog.assets,
         today,
         t("classRequired"),
       );

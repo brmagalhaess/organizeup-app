@@ -17,6 +17,7 @@ import type {
   MarketDividendRow,
   MarketFxRow,
   MarketIndexCode,
+  MarketIssuerRow,
 } from "@organizeup/db";
 import { z } from "zod";
 
@@ -479,4 +480,62 @@ export async function fetchB3CompanyEvents(
     ).values(),
   ].sort((a, b) => a.comDate.localeCompare(b.comDate));
   return { dividends: withSeq(dividends), stockEvents };
+}
+
+const b3CompanyPage = z.object({
+  page: z.object({ totalPages: z.number().int().nonnegative().nullish() }),
+  results: z.array(z.unknown()),
+});
+const b3Company = z.object({
+  issuingCompany: z.string(),
+  tradingName: z.string(),
+  companyName: z.string(),
+  codeCVM: z.string().nullish(),
+  /** 1 = ação negociada; 4 = BDR; 7 = registrada sem negociação (debênture, fundo fechado). */
+  type: z.string(),
+  market: z.string().nullish(),
+  status: z.string().nullish(),
+});
+/** A rota recusa páginas maiores: devolve vazio. */
+const B3_COMPANY_PAGE = 120;
+const B3_COMPANY_MAX_PAGES = 60;
+
+/**
+ * Emissoras listadas na B3 (ADR-0036): nome de pregão, razão social e raiz do código, em páginas de
+ * 120. Só ações (`type` 1) e BDRs (`type` 4) ativas: o resto são registros sem negociação.
+ */
+export async function fetchB3Issuers(
+  options: MarketClientOptions,
+  sleep: (ms: number) => Promise<void> = async () => undefined,
+): Promise<{ rows: MarketIssuerRow[]; pages: number }> {
+  const rows: MarketIssuerRow[] = [];
+  let pages = 0;
+  for (let page = 1; page <= B3_COMPANY_MAX_PAGES; page += 1) {
+    if (page > 1) await sleep(0);
+    const payload = Buffer.from(
+      JSON.stringify({ language: "pt-br", pageNumber: page, pageSize: B3_COMPANY_PAGE }),
+    ).toString("base64");
+    const parsed = b3CompanyPage.safeParse(
+      await getB3(`${B3_COMPANIES_URL}/GetInitialCompanies/${payload}`, options),
+    );
+    if (!parsed.success) throw new MarketError("formato");
+    pages += 1;
+    for (const row of parseEach(b3Company, parsed.data.results)) {
+      const kind = row.type === "1" ? "acao" : row.type === "4" ? "bdr" : null;
+      const issuer = row.issuingCompany.trim().toUpperCase();
+      if (!kind || row.status !== "A" || !/^[A-Z0-9]{4}$/.test(issuer)) continue;
+      rows.push({
+        issuer,
+        tradingName: row.tradingName.trim().slice(0, 40) || issuer,
+        companyName: row.companyName.trim().slice(0, 160) || issuer,
+        kind,
+        segment: row.market?.trim().slice(0, 10) || null,
+        codeCvm: row.codeCVM?.trim().slice(0, 10) || null,
+        source: B3_SOURCE,
+      });
+    }
+    const total = parsed.data.page.totalPages ?? 0;
+    if (page >= total) break;
+  }
+  return { rows, pages };
 }

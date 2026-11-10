@@ -74,7 +74,15 @@ export interface NewAsset {
 
 export type UnitPricedClass = CatalogAsset["assetClass"];
 
-const SHARE_DIGITS: Record<string, string> = { ON: "3", PN: "4", PNA: "5", PNB: "6", UNT: "11" };
+const SHARE_DIGITS: Record<string, string> = {
+  ON: "3",
+  PN: "4",
+  PNA: "5",
+  PNB: "6",
+  PNC: "7",
+  PND: "8",
+  UNT: "11",
+};
 const FUND_MARK = "CI";
 const TITLE_NOISE = /^(N1|N2|NM|MA|MB|DRN|EJ|ED|EDJ|ER|EDR|ES|EB|EG|EC|EA|ATZ|INT)$/;
 
@@ -122,18 +130,57 @@ export function tickerOfTitle(
   return found.size === 1 ? [...found][0]! : null;
 }
 
-/** Preenche o código das linhas da nota: primeiro o que a pessoa digitou, depois catálogo e carteira. */
+/** Emissora da B3 (ADR-0036): nome de pregão de 12 caracteres, como a nota imprime, e raiz do código. */
+export interface IssuerRef {
+  issuer: string;
+  tradingName: string;
+  kind: "acao" | "bdr";
+}
+
+const plainJoined = (text: string) => plainName(text).join(" ");
+
+/**
+ * Código pelo nome de pregão da emissora e pelo tipo da ação: "CAIXA SEGURI ON NM" é CXSE + 3. Só
+ * responde quando uma única emissora bate e o tipo diz o final. BDR fica de fora: o final (31 a 39) não
+ * sai do nome.
+ */
+export function tickerOfIssuer(title: string, issuers: IssuerRef[]): string | null {
+  const wanted = titleParts(title);
+  if (!wanted.company || !wanted.kind || wanted.kind === FUND_MARK) return null;
+  const digits = SHARE_DIGITS[wanted.kind];
+  if (!digits) return null;
+  const found = new Set<string>();
+  for (const issuer of issuers) {
+    if (issuer.kind !== "acao") continue;
+    if (plainJoined(issuer.tradingName) !== wanted.company) continue;
+    found.add(`${issuer.issuer}${digits}`);
+  }
+  if (found.size !== 1) return null;
+  const ticker = [...found][0]!;
+  return normalizeTicker(ticker) === ticker ? ticker : null;
+}
+
+/**
+ * Preenche o código das linhas da nota: primeiro o que a pessoa digitou, depois a emissora da B3 pelo
+ * nome de pregão, depois catálogo e carteira.
+ */
 export function withResolvedTickers(
   trades: ParsedTrade[],
   known: Array<{ ticker: string | null; name: string }>,
   typed: Record<string, string> = {},
+  issuers: IssuerRef[] = [],
 ): ParsedTrade[] {
   const memo = new Map<string, string | null>();
   return trades.map((trade) => {
     if (trade.ticker || !trade.title) return trade;
     const title = trade.title;
     if (!memo.has(title)) {
-      memo.set(title, normalizeTicker(typed[title]) ?? tickerOfTitle(title, known));
+      memo.set(
+        title,
+        normalizeTicker(typed[title]) ??
+          tickerOfIssuer(title, issuers) ??
+          tickerOfTitle(title, known),
+      );
     }
     return { ...trade, ticker: memo.get(title) ?? null };
   });

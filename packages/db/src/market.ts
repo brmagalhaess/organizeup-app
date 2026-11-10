@@ -9,6 +9,7 @@ import {
   marketDividends,
   marketFx,
   marketIndices,
+  marketIssuers,
   marketQuoteHistory,
   marketQuotes,
   marketStockEvents,
@@ -48,6 +49,55 @@ export async function saveMarketAssets(rows: MarketAssetRow[]): Promise<number> 
       });
   }
   return rows.length;
+}
+
+export interface MarketIssuerRow {
+  issuer: string;
+  tradingName: string;
+  companyName: string;
+  kind: "acao" | "bdr";
+  segment: string | null;
+  codeCvm: string | null;
+  source: string;
+}
+
+/** Grava a lista de emissoras (ADR-0036). Só o worker tem permissão; ninguém apaga. */
+export async function saveMarketIssuers(rows: MarketIssuerRow[]): Promise<number> {
+  const { db } = appPool();
+  const unique = [...new Map(rows.map((row) => [row.issuer, row])).values()];
+  for (let start = 0; start < unique.length; start += ASSET_CHUNK) {
+    await db
+      .insert(marketIssuers)
+      .values(unique.slice(start, start + ASSET_CHUNK))
+      .onConflictDoUpdate({
+        target: marketIssuers.issuer,
+        set: {
+          tradingName: sql`excluded.trading_name`,
+          companyName: sql`excluded.company_name`,
+          kind: sql`excluded.kind`,
+          segment: sql`excluded.segment`,
+          codeCvm: sql`excluded.code_cvm`,
+          source: sql`excluded.source`,
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+  return unique.length;
+}
+
+/** Emissoras para achar o código pelo nome de pregão. Sem a tabela ainda, vazio. */
+export function listMarketIssuers() {
+  return tolerateSchemaLag(
+    () =>
+      appPool()
+        .db.select({
+          issuer: marketIssuers.issuer,
+          tradingName: marketIssuers.tradingName,
+          kind: marketIssuers.kind,
+        })
+        .from(marketIssuers),
+    [],
+  );
 }
 
 const assetFields = {

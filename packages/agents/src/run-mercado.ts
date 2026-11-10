@@ -17,6 +17,7 @@ import {
   saveMarketDividends,
   saveMarketFx,
   saveMarketIndices,
+  saveMarketIssuers,
   saveMarketQuote,
   saveMarketStockEvents,
   saveMarketTicker,
@@ -35,6 +36,7 @@ import {
   B3_SOURCE,
   fetchB3CompanyEvents,
   fetchB3FiiDividends,
+  fetchB3Issuers,
   fetchBrapiCatalog,
   fetchFxSeries,
   fetchSgsSeries,
@@ -95,6 +97,8 @@ export interface MarketRunResult {
   dividends: number;
   stockEvents: number;
   assets: number;
+  /** Emissoras da B3 gravadas (ADR-0036). */
+  issuers: number;
   indices: number;
   fx: number;
   unknown: number;
@@ -167,6 +171,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     dividends: 0,
     stockEvents: 0,
     assets: 0,
+    issuers: 0,
     indices: 0,
     fx: 0,
     unknown: 0,
@@ -242,6 +247,14 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     } catch (error) {
       result.failed += 1;
       log.error({ code: codeOf(error) }, "mercado: catálogo de ativos falhou");
+    }
+    // Emissoras da B3 (ADR-0036): o nome de pregão que a nota de corretagem imprime, com a raiz do código.
+    try {
+      const issuers = await fetchB3Issuers(client, () => sleep(pause));
+      result.issuers = await saveMarketIssuers(issuers.rows);
+    } catch (error) {
+      result.failed += 1;
+      log.error({ code: codeOf(error) }, "mercado: emissoras da B3 falharam");
     }
   }
 

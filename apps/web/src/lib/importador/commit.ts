@@ -34,6 +34,7 @@ import {
   investments,
   investmentTrades,
   listMarketAssets,
+  listMarketIssuers,
   loadStockEvents,
   markCardPurchase,
   markEntries,
@@ -52,16 +53,16 @@ import {
 } from "@organizeup/db";
 import {
   brazilRulesApply,
-  dividendsToWrite,
   canUse,
+  dividendsToWrite,
   entryFromTyped,
   fitsAmount,
   investmentClassAllowed,
   isForeign,
   linesTotal,
-  money,
   merchantKey,
   missingSmartFields,
+  money,
   newAssetsOf,
   normalizeTicker,
   planInvestmentImport,
@@ -86,6 +87,7 @@ import {
   type ForecastPayload,
   type GoalPayload,
   type IncomePayload,
+  type IssuerRef,
   type KnownHolding,
   type PurchasePayload,
   type SmartPayload,
@@ -880,6 +882,7 @@ async function saveTrades(
   ctx: TenantContext,
   items: ItemRow[],
   catalog: ReadonlyMap<string, CatalogAsset>,
+  issuers: IssuerRef[],
 ): Promise<Outcome[]> {
   const ids = items.map((item) => item.id);
   try {
@@ -901,7 +904,7 @@ async function saveTrades(
       if (new Set(parsed.map((trade) => trade.line)).size !== parsed.length) {
         throw new ItemRefused("linha_repetida");
       }
-      const trades = withResolvedTickers(parsed, [...catalog.values(), ...holdings]);
+      const trades = withResolvedTickers(parsed, [...catalog.values(), ...holdings], {}, issuers);
       const lines = new Set(trades.map((trade) => trade.line));
       const plan = planInvestmentImport({ trades, holdings, selected: lines });
       const byLine = new Map(plan.map((row) => [row.line, row]));
@@ -1076,9 +1079,10 @@ export async function approveSmartImport(
       const catalog = new Map<string, CatalogAsset>(
         (await listMarketAssets()).map((row) => [row.ticker, row]),
       );
+      const issuers = await listMarketIssuers();
       for (const file of files) {
         const group = open.filter((item) => item.fileId === file.id);
-        if (group.length > 0) (await saveTrades(ctx, group, catalog)).forEach(count);
+        if (group.length > 0) (await saveTrades(ctx, group, catalog, issuers)).forEach(count);
       }
     }
   }
