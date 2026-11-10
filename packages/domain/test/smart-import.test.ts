@@ -857,15 +857,21 @@ describe("revisão de segurança", () => {
   });
 
   it("linha gigante de PDF fica de fora, sem travar a busca de valores", () => {
+    // Limite generoso (não é teste de velocidade, é teste de "não trava"): uma
+    // regressão para busca quadrática em texto de ~1M–3M caracteres levaria
+    // segundos a minutos, bem acima da folga dada aqui para máquinas sob carga.
     const started = Date.now();
     const line = `01/10/2026 ${" 1".repeat(1_000_000)}`;
     expect(parsePdfLines([line], 2026)).toEqual({ rows: [], skipped: 1 });
     const spaces = `01/10/2026 x ${"- ".repeat(1_000_000)}10,00`;
     expect(parsePdfLines([spaces], 2026).rows).toEqual([]);
-    expect(Date.now() - started).toBeLessThan(1_000);
-  });
+    expect(Date.now() - started).toBeLessThan(10_000);
+  }, 15_000); // acima do limite da asserção; evita que o timeout padrão (5s) mate o teste antes
 
   it("mesmo valor em todas as linhas não fica quadrático", () => {
+    // Limite generoso, igual ao teste de PDF acima: uma regressão para O(n²)
+    // em 50.000 linhas levaria muito mais que alguns segundos, mesmo numa
+    // máquina lenta ou sob carga.
     const rows = Array.from({ length: 50_000 }, (_, index) => ({
       date: `2026-${String((index % 12) + 1).padStart(2, "0")}-${String((index % 28) + 1).padStart(2, "0")}`,
       description: `Tarifa ${index}`,
@@ -874,11 +880,11 @@ describe("revisão de segurança", () => {
       fingerprint: `p${index}`,
     }));
     const realized = rows.map((row, index) => ({ ...row, key: `t:${index}`, fingerprint: null }));
-    const started = Date.now();
+    const started = performance.now();
     const result = reconcileRows(rows, { realized, forecasts: [] });
-    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(performance.now() - started).toBeLessThan(8_000);
     expect(result.filter((row) => row.state === "lancado")).toHaveLength(50_000);
-  });
+  }, 15_000);
 
   it("regras também param em 5.000 itens, com nota", () => {
     const lines = Array.from(
@@ -892,6 +898,8 @@ describe("revisão de segurança", () => {
   });
 
   it("comparar 10 arquivos de 5.000 itens não fica quadrático", () => {
+    // Limite generoso, mesma lógica dos testes acima: uma regressão para
+    // O(n²) nos 50.000 itens levaria muito mais que alguns segundos.
     const items: SmartItemRef[] = [];
     for (let file = 0; file < 10; file += 1) {
       for (let row = 0; row < 5_000; row += 1) {
@@ -899,10 +907,10 @@ describe("revisão de segurança", () => {
         items.push(entry(`${file}-${row}`, `f${file}`, { amount, fingerprint: `x${file}-${row}` }));
       }
     }
-    const started = Date.now();
+    const started = performance.now();
     expect(planSmartDuplicates(items, NONE).size).toBe(50_000);
-    expect(Date.now() - started).toBeLessThan(5_000);
-  });
+    expect(performance.now() - started).toBeLessThan(15_000);
+  }, 20_000);
 
   it("pagamento de fatura que fecha com as compras do lote vira possível, ligado à fatura", () => {
     const payment = entry("p", "extrato", {

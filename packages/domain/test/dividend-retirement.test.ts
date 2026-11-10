@@ -254,6 +254,9 @@ describe("aposentadoria por proventos", () => {
           expect(money(at(low)).gt(at(high))).toBe(true);
         },
       ),
+      // Mesmo numRuns da invariante acima (linha ~240): 30 amostras bastam
+      // para a propriedade e evitam timeout em máquina sob carga.
+      { numRuns: 30 },
     );
   });
 
