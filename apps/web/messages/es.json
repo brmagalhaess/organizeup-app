@@ -439,7 +439,15 @@
         "submit": "Guardar valor"
       },
       "disclaimerAnywhere": "El valor de cada inversión lo informas tú, sin cotización automática. OrganizeUp organiza y compara, y no recomienda comprar ni vender inversiones.",
-      "dividends12": "Dividendos: {amount} en 12 meses"
+      "dividends12": "Dividendos: {amount} en 12 meses",
+      "byType": {
+        "title": "División por tipo",
+        "hint": "Cuánto pesa cada tipo de activo en la cartera de hoy.",
+        "invested": "aplicado {amount}",
+        "share": "{percent} de la cartera",
+        "shareOf": "{percent} de {type}",
+        "list": "Cartera por tipo"
+      }
     },
     "trades": {
       "title": "Movimientos",

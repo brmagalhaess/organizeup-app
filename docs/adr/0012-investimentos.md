@@ -8,6 +8,9 @@ e da nota de corretagem: ver ADR-0024. Importação de proventos: ver ADR-0029. 
 - **Preço médio** pela regra usual: compra soma custo e taxas; venda baixa pelo preço médio, sem mudá-lo, e apura o
   resultado. Venda maior que a posição na data entra mesmo assim (desde 2026-11-10): a compra pode estar numa
   nota que ainda não foi importada. A posição fica em zero e a carteira avisa até a compra chegar.
+- **Carteira por tipo** (2026-11-11): a tela abre com "Divisão por tipo" (uma barra por classe, com valor,
+  fatia da carteira e quanto está aplicado) e lista os ativos em um cartão por classe. Cada ativo mostra a
+  fatia sobre a carteira inteira e uma barra com a fatia dentro do tipo. Lógica em `lib/portfolio-groups.ts`.
 - **Editar operação** em Investimentos → Lançamentos: muda lado, data, quantidade, preço, taxas e conta. O
   lançamento da conta é refeito (sai o antigo, entra o novo). Nota de corretagem no importador usa a conta
   escolhida no arquivo para o dinheiro de toda a nota.

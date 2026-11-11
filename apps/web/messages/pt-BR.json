@@ -439,7 +439,15 @@
         "submit": "Salvar valor"
       },
       "disclaimerAnywhere": "O valor de cada investimento é informado por você, sem cotação automática. O OrganizeUp organiza e compara, e não recomenda compra ou venda de investimentos.",
-      "dividends12": "Proventos: {amount} em 12 meses"
+      "dividends12": "Proventos: {amount} em 12 meses",
+      "byType": {
+        "title": "Divisão por tipo",
+        "hint": "Quanto cada tipo de ativo pesa na carteira de hoje.",
+        "invested": "aplicado {amount}",
+        "share": "{percent} da carteira",
+        "shareOf": "{percent} de {type}",
+        "list": "Carteira por tipo"
+      }
     },
     "trades": {
       "title": "Lançamentos",

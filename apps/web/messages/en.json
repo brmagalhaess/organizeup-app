@@ -439,7 +439,15 @@
         "submit": "Save value"
       },
       "disclaimerAnywhere": "You enter the value of each investment, with no automatic prices. OrganizeUp organizes and compares, and does not recommend buying or selling investments.",
-      "dividends12": "Dividends: {amount} over 12 months"
+      "dividends12": "Dividends: {amount} over 12 months",
+      "byType": {
+        "title": "Split by type",
+        "hint": "How much each asset type weighs in today's portfolio.",
+        "invested": "invested {amount}",
+        "share": "{percent} of the portfolio",
+        "shareOf": "{percent} of {type}",
+        "list": "Portfolio by type"
+      }
     },
     "trades": {
       "title": "Transactions",

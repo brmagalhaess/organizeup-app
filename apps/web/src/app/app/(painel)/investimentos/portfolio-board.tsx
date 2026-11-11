@@ -22,6 +22,7 @@ import {
   submitKeeping,
 } from "@/components/ui";
 import { formatDate } from "@/i18n/format";
+import { groupByClass } from "@/lib/portfolio-groups";
 import { splitZeroed } from "@/lib/portfolio-zeroed";
 import type { PendingItem } from "@/lib/suggestions";
 import {
@@ -38,6 +39,7 @@ import {
   quantityText,
   toInput,
   useCloseOnSuccess,
+  type AssetClass,
   type Data,
   type Row,
 } from "./shared";
@@ -236,6 +238,144 @@ export function PortfolioBoard({
   const [showZeroed, setShowZeroed] = useState(false);
   const listed = showZeroed ? data.rows : visible;
 
+  const groups = groupByClass(listed);
+  const renderRow = (row: Row, share: { percent: number; inClass: number }) => {
+    const unit = isUnitPriced(row.assetClass);
+    const rowGain = money(row.gain);
+    // Com cotação automática, o aviso de preço velho não vale.
+    const hasQuote = row.quoteState === "automatico";
+    const priceAge =
+      row.valuedOn && !row.estimated && !hasQuote ? daysSince(row.valuedOn, data.today) : 0;
+    return (
+      <li key={row.id} className="py-3 first:pt-0">
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+            <TrendingUp className="size-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="flex flex-wrap items-center gap-2 font-medium">
+              {row.name}
+              {row.ticker ? <Badge>{row.ticker}</Badge> : null}
+              {priceAge > stalePriceDays ? (
+                <Badge tone="warning">{t("portfolio.staleBadge", { count: priceAge })}</Badge>
+              ) : null}
+            </p>
+            <p className="text-xs text-muted">
+              {t(`classes.${row.assetClass}`)}
+              {unit && money(row.position.quantity).gt(0)
+                ? ` · ${t("portfolio.position", {
+                    quantity: quantityText(row.position.quantity, locale),
+                    price: moneyText(row.position.averagePrice),
+                  })}`
+                : ""}
+            </p>
+            {row.events.map((event) => {
+              const kind = stockEventKind(event.note);
+              const code = EVENT_KINDS[kind];
+              return (
+                <p key={event.id} className="text-xs text-muted">
+                  {t("portfolio.adjusted", {
+                    kind: code ? t(`portfolio.eventKinds.${code}`) : kind,
+                    date: formatDate(event.comDate, locale),
+                  })}
+                </p>
+              );
+            })}
+            {row.dividends12 && money(row.dividends12).gt(0) ? (
+              <p className="text-xs text-muted">
+                {t("portfolio.dividends12", { amount: moneyText(row.dividends12) })}
+              </p>
+            ) : null}
+            {row.position.oversold ? (
+              <p className="text-xs text-danger">{t("portfolio.oversold")}</p>
+            ) : null}
+            {row.estimated ? (
+              <p className="text-xs text-muted">{t("portfolio.estimated")}</p>
+            ) : row.valuedOn && !hasQuote ? (
+              <p className="text-xs text-muted">
+                {t("portfolio.valuedOn", { date: formatDate(row.valuedOn, locale) })}
+              </p>
+            ) : null}
+            <QuoteNote row={row} today={data.today} />
+          </div>
+          <div className="text-right text-sm">
+            <p className="whitespace-nowrap font-medium tabular-nums">{moneyText(row.value)}</p>
+            <p className="whitespace-nowrap text-xs font-medium tabular-nums text-brand-700">
+              {t("portfolio.byType.share", {
+                percent: percentText(share.percent, locale),
+              })}
+            </p>
+            {!row.estimated && row.gainPercent !== null ? (
+              <p className="whitespace-nowrap text-xs tabular-nums text-muted">
+                {rowGain.gt(0) ? "+" : ""}
+                {percentText(row.gainPercent, locale)}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <div
+          className="mt-2 ml-12 h-1.5 rounded-full bg-brand-50"
+          role="img"
+          aria-label={t("portfolio.byType.shareOf", {
+            percent: percentText(share.inClass, locale),
+            type: t(`classes.${row.assetClass as AssetClass}`),
+          })}
+        >
+          <div
+            className="h-1.5 rounded-full bg-brand-500"
+            style={{ width: `${Math.min(100, share.inClass)}%` }}
+          />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-1 pl-12">
+          {writable ? (
+            <>
+              <Button
+                variant="secondary"
+                small
+                aria-label={t("portfolio.actions.tradeLabel", { name: row.name })}
+                onClick={() => openOperation(row.id)}
+              >
+                {t("portfolio.actions.trade")}
+              </Button>
+              <Button
+                variant="secondary"
+                small
+                aria-label={t("portfolio.actions.valueLabel", { name: row.name })}
+                onClick={() => openRow("value", row.id)}
+              >
+                <Tag className="size-4" aria-hidden="true" />
+                {t("portfolio.actions.value")}
+              </Button>
+            </>
+          ) : null}
+          <Link
+            href={`/app/investimentos/lancamentos?ativo=${row.id}`}
+            aria-label={t("portfolio.actions.historyLabel", { name: row.name })}
+            className={buttonClass("ghost", true)}
+          >
+            <History className="size-4" aria-hidden="true" />
+          </Link>
+          {writable ? (
+            <>
+              <IconButton
+                label={t("portfolio.actions.editLabel", { name: row.name })}
+                onClick={() => openRow("edit", row.id)}
+              >
+                <Pencil className="size-4" aria-hidden="true" />
+              </IconButton>
+              <IconButton
+                label={t("portfolio.actions.deleteLabel", { name: row.name })}
+                onClick={() => setRemoving(row)}
+              >
+                <Trash2 className="size-4" aria-hidden="true" />
+              </IconButton>
+            </>
+          ) : null}
+        </div>
+      </li>
+    );
+  };
+
   return (
     <>
       <PageHeader
@@ -306,139 +446,55 @@ export function PortfolioBoard({
             />
           </dl>
 
-          <div>
-            <Card title={t("portfolio.list")}>
-              <ul
-                aria-label={t("portfolio.list")}
-                className="m-0 list-none divide-y divide-line p-0"
+          <Card title={t("portfolio.byType.title")} description={t("portfolio.byType.hint")}>
+            <ul
+              aria-label={t("portfolio.byType.list")}
+              className="m-0 flex list-none flex-col gap-4 p-0"
+            >
+              {groups.map((group) => (
+                <li key={group.assetClass} className="text-sm">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 font-medium">
+                      {t(`classes.${group.assetClass as AssetClass}`)}
+                    </span>
+                    <span className="whitespace-nowrap tabular-nums">
+                      {moneyText(group.value)} · {percentText(group.percent, locale)}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-2 rounded-full bg-brand-50" aria-hidden="true">
+                    <div
+                      className="h-2 rounded-full bg-brand-500"
+                      style={{ width: `${Math.min(100, group.percent)}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-muted">
+                    {t("portfolio.byType.invested", { amount: moneyText(group.cost) })}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          <div className="flex flex-col gap-6">
+            {groups.map((group) => (
+              <Card
+                key={group.assetClass}
+                title={t(`classes.${group.assetClass as AssetClass}`)}
+                description={`${moneyText(group.value)} · ${t("portfolio.byType.share", {
+                  percent: percentText(group.percent, locale),
+                })} · ${t("portfolio.byType.invested", { amount: moneyText(group.cost) })}`}
               >
-                {listed.map((row) => {
-                  const unit = isUnitPriced(row.assetClass);
-                  const rowGain = money(row.gain);
-                  // Com cotação automática, o aviso de preço velho não vale.
-                  const hasQuote = row.quoteState === "automatico";
-                  const priceAge =
-                    row.valuedOn && !row.estimated && !hasQuote
-                      ? daysSince(row.valuedOn, data.today)
-                      : 0;
-                  return (
-                    <li key={row.id} className="py-3 first:pt-0">
-                      <div className="flex items-start gap-3">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                          <TrendingUp className="size-4" aria-hidden="true" />
-                        </span>
-                        <div className="min-w-0 flex-1 text-sm">
-                          <p className="flex flex-wrap items-center gap-2 font-medium">
-                            {row.name}
-                            {row.ticker ? <Badge>{row.ticker}</Badge> : null}
-                            {priceAge > stalePriceDays ? (
-                              <Badge tone="warning">
-                                {t("portfolio.staleBadge", { count: priceAge })}
-                              </Badge>
-                            ) : null}
-                          </p>
-                          <p className="text-xs text-muted">
-                            {t(`classes.${row.assetClass}`)}
-                            {unit && money(row.position.quantity).gt(0)
-                              ? ` · ${t("portfolio.position", {
-                                  quantity: quantityText(row.position.quantity, locale),
-                                  price: moneyText(row.position.averagePrice),
-                                })}`
-                              : ""}
-                          </p>
-                          {row.events.map((event) => {
-                            const kind = stockEventKind(event.note);
-                            const code = EVENT_KINDS[kind];
-                            return (
-                              <p key={event.id} className="text-xs text-muted">
-                                {t("portfolio.adjusted", {
-                                  kind: code ? t(`portfolio.eventKinds.${code}`) : kind,
-                                  date: formatDate(event.comDate, locale),
-                                })}
-                              </p>
-                            );
-                          })}
-                          {row.dividends12 && money(row.dividends12).gt(0) ? (
-                            <p className="text-xs text-muted">
-                              {t("portfolio.dividends12", { amount: moneyText(row.dividends12) })}
-                            </p>
-                          ) : null}
-                          {row.position.oversold ? (
-                            <p className="text-xs text-danger">{t("portfolio.oversold")}</p>
-                          ) : null}
-                          {row.estimated ? (
-                            <p className="text-xs text-muted">{t("portfolio.estimated")}</p>
-                          ) : row.valuedOn && !hasQuote ? (
-                            <p className="text-xs text-muted">
-                              {t("portfolio.valuedOn", { date: formatDate(row.valuedOn, locale) })}
-                            </p>
-                          ) : null}
-                          <QuoteNote row={row} today={data.today} />
-                        </div>
-                        <div className="text-right text-sm">
-                          <p className="whitespace-nowrap font-medium tabular-nums">
-                            {moneyText(row.value)}
-                          </p>
-                          {!row.estimated && row.gainPercent !== null ? (
-                            <p className="whitespace-nowrap text-xs tabular-nums text-muted">
-                              {rowGain.gt(0) ? "+" : ""}
-                              {percentText(row.gainPercent, locale)}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-1 pl-12">
-                        {writable ? (
-                          <>
-                            <Button
-                              variant="secondary"
-                              small
-                              aria-label={t("portfolio.actions.tradeLabel", { name: row.name })}
-                              onClick={() => openOperation(row.id)}
-                            >
-                              {t("portfolio.actions.trade")}
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              small
-                              aria-label={t("portfolio.actions.valueLabel", { name: row.name })}
-                              onClick={() => openRow("value", row.id)}
-                            >
-                              <Tag className="size-4" aria-hidden="true" />
-                              {t("portfolio.actions.value")}
-                            </Button>
-                          </>
-                        ) : null}
-                        <Link
-                          href={`/app/investimentos/lancamentos?ativo=${row.id}`}
-                          aria-label={t("portfolio.actions.historyLabel", { name: row.name })}
-                          className={buttonClass("ghost", true)}
-                        >
-                          <History className="size-4" aria-hidden="true" />
-                        </Link>
-                        {writable ? (
-                          <>
-                            <IconButton
-                              label={t("portfolio.actions.editLabel", { name: row.name })}
-                              onClick={() => openRow("edit", row.id)}
-                            >
-                              <Pencil className="size-4" aria-hidden="true" />
-                            </IconButton>
-                            <IconButton
-                              label={t("portfolio.actions.deleteLabel", { name: row.name })}
-                              onClick={() => setRemoving(row)}
-                            >
-                              <Trash2 className="size-4" aria-hidden="true" />
-                            </IconButton>
-                          </>
-                        ) : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-              {zeroed.length > 0 ? (
-                <p className="m-0 mt-3 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+                <ul
+                  aria-label={t(`classes.${group.assetClass as AssetClass}`)}
+                  className="m-0 list-none divide-y divide-line p-0"
+                >
+                  {group.rows.map(({ row, ...share }) => renderRow(row, share))}
+                </ul>
+              </Card>
+            ))}
+            {zeroed.length > 0 ? (
+              <Card>
+                <p className="m-0 flex flex-wrap items-center gap-x-2 text-sm text-muted">
                   <span>{t("portfolio.zeroed.hint", { count: zeroed.length })}</span>
                   <button
                     type="button"
@@ -448,8 +504,8 @@ export function PortfolioBoard({
                     {t(showZeroed ? "portfolio.zeroed.hide" : "portfolio.zeroed.show")}
                   </button>
                 </p>
-              ) : null}
-            </Card>
+              </Card>
+            ) : null}
           </div>
         </>
       )}
