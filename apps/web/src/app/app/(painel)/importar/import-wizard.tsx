@@ -53,7 +53,12 @@ import {
   type PreparedRow,
 } from "./actions";
 import { useFamilyCurrency, useMoney } from "@/i18n/money";
-import { confirmBankSync, fetchBankStatement } from "../contas/conexoes/actions";
+import {
+  commitCardStatement,
+  confirmBankSync,
+  fetchBankStatement,
+  fetchCardStatement,
+} from "../contas/conexoes/actions";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS = 2000;
@@ -68,12 +73,11 @@ interface AccountOption extends Option {
 interface CategoryOption extends Option {
   kind: "receita" | "despesa";
 }
-/** Conta do banco ligada a uma conta daqui (ADR-0038). */
+/** Conta ou cartão do banco já ligado a uma conta ou a um cartão daqui (ADR-0038). */
 export interface BankFeedOption {
   id: string;
   name: string;
-  accountId: string;
-  syncedOn: string | null;
+  kind: "conta" | "cartao";
 }
 interface BatchRow {
   id: string;
@@ -587,6 +591,8 @@ export function ImportWizard({
     imported: number;
     settled: number;
     summary: string;
+    /** As linhas eram compras de cartão: o resultado está em Cartões. */
+    card?: boolean;
   } | null>(null);
   const [reading, setReading] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -597,10 +603,17 @@ export function ImportWizard({
   const [bankMessage, setBankMessage] = useState<string | null>(null);
   // Conferência que veio do banco: depois de gravar, a próxima busca parte deste dia.
   const [feed, setFeed] = useState<{ linkId: string; to: string } | null>(null);
+  // Conferência de compras de cartão: grava em Cartões, e não na conta escolhida acima.
+  const [cardFeed, setCardFeed] = useState<{
+    linkId: string;
+    to: string;
+    installments: Record<string, number>;
+  } | null>(null);
   const [busy, startTransition] = useTransition();
 
   const reset = () => {
     setFeed(null);
+    setCardFeed(null);
     setBankMessage(null);
     setCsv(null);
     setRows(null);
@@ -638,11 +651,48 @@ export function ImportWizard({
   };
 
   // As linhas do banco entram na mesma conferência de um arquivo OFX: o identificador de cada uma evita repetir.
+  // As linhas do banco entram na mesma conferência de um arquivo OFX: o identificador de cada uma evita repetir.
   const onBank = () => {
     setMessage(null);
     setBankMessage(null);
     setNotice(null);
+    const chosen = bank?.find((link) => link.id === bankLink);
     startTransition(async () => {
+      if (chosen?.kind === "cartao") {
+        const result = await fetchCardStatement({
+          linkId: bankLink,
+          from: bankSince || null,
+        }).catch(() => ({ ok: false as const, message: outdated }));
+        if (!result.ok) {
+          setBankMessage(result.message);
+          return;
+        }
+        if (result.rows.length === 0) {
+          setBankMessage(
+            result.pending > 0 ? t("bank.pending", { count: result.pending }) : t("bank.empty"),
+          );
+          return;
+        }
+        const notes = [
+          t("bank.cardNotice"),
+          result.truncated ? t("bank.truncated") : null,
+          result.pending > 0 ? t("bank.pending", { count: result.pending }) : null,
+          result.credits > 0 ? t("bank.credits", { count: result.credits }) : null,
+        ].filter(Boolean);
+        setNotice(notes.join(" "));
+        setFeed(null);
+        setCardFeed({
+          linkId: result.linkId,
+          to: result.to,
+          installments: Object.fromEntries(
+            result.rows.map((row) => [row.fingerprint, row.installments]),
+          ),
+        });
+        setCsv(null);
+        setRoom(null);
+        setRows(result.rows);
+        return;
+      }
       const result = await fetchBankStatement({ linkId: bankLink, from: bankSince || null }).catch(
         () => ({ ok: false as const, message: outdated }),
       );
@@ -662,6 +712,7 @@ export function ImportWizard({
       ].filter(Boolean);
       setNotice(notes.length > 0 ? notes.join(" ") : null);
       setAccountId(result.accountId);
+      setCardFeed(null);
       setFeed({ linkId: result.linkId, to: result.to });
       review("ofx", result.rows, result.accountId);
     });
@@ -671,6 +722,7 @@ export function ImportWizard({
     setMessage(null);
     setBankMessage(null);
     setFeed(null);
+    setCardFeed(null);
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
@@ -756,6 +808,33 @@ export function ImportWizard({
         },
       ];
     });
+    if (cardFeed) {
+      startTransition(async () => {
+        const result = await commitCardStatement({
+          linkId: cardFeed.linkId,
+          to: cardFeed.to,
+          rows: chosen.map((row) => ({
+            date: row.date,
+            description: row.description,
+            amount: row.amount,
+            installments: cardFeed.installments[row.fingerprint] ?? 1,
+            fingerprint: row.fingerprint,
+            categoryId: row.categoryId,
+            newCategory: row.newCategory,
+          })),
+        }).catch(() => ({ ok: false as const, message: outdated }));
+        if (!result.ok) {
+          setMessage(result.message);
+          return;
+        }
+        setCardFeed(null);
+        setRows(null);
+        setMessage(null);
+        setNotice(null);
+        setDone({ imported: result.imported, settled: 0, summary: result.summary, card: true });
+      });
+      return;
+    }
     startTransition(async () => {
       const result = await commitImport({ accountId, source, rows: chosen }).catch(() => ({
         ok: false as const,
@@ -789,8 +868,11 @@ export function ImportWizard({
             </p>
             {done.summary ? <p className="max-w-xl text-sm text-muted">{done.summary}</p> : null}
             <div className="mt-2 flex flex-wrap justify-center gap-2">
-              <Link href="/app/lancamentos" className={buttonClass()}>
-                {t("done.seeEntries")}
+              <Link
+                href={done.card ? "/app/cartoes" : "/app/lancamentos"}
+                className={buttonClass()}
+              >
+                {t(done.card ? "done.seeCards" : "done.seeEntries")}
               </Link>
               <Button variant="secondary" onClick={reset}>
                 {t("done.another")}

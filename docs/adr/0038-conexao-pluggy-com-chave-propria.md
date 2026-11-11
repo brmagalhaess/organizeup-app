@@ -49,6 +49,8 @@ informa aqui, e o sistema passa a trazer receitas, despesas e investimentos.
 Importar extrato, Importar investimentos e Cartões (este só avisa que o cartão ainda não entra). O passo a passo
 da tela usa os nomes do painel da Pluggy conferidos em 2026-11-11: Aplicações, Novo, Credenciais, "Gerar novo
 secret" (o Client Secret aparece uma vez só), ícone Demo, "Conectar Conta" e "Itens Conectados".
+O conector MeuPluggy vem desligado: o guia manda ligar em Dados Financeiros, Customização, Conectores,
+"Conectores Diretos". Sem isso a lista de instituições só mostra Sandbox, como aconteceu no primeiro teste.
 
 ## Riscos aceitos e o que falta antes de ligar para todos
 
@@ -66,11 +68,34 @@ secret" (o Client Secret aparece uma vez só), ícone Demo, "Conectar Conta" e "
 - **Nunca rodou com chave real.** O cliente foi escrito a partir da documentação e do SDK público da Pluggy, e
   testado com respostas simuladas. O primeiro uso com chave real é a verificação que falta.
 
+## Contas, cartões e investimentos a partir da conexão (2026-11-11, depois do primeiro teste real)
+
+O primeiro teste com conta real (XP, pelo MeuPluggy) trouxe 2 contas, 1 cartão e 27 investimentos, e mostrou o
+que faltava. Migração 0051.
+
+- **Criar daqui.** Cada conta do banco pode virar uma conta do OrganizeUp num clique ("Criar conta nova"), ou
+  todas de uma vez. O cartão do banco vira um cartão daqui: a pessoa confirma o dia de fechamento, o de
+  vencimento e a conta que paga a fatura. A instituição só informou o vencimento, então o fechamento é sugerido
+  uma semana antes. Quem já tem a conta ou o cartão cadastrado escolhe o existente: nada é criado sozinho.
+- **Mesmo nome, contas diferentes.** A XP manda duas contas com o mesmo nome e o mesmo número. O código do banco
+  (`transferNumber`) entra no nome para separar.
+- **Compras do cartão** entram em `card_purchases` pela mesma conferência do extrato, com categoria proposta. A
+  instituição manda uma linha por parcela. Aqui cada compra é uma linha: da parcela mais antiga do período sai
+  a compra com as parcelas que faltam, e o OrganizeUp distribui o resto pelas faturas. As parcelas da mesma
+  compra dividem a impressão digital (dia da compra, loja, valor e número de parcelas), então a parcela do mês
+  seguinte não entra de novo. Pagamento de fatura, estorno e lançamento pendente ficam de fora. Compra que
+  cairia em fatura já paga não entra.
+- **A impressão digital fica numa vista à parte** (`cardPurchaseImports`, sobre `card_purchases`), como a de uso
+  do plano: quem lê compras no painel não depende da coluna nova durante a publicação.
+- **Investimentos.** O tipo do ativo (ação, FII, ETF ou BDR) vem da instituição, então a conferência não
+  pergunta. A corretora não informa quanto foi pago: o preço entra preenchido com o de mercado, com aviso para
+  trocar antes de gravar ou corrigir depois em Lançamentos.
+
 ## Fora desta etapa
 
-- Cartão de crédito: a conta aparece na lista, mas não é trazida.
-- Renda fixa, fundos e previdência: aparecem como ignorados na conferência, com o motivo.
+- Fundos, renda fixa e previdência: aparecem como ignorados na conferência, com o motivo.
 - Histórico de compras e vendas pela Pluggy: só a posição atual.
+- Estorno e crédito na fatura do cartão.
 - Busca automática diária e o conector embutido (Pluggy Connect), que dispensaria copiar o Item ID.
 
 ## Se o OrganizeUp contratar o plano de produto

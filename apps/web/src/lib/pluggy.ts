@@ -36,6 +36,9 @@ export interface PluggyAccount {
   name: string;
   numberTail: string | null;
   currency: string;
+  /** Só em cartão, quando a instituição informa: servem de sugestão no formulário. */
+  closingDay: number | null;
+  dueDay: number | null;
 }
 
 type Json = Record<string, unknown>;
@@ -83,6 +86,13 @@ async function call(
   return body;
 }
 
+/** Dia do mês de uma data `AAAA-MM-DD…`. */
+const dayOf = (value: unknown): number | null => {
+  const match = /^\d{4}-\d{2}-(\d{2})/.exec(text(value) ?? "");
+  const day = match ? Number(match[1]) : 0;
+  return day >= 1 && day <= 31 ? day : null;
+};
+
 const results = (body: Json): Json[] => {
   if (!Array.isArray(body.results)) throw new PluggyError("resposta");
   return body.results.filter(isRecord);
@@ -118,15 +128,22 @@ export async function pluggyAccounts(
           ? "poupanca"
           : "corrente";
     const digits = (text(row.number) ?? "").replace(/\D/g, "");
+    const bank = isRecord(row.bankData) ? row.bankData : {};
+    const credit = isRecord(row.creditData) ? row.creditData : {};
+    // A mesma instituição pode mandar duas contas com o mesmo nome e número: o código do banco as separa.
+    const bankCode = /^(\d{3})\//.exec(text(bank.transferNumber) ?? "")?.[1];
+    const label = cleanFileText(row.marketingName, 100) || cleanFileText(row.name, 100) || kind;
     accounts.push({
       id,
       itemId,
       kind,
-      name: cleanFileText(row.marketingName, 120) || cleanFileText(row.name, 120) || kind,
+      name: bankCode ? `${label} · ${bankCode}` : label,
       numberTail: digits.length >= 4 ? digits.slice(-4) : null,
       currency: /^[A-Z]{3}$/.test(text(row.currencyCode) ?? "")
         ? (row.currencyCode as string)
         : "BRL",
+      closingDay: dayOf(credit.balanceCloseDate),
+      dueDay: dayOf(credit.balanceDueDate),
     });
   }
   return accounts;
@@ -149,6 +166,7 @@ export async function pluggyTransactions(
       const id = text(row.id);
       const date = text(row.date);
       if (!id || !date) continue;
+      const card = isRecord(row.creditCardMetadata) ? row.creditCardMetadata : {};
       transactions.push({
         id,
         date,
@@ -157,6 +175,9 @@ export async function pluggyTransactions(
         type: text(row.type),
         amount: number(row.amount),
         status: text(row.status),
+        installmentNumber: number(card.installmentNumber),
+        totalInstallments: number(card.totalInstallments),
+        purchaseDate: text(card.purchaseDate),
       });
     }
     // `next` é o endereço da página seguinte: só o cursor interessa.
@@ -189,6 +210,7 @@ export async function pluggyInvestments(
         code: text(row.code),
         name: text(row.name),
         type: text(row.type),
+        subtype: text(row.subtype),
         quantity: number(row.quantity),
         value: number(row.value),
         amount: number(row.amount),

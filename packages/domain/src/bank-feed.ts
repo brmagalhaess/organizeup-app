@@ -72,6 +72,11 @@ export interface FeedTransaction {
   amount?: number | null;
   /** `PENDING` ainda pode mudar ou sumir: só `POSTED` entra. */
   status?: string | null;
+  /** Só em conta de cartão: a Pluggy manda uma linha por parcela. */
+  installmentNumber?: number | null;
+  totalInstallments?: number | null;
+  /** Dia da compra original, quando a linha é uma parcela. */
+  purchaseDate?: string | null;
 }
 
 export interface FeedStatement {
@@ -137,12 +142,112 @@ export function feedStatementOf(transactions: FeedTransaction[], timezone?: stri
   return { rows: truncated ? rows.slice(-BANK_FEED_MAX_ROWS) : rows, pending, skipped, truncated };
 }
 
+export interface FeedCardPurchase extends StatementRow {
+  /** Parcelas que ainda entram a partir desta linha. 1: à vista, ou a última parcela. */
+  installments: number;
+}
+
+export interface FeedCardStatement {
+  rows: FeedCardPurchase[];
+  pending: number;
+  /** Pagamentos de fatura e estornos: o cartão do OrganizeUp só guarda compras. */
+  credits: number;
+  skipped: number;
+  truncated: boolean;
+}
+
+const MAX_INSTALLMENTS = 120;
+
+/**
+ * Compras de uma conta de cartão. A instituição manda uma linha por parcela, e aqui cada compra é uma linha
+ * só: da parcela mais antiga do período sai a compra, com as parcelas que faltam, e o OrganizeUp distribui o
+ * resto pelas faturas seguintes. As parcelas da mesma compra dividem o identificador, então a parcela do mês
+ * que vem não entra de novo.
+ */
+export function feedCardPurchasesOf(
+  transactions: FeedTransaction[],
+  timezone?: string,
+): FeedCardStatement {
+  let pending = 0;
+  let credits = 0;
+  let skipped = 0;
+  const singles: FeedCardPurchase[] = [];
+  const plans = new Map<string, { row: FeedCardPurchase; number: number }>();
+  for (const item of transactions) {
+    if (item.status === "PENDING") {
+      pending += 1;
+      continue;
+    }
+    const amount = amountOf(item.amount);
+    // Compra chega positiva e como DEBIT; pagamento e estorno, negativos e como CREDIT.
+    if (item.type === "CREDIT" || (amount && amount.isNegative() && item.type !== "DEBIT")) {
+      credits += 1;
+      continue;
+    }
+    const date = feedDateOf(item.date, timezone);
+    const cents = amount ? toDbAmount(amount.abs()) : null;
+    if (!date || !amount || !cents || cents === "0.00" || cents.length > 15) {
+      skipped += 1;
+      continue;
+    }
+    const description =
+      cleanFileText(item.description, 100) || cleanFileText(item.descriptionRaw, 100) || "—";
+    const total = Number.isInteger(item.totalInstallments) ? item.totalInstallments! : 1;
+    const number = Number.isInteger(item.installmentNumber) ? item.installmentNumber! : 1;
+    if (total <= 1 || total > MAX_INSTALLMENTS || number < 1 || number > total) {
+      singles.push({
+        date,
+        description,
+        amount: cents,
+        kind: "despesa",
+        installments: 1,
+        externalId: `pluggy:${item.id}`,
+      });
+      continue;
+    }
+    const bought = feedDateOf(item.purchaseDate, timezone) ?? "";
+    // A parcela não traz o identificador da compra: dia da compra, loja, valor e número de parcelas a definem.
+    const key = `pluggy:parc:${bought}:${cents}:${total}:${description.toLowerCase()}`.slice(
+      0,
+      200,
+    );
+    const known = plans.get(key);
+    if (known && known.number <= number) continue;
+    const left = total - number + 1;
+    plans.set(key, {
+      number,
+      row: {
+        date,
+        description:
+          number > 1 ? `${description} (desde ${number}/${total})`.slice(0, 120) : description,
+        amount: toDbAmount(amount.abs().times(left)),
+        kind: "despesa",
+        installments: left,
+        externalId: key,
+      },
+    });
+  }
+  const rows = [...singles, ...[...plans.values()].map((plan) => plan.row)].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  );
+  const truncated = rows.length > BANK_FEED_MAX_ROWS;
+  return {
+    rows: truncated ? rows.slice(-BANK_FEED_MAX_ROWS) : rows,
+    pending,
+    credits,
+    skipped,
+    truncated,
+  };
+}
+
 export interface FeedInvestment {
   id: string;
   /** Código de negociação, quando o ativo é de bolsa. */
   code?: string | null;
   name?: string | null;
   type?: string | null;
+  /** `STOCK`, `REAL_ESTATE_FUND`, `ETF`, `BDR`… */
+  subtype?: string | null;
   quantity?: number | null;
   /** Preço unitário na data da posição. */
   value?: number | null;
@@ -153,10 +258,30 @@ export interface FeedInvestment {
   status?: string | null;
 }
 
+export type FeedAssetClass = "acao" | "fii" | "etf_bdr";
+
 export interface FeedPortfolio {
   file: ParsedInvestmentFile;
-  /** Preço médio pago por linha da posição, quando a instituição informa quanto foi aplicado. */
+  /**
+   * Preço por linha da posição para entrar na conferência já preenchido: o preço médio pago, quando a
+   * instituição informa quanto foi aplicado, ou o preço de mercado, quando não informa.
+   */
   paid: Record<string, string>;
+  /** Linhas em que `paid` é o preço de mercado, e não o que a pessoa pagou: a tela avisa. */
+  estimated: string[];
+  /** Tipo de cada ativo, pelo que a instituição informa. */
+  classes: Record<string, FeedAssetClass>;
+}
+
+/** Tipo do ativo no OrganizeUp, a partir do tipo e do subtipo da instituição. */
+export function feedAssetClass(
+  type: string | null | undefined,
+  subtype: string | null | undefined,
+): FeedAssetClass | null {
+  if (subtype === "REAL_ESTATE_FUND") return "fii";
+  if (subtype === "ETF" || subtype === "BDR" || type === "ETF") return "etf_bdr";
+  if (subtype === "STOCK") return "acao";
+  return null;
 }
 
 const positive = (raw: unknown): MoneyValue | null => {
@@ -170,6 +295,7 @@ const positive = (raw: unknown): MoneyValue | null => {
  */
 export function feedPortfolioOf(investments: FeedInvestment[]): FeedPortfolio {
   interface Lot {
+    assetClass: FeedAssetClass | null;
     name: string | null;
     quantity: MoneyValue;
     price: MoneyValue | null;
@@ -195,6 +321,7 @@ export function feedPortfolioOf(investments: FeedInvestment[]): FeedPortfolio {
     const lot = lots.get(ticker);
     if (!lot) {
       lots.set(ticker, {
+        assetClass: feedAssetClass(item.type, item.subtype),
         name: cleanFileText(item.name) || null,
         quantity,
         price,
@@ -204,12 +331,15 @@ export function feedPortfolioOf(investments: FeedInvestment[]): FeedPortfolio {
       return;
     }
     lot.quantity = lot.quantity.plus(quantity);
+    lot.assetClass ??= feedAssetClass(item.type, item.subtype);
     lot.price ??= price;
     lot.known &&= applied !== null;
     lot.applied = lot.known && lot.applied && applied ? lot.applied.plus(applied) : null;
   });
   const positions: ParsedPosition[] = [];
   const paid: Record<string, string> = {};
+  const estimated: string[] = [];
+  const classes: Record<string, FeedAssetClass> = {};
   [...lots.entries()]
     .sort(([a], [b]) => (a < b ? -1 : 1))
     .forEach(([ticker, lot], line) => {
@@ -220,9 +350,15 @@ export function feedPortfolioOf(investments: FeedInvestment[]): FeedPortfolio {
         quantity: decimalText(lot.quantity),
         closePrice: lot.price ? decimalText(lot.price) : null,
       });
-      if (lot.known && lot.applied) paid[String(line)] = decimalText(lot.applied.div(lot.quantity));
+      if (lot.assetClass) classes[ticker] = lot.assetClass;
+      if (lot.known && lot.applied) {
+        paid[String(line)] = decimalText(lot.applied.div(lot.quantity));
+      } else if (lot.price) {
+        paid[String(line)] = decimalText(lot.price);
+        estimated.push(String(line));
+      }
     });
-  return { file: { kind: "posicao", trades: [], positions, ignored }, paid };
+  return { file: { kind: "posicao", trades: [], positions, ignored }, paid, estimated, classes };
 }
 
 export const BANK_FEED_ERRORS = [

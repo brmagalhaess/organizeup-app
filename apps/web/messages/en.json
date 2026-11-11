@@ -733,7 +733,8 @@
         "fetching": "Fetching from Pluggy…",
         "empty": "Pluggy returned no investments in your connections.",
         "connectText": "Store your Pluggy key to bring your position in stocks, real estate funds, ETFs and BDRs without downloading a file.",
-        "connect": "Connect bank"
+        "connect": "Connect bank",
+        "estimated": "The broker does not say how much you paid for each asset. The price field came with today's price: replace it with the price you paid before saving, or fix it later in Investments, Entries."
       }
     },
     "operation": {
@@ -3131,7 +3132,7 @@
     },
     "bank": {
       "title": "Bank connection",
-      "text": "The Pluggy connection already brings account entries and the investment position. Credit cards do not come through it yet: purchases are still entered here.",
+      "text": "The Pluggy connection already brings card purchases. Link the bank card to a card here and fetch the purchases in Import statement.",
       "link": "Open bank connection"
     }
   },
@@ -3528,7 +3529,8 @@
       "title": "Statement imported",
       "counts": "{imported, plural, =1 {1 new transaction} other {# new transactions}} and {settled, plural, =1 {1 forecast settled} other {# forecasts settled}}.",
       "seeEntries": "See transactions",
-      "another": "Import another"
+      "another": "Import another",
+      "seeCards": "See cards"
     },
     "batches": {
       "title": "Recent imports",
@@ -3584,18 +3586,20 @@
     },
     "bank": {
       "title": "Bring from the bank",
-      "text": "Fetches the entries of the linked account from Pluggy. Without a date, it continues from where it stopped. You review everything before saving, and what is already in does not come in again.",
+      "text": "Fetches the account entries or the card purchases from Pluggy. Without a date, it continues from where it stopped. You review everything before saving, and what is already in does not come in again.",
       "connectText": "Link your Pluggy account to bring entries without downloading a file.",
-      "account": "Bank account",
+      "account": "Bank account or card",
       "since": "Since (optional)",
-      "fetch": "Fetch entries",
+      "fetch": "Fetch",
       "fetching": "Fetching from Pluggy…",
       "manage": "Manage connection",
       "connect": "Connect bank",
-      "linkFirst": "You have not linked any bank account to an OrganizeUp account yet.",
+      "linkFirst": "You have not linked any bank account or card to OrganizeUp yet.",
       "empty": "No entries in the period.",
       "pending": "{count, plural, one {# entry still pending at the bank was left for the next fetch.} other {# entries still pending at the bank were left for the next fetch.}}",
-      "truncated": "More than 2,000 rows came: the most recent ones were kept. For the rest, fetch again with an earlier date in \"Since\"."
+      "truncated": "More than 2,000 rows came: the most recent ones were kept. For the rest, fetch again with an earlier date in \"Since\".",
+      "cardNotice": "These are card purchases: they go to Cards, each on its own bill.",
+      "credits": "{count, plural, one {# payment or refund was left out.} other {# payments or refunds were left out.}}"
     }
   },
   "renda": {
@@ -5327,8 +5331,9 @@
         "dashboard": "Create an account at dashboard.pluggy.ai, preferably with the same email. The 15-day trial notice is for companies and can be ignored for personal use.",
         "application": "On the dashboard, open the Aplicações menu and click Novo. Give it any name, such as \"My finances\". One application is enough for all banks.",
         "secret": "When you create it, Pluggy shows the Client Secret only once: copy it right away. The Client ID is always visible inside the application, under Credenciais. Lost the Client Secret? In the same place, click \"Gerar novo secret\"; the old one stops working.",
-        "connector": "Go back to Aplicações and click the ▶ (Demo) icon of your application. Click \"Conectar Conta\", then Continuar, and choose the MeuPluggy connector. Repeat for each bank.",
-        "items": "Each connection shows up under \"Itens Conectados\". Open the connection and copy its identifier (Item ID).",
+        "enable": "Enable the connector: in the Dados Financeiros menu, open Customização and the Conectores tab. Under Personal, click \"Conectores Diretos\", turn MeuPluggy on and click Salvar. Without this, the list in the next step only shows Sandbox.",
+        "connector": "Go back to Aplicações and click the ▶ (Demo) icon of your application. Click \"Conectar Conta\", then Continuar, and choose MeuPluggy in the list. Repeat for each bank.",
+        "items": "The connection shows up under \"Itens Conectados\". Click it and use the copy button next to the identifier, at the top: that is the Item ID.",
         "paste": "Paste the Client ID, the Client Secret and the Item IDs in the form below. The keys are encrypted and only you can use them."
       }
     },
@@ -5371,19 +5376,18 @@
       "error": "Last attempt: {message}"
     },
     "actions": {
-      "entries": "Fetch entries",
+      "entries": "Fetch entries and purchases",
       "investments": "Fetch investments",
       "refresh": "Update accounts",
       "refreshing": "Updating…",
-      "remove": "Remove connection"
+      "remove": "Remove connection",
+      "createAccounts": "{count, plural, one {Create # missing account} other {Create # missing accounts}}"
     },
     "accounts": {
       "title": "Accounts found",
-      "text": "Choose which OrganizeUp account receives the entries of each bank account.",
+      "text": "Choose where each bank account and card goes. You can create them right here.",
       "emptyTitle": "No accounts yet",
       "emptyText": "Pluggy showed no accounts in these connections. Check that the bank appears in Meu Pluggy and update.",
-      "noAccounts": "You do not have an OrganizeUp account to receive the entries yet.",
-      "createAccount": "Create account",
       "kind": {
         "corrente": "Checking account",
         "poupanca": "Savings",
@@ -5393,9 +5397,10 @@
       "target": "OrganizeUp account",
       "none": "Do not bring",
       "save": "Save",
-      "card": "Credit cards are not brought through here yet.",
       "synced": "Brought up to {date}",
-      "never": "Not brought yet"
+      "never": "Not brought yet",
+      "create": "Create new account",
+      "unlinked": "No destination in OrganizeUp yet"
     },
     "remove": {
       "title": "Remove {name}'s key?",
@@ -5414,12 +5419,32 @@
       "dados_invalidos": "Check the fields. The Client ID and the Item IDs look like 00000000-0000-0000-0000-000000000000, and there are up to 5 connections.",
       "sem_conexao": "You have not connected your Pluggy account yet.",
       "conta_invalida": "Choose an active account in the same currency as the bank account.",
-      "cartao": "Credit cards are not brought through here yet.",
+      "cartao": "This row is a card: choose a card, not an account.",
       "conta_em_uso": "This account already receives the entries of another bank account. Choose another one, or create a new account in Accounts.",
       "pessoa_invalida": "Choose an adult person from the register.",
       "pessoa_ja_conectada": "This person already has a stored key.",
       "limite_de_chaves": "Up to 2 keys fit per login. Remove one to store another.",
-      "sem_consentimento": "Tick the confirmation that the person authorized the use of the key."
+      "sem_consentimento": "Tick the confirmation that the person authorized the use of the key.",
+      "nao_e_cartao": "This row is an account, not a card.",
+      "cartao_em_uso": "This card already receives the purchases of another bank card. Choose another one or create a new one.",
+      "cartao_invalido": "Link this bank card to an OrganizeUp card before fetching.",
+      "dias_invalidos": "Enter the closing day and the due day, from 1 to 31.",
+      "limite_de_lancamentos": "The purchases do not fit in your plan's entry limit this month."
+    },
+    "accountsCreated": "{count, plural, =0 {No account to create.} one {# account created and linked.} other {# accounts created and linked.}}",
+    "cardLinked": "Card linked.",
+    "cards": {
+      "target": "OrganizeUp card",
+      "create": "Create new card",
+      "closingDay": "Closing day",
+      "dueDay": "Due day",
+      "payingAccount": "Account that pays the bill",
+      "payingHint": "It is where the bill money comes from.",
+      "needAccount": "First create the account that pays the bill: use the create accounts button above."
+    },
+    "cardImport": {
+      "repeated": "{count, plural, one {# purchase was already on the card.} other {# purchases were already on the card.}}",
+      "blocked": "{count, plural, one {# purchase was left out because it would fall on a bill already paid.} other {# purchases were left out because they would fall on a bill already paid.}}"
     }
   }
 }

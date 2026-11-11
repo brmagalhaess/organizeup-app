@@ -11,6 +11,8 @@ import {
   bankConnectionAccounts,
   bankConnections,
   canWrite,
+  creditCards,
+  currencyFrozen,
   eq,
   householdTimezone,
   inArray,
@@ -22,6 +24,7 @@ import {
   type TenantTx,
 } from "@organizeup/db";
 import {
+  CURRENCIES,
   feedPortfolioOf,
   feedStatementOf,
   feedWindowStart,
@@ -29,6 +32,8 @@ import {
   parseFeedItemIds,
   todayIn,
   type BankFeedError,
+  type Currency,
+  type FeedAssetClass,
   type FeedInvestment,
   type ParsedInvestmentFile,
   type StatementRow,
@@ -72,6 +77,14 @@ export type BankFeedFailure =
   /** A conta do OrganizeUp já recebe lançamentos de outra conta do banco. */
   | "conta_em_uso"
   | "cartao"
+  /** A ação é de cartão e a linha é de conta. */
+  | "nao_e_cartao"
+  /** O cartão daqui já recebe as compras de outro cartão do banco. */
+  | "cartao_em_uso"
+  | "cartao_invalido"
+  /** Dia de fechamento ou de vencimento fora de 1 a 31. */
+  | "dias_invalidos"
+  | "limite_de_lancamentos"
   /** Pessoa fora do cadastro, ou menor de idade. */
   | "pessoa_invalida"
   /** Já existe uma chave desta pessoa, guardada por este ou por outro login. */
@@ -80,7 +93,7 @@ export type BankFeedFailure =
   /** Chave de outra pessoa sem a confirmação de que ela autorizou. */
   | "sem_consentimento";
 
-type Failed = { ok: false; code: BankFeedFailure };
+export type Failed = { ok: false; code: BankFeedFailure };
 
 export interface BankLink {
   id: string;
@@ -88,6 +101,11 @@ export interface BankLink {
   name: string;
   numberTail: string | null;
   accountId: string | null;
+  /** Só em cartão: o cartão do OrganizeUp que recebe as compras. */
+  cardId: string | null;
+  /** Dias que a instituição informou, para sugerir ao criar o cartão. */
+  closingDay: number | null;
+  dueDay: number | null;
   syncedOn: string | null;
 }
 
@@ -111,7 +129,7 @@ export interface BankPerson {
   connected: boolean;
 }
 
-const failure = (error: unknown): Failed => {
+export const failure = (error: unknown): Failed => {
   if (error instanceof PluggyError) return { ok: false, code: error.code };
   throw error;
 };
@@ -140,7 +158,7 @@ async function ownConnection(tx: TenantTx, userId: string, connectionId: string)
 }
 
 /** A conta ligada e a conexão dela, se a conexão é de quem está logado. */
-async function ownLink(tx: TenantTx, userId: string, linkId: string) {
+export async function ownLink(tx: TenantTx, userId: string, linkId: string) {
   const [link] = await tx
     .select()
     .from(bankConnectionAccounts)
@@ -188,12 +206,15 @@ export async function loadBankConnections(ctx: TenantContext): Promise<BankConne
       errorCode: connection.errorCode,
       links: links
         .filter((link) => link.connectionId === connection.id)
-        .map(({ id, kind, name, numberTail, accountId, syncedOn }) => ({
+        .map(({ id, kind, name, numberTail, accountId, cardId, closingDay, dueDay, syncedOn }) => ({
           id,
           kind,
           name,
           numberTail,
           accountId,
+          cardId,
+          closingDay,
+          dueDay,
           syncedOn,
         }))
         .sort((a, b) => a.name.localeCompare(b.name)),
@@ -226,7 +247,7 @@ export async function loadBankPeople(ctx: TenantContext): Promise<BankPerson[]> 
 type StoredKeys = { id: string; clientIdSealed: string; clientSecretSealed: string };
 
 /** Abre as chaves guardadas e pede a chave de sessão à Pluggy. */
-async function sessionKey(
+export async function sessionKey(
   ctx: TenantContext,
   userId: string,
   connection: StoredKeys,
@@ -240,7 +261,11 @@ async function sessionKey(
 }
 
 /** Anota o código do último erro, para a tela dizer o que houve. Nunca o texto. */
-async function noteResult(ctx: TenantContext, connectionId: string, errorCode: string | null) {
+export async function noteResult(
+  ctx: TenantContext,
+  connectionId: string,
+  errorCode: string | null,
+) {
   await withHousehold(ctx, (tx) =>
     tx
       .update(bankConnections)
@@ -360,6 +385,8 @@ export async function connectBank(
           name: account.name,
           numberTail: account.numberTail,
           currency: account.currency,
+          closingDay: account.closingDay,
+          dueDay: account.dueDay,
         })
         .onConflictDoUpdate({
           target: [
@@ -373,6 +400,8 @@ export async function connectBank(
             name: account.name,
             numberTail: account.numberTail,
             currency: account.currency,
+            closingDay: account.closingDay,
+            dueDay: account.dueDay,
           },
         });
     }
@@ -419,7 +448,46 @@ export async function refreshBank(
   return result;
 }
 
-/** Liga uma conta do banco a uma conta do OrganizeUp. `accountId` vazio desfaz a ligação. */
+/** Valor de `accountId` e de `cardId` que pede para criar, em vez de escolher um que já existe. */
+export const BANK_CREATE = "nova";
+
+const ACCOUNT_CURRENCIES: readonly string[] = CURRENCIES;
+
+/** Nome da conta ou do cartão criado a partir do banco: o nome de lá, com o final do número. */
+const labelOf = (link: { name: string; numberTail: string | null }) =>
+  (link.numberTail ? `${link.name} · ${link.numberTail}` : link.name).slice(0, 80);
+
+type LinkRow = typeof bankConnectionAccounts.$inferSelect;
+
+/** Cria a conta do OrganizeUp de uma conta do banco e liga as duas. */
+async function createAccountFor(
+  tx: TenantTx,
+  ctx: TenantContext,
+  link: LinkRow,
+): Promise<string | null> {
+  if (!ACCOUNT_CURRENCIES.includes(link.currency)) return null;
+  if (await currencyFrozen(tx, link.currency as Currency)) return null;
+  const [created] = await tx
+    .insert(accounts)
+    .values({
+      householdId: ctx.householdId,
+      name: labelOf(link),
+      type: link.kind === "poupanca" ? "poupanca" : "corrente",
+      currency: link.currency as Currency,
+    })
+    .returning({ id: accounts.id });
+  await audit(tx, ctx, "create", "accounts", created!.id);
+  await tx
+    .update(bankConnectionAccounts)
+    .set({ accountId: created!.id, syncedOn: null })
+    .where(eq(bankConnectionAccounts.id, link.id));
+  return created!.id;
+}
+
+/**
+ * Liga uma conta do banco a uma conta do OrganizeUp. `accountId` vazio desfaz a ligação, e `BANK_CREATE`
+ * cria a conta aqui com o nome da conta do banco.
+ */
 export async function linkBankAccount(
   ctx: TenantContext,
   linkId: string,
@@ -432,6 +500,12 @@ export async function linkBankAccount(
     if (!found) return { ok: false, code: "sem_conexao" };
     const { link } = found;
     if (link.kind === "cartao") return { ok: false, code: "cartao" };
+    if (accountId === BANK_CREATE) {
+      const created = await createAccountFor(tx, ctx, link);
+      if (!created) return { ok: false, code: "conta_invalida" };
+      await audit(tx, ctx, "update", "bank_connection_accounts", link.id);
+      return { ok: true };
+    }
     if (accountId) {
       const [account] = await tx
         .select({ id: accounts.id, currency: accounts.currency })
@@ -459,6 +533,99 @@ export async function linkBankAccount(
         accountId: accountId || null,
         ...(accountId === link.accountId ? {} : { syncedOn: null }),
       })
+      .where(eq(bankConnectionAccounts.id, link.id));
+    await audit(tx, ctx, "update", "bank_connection_accounts", link.id);
+    return { ok: true };
+  });
+}
+
+/** Cria, de uma vez, a conta do OrganizeUp de cada conta do banco que ainda não tem ligação. Cartão fica de fora. */
+export async function createMissingAccounts(
+  ctx: TenantContext,
+  connectionId: string,
+): Promise<{ ok: true; created: number } | Failed> {
+  const userId = ownerOf(ctx);
+  if (!userId || !canWrite(ctx)) return { ok: false, code: "sem_permissao" };
+  return withHousehold(ctx, async (tx): Promise<{ ok: true; created: number } | Failed> => {
+    const connection = await ownConnection(tx, userId, connectionId);
+    if (!connection) return { ok: false, code: "sem_conexao" };
+    const links = await tx
+      .select()
+      .from(bankConnectionAccounts)
+      .where(eq(bankConnectionAccounts.connectionId, connection.id));
+    let created = 0;
+    for (const link of links) {
+      if (link.kind === "cartao" || link.accountId) continue;
+      if (await createAccountFor(tx, ctx, link)) created += 1;
+    }
+    return { ok: true, created };
+  });
+}
+
+export interface LinkCardInput {
+  /** Vazio desfaz a ligação; `BANK_CREATE` cria o cartão; senão, o cartão que já existe. */
+  cardId: string;
+  /** Só ao criar. */
+  closingDay?: number;
+  dueDay?: number;
+  payingAccountId?: string;
+}
+
+const validDay = (day: number | undefined): day is number =>
+  day !== undefined && Number.isInteger(day) && day >= 1 && day <= 31;
+
+/** Liga um cartão do banco a um cartão do OrganizeUp, criando o cartão quando pedido. */
+export async function linkBankCard(
+  ctx: TenantContext,
+  linkId: string,
+  input: LinkCardInput,
+): Promise<{ ok: true } | Failed> {
+  const userId = ownerOf(ctx);
+  if (!userId || !canWrite(ctx)) return { ok: false, code: "sem_permissao" };
+  return withHousehold(ctx, async (tx): Promise<{ ok: true } | Failed> => {
+    const found = await ownLink(tx, userId, linkId);
+    if (!found) return { ok: false, code: "sem_conexao" };
+    const { link } = found;
+    if (link.kind !== "cartao") return { ok: false, code: "nao_e_cartao" };
+    let cardId: string | null = input.cardId || null;
+    if (input.cardId === BANK_CREATE) {
+      if (!validDay(input.closingDay) || !validDay(input.dueDay)) {
+        return { ok: false, code: "dias_invalidos" };
+      }
+      const [paying] = await tx
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(and(eq(accounts.id, input.payingAccountId ?? ""), eq(accounts.archived, false)));
+      if (!paying) return { ok: false, code: "conta_invalida" };
+      const [created] = await tx
+        .insert(creditCards)
+        .values({
+          householdId: ctx.householdId,
+          name: labelOf(link),
+          closingDay: input.closingDay,
+          dueDay: input.dueDay,
+          payingAccountId: paying.id,
+        })
+        .returning({ id: creditCards.id });
+      await audit(tx, ctx, "create", "credit_cards", created!.id);
+      cardId = created!.id;
+    } else if (cardId) {
+      const [card] = await tx
+        .select({ id: creditCards.id })
+        .from(creditCards)
+        .where(and(eq(creditCards.id, cardId), eq(creditCards.archived, false)));
+      if (!card) return { ok: false, code: "cartao_invalido" };
+      const [busy] = await tx
+        .select({ id: bankConnectionAccounts.id })
+        .from(bankConnectionAccounts)
+        .where(
+          and(eq(bankConnectionAccounts.cardId, cardId), ne(bankConnectionAccounts.id, link.id)),
+        );
+      if (busy) return { ok: false, code: "cartao_em_uso" };
+    }
+    await tx
+      .update(bankConnectionAccounts)
+      .set({ cardId, ...(cardId === link.cardId ? {} : { syncedOn: null }) })
       .where(eq(bankConnectionAccounts.id, link.id));
     await audit(tx, ctx, "update", "bank_connection_accounts", link.id);
     return { ok: true };
@@ -546,6 +713,9 @@ export interface BankPortfolio {
   ok: true;
   file: ParsedInvestmentFile;
   paid: Record<string, string>;
+  /** Linhas em que `paid` é o preço de mercado, e não o que a pessoa pagou. */
+  estimated: string[];
+  classes: Record<string, FeedAssetClass>;
 }
 
 /**

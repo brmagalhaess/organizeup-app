@@ -1,18 +1,22 @@
 "use server";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
-import type { ParsedInvestmentFile, StatementRow } from "@organizeup/domain";
+import { z } from "zod";
+import type { FeedAssetClass, ParsedInvestmentFile, StatementRow } from "@organizeup/domain";
 import {
   bankPortfolio,
   bankStatement,
   connectBank,
+  createMissingAccounts,
   linkBankAccount,
+  linkBankCard,
   markBankSynced,
   refreshBank,
   removeBank,
   requireBankFeed,
   type BankFeedFailure,
 } from "@/lib/bank-feed";
+import { commitCardFeed, prepareCardFeed, type PreparedCardRow } from "@/lib/bank-feed-cards";
 import { reportActionFailure } from "@/lib/diagnostics";
 
 export interface ConnectionFormState {
@@ -137,7 +141,13 @@ export async function confirmBankSync(linkId: string, day: string): Promise<void
 }
 
 export type BankPortfolioResult =
-  | { ok: true; file: ParsedInvestmentFile; paid: Record<string, string> }
+  | {
+      ok: true;
+      file: ParsedInvestmentFile;
+      paid: Record<string, string>;
+      estimated: string[];
+      classes: Record<string, FeedAssetClass>;
+    }
   | { ok: false; message: string };
 
 /** Posição em ativos de bolsa, para a conferência de /app/investimentos/importar. Não grava nada. */
@@ -146,8 +156,118 @@ export async function fetchBankPortfolio(): Promise<BankPortfolioResult> {
   try {
     const result = await bankPortfolio(ctx);
     if (!result.ok) return { ok: false, message: await problem(result.code) };
-    return { ok: true, file: result.file, paid: result.paid };
+    const { file, paid, estimated, classes } = result;
+    return { ok: true, file, paid, estimated, classes };
   } catch (error) {
     return { ok: false, message: (await unexpected("bank_portfolio_failed", error)).message! };
+  }
+}
+
+/** Cria, de uma vez, a conta do OrganizeUp de cada conta do banco que ainda não tem ligação. */
+export async function createBankAccounts(
+  _previous: ConnectionFormState,
+  form: FormData,
+): Promise<ConnectionFormState> {
+  const { ctx } = await requireBankFeed();
+  const result = await createMissingAccounts(ctx, String(form.get("connectionId") ?? ""));
+  if (!result.ok) return { ok: false, message: await problem(result.code) };
+  revalidatePath("/app", "layout");
+  const t = await getTranslations("conexoes");
+  return { ok: true, message: t("accountsCreated", { count: result.created }) };
+}
+
+/** Liga o cartão do banco a um cartão do OrganizeUp, criando o cartão quando pedido. */
+export async function linkCard(
+  _previous: ConnectionFormState,
+  form: FormData,
+): Promise<ConnectionFormState> {
+  const { ctx } = await requireBankFeed();
+  const cardId = String(form.get("cardId") ?? "");
+  const day = (name: string) => Number(String(form.get(name) ?? "").trim() || Number.NaN);
+  const result = await linkBankCard(ctx, String(form.get("linkId") ?? ""), {
+    cardId,
+    closingDay: day("closingDay"),
+    dueDay: day("dueDay"),
+    payingAccountId: String(form.get("payingAccountId") ?? ""),
+  });
+  if (!result.ok) return { ok: false, message: await problem(result.code) };
+  revalidatePath("/app", "layout");
+  const t = await getTranslations("conexoes");
+  return { ok: true, message: t(cardId ? "cardLinked" : "unlinked") };
+}
+
+export type CardStatementResult =
+  | {
+      ok: true;
+      linkId: string;
+      rows: PreparedCardRow[];
+      pending: number;
+      credits: number;
+      truncated: boolean;
+      to: string;
+    }
+  | { ok: false; message: string };
+
+/** Compras de um cartão ligado, para a conferência de /app/importar. Não grava nada. */
+export async function fetchCardStatement(input: {
+  linkId: string;
+  from: string | null;
+}): Promise<CardStatementResult> {
+  const { ctx } = await requireBankFeed();
+  const from = input.from && /^\d{4}-\d{2}-\d{2}$/.test(input.from) ? input.from : null;
+  try {
+    const result = await prepareCardFeed(ctx, String(input.linkId), from);
+    if (!result.ok) return { ok: false, message: await problem(result.code) };
+    const { linkId, rows, pending, credits, truncated, to } = result;
+    return { ok: true, linkId, rows, pending, credits, truncated, to };
+  } catch (error) {
+    return { ok: false, message: (await unexpected("bank_card_statement_failed", error)).message! };
+  }
+}
+
+const cardCommitSchema = z.object({
+  linkId: z.string().min(1).max(100),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  rows: z
+    .array(
+      z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        description: z.string().trim().min(1).max(120),
+        amount: z.string().regex(/^\d{1,12}\.\d{2}$/),
+        installments: z.number().int().min(1).max(120),
+        fingerprint: z.string().min(1).max(300),
+        categoryId: z.string().min(1).max(100).nullable(),
+        newCategory: z
+          .object({ name: z.string().trim().min(1).max(60), essential: z.boolean() })
+          .nullable(),
+      }),
+    )
+    .min(1)
+    .max(2000),
+});
+
+export type CardCommitResult =
+  { ok: true; imported: number; summary: string } | { ok: false; message: string };
+
+/** Grava as compras escolhidas na conferência e anota até onde o cartão foi trazido. */
+export async function commitCardStatement(
+  input: z.input<typeof cardCommitSchema>,
+): Promise<CardCommitResult> {
+  const { ctx } = await requireBankFeed();
+  const parsed = cardCommitSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: await problem("dados_invalidos") };
+  try {
+    const result = await commitCardFeed(ctx, parsed.data.linkId, parsed.data.rows);
+    if (!result.ok) return { ok: false, message: await problem(result.code) };
+    await markBankSynced(ctx, parsed.data.linkId, parsed.data.to);
+    revalidatePath("/app", "layout");
+    const t = await getTranslations("conexoes.cardImport");
+    const notes = [
+      result.repeated > 0 ? t("repeated", { count: result.repeated }) : null,
+      result.blocked > 0 ? t("blocked", { count: result.blocked }) : null,
+    ].filter(Boolean);
+    return { ok: true, imported: result.imported, summary: notes.join(" ") };
+  } catch (error) {
+    return { ok: false, message: (await unexpected("bank_card_commit_failed", error)).message! };
   }
 }

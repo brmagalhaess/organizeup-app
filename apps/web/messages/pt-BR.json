@@ -733,7 +733,8 @@
         "fetching": "Buscando na Pluggy…",
         "empty": "A Pluggy não trouxe nenhum investimento nas suas conexões.",
         "connectText": "Guarde sua chave da Pluggy para trazer a posição em ações, fundos imobiliários, ETFs e BDRs sem baixar arquivo.",
-        "connect": "Conectar banco"
+        "connect": "Conectar banco",
+        "estimated": "A corretora não informa quanto você pagou por cada ativo. O campo de preço veio com o preço de hoje: troque pelo preço que você pagou antes de gravar, ou corrija depois em Investimentos, Lançamentos."
       }
     },
     "operation": {
@@ -3131,7 +3132,7 @@
     },
     "bank": {
       "title": "Conexão com bancos",
-      "text": "A conexão pela Pluggy já traz os lançamentos das contas e a posição dos investimentos. O cartão de crédito ainda não entra por ela: as compras continuam sendo lançadas aqui.",
+      "text": "A conexão pela Pluggy já traz as compras do cartão. Ligue o cartão do banco a um cartão daqui e busque as compras em Importar extrato.",
       "link": "Abrir conexão com bancos"
     }
   },
@@ -3528,7 +3529,8 @@
       "title": "Extrato importado",
       "counts": "{imported, plural, =1 {1 novo lançamento} other {# novos lançamentos}} e {settled, plural, =1 {1 previsão baixada} other {# previsões baixadas}}.",
       "seeEntries": "Ver lançamentos",
-      "another": "Importar outro"
+      "another": "Importar outro",
+      "seeCards": "Ver cartões"
     },
     "batches": {
       "title": "Importações recentes",
@@ -3584,18 +3586,20 @@
     },
     "bank": {
       "title": "Trazer do banco",
-      "text": "Busca na Pluggy os lançamentos da conta ligada. Sem data, continua de onde parou. Você confere tudo antes de gravar, e o que já entrou não entra de novo.",
+      "text": "Busca na Pluggy os lançamentos da conta ou as compras do cartão. Sem data, continua de onde parou. Você confere tudo antes de gravar, e o que já entrou não entra de novo.",
       "connectText": "Ligue sua conta da Pluggy para trazer os lançamentos sem baixar arquivo.",
-      "account": "Conta do banco",
+      "account": "Conta ou cartão do banco",
       "since": "Desde (opcional)",
-      "fetch": "Buscar lançamentos",
+      "fetch": "Buscar",
       "fetching": "Buscando na Pluggy…",
       "manage": "Gerenciar conexão",
       "connect": "Conectar banco",
-      "linkFirst": "Você ainda não ligou nenhuma conta do banco a uma conta do OrganizeUp.",
+      "linkFirst": "Você ainda não ligou nenhuma conta ou cartão do banco ao OrganizeUp.",
       "empty": "Nenhum lançamento no período.",
       "pending": "{count, plural, one {# lançamento ainda pendente no banco ficou para a próxima busca.} other {# lançamentos ainda pendentes no banco ficaram para a próxima busca.}}",
-      "truncated": "Vieram mais de 2.000 linhas: ficaram as mais recentes. Para o resto, busque de novo com uma data mais antiga em \"Desde\"."
+      "truncated": "Vieram mais de 2.000 linhas: ficaram as mais recentes. Para o resto, busque de novo com uma data mais antiga em \"Desde\".",
+      "cardNotice": "Estas são compras de cartão: entram em Cartões, na fatura de cada uma.",
+      "credits": "{count, plural, one {# pagamento ou estorno ficou de fora.} other {# pagamentos ou estornos ficaram de fora.}}"
     }
   },
   "renda": {
@@ -5327,8 +5331,9 @@
         "dashboard": "Crie uma conta em dashboard.pluggy.ai, de preferência com o mesmo e-mail. O aviso de teste de 15 dias é para empresas e pode ser ignorado no uso pessoal.",
         "application": "No painel, abra o menu Aplicações e clique em Novo. Dê um nome qualquer, como \"Minhas finanças\". Uma aplicação basta para todos os bancos.",
         "secret": "Ao criar, a Pluggy mostra o Client Secret uma única vez: copie na hora. O Client ID fica sempre à vista, dentro da aplicação, em Credenciais. Perdeu o Client Secret? No mesmo lugar, clique em \"Gerar novo secret\"; o antigo para de valer.",
-        "connector": "Volte a Aplicações e clique no ícone ▶ (Demo) da sua aplicação. Clique em \"Conectar Conta\", depois em Continuar, e escolha o conector MeuPluggy. Repita para cada banco.",
-        "items": "Cada conexão aparece em \"Itens Conectados\". Abra a conexão e copie o identificador dela (Item ID).",
+        "enable": "Libere o conector: no menu Dados Financeiros, abra Customização e a aba Conectores. Em Personal, clique em \"Conectores Diretos\", ligue o MeuPluggy e clique em Salvar. Sem isso, a lista do próximo passo só mostra Sandbox.",
+        "connector": "Volte a Aplicações e clique no ícone ▶ (Demo) da sua aplicação. Clique em \"Conectar Conta\", depois em Continuar, e escolha MeuPluggy na lista. Repita para cada banco.",
+        "items": "A conexão aparece em \"Itens Conectados\". Clique nela e use o botão de copiar ao lado do identificador, no topo: é o Item ID.",
         "paste": "Cole o Client ID, o Client Secret e os Item IDs no formulário abaixo. As chaves ficam cifradas e só você consegue usá-las."
       }
     },
@@ -5371,19 +5376,18 @@
       "error": "Última tentativa: {message}"
     },
     "actions": {
-      "entries": "Buscar lançamentos",
+      "entries": "Buscar lançamentos e compras",
       "investments": "Buscar investimentos",
       "refresh": "Atualizar contas",
       "refreshing": "Atualizando…",
-      "remove": "Remover conexão"
+      "remove": "Remover conexão",
+      "createAccounts": "{count, plural, one {Criar # conta que falta} other {Criar # contas que faltam}}"
     },
     "accounts": {
       "title": "Contas encontradas",
-      "text": "Diga em qual conta do OrganizeUp entram os lançamentos de cada conta do banco.",
+      "text": "Diga onde entra cada conta e cada cartão do banco. Pode criar daqui mesmo.",
       "emptyTitle": "Nenhuma conta ainda",
       "emptyText": "A Pluggy não mostrou contas nestas conexões. Confira se o banco aparece no Meu Pluggy e atualize.",
-      "noAccounts": "Você ainda não tem conta no OrganizeUp para receber os lançamentos.",
-      "createAccount": "Criar conta",
       "kind": {
         "corrente": "Conta corrente",
         "poupanca": "Poupança",
@@ -5393,9 +5397,10 @@
       "target": "Conta no OrganizeUp",
       "none": "Não trazer",
       "save": "Salvar",
-      "card": "Cartão de crédito ainda não é trazido por aqui.",
       "synced": "Trazido até {date}",
-      "never": "Ainda não trazido"
+      "never": "Ainda não trazido",
+      "create": "Criar conta nova",
+      "unlinked": "Ainda sem destino no OrganizeUp"
     },
     "remove": {
       "title": "Remover a chave de {name}?",
@@ -5414,12 +5419,32 @@
       "dados_invalidos": "Confira os campos. O Client ID e os Item IDs têm o formato 00000000-0000-0000-0000-000000000000, e são até 5 conexões.",
       "sem_conexao": "Você ainda não conectou sua conta da Pluggy.",
       "conta_invalida": "Escolha uma conta ativa, na mesma moeda da conta do banco.",
-      "cartao": "Cartão de crédito ainda não é trazido por aqui.",
+      "cartao": "Esta linha é de cartão: escolha um cartão, e não uma conta.",
       "conta_em_uso": "Esta conta já recebe os lançamentos de outra conta do banco. Escolha outra, ou crie uma conta nova em Contas.",
       "pessoa_invalida": "Escolha uma pessoa adulta do cadastro.",
       "pessoa_ja_conectada": "Esta pessoa já tem uma chave guardada.",
       "limite_de_chaves": "Cabem até 2 chaves por login. Remova uma para guardar outra.",
-      "sem_consentimento": "Marque a confirmação de que a pessoa autorizou o uso da chave."
+      "sem_consentimento": "Marque a confirmação de que a pessoa autorizou o uso da chave.",
+      "nao_e_cartao": "Esta linha é de conta, e não de cartão.",
+      "cartao_em_uso": "Este cartão já recebe as compras de outro cartão do banco. Escolha outro ou crie um novo.",
+      "cartao_invalido": "Ligue este cartão do banco a um cartão do OrganizeUp antes de buscar.",
+      "dias_invalidos": "Informe o dia do fechamento e o do vencimento, de 1 a 31.",
+      "limite_de_lancamentos": "As compras não cabem no limite de lançamentos do seu plano neste mês."
+    },
+    "accountsCreated": "{count, plural, =0 {Nenhuma conta para criar.} one {# conta criada e ligada.} other {# contas criadas e ligadas.}}",
+    "cardLinked": "Cartão ligado.",
+    "cards": {
+      "target": "Cartão no OrganizeUp",
+      "create": "Criar cartão novo",
+      "closingDay": "Dia do fechamento",
+      "dueDay": "Dia do vencimento",
+      "payingAccount": "Conta que paga a fatura",
+      "payingHint": "É de onde sai o dinheiro da fatura.",
+      "needAccount": "Crie primeiro a conta que paga a fatura: use o botão de criar contas acima."
+    },
+    "cardImport": {
+      "repeated": "{count, plural, one {# compra já estava no cartão.} other {# compras já estavam no cartão.}}",
+      "blocked": "{count, plural, one {# compra ficou de fora porque cairia numa fatura já paga.} other {# compras ficaram de fora porque cairiam em fatura já paga.}}"
     }
   }
 }

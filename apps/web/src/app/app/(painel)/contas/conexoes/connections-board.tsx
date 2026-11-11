@@ -1,5 +1,13 @@
 "use client";
-import { ExternalLink, Landmark, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  CreditCard,
+  ExternalLink,
+  Landmark,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useState } from "react";
@@ -18,7 +26,9 @@ import {
 import { formatDate } from "@/i18n/format";
 import type { BankLink } from "@/lib/bank-feed";
 import {
+  createBankAccounts,
   linkBank,
+  linkCard,
   refreshBankConnection,
   removeBankConnection,
   saveBankConnection,
@@ -31,6 +41,7 @@ const STEPS = [
   "dashboard",
   "application",
   "secret",
+  "enable",
   "connector",
   "items",
   "paste",
@@ -42,6 +53,14 @@ interface AccountOption {
   name: string;
   currency: string;
 }
+
+interface CardOption {
+  id: string;
+  name: string;
+}
+
+/** O mesmo valor de `BANK_CREATE`, no servidor: cria a conta ou o cartão em vez de escolher um. */
+const CREATE = "nova";
 
 interface PersonOption {
   id: string;
@@ -214,40 +233,132 @@ function EditKeyForm({ connection }: { connection: ConnectionView }) {
   );
 }
 
-function LinkRow({ link, accounts }: { link: BankLink; accounts: AccountOption[] }) {
+function LinkTitle({ link }: { link: BankLink }) {
   const t = useTranslations("conexoes");
   const locale = useLocale();
+  const Icon = link.kind === "cartao" ? CreditCard : Landmark;
+  const linked = link.kind === "cartao" ? link.cardId : link.accountId;
+  return (
+    <div className="min-w-0">
+      <p className="m-0 flex flex-wrap items-center gap-2 text-sm font-semibold">
+        <Icon className="size-4 shrink-0 text-muted" aria-hidden="true" />
+        <span className="break-words">
+          {link.numberTail
+            ? `${link.name} · ${t("accounts.tail", { tail: link.numberTail })}`
+            : link.name}
+        </span>
+        <Badge tone={linked ? "success" : "neutral"}>{t(`accounts.kind.${link.kind}`)}</Badge>
+      </p>
+      <p className="m-0 mt-1 text-xs text-muted">
+        {!linked
+          ? t("accounts.unlinked")
+          : link.syncedOn
+            ? t("accounts.synced", { date: formatDate(link.syncedOn, locale) })
+            : t("accounts.never")}
+      </p>
+    </div>
+  );
+}
+
+function AccountRow({ link, accounts }: { link: BankLink; accounts: AccountOption[] }) {
+  const t = useTranslations("conexoes");
   const [state, action, pending] = useActionState(linkBank, initial);
-  const title = link.numberTail
-    ? `${link.name} · ${t("accounts.tail", { tail: link.numberTail })}`
-    : link.name;
   return (
     <li className="flex flex-col gap-3 py-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
-        <p className="m-0 flex flex-wrap items-center gap-2 text-sm font-semibold">
-          <Landmark className="size-4 shrink-0 text-muted" aria-hidden="true" />
-          <span className="break-words">{title}</span>
-          <Badge tone={link.kind === "cartao" ? "neutral" : "success"}>
-            {t(`accounts.kind.${link.kind}`)}
-          </Badge>
-        </p>
-        <p className="m-0 mt-1 text-xs text-muted">
-          {link.kind === "cartao"
-            ? t("accounts.card")
-            : link.syncedOn
-              ? t("accounts.synced", { date: formatDate(link.syncedOn, locale) })
-              : t("accounts.never")}
-        </p>
-      </div>
-      {link.kind === "cartao" ? null : (
-        <form action={action} className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-72">
-          <input type="hidden" name="linkId" value={link.id} />
-          <div className="flex items-end gap-2">
-            <div className="min-w-0 flex-1">
-              <Field label={t("accounts.target")}>
-                <Select name="accountId" defaultValue={link.accountId ?? ""}>
-                  <option value="">{t("accounts.none")}</option>
-                  {accounts.map((account) => (
+      <LinkTitle link={link} />
+      <form action={action} className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-80">
+        <input type="hidden" name="linkId" value={link.id} />
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <Field label={t("accounts.target")}>
+              <Select name="accountId" defaultValue={link.accountId ?? CREATE}>
+                <option value={CREATE}>{t("accounts.create")}</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+                <option value="">{t("accounts.none")}</option>
+              </Select>
+            </Field>
+          </div>
+          <Button type="submit" variant="secondary" disabled={pending}>
+            {t("accounts.save")}
+          </Button>
+        </div>
+        <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
+      </form>
+    </li>
+  );
+}
+
+/** Fechamento sugerido quando a instituição só informa o vencimento: uma semana antes. */
+const closingBefore = (dueDay: number) => ((dueDay - 8 + 31) % 31) + 1;
+
+function CardRow({
+  link,
+  cards,
+  accounts,
+}: {
+  link: BankLink;
+  cards: CardOption[];
+  accounts: AccountOption[];
+}) {
+  const t = useTranslations("conexoes");
+  const [state, action, pending] = useActionState(linkCard, initial);
+  const [cardId, setCardId] = useState(link.cardId ?? CREATE);
+  const paying = accounts.filter((account) => account.currency === "BRL");
+  return (
+    <li className="flex flex-col gap-3 py-4">
+      <LinkTitle link={link} />
+      <form action={action} className="flex flex-col gap-3">
+        <input type="hidden" name="linkId" value={link.id} />
+        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <Field label={t("cards.target")}>
+            <Select
+              name="cardId"
+              value={cardId}
+              onChange={(event) => setCardId(event.target.value)}
+            >
+              <option value={CREATE}>{t("cards.create")}</option>
+              {cards.map((card) => (
+                <option key={card.id} value={card.id}>
+                  {card.name}
+                </option>
+              ))}
+              <option value="">{t("accounts.none")}</option>
+            </Select>
+          </Field>
+          <Button type="submit" variant="secondary" disabled={pending}>
+            {t("accounts.save")}
+          </Button>
+        </div>
+        {cardId === CREATE ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[8rem_8rem_minmax(0,1fr)]">
+            <Field label={t("cards.closingDay")}>
+              <Input
+                name="closingDay"
+                type="number"
+                min={1}
+                max={31}
+                required
+                defaultValue={link.closingDay ?? (link.dueDay ? closingBefore(link.dueDay) : "")}
+              />
+            </Field>
+            <Field label={t("cards.dueDay")}>
+              <Input
+                name="dueDay"
+                type="number"
+                min={1}
+                max={31}
+                required
+                defaultValue={link.dueDay ?? ""}
+              />
+            </Field>
+            <div className="col-span-2 sm:col-span-1">
+              <Field label={t("cards.payingAccount")} hint={t("cards.payingHint")}>
+                <Select name="payingAccountId" required defaultValue={paying[0]?.id ?? ""}>
+                  {paying.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.name}
                     </option>
@@ -255,13 +366,13 @@ function LinkRow({ link, accounts }: { link: BankLink; accounts: AccountOption[]
                 </Select>
               </Field>
             </div>
-            <Button type="submit" variant="secondary" disabled={pending}>
-              {t("accounts.save")}
-            </Button>
           </div>
-          <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
-        </form>
-      )}
+        ) : null}
+        {cardId === CREATE && paying.length === 0 ? (
+          <p className="m-0 text-sm text-muted">{t("cards.needAccount")}</p>
+        ) : null}
+        <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
+      </form>
     </li>
   );
 }
@@ -269,15 +380,19 @@ function LinkRow({ link, accounts }: { link: BankLink; accounts: AccountOption[]
 function ConnectionCard({
   connection,
   accounts,
+  cards,
   onRemove,
 }: {
   connection: ConnectionView;
   accounts: AccountOption[];
+  cards: CardOption[];
   onRemove: () => void;
 }) {
   const t = useTranslations("conexoes");
   const locale = useLocale();
   const [state, refresh, refreshing] = useActionState(refreshBankConnection, initial);
+  const [created, createAll, creating] = useActionState(createBankAccounts, initial);
+  const missing = connection.links.filter((link) => link.kind !== "cartao" && !link.accountId);
   return (
     <Card
       title={t("status.title", { name: connection.personName })}
@@ -310,6 +425,15 @@ function ConnectionCard({
             {refreshing ? t("actions.refreshing") : t("actions.refresh")}
           </Button>
         </form>
+        {missing.length > 0 ? (
+          <form action={createAll}>
+            <input type="hidden" name="connectionId" value={connection.id} />
+            <Button type="submit" small disabled={creating}>
+              <Plus className="size-4" aria-hidden="true" />
+              {t("actions.createAccounts", { count: missing.length })}
+            </Button>
+          </form>
+        ) : null}
         <Button variant="secondary" small onClick={onRemove}>
           <Trash2 className="size-4" aria-hidden="true" />
           {t("actions.remove")}
@@ -317,6 +441,7 @@ function ConnectionCard({
       </div>
       <div className="mt-3">
         <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
+        <FormMessage message={created.message} tone={created.ok ? "ok" : "error"} />
       </div>
 
       <h3 className="m-0 mt-4 text-sm font-semibold">{t("accounts.title")}</h3>
@@ -325,9 +450,22 @@ function ConnectionCard({
         <EmptyState title={t("accounts.emptyTitle")} text={t("accounts.emptyText")} />
       ) : (
         <ul className="m-0 list-none divide-y divide-line p-0">
-          {connection.links.map((link) => (
-            <LinkRow key={`${link.id}:${link.accountId ?? ""}`} link={link} accounts={accounts} />
-          ))}
+          {connection.links.map((link) =>
+            link.kind === "cartao" ? (
+              <CardRow
+                key={`${link.id}:${link.cardId ?? ""}`}
+                link={link}
+                cards={cards}
+                accounts={accounts}
+              />
+            ) : (
+              <AccountRow
+                key={`${link.id}:${link.accountId ?? ""}`}
+                link={link}
+                accounts={accounts}
+              />
+            ),
+          )}
         </ul>
       )}
       <EditKeyForm connection={connection} />
@@ -340,6 +478,7 @@ export function ConnectionsBoard({
   people,
   room,
   accounts,
+  cards,
 }: {
   connections: ConnectionView[];
   /** Pessoas do cadastro que ainda podem receber uma chave. */
@@ -347,10 +486,13 @@ export function ConnectionsBoard({
   /** Quantas chaves ainda cabem neste login. */
   room: number;
   accounts: AccountOption[];
+  cards: CardOption[];
 }) {
   const t = useTranslations("conexoes");
   const [removing, setRemoving] = useState<ConnectionView | null>(null);
-  const linked = connections.some((connection) => connection.links.some((link) => link.accountId));
+  const linked = connections.some((connection) =>
+    connection.links.some((link) => link.accountId || link.cardId),
+  );
   return (
     <>
       {connections.length > 0 ? (
@@ -365,21 +507,12 @@ export function ConnectionsBoard({
           </Link>
         </div>
       ) : null}
-      {connections.length > 0 && accounts.length === 0 ? (
-        <Card>
-          <p className="m-0 text-sm text-muted">
-            {t("accounts.noAccounts")}{" "}
-            <Link href="/app/contas" className="font-semibold underline">
-              {t("accounts.createAccount")}
-            </Link>
-          </p>
-        </Card>
-      ) : null}
       {connections.map((connection) => (
         <ConnectionCard
           key={connection.id}
           connection={connection}
           accounts={accounts}
+          cards={cards}
           onRemove={() => setRemoving(connection)}
         />
       ))}

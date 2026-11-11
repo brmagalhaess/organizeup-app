@@ -34,9 +34,11 @@ vi.mock("@/lib/session", () => ({
 
 const db = await import("@organizeup/db");
 const feed = await import("@/lib/bank-feed");
+const cardFeed = await import("@/lib/bank-feed-cards");
 const { commitImport, prepareImport } = await import("@/app/app/(painel)/importar/actions");
 
 const { accounts, bankConnectionAccounts, bankConnections, categories, eq, transactions } = db;
+const { cardPurchases, creditCards } = db;
 const { household, householdMember, householdSettings, people, user } = db;
 
 const H = { household: "hh-pluggy", owner: "user-pluggy", partner: "user-pluggy-2" };
@@ -164,6 +166,59 @@ const spouseRemote = {
     },
   ],
 };
+// Linhas do cartão: uma à vista, uma compra em 3 parcelas (a 2ª e a 3ª já lançadas), um pagamento e um pendente.
+const meta = (installmentNumber: number, totalInstallments: number, purchaseDate?: string) => ({
+  installmentNumber,
+  totalInstallments,
+  ...(purchaseDate ? { purchaseDate } : {}),
+});
+const cardRemote = {
+  transactions: [
+    {
+      id: "k1",
+      date: "2026-11-02T14:35:00.000Z",
+      description: "RESTAURANTE BOM",
+      type: "DEBIT",
+      amount: 80,
+      status: "POSTED",
+      creditCardMetadata: meta(1, 1),
+    },
+    {
+      id: "k2",
+      date: "2026-10-05T03:00:00.000Z",
+      description: "LOJA DE MOVEIS",
+      type: "DEBIT",
+      amount: 100,
+      status: "POSTED",
+      creditCardMetadata: meta(2, 3, "2026-09-04T03:00:00.000Z"),
+    },
+    {
+      id: "k3",
+      date: "2026-11-05T03:00:00.000Z",
+      description: "LOJA DE MOVEIS",
+      type: "DEBIT",
+      amount: 100,
+      status: "POSTED",
+      creditCardMetadata: meta(3, 3, "2026-09-04T03:00:00.000Z"),
+    },
+    {
+      id: "k4",
+      date: "2026-10-20T03:00:00.000Z",
+      description: "PAGAMENTO DE FATURA",
+      type: "CREDIT",
+      amount: -500,
+      status: "POSTED",
+    },
+    {
+      id: "k5",
+      date: "2026-11-08T03:00:00.000Z",
+      description: "POSTO",
+      type: "DEBIT",
+      amount: 150,
+      status: "PENDING",
+    },
+  ] as Array<Record<string, unknown>>,
+};
 const calls: string[] = [];
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -194,6 +249,8 @@ const fetcher = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const account = url.searchParams.get("accountId");
     if (mine && account === "acc-corrente")
       return json({ results: remote.transactions, next: null });
+    if (mine && account === "acc-cartao")
+      return json({ results: cardRemote.transactions, next: null });
     if (!mine && account === "acc-dela")
       return json({ results: spouseRemote.transactions, next: null });
     return json({}, 404);
@@ -575,9 +632,194 @@ describe("conexão pela Pluggy com a chave da pessoa", () => {
       { line: 0, ticker: "PETR4", name: "PETROBRAS PN", quantity: "150", closePrice: "38.5" },
     ]);
     expect(result.paid).toEqual({ "0": "32" });
+    expect(result.estimated).toEqual([]);
+    expect(result.classes).toEqual({});
     expect(result.file.ignored).toEqual([
       { line: 1, label: "CDB Banco X", date: null, reason: "ativo_nao_listado" },
     ]);
+  });
+
+  it("cria a conta daqui a partir da conta do banco, uma a uma ou todas de uma vez", async () => {
+    const global = await linkOf("acc-dolar");
+    expect(await feed.linkBankAccount(ctx, global.id, "")).toEqual({ ok: true });
+    expect(await feed.linkBankAccount(ctx, global.id, feed.BANK_CREATE)).toEqual({ ok: true });
+    const linked = await linkOf("acc-dolar");
+    const [made] = await inH((tx) =>
+      tx.select().from(accounts).where(eq(accounts.id, linked.accountId!)),
+    );
+    expect(made).toMatchObject({ name: "Global", currency: "USD", type: "corrente" });
+    expect(linked.accountId).not.toBe(dollars);
+
+    const her = await linkOf("acc-dela");
+    const theirs = await mineOf(spouse);
+    expect(await feed.linkBankAccount(ctx, her.id, "")).toEqual({ ok: true });
+    expect(await feed.createMissingAccounts(ctx, theirs.id)).toEqual({ ok: true, created: 1 });
+    const again = await linkOf("acc-dela");
+    const [auto] = await inH((tx) =>
+      tx.select().from(accounts).where(eq(accounts.id, again.accountId!)),
+    );
+    expect(auto!.name).toBe("Conta dela · 9876");
+    // Nada mais falta: chamar de novo não cria outra.
+    expect(await feed.createMissingAccounts(ctx, theirs.id)).toEqual({ ok: true, created: 0 });
+    expect(await feed.createMissingAccounts(partner, theirs.id)).toEqual({
+      ok: false,
+      code: "sem_conexao",
+    });
+    expect(await feed.linkBankAccount(ctx, her.id, hers)).toEqual({ ok: true });
+  });
+
+  it("cria o cartão daqui a partir do cartão do banco", async () => {
+    const card = await linkOf("acc-cartao");
+    const checking = await linkOf("acc-corrente");
+    const create = (over: Record<string, unknown> = {}) =>
+      feed.linkBankCard(ctx, card.id, {
+        cardId: feed.BANK_CREATE,
+        closingDay: 25,
+        dueDay: 1,
+        payingAccountId: real,
+        ...over,
+      });
+    expect(await feed.linkBankCard(ctx, checking.id, { cardId: feed.BANK_CREATE })).toEqual({
+      ok: false,
+      code: "nao_e_cartao",
+    });
+    expect(await create({ closingDay: 40 })).toEqual({ ok: false, code: "dias_invalidos" });
+    expect(await create({ dueDay: Number.NaN })).toEqual({ ok: false, code: "dias_invalidos" });
+    expect(await create({ payingAccountId: "outra" })).toEqual({
+      ok: false,
+      code: "conta_invalida",
+    });
+    expect(await feed.linkBankCard(partner, card.id, { cardId: "" })).toEqual({
+      ok: false,
+      code: "sem_conexao",
+    });
+    expect(await cardFeed.prepareCardFeed(ctx, card.id, null, options)).toEqual({
+      ok: false,
+      code: "cartao_invalido",
+    });
+    expect(await create()).toEqual({ ok: true });
+    const linked = await linkOf("acc-cartao");
+    const [made] = await inH((tx) =>
+      tx.select().from(creditCards).where(eq(creditCards.id, linked.cardId!)),
+    );
+    expect(made).toMatchObject({
+      name: "Cartão · 4321",
+      closingDay: 25,
+      dueDay: 1,
+      payingAccountId: real,
+    });
+    const [view] = await feed.loadBankConnections(ctx);
+    expect(view!.links.find((link) => link.kind === "cartao")!.cardId).toBe(made!.id);
+  });
+
+  it("traz as compras do cartão para a conferência, com a parcelada numa compra só", async () => {
+    const card = await linkOf("acc-cartao");
+    const checking = await linkOf("acc-corrente");
+    expect(await cardFeed.prepareCardFeed(ctx, checking.id, null, options)).toEqual({
+      ok: false,
+      code: "nao_e_cartao",
+    });
+    expect(await cardFeed.prepareCardFeed(partner, card.id, null, options)).toEqual({
+      ok: false,
+      code: "sem_conexao",
+    });
+    const fetched = await cardFeed.prepareCardFeed(ctx, card.id, "2026-09-01", options);
+    if (!fetched.ok) throw new Error(fetched.code);
+    expect(fetched.pending).toBe(1);
+    expect(fetched.credits).toBe(1);
+    expect(
+      fetched.rows.map((row) => [
+        row.date,
+        row.description,
+        row.amount,
+        row.installments,
+        row.state,
+      ]),
+    ).toEqual([
+      ["2026-10-05", "LOJA DE MOVEIS (desde 2/3)", "200.00", 2, "novo"],
+      ["2026-11-02", "RESTAURANTE BOM", "80.00", 1, "novo"],
+    ]);
+    // Buscar não grava.
+    expect(await inH((tx) => tx.select().from(cardPurchases))).toEqual([]);
+
+    const chosen = fetched.rows.map((row) => ({
+      date: row.date,
+      description: row.description,
+      amount: row.amount,
+      installments: row.installments,
+      fingerprint: row.fingerprint,
+      categoryId: row.description.startsWith("LOJA") ? expense : null,
+      newCategory: row.description.startsWith("LOJA")
+        ? null
+        : { name: "Restaurante", essential: false },
+    }));
+    expect(await cardFeed.commitCardFeed(partner, card.id, chosen)).toEqual({
+      ok: false,
+      code: "sem_conexao",
+    });
+    expect(
+      await cardFeed.commitCardFeed(ctx, card.id, [{ ...chosen[0]!, categoryId: income }]),
+    ).toEqual({ ok: false, code: "dados_invalidos" });
+    expect(await cardFeed.commitCardFeed(ctx, card.id, chosen)).toEqual({
+      ok: true,
+      imported: 2,
+      repeated: 0,
+      blocked: 0,
+    });
+    const saved = await inH((tx) => tx.select().from(cardPurchases));
+    expect(
+      saved.map((row) => [row.description, row.amount, row.installments, row.purchasedOn]).sort(),
+    ).toEqual([
+      ["LOJA DE MOVEIS (desde 2/3)", "200.00", 2, "2026-10-05"],
+      ["RESTAURANTE BOM", "80.00", 1, "2026-11-02"],
+    ]);
+    expect(saved.every((row) => row.cardId === card.cardId)).toBe(true);
+    const made = await inH((tx) =>
+      tx.select().from(categories).where(eq(categories.name, "Restaurante")),
+    );
+    expect(made).toHaveLength(1);
+
+    // Reenviar as mesmas linhas não duplica, e a parcela seguinte é a mesma compra.
+    expect(await cardFeed.commitCardFeed(ctx, card.id, chosen)).toEqual({
+      ok: true,
+      imported: 0,
+      repeated: 2,
+      blocked: 0,
+    });
+    cardRemote.transactions = cardRemote.transactions.filter((row) => row.id !== "k2");
+    const later = await cardFeed.prepareCardFeed(ctx, card.id, "2026-11-01", options);
+    if (!later.ok) throw new Error(later.code);
+    expect(later.rows.map((row) => [row.description, row.state])).toEqual([
+      ["RESTAURANTE BOM", "importado"],
+      ["LOJA DE MOVEIS (desde 3/3)", "importado"],
+    ]);
+    expect(await inH((tx) => tx.select().from(cardPurchases))).toHaveLength(2);
+  });
+
+  it("um cartão daqui recebe um cartão do banco só", async () => {
+    const card = await linkOf("acc-cartao");
+    await inH((tx) =>
+      tx.insert(bankConnectionAccounts).values({
+        householdId: H.household,
+        connectionId: card.connectionId,
+        itemId: ITEM,
+        externalId: "acc-cartao-2",
+        kind: "cartao",
+        name: "Outro cartão",
+      }),
+    );
+    const other = await linkOf("acc-cartao-2");
+    expect(await feed.linkBankCard(ctx, other.id, { cardId: card.cardId! })).toEqual({
+      ok: false,
+      code: "cartao_em_uso",
+    });
+    expect(await feed.linkBankCard(ctx, other.id, { cardId: "não existe" })).toEqual({
+      ok: false,
+      code: "cartao_invalido",
+    });
+    await inH((tx) =>
+      tx.delete(bankConnectionAccounts).where(eq(bankConnectionAccounts.id, other.id)),
+    );
   });
 
   it("atualizar mantém a ligação e tira a conta que saiu da Pluggy", async () => {
@@ -591,6 +833,7 @@ describe("conexão pela Pluggy com a chave da pessoa", () => {
     expect(checking.name).toBe("Conta Nova");
     expect(checking.accountId).toBe(real);
     expect(checking.syncedOn).not.toBeNull();
+    expect(rows.find((row) => row.externalId === "acc-cartao")!.cardId).not.toBeNull();
     // A conta da outra chave não foi tocada.
     expect((await linkOf("acc-dela")).accountId).toBe(hers);
   });

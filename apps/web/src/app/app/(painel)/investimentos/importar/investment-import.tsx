@@ -318,6 +318,7 @@ function Preview({
   message,
   tickers,
   initialPrices,
+  initialClasses,
   onTicker,
   onApplyTickers,
   onCommit,
@@ -331,6 +332,8 @@ function Preview({
   tickers: Record<string, string>;
   /** Preço pago já conhecido, por linha da posição. A pessoa pode trocar. */
   initialPrices: Record<string, string>;
+  /** Tipo de cada ativo, quando a instituição já informa. */
+  initialClasses: Record<string, UnitPricedClass>;
   onTicker: (title: string, value: string) => void;
   onApplyTickers: () => void;
   onCommit: (choice: {
@@ -349,7 +352,7 @@ function Preview({
   const [selected, setSelected] = useState<Set<number>>(
     () => new Set(rows.filter(selectedByDefault).map((row) => row.line)),
   );
-  const [classes, setClasses] = useState<Record<string, UnitPricedClass>>({});
+  const [classes, setClasses] = useState<Record<string, UnitPricedClass>>(initialClasses);
   const [prices, setPrices] = useState<Record<string, string>>(initialPrices);
   const [accountId, setAccountId] = useState("");
   const [positionDate, setPositionDate] = useState(today);
@@ -554,6 +557,9 @@ export function InvestmentImport({
   const [version, setVersion] = useState(0);
   // Preço médio pago que a instituição informou, por linha da posição: já entra preenchido na conferência.
   const [paid, setPaid] = useState<Record<string, string>>({});
+  const [bankClasses, setBankClasses] = useState<Record<string, UnitPricedClass>>({});
+  // A instituição não disse quanto foi pago: o preço que entrou preenchido é o de mercado.
+  const [estimated, setEstimated] = useState(false);
   const locale = useLocale();
   const [busy, startTransition] = useTransition();
   // Num celular lento, o arquivo escolhido antes da hidratação se perderia sem aviso.
@@ -568,6 +574,8 @@ export function InvestmentImport({
     setPrepared(null);
     setTickers({});
     setPaid({});
+    setBankClasses({});
+    setEstimated(false);
     setMessage(null);
     setDone(null);
     setFileKey((key) => key + 1);
@@ -593,6 +601,8 @@ export function InvestmentImport({
           Object.entries(result.paid).map(([line, price]) => [line, toInputValue(price, locale)]),
         ),
       );
+      setBankClasses(result.classes);
+      setEstimated(result.estimated.length > 0);
       prepare(result.file, {});
     });
   };
@@ -627,6 +637,8 @@ export function InvestmentImport({
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     setMessage(null);
     setPaid({});
+    setBankClasses({});
+    setEstimated(false);
     const chosen = event.target.files?.[0];
     if (!chosen) return;
     setReading(chosen.name);
@@ -695,20 +707,32 @@ export function InvestmentImport({
 
   if (file && prepared) {
     return (
-      <Preview
-        key={version}
-        file={file}
-        prepared={prepared}
-        accounts={accounts}
-        busy={busy}
-        message={message}
-        tickers={tickers}
-        initialPrices={paid}
-        onTicker={(title, value) => setTickers((all) => ({ ...all, [title]: value }))}
-        onApplyTickers={() => prepare(file, tickers)}
-        onCommit={commit}
-        onCancel={reset}
-      />
+      <>
+        {estimated ? (
+          <p
+            role="status"
+            className="m-0 flex items-start gap-2 rounded-xl border border-warning bg-card-soft p-4 text-sm"
+          >
+            <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+            {t("bank.estimated")}
+          </p>
+        ) : null}
+        <Preview
+          key={version}
+          file={file}
+          prepared={prepared}
+          accounts={accounts}
+          busy={busy}
+          message={message}
+          tickers={tickers}
+          initialPrices={paid}
+          initialClasses={bankClasses}
+          onTicker={(title, value) => setTickers((all) => ({ ...all, [title]: value }))}
+          onApplyTickers={() => prepare(file, tickers)}
+          onCommit={commit}
+          onCancel={reset}
+        />
+      </>
     );
   }
 

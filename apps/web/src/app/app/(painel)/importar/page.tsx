@@ -6,6 +6,7 @@ import {
   asc,
   canWrite,
   categories,
+  creditCards,
   desc,
   eq,
   householdCurrency,
@@ -57,6 +58,9 @@ export default async function ImportPage() {
       })
       .from(accounts)
       .orderBy(asc(accounts.createdAt));
+    const cardRows = bankLinks
+      ? await tx.select({ id: creditCards.id, name: creditCards.name }).from(creditCards)
+      : [];
     const categoryRows = await tx
       .select({ id: categories.id, name: categories.name, kind: categories.kind })
       .from(categories)
@@ -85,6 +89,7 @@ export default async function ImportPage() {
       .where(eq(householdSettings.householdId, ctx.householdId));
     return {
       accountRows,
+      cardRows,
       categoryRows,
       batchRows,
       reportRows,
@@ -93,6 +98,7 @@ export default async function ImportPage() {
     };
   });
   const accountName = new Map(data.accountRows.map((a) => [a.id, system.name(a.name)]));
+  const cardName = new Map(data.cardRows.map((card) => [card.id, system.name(card.name)]));
   const accountType = await familyAccountType();
   const reportOf = new Map(
     data.reportRows.map((r) => [r.period, agentText(r, locale, accountType)]),
@@ -132,18 +138,21 @@ export default async function ImportPage() {
           categories={data.categoryRows.filter((category) => category.name !== CARD_CATEGORY)}
           bank={
             bankLinks &&
-            bankLinks.flatMap(({ id, name, numberTail, accountId, syncedOn, person }) =>
-              accountId && accountName.has(accountId)
-                ? [
-                    {
-                      id,
-                      name: `${person}: ${numberTail ? `${name} · ${numberTail}` : name} → ${accountName.get(accountId)}`,
-                      accountId,
-                      syncedOn,
-                    },
-                  ]
-                : [],
-            )
+            bankLinks.flatMap(({ id, kind, name, numberTail, accountId, cardId, person }) => {
+              const target =
+                kind === "cartao"
+                  ? cardId && cardName.get(cardId)
+                  : accountId && accountName.get(accountId);
+              if (!target) return [];
+              const label = numberTail ? `${name} · ${numberTail}` : name;
+              return [
+                {
+                  id,
+                  kind: kind === "cartao" ? ("cartao" as const) : ("conta" as const),
+                  name: `${person}: ${label} → ${target}`,
+                },
+              ];
+            })
           }
           batches={data.batchRows.map((batch) => ({
             id: batch.id,

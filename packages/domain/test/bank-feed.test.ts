@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  feedAssetClass,
+  feedCardPurchasesOf,
   feedDateOf,
   feedPortfolioOf,
   feedStatementOf,
@@ -215,13 +217,165 @@ describe("posição vinda da conexão", () => {
     ]);
   });
 
-  it("sugere o preço médio só quando todo o valor aplicado é conhecido", () => {
-    expect(portfolio.paid).toEqual({ "1": "32" });
+  it("preenche com o preço médio pago, ou com o de mercado quando não sabe o que foi aplicado", () => {
+    expect(portfolio.paid).toEqual({ "0": "9.5", "1": "32" });
+    expect(portfolio.estimated).toEqual(["0"]);
+  });
+
+  it("leva o tipo do ativo quando a instituição informa", () => {
+    expect(feedAssetClass("EQUITY", "STOCK")).toBe("acao");
+    expect(feedAssetClass("EQUITY", "REAL_ESTATE_FUND")).toBe("fii");
+    expect(feedAssetClass("ETF", "ETF")).toBe("etf_bdr");
+    expect(feedAssetClass("EQUITY", "BDR")).toBe("etf_bdr");
+    expect(feedAssetClass("MUTUAL_FUND", "INVESTMENT_FUND")).toBeNull();
+    const typed = feedPortfolioOf([
+      { id: "a", code: "ABEV3", type: "EQUITY", subtype: "STOCK", quantity: 100, value: 15.61 },
+      {
+        id: "b",
+        code: "TRXF11",
+        type: "EQUITY",
+        subtype: "REAL_ESTATE_FUND",
+        quantity: 1,
+        value: 115,
+      },
+      { id: "c", code: "IVVB11", type: "ETF", subtype: "ETF", quantity: 2, value: 300 },
+    ]);
+    expect(typed.classes).toEqual({ ABEV3: "acao", IVVB11: "etf_bdr", TRXF11: "fii" });
   });
 
   it("lista o que não tem código de bolsa, com o motivo", () => {
     expect(portfolio.file.ignored).toEqual([
       { line: 3, label: "CDB Banco X 110% CDI", date: null, reason: "ativo_nao_listado" },
     ]);
+  });
+});
+
+describe("compras do cartão vindas da conexão", () => {
+  const card = feedCardPurchasesOf(
+    [
+      {
+        id: "c1",
+        date: "2026-10-31T14:35:00.000Z",
+        description: "MERCADO BOM",
+        type: "DEBIT",
+        amount: 120.5,
+        status: "POSTED",
+        installmentNumber: 1,
+        totalInstallments: 1,
+      },
+      {
+        id: "c2",
+        date: "2026-10-30T03:00:00.000Z",
+        description: "LOJA DE MOVEIS",
+        type: "DEBIT",
+        amount: 100,
+        status: "POSTED",
+        installmentNumber: 4,
+        totalInstallments: 12,
+        purchaseDate: "2026-07-29T03:00:00.000Z",
+      },
+      {
+        id: "c3",
+        date: "2026-09-30T03:00:00.000Z",
+        description: "LOJA DE MOVEIS",
+        type: "DEBIT",
+        amount: 100,
+        status: "POSTED",
+        installmentNumber: 3,
+        totalInstallments: 12,
+        purchaseDate: "2026-07-29T03:00:00.000Z",
+      },
+      {
+        id: "c4",
+        date: "2026-10-20T03:00:00.000Z",
+        description: "PAGAMENTO DE FATURA",
+        type: "CREDIT",
+        amount: -3000,
+        status: "POSTED",
+      },
+      {
+        id: "c5",
+        date: "2026-11-02T03:00:00.000Z",
+        description: "POSTO",
+        type: "DEBIT",
+        amount: 200,
+        status: "PENDING",
+      },
+      {
+        id: "c6",
+        date: "2026-10-10T03:00:00.000Z",
+        description: "ULTIMA PARCELA",
+        type: "DEBIT",
+        amount: 50,
+        status: "POSTED",
+        installmentNumber: 5,
+        totalInstallments: 5,
+        purchaseDate: "2026-06-09T03:00:00.000Z",
+      },
+      { id: "c7", date: "sem data", description: "X", type: "DEBIT", amount: 1 },
+    ],
+    TZ,
+  );
+
+  it("à vista vira uma compra, com o identificador da linha", () => {
+    expect(card.rows.find((row) => row.description === "MERCADO BOM")).toEqual({
+      date: "2026-10-31",
+      description: "MERCADO BOM",
+      amount: "120.50",
+      kind: "despesa",
+      installments: 1,
+      externalId: "pluggy:c1",
+    });
+  });
+
+  it("parcelada vira uma compra só, da parcela mais antiga, com o que falta", () => {
+    const plan = card.rows.filter((row) => row.description.startsWith("LOJA DE MOVEIS"));
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toMatchObject({
+      date: "2026-09-30",
+      description: "LOJA DE MOVEIS (desde 3/12)",
+      amount: "1000.00",
+      installments: 10,
+    });
+  });
+
+  it("a parcela do mês seguinte tem o mesmo identificador e não entra de novo", () => {
+    const next = feedCardPurchasesOf(
+      [
+        {
+          id: "c9",
+          date: "2026-11-30T03:00:00.000Z",
+          description: "LOJA DE MOVEIS",
+          type: "DEBIT",
+          amount: 100,
+          status: "POSTED",
+          installmentNumber: 5,
+          totalInstallments: 12,
+          purchaseDate: "2026-07-29T03:00:00.000Z",
+        },
+      ],
+      TZ,
+    );
+    const first = card.rows.find((row) => row.description.startsWith("LOJA DE MOVEIS"))!;
+    expect(next.rows[0]!.externalId).toBe(first.externalId);
+    expect(withFingerprints(next.rows, "ofx")[0]!.fingerprint).toBe(
+      withFingerprints([first], "ofx")[0]!.fingerprint,
+    );
+  });
+
+  it("a última parcela entra como uma parcela só", () => {
+    expect(card.rows.find((row) => row.description.startsWith("ULTIMA"))).toMatchObject({
+      description: "ULTIMA PARCELA (desde 5/5)",
+      amount: "50.00",
+      installments: 1,
+    });
+  });
+
+  it("pagamento, estorno e pendente ficam de fora, contados", () => {
+    expect(card.credits).toBe(1);
+    expect(card.pending).toBe(1);
+    expect(card.skipped).toBe(1);
+    expect(card.rows).toHaveLength(3);
+    expect(card.rows.map((row) => row.date)).toEqual(["2026-09-30", "2026-10-10", "2026-10-31"]);
   });
 });

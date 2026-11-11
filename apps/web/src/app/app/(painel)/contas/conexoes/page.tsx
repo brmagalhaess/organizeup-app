@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { accounts, asc, canWrite, householdTimezone, withHousehold } from "@organizeup/db";
+import {
+  accounts,
+  asc,
+  canWrite,
+  creditCards,
+  householdTimezone,
+  withHousehold,
+} from "@organizeup/db";
 import { BANK_FEED_ERRORS, todayIn, type BankFeedError } from "@organizeup/domain";
 import { Card, PageHeader } from "@/components/ui";
 import { systemTextOf } from "@/i18n/system-text";
@@ -35,6 +42,10 @@ export default async function BankConnectionsPage() {
         })
         .from(accounts)
         .orderBy(asc(accounts.createdAt)),
+      cards: await tx
+        .select({ id: creditCards.id, name: creditCards.name, archived: creditCards.archived })
+        .from(creditCards)
+        .orderBy(asc(creditCards.createdAt)),
       timezone: await householdTimezone(tx, ctx.householdId),
     })),
   ]);
@@ -66,6 +77,9 @@ export default async function BankConnectionsPage() {
             .filter((person) => !person.connected)
             .map(({ id, name, self }) => ({ id, name, self }))}
           room={Math.max(0, BANK_KEYS_PER_LOGIN - connections.length)}
+          cards={family.cards
+            .filter((card) => !card.archived)
+            .map(({ id, name }) => ({ id, name: system.name(name) }))}
           accounts={family.accounts
             .filter((account) => !account.archived)
             .map(({ id, name, currency }) => ({ id, name: system.name(name), currency }))}

@@ -75,6 +75,7 @@ describe("cliente da Pluggy", () => {
             marketingName: "Conta Digital",
             number: "0001/12345-6",
             currencyCode: "BRL",
+            bankData: { transferNumber: "348/0001/12345-6" },
           },
           {
             id: "conta-2",
@@ -89,6 +90,7 @@ describe("cliente da Pluggy", () => {
             subtype: "CREDIT_CARD",
             name: "Cartão Gold",
             number: "4321",
+            creditData: { balanceCloseDate: null, balanceDueDate: "2026-11-01" },
           },
           { type: "BANK", name: "sem identificador" },
         ],
@@ -102,9 +104,11 @@ describe("cliente da Pluggy", () => {
         id: "conta-1",
         itemId: "item-1",
         kind: "corrente",
-        name: "Conta Digital",
+        name: "Conta Digital · 348",
         numberTail: "3456",
         currency: "BRL",
+        closingDay: null,
+        dueDay: null,
       },
       {
         id: "conta-2",
@@ -113,6 +117,8 @@ describe("cliente da Pluggy", () => {
         name: "Poupança",
         numberTail: null,
         currency: "BRL",
+        closingDay: null,
+        dueDay: null,
       },
       {
         id: "cartao-1",
@@ -121,6 +127,8 @@ describe("cliente da Pluggy", () => {
         name: "Cartão Gold",
         numberTail: "4321",
         currency: "BRL",
+        closingDay: null,
+        dueDay: 1,
       },
     ]);
   });
@@ -164,6 +172,53 @@ describe("cliente da Pluggy", () => {
     expect(calls[0]!.url.pathname).toBe("/v2/transactions");
     expect(calls[0]!.url.searchParams.get("dateFrom")).toBe("2026-11-01");
     expect(calls[1]!.url.searchParams.get("dateTo")).toBe("2026-11-11");
+  });
+
+  it("lê a parcela e o dia da compra nas linhas de cartão", async () => {
+    const { fetcher } = stub(() =>
+      json({
+        results: [
+          {
+            id: "p1",
+            date: "2026-10-30T03:00:00.000Z",
+            description: "LOJA",
+            type: "DEBIT",
+            amount: 100,
+            status: "POSTED",
+            creditCardMetadata: {
+              installmentNumber: 4,
+              totalInstallments: 12,
+              purchaseDate: "2026-07-29T03:00:00.000Z",
+              billId: "fatura",
+            },
+          },
+          {
+            id: "p2",
+            date: "2026-10-31T14:35:00.000Z",
+            type: "DEBIT",
+            amount: 20,
+            creditCardMetadata: null,
+          },
+        ],
+        next: null,
+      }),
+    );
+    const rows = await pluggyTransactions(
+      "k",
+      "cartao-1",
+      { from: "2026-10-01", to: "2026-11-11" },
+      { fetcher },
+    );
+    expect(rows[0]).toMatchObject({
+      installmentNumber: 4,
+      totalInstallments: 12,
+      purchaseDate: "2026-07-29T03:00:00.000Z",
+    });
+    expect(rows[1]).toMatchObject({
+      installmentNumber: null,
+      totalInstallments: null,
+      purchaseDate: null,
+    });
   });
 
   it("para quando o cursor se repete", async () => {

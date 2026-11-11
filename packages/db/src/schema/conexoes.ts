@@ -3,6 +3,7 @@
 import { sql } from "drizzle-orm";
 import {
   date,
+  smallint,
   foreignKey,
   index,
   pgTable,
@@ -12,7 +13,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { household, user } from "./auth";
-import { accounts } from "./finance";
+import { accounts, creditCards } from "./finance";
 import { people } from "./tenant";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
@@ -76,6 +77,11 @@ export const bankConnectionAccounts = pgTable(
     currency: text("currency").notNull().default("BRL"),
     /** Conta do OrganizeUp que recebe os lançamentos. Null: ainda não ligada. */
     accountId: text("account_id"),
+    /** Cartão do OrganizeUp que recebe as compras. Null: ainda não ligado, ou a linha é de conta. */
+    cardId: text("card_id"),
+    /** Dias do cartão informados pela instituição, só para sugerir no formulário. */
+    closingDay: smallint("closing_day"),
+    dueDay: smallint("due_day"),
     syncedOn: date("synced_on", { mode: "string" }),
     createdAt: ts("created_at").notNull().defaultNow(),
   },
@@ -94,5 +100,24 @@ export const bankConnectionAccounts = pgTable(
       columns: [t.householdId, t.accountId],
       foreignColumns: [accounts.householdId, accounts.id],
     }),
+    uniqueIndex("bank_connection_accounts_card_key")
+      .on(t.householdId, t.cardId)
+      .where(sql`${t.cardId} IS NOT NULL`),
+    foreignKey({
+      columns: [t.householdId, t.cardId],
+      foreignColumns: [creditCards.householdId, creditCards.id],
+    }),
   ],
 );
+
+/**
+ * Impressão digital das compras que vieram de uma conexão (migração 0051). É outra vista de `card_purchases`,
+ * como `cardPurchaseUsage`: quem lê compras no painel não passa a depender da coluna nova, e uma web publicada
+ * antes da migração continua abrindo.
+ */
+export const cardPurchaseImports = pgTable("card_purchases", {
+  id: text("id").primaryKey(),
+  householdId: text("household_id").notNull(),
+  cardId: text("card_id").notNull(),
+  importFingerprint: text("import_fingerprint"),
+});

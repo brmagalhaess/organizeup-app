@@ -733,7 +733,8 @@
         "fetching": "Buscando en Pluggy…",
         "empty": "Pluggy no trajo ninguna inversión en tus conexiones.",
         "connectText": "Guarda tu clave de Pluggy para traer la posición en acciones, fondos inmobiliarios, ETFs y BDRs sin descargar archivo.",
-        "connect": "Conectar banco"
+        "connect": "Conectar banco",
+        "estimated": "El bróker no informa cuánto pagaste por cada activo. El campo de precio vino con el precio de hoy: cámbialo por el precio que pagaste antes de guardar, o corrígelo después en Inversiones, Movimientos."
       }
     },
     "operation": {
@@ -3131,7 +3132,7 @@
     },
     "bank": {
       "title": "Conexión con bancos",
-      "text": "La conexión por Pluggy ya trae los movimientos de las cuentas y la posición de las inversiones. La tarjeta de crédito aún no entra por ella: las compras se siguen registrando aquí.",
+      "text": "La conexión por Pluggy ya trae las compras de la tarjeta. Vincula la tarjeta del banco a una tarjeta de aquí y busca las compras en Importar extracto.",
       "link": "Abrir conexión con bancos"
     }
   },
@@ -3528,7 +3529,8 @@
       "title": "Extracto importado",
       "counts": "{imported, plural, =1 {1 movimiento nuevo} other {# movimientos nuevos}} y {settled, plural, =1 {1 previsión liquidada} other {# previsiones liquidadas}}.",
       "seeEntries": "Ver movimientos",
-      "another": "Importar otro"
+      "another": "Importar otro",
+      "seeCards": "Ver tarjetas"
     },
     "batches": {
       "title": "Importaciones recientes",
@@ -3584,18 +3586,20 @@
     },
     "bank": {
       "title": "Traer del banco",
-      "text": "Busca en Pluggy los movimientos de la cuenta vinculada. Sin fecha, continúa desde donde quedó. Revisas todo antes de guardar, y lo que ya entró no entra de nuevo.",
+      "text": "Busca en Pluggy los movimientos de la cuenta o las compras de la tarjeta. Sin fecha, continúa desde donde quedó. Revisas todo antes de guardar, y lo que ya entró no entra de nuevo.",
       "connectText": "Vincula tu cuenta de Pluggy para traer los movimientos sin descargar archivo.",
-      "account": "Cuenta del banco",
+      "account": "Cuenta o tarjeta del banco",
       "since": "Desde (opcional)",
-      "fetch": "Buscar movimientos",
+      "fetch": "Buscar",
       "fetching": "Buscando en Pluggy…",
       "manage": "Gestionar conexión",
       "connect": "Conectar banco",
-      "linkFirst": "Aún no vinculaste ninguna cuenta del banco a una cuenta de OrganizeUp.",
+      "linkFirst": "Aún no vinculaste ninguna cuenta o tarjeta del banco a OrganizeUp.",
       "empty": "Ningún movimiento en el período.",
       "pending": "{count, plural, one {# movimiento aún pendiente en el banco quedó para la próxima búsqueda.} other {# movimientos aún pendientes en el banco quedaron para la próxima búsqueda.}}",
-      "truncated": "Llegaron más de 2.000 líneas: quedaron las más recientes. Para el resto, busca de nuevo con una fecha más antigua en \"Desde\"."
+      "truncated": "Llegaron más de 2.000 líneas: quedaron las más recientes. Para el resto, busca de nuevo con una fecha más antigua en \"Desde\".",
+      "cardNotice": "Estas son compras de tarjeta: entran en Tarjetas, en la factura de cada una.",
+      "credits": "{count, plural, one {# pago o reembolso quedó fuera.} other {# pagos o reembolsos quedaron fuera.}}"
     }
   },
   "renda": {
@@ -5327,8 +5331,9 @@
         "dashboard": "Crea una cuenta en dashboard.pluggy.ai, de preferencia con el mismo correo. El aviso de prueba de 15 días es para empresas y puede ignorarse en el uso personal.",
         "application": "En el panel, abre el menú Aplicações y haz clic en Novo. Ponle cualquier nombre, como \"Mis finanzas\". Una aplicación basta para todos los bancos.",
         "secret": "Al crearla, Pluggy muestra el Client Secret una sola vez: cópialo en el momento. El Client ID queda siempre a la vista, dentro de la aplicación, en Credenciais. ¿Perdiste el Client Secret? En el mismo lugar, haz clic en \"Gerar novo secret\"; el anterior deja de valer.",
-        "connector": "Vuelve a Aplicações y haz clic en el icono ▶ (Demo) de tu aplicación. Haz clic en \"Conectar Conta\", luego en Continuar, y elige el conector MeuPluggy. Repite para cada banco.",
-        "items": "Cada conexión aparece en \"Itens Conectados\". Abre la conexión y copia su identificador (Item ID).",
+        "enable": "Habilita el conector: en el menú Dados Financeiros, abre Customização y la pestaña Conectores. En Personal, haz clic en \"Conectores Diretos\", activa MeuPluggy y haz clic en Salvar. Sin esto, la lista del próximo paso solo muestra Sandbox.",
+        "connector": "Vuelve a Aplicações y haz clic en el icono ▶ (Demo) de tu aplicación. Haz clic en \"Conectar Conta\", luego en Continuar, y elige MeuPluggy en la lista. Repite para cada banco.",
+        "items": "La conexión aparece en \"Itens Conectados\". Haz clic en ella y usa el botón de copiar junto al identificador, arriba: ese es el Item ID.",
         "paste": "Pega el Client ID, el Client Secret y los Item IDs en el formulario de abajo. Las claves quedan cifradas y solo tú puedes usarlas."
       }
     },
@@ -5371,19 +5376,18 @@
       "error": "Último intento: {message}"
     },
     "actions": {
-      "entries": "Buscar movimientos",
+      "entries": "Buscar movimientos y compras",
       "investments": "Buscar inversiones",
       "refresh": "Actualizar cuentas",
       "refreshing": "Actualizando…",
-      "remove": "Quitar conexión"
+      "remove": "Quitar conexión",
+      "createAccounts": "{count, plural, one {Crear # cuenta que falta} other {Crear # cuentas que faltan}}"
     },
     "accounts": {
       "title": "Cuentas encontradas",
-      "text": "Indica en qué cuenta de OrganizeUp entran los movimientos de cada cuenta del banco.",
+      "text": "Indica dónde entra cada cuenta y cada tarjeta del banco. Puedes crearlas desde aquí.",
       "emptyTitle": "Ninguna cuenta todavía",
       "emptyText": "Pluggy no mostró cuentas en estas conexiones. Revisa que el banco aparezca en Meu Pluggy y actualiza.",
-      "noAccounts": "Aún no tienes una cuenta en OrganizeUp para recibir los movimientos.",
-      "createAccount": "Crear cuenta",
       "kind": {
         "corrente": "Cuenta corriente",
         "poupanca": "Ahorro",
@@ -5393,9 +5397,10 @@
       "target": "Cuenta en OrganizeUp",
       "none": "No traer",
       "save": "Guardar",
-      "card": "La tarjeta de crédito aún no se trae por aquí.",
       "synced": "Traído hasta {date}",
-      "never": "Aún no traído"
+      "never": "Aún no traído",
+      "create": "Crear cuenta nueva",
+      "unlinked": "Aún sin destino en OrganizeUp"
     },
     "remove": {
       "title": "¿Quitar la clave de {name}?",
@@ -5414,12 +5419,32 @@
       "dados_invalidos": "Revisa los campos. El Client ID y los Item IDs tienen el formato 00000000-0000-0000-0000-000000000000, y son hasta 5 conexiones.",
       "sem_conexao": "Aún no conectaste tu cuenta de Pluggy.",
       "conta_invalida": "Elige una cuenta activa, en la misma moneda de la cuenta del banco.",
-      "cartao": "La tarjeta de crédito aún no se trae por aquí.",
+      "cartao": "Esta línea es de tarjeta: elige una tarjeta, y no una cuenta.",
       "conta_em_uso": "Esta cuenta ya recibe los movimientos de otra cuenta del banco. Elige otra, o crea una cuenta nueva en Cuentas.",
       "pessoa_invalida": "Elige una persona adulta del registro.",
       "pessoa_ja_conectada": "Esta persona ya tiene una clave guardada.",
       "limite_de_chaves": "Caben hasta 2 claves por inicio de sesión. Quita una para guardar otra.",
-      "sem_consentimento": "Marca la confirmación de que la persona autorizó el uso de la clave."
+      "sem_consentimento": "Marca la confirmación de que la persona autorizó el uso de la clave.",
+      "nao_e_cartao": "Esta línea es de cuenta, y no de tarjeta.",
+      "cartao_em_uso": "Esta tarjeta ya recibe las compras de otra tarjeta del banco. Elige otra o crea una nueva.",
+      "cartao_invalido": "Vincula esta tarjeta del banco a una tarjeta de OrganizeUp antes de buscar.",
+      "dias_invalidos": "Informa el día de cierre y el de vencimiento, de 1 a 31.",
+      "limite_de_lancamentos": "Las compras no caben en el límite de movimientos de tu plan este mes."
+    },
+    "accountsCreated": "{count, plural, =0 {Ninguna cuenta para crear.} one {# cuenta creada y vinculada.} other {# cuentas creadas y vinculadas.}}",
+    "cardLinked": "Tarjeta vinculada.",
+    "cards": {
+      "target": "Tarjeta en OrganizeUp",
+      "create": "Crear tarjeta nueva",
+      "closingDay": "Día de cierre",
+      "dueDay": "Día de vencimiento",
+      "payingAccount": "Cuenta que paga la factura",
+      "payingHint": "Es de donde sale el dinero de la factura.",
+      "needAccount": "Crea primero la cuenta que paga la factura: usa el botón de crear cuentas de arriba."
+    },
+    "cardImport": {
+      "repeated": "{count, plural, one {# compra ya estaba en la tarjeta.} other {# compras ya estaban en la tarjeta.}}",
+      "blocked": "{count, plural, one {# compra quedó fuera porque caería en una factura ya pagada.} other {# compras quedaron fuera porque caerían en una factura ya pagada.}}"
     }
   }
 }
