@@ -43,6 +43,13 @@ informa aqui, e o sistema passa a trazer receitas, despesas e investimentos.
 7. **Liberação por etapas.** `bank_feed_enabled` nasce desligada: só o admin do serviço vê a tela. Quem liga é o
    painel (`/admin/cobranca`), com auditoria.
 
+## Onde a pessoa acha
+
+"Conexão com bancos" fica no menu lateral, logo abaixo de Contas, para quem pode usar. Há atalhos em Contas,
+Importar extrato, Importar investimentos e Cartões (este só avisa que o cartão ainda não entra). O passo a passo
+da tela usa os nomes do painel da Pluggy conferidos em 2026-11-11: Aplicações, Novo, Credenciais, "Gerar novo
+secret" (o Client Secret aparece uma vez só), ícone Demo, "Conectar Conta" e "Itens Conectados".
+
 ## Riscos aceitos e o que falta antes de ligar para todos
 
 - **Termos da Pluggy.** A página do Meu Pluggy diz que o plano gratuito é para uso pessoal e que usar os dados em

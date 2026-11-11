@@ -731,7 +731,9 @@
         "text": "Fetches your position in stocks, real estate funds, ETFs and BDRs from your connections. You review before saving.",
         "fetch": "Fetch position",
         "fetching": "Fetching from Pluggy…",
-        "empty": "Pluggy returned no investments in your connections."
+        "empty": "Pluggy returned no investments in your connections.",
+        "connectText": "Store your Pluggy key to bring your position in stocks, real estate funds, ETFs and BDRs without downloading a file.",
+        "connect": "Connect bank"
       }
     },
     "operation": {
@@ -2070,6 +2072,7 @@
     },
     "nav": {
       "accounts": "Accounts",
+      "bank": "Bank connection",
       "calendar": "Calendar",
       "cards": "Credit cards",
       "categories": "Categories",
@@ -3125,6 +3128,11 @@
       "invalidAccount": "Choose a valid account.",
       "notFound": "Card not found.",
       "datesLocked": "This card already has a paid statement, so its dates can't change. For new dates, archive it and create another one."
+    },
+    "bank": {
+      "title": "Bank connection",
+      "text": "The Pluggy connection already brings account entries and the investment position. Credit cards do not come through it yet: purchases are still entered here.",
+      "link": "Open bank connection"
     }
   },
   "categorias": {
@@ -5315,12 +5323,13 @@
       "title": "How to connect",
       "text": "Pluggy is an Open Finance company. Its personal plan is free and accepts up to 5 connections of accounts in your own name.",
       "steps": {
-        "account": "Create your Meu Pluggy account and connect your banks there. The authorization happens in the bank's own app.",
-        "dashboard": "Create an account on the Pluggy dashboard, preferably with the same email. The 15-day trial notice does not apply to personal use.",
-        "application": "On the dashboard, create an application and copy the Client ID and the Client Secret.",
-        "connector": "Still on the dashboard, create a connection choosing the MeuPluggy connector. Repeat for each bank.",
-        "items": "Copy the identifier (Item ID) of each connection you created.",
-        "paste": "Paste everything in the form below. The keys are encrypted and only you can use them."
+        "account": "Create your account at meu.pluggy.ai and connect your banks there, under \"Conectar Minha Conta\". The authorization happens in the bank's own app. Check that the account shows up with a balance.",
+        "dashboard": "Create an account at dashboard.pluggy.ai, preferably with the same email. The 15-day trial notice is for companies and can be ignored for personal use.",
+        "application": "On the dashboard, open the Aplicações menu and click Novo. Give it any name, such as \"My finances\". One application is enough for all banks.",
+        "secret": "When you create it, Pluggy shows the Client Secret only once: copy it right away. The Client ID is always visible inside the application, under Credenciais. Lost the Client Secret? In the same place, click \"Gerar novo secret\"; the old one stops working.",
+        "connector": "Go back to Aplicações and click the ▶ (Demo) icon of your application. Click \"Conectar Conta\", then Continuar, and choose the MeuPluggy connector. Repeat for each bank.",
+        "items": "Each connection shows up under \"Itens Conectados\". Open the connection and copy its identifier (Item ID).",
+        "paste": "Paste the Client ID, the Client Secret and the Item IDs in the form below. The keys are encrypted and only you can use them."
       }
     },
     "links": {

@@ -731,7 +731,9 @@
         "text": "Busca tu posición en acciones, fondos inmobiliarios, ETFs y BDRs de tus conexiones. Revisas antes de guardar.",
         "fetch": "Buscar posición",
         "fetching": "Buscando en Pluggy…",
-        "empty": "Pluggy no trajo ninguna inversión en tus conexiones."
+        "empty": "Pluggy no trajo ninguna inversión en tus conexiones.",
+        "connectText": "Guarda tu clave de Pluggy para traer la posición en acciones, fondos inmobiliarios, ETFs y BDRs sin descargar archivo.",
+        "connect": "Conectar banco"
       }
     },
     "operation": {
@@ -2070,6 +2072,7 @@
     },
     "nav": {
       "accounts": "Cuentas",
+      "bank": "Conexión con bancos",
       "calendar": "Calendario",
       "cards": "Tarjetas",
       "categories": "Categorías",
@@ -3125,6 +3128,11 @@
       "invalidAccount": "Elige una cuenta válida.",
       "notFound": "Tarjeta no encontrada.",
       "datesLocked": "Esta tarjeta ya tiene un resumen pagado, así que las fechas no pueden cambiar. Para fechas nuevas, archívala y crea otra."
+    },
+    "bank": {
+      "title": "Conexión con bancos",
+      "text": "La conexión por Pluggy ya trae los movimientos de las cuentas y la posición de las inversiones. La tarjeta de crédito aún no entra por ella: las compras se siguen registrando aquí.",
+      "link": "Abrir conexión con bancos"
     }
   },
   "categorias": {
@@ -5315,12 +5323,13 @@
       "title": "Cómo conectar",
       "text": "Pluggy es una empresa de Open Finance. Su plan personal es gratuito y acepta hasta 5 conexiones de cuentas a tu nombre.",
       "steps": {
-        "account": "Crea tu cuenta en Meu Pluggy y conecta tus bancos allí. La autorización ocurre en la app del propio banco.",
-        "dashboard": "Crea una cuenta en el panel de Pluggy, de preferencia con el mismo correo. El aviso de prueba de 15 días no aplica al uso personal.",
-        "application": "En el panel, crea una aplicación y copia el Client ID y el Client Secret.",
-        "connector": "Aún en el panel, crea una conexión eligiendo el conector MeuPluggy. Repite para cada banco.",
-        "items": "Copia el identificador (Item ID) de cada conexión creada.",
-        "paste": "Pega todo en el formulario de abajo. Las claves quedan cifradas y solo tú puedes usarlas."
+        "account": "Crea tu cuenta en meu.pluggy.ai y conecta tus bancos allí, en \"Conectar Minha Conta\". La autorización ocurre en la app del propio banco. Revisa que la cuenta aparezca con saldo.",
+        "dashboard": "Crea una cuenta en dashboard.pluggy.ai, de preferencia con el mismo correo. El aviso de prueba de 15 días es para empresas y puede ignorarse en el uso personal.",
+        "application": "En el panel, abre el menú Aplicações y haz clic en Novo. Ponle cualquier nombre, como \"Mis finanzas\". Una aplicación basta para todos los bancos.",
+        "secret": "Al crearla, Pluggy muestra el Client Secret una sola vez: cópialo en el momento. El Client ID queda siempre a la vista, dentro de la aplicación, en Credenciais. ¿Perdiste el Client Secret? En el mismo lugar, haz clic en \"Gerar novo secret\"; el anterior deja de valer.",
+        "connector": "Vuelve a Aplicações y haz clic en el icono ▶ (Demo) de tu aplicación. Haz clic en \"Conectar Conta\", luego en Continuar, y elige el conector MeuPluggy. Repite para cada banco.",
+        "items": "Cada conexión aparece en \"Itens Conectados\". Abre la conexión y copia su identificador (Item ID).",
+        "paste": "Pega el Client ID, el Client Secret y los Item IDs en el formulario de abajo. Las claves quedan cifradas y solo tú puedes usarlas."
       }
     },
     "links": {

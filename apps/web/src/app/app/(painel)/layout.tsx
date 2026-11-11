@@ -207,6 +207,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       emailNotice={askEmail ? EMAIL_KEY : null}
       banners={[...banners, ...plan]}
       billing={flags.billingEnabled || isServiceAdmin(session.user) || leaving}
+      bank={writable && (flags.bankFeedEnabled || isServiceAdmin(session.user))}
       pendingSuggestions={status.pendingSuggestions}
       unreadNotifications={unreadNotifications}
       assistant={assistant}

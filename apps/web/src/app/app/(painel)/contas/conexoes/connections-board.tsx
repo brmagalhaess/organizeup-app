@@ -26,7 +26,15 @@ import {
 } from "./actions";
 
 const initial: ConnectionFormState = { ok: false, message: null };
-const STEPS = ["account", "dashboard", "application", "connector", "items", "paste"] as const;
+const STEPS = [
+  "account",
+  "dashboard",
+  "application",
+  "secret",
+  "connector",
+  "items",
+  "paste",
+] as const;
 const TERMS = ["own", "password", "review", "joint", "free"] as const;
 
 interface AccountOption {

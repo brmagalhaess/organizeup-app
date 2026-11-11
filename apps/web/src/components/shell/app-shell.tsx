@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   BadgeCheck,
   BadgeDollarSign,
+  Cable,
   CalendarDays,
   ChartColumn,
   Compass,
@@ -74,6 +75,7 @@ export interface ShellBanner {
 const SUGGESTIONS_HREF = "/app/sugestoes";
 const DIVIDENDS_HREF = "/app/proventos";
 const BILLING_HREF = "/app/assinatura";
+const BANK_HREF = "/app/contas/conexoes";
 
 /** Telas já traduzidas. As outras seguem em português e avisam isso ao leitor de tela. */
 const TRANSLATED_SCREENS = new Set([
@@ -82,6 +84,7 @@ const TRANSLATED_SCREENS = new Set([
   "/app/notificacoes",
   "/app/lancamentos",
   "/app/contas",
+  BANK_HREF,
   "/app/cartoes",
   "/app/dividas",
   "/app/dividas/importar",
@@ -121,6 +124,7 @@ const groups: Array<{ title: keyof Messages["shell"]["groups"]; items: NavItem[]
       { href: "/app/renda", label: "income", icon: BadgeDollarSign },
       { href: "/app/importar", label: "import", icon: Upload },
       { href: "/app/contas", label: "accounts", icon: Landmark },
+      { href: BANK_HREF, label: "bank", icon: Cable },
       { href: "/app/cartoes", label: "cards", icon: CreditCard },
       { href: "/app/dividas", label: "debts", icon: WalletCards },
       { href: "/app/categorias", label: "categories", icon: Tags },
@@ -148,12 +152,18 @@ const groups: Array<{ title: keyof Messages["shell"]["groups"]; items: NavItem[]
   },
 ];
 
-/** Proventos são da B3, com IR e JCP: fora das regras brasileiras, o menu não oferece. */
-const groupsFor = (brazil: boolean, billing: boolean) =>
+/**
+ * Proventos são da B3, com IR e JCP: fora das regras brasileiras, o menu não oferece. A conexão com bancos só
+ * aparece para quem pode usá-la (ADR-0038).
+ */
+const groupsFor = (brazil: boolean, billing: boolean, bank: boolean) =>
   groups.map((group) => ({
     ...group,
     items: group.items.filter(
-      (item) => (brazil || item.href !== DIVIDENDS_HREF) && (billing || item.href !== BILLING_HREF),
+      (item) =>
+        (brazil || item.href !== DIVIDENDS_HREF) &&
+        (billing || item.href !== BILLING_HREF) &&
+        (bank || item.href !== BANK_HREF),
     ),
   }));
 
@@ -169,11 +179,14 @@ function initials(name: string) {
 function Navigation({
   pendingSuggestions,
   billing,
+  bank,
   onNavigate,
 }: {
   pendingSuggestions: number;
   /** Com a chave da cobrança desligada, a tela de planos só aparece para o admin. */
   billing: boolean;
+  /** Conexão com bancos liberada para esta pessoa. */
+  bank: boolean;
   onNavigate?: () => void;
 }) {
   const t = useTranslations("shell");
@@ -181,7 +194,7 @@ function Navigation({
   const brazil = useBrazilRules();
   return (
     <nav aria-label={t("modules")} className="flex flex-col gap-6">
-      {groupsFor(brazil, billing).map((group) => (
+      {groupsFor(brazil, billing, bank).map((group) => (
         <div key={group.title}>
           <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/70">
             {t(`groups.${group.title}`)}
@@ -390,6 +403,7 @@ export function AppShell({
   emailNotice = null,
   banners = [],
   billing = false,
+  bank = false,
   pendingSuggestions,
   unreadNotifications,
   assistant,
@@ -407,6 +421,7 @@ export function AppShell({
   emailNotice?: string | null;
   banners?: ShellBanner[];
   billing?: boolean;
+  bank?: boolean;
   pendingSuggestions: number;
   unreadNotifications: number;
   assistant: AssistantState;
@@ -431,7 +446,7 @@ export function AppShell({
           </div>
           <QuickAdd className="w-full" />
           <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-color:rgb(255_255_255/0.3)_transparent] [scrollbar-width:thin]">
-            <Navigation billing={billing} pendingSuggestions={pendingSuggestions} />
+            <Navigation billing={billing} bank={bank} pendingSuggestions={pendingSuggestions} />
           </div>
           <UserFooter userName={userName} familyName={familyName} />
         </aside>
@@ -466,6 +481,7 @@ export function AppShell({
         <div className="-m-5 flex min-h-full flex-col gap-6 bg-pine p-5">
           <Navigation
             billing={billing}
+            bank={bank}
             pendingSuggestions={pendingSuggestions}
             onNavigate={() => setMenuOpen(false)}
           />

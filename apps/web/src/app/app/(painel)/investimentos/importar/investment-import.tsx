@@ -538,8 +538,8 @@ export function InvestmentImport({
   bank,
 }: {
   accounts: Account[];
-  /** A pessoa tem conexão com bancos (ADR-0038) e pode buscar a posição por ela. */
-  bank: boolean;
+  /** Conexão com bancos (ADR-0038). Null: não vê. Falso: vê, mas ainda não guardou chave. */
+  bank: boolean | null;
 }) {
   const t = useTranslations("investimentos.importar");
   const tErrors = useTranslations("investimentos.importar.errors");
@@ -714,14 +714,20 @@ export function InvestmentImport({
 
   return (
     <>
-      {bank ? (
-        <Card title={t("bank.title")} description={t("bank.text")}>
-          <Button onClick={onBank} disabled={!hydrated || busy || reading !== null}>
-            <Landmark className="size-4" aria-hidden="true" />
-            {busy ? t("bank.fetching") : t("bank.fetch")}
-          </Button>
+      {bank === null ? null : (
+        <Card title={t("bank.title")} description={t(bank ? "bank.text" : "bank.connectText")}>
+          {bank ? (
+            <Button onClick={onBank} disabled={!hydrated || busy || reading !== null}>
+              <Landmark className="size-4" aria-hidden="true" />
+              {busy ? t("bank.fetching") : t("bank.fetch")}
+            </Button>
+          ) : (
+            <Link href="/app/contas/conexoes" className={buttonClass("secondary")}>
+              {t("bank.connect")}
+            </Link>
+          )}
         </Card>
-      ) : null}
+      )}
       <Card title={t("choose.title")} description={t("choose.text")}>
         <div className="max-w-md">
           <Field label={t("choose.file")} hint={t("choose.fileHint")}>

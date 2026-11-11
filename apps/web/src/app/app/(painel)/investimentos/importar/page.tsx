@@ -18,10 +18,11 @@ export default async function InvestmentImportPage() {
   if (invite) return invite;
   const { ctx, session } = await requireTenant();
   const t = await getTranslations("investimentos.importar");
+  // Null: não vê a conexão com bancos. Falso: vê, mas ainda não guardou chave.
   const bank =
     canWrite(ctx) && (await bankFeedOpen(session.user))
       ? (await loadBankConnections(ctx)).length > 0
-      : false;
+      : null;
   const { accountRows, currency } = await withHousehold(ctx, async (tx) => ({
     accountRows: await tx
       .select({ id: accounts.id, name: accounts.name, archived: accounts.archived })
