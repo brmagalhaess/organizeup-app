@@ -91,6 +91,14 @@ que faltava. Migração 0051.
   pergunta. A corretora não informa quanto foi pago: o preço entra preenchido com o de mercado, com aviso para
   trocar antes de gravar ou corrigir depois em Lançamentos.
 
+## Conexão de outra aplicação (2026-11-11)
+
+O painel da Pluggy tem um botão "Iniciar Demo" no topo que é da aplicação de exemplo, a Pluggy Demo App, e não
+da aplicação que a pessoa criou. A conexão feita por ele existe, mas pertence a outra aplicação: com as chaves
+da aplicação da pessoa, `/accounts` devolve lista vazia, sem erro. Foi o que travou o primeiro teste. Agora cada
+Item ID é conferido em `/items/{id}` antes de salvar, e a conexão de outra aplicação é recusada com a
+explicação. O guia avisa para usar o ▶ da linha da própria aplicação.
+
 ## Fora desta etapa
 
 - Fundos, renda fixa e previdência: aparecem como ignorados na conferência, com o motivo.

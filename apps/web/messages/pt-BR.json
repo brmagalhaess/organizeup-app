@@ -5319,7 +5319,7 @@
     "description": "Traga lançamentos e investimentos direto do banco, pela Pluggy, com a sua própria chave.",
     "noPermission": "Você não tem permissão para alterar estes dados.",
     "unavailable": "A conexão com bancos está indisponível no momento. Tente mais tarde.",
-    "saved": "{count, plural, =0 {Conexão salva. A Pluggy ainda não mostrou nenhuma conta.} one {Conexão salva. # conta encontrada.} other {Conexão salva. # contas encontradas.}}",
+    "saved": "{count, plural, =0 {Conexão salva, mas a Pluggy não devolveu nenhuma conta. Veja o aviso em Contas encontradas.} one {Conexão salva. # conta encontrada.} other {Conexão salva. # contas encontradas.}}",
     "refreshed": "{count, plural, =0 {A Pluggy não mostrou nenhuma conta.} one {Lista atualizada: # conta.} other {Lista atualizada: # contas.}}",
     "linked": "Conta ligada.",
     "unlinked": "Ligação desfeita.",
@@ -5332,7 +5332,7 @@
         "application": "No painel, abra o menu Aplicações e clique em Novo. Dê um nome qualquer, como \"Minhas finanças\". Uma aplicação basta para todos os bancos.",
         "secret": "Ao criar, a Pluggy mostra o Client Secret uma única vez: copie na hora. O Client ID fica sempre à vista, dentro da aplicação, em Credenciais. Perdeu o Client Secret? No mesmo lugar, clique em \"Gerar novo secret\"; o antigo para de valer.",
         "enable": "Libere o conector: no menu Dados Financeiros, abra Customização e a aba Conectores. Em Personal, clique em \"Conectores Diretos\", ligue o MeuPluggy e clique em Salvar. Sem isso, a lista do próximo passo só mostra Sandbox.",
-        "connector": "Volte a Aplicações e clique no ícone ▶ (Demo) da sua aplicação. Clique em \"Conectar Conta\", depois em Continuar, e escolha MeuPluggy na lista. Repita para cada banco.",
+        "connector": "Volte a Aplicações e clique no ícone ▶ (Demo) na linha da sua aplicação. Não use o botão \"Iniciar Demo\" do topo da página: ele é de outra aplicação, a Pluggy Demo App, e a conexão feita por ele não vale para as suas chaves. Clique em \"Conectar Conta\", depois em Continuar, e escolha MeuPluggy na lista. Repita para cada banco.",
         "items": "A conexão aparece em \"Itens Conectados\". Clique nela e use o botão de copiar ao lado do identificador, no topo: é o Item ID.",
         "paste": "Cole o Client ID, o Client Secret e os Item IDs no formulário abaixo. As chaves ficam cifradas e só você consegue usá-las."
       }
@@ -5387,7 +5387,7 @@
       "title": "Contas encontradas",
       "text": "Diga onde entra cada conta e cada cartão do banco. Pode criar daqui mesmo.",
       "emptyTitle": "Nenhuma conta ainda",
-      "emptyText": "A Pluggy não mostrou contas nestas conexões. Confira se o banco aparece no Meu Pluggy e atualize.",
+      "emptyText": "A Pluggy não devolveu nenhuma conta para estas conexões. Quase sempre é porque a conexão foi criada em outra aplicação do painel: o Item ID precisa ser da mesma aplicação do Client ID. Abra o Demo pelo ▶ da linha da sua aplicação, conecte o MeuPluggy ali e troque o Item ID em \"Trocar chaves ou conexões\".",
       "kind": {
         "corrente": "Conta corrente",
         "poupanca": "Poupança",
@@ -5409,7 +5409,7 @@
     },
     "errors": {
       "credenciais": "A Pluggy recusou o Client ID ou o Client Secret. Confira se os dois são da mesma aplicação.",
-      "conexao": "A Pluggy não achou uma das conexões. Confira os Item IDs e se a conexão foi criada nesta aplicação.",
+      "conexao": "A Pluggy não achou uma das conexões nesta aplicação. O Item ID precisa ter sido criado no Demo da mesma aplicação do Client ID, aberto pelo ▶ da linha dela.",
       "limite": "A Pluggy pediu para esperar um pouco. Tente de novo em alguns minutos.",
       "sem_acesso": "A sua conta na Pluggy não dá acesso a este dado.",
       "rede": "Não deu para falar com a Pluggy agora. Tente de novo em instantes.",

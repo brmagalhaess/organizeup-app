@@ -110,6 +110,27 @@ export async function pluggyKey(
   return apiKey;
 }
 
+/**
+ * Confere que a conexão existe para esta aplicação. Conexão criada em outra aplicação do mesmo painel não é
+ * erro em `/accounts`: a Pluggy só devolve uma lista vazia. Aqui ela é recusada, e a tela consegue explicar.
+ */
+export async function pluggyItem(
+  apiKey: string,
+  itemId: string,
+  options: PluggyOptions = {},
+): Promise<void> {
+  const body = await call(`items/${encodeURIComponent(itemId)}`, { apiKey }, options).catch(
+    (error: unknown) => {
+      // Sem acesso a esta conexão é o mesmo que não a ter: ela é de outra aplicação.
+      if (error instanceof PluggyError && error.code === "sem_acesso") {
+        throw new PluggyError("conexao");
+      }
+      throw error;
+    },
+  );
+  if (text(body.id)?.toLowerCase() !== itemId.toLowerCase()) throw new PluggyError("conexao");
+}
+
 /** Contas e cartões de uma conexão. */
 export async function pluggyAccounts(
   apiKey: string,

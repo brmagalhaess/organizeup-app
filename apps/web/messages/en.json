@@ -5319,7 +5319,7 @@
     "description": "Bring entries and investments straight from the bank, through Pluggy, with your own key.",
     "noPermission": "You do not have permission to change this data.",
     "unavailable": "The bank connection is unavailable right now. Try again later.",
-    "saved": "{count, plural, =0 {Connection saved. Pluggy has not shown any account yet.} one {Connection saved. # account found.} other {Connection saved. # accounts found.}}",
+    "saved": "{count, plural, =0 {Connection saved, but Pluggy returned no accounts. See the notice under Accounts found.} one {Connection saved. # account found.} other {Connection saved. # accounts found.}}",
     "refreshed": "{count, plural, =0 {Pluggy showed no accounts.} one {List updated: # account.} other {List updated: # accounts.}}",
     "linked": "Account linked.",
     "unlinked": "Link removed.",
@@ -5332,7 +5332,7 @@
         "application": "On the dashboard, open the Aplicações menu and click Novo. Give it any name, such as \"My finances\". One application is enough for all banks.",
         "secret": "When you create it, Pluggy shows the Client Secret only once: copy it right away. The Client ID is always visible inside the application, under Credenciais. Lost the Client Secret? In the same place, click \"Gerar novo secret\"; the old one stops working.",
         "enable": "Enable the connector: in the Dados Financeiros menu, open Customização and the Conectores tab. Under Personal, click \"Conectores Diretos\", turn MeuPluggy on and click Salvar. Without this, the list in the next step only shows Sandbox.",
-        "connector": "Go back to Aplicações and click the ▶ (Demo) icon of your application. Click \"Conectar Conta\", then Continuar, and choose MeuPluggy in the list. Repeat for each bank.",
+        "connector": "Go back to Aplicações and click the ▶ (Demo) icon on your application's row. Do not use the \"Iniciar Demo\" button at the top of the page: it belongs to another application, Pluggy Demo App, and a connection made through it does not work with your keys. Click \"Conectar Conta\", then Continuar, and choose MeuPluggy in the list. Repeat for each bank.",
         "items": "The connection shows up under \"Itens Conectados\". Click it and use the copy button next to the identifier, at the top: that is the Item ID.",
         "paste": "Paste the Client ID, the Client Secret and the Item IDs in the form below. The keys are encrypted and only you can use them."
       }
@@ -5387,7 +5387,7 @@
       "title": "Accounts found",
       "text": "Choose where each bank account and card goes. You can create them right here.",
       "emptyTitle": "No accounts yet",
-      "emptyText": "Pluggy showed no accounts in these connections. Check that the bank appears in Meu Pluggy and update.",
+      "emptyText": "Pluggy returned no accounts for these connections. This almost always means the connection was created in another application on the dashboard: the Item ID must belong to the same application as the Client ID. Open the Demo through the ▶ on your application's row, connect MeuPluggy there and replace the Item ID under \"Change keys or connections\".",
       "kind": {
         "corrente": "Checking account",
         "poupanca": "Savings",
@@ -5409,7 +5409,7 @@
     },
     "errors": {
       "credenciais": "Pluggy refused the Client ID or the Client Secret. Check that both come from the same application.",
-      "conexao": "Pluggy did not find one of the connections. Check the Item IDs and that the connection was created in this application.",
+      "conexao": "Pluggy did not find one of the connections in this application. The Item ID must have been created in the Demo of the same application as the Client ID, opened through the ▶ on its row.",
       "limite": "Pluggy asked to wait a little. Try again in a few minutes.",
       "sem_acesso": "Your Pluggy account does not give access to this data.",
       "rede": "Could not reach Pluggy right now. Try again in a moment.",

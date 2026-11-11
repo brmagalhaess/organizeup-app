@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 import {
   pluggyAccounts,
   pluggyInvestments,
+  pluggyItem,
   pluggyKey,
   pluggyTransactions,
   PluggyError,
@@ -61,6 +62,20 @@ describe("cliente da Pluggy", () => {
       throw new TypeError("fetch failed");
     }) as unknown as typeof fetch;
     await expect(code(pluggyAccounts("k", "item", { fetcher: offline }))).resolves.toBe("rede");
+  });
+
+  it("confere que a conexão é desta aplicação", async () => {
+    const ok = stub((url) => json({ id: url.pathname.split("/").pop() }));
+    await expect(pluggyItem("k", "Item-1", { fetcher: ok.fetcher })).resolves.toBeUndefined();
+    expect(ok.calls[0]!.url.pathname).toBe("/items/Item-1");
+    const at = (status: number) => stub(() => json({}, status)).fetcher;
+    await expect(code(pluggyItem("k", "item-1", { fetcher: at(404) }))).resolves.toBe("conexao");
+    await expect(code(pluggyItem("k", "item-1", { fetcher: at(403) }))).resolves.toBe("conexao");
+    await expect(code(pluggyItem("k", "item-1", { fetcher: at(401) }))).resolves.toBe(
+      "credenciais",
+    );
+    const other = stub(() => json({ id: "outra-conexao" })).fetcher;
+    await expect(code(pluggyItem("k", "item-1", { fetcher: other }))).resolves.toBe("conexao");
   });
 
   it("lê contas e cartões, só com o final do número", async () => {

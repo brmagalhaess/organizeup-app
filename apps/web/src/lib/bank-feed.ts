@@ -43,6 +43,7 @@ import { connectionVaultReady, openSecret, sealSecret } from "@/lib/connection-v
 import {
   pluggyAccounts,
   pluggyInvestments,
+  pluggyItem,
   pluggyKey,
   pluggyTransactions,
   PluggyError,
@@ -343,6 +344,9 @@ export async function connectBank(
   if (typeof apiKey !== "string") return apiKey;
   const found: PluggyAccount[] = [];
   for (const itemId of itemIds) {
+    // A conexão precisa ser da mesma aplicação das chaves: de outra, a lista de contas viria vazia, sem erro.
+    const missing = await pluggyItem(apiKey, itemId, options).catch(failure);
+    if (missing) return missing;
     const rows = await pluggyAccounts(apiKey, itemId, options).catch(failure);
     if (!Array.isArray(rows)) return rows;
     found.push(...rows);

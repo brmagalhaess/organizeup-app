@@ -240,6 +240,12 @@ const fetcher = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const mine = key === "sessao";
   if (!mine && key !== "sessao-dela") return json({}, 401);
   const item = mine ? ITEM : SPOUSE_ITEM;
+  // Cada aplicação só enxerga as conexões criadas nela.
+  if (url.pathname.startsWith("/items/")) {
+    return url.pathname === `/items/${item}`
+      ? json({ id: item })
+      : json({ message: "não achado" }, 404);
+  }
   if (url.pathname === "/accounts") {
     return url.searchParams.get("itemId") === item
       ? json({ results: mine ? remote.accounts : spouseRemote.accounts })
@@ -434,6 +440,17 @@ describe("conexão pela Pluggy com a chave da pessoa", () => {
       ok: false,
       code: "conexao",
     });
+    expect(await connections()).toEqual([]);
+  });
+
+  it("recusa a conexão criada em outra aplicação, em vez de salvar sem contas", async () => {
+    // O Item ID existe, mas é da aplicação da outra chave: a lista de contas viria vazia, sem erro.
+    calls.length = 0;
+    expect(await feed.connectBank(ctx, keys({ itemIds: SPOUSE_ITEM }), options)).toEqual({
+      ok: false,
+      code: "conexao",
+    });
+    expect(calls).toEqual(["POST /auth", `GET /items/${SPOUSE_ITEM}`]);
     expect(await connections()).toEqual([]);
   });
 
