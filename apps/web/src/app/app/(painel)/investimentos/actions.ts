@@ -334,8 +334,8 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
       }
     }
 
+    // Venda maior que a posição entra: a compra pode ainda não estar cadastrada. A carteira avisa.
     const next: TradeInput = { side, occurredOn, quantity, unitPrice, fees };
-    if (positionOf([...trades, next], events).oversold) return t("oversold");
 
     const accountId = String(form.get("accountId") ?? "");
     const transactionId = accountId
@@ -353,6 +353,85 @@ export async function addTrade(_prev: FormState, form: FormData): Promise<FormSt
     if (currentValue !== investment.currentValue)
       await tx.update(investments).set({ currentValue }).where(eq(investments.id, investmentId));
     await audit(tx, ctx, "create", "investment_trades", created!.id);
+    return null;
+  }).catch((error: unknown) => {
+    if (error instanceof MissingQuote) return t("noQuote");
+    throw error;
+  });
+  if (failure) return { ok: false, message: failure };
+  refresh();
+  return { ok: true, message: null };
+}
+
+/**
+ * Edita uma operação já gravada. Com preço unitário muda quantidade e preço; nas demais classes, o valor
+ * (a quantidade fica e o preço acompanha). O lançamento da conta é refeito: sai o antigo e entra o novo.
+ */
+export async function updateTrade(_prev: FormState, form: FormData): Promise<FormState> {
+  const { ctx } = await requireModule("investimentos");
+  if (!canWrite(ctx)) return blocked();
+  const [t, locale] = await texts();
+  const parsed = tradeSchema(t, locale).safeParse({
+    investmentId: form.get("investmentId") ?? "",
+    side: form.get("side"),
+    occurredOn: form.get("occurredOn") ?? "",
+    fees: form.get("fees") || "0",
+  });
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? t("check") };
+  const id = String(form.get("id") ?? "");
+  const { investmentId, side, occurredOn } = parsed.data;
+  const fees = toDbAmount(parsed.data.fees);
+
+  const failure = await withHousehold(ctx, async (tx) => {
+    const [investment] = await tx
+      .select()
+      .from(investments)
+      .where(eq(investments.id, investmentId));
+    const [current] = await tx
+      .select()
+      .from(investmentTrades)
+      .where(and(eq(investmentTrades.id, id), eq(investmentTrades.investmentId, investmentId)));
+    if (!investment || !current) return t("notFound");
+
+    let quantity: string;
+    let unitPrice: string;
+    if (isUnitPriced(investment.assetClass)) {
+      const fields = z
+        .object({
+          quantity: positive(t("quantityRequired"), locale),
+          unitPrice: positive(t("priceFormat"), locale),
+        })
+        .safeParse({
+          quantity: form.get("quantity") ?? "",
+          unitPrice: form.get("unitPrice") ?? "",
+        });
+      if (!fields.success) return fields.error.issues[0]?.message ?? t("check");
+      ({ quantity, unitPrice } = fields.data);
+    } else {
+      const field = positive(t("amountFormat"), locale).safeParse(form.get("amount") ?? "");
+      if (!field.success) return field.error.issues[0]?.message ?? t("check");
+      quantity = current.quantity;
+      unitPrice = toDbAmount(money(field.data).dividedBy(current.quantity));
+    }
+
+    const next: TradeInput = { side, occurredOn, quantity, unitPrice, fees };
+    if (current.transactionId) {
+      await tx.delete(transactions).where(eq(transactions.id, current.transactionId));
+    }
+    const accountId = String(form.get("accountId") ?? "");
+    const transactionId = accountId
+      ? await recordTradeCash(tx, ctx, {
+          accountId,
+          side,
+          name: investment.ticker ?? investment.name,
+          trade: next,
+        })
+      : null;
+    await tx
+      .update(investmentTrades)
+      .set({ ...next, transactionId })
+      .where(eq(investmentTrades.id, id));
+    await audit(tx, ctx, "update", "investment_trades", id);
     return null;
   }).catch((error: unknown) => {
     if (error instanceof MissingQuote) return t("noQuote");

@@ -350,7 +350,8 @@
       "price": "Price (¤)",
       "amount": "Amount (¤)",
       "feesHint": "Optional. They count toward the average price.",
-      "submit": "Save trade"
+      "submit": "Save trade",
+      "update": "Save changes"
     },
     "quote": {
       "auto": "Updated automatically on {date}",
@@ -462,7 +463,10 @@
         "title": "Delete trade",
         "text": "The position and average price will be recalculated. If the trade took money from an account, the account transaction goes with it.",
         "confirm": "Delete"
-      }
+      },
+      "editLabel": "Edit operation",
+      "editTitle": "Edit operation",
+      "editHint": "Position and average price are recalculated. If the operation touched an account, its entry is rewritten."
     },
     "rebalance": {
       "title": "Rebalancing",

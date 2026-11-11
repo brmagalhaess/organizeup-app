@@ -292,8 +292,6 @@ export async function commitInvestmentImport(input: ImportCommitInput): Promise<
       const { rows, positions } = planOf(data, holdings, catalog, selected);
 
       const chosen = rows.filter((row) => selected.has(row.line));
-      const oversold = chosen.find((row) => row.ignoreReason === "venda_maior_que_posicao");
-      if (oversold) throw new ImportRefused(t("oversold", { ticker: oversold.ticker ?? "" }));
       const creating = chosen.filter(needsAsset);
       if (creating.some((row) => row.date > today)) throw new ImportRefused(t("future"));
 

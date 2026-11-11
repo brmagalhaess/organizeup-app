@@ -883,6 +883,7 @@ async function saveTrades(
   items: ItemRow[],
   catalog: ReadonlyMap<string, CatalogAsset>,
   issuers: IssuerRef[],
+  file: FileTarget,
 ): Promise<Outcome[]> {
   const ids = items.map((item) => item.id);
   try {
@@ -951,9 +952,11 @@ async function saveTrades(
               unitPrice: planned.unitPrice,
               fees: planned.fees,
             };
-            const transactionId = payload.accountId
+            // A conta escolhida no arquivo vale para toda a nota: o dinheiro sai e entra por ela.
+            const accountId = payload.accountId ?? file.accountId;
+            const transactionId = accountId
               ? await recordTradeCash(step, ctx, {
-                  accountId: payload.accountId,
+                  accountId,
                   side: planned.side,
                   name: ticker,
                   trade,
@@ -1082,7 +1085,9 @@ export async function approveSmartImport(
       const issuers = await listMarketIssuers();
       for (const file of files) {
         const group = open.filter((item) => item.fileId === file.id);
-        if (group.length > 0) (await saveTrades(ctx, group, catalog, issuers)).forEach(count);
+        if (group.length > 0) {
+          (await saveTrades(ctx, group, catalog, issuers, file)).forEach(count);
+        }
       }
     }
   }

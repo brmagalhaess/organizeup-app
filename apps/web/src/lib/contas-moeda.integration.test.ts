@@ -51,7 +51,7 @@ const { saveEntry, confirmEntry, confirmEntryNotice, deleteEntry, quoteForEntry 
 const { createTransfer, deleteTransfer, saveAccount } =
   await import("@/app/app/(painel)/contas/actions");
 const { commitImport, prepareImport } = await import("@/app/app/(painel)/importar/actions");
-const { addTrade } = await import("@/app/app/(painel)/investimentos/actions");
+const { addTrade, updateTrade } = await import("@/app/app/(painel)/investimentos/actions");
 const { loadAccountBalances, loadMonth, loadOverview, loadTransfers } =
   await import("@/lib/finance-data");
 const { loadNetWorth, loadReserve } = await import("@/lib/wealth");
@@ -696,6 +696,66 @@ describe("compromissos em reais pagos com conta estrangeira", () => {
     expect(result.ok).toBe(false);
     expect(result.message).toContain("Ainda não temos a cotação");
     await inH(async (tx) => {
+      await tx.delete(db.investmentTrades);
+      await tx.delete(investments);
+    });
+  });
+
+  it("venda maior que a posição entra, e editar a operação refaz o lançamento da conta", async () => {
+    const [asset] = await inH((tx) =>
+      tx
+        .insert(investments)
+        .values({
+          householdId: H.household,
+          name: "Petrobras",
+          ticker: "PETR4",
+          assetClass: "acao",
+        })
+        .returning({ id: investments.id }),
+    );
+    const sold = await addTrade(
+      { ok: false, message: null },
+      form({
+        investmentId: asset!.id,
+        side: "venda",
+        occurredOn: "2026-10-30",
+        fees: "0",
+        quantity: "10",
+        unitPrice: "30,00",
+        accountId: dollars,
+      }),
+    );
+    expect(sold).toEqual({ ok: true, message: null });
+    const [trade] = await inH((tx) => tx.select().from(db.investmentTrades));
+    expect(trade?.side).toBe("venda");
+    expect(domain.money(trade!.quantity).toString()).toBe("10");
+    expect(await newest("Resgate de PETR4")).toMatchObject({ amount: "300.00" });
+
+    const edited = await updateTrade(
+      { ok: false, message: null },
+      form({
+        id: trade!.id,
+        investmentId: asset!.id,
+        side: "venda",
+        occurredOn: "2026-10-30",
+        fees: "1,00",
+        quantity: "12",
+        unitPrice: "31,00",
+        accountId: real,
+      }),
+    );
+    expect(edited).toEqual({ ok: true, message: null });
+    const [after] = await inH((tx) => tx.select().from(db.investmentTrades));
+    expect(domain.money(after!.quantity).toString()).toBe("12");
+    expect(domain.money(after!.unitPrice).toString()).toBe("31");
+    expect(after?.fees).toBe("1.00");
+    const moved = await inH((tx) =>
+      tx.select().from(transactions).where(eq(transactions.description, "Resgate de PETR4")),
+    );
+    expect(moved).toHaveLength(1);
+    expect(moved[0]).toMatchObject({ id: after!.transactionId, accountId: real, amount: "371.00" });
+    await inH(async (tx) => {
+      await tx.delete(transactions);
       await tx.delete(db.investmentTrades);
       await tx.delete(investments);
     });

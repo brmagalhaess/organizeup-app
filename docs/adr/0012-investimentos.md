@@ -6,7 +6,11 @@ e da nota de corretagem: ver ADR-0024. Importação de proventos: ver ADR-0029. 
 ## Decisão
 
 - **Preço médio** pela regra usual: compra soma custo e taxas; venda baixa pelo preço médio, sem mudá-lo, e apura o
-  resultado. Venda maior que a posição na data é recusada.
+  resultado. Venda maior que a posição na data entra mesmo assim (desde 2026-11-10): a compra pode estar numa
+  nota que ainda não foi importada. A posição fica em zero e a carteira avisa até a compra chegar.
+- **Editar operação** em Investimentos → Lançamentos: muda lado, data, quantidade, preço, taxas e conta. O
+  lançamento da conta é refeito (sai o antigo, entra o novo). Nota de corretagem no importador usa a conta
+  escolhida no arquivo para o dinheiro de toda a nota.
 - **Duas formas de valor.** Ação, FII e ETF/BDR valem quantidade × preço. Renda fixa, fundo, previdência, exterior e
   outros valem o total informado pela família, porque o extrato já traz esse número. Sem valor informado, mostramos
   o custo e avisamos.

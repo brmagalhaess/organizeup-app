@@ -66,6 +66,7 @@ export async function loadPortfolio(ctx: TenantContext) {
     ]);
     const nameOf = new Map(accountRows.map((row) => [row.id, row.name]));
     const accountOf = new Map(moves.map((row) => [row.id, nameOf.get(row.accountId) ?? null]));
+    const accountIdOf = new Map(moves.map((row) => [row.id, row.accountId]));
     const tickers = [
       ...new Set(holdings.flatMap((holding) => normalizeTicker(holding.ticker) ?? [])),
     ];
@@ -86,6 +87,7 @@ export async function loadPortfolio(ctx: TenantContext) {
         .map((trade) => ({
           ...trade,
           accountName: trade.transactionId ? (accountOf.get(trade.transactionId) ?? null) : null,
+          accountId: trade.transactionId ? (accountIdOf.get(trade.transactionId) ?? null) : null,
         })),
       events: events.filter((event) => event.investmentId === holding.id),
     }));

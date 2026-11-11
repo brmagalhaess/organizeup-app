@@ -317,47 +317,10 @@ function markNearby(
   }
 }
 
-const chronological = (a: PlannedTrade, b: PlannedTrade) =>
-  a.date.localeCompare(b.date) || a.side.localeCompare(b.side) || a.line - b.line;
-
 /**
- * Venda maior que a posição é recusada, como no cadastro. As compras do arquivo contam, em ordem de data; a
- * família pode ter comprado antes do período baixado, e aí a linha fica de fora até vir o arquivo anterior.
+ * Venda maior que a posição entra mesmo assim: a compra pode estar numa nota anterior que ainda não veio, e a
+ * posição só fecha quando ela chegar. A carteira mostra o aviso enquanto isso (`positionOf().oversold`).
  */
-function refuseOversold(
-  rows: PlannedTrade[],
-  holdings: Map<string, KnownHolding>,
-  willCreate: (row: PlannedTrade) => boolean,
-) {
-  const tickers = new Set(rows.filter(willCreate).map((row) => row.ticker!));
-  for (const ticker of tickers) {
-    const holding = holdings.get(ticker);
-    const events = holding?.events ?? [];
-    const base: TradeInput[] = holding?.trades ?? [];
-    if (positionOf(base, events).oversold) continue;
-    const created = rows.filter((row) => row.ticker === ticker && willCreate(row));
-    const asTrade = (row: PlannedTrade): TradeInput => ({
-      side: row.side,
-      occurredOn: row.date,
-      quantity: row.quantity,
-      unitPrice: row.unitPrice,
-      fees: row.fees,
-    });
-    if (!positionOf([...base, ...created.map(asTrade)], events).oversold) continue;
-    const accepted = [...base];
-    for (const row of [...created].sort(chronological)) {
-      const next = [...accepted, asTrade(row)];
-      if (row.side === "venda" && positionOf(next, events).oversold) {
-        row.state = "ignorado";
-        row.ignoreReason = "venda_maior_que_posicao";
-        row.doubtReason = null;
-      } else {
-        accepted.push(asTrade(row));
-      }
-    }
-  }
-}
-
 export interface ImportPlanInput {
   trades: ParsedTrade[];
   holdings: KnownHolding[];
@@ -368,8 +331,6 @@ export interface ImportPlanInput {
 /** Marcada por padrão: criar o que é novo e completar taxa. O resto só com a pessoa pedindo. */
 export const selectedByDefault = (row: PlannedTrade) =>
   row.state === "novo" || row.state === "taxas";
-
-const creates = (row: PlannedTrade) => row.state === "novo" || row.state === "conferir";
 
 export function planInvestmentImport(input: ImportPlanInput): PlannedTrade[] {
   const holdings = holdingsByTicker(input.holdings);
@@ -399,10 +360,6 @@ export function planInvestmentImport(input: ImportPlanInput): PlannedTrade[] {
       row.doubtReason = row.doubt;
     }
   }
-  const { selected } = input;
-  refuseOversold(rows, holdings, (row) =>
-    selected ? creates(row) && selected.has(row.line) : row.state === "novo",
-  );
   return rows;
 }
 

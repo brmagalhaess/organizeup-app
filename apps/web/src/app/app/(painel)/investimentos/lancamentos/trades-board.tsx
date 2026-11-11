@@ -1,5 +1,5 @@
 "use client";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -18,8 +18,9 @@ import {
 import { formatDate } from "@/i18n/format";
 import { systemTextOf } from "@/i18n/system-text";
 import { deleteTrade } from "../actions";
+import { EditTradeForm } from "../edit-trade-form";
 import { OperationForm } from "../operation-form";
-import { quantityText, type Data, type Trade } from "../shared";
+import { quantityText, type Data, type Row, type Trade } from "../shared";
 import { useMoney } from "@/i18n/money";
 
 const sideKey = (unit: boolean, buying: boolean) =>
@@ -41,6 +42,7 @@ export function TradesBoard({
   const moneyText = useMoney();
   const router = useRouter();
   const [removing, setRemoving] = useState<Trade | null>(null);
+  const [editing, setEditing] = useState<{ row: Row; trade: Trade } | null>(null);
   const [adding, setAdding] = useState<{ nonce: number } | null>(null);
   const close = () => setAdding(null);
 
@@ -148,12 +150,20 @@ export function TradesBoard({
                         {moneyText(toDbAmount(total))}
                       </p>
                       {writable ? (
-                        <IconButton
-                          label={t("trades.deleteLabel")}
-                          onClick={() => setRemoving(trade)}
-                        >
-                          <Trash2 className="size-4" aria-hidden="true" />
-                        </IconButton>
+                        <>
+                          <IconButton
+                            label={t("trades.editLabel")}
+                            onClick={() => setEditing({ row, trade })}
+                          >
+                            <Pencil className="size-4" aria-hidden="true" />
+                          </IconButton>
+                          <IconButton
+                            label={t("trades.deleteLabel")}
+                            onClick={() => setRemoving(trade)}
+                          >
+                            <Trash2 className="size-4" aria-hidden="true" />
+                          </IconButton>
+                        </>
                       ) : null}
                     </li>
                   );
@@ -167,6 +177,17 @@ export function TradesBoard({
       <Sheet open={adding !== null} onClose={close} title={t("trades.new")}>
         {adding ? (
           <OperationForm key={adding.nonce} data={data} assetId={assetId} onDone={close} />
+        ) : null}
+      </Sheet>
+      <Sheet open={editing !== null} onClose={() => setEditing(null)} title={t("trades.editTitle")}>
+        {editing ? (
+          <EditTradeForm
+            key={editing.trade.id}
+            row={editing.row}
+            trade={editing.trade}
+            accounts={data.accounts}
+            onDone={() => setEditing(null)}
+          />
         ) : null}
       </Sheet>
       <ConfirmSheet

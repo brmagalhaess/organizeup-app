@@ -473,7 +473,9 @@ function FileBlock({
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const needsAccount = items.some((item) =>
-    ["lancamento", "divida", "consorcio", "renda", "previsao"].includes(item.destination),
+    ["lancamento", "operacao", "divida", "consorcio", "renda", "previsao"].includes(
+      item.destination,
+    ),
   );
   const needsCard = items.some((item) => item.destination === "compra_cartao");
   const groups = SMART_DESTINATIONS.flatMap((destination) => {

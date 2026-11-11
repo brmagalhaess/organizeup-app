@@ -350,7 +350,8 @@
       "price": "Precio (¤)",
       "amount": "Monto (¤)",
       "feesHint": "Opcional. Entran en el precio medio.",
-      "submit": "Guardar operación"
+      "submit": "Guardar operación",
+      "update": "Guardar cambios"
     },
     "quote": {
       "auto": "Actualizado automáticamente el {date}",
@@ -462,7 +463,10 @@
         "title": "Eliminar operación",
         "text": "La posición y el precio medio se recalcularán. Si la operación sacó dinero de una cuenta, el movimiento de la cuenta se elimina con ella.",
         "confirm": "Eliminar"
-      }
+      },
+      "editLabel": "Editar operación",
+      "editTitle": "Editar operación",
+      "editHint": "La posición y el precio medio se recalculan. Si la operación tocó una cuenta, el movimiento de la cuenta se rehace."
     },
     "rebalance": {
       "title": "Rebalanceo",

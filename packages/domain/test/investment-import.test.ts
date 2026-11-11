@@ -977,7 +977,7 @@ describe("posição e venda", () => {
     expect(states(rows)).toEqual(["novo", "novo"]);
   });
 
-  it("venda sem compra suficiente fica de fora, com a compra mantida", () => {
+  it("venda maior que a posição entra: a compra pode estar numa nota que ainda não veio", () => {
     const rows = planInvestmentImport({
       trades: [
         trade({ line: 1, side: "compra", date: "2026-03-05", quantity: "100" }),
@@ -986,8 +986,8 @@ describe("posição e venda", () => {
       ],
       holdings: [],
     });
-    expect(states(rows)).toEqual(["novo", "ignorado", "novo"]);
-    expect(rows[1]!.ignoreReason).toBe("venda_maior_que_posicao");
+    expect(states(rows)).toEqual(["novo", "novo", "novo"]);
+    expect(rows.map((row) => row.ignoreReason)).toEqual([null, null, null]);
   });
 
   it("conta o desdobramento já aplicado à carteira", () => {
@@ -1001,7 +1001,7 @@ describe("posição e venda", () => {
     expect(states(rows)).toEqual(["novo"]);
   });
 
-  it("na confirmação, venda que dependia de compra desmarcada é recusada", () => {
+  it("na confirmação, venda sem a compra marcada entra mesmo assim", () => {
     const rows = planInvestmentImport({
       trades: [
         trade({ line: 1, side: "compra", date: "2026-03-05", quantity: "100" }),
@@ -1010,7 +1010,7 @@ describe("posição e venda", () => {
       holdings: [],
       selected: new Set([2]),
     });
-    expect(rows[1]).toMatchObject({ state: "ignorado", ignoreReason: "venda_maior_que_posicao" });
+    expect(rows[1]).toMatchObject({ state: "novo", ignoreReason: null });
   });
 
   it("ativo sem cotação na família não recebe operação", () => {

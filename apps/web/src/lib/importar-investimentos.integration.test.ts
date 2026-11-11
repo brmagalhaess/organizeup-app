@@ -263,16 +263,14 @@ describe("confirmar", () => {
     expect(await entries()).toHaveLength(0);
   });
 
-  it("recusa inteira a venda maior que a posição", async () => {
+  it("grava a venda maior que a posição: a compra pode vir numa nota anterior", async () => {
     const lines: Line[] = [
       { line: 1 },
       { line: 2, side: "venda", date: "2026-03-06", quantity: "150" },
     ];
-    const result = await send(lines);
-    expect(result).toMatchObject({ ok: false });
-    expect(result.ok ? "" : result.message).toContain("ABCD3");
-    expect(await trades()).toHaveLength(0);
-    expect(await holdings()).toHaveLength(0);
+    expect(await send(lines)).toMatchObject({ ok: true });
+    expect(await trades()).toHaveLength(2);
+    expect(await holdings()).toHaveLength(1);
   });
 
   it("ativo fora do catálogo exige o tipo", async () => {
