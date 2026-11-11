@@ -1019,6 +1019,16 @@ export const marketTickers = pgTable("market_tickers", {
   errorCode: text("error_code"),
 });
 
+/** Varredura de proventos do catálogo (calendário de dividendos): quando cada código foi conferido na B3. */
+export const marketDividendScans = pgTable("market_dividend_scans", {
+  ticker: text("ticker").primaryKey(),
+  assetClass: text("asset_class", { enum: ["acao", "fii"] }).notNull(),
+  scannedOn: date("scanned_on", { mode: "string" }).notNull(),
+  nextOn: date("next_on", { mode: "string" }).notNull(),
+  errorCode: text("error_code"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
 export const MARKET_ISSUER_KINDS = ["acao", "bdr"] as const;
 
 /** Emissoras da B3 (ADR-0036): nome de pregão e raiz do código, para achar o papel pelo nome da nota. */

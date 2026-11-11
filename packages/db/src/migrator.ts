@@ -120,13 +120,13 @@ async function applyGrants(sql: postgres.Sql) {
       ON public.market_quotes, public.market_dividends, public.market_indices,
          public.market_tickers, public.market_usage, public.market_stock_events,
          public.market_assets, public.market_fx, public.market_quote_history,
-         public.market_issuers
+         public.market_issuers, public.market_dividend_scans
       FROM ${app}, ${admin};
     REVOKE DELETE
       ON public.market_quotes, public.market_dividends, public.market_indices,
          public.market_tickers, public.market_usage, public.market_stock_events,
          public.market_assets, public.market_fx, public.market_quote_history,
-         public.market_issuers
+         public.market_issuers, public.market_dividend_scans
       FROM ${worker};
     -- Base de conhecimento: mesma regra do mercado. O texto chega pelo migrador (ADR-0018).
     REVOKE INSERT, UPDATE, DELETE ON public.knowledge_chunks FROM ${app}, ${admin};

@@ -1,11 +1,26 @@
 // Helpers das tabelas globais de mercado (ADR-0017). Sem dado de família e sem RLS de tenant: rodam
 // fora de withHousehold, como os do schema `ops`. Gravar exige a conexão ou_worker.
-import { and, asc, count, eq, gte, ilike, like, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  like,
+  lte,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { FxCurrency } from "@organizeup/domain";
 import { tolerateSchemaLag } from "./access";
 import { appPool } from "./client";
 import {
   marketAssets,
+  marketDividendScans,
   marketDividends,
   marketFx,
   marketIndices,
@@ -224,6 +239,77 @@ export async function saveMarketDividends(rows: MarketDividendRow[]): Promise<nu
       },
     });
   return rows.length;
+}
+
+/** Proventos do universo com data-com ou pagamento no intervalo, com o nome do catálogo. */
+export function listMarketDividendsBetween(from: string, to: string) {
+  const d = marketDividends;
+  return appPool()
+    .db.select({
+      id: d.id,
+      ticker: d.ticker,
+      name: marketAssets.name,
+      assetClass: marketAssets.assetClass,
+      kind: d.kind,
+      comDate: d.comDate,
+      payDate: d.payDate,
+      ratePerShare: d.ratePerShare,
+      source: d.source,
+    })
+    .from(d)
+    .leftJoin(marketAssets, eq(marketAssets.ticker, d.ticker))
+    .where(
+      or(
+        and(gte(d.comDate, from), lte(d.comDate, to)),
+        and(gte(d.payDate, from), lte(d.payDate, to)),
+      ),
+    )
+    .orderBy(asc(d.payDate), asc(d.ticker));
+}
+
+export interface DividendScanRow {
+  ticker: string;
+  assetClass: "acao" | "fii";
+  scannedOn: string;
+  nextOn: string;
+  errorCode: string | null;
+}
+
+/**
+ * Códigos do catálogo (FII e ação) que ainda não foram varridos ou cuja varredura venceu, fora dos que a
+ * rodada já consulta pelas carteiras. Os nunca varridos vêm primeiro.
+ */
+export async function listDividendScanCandidates(
+  today: string,
+  limit: number,
+  exclude: string[],
+): Promise<Array<{ ticker: string; assetClass: "acao" | "fii" }>> {
+  const a = marketAssets;
+  const s = marketDividendScans;
+  const rows = await appPool()
+    .db.select({ ticker: a.ticker, assetClass: a.assetClass, nextOn: s.nextOn })
+    .from(a)
+    .leftJoin(s, eq(s.ticker, a.ticker))
+    .where(
+      and(
+        inArray(a.assetClass, ["acao", "fii"]),
+        or(isNull(s.nextOn), lte(s.nextOn, today)),
+        exclude.length > 0 ? notInArray(a.ticker, exclude) : undefined,
+      ),
+    )
+    .orderBy(sql`${s.nextOn} asc nulls first`, asc(a.ticker))
+    .limit(limit);
+  return rows.map((row) => ({ ticker: row.ticker, assetClass: row.assetClass as "acao" | "fii" }));
+}
+
+export async function saveDividendScan(row: DividendScanRow): Promise<void> {
+  await appPool()
+    .db.insert(marketDividendScans)
+    .values(row)
+    .onConflictDoUpdate({
+      target: marketDividendScans.ticker,
+      set: { ...row, updatedAt: sql`now()` },
+    });
 }
 
 export interface MarketStockEventRow {

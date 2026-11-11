@@ -18,6 +18,8 @@ import {
   saveMarketFx,
   saveMarketIndices,
   saveMarketIssuers,
+  listDividendScanCandidates,
+  saveDividendScan,
   saveMarketQuote,
   saveMarketStockEvents,
   saveMarketTicker,
@@ -49,6 +51,9 @@ import {
 import { shiftDays } from "./shared";
 
 export const MERCADO_AGENT = "mercado";
+/** Varredura do catálogo: quantos códigos por rodada e de quanto em quanto tempo cada um volta. */
+export const UNIVERSE_PER_RUN = 200;
+export const UNIVERSE_INTERVAL_DAYS = 15;
 /** Pausa entre consultas: as rotas públicas não declaram cota, e espaçar evita bloqueio. */
 export const DEFAULT_PAUSE_MS = 300;
 /** Código que a fonte não reconhece só é consultado de novo depois disto. */
@@ -85,6 +90,13 @@ export interface MarketRunOptions {
   log: Log;
   /** Famílias com sessão nestes dias entram na coleta. */
   activeDays: number;
+  /**
+   * Varre o catálogo (FIIs e ações que nenhuma família tem) em lotes diários, pela B3, para o calendário
+   * de dividendos. O job do worker liga; os testes deixam desligado.
+   */
+  universe?: boolean;
+  /** Quantos códigos do catálogo entram por rodada completa. */
+  universePerRun?: number;
   pauseMs?: number;
   fetch?: typeof fetch;
   now?: Date;
@@ -102,6 +114,8 @@ export interface MarketRunResult {
   issuers: number;
   /** VPA encontrados no Yahoo nesta rodada. */
   bookValues: number;
+  /** Códigos do catálogo varridos nesta rodada (calendário de dividendos). */
+  universe: number;
   indices: number;
   fx: number;
   unknown: number;
@@ -176,6 +190,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     assets: 0,
     issuers: 0,
     bookValues: 0,
+    universe: 0,
     indices: 0,
     fx: 0,
     unknown: 0,
@@ -349,6 +364,59 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
       result.failed += 1;
       log.error({ code, source: YAHOO_SOURCE }, "mercado: consulta de ticker falhou");
       await saveMarketTicker({ ticker, status: "falha", retryOn: null, errorCode: code });
+    }
+  }
+
+  // Universo (calendário de dividendos): o que nenhuma família tem, em lotes, pela B3. Cada código volta
+  // em UNIVERSE_INTERVAL_DAYS; uma falha volta no dia seguinte. Nunca derruba a rodada.
+  if (options.universe && !quotesOnly) {
+    const limit = options.universePerRun ?? UNIVERSE_PER_RUN;
+    try {
+      const candidates = await listDividendScanCandidates(today, limit, [...tickers.keys()]);
+      for (const candidate of candidates) {
+        await sleep(pause);
+        try {
+          if (candidate.assetClass === "fii") {
+            result.dividends += await saveMarketDividends(
+              await fetchB3FiiDividends(candidate.ticker, client),
+            );
+          } else {
+            const { dividends, stockEvents } = await fetchB3CompanyEvents(candidate.ticker, client);
+            result.dividends += await saveMarketDividends(dividends);
+            result.stockEvents += await saveMarketStockEvents(
+              stockEvents.map((event) => ({
+                ...event,
+                ticker: candidate.ticker,
+                source: B3_SOURCE,
+              })),
+            );
+          }
+          result.universe += 1;
+          await saveDividendScan({
+            ...candidate,
+            scannedOn: today,
+            nextOn: shiftDays(today, UNIVERSE_INTERVAL_DAYS),
+            errorCode: null,
+          });
+        } catch (error) {
+          const code = codeOf(error);
+          log.warn(
+            { code, ticker: candidate.ticker, source: B3_SOURCE },
+            "mercado: varredura falhou",
+          );
+          await saveDividendScan({
+            ...candidate,
+            scannedOn: today,
+            nextOn: shiftDays(today, 1),
+            errorCode: code,
+          });
+          // Fonte fora do ar: não insiste no resto do lote hoje.
+          if (code === "limite" || code === "rede") break;
+        }
+      }
+    } catch (error) {
+      result.failed += 1;
+      log.error({ code: codeOf(error) }, "mercado: varredura do catálogo falhou");
     }
   }
 

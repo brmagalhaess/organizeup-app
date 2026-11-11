@@ -271,7 +271,8 @@
       "portfolio": "Carteira",
       "trades": "Lançamentos",
       "rebalance": "Balanceamento",
-      "import": "Importar"
+      "import": "Importar",
+      "calendar": "Calendário"
     },
     "form": {
       "name": "Nome",
@@ -732,6 +733,39 @@
       "newOption": "Novo investimento (ainda não está na carteira)",
       "newHint": "Cadastre o ativo e a primeira compra de uma vez.",
       "firstHint": "Primeira operação: o investimento e a compra nascem juntos."
+    },
+    "calendar": {
+      "metaTitle": "Calendário de dividendos",
+      "title": "Calendário de dividendos",
+      "description": "Data-com e pagamento de todos os FIIs e ações que o sistema acompanha. Marque \"Só meus ativos\" para ver o que entra para você.",
+      "mine": "Só meus ativos",
+      "all": "Todos os ativos",
+      "prev": "Mês anterior",
+      "next": "Mês seguinte",
+      "month": "Mês",
+      "legendCom": "Data-com",
+      "legendPay": "Pagamento",
+      "summary": "{count, plural, =0 {Nenhum provento} one {# provento} other {# proventos}} no mês · {mine, plural, =0 {nenhum dos seus ativos} one {# dos seus ativos} other {# dos seus ativos}}",
+      "mineTotal": "{amount} a receber no mês pelos seus ativos.",
+      "empty": "Nenhuma data-com nem pagamento neste mês.",
+      "emptyMine": "Nenhum provento dos seus ativos neste mês. Veja todos os ativos ou escolha outro mês.",
+      "noHoldings": "Cadastre os ativos com o código em Carteira para ver só os seus.",
+      "more": "+{count}",
+      "perShare": "{amount} por cota",
+      "perShareStock": "{amount} por ação",
+      "comOn": "data-com {date}",
+      "payOn": "paga em {date}",
+      "yours": "Você: {quantity} × {amount} = {total}",
+      "notHeld": "Sem posição na data-com.",
+      "byDay": "Por dia",
+      "note": "Os dados vêm da B3. O sistema varre o catálogo em lotes diários, então um ativo novo pode levar alguns dias para aparecer. Nada aqui é recomendação.",
+      "grid": "Dias do mês",
+      "kinds": {
+        "dividendo": "Dividendo",
+        "jcp": "JCP",
+        "rendimento": "Rendimento"
+      },
+      "yoursBadge": "Seu ativo"
     }
   },
   "proventos": {

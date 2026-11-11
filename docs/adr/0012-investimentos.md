@@ -24,6 +24,13 @@ e da nota de corretagem: ver ADR-0024. Importação de proventos: ver ADR-0029. 
   ativo fixa. Desde a migração 0048 o worker busca o VPA na rota de fundamentos do Yahoo (patrimônio
   líquido ÷ ações emitidas do último trimestre) uma vez por dia, junto com os proventos, e guarda em
   `market_quotes`; o P/VP sai sozinho, e o VPA informado pela família vale mais.
+- **Calendário de dividendos** (2026-11-11, migração 0049): aba em Investimentos com a grade do mês
+  (domingo a sábado) marcando data-com e pagamento de todos os FIIs e ações que o sistema acompanha, com
+  "Só meus ativos" (quantidade na data-com e valor a entrar) e escolha de mês e ano. Para o universo ser
+  de verdade, o job de mercado passou a varrer o catálogo (`market_assets`, FII e ação) em lotes de 200
+  por rodada completa, pela B3, anotando em `market_dividend_scans` quando cada código volta (15 dias;
+  falha volta no dia seguinte). É o começo de um histórico próprio de proventos, que no futuro pode virar
+  uma API pública. Dados em `lib/dividend-calendar.ts` (grade e eventos) e `lib/dividend-calendar-data.ts`.
 - **Editar operação** em Investimentos → Lançamentos: muda lado, data, quantidade, preço, taxas e conta. O
   lançamento da conta é refeito (sai o antigo, entra o novo). Nota de corretagem no importador usa a conta
   escolhida no arquivo para o dinheiro de toda a nota.

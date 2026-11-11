@@ -99,6 +99,7 @@ const KNOWN_ROUTES = [
   "/app/importar/arquivos/[id]",
   "/app/investimentos",
   "/app/investimentos/balanceamento",
+  "/app/investimentos/calendario",
   "/app/investimentos/importar",
   "/app/investimentos/lancamentos",
   "/app/lancamentos",

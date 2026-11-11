@@ -271,7 +271,8 @@
       "portfolio": "Portfolio",
       "trades": "Transactions",
       "rebalance": "Rebalancing",
-      "import": "Import"
+      "import": "Import",
+      "calendar": "Calendar"
     },
     "form": {
       "name": "Name",
@@ -732,6 +733,39 @@
       "newOption": "New investment (not in the portfolio yet)",
       "newHint": "Add the asset and its first purchase at once.",
       "firstHint": "First trade: the investment and the purchase are created together."
+    },
+    "calendar": {
+      "metaTitle": "Dividend calendar",
+      "title": "Dividend calendar",
+      "description": "Ex-dates and payment dates for every REIT and stock the system tracks. Switch to \"Only my assets\" to see what comes to you.",
+      "mine": "Only my assets",
+      "all": "All assets",
+      "prev": "Previous month",
+      "next": "Next month",
+      "month": "Month",
+      "legendCom": "Ex-date",
+      "legendPay": "Payment",
+      "summary": "{count, plural, =0 {No dividends} one {# dividend} other {# dividends}} this month · {mine, plural, =0 {none of your assets} one {# of your assets} other {# of your assets}}",
+      "mineTotal": "{amount} to receive this month from your assets.",
+      "empty": "No ex-date or payment this month.",
+      "emptyMine": "No dividend from your assets this month. See all assets or pick another month.",
+      "noHoldings": "Register your assets with their code in Portfolio to see only yours.",
+      "more": "+{count}",
+      "perShare": "{amount} per unit",
+      "perShareStock": "{amount} per share",
+      "comOn": "ex-date {date}",
+      "payOn": "paid on {date}",
+      "yours": "You: {quantity} × {amount} = {total}",
+      "notHeld": "No position on the ex-date.",
+      "byDay": "By day",
+      "note": "Data comes from B3. The system scans the catalog in daily batches, so a new asset may take a few days to appear. Nothing here is a recommendation.",
+      "grid": "Days of the month",
+      "kinds": {
+        "dividendo": "Dividend",
+        "jcp": "Interest on equity",
+        "rendimento": "Income"
+      },
+      "yoursBadge": "Your asset"
     }
   },
   "proventos": {

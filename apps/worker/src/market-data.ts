@@ -38,6 +38,7 @@ export async function runMarketDataJob(log: Log, job: MarketDataJob = {}): Promi
     log,
     mode: job.mode ?? "full",
     catalog: true,
+    universe: true,
     activeDays: ACTIVE_DAYS,
   });
 }

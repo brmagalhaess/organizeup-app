@@ -9,6 +9,7 @@ const TABS = [
   { href: "/app/investimentos", label: "portfolio" },
   { href: "/app/investimentos/lancamentos", label: "trades" },
   { href: "/app/investimentos/balanceamento", label: "rebalance" },
+  { href: "/app/investimentos/calendario", label: "calendar" },
   { href: "/app/investimentos/importar", label: "import" },
 ] as const;
 
