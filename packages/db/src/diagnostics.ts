@@ -88,6 +88,7 @@ const KNOWN_ROUTES = [
   "/app/completar",
   "/app/configuracoes",
   "/app/contas",
+  "/app/contas/conexoes",
   "/app/dividas",
   "/app/dividas/importar",
   "/app/escolher",

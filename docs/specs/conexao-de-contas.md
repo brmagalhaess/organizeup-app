@@ -6,11 +6,12 @@ data. Não substitui advogado. Preços da Pluggy e da B3 conferidos direto na fo
 
 ## Conclusão
 
-| Etapa                     | Quando                                    | Custo fixo   |
-| ------------------------- | ----------------------------------------- | ------------ |
-| 1. Importar arquivo       | Agora                                     | R$ 0         |
-| 2. API da B3              | Com CNPJ e 51 assinantes de Investimentos | R$ 500/mês   |
-| 3. Open Finance de bancos | Com 126 conexões pagas confirmadas        | R$ 2.500/mês |
+| Etapa                      | Quando                                    | Custo fixo   |
+| -------------------------- | ----------------------------------------- | ------------ |
+| 1. Importar arquivo        | Agora                                     | R$ 0         |
+| 1,5. Pluggy, chave própria | Em teste, só para o admin (ADR-0038)      | R$ 0         |
+| 2. API da B3               | Com CNPJ e 51 assinantes de Investimentos | R$ 500/mês   |
+| 3. Open Finance de bancos  | Com 126 conexões pagas confirmadas        | R$ 2.500/mês |
 
 ## Quem conecta e quem aprova
 
@@ -36,6 +37,22 @@ Regra central: **quem aprova é sempre o titular da conta no banco, nunca outra 
 Extrato OFX e CSV existe em `/app/importar`; Excel da Área do Investidor da B3 e nota de corretagem, em
 `/app/investimentos/importar` (ADR-0024); proventos, em `/app/proventos/importar` (ADR-0029). O arquivo é baixado pelo próprio titular, sem contrato com banco ou B3, e é o
 caminho mais estável.
+
+## Etapa 1,5: Pluggy com a chave da própria pessoa
+
+Decisão do fundador em 2026-11-11 ([ADR-0038](../adr/0038-conexao-pluggy-com-chave-propria.md)). O Meu Pluggy é
+o plano pessoal gratuito da Pluggy: até 5 conexões de contas do próprio titular, com leitura pela API. Cada pessoa
+cria a conta dela na Pluggy e informa o Client ID, o Client Secret e os Item IDs em `/app/contas/conexoes`. O que
+vem do banco passa pelas conferências de importar que já existem. Custo fixo: R$ 0.
+
+Exceção à regra de "cada pessoa conecta as próprias contas, no próprio login", decidida pelo fundador em
+2026-11-11: um login guarda até 2 chaves, a sua e a de outra pessoa adulta do cadastro (o cônjuge). A chave é
+criada pela própria pessoa, na conta dela na Pluggy, e quem guarda confirma que ela autorizou. Cada chave fica
+ligada à pessoa no cadastro, e uma conta do OrganizeUp recebe lançamentos de uma conta do banco só.
+
+Nasce desligada (`bank_feed_enabled`), só para o admin do serviço. Antes de ligar para todos: confirmar com a
+Pluggy se esse uso dentro do produto cabe no plano gratuito, que ela descreve como de uso pessoal, e atualizar a
+Política de Privacidade.
 
 ## Etapa 2: API da B3
 

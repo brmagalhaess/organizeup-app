@@ -725,6 +725,13 @@
         "noAccount": "This account is no longer available.",
         "noQuote": "The account currency has no exchange rate on the date of a trade.",
         "failed": "We could not finish right now. Nothing was saved. Please try again."
+      },
+      "bank": {
+        "title": "Bring from Pluggy",
+        "text": "Fetches your position in stocks, real estate funds, ETFs and BDRs from your connections. You review before saving.",
+        "fetch": "Fetch position",
+        "fetching": "Fetching from Pluggy…",
+        "empty": "Pluggy returned no investments in your connections."
       }
     },
     "operation": {
@@ -3025,7 +3032,8 @@
       "balanceFormat": "Enter the balance like 1,250.00.",
       "currencyLocked": "This account already has activity and can't change currency. Create another account.",
       "currencyOff": "{currency} isn't in your plan. Add it in Plan and subscription."
-    }
+    },
+    "connectBank": "Connect bank"
   },
   "cartoes": {
     "metaTitle": "Credit cards",
@@ -3565,6 +3573,21 @@
       "title": "Have dividends to bring in?",
       "text": "Excel from B3's Área do Investidor or a CSV come in through the dividends screen, without duplicating what is already there.",
       "link": "Import dividends"
+    },
+    "bank": {
+      "title": "Bring from the bank",
+      "text": "Fetches the entries of the linked account from Pluggy. Without a date, it continues from where it stopped. You review everything before saving, and what is already in does not come in again.",
+      "connectText": "Link your Pluggy account to bring entries without downloading a file.",
+      "account": "Bank account",
+      "since": "Since (optional)",
+      "fetch": "Fetch entries",
+      "fetching": "Fetching from Pluggy…",
+      "manage": "Manage connection",
+      "connect": "Connect bank",
+      "linkFirst": "You have not linked any bank account to an OrganizeUp account yet.",
+      "empty": "No entries in the period.",
+      "pending": "{count, plural, one {# entry still pending at the bank was left for the next fetch.} other {# entries still pending at the bank were left for the next fetch.}}",
+      "truncated": "More than 2,000 rows came: the most recent ones were kept. For the rest, fetch again with an earlier date in \"Since\"."
     }
   },
   "renda": {
@@ -5276,5 +5299,118 @@
     "error": "Something went wrong",
     "warning": "Heads up",
     "info": "Notice"
+  },
+  "conexoes": {
+    "metaTitle": "Bank connection",
+    "eyebrow": "Accounts",
+    "title": "Bank connection",
+    "description": "Bring entries and investments straight from the bank, through Pluggy, with your own key.",
+    "noPermission": "You do not have permission to change this data.",
+    "unavailable": "The bank connection is unavailable right now. Try again later.",
+    "saved": "{count, plural, =0 {Connection saved. Pluggy has not shown any account yet.} one {Connection saved. # account found.} other {Connection saved. # accounts found.}}",
+    "refreshed": "{count, plural, =0 {Pluggy showed no accounts.} one {List updated: # account.} other {List updated: # accounts.}}",
+    "linked": "Account linked.",
+    "unlinked": "Link removed.",
+    "how": {
+      "title": "How to connect",
+      "text": "Pluggy is an Open Finance company. Its personal plan is free and accepts up to 5 connections of accounts in your own name.",
+      "steps": {
+        "account": "Create your Meu Pluggy account and connect your banks there. The authorization happens in the bank's own app.",
+        "dashboard": "Create an account on the Pluggy dashboard, preferably with the same email. The 15-day trial notice does not apply to personal use.",
+        "application": "On the dashboard, create an application and copy the Client ID and the Client Secret.",
+        "connector": "Still on the dashboard, create a connection choosing the MeuPluggy connector. Repeat for each bank.",
+        "items": "Copy the identifier (Item ID) of each connection you created.",
+        "paste": "Paste everything in the form below. The keys are encrypted and only you can use them."
+      }
+    },
+    "links": {
+      "meu": "Open Meu Pluggy",
+      "dashboard": "Open Pluggy dashboard"
+    },
+    "terms": {
+      "title": "Before you connect",
+      "own": "Each key belongs to one person and brings only the accounts in their name. You can store yours and one more person's from the register, with their authorization.",
+      "password": "OrganizeUp never sees or stores your bank password. The authorization is yours, at Pluggy, and you revoke it there whenever you want.",
+      "review": "Nothing comes in by itself: what comes from the bank goes through your review before it becomes an entry.",
+      "free": "The free plan belongs to Pluggy and is for personal use. Its rules and limits are Pluggy's and may change.",
+      "joint": "A joint account shows up in both keys. Link only one of them, so the same entry does not come in twice."
+    },
+    "form": {
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "keepHint": "Blank keeps the stored key.",
+      "itemIds": "Connection Item IDs",
+      "itemIdsHint": "Up to 5, separated by commas.",
+      "save": "Check and save",
+      "saving": "Checking with Pluggy…",
+      "titleAdd": "Store a key",
+      "textAdd": "Up to 2 keys fit: yours and one more person's from the register. Each person creates the key in their own Pluggy account.",
+      "person": "Whose key it is",
+      "personSelf": "{name} (you)",
+      "consent": "This key belongs to another person. I confirm they created the key at Pluggy and authorized me to use it here.",
+      "edit": "Change keys or connections",
+      "noPeople": "There is no one else in the register who can store a key. Add the person to the register first.",
+      "openPeople": "Open register",
+      "limit": "You already stored the 2 keys that fit here. Remove one to store another."
+    },
+    "status": {
+      "title": "{name}'s key",
+      "items": "{count, plural, one {# connection at Pluggy} other {# connections at Pluggy}}",
+      "checked": "checked on {date}",
+      "ok": "Working",
+      "attention": "Needs attention",
+      "error": "Last attempt: {message}"
+    },
+    "actions": {
+      "entries": "Fetch entries",
+      "investments": "Fetch investments",
+      "refresh": "Update accounts",
+      "refreshing": "Updating…",
+      "remove": "Remove connection"
+    },
+    "accounts": {
+      "title": "Accounts found",
+      "text": "Choose which OrganizeUp account receives the entries of each bank account.",
+      "emptyTitle": "No accounts yet",
+      "emptyText": "Pluggy showed no accounts in these connections. Check that the bank appears in Meu Pluggy and update.",
+      "noAccounts": "You do not have an OrganizeUp account to receive the entries yet.",
+      "createAccount": "Create account",
+      "kind": {
+        "corrente": "Checking account",
+        "poupanca": "Savings",
+        "cartao": "Credit card"
+      },
+      "tail": "ending {tail}",
+      "target": "OrganizeUp account",
+      "none": "Do not bring",
+      "save": "Save",
+      "card": "Credit cards are not brought through here yet.",
+      "synced": "Brought up to {date}",
+      "never": "Not brought yet"
+    },
+    "remove": {
+      "title": "Remove {name}'s key?",
+      "text": "The keys are deleted from here. What was already imported stays. To remove access to the banks, revoke it in Meu Pluggy.",
+      "confirm": "Remove"
+    },
+    "errors": {
+      "credenciais": "Pluggy refused the Client ID or the Client Secret. Check that both come from the same application.",
+      "conexao": "Pluggy did not find one of the connections. Check the Item IDs and that the connection was created in this application.",
+      "limite": "Pluggy asked to wait a little. Try again in a few minutes.",
+      "sem_acesso": "Your Pluggy account does not give access to this data.",
+      "rede": "Could not reach Pluggy right now. Try again in a moment.",
+      "resposta": "Pluggy answered in an unexpected way. Try again later.",
+      "cofre": "Could not open the stored keys. Enter the Client ID and the Client Secret again.",
+      "sem_permissao": "You do not have permission to change this data.",
+      "dados_invalidos": "Check the fields. The Client ID and the Item IDs look like 00000000-0000-0000-0000-000000000000, and there are up to 5 connections.",
+      "sem_conexao": "You have not connected your Pluggy account yet.",
+      "conta_invalida": "Choose an active account in the same currency as the bank account.",
+      "cartao": "Credit cards are not brought through here yet.",
+      "conta_em_uso": "This account already receives the entries of another bank account. Choose another one, or create a new account in Accounts.",
+      "pessoa_invalida": "Choose an adult person from the register.",
+      "pessoa_ja_conectada": "This person already has a stored key.",
+      "limite_de_chaves": "Up to 2 keys fit per login. Remove one to store another.",
+      "sem_consentimento": "Tick the confirmation that the person authorized the use of the key."
+    }
   }
 }

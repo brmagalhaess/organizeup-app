@@ -5503,3 +5503,155 @@ describe("ops", () => {
     expect(status.schemaVersion).toMatch(/^\d{4}_/);
   });
 });
+
+describe("isolamento de conexões com bancos", () => {
+  const { accounts, bankConnections, bankConnectionAccounts, people } = db;
+  const ITEM = "11111111-2222-4333-8444-555555555555";
+  let connectionB = "";
+  let personA = "";
+
+  const seed =
+    (householdId: string, userId: string, person?: string) =>
+    async (tx: Parameters<Parameters<typeof db.withHousehold>[1]>[0]) => {
+      const personId =
+        person ??
+        (
+          await tx
+            .insert(people)
+            .values({ householdId, name: "Titular da chave", relation: "titular" })
+            .returning({ id: people.id })
+        )[0]!.id;
+      const [connection] = await tx
+        .insert(bankConnections)
+        .values({
+          householdId,
+          userId,
+          personId,
+          clientIdSealed: "v1.cifrado",
+          clientSecretSealed: "v1.cifrado",
+          itemIds: [ITEM],
+        })
+        .returning({ id: bankConnections.id });
+      await tx.insert(bankConnectionAccounts).values({
+        householdId,
+        connectionId: connection!.id,
+        itemId: ITEM,
+        externalId: "conta-do-banco",
+        kind: "corrente",
+        name: "Conta",
+      });
+      return { connectionId: connection!.id, personId };
+    };
+
+  beforeAll(async () => {
+    const a = await db.withHousehold(
+      await ctxFor(A.owner, A.household),
+      seed(A.household, A.owner),
+    );
+    personA = a.personId;
+    const b = await db.withHousehold(
+      await ctxFor(B.owner, B.household),
+      seed(B.household, B.owner),
+    );
+    connectionB = b.connectionId;
+  });
+
+  it("não lê conexão nem conta ligada de outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    const seen = await db.withHousehold(ctx, async (tx) => ({
+      connections: await tx.select().from(bankConnections),
+      accounts: await tx.select().from(bankConnectionAccounts),
+    }));
+    for (const rows of Object.values(seen)) {
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.householdId).toBe(A.household);
+    }
+  });
+
+  it("não altera, não apaga e não cria conexão em outra família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    await db.withHousehold(ctx, async (tx) => {
+      const changed = await tx
+        .update(bankConnections)
+        .set({ errorCode: "invadido" })
+        .where(eq(bankConnections.id, connectionB))
+        .returning({ id: bankConnections.id });
+      const removed = await tx
+        .delete(bankConnections)
+        .where(eq(bankConnections.id, connectionB))
+        .returning({ id: bankConnections.id });
+      expect(changed).toHaveLength(0);
+      expect(removed).toHaveLength(0);
+    });
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx.insert(bankConnectionAccounts).values({
+          householdId: B.household,
+          connectionId: connectionB,
+          itemId: ITEM,
+          externalId: "outra-conta",
+          kind: "corrente",
+          name: "Invadida",
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("papel viewer lê mas não conecta nem remove", async () => {
+    const ctxV = await ctxFor(A.viewer, A.household);
+    const rows = await db.withHousehold(ctxV, (tx) => tx.select().from(bankConnections));
+    expect(rows).toHaveLength(1);
+    await expect(db.withHousehold(ctxV, seed(A.household, A.viewer, personA))).rejects.toThrow();
+    const removed = await db.withHousehold(ctxV, (tx) =>
+      tx.delete(bankConnections).returning({ id: bankConnections.id }),
+    );
+    expect(removed).toHaveLength(0);
+  });
+
+  it("cada pessoa tem uma chave só, e a chave só é de pessoa da mesma família", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    // A mesma pessoa, guardada por outro login da família: recusa.
+    await expect(db.withHousehold(ctx, seed(A.household, A.adult, personA))).rejects.toThrow();
+    const [other] = await db.withHousehold(await ctxFor(B.owner, B.household), (tx) =>
+      tx.select({ id: people.id }).from(people).limit(1),
+    );
+    await expect(db.withHousehold(ctx, seed(A.household, A.owner, other!.id))).rejects.toThrow();
+  });
+
+  it("um login guarda a chave de outra pessoa, com no máximo cinco itens", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    const second = await db.withHousehold(ctx, seed(A.household, A.owner));
+    const rows = await db.withHousehold(ctx, (tx) => tx.select().from(bankConnections));
+    expect(rows.filter((row) => row.userId === A.owner)).toHaveLength(2);
+    await expect(
+      db.withHousehold(ctx, (tx) =>
+        tx
+          .update(bankConnections)
+          .set({ itemIds: ["1", "2", "3", "4", "5", "6"] })
+          .where(eq(bankConnections.id, second.connectionId))
+          .returning({ id: bankConnections.id }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("uma conta daqui recebe uma conta do banco só", async () => {
+    const ctx = await ctxFor(A.owner, A.household);
+    const [account] = await db.withHousehold(ctx, (tx) =>
+      tx
+        .insert(accounts)
+        .values({ householdId: A.household, name: "Recebe o banco" })
+        .returning({ id: accounts.id }),
+    );
+    const links = await db.withHousehold(ctx, (tx) => tx.select().from(bankConnectionAccounts));
+    expect(links).toHaveLength(2);
+    const link = (id: string) =>
+      db.withHousehold(ctx, (tx) =>
+        tx
+          .update(bankConnectionAccounts)
+          .set({ accountId: account!.id })
+          .where(eq(bankConnectionAccounts.id, id)),
+      );
+    await link(links[0]!.id);
+    await expect(link(links[1]!.id)).rejects.toThrow();
+  });
+});

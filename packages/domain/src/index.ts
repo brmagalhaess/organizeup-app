@@ -35,6 +35,7 @@ export * from "./smart-import";
 export * from "./smart-recognize";
 export * from "./smart-duplicates";
 export * from "./dividend-file";
+export * from "./bank-feed";
 export * from "./dividend-import";
 export * from "./retirement";
 export * from "./trip";

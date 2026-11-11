@@ -1,4 +1,4 @@
-import { SmartImportSwitch } from "./importador";
+import { BankFeedSwitch, SmartImportSwitch } from "./importador";
 import {
   adminBillingFamilies,
   adminBillingHealth,
@@ -124,6 +124,7 @@ export default async function AdminBillingKeyPage() {
       ) : null}
 
       <SmartImportSwitch enabled={flags.smartImportEnabled} />
+      <BankFeedSwitch enabled={flags.bankFeedEnabled} />
       <div className="grid gap-6 xl:grid-cols-2">
         <Card
           title="billing_enabled"

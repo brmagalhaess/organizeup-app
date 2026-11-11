@@ -1,5 +1,5 @@
 "use client";
-import { CheckCircle2, CircleAlert, Copy, Plus, SearchCheck } from "lucide-react";
+import { CheckCircle2, CircleAlert, Copy, Landmark, Plus, SearchCheck } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore, useTransition, type ChangeEvent } from "react";
@@ -28,11 +28,12 @@ import {
   Input,
   Select,
 } from "@/components/ui";
-import { formatDate } from "@/i18n/format";
+import { formatDate, toInputValue } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { useMoney } from "@/i18n/money";
 import { systemTextOf } from "@/i18n/system-text";
 import { readPdfLines, readWorkbook } from "@/lib/statement-files";
+import { fetchBankPortfolio } from "../../contas/conexoes/actions";
 import { quantityText } from "../shared";
 import {
   commitInvestmentImport,
@@ -316,6 +317,7 @@ function Preview({
   busy,
   message,
   tickers,
+  initialPrices,
   onTicker,
   onApplyTickers,
   onCommit,
@@ -327,6 +329,8 @@ function Preview({
   busy: boolean;
   message: string | null;
   tickers: Record<string, string>;
+  /** Preço pago já conhecido, por linha da posição. A pessoa pode trocar. */
+  initialPrices: Record<string, string>;
   onTicker: (title: string, value: string) => void;
   onApplyTickers: () => void;
   onCommit: (choice: {
@@ -346,7 +350,7 @@ function Preview({
     () => new Set(rows.filter(selectedByDefault).map((row) => row.line)),
   );
   const [classes, setClasses] = useState<Record<string, UnitPricedClass>>({});
-  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [prices, setPrices] = useState<Record<string, string>>(initialPrices);
   const [accountId, setAccountId] = useState("");
   const [positionDate, setPositionDate] = useState(today);
 
@@ -529,7 +533,14 @@ function Preview({
   );
 }
 
-export function InvestmentImport({ accounts }: { accounts: Account[] }) {
+export function InvestmentImport({
+  accounts,
+  bank,
+}: {
+  accounts: Account[];
+  /** A pessoa tem conexão com bancos (ADR-0038) e pode buscar a posição por ela. */
+  bank: boolean;
+}) {
   const t = useTranslations("investimentos.importar");
   const tErrors = useTranslations("investimentos.importar.errors");
   const outdated = useTranslations("importar.errors")("outdated");
@@ -541,6 +552,9 @@ export function InvestmentImport({ accounts }: { accounts: Account[] }) {
   const [done, setDone] = useState<Done | null>(null);
   const [fileKey, setFileKey] = useState(0);
   const [version, setVersion] = useState(0);
+  // Preço médio pago que a instituição informou, por linha da posição: já entra preenchido na conferência.
+  const [paid, setPaid] = useState<Record<string, string>>({});
+  const locale = useLocale();
   const [busy, startTransition] = useTransition();
   // Num celular lento, o arquivo escolhido antes da hidratação se perderia sem aviso.
   const hydrated = useSyncExternalStore(
@@ -553,9 +567,34 @@ export function InvestmentImport({ accounts }: { accounts: Account[] }) {
     setFile(null);
     setPrepared(null);
     setTickers({});
+    setPaid({});
     setMessage(null);
     setDone(null);
     setFileKey((key) => key + 1);
+  };
+
+  const onBank = () => {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await fetchBankPortfolio().catch(() => ({
+        ok: false as const,
+        message: outdated,
+      }));
+      if (!result.ok) {
+        setMessage(result.message);
+        return;
+      }
+      if (result.file.positions.length === 0 && result.file.ignored.length === 0) {
+        setMessage(t("bank.empty"));
+        return;
+      }
+      setPaid(
+        Object.fromEntries(
+          Object.entries(result.paid).map(([line, price]) => [line, toInputValue(price, locale)]),
+        ),
+      );
+      prepare(result.file, {});
+    });
   };
 
   const prepare = (parsed: ParsedInvestmentFile, typed: Record<string, string>) => {
@@ -587,6 +626,7 @@ export function InvestmentImport({ accounts }: { accounts: Account[] }) {
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     setMessage(null);
+    setPaid({});
     const chosen = event.target.files?.[0];
     if (!chosen) return;
     setReading(chosen.name);
@@ -663,6 +703,7 @@ export function InvestmentImport({ accounts }: { accounts: Account[] }) {
         busy={busy}
         message={message}
         tickers={tickers}
+        initialPrices={paid}
         onTicker={(title, value) => setTickers((all) => ({ ...all, [title]: value }))}
         onApplyTickers={() => prepare(file, tickers)}
         onCommit={commit}
@@ -673,6 +714,14 @@ export function InvestmentImport({ accounts }: { accounts: Account[] }) {
 
   return (
     <>
+      {bank ? (
+        <Card title={t("bank.title")} description={t("bank.text")}>
+          <Button onClick={onBank} disabled={!hydrated || busy || reading !== null}>
+            <Landmark className="size-4" aria-hidden="true" />
+            {busy ? t("bank.fetching") : t("bank.fetch")}
+          </Button>
+        </Card>
+      ) : null}
       <Card title={t("choose.title")} description={t("choose.text")}>
         <div className="max-w-md">
           <Field label={t("choose.file")} hint={t("choose.fileHint")}>

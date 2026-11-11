@@ -7,6 +7,8 @@ import {
   assistantMessages,
   assistantThreads,
   auditLog,
+  bankConnectionAccounts,
+  bankConnections,
   calendarEvents,
   cardPurchases,
   cardStatementPayments,
@@ -125,11 +127,29 @@ const LATE_TABLES = {
   smart_import_items: smartImportItems,
   income_year_plans: incomeYearPlans,
   income_vacation_receipts: incomeVacationReceipts,
+  bank_connection_accounts: bankConnectionAccounts,
 };
 
 /** Arquivo inteiro deixaria a exportação gigante: vão os metadados, e a tela baixa cada um. */
 export const DEBT_DOCUMENT_EXPORT_NOTE =
   "O conteúdo do arquivo não entra na exportação. Baixe cada arquivo na tela de Dívidas.";
+
+/** As chaves da Pluggy são segredo da pessoa: nem cifradas saem do banco (ADR-0038). */
+export const BANK_KEYS_EXPORT_NOTE =
+  "As chaves da conexão não entram na exportação. Elas ficam no painel da Pluggy de quem conectou.";
+
+const bankConnectionMeta = {
+  id: bankConnections.id,
+  householdId: bankConnections.householdId,
+  userId: bankConnections.userId,
+  personId: bankConnections.personId,
+  provider: bankConnections.provider,
+  itemIds: bankConnections.itemIds,
+  checkedAt: bankConnections.checkedAt,
+  errorCode: bankConnections.errorCode,
+  createdAt: bankConnections.createdAt,
+  updatedAt: bankConnections.updatedAt,
+};
 
 export const SMART_FILE_EXPORT_NOTE =
   "O conteúdo do arquivo não entra na exportação. Baixe cada arquivo em Importar arquivos.";
@@ -182,6 +202,15 @@ export async function exportHousehold(tx: TenantTx): Promise<Record<string, unkn
     .transaction(async (step) => {
       const files = await step.select(smartImportFileMeta).from(smartImportFiles);
       return files.map((row) => ({ ...row, content: SMART_FILE_EXPORT_NOTE }));
+    })
+    .catch((error: unknown) => {
+      if (isSchemaLag(error)) return [];
+      throw error;
+    });
+  out.bank_connections = await tx
+    .transaction(async (step) => {
+      const connections = await step.select(bankConnectionMeta).from(bankConnections);
+      return connections.map((row) => ({ ...row, keys: BANK_KEYS_EXPORT_NOTE }));
     })
     .catch((error: unknown) => {
       if (isSchemaLag(error)) return [];

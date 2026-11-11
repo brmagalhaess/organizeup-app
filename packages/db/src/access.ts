@@ -137,6 +137,8 @@ export const FLAG_KEYS = {
   billing: "billing_enabled",
   /** Importador inteligente. Desligado, só o admin do serviço usa (ADR-0030). */
   smartImport: "smart_import_enabled",
+  /** Conexão com bancos pela Pluggy. Desligada, só o admin do serviço usa (ADR-0038). */
+  bankFeed: "bank_feed_enabled",
   agentOff: (agent: string) => `agente_desligado:${agent}`,
   notice: (id: string) => `aviso:${id}`,
 } as const;
@@ -166,6 +168,7 @@ export interface PlatformFlags {
   aiEnabled: boolean;
   billingEnabled: boolean;
   smartImportEnabled: boolean;
+  bankFeedEnabled: boolean;
   disabledAgents: string[];
   notices: PlatformNotice[];
 }
@@ -177,6 +180,7 @@ export const NO_FLAGS: PlatformFlags = {
   aiEnabled: true,
   billingEnabled: false,
   smartImportEnabled: false,
+  bankFeedEnabled: false,
   disabledAgents: [],
   notices: [],
 };
@@ -203,6 +207,8 @@ export function parsePlatformFlags(rows: FlagRow[]): PlatformFlags {
       flags.billingEnabled = enabled;
     } else if (key === FLAG_KEYS.smartImport) {
       flags.smartImportEnabled = enabled;
+    } else if (key === FLAG_KEYS.bankFeed) {
+      flags.bankFeedEnabled = enabled;
     } else if (key.startsWith(AGENT_PREFIX) && enabled) {
       const agent = key.slice(AGENT_PREFIX.length);
       const renamed = RENAMED_AGENTS[agent];

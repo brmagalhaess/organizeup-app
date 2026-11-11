@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { accounts, asc, canWrite, householdCurrency, withHousehold } from "@organizeup/db";
 import { brazilRulesApply } from "@organizeup/domain";
 import { Card, PageHeader } from "@/components/ui";
+import { bankFeedOpen, loadBankConnections } from "@/lib/bank-feed";
 import { requireTenant } from "@/lib/session";
 import { InvestmentImport } from "./investment-import";
 
@@ -15,8 +16,12 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function InvestmentImportPage() {
   const invite = await moduleInvite("investimentos");
   if (invite) return invite;
-  const { ctx } = await requireTenant();
+  const { ctx, session } = await requireTenant();
   const t = await getTranslations("investimentos.importar");
+  const bank =
+    canWrite(ctx) && (await bankFeedOpen(session.user))
+      ? (await loadBankConnections(ctx)).length > 0
+      : false;
   const { accountRows, currency } = await withHousehold(ctx, async (tx) => ({
     accountRows: await tx
       .select({ id: accounts.id, name: accounts.name, archived: accounts.archived })
@@ -38,6 +43,7 @@ export default async function InvestmentImportPage() {
         </Card>
       ) : (
         <InvestmentImport
+          bank={bank}
           accounts={accountRows
             .filter((account) => !account.archived)
             .map(({ id, name }) => ({ id, name }))}

@@ -6,6 +6,7 @@ import {
   CircleCheck,
   Copy,
   FileUp,
+  Landmark,
   Sparkles,
   Undo2,
 } from "lucide-react";
@@ -52,6 +53,7 @@ import {
   type PreparedRow,
 } from "./actions";
 import { useFamilyCurrency, useMoney } from "@/i18n/money";
+import { confirmBankSync, fetchBankStatement } from "../contas/conexoes/actions";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS = 2000;
@@ -65,6 +67,13 @@ interface AccountOption extends Option {
 }
 interface CategoryOption extends Option {
   kind: "receita" | "despesa";
+}
+/** Conta do banco ligada a uma conta daqui (ADR-0038). */
+export interface BankFeedOption {
+  id: string;
+  name: string;
+  accountId: string;
+  syncedOn: string | null;
 }
 interface BatchRow {
   id: string;
@@ -552,10 +561,13 @@ export function ImportWizard({
   accounts,
   categories,
   batches,
+  bank,
 }: {
   accounts: AccountOption[];
   categories: CategoryOption[];
   batches: BatchRow[];
+  /** Null: a pessoa não vê a conexão com bancos. Lista vazia: vê, mas ainda não ligou nenhuma conta. */
+  bank: BankFeedOption[] | null;
 }) {
   const t = useTranslations("importar");
   const tErrors = useTranslations("importar.errors");
@@ -580,9 +592,16 @@ export function ImportWizard({
   const [notice, setNotice] = useState<string | null>(null);
   const [undoing, setUndoing] = useState<BatchRow | null>(null);
   const [fileKey, setFileKey] = useState(0);
+  const [bankLink, setBankLink] = useState(bank?.[0]?.id ?? "");
+  const [bankSince, setBankSince] = useState("");
+  const [bankMessage, setBankMessage] = useState<string | null>(null);
+  // Conferência que veio do banco: depois de gravar, a próxima busca parte deste dia.
+  const [feed, setFeed] = useState<{ linkId: string; to: string } | null>(null);
   const [busy, startTransition] = useTransition();
 
   const reset = () => {
+    setFeed(null);
+    setBankMessage(null);
     setCsv(null);
     setRows(null);
     setDone(null);
@@ -592,7 +611,7 @@ export function ImportWizard({
     setFileKey((key) => key + 1);
   };
 
-  const review = (nextSource: StatementSource, parsed: StatementRow[]) => {
+  const review = (nextSource: StatementSource, parsed: StatementRow[], account = accountId) => {
     if (parsed.length === 0) {
       setMessage(tErrors("noRows"));
       return;
@@ -602,9 +621,11 @@ export function ImportWizard({
       return;
     }
     startTransition(async () => {
-      const result = await prepareImport({ accountId, source: nextSource, rows: parsed }).catch(
-        () => ({ ok: false as const, message: outdated }),
-      );
+      const result = await prepareImport({
+        accountId: account,
+        source: nextSource,
+        rows: parsed,
+      }).catch(() => ({ ok: false as const, message: outdated }));
       if (!result.ok) {
         setMessage(result.message);
         return;
@@ -616,8 +637,40 @@ export function ImportWizard({
     });
   };
 
+  // As linhas do banco entram na mesma conferência de um arquivo OFX: o identificador de cada uma evita repetir.
+  const onBank = () => {
+    setMessage(null);
+    setBankMessage(null);
+    setNotice(null);
+    startTransition(async () => {
+      const result = await fetchBankStatement({ linkId: bankLink, from: bankSince || null }).catch(
+        () => ({ ok: false as const, message: outdated }),
+      );
+      if (!result.ok) {
+        setBankMessage(result.message);
+        return;
+      }
+      if (result.rows.length === 0) {
+        setBankMessage(
+          result.pending > 0 ? t("bank.pending", { count: result.pending }) : t("bank.empty"),
+        );
+        return;
+      }
+      const notes = [
+        result.truncated ? t("bank.truncated") : null,
+        result.pending > 0 ? t("bank.pending", { count: result.pending }) : null,
+      ].filter(Boolean);
+      setNotice(notes.length > 0 ? notes.join(" ") : null);
+      setAccountId(result.accountId);
+      setFeed({ linkId: result.linkId, to: result.to });
+      review("ofx", result.rows, result.accountId);
+    });
+  };
+
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     setMessage(null);
+    setBankMessage(null);
+    setFeed(null);
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
@@ -712,6 +765,9 @@ export function ImportWizard({
         setMessage(result.message);
         return;
       }
+      // Falhar ao anotar o dia não desfaz a importação: a próxima busca só refaz um período maior.
+      if (feed) await confirmBankSync(feed.linkId, feed.to).catch(() => undefined);
+      setFeed(null);
       setRows(null);
       setMessage(null);
       setNotice(null);
@@ -764,57 +820,109 @@ export function ImportWizard({
           onCancel={reset}
         />
       ) : (
-        <Card title={t("choose.title")} description={t("choose.text")}>
-          <div className="grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label={t("choose.account")}>
-              <Select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {system.name(account.name)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label={t("choose.file")} hint={t("choose.fileHint")}>
-              <input
-                key={fileKey}
-                type="file"
-                accept=".ofx,.qfx,.csv,.txt,.xlsx,.xls,.pdf"
-                disabled={busy || reading !== null || !accountId}
-                onChange={onFile}
-                className="min-h-11 w-full min-w-0 rounded-xl border border-dashed border-line bg-card p-2 text-sm text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
-              />
-            </Field>
-          </div>
-          <div className="mt-3">
-            {isForeign(currency, main) ? (
-              <p className="m-0 mb-2 text-sm text-muted">{t("choose.foreign", { currency })}</p>
-            ) : null}
-            {message ? (
-              <div
-                role="alert"
-                className="flex flex-col items-start gap-3 rounded-xl border border-danger bg-card-soft p-4 text-sm"
-              >
-                <p className="flex items-start gap-2 font-medium">
-                  <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden="true" />
-                  {message}
-                </p>
-                {message === outdated ? (
-                  <ReloadButton />
-                ) : (
-                  <Button variant="secondary" small onClick={reset}>
-                    {t("choose.other")}
+        <>
+          {bank === null ? null : (
+            <Card
+              title={t("bank.title")}
+              description={t(bank.length > 0 ? "bank.text" : "bank.connectText")}
+              actions={
+                <Link href="/app/contas/conexoes" className={buttonClass("secondary", true)}>
+                  {t(bank.length > 0 ? "bank.manage" : "bank.connect")}
+                </Link>
+              }
+            >
+              {bank.length > 0 ? (
+                <div className="grid max-w-2xl grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_11rem_auto]">
+                  <Field label={t("bank.account")}>
+                    <Select value={bankLink} onChange={(event) => setBankLink(event.target.value)}>
+                      {bank.map((link) => (
+                        <option key={link.id} value={link.id}>
+                          {link.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label={t("bank.since")}>
+                    <Input
+                      type="date"
+                      value={bankSince}
+                      onChange={(event) => setBankSince(event.target.value)}
+                    />
+                  </Field>
+                  <Button onClick={onBank} disabled={busy || reading !== null || !bankLink}>
+                    <Landmark className="size-4" aria-hidden="true" />
+                    {busy ? t("bank.fetching") : t("bank.fetch")}
                   </Button>
-                )}
-              </div>
-            ) : null}
-            {busy || reading ? (
-              <p className="text-sm text-muted" role="status">
-                {reading ? t("choose.reading", { name: reading }) : t("choose.checking")}
-              </p>
-            ) : null}
-          </div>
-        </Card>
+                </div>
+              ) : (
+                <p className="m-0 text-sm text-muted">{t("bank.linkFirst")}</p>
+              )}
+              {bankMessage ? (
+                <p
+                  role="alert"
+                  className="m-0 mt-3 flex items-start gap-2 rounded-xl border border-danger bg-card-soft p-3 text-sm font-medium"
+                >
+                  <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden="true" />
+                  {bankMessage}
+                </p>
+              ) : null}
+            </Card>
+          )}
+          <Card title={t("choose.title")} description={t("choose.text")}>
+            <div className="grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label={t("choose.account")}>
+                <Select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {system.name(account.name)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={t("choose.file")} hint={t("choose.fileHint")}>
+                <input
+                  key={fileKey}
+                  type="file"
+                  accept=".ofx,.qfx,.csv,.txt,.xlsx,.xls,.pdf"
+                  disabled={busy || reading !== null || !accountId}
+                  onChange={onFile}
+                  className="min-h-11 w-full min-w-0 rounded-xl border border-dashed border-line bg-card p-2 text-sm text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
+                />
+              </Field>
+            </div>
+            <div className="mt-3">
+              {isForeign(currency, main) ? (
+                <p className="m-0 mb-2 text-sm text-muted">{t("choose.foreign", { currency })}</p>
+              ) : null}
+              {message ? (
+                <div
+                  role="alert"
+                  className="flex flex-col items-start gap-3 rounded-xl border border-danger bg-card-soft p-4 text-sm"
+                >
+                  <p className="flex items-start gap-2 font-medium">
+                    <CircleAlert
+                      className="mt-0.5 size-4 shrink-0 text-danger"
+                      aria-hidden="true"
+                    />
+                    {message}
+                  </p>
+                  {message === outdated ? (
+                    <ReloadButton />
+                  ) : (
+                    <Button variant="secondary" small onClick={reset}>
+                      {t("choose.other")}
+                    </Button>
+                  )}
+                </div>
+              ) : null}
+              {busy || reading ? (
+                <p className="text-sm text-muted" role="status">
+                  {reading ? t("choose.reading", { name: reading }) : t("choose.checking")}
+                </p>
+              ) : null}
+            </div>
+          </Card>
+        </>
       )}
 
       {csv || done ? <Problem message={message} /> : null}

@@ -21,6 +21,7 @@ import { familyAccountType } from "@/i18n/account-server";
 import { agentText } from "@/i18n/agent-text";
 import { resolveLocale } from "@/i18n/resolve";
 import { systemTextOf } from "@/i18n/system-text";
+import { bankFeedOpen, loadBankConnections } from "@/lib/bank-feed";
 import { smartImportOpen } from "@/lib/importador/access";
 import { requireTenant } from "@/lib/session";
 import { ImportWizard } from "./import-wizard";
@@ -33,6 +34,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ImportPage() {
   const { ctx, session } = await requireTenant();
   const smartImport = await smartImportOpen(session.user);
+  // A conexão é de quem está logado: só as contas que esta pessoa ligou aparecem.
+  const bankLinks =
+    canWrite(ctx) && (await bankFeedOpen(session.user))
+      ? (await loadBankConnections(ctx)).flatMap((connection) =>
+          connection.links.map((link) => ({ ...link, person: connection.personName })),
+        )
+      : null;
   const [t, tSystem, locale] = await Promise.all([
     getTranslations("importar"),
     getTranslations("sistema"),
@@ -122,6 +130,21 @@ export default async function ImportPage() {
             .filter((account) => !account.archived)
             .map(({ id, name, currency }) => ({ id, name, currency }))}
           categories={data.categoryRows.filter((category) => category.name !== CARD_CATEGORY)}
+          bank={
+            bankLinks &&
+            bankLinks.flatMap(({ id, name, numberTail, accountId, syncedOn, person }) =>
+              accountId && accountName.has(accountId)
+                ? [
+                    {
+                      id,
+                      name: `${person}: ${numberTail ? `${name} · ${numberTail}` : name} → ${accountName.get(accountId)}`,
+                      accountId,
+                      syncedOn,
+                    },
+                  ]
+                : [],
+            )
+          }
           batches={data.batchRows.map((batch) => ({
             id: batch.id,
             accountName: accountName.get(batch.accountId) ?? t("fallbackAccount"),

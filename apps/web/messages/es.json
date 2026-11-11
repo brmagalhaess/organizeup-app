@@ -725,6 +725,13 @@
         "noAccount": "Esta cuenta ya no está disponible.",
         "noQuote": "Falta la cotización de la moneda de la cuenta en la fecha de alguna operación.",
         "failed": "No pudimos terminar ahora. No se guardó nada. Inténtalo de nuevo."
+      },
+      "bank": {
+        "title": "Traer de Pluggy",
+        "text": "Busca tu posición en acciones, fondos inmobiliarios, ETFs y BDRs de tus conexiones. Revisas antes de guardar.",
+        "fetch": "Buscar posición",
+        "fetching": "Buscando en Pluggy…",
+        "empty": "Pluggy no trajo ninguna inversión en tus conexiones."
       }
     },
     "operation": {
@@ -3025,7 +3032,8 @@
       "balanceFormat": "Escribe el saldo como 1.250,00.",
       "currencyLocked": "Esta cuenta ya tiene movimientos y no puede cambiar de moneda. Crea otra cuenta.",
       "currencyOff": "{currency} no está en tu plan. Inclúyela en Plan y suscripción."
-    }
+    },
+    "connectBank": "Conectar banco"
   },
   "cartoes": {
     "metaTitle": "Tarjetas",
@@ -3565,6 +3573,21 @@
       "title": "¿Tienes proventos para traer?",
       "text": "Excel de la Área do Investidor de B3 o CSV entran por la pantalla de proventos, sin duplicar lo que ya está allí.",
       "link": "Importar proventos"
+    },
+    "bank": {
+      "title": "Traer del banco",
+      "text": "Busca en Pluggy los movimientos de la cuenta vinculada. Sin fecha, continúa desde donde quedó. Revisas todo antes de guardar, y lo que ya entró no entra de nuevo.",
+      "connectText": "Vincula tu cuenta de Pluggy para traer los movimientos sin descargar archivo.",
+      "account": "Cuenta del banco",
+      "since": "Desde (opcional)",
+      "fetch": "Buscar movimientos",
+      "fetching": "Buscando en Pluggy…",
+      "manage": "Gestionar conexión",
+      "connect": "Conectar banco",
+      "linkFirst": "Aún no vinculaste ninguna cuenta del banco a una cuenta de OrganizeUp.",
+      "empty": "Ningún movimiento en el período.",
+      "pending": "{count, plural, one {# movimiento aún pendiente en el banco quedó para la próxima búsqueda.} other {# movimientos aún pendientes en el banco quedaron para la próxima búsqueda.}}",
+      "truncated": "Llegaron más de 2.000 líneas: quedaron las más recientes. Para el resto, busca de nuevo con una fecha más antigua en \"Desde\"."
     }
   },
   "renda": {
@@ -5276,5 +5299,118 @@
     "error": "Algo salió mal",
     "warning": "Atención",
     "info": "Aviso"
+  },
+  "conexoes": {
+    "metaTitle": "Conexión con bancos",
+    "eyebrow": "Cuentas",
+    "title": "Conexión con bancos",
+    "description": "Trae movimientos e inversiones directo del banco, por Pluggy, con tu propia clave.",
+    "noPermission": "No tienes permiso para cambiar estos datos.",
+    "unavailable": "La conexión con bancos no está disponible ahora. Inténtalo más tarde.",
+    "saved": "{count, plural, =0 {Conexión guardada. Pluggy aún no mostró ninguna cuenta.} one {Conexión guardada. # cuenta encontrada.} other {Conexión guardada. # cuentas encontradas.}}",
+    "refreshed": "{count, plural, =0 {Pluggy no mostró ninguna cuenta.} one {Lista actualizada: # cuenta.} other {Lista actualizada: # cuentas.}}",
+    "linked": "Cuenta vinculada.",
+    "unlinked": "Vínculo deshecho.",
+    "how": {
+      "title": "Cómo conectar",
+      "text": "Pluggy es una empresa de Open Finance. Su plan personal es gratuito y acepta hasta 5 conexiones de cuentas a tu nombre.",
+      "steps": {
+        "account": "Crea tu cuenta en Meu Pluggy y conecta tus bancos allí. La autorización ocurre en la app del propio banco.",
+        "dashboard": "Crea una cuenta en el panel de Pluggy, de preferencia con el mismo correo. El aviso de prueba de 15 días no aplica al uso personal.",
+        "application": "En el panel, crea una aplicación y copia el Client ID y el Client Secret.",
+        "connector": "Aún en el panel, crea una conexión eligiendo el conector MeuPluggy. Repite para cada banco.",
+        "items": "Copia el identificador (Item ID) de cada conexión creada.",
+        "paste": "Pega todo en el formulario de abajo. Las claves quedan cifradas y solo tú puedes usarlas."
+      }
+    },
+    "links": {
+      "meu": "Abrir Meu Pluggy",
+      "dashboard": "Abrir panel de Pluggy"
+    },
+    "terms": {
+      "title": "Antes de conectar",
+      "own": "Cada clave es de una persona y trae solo las cuentas a su nombre. Puedes guardar la tuya y la de una persona más del registro, con su autorización.",
+      "password": "OrganizeUp nunca ve ni guarda la contraseña de tu banco. La autorización es tuya, en Pluggy, y la revocas allí cuando quieras.",
+      "review": "Nada entra solo: lo que viene del banco pasa por tu revisión antes de volverse movimiento.",
+      "free": "El plan gratuito es de Pluggy y es para uso personal. Las reglas y los límites son de ella y pueden cambiar.",
+      "joint": "La cuenta conjunta aparece en las dos claves. Vincula solo una, para que el mismo movimiento no entre dos veces."
+    },
+    "form": {
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "keepHint": "En blanco, vale la clave ya guardada.",
+      "itemIds": "Item IDs de las conexiones",
+      "itemIdsHint": "Hasta 5, separados por coma.",
+      "save": "Verificar y guardar",
+      "saving": "Verificando en Pluggy…",
+      "titleAdd": "Guardar una clave",
+      "textAdd": "Caben hasta 2 claves: la tuya y la de una persona más del registro. Cada persona crea la clave en su propia cuenta de Pluggy.",
+      "person": "De quién es la clave",
+      "personSelf": "{name} (tú)",
+      "consent": "Esta clave es de otra persona. Confirmo que fue ella quien creó la clave en Pluggy y que me autorizó a usarla aquí.",
+      "edit": "Cambiar claves o conexiones",
+      "noPeople": "No hay nadie más en el registro que pueda guardar una clave. Incluye a la persona en el registro primero.",
+      "openPeople": "Abrir registro",
+      "limit": "Ya guardaste las 2 claves que caben aquí. Quita una para guardar otra."
+    },
+    "status": {
+      "title": "Clave de {name}",
+      "items": "{count, plural, one {# conexión en Pluggy} other {# conexiones en Pluggy}}",
+      "checked": "verificada el {date}",
+      "ok": "Funcionando",
+      "attention": "Necesita atención",
+      "error": "Último intento: {message}"
+    },
+    "actions": {
+      "entries": "Buscar movimientos",
+      "investments": "Buscar inversiones",
+      "refresh": "Actualizar cuentas",
+      "refreshing": "Actualizando…",
+      "remove": "Quitar conexión"
+    },
+    "accounts": {
+      "title": "Cuentas encontradas",
+      "text": "Indica en qué cuenta de OrganizeUp entran los movimientos de cada cuenta del banco.",
+      "emptyTitle": "Ninguna cuenta todavía",
+      "emptyText": "Pluggy no mostró cuentas en estas conexiones. Revisa que el banco aparezca en Meu Pluggy y actualiza.",
+      "noAccounts": "Aún no tienes una cuenta en OrganizeUp para recibir los movimientos.",
+      "createAccount": "Crear cuenta",
+      "kind": {
+        "corrente": "Cuenta corriente",
+        "poupanca": "Ahorro",
+        "cartao": "Tarjeta de crédito"
+      },
+      "tail": "final {tail}",
+      "target": "Cuenta en OrganizeUp",
+      "none": "No traer",
+      "save": "Guardar",
+      "card": "La tarjeta de crédito aún no se trae por aquí.",
+      "synced": "Traído hasta {date}",
+      "never": "Aún no traído"
+    },
+    "remove": {
+      "title": "¿Quitar la clave de {name}?",
+      "text": "Las claves se borran de aquí. Lo que ya se importó continúa. Para quitar el acceso a los bancos, revócalo en Meu Pluggy.",
+      "confirm": "Quitar"
+    },
+    "errors": {
+      "credenciais": "Pluggy rechazó el Client ID o el Client Secret. Revisa que los dos sean de la misma aplicación.",
+      "conexao": "Pluggy no encontró una de las conexiones. Revisa los Item IDs y que la conexión se haya creado en esta aplicación.",
+      "limite": "Pluggy pidió esperar un poco. Inténtalo de nuevo en unos minutos.",
+      "sem_acesso": "Tu cuenta en Pluggy no da acceso a este dato.",
+      "rede": "No fue posible hablar con Pluggy ahora. Inténtalo de nuevo en un momento.",
+      "resposta": "Pluggy respondió de forma inesperada. Inténtalo más tarde.",
+      "cofre": "No fue posible abrir las claves guardadas. Informa el Client ID y el Client Secret de nuevo.",
+      "sem_permissao": "No tienes permiso para cambiar estos datos.",
+      "dados_invalidos": "Revisa los campos. El Client ID y los Item IDs tienen el formato 00000000-0000-0000-0000-000000000000, y son hasta 5 conexiones.",
+      "sem_conexao": "Aún no conectaste tu cuenta de Pluggy.",
+      "conta_invalida": "Elige una cuenta activa, en la misma moneda de la cuenta del banco.",
+      "cartao": "La tarjeta de crédito aún no se trae por aquí.",
+      "conta_em_uso": "Esta cuenta ya recibe los movimientos de otra cuenta del banco. Elige otra, o crea una cuenta nueva en Cuentas.",
+      "pessoa_invalida": "Elige una persona adulta del registro.",
+      "pessoa_ja_conectada": "Esta persona ya tiene una clave guardada.",
+      "limite_de_chaves": "Caben hasta 2 claves por inicio de sesión. Quita una para guardar otra.",
+      "sem_consentimento": "Marca la confirmación de que la persona autorizó el uso de la clave."
+    }
   }
 }

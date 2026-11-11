@@ -725,6 +725,13 @@
         "noAccount": "Esta conta não está mais disponível.",
         "noQuote": "Falta a cotação da moeda da conta na data de alguma operação.",
         "failed": "Não conseguimos concluir agora. Nada foi gravado. Tente de novo."
+      },
+      "bank": {
+        "title": "Trazer da Pluggy",
+        "text": "Busca a posição em ações, fundos imobiliários, ETFs e BDRs das suas conexões. Você confere antes de gravar.",
+        "fetch": "Buscar posição",
+        "fetching": "Buscando na Pluggy…",
+        "empty": "A Pluggy não trouxe nenhum investimento nas suas conexões."
       }
     },
     "operation": {
@@ -3025,7 +3032,8 @@
       "balanceFormat": "Informe o saldo como 1.250,00.",
       "currencyLocked": "Esta conta já tem movimento e não pode mudar de moeda. Crie outra conta.",
       "currencyOff": "A moeda {currency} não está no seu plano. Inclua em Plano e assinatura."
-    }
+    },
+    "connectBank": "Conectar banco"
   },
   "cartoes": {
     "metaTitle": "Cartões",
@@ -3565,6 +3573,21 @@
       "title": "Tem proventos para trazer?",
       "text": "Excel da Área do Investidor da B3 ou CSV entram pela tela de proventos, sem duplicar o que já está lá.",
       "link": "Importar proventos"
+    },
+    "bank": {
+      "title": "Trazer do banco",
+      "text": "Busca na Pluggy os lançamentos da conta ligada. Sem data, continua de onde parou. Você confere tudo antes de gravar, e o que já entrou não entra de novo.",
+      "connectText": "Ligue sua conta da Pluggy para trazer os lançamentos sem baixar arquivo.",
+      "account": "Conta do banco",
+      "since": "Desde (opcional)",
+      "fetch": "Buscar lançamentos",
+      "fetching": "Buscando na Pluggy…",
+      "manage": "Gerenciar conexão",
+      "connect": "Conectar banco",
+      "linkFirst": "Você ainda não ligou nenhuma conta do banco a uma conta do OrganizeUp.",
+      "empty": "Nenhum lançamento no período.",
+      "pending": "{count, plural, one {# lançamento ainda pendente no banco ficou para a próxima busca.} other {# lançamentos ainda pendentes no banco ficaram para a próxima busca.}}",
+      "truncated": "Vieram mais de 2.000 linhas: ficaram as mais recentes. Para o resto, busque de novo com uma data mais antiga em \"Desde\"."
     }
   },
   "renda": {
@@ -5276,5 +5299,118 @@
     "error": "Algo deu errado",
     "warning": "Atenção",
     "info": "Aviso"
+  },
+  "conexoes": {
+    "metaTitle": "Conexão com bancos",
+    "eyebrow": "Contas",
+    "title": "Conexão com bancos",
+    "description": "Traga lançamentos e investimentos direto do banco, pela Pluggy, com a sua própria chave.",
+    "noPermission": "Você não tem permissão para alterar estes dados.",
+    "unavailable": "A conexão com bancos está indisponível no momento. Tente mais tarde.",
+    "saved": "{count, plural, =0 {Conexão salva. A Pluggy ainda não mostrou nenhuma conta.} one {Conexão salva. # conta encontrada.} other {Conexão salva. # contas encontradas.}}",
+    "refreshed": "{count, plural, =0 {A Pluggy não mostrou nenhuma conta.} one {Lista atualizada: # conta.} other {Lista atualizada: # contas.}}",
+    "linked": "Conta ligada.",
+    "unlinked": "Ligação desfeita.",
+    "how": {
+      "title": "Como conectar",
+      "text": "A Pluggy é uma empresa de Open Finance. O plano pessoal dela é gratuito e aceita até 5 conexões de contas em seu nome.",
+      "steps": {
+        "account": "Crie sua conta no Meu Pluggy e conecte seus bancos por lá. A autorização acontece no app do próprio banco.",
+        "dashboard": "Crie uma conta no painel da Pluggy, de preferência com o mesmo e-mail. O aviso de teste de 15 dias não vale para o uso pessoal.",
+        "application": "No painel, crie uma aplicação e copie o Client ID e o Client Secret.",
+        "connector": "Ainda no painel, crie uma conexão escolhendo o conector MeuPluggy. Repita para cada banco.",
+        "items": "Copie o identificador (Item ID) de cada conexão criada.",
+        "paste": "Cole tudo no formulário abaixo. As chaves ficam cifradas e só você consegue usá-las."
+      }
+    },
+    "links": {
+      "meu": "Abrir Meu Pluggy",
+      "dashboard": "Abrir painel da Pluggy"
+    },
+    "terms": {
+      "title": "Antes de conectar",
+      "own": "Cada chave é de uma pessoa e traz só as contas em nome dela. Você pode guardar a sua e a de mais uma pessoa do cadastro, com a autorização dela.",
+      "password": "O OrganizeUp nunca vê nem guarda a senha do seu banco. A autorização é sua, na Pluggy, e você revoga por lá quando quiser.",
+      "review": "Nada entra sozinho: o que vem do banco passa pela sua conferência antes de virar lançamento.",
+      "free": "O plano gratuito é da Pluggy e é para uso pessoal. As regras e os limites são dela e podem mudar.",
+      "joint": "Conta conjunta aparece nas duas chaves. Ligue só uma delas, para o mesmo lançamento não entrar duas vezes."
+    },
+    "form": {
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "keepHint": "Em branco, vale a chave já guardada.",
+      "itemIds": "Item IDs das conexões",
+      "itemIdsHint": "Até 5, separados por vírgula.",
+      "save": "Conferir e salvar",
+      "saving": "Conferindo na Pluggy…",
+      "titleAdd": "Guardar uma chave",
+      "textAdd": "Cabem até 2 chaves: a sua e a de mais uma pessoa do cadastro. Cada pessoa cria a chave na conta dela na Pluggy.",
+      "person": "De quem é a chave",
+      "personSelf": "{name} (você)",
+      "consent": "Esta chave é de outra pessoa. Confirmo que foi ela quem criou a chave na Pluggy e que me autorizou a usá-la aqui.",
+      "edit": "Trocar chaves ou conexões",
+      "noPeople": "Não há mais ninguém no cadastro que possa guardar uma chave. Inclua a pessoa no cadastro primeiro.",
+      "openPeople": "Abrir cadastro",
+      "limit": "Você já guardou as 2 chaves que cabem aqui. Remova uma para guardar outra."
+    },
+    "status": {
+      "title": "Chave de {name}",
+      "items": "{count, plural, one {# conexão na Pluggy} other {# conexões na Pluggy}}",
+      "checked": "conferida em {date}",
+      "ok": "Funcionando",
+      "attention": "Precisa de atenção",
+      "error": "Última tentativa: {message}"
+    },
+    "actions": {
+      "entries": "Buscar lançamentos",
+      "investments": "Buscar investimentos",
+      "refresh": "Atualizar contas",
+      "refreshing": "Atualizando…",
+      "remove": "Remover conexão"
+    },
+    "accounts": {
+      "title": "Contas encontradas",
+      "text": "Diga em qual conta do OrganizeUp entram os lançamentos de cada conta do banco.",
+      "emptyTitle": "Nenhuma conta ainda",
+      "emptyText": "A Pluggy não mostrou contas nestas conexões. Confira se o banco aparece no Meu Pluggy e atualize.",
+      "noAccounts": "Você ainda não tem conta no OrganizeUp para receber os lançamentos.",
+      "createAccount": "Criar conta",
+      "kind": {
+        "corrente": "Conta corrente",
+        "poupanca": "Poupança",
+        "cartao": "Cartão de crédito"
+      },
+      "tail": "final {tail}",
+      "target": "Conta no OrganizeUp",
+      "none": "Não trazer",
+      "save": "Salvar",
+      "card": "Cartão de crédito ainda não é trazido por aqui.",
+      "synced": "Trazido até {date}",
+      "never": "Ainda não trazido"
+    },
+    "remove": {
+      "title": "Remover a chave de {name}?",
+      "text": "As chaves são apagadas daqui. O que já foi importado continua. Para tirar o acesso aos bancos, revogue no Meu Pluggy.",
+      "confirm": "Remover"
+    },
+    "errors": {
+      "credenciais": "A Pluggy recusou o Client ID ou o Client Secret. Confira se os dois são da mesma aplicação.",
+      "conexao": "A Pluggy não achou uma das conexões. Confira os Item IDs e se a conexão foi criada nesta aplicação.",
+      "limite": "A Pluggy pediu para esperar um pouco. Tente de novo em alguns minutos.",
+      "sem_acesso": "A sua conta na Pluggy não dá acesso a este dado.",
+      "rede": "Não deu para falar com a Pluggy agora. Tente de novo em instantes.",
+      "resposta": "A Pluggy respondeu de um jeito inesperado. Tente de novo mais tarde.",
+      "cofre": "Não foi possível abrir as chaves guardadas. Informe o Client ID e o Client Secret de novo.",
+      "sem_permissao": "Você não tem permissão para alterar estes dados.",
+      "dados_invalidos": "Confira os campos. O Client ID e os Item IDs têm o formato 00000000-0000-0000-0000-000000000000, e são até 5 conexões.",
+      "sem_conexao": "Você ainda não conectou sua conta da Pluggy.",
+      "conta_invalida": "Escolha uma conta ativa, na mesma moeda da conta do banco.",
+      "cartao": "Cartão de crédito ainda não é trazido por aqui.",
+      "conta_em_uso": "Esta conta já recebe os lançamentos de outra conta do banco. Escolha outra, ou crie uma conta nova em Contas.",
+      "pessoa_invalida": "Escolha uma pessoa adulta do cadastro.",
+      "pessoa_ja_conectada": "Esta pessoa já tem uma chave guardada.",
+      "limite_de_chaves": "Cabem até 2 chaves por login. Remova uma para guardar outra.",
+      "sem_consentimento": "Marque a confirmação de que a pessoa autorizou o uso da chave."
+    }
   }
 }

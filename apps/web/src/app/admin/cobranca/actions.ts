@@ -72,3 +72,25 @@ export async function toggleSmartImport(form: FormData): Promise<AdminResult> {
     return done(on ? "Importador ligado para todas as famílias." : "Importador só para o admin.");
   });
 }
+
+/** Liberação da conexão com bancos pela Pluggy (ADR-0038). Fica na auditoria, como toda chave do painel. */
+export async function toggleBankFeed(form: FormData): Promise<AdminResult> {
+  const session = await requireAdmin();
+  const on = form.get("enabled") === "true";
+  return runAdminAction("admin_bank_feed_failed", async () => {
+    await adminSetFlag(
+      { adminUserId: session.user.id },
+      {
+        key: FLAG_KEYS.bankFeed,
+        enabled: on,
+        action: on ? "conexao_bancos:ligar" : "conexao_bancos:desligar",
+      },
+    );
+    refresh();
+    return done(
+      on
+        ? "Conexão com bancos ligada para todas as famílias."
+        : "Conexão com bancos só para o admin.",
+    );
+  });
+}
