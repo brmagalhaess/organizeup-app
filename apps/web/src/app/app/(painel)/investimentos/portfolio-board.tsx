@@ -1,5 +1,5 @@
 "use client";
-import { History, Pencil, Plus, Tag, Trash2, TrendingUp, Upload } from "lucide-react";
+import { History, Pencil, Plus, Tag, Trash2, Upload } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useState, type ReactNode } from "react";
@@ -22,7 +22,9 @@ import {
   submitKeeping,
 } from "@/components/ui";
 import { formatDate } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
 import { groupByClass } from "@/lib/portfolio-groups";
+import { tableCells, tableTotals } from "@/lib/portfolio-table";
 import { splitZeroed } from "@/lib/portfolio-zeroed";
 import type { PendingItem } from "@/lib/suggestions";
 import {
@@ -92,6 +94,7 @@ function QuoteNote({ row, today }: { row: Row; today: string }) {
 function InvestmentForm({ row, onDone }: { row: Row | null; onDone: () => void }) {
   const t = useTranslations("investimentos");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
   const [state, action, pending] = useActionState(saveInvestment, initial);
   const currency = useFamilyCurrency();
   const brazil = brazilRulesApply(currency);
@@ -127,6 +130,49 @@ function InvestmentForm({ row, onDone }: { row: Row | null; onDone: () => void }
           <Input name="ticker" maxLength={12} defaultValue={row?.ticker ?? ""} />
         </Field>
       ) : null}
+      <fieldset className="m-0 flex flex-col gap-4 rounded-xl border border-line p-4">
+        <legend className="px-1 text-sm font-medium">
+          {t("portfolio.investmentForm.references")}
+        </legend>
+        <p className="m-0 -mt-2 text-xs text-muted">
+          {t("portfolio.investmentForm.referencesHint")}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label={t("portfolio.investmentForm.bookValue")}
+            hint={t("portfolio.investmentForm.bookValueHint")}
+          >
+            <Input
+              name="bookValuePerShare"
+              inputMode="decimal"
+              placeholder={t("form.pricePlaceholder")}
+              defaultValue={toInput(row?.bookValuePerShare ?? null, locale)}
+            />
+          </Field>
+          <Field
+            label={t("portfolio.investmentForm.targetPrice")}
+            hint={t("portfolio.investmentForm.targetPriceHint")}
+          >
+            <Input
+              name="targetPrice"
+              inputMode="decimal"
+              placeholder={t("form.pricePlaceholder")}
+              defaultValue={toInput(row?.targetPrice ?? null, locale)}
+            />
+          </Field>
+        </div>
+        <Field
+          label={t("portfolio.investmentForm.targetPercent")}
+          hint={t("portfolio.investmentForm.targetPercentHint")}
+        >
+          <Input
+            name="targetPercent"
+            inputMode="decimal"
+            placeholder="10"
+            defaultValue={toInput(row?.targetPercent ?? null, locale)}
+          />
+        </Field>
+      </fieldset>
       <FormMessage message={state.message} />
       <Button type="submit" disabled={pending}>
         {pending ? tCommon("saving") : t("portfolio.investmentForm.submit")}
@@ -203,9 +249,6 @@ type Sheet_ =
   | { type: "operation"; nonce: number; id: string | null }
   | { type: "edit" | "value"; nonce: number; id: string };
 
-const ROW_GRID =
-  "xl:grid xl:grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)_auto] xl:items-center xl:gap-4";
-
 /** Resultado do ativo: valor e percentual, com a cor dizendo o sinal. */
 function GainCell({ row, locale }: { row: Row; locale: ReturnType<typeof useLocale> }) {
   const moneyText = useMoney();
@@ -223,6 +266,292 @@ function GainCell({ row, locale }: { row: Row; locale: ReturnType<typeof useLoca
         {percentText(row.gainPercent, locale)}
       </span>
     </span>
+  );
+}
+
+const NUM = "whitespace-nowrap px-2 py-3 text-right tabular-nums";
+const HEAD =
+  "whitespace-nowrap px-2 pb-2 text-right text-xs font-medium uppercase tracking-wide text-muted";
+
+function PercentCell({ value, locale }: { value: number | null; locale: Locale }) {
+  if (value === null) return <span className="text-muted">—</span>;
+  const tone = value > 0 ? "text-success" : value < 0 ? "text-danger" : "text-muted";
+  return (
+    <span className={tone}>
+      {value > 0 ? "+" : ""}
+      {percentText(value, locale)}
+    </span>
+  );
+}
+
+/**
+ * A carteira como tabela: as 13 colunas que a família acompanha, com uma faixa por tipo e os totais no pé.
+ * Rola de lado no celular; a coluna do ativo fica fixa.
+ */
+function HoldingsTable({
+  groups,
+  total,
+  today,
+  stalePriceDays,
+  writable,
+  onOperation,
+  onValue,
+  onEdit,
+  onRemove,
+}: {
+  groups: ReturnType<typeof groupByClass<Row>>;
+  total: string;
+  today: string;
+  stalePriceDays: number;
+  writable: boolean;
+  onOperation: (id: string) => void;
+  onValue: (id: string) => void;
+  onEdit: (id: string) => void;
+  onRemove: (row: Row) => void;
+}) {
+  const t = useTranslations("investimentos");
+  const locale = useLocale();
+  const moneyText = useMoney();
+  const ratio = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const rows = groups.flatMap((group) => group.rows.map(({ row }) => row));
+  const cells = new Map(rows.map((row) => [row.id, tableCells(row, total)]));
+  const totals = tableTotals(
+    rows,
+    rows.map((row) => cells.get(row.id)!),
+  );
+  const columns = [
+    "price",
+    "quantity",
+    "equity",
+    "average",
+    "gain",
+    "priceToBook",
+    "upside",
+    "dividendMonth",
+    "cost",
+    "ideal",
+    "contribution",
+    "share",
+  ] as const;
+  const dash = <span className="text-muted">—</span>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[70rem] border-collapse text-sm">
+        <caption className="sr-only">{t("portfolio.table.caption")}</caption>
+        <thead>
+          <tr className="border-b border-line">
+            <th
+              scope="col"
+              className="sticky left-0 z-10 bg-card px-2 pb-2 text-left text-xs font-medium uppercase tracking-wide text-muted"
+            >
+              {t("portfolio.table.asset")}
+            </th>
+            {columns.map((column) => (
+              <th key={column} scope="col" className={HEAD}>
+                {t(`portfolio.table.${column}`)}
+              </th>
+            ))}
+            <th scope="col" className="px-2 pb-2">
+              <span className="sr-only">{t("portfolio.columns.actions")}</span>
+            </th>
+          </tr>
+        </thead>
+        {groups.map((group) => (
+          <tbody key={group.assetClass} className="divide-y divide-line border-b border-line">
+            <tr className="bg-card-soft">
+              <th
+                scope="colgroup"
+                colSpan={columns.length + 2}
+                className="px-2 py-2 text-left text-sm font-semibold"
+              >
+                <span className="sticky left-2 inline-flex flex-wrap items-baseline gap-x-2">
+                  <span>{t(`classes.${group.assetClass as AssetClass}`)}</span>
+                  <span className="font-normal text-muted">
+                    {t("portfolio.byType.count", { count: group.rows.length })} ·{" "}
+                    {moneyText(group.value)} ·{" "}
+                    {t("portfolio.byType.share", { percent: percentText(group.percent, locale) })} ·{" "}
+                    {t("portfolio.byType.invested", { amount: moneyText(group.cost) })}
+                  </span>
+                </span>
+              </th>
+            </tr>
+            {group.rows.map(({ row }) => {
+              const cell = cells.get(row.id)!;
+              const unit = isUnitPriced(row.assetClass);
+              const hasQuote = row.quoteState === "automatico";
+              const priceAge =
+                row.valuedOn && !row.estimated && !hasQuote ? daysSince(row.valuedOn, today) : 0;
+              const held = money(row.position.quantity).gt(0);
+              const menu = [
+                ...(writable
+                  ? [
+                      {
+                        label: t("portfolio.actions.value"),
+                        icon: <Tag className="size-4" aria-hidden="true" />,
+                        onClick: () => onValue(row.id),
+                      },
+                    ]
+                  : []),
+                {
+                  label: t("portfolio.actions.history"),
+                  icon: <History className="size-4" aria-hidden="true" />,
+                  href: `/app/investimentos/lancamentos?ativo=${row.id}`,
+                },
+                ...(writable
+                  ? [
+                      {
+                        label: t("portfolio.actions.edit"),
+                        icon: <Pencil className="size-4" aria-hidden="true" />,
+                        onClick: () => onEdit(row.id),
+                      },
+                      {
+                        label: t("portfolio.actions.delete"),
+                        icon: <Trash2 className="size-4" aria-hidden="true" />,
+                        onClick: () => onRemove(row),
+                        tone: "danger" as const,
+                      },
+                    ]
+                  : []),
+              ];
+              return (
+                <tr key={row.id}>
+                  <th
+                    scope="row"
+                    className="sticky left-0 z-10 min-w-48 bg-card px-2 py-3 text-left font-normal"
+                  >
+                    <p className="m-0 flex flex-wrap items-center gap-2 font-medium">
+                      {row.ticker ?? row.name}
+                      {row.ticker ? (
+                        <Badge>{t(`classes.${row.assetClass as AssetClass}`)}</Badge>
+                      ) : null}
+                      {priceAge > stalePriceDays ? (
+                        <Badge tone="warning">
+                          {t("portfolio.staleBadge", { count: priceAge })}
+                        </Badge>
+                      ) : null}
+                    </p>
+                    {row.ticker ? <p className="m-0 text-xs text-muted">{row.name}</p> : null}
+                    {row.events.map((event) => {
+                      const kind = stockEventKind(event.note);
+                      const code = EVENT_KINDS[kind];
+                      return (
+                        <p key={event.id} className="m-0 text-xs text-muted">
+                          {t("portfolio.adjusted", {
+                            kind: code ? t(`portfolio.eventKinds.${code}`) : kind,
+                            date: formatDate(event.comDate, locale),
+                          })}
+                        </p>
+                      );
+                    })}
+                    {row.position.oversold ? (
+                      <p className="m-0 text-xs text-danger">{t("portfolio.oversold")}</p>
+                    ) : null}
+                    {row.estimated ? (
+                      <p className="m-0 text-xs text-muted">{t("portfolio.estimated")}</p>
+                    ) : null}
+                    {hasQuote ? null : <QuoteNote row={row} today={today} />}
+                  </th>
+                  <td className={NUM}>
+                    {unit && row.currentPrice ? (
+                      <>
+                        <span className="block">{moneyText(row.currentPrice)}</span>
+                        {row.quoteDate || row.valuedOn ? (
+                          <span className="block text-xs text-muted">
+                            {formatDate(row.quoteDate ?? row.valuedOn!, locale)}
+                          </span>
+                        ) : null}
+                      </>
+                    ) : (
+                      dash
+                    )}
+                  </td>
+                  <td className={NUM}>
+                    {unit && held ? quantityText(row.position.quantity, locale) : dash}
+                  </td>
+                  <td className={cx(NUM, "font-medium")}>{moneyText(row.value)}</td>
+                  <td className={NUM}>
+                    {unit && held ? moneyText(row.position.averagePrice) : dash}
+                  </td>
+                  <td className={NUM}>
+                    <GainCell row={row} locale={locale} />
+                  </td>
+                  <td className={NUM}>
+                    {cell.priceToBook === null ? dash : ratio.format(cell.priceToBook)}
+                  </td>
+                  <td className={NUM}>
+                    <PercentCell value={cell.upside} locale={locale} />
+                  </td>
+                  <td className={NUM}>{moneyText(cell.dividendMonthly)}</td>
+                  <td className={NUM}>{moneyText(row.position.cost)}</td>
+                  <td className={NUM}>
+                    {cell.idealPercent === null ? dash : percentText(cell.idealPercent, locale)}
+                  </td>
+                  <td className={NUM}>
+                    {cell.contribution === null ? dash : moneyText(cell.contribution)}
+                  </td>
+                  <td className={cx(NUM, "font-medium text-brand-700")}>
+                    {percentText(cell.sharePercent, locale)}
+                  </td>
+                  <td className="px-2 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      {writable ? (
+                        <Button
+                          variant="secondary"
+                          small
+                          aria-label={t("portfolio.actions.tradeLabel", { name: row.name })}
+                          onClick={() => onOperation(row.id)}
+                        >
+                          {t("portfolio.actions.trade")}
+                        </Button>
+                      ) : null}
+                      <ActionMenu
+                        label={t("portfolio.actions.more", { name: row.name })}
+                        items={menu}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        ))}
+        <tfoot>
+          <tr className="font-semibold">
+            <th scope="row" className="sticky left-0 z-10 bg-card px-2 py-3 text-left">
+              {t("portfolio.table.total")}
+            </th>
+            <td className={NUM} />
+            <td className={NUM} />
+            <td className={NUM}>{moneyText(totals.value)}</td>
+            <td className={NUM} />
+            <td className={NUM}>
+              <span
+                className={
+                  money(totals.gain).gt(0)
+                    ? "text-success"
+                    : money(totals.gain).lt(0)
+                      ? "text-danger"
+                      : undefined
+                }
+              >
+                {moneyText(totals.gain)}
+              </span>
+            </td>
+            <td className={NUM} />
+            <td className={NUM} />
+            <td className={NUM}>{moneyText(totals.dividendMonthly)}</td>
+            <td className={NUM}>{moneyText(totals.cost)}</td>
+            <td className={NUM}>{percentText(totals.idealPercent, locale)}</td>
+            <td className={NUM}>{moneyText(totals.contribution)}</td>
+            <td className={cx(NUM, "text-brand-700")}>{percentText(100, locale)}</td>
+            <td />
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
 
@@ -261,139 +590,6 @@ export function PortfolioBoard({
   const [showZeroed, setShowZeroed] = useState(false);
   const listed = showZeroed ? data.rows : visible;
   const groups = groupByClass(listed);
-
-  /** Uma linha de ativo: no computador vira colunas; no celular, blocos empilhados. */
-  const renderRow = (row: Row, share: { percent: number; inClass: number }) => {
-    const unit = isUnitPriced(row.assetClass);
-    // Com cotação automática, o aviso de preço velho não vale.
-    const hasQuote = row.quoteState === "automatico";
-    const priceAge =
-      row.valuedOn && !row.estimated && !hasQuote ? daysSince(row.valuedOn, data.today) : 0;
-    const menu = [
-      ...(writable
-        ? [
-            {
-              label: t("portfolio.actions.value"),
-              icon: <Tag className="size-4" aria-hidden="true" />,
-              onClick: () => openRow("value", row.id),
-            },
-          ]
-        : []),
-      {
-        label: t("portfolio.actions.history"),
-        icon: <History className="size-4" aria-hidden="true" />,
-        href: `/app/investimentos/lancamentos?ativo=${row.id}`,
-      },
-      ...(writable
-        ? [
-            {
-              label: t("portfolio.actions.edit"),
-              icon: <Pencil className="size-4" aria-hidden="true" />,
-              onClick: () => openRow("edit", row.id),
-            },
-            {
-              label: t("portfolio.actions.delete"),
-              icon: <Trash2 className="size-4" aria-hidden="true" />,
-              onClick: () => setRemoving(row),
-              tone: "danger" as const,
-            },
-          ]
-        : []),
-    ];
-    return (
-      <li key={row.id} className={cx("py-3 text-sm", ROW_GRID)}>
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-            <TrendingUp className="size-4" aria-hidden="true" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-2 font-medium">
-              {row.name}
-              {row.ticker ? <Badge>{row.ticker}</Badge> : null}
-              {priceAge > stalePriceDays ? (
-                <Badge tone="warning">{t("portfolio.staleBadge", { count: priceAge })}</Badge>
-              ) : null}
-            </p>
-            {row.events.map((event) => {
-              const kind = stockEventKind(event.note);
-              const code = EVENT_KINDS[kind];
-              return (
-                <p key={event.id} className="text-xs text-muted">
-                  {t("portfolio.adjusted", {
-                    kind: code ? t(`portfolio.eventKinds.${code}`) : kind,
-                    date: formatDate(event.comDate, locale),
-                  })}
-                </p>
-              );
-            })}
-            {row.position.oversold ? (
-              <p className="text-xs text-danger">{t("portfolio.oversold")}</p>
-            ) : null}
-            {row.estimated ? (
-              <p className="text-xs text-muted">{t("portfolio.estimated")}</p>
-            ) : row.valuedOn && !hasQuote ? (
-              <p className="text-xs text-muted">
-                {t("portfolio.valuedOn", { date: formatDate(row.valuedOn, locale) })}
-              </p>
-            ) : null}
-            <QuoteNote row={row} today={data.today} />
-          </div>
-        </div>
-        <div className="mt-2 pl-12 xl:mt-0 xl:pl-0">
-          <span className="text-xs text-muted xl:hidden">{t("portfolio.columns.position")}: </span>
-          {unit && money(row.position.quantity).gt(0) ? (
-            <span className="tabular-nums">
-              {t("portfolio.positionShort", {
-                quantity: quantityText(row.position.quantity, locale),
-                price: moneyText(row.position.averagePrice),
-              })}
-            </span>
-          ) : (
-            <span className="text-muted">—</span>
-          )}
-          <span className="block text-xs text-muted">
-            {t("portfolio.invested", { amount: moneyText(row.position.cost) })}
-          </span>
-        </div>
-        <div className="mt-2 pl-12 xl:mt-0 xl:pl-0">
-          <span className="block font-medium tabular-nums">{moneyText(row.value)}</span>
-          <span className="block text-xs tabular-nums text-brand-700">
-            {t("portfolio.byType.share", { percent: percentText(share.percent, locale) })}
-          </span>
-          <div
-            className="mt-1 h-1 max-w-40 rounded-full bg-brand-50"
-            role="img"
-            aria-label={t("portfolio.byType.shareOf", {
-              percent: percentText(share.inClass, locale),
-              type: t(`classes.${row.assetClass as AssetClass}`),
-            })}
-          >
-            <div
-              className="h-1 rounded-full bg-brand-500"
-              style={{ width: `${Math.min(100, share.inClass)}%` }}
-            />
-          </div>
-        </div>
-        <div className="mt-2 pl-12 xl:mt-0 xl:pl-0">
-          <span className="text-xs text-muted xl:hidden">{t("portfolio.columns.result")}: </span>
-          <GainCell row={row} locale={locale} />
-        </div>
-        <div className="mt-2 flex items-center gap-1 pl-12 xl:mt-0 xl:justify-end xl:pl-0">
-          {writable ? (
-            <Button
-              variant="secondary"
-              small
-              aria-label={t("portfolio.actions.tradeLabel", { name: row.name })}
-              onClick={() => openOperation(row.id)}
-            >
-              {t("portfolio.actions.trade")}
-            </Button>
-          ) : null}
-          <ActionMenu label={t("portfolio.actions.more", { name: row.name })} items={menu} />
-        </div>
-      </li>
-    );
-  };
 
   return (
     <>
@@ -512,46 +708,18 @@ export function PortfolioBoard({
               ) : null
             }
           >
-            <div
-              aria-hidden="true"
-              className={cx(
-                "hidden border-b border-line pb-2 text-xs font-medium uppercase tracking-wide text-muted",
-                ROW_GRID,
-              )}
-            >
-              <span>{t("portfolio.columns.asset")}</span>
-              <span>{t("portfolio.columns.position")}</span>
-              <span>{t("portfolio.columns.value")}</span>
-              <span>{t("portfolio.columns.result")}</span>
-              <span className="sr-only">{t("portfolio.columns.actions")}</span>
-            </div>
-            {groups.map((group) => (
-              <section
-                key={group.assetClass}
-                aria-label={t(`classes.${group.assetClass as AssetClass}`)}
-              >
-                <header className="mt-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg bg-card-soft px-3 py-2 text-sm">
-                  <h3 className="m-0 font-semibold">
-                    {t(`classes.${group.assetClass as AssetClass}`)}
-                    <span className="ml-2 font-normal text-muted">
-                      {t("portfolio.byType.count", { count: group.rows.length })}
-                    </span>
-                  </h3>
-                  <p className="m-0 flex flex-wrap gap-x-2 tabular-nums text-muted">
-                    <span className="font-medium text-ink">{moneyText(group.value)}</span>
-                    <span>
-                      {t("portfolio.byType.share", {
-                        percent: percentText(group.percent, locale),
-                      })}
-                    </span>
-                    <span>{t("portfolio.byType.invested", { amount: moneyText(group.cost) })}</span>
-                  </p>
-                </header>
-                <ul className="m-0 list-none divide-y divide-line p-0">
-                  {group.rows.map(({ row, ...share }) => renderRow(row, share))}
-                </ul>
-              </section>
-            ))}
+            <HoldingsTable
+              groups={groups}
+              total={summary.total}
+              today={data.today}
+              stalePriceDays={stalePriceDays}
+              writable={writable}
+              onOperation={openOperation}
+              onValue={(id) => openRow("value", id)}
+              onEdit={(id) => openRow("edit", id)}
+              onRemove={setRemoving}
+            />
+            <p className="mt-3 text-xs text-muted">{t("portfolio.table.footnote")}</p>
           </Card>
         </>
       )}

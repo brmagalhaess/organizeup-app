@@ -432,7 +432,15 @@
         "class": "Class",
         "codeHint": "E.g. PETR4, HGLG11. For stocks, real estate funds, ETFs and BDRs, this is what brings in the price and dividends on their own.",
         "submit": "Save investment",
-        "namePlaceholderAnywhere": "E.g. Government bond 2031"
+        "namePlaceholderAnywhere": "E.g. Government bond 2031",
+        "references": "Target portfolio references",
+        "referencesHint": "Optional. They feed the P/B, upside, target share and contribution columns.",
+        "bookValue": "Book value per share (¤)",
+        "bookValueHint": "Equity per share or unit.",
+        "targetPrice": "Target price (¤)",
+        "targetPriceHint": "What you think it is worth.",
+        "targetPercent": "Target share (%)",
+        "targetPercentHint": "The share this asset should have in the portfolio."
       },
       "valueForm": {
         "price": "Today’s price (¤)",
@@ -462,7 +470,25 @@
       },
       "invested": "invested {amount}",
       "listHint": "{count, plural, one {# asset} other {# assets}}, grouped by type.",
-      "positionShort": "{quantity} × {price}"
+      "positionShort": "{quantity} × {price}",
+      "table": {
+        "caption": "Full portfolio, by asset",
+        "asset": "Asset",
+        "price": "Price",
+        "quantity": "Quantity",
+        "equity": "Equity",
+        "average": "Avg. price",
+        "gain": "Profit",
+        "priceToBook": "P/B",
+        "upside": "Upside",
+        "dividendMonth": "Dividend/month",
+        "cost": "Cost",
+        "ideal": "Target share",
+        "contribution": "Contribution",
+        "share": "Portfolio %",
+        "total": "Total",
+        "footnote": "P/B, upside, target share and contribution use the book value, target price and target share you enter in Edit investment. Dividend/month is the 12-month average. Contribution is what to buy for the asset to reach its target share of today's portfolio."
+      }
     },
     "trades": {
       "title": "Transactions",
@@ -552,7 +578,10 @@
       "percentFormat": "Use percentages like 30 or 12.5.",
       "percentMax": "Each class goes up to 100%.",
       "percentSum": "The targets add up to more than 100%.",
-      "classNotAllowed": "This class is only available to families in reais."
+      "classNotAllowed": "This class is only available to families in reais.",
+      "bookValueFormat": "Enter the book value like 25.40.",
+      "targetPriceFormat": "Enter the target price like 36.00.",
+      "targetPercentFormat": "Enter the target share from 0 to 100."
     },
     "importar": {
       "metaTitle": "Import investments",

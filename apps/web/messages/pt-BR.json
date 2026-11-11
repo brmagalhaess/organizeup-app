@@ -432,7 +432,15 @@
         "class": "Classe",
         "codeHint": "Ex.: PETR4, HGLG11. Em ações, fundos imobiliários, ETFs e BDRs, é o que traz o preço e os proventos sozinhos.",
         "submit": "Salvar investimento",
-        "namePlaceholderAnywhere": "Ex.: Título público 2031"
+        "namePlaceholderAnywhere": "Ex.: Título público 2031",
+        "references": "Referências da carteira ideal",
+        "referencesHint": "Opcionais. Alimentam as colunas P/VP, potencial, carteira ideal e aporte necessário.",
+        "bookValue": "VPA (¤)",
+        "bookValueHint": "Valor patrimonial por ação ou cota.",
+        "targetPrice": "Preço alvo (¤)",
+        "targetPriceHint": "Até onde você acha que vale.",
+        "targetPercent": "Carteira ideal (%)",
+        "targetPercentHint": "Fatia que este ativo deve ter na carteira."
       },
       "valueForm": {
         "price": "Preço de hoje (¤)",
@@ -462,7 +470,25 @@
       },
       "invested": "aplicado {amount}",
       "listHint": "{count, plural, one {# ativo} other {# ativos}}, agrupados por tipo.",
-      "positionShort": "{quantity} un. × {price}"
+      "positionShort": "{quantity} un. × {price}",
+      "table": {
+        "caption": "Carteira completa, por ativo",
+        "asset": "Ativo",
+        "price": "Preço atual",
+        "quantity": "Quantidade",
+        "equity": "Patrimônio",
+        "average": "Preço médio",
+        "gain": "Lucro",
+        "priceToBook": "P/VP",
+        "upside": "Potencial",
+        "dividendMonth": "Dividendo/mês",
+        "cost": "Custo",
+        "ideal": "Carteira ideal",
+        "contribution": "Aporte necessário",
+        "share": "Carteira %",
+        "total": "Total",
+        "footnote": "P/VP, potencial, carteira ideal e aporte necessário usam o VPA, o preço alvo e a fatia ideal que você informa em Editar investimento. Dividendo/mês é a média dos últimos 12 meses. Aporte necessário é quanto comprar para o ativo chegar à fatia ideal, sobre a carteira de hoje."
+      }
     },
     "trades": {
       "title": "Lançamentos",
@@ -552,7 +578,10 @@
       "percentFormat": "Use percentuais como 30 ou 12,5.",
       "percentMax": "Cada classe vai até 100%.",
       "percentSum": "A soma das metas passa de 100%.",
-      "classNotAllowed": "Esta classe só vale para família em real."
+      "classNotAllowed": "Esta classe só vale para família em real.",
+      "bookValueFormat": "Informe o VPA como 25,40.",
+      "targetPriceFormat": "Informe o preço alvo como 36,00.",
+      "targetPercentFormat": "Informe a fatia ideal de 0 a 100."
     },
     "importar": {
       "metaTitle": "Importar investimentos",

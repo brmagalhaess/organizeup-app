@@ -432,7 +432,15 @@
         "class": "Clase",
         "codeHint": "Ej.: PETR4, HGLG11. En acciones, fondos inmobiliarios, ETF y BDR, es lo que trae el precio y los dividendos solos.",
         "submit": "Guardar inversión",
-        "namePlaceholderAnywhere": "Ej.: Título público 2031"
+        "namePlaceholderAnywhere": "Ej.: Título público 2031",
+        "references": "Referencias de la cartera ideal",
+        "referencesHint": "Opcionales. Alimentan las columnas P/VP, potencial, cartera ideal y aporte necesario.",
+        "bookValue": "VPA (¤)",
+        "bookValueHint": "Valor patrimonial por acción o cuota.",
+        "targetPrice": "Precio objetivo (¤)",
+        "targetPriceHint": "Hasta dónde crees que vale.",
+        "targetPercent": "Cartera ideal (%)",
+        "targetPercentHint": "Participación que este activo debe tener en la cartera."
       },
       "valueForm": {
         "price": "Precio de hoy (¤)",
@@ -462,7 +470,25 @@
       },
       "invested": "aplicado {amount}",
       "listHint": "{count, plural, one {# activo} other {# activos}}, agrupados por tipo.",
-      "positionShort": "{quantity} u. × {price}"
+      "positionShort": "{quantity} u. × {price}",
+      "table": {
+        "caption": "Cartera completa, por activo",
+        "asset": "Activo",
+        "price": "Precio actual",
+        "quantity": "Cantidad",
+        "equity": "Patrimonio",
+        "average": "Precio medio",
+        "gain": "Ganancia",
+        "priceToBook": "P/VP",
+        "upside": "Potencial",
+        "dividendMonth": "Dividendo/mes",
+        "cost": "Costo",
+        "ideal": "Cartera ideal",
+        "contribution": "Aporte necesario",
+        "share": "Cartera %",
+        "total": "Total",
+        "footnote": "P/VP, potencial, cartera ideal y aporte necesario usan el VPA, el precio objetivo y la participación ideal que indicas en Editar inversión. Dividendo/mes es el promedio de los últimos 12 meses. Aporte necesario es cuánto comprar para que el activo llegue a su participación ideal sobre la cartera de hoy."
+      }
     },
     "trades": {
       "title": "Movimientos",
@@ -552,7 +578,10 @@
       "percentFormat": "Usa porcentajes como 30 o 12,5.",
       "percentMax": "Cada clase llega hasta el 100 %.",
       "percentSum": "La suma de las metas supera el 100 %.",
-      "classNotAllowed": "Esta clase solo vale para familias en reales."
+      "classNotAllowed": "Esta clase solo vale para familias en reales.",
+      "bookValueFormat": "Indica el VPA como 25,40.",
+      "targetPriceFormat": "Indica el precio objetivo como 36,00.",
+      "targetPercentFormat": "Indica la participación ideal de 0 a 100."
     },
     "importar": {
       "metaTitle": "Importar inversiones",

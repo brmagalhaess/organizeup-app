@@ -15,6 +15,13 @@ e da nota de corretagem: ver ADR-0024. Importação de proventos: ver ADR-0029. 
   faixa por tipo e colunas Ativo, Posição, Valor, Resultado a partir de `xl`; ação principal "Operação" e o resto
   no `ActionMenu`). Proventos: indicadores (média, ano, a receber, meta) → gráfico mensal → a receber e por
   investimento lado a lado → renda passiva e previsão → histórico agrupado por mês.
+- **Tabela completa da carteira** (2026-11-11, migração 0047): Ativo, preço atual, quantidade, patrimônio,
+  preço médio, lucro, P/VP, potencial, dividendo/mês, custo, carteira ideal, aporte necessário e carteira %.
+  P/VP, potencial, carteira ideal e aporte vêm de três campos opcionais por ativo que a família informa em
+  Editar investimento (`book_value_per_share`, `target_price`, `target_percent`); sem eles a coluna fica em
+  branco. Dividendo/mês é a média de 12 meses; aporte necessário = total × fatia ideal − valor, nunca
+  negativo. Cálculo em `apps/web/src/lib/portfolio-table.ts`. Rola de lado no celular, com a coluna do
+  ativo fixa.
 - **Editar operação** em Investimentos → Lançamentos: muda lado, data, quantidade, preço, taxas e conta. O
   lançamento da conta é refeito (sai o antigo, entra o novo). Nota de corretagem no importador usa a conta
   escolhida no arquivo para o dinheiro de toda a nota.

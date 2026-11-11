@@ -749,6 +749,12 @@ export const investments = pgTable(
     valuedOn: date("valued_on", { mode: "string" }),
     /** Quem informou o preço atual (ADR-0017). */
     priceSource: text("price_source", { enum: PRICE_SOURCES }).notNull().default("familia"),
+    /** Valor patrimonial por ação ou cota, informado pela família: base do P/VP. */
+    bookValuePerShare: quantity("book_value_per_share"),
+    /** Preço alvo ou teto, informado pela família: base do potencial de valorização. */
+    targetPrice: quantity("target_price"),
+    /** Fatia ideal do ativo na carteira (0 a 100): base do aporte necessário. */
+    targetPercent: numeric("target_percent", { precision: 5, scale: 2 }),
     createdAt: ts("created_at").notNull().defaultNow(),
   },
   (t) => [

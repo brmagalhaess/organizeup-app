@@ -70,9 +70,38 @@ const dateSchema = (t: Errors) =>
     .regex(/^\d{4}-\d{2}-\d{2}$/, t("dateRequired"))
     .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), t("dateInvalid"));
 
-const investmentSchema = (t: Errors) =>
+/** Campo opcional de referência: vazio vira null; preenchido segue a regra de valor positivo. */
+const optionalPositive = (message: string, locale: Locale) =>
+  z.string().transform((value, ctx) => {
+    if (!value.trim()) return null;
+    const parsed = positive(message, locale).safeParse(value);
+    if (!parsed.success) {
+      ctx.addIssue({ code: "custom", message });
+      return z.NEVER;
+    }
+    return parsed.data;
+  });
+
+/** Fatia ideal de 0 a 100, com até duas casas; vazio vira null. */
+const optionalPercent = (message: string, locale: Locale) =>
+  z.string().transform((value, ctx) => {
+    if (!value.trim()) return null;
+    try {
+      const parsed = parseMoney(value, locale);
+      if (parsed.lt(0) || parsed.gt(100)) throw new RangeError("fora do limite");
+      return parsed.toFixed(2);
+    } catch {
+      ctx.addIssue({ code: "custom", message });
+      return z.NEVER;
+    }
+  });
+
+const investmentSchema = (t: Errors, locale: Locale) =>
   z.object({
     id: z.string(),
+    bookValuePerShare: optionalPositive(t("bookValueFormat"), locale),
+    targetPrice: optionalPositive(t("targetPriceFormat"), locale),
+    targetPercent: optionalPercent(t("targetPercentFormat"), locale),
     name: z.string().trim().min(1, t("nameRequired")).max(80),
     ticker: z
       .string()
@@ -91,9 +120,12 @@ function refresh() {
 export async function saveInvestment(_prev: FormState, form: FormData): Promise<FormState> {
   const { ctx } = await requireModule("investimentos");
   if (!canWrite(ctx)) return blocked();
-  const t = await getTranslations("investimentos.errors");
-  const parsed = investmentSchema(t).safeParse({
+  const [t, locale] = await texts();
+  const parsed = investmentSchema(t, locale).safeParse({
     id: form.get("id") ?? "",
+    bookValuePerShare: form.get("bookValuePerShare") ?? "",
+    targetPrice: form.get("targetPrice") ?? "",
+    targetPercent: form.get("targetPercent") ?? "",
     name: form.get("name") ?? "",
     ticker: form.get("ticker") ?? "",
     assetClass: form.get("assetClass"),

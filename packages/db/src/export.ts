@@ -61,6 +61,7 @@ import {
   tripIntentions,
   trips,
 } from "./schema";
+import { getTableColumns, getTableName, sql } from "drizzle-orm";
 import { isSchemaLag } from "./access";
 import type { TenantTx } from "./tenant";
 
@@ -137,10 +138,34 @@ export const SMART_FILE_EXPORT_NOTE =
  * Tudo o que a RLS deixa o contexto ler. A auditoria só aparece para o responsável, e as conversas
  * com o assistente, só para quem conversou.
  */
+/**
+ * Tabela que já existe, mas ainda sem uma coluna nova (web à frente da migração, ADR-0023): exporta as
+ * colunas que o banco tem, em vez de derrubar a exportação inteira. O savepoint segura o erro.
+ */
+async function selectPresentColumns(tx: TenantTx, table: typeof people): Promise<unknown[]> {
+  try {
+    return await tx.transaction((step) => step.select().from(table));
+  } catch (error) {
+    if (!isSchemaLag(error)) throw error;
+    const result = await tx.execute(
+      sql`select column_name from information_schema.columns where table_schema = 'public' and table_name = ${getTableName(table)}`,
+    );
+    const rows = (Array.isArray(result) ? result : (result as { rows: unknown[] }).rows) as Array<{
+      column_name: string;
+    }>;
+    const present = new Set(rows.map((row) => row.column_name));
+    const columns = Object.fromEntries(
+      Object.entries(getTableColumns(table)).filter(([, column]) => present.has(column.name)),
+    );
+    if (Object.keys(columns).length === 0) return [];
+    return tx.transaction((step) => step.select(columns).from(table));
+  }
+}
+
 export async function exportHousehold(tx: TenantTx): Promise<Record<string, unknown[]>> {
   const out: Record<string, unknown[]> = {};
   for (const [name, table] of Object.entries(HOUSEHOLD_TABLES)) {
-    out[name] = await tx.select().from(table as typeof people);
+    out[name] = await selectPresentColumns(tx, table as typeof people);
   }
   for (const [name, table] of Object.entries(LATE_TABLES)) {
     out[name] = await tx
