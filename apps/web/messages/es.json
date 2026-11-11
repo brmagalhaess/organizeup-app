@@ -407,7 +407,11 @@
         "valueLabel": "Actualizar valor de {name}",
         "historyLabel": "Operaciones de {name}",
         "editLabel": "Editar {name}",
-        "deleteLabel": "Eliminar {name}"
+        "deleteLabel": "Eliminar {name}",
+        "more": "Más acciones de {name}",
+        "history": "Historial de operaciones",
+        "edit": "Editar inversión",
+        "delete": "Eliminar inversión"
       },
       "disclaimer": "Las acciones, los FII (fondos inmobiliarios de Brasil), los ETF (fondos cotizados) y los BDR (certificados brasileños de acciones extranjeras) con código válido tienen precio automático, actualizado después del cierre de la B3 (bolsa de Brasil) y siempre con retraso. El resto lo informas tú. OrganizeUp organiza y compara, y no recomienda comprar ni vender inversiones. Consulta también los <link>dividendos</link>.",
       "sheets": {
@@ -446,8 +450,19 @@
         "invested": "aplicado {amount}",
         "share": "{percent} de la cartera",
         "shareOf": "{percent} de {type}",
-        "list": "Cartera por tipo"
-      }
+        "list": "Cartera por tipo",
+        "count": "{count, plural, one {# activo} other {# activos}}"
+      },
+      "columns": {
+        "asset": "Activo",
+        "position": "Posición",
+        "value": "Valor",
+        "result": "Resultado",
+        "actions": "Acciones"
+      },
+      "invested": "aplicado {amount}",
+      "listHint": "{count, plural, one {# activo} other {# activos}}, agrupados por tipo.",
+      "positionShort": "{quantity} u. × {price}"
     },
     "trades": {
       "title": "Movimientos",
@@ -771,7 +786,12 @@
       "withheld": "Impuesto retenido",
       "goal": "Meta mensual",
       "noGoal": "Sin meta",
-      "goalCoverage": "El promedio ya cubre {percent} de la meta."
+      "goalCoverage": "El promedio ya cubre {percent} de la meta.",
+      "upcoming": "Por recibir",
+      "upcomingNext": "Próximo pago el {date}.",
+      "upcomingNone": "Nada anunciado todavía.",
+      "withheldYear": "{amount} de impuesto retenido en 12 meses.",
+      "goalHint": "Define una meta de renta mensual."
     },
     "monthly": {
       "title": "Mes a mes",
@@ -787,7 +807,8 @@
         "ano": "Ningún dividendo este año",
         "inicio": "Ningún dividendo desde tu primer activo"
       },
-      "emptyText": "El gráfico muestra, mes a mes, lo pagado y lo anunciado. Usa Ver dividendos para buscar los de tu cartera."
+      "emptyText": "El gráfico muestra, mes a mes, lo pagado y lo anunciado. Usa Ver dividendos para buscar los de tu cartera.",
+      "description": "Pagado y anunciado, mes a mes, sin el impuesto."
     },
     "upcoming": {
       "title": "Por recibir",
@@ -795,7 +816,8 @@
       "list": "Dividendos por recibir",
       "tomorrow": "mañana",
       "inDays": "en {days, plural, one {# día} other {# días}}",
-      "dayTotal": "{amount} en este día"
+      "dayTotal": "{amount} en este día",
+      "empty": "Ningún provento anunciado. Usa Ver proventos para buscar los de tu cartera."
     },
     "received": {
       "title": "Recibidos",
@@ -984,6 +1006,16 @@
       "created": "{count, plural, one {# dividendo encontrado} other {# dividendos encontrados}}, {upcoming, plural, =0 {todos ya pagados} one {# por recibir ({amount})} other {# por recibir ({amount})}}.",
       "nothing": "Nada nuevo: los dividendos que el mercado conoce ya están aquí.",
       "queued": "La fuente se consultará de nuevo en unos minutos; si aparece algo, entra solo."
+    },
+    "passive": {
+      "title": "Renta pasiva",
+      "description": "Lo que rinde la cartera hoy y cuánto falta para la renta objetivo.",
+      "coverage": "{percent} de la renta objetivo cubierta por la cartera."
+    },
+    "history": {
+      "title": "Historial",
+      "description": "Todo lo ya pagado, mes a mes.",
+      "monthTotal": "{amount} en el mes"
     }
   },
   "metas": {

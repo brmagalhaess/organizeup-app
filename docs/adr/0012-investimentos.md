@@ -11,6 +11,10 @@ e da nota de corretagem: ver ADR-0024. Importação de proventos: ver ADR-0029. 
 - **Carteira por tipo** (2026-11-11): a tela abre com "Divisão por tipo" (uma barra por classe, com valor,
   fatia da carteira e quanto está aplicado) e lista os ativos em um cartão por classe. Cada ativo mostra a
   fatia sobre a carteira inteira e uma barra com a fatia dentro do tipo. Lógica em `lib/portfolio-groups.ts`.
+- **Telas** (2026-11-11): a carteira segue a ordem indicadores → divisão por tipo → ativos (um cartão, com
+  faixa por tipo e colunas Ativo, Posição, Valor, Resultado a partir de `xl`; ação principal "Operação" e o resto
+  no `ActionMenu`). Proventos: indicadores (média, ano, a receber, meta) → gráfico mensal → a receber e por
+  investimento lado a lado → renda passiva e previsão → histórico agrupado por mês.
 - **Editar operação** em Investimentos → Lançamentos: muda lado, data, quantidade, preço, taxas e conta. O
   lançamento da conta é refeito (sai o antigo, entra o novo). Nota de corretagem no importador usa a conta
   escolhida no arquivo para o dinheiro de toda a nota.

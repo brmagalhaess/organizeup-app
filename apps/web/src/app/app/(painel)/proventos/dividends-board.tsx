@@ -238,44 +238,78 @@ function GoalForm({ data, onDone }: { data: Data; onDone: () => void }) {
   );
 }
 
-function OutlookTiles({ outlook }: { outlook: Outlook }) {
-  const t = useTranslations("proventos.outlook");
+/** Renda passiva: o que a carteira rende hoje, a renda alvo e quanto dela já está coberta. */
+function PassiveIncomeCard({ outlook }: { outlook: Outlook }) {
+  const t = useTranslations("proventos");
   const locale = useLocale();
   const moneyText = useMoney();
+  const coverage = Math.max(0, Math.min(100, outlook.coverage));
   return (
-    <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-3">
-      <StatTile
-        label={t("yield")}
-        value={
-          outlook.yieldUsed === null
-            ? t("noData")
-            : formatPercentExact(money(outlook.yieldUsed).toDecimalPlaces(1).toNumber(), locale, 1)
-        }
-        hint={t(`yieldBasis.${outlook.yieldBasis}`, { months: outlook.yieldMonthsBasis ?? 0 })}
-      />
-      <StatTile
-        label={t("currentIncome")}
-        value={moneyText(outlook.currentIncome)}
-        hint={t("currentIncomeHint")}
-      />
-      <StatTile
-        label={t("target")}
-        value={outlook.targetIncome ? moneyText(outlook.targetIncome) : t("noData")}
-        hint={
-          outlook.targetIncome
-            ? t(`targetHint.${outlook.targetBasis}`, {
-                percent: formatPercent(outlook.coverage, locale),
-              })
-            : t.rich("targetMissing", {
-                link: (chunks) => (
-                  <Link href="/app/aposentadoria" className="font-medium underline">
-                    {chunks}
-                  </Link>
-                ),
-              })
-        }
-      />
-    </dl>
+    <Card title={t("passive.title")} description={t("passive.description")}>
+      <dl className="m-0 flex flex-col divide-y divide-line">
+        <div className="flex items-start justify-between gap-4 py-3 first:pt-0">
+          <div className="min-w-0">
+            <dt className="text-sm font-medium">{t("outlook.yield")}</dt>
+            <dd className="m-0 text-xs text-muted">
+              {t(`outlook.yieldBasis.${outlook.yieldBasis}`, {
+                months: outlook.yieldMonthsBasis ?? 0,
+              })}
+            </dd>
+          </div>
+          <dd className="m-0 whitespace-nowrap text-lg font-semibold tabular-nums">
+            {outlook.yieldUsed === null
+              ? t("outlook.noData")
+              : formatPercentExact(
+                  money(outlook.yieldUsed).toDecimalPlaces(1).toNumber(),
+                  locale,
+                  1,
+                )}
+          </dd>
+        </div>
+        <div className="flex items-start justify-between gap-4 py-3">
+          <div className="min-w-0">
+            <dt className="text-sm font-medium">{t("outlook.currentIncome")}</dt>
+            <dd className="m-0 text-xs text-muted">{t("outlook.currentIncomeHint")}</dd>
+          </div>
+          <dd className="m-0 whitespace-nowrap text-lg font-semibold tabular-nums">
+            {moneyText(outlook.currentIncome)}
+          </dd>
+        </div>
+        <div className="flex items-start justify-between gap-4 py-3 last:pb-0">
+          <div className="min-w-0">
+            <dt className="text-sm font-medium">{t("outlook.target")}</dt>
+            <dd className="m-0 text-xs text-muted">
+              {outlook.targetIncome
+                ? t(`outlook.targetHint.${outlook.targetBasis}`, {
+                    percent: formatPercent(outlook.coverage, locale),
+                  })
+                : t.rich("outlook.targetMissing", {
+                    link: (chunks) => (
+                      <Link href="/app/aposentadoria" className="font-medium underline">
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
+            </dd>
+          </div>
+          <dd className="m-0 whitespace-nowrap text-lg font-semibold tabular-nums">
+            {outlook.targetIncome ? moneyText(outlook.targetIncome) : t("outlook.noData")}
+          </dd>
+        </div>
+      </dl>
+      {outlook.targetIncome ? (
+        <div className="mt-4">
+          <div className="flex items-baseline justify-between text-xs text-muted">
+            <span>
+              {t("passive.coverage", { percent: formatPercent(outlook.coverage, locale) })}
+            </span>
+          </div>
+          <div className="mt-1 h-2 rounded-full bg-brand-50" aria-hidden="true">
+            <div className="h-2 rounded-full bg-brand-500" style={{ width: `${coverage}%` }} />
+          </div>
+        </div>
+      ) : null}
+    </Card>
   );
 }
 
@@ -318,6 +352,93 @@ function ForecastCard({ months }: { months: Outlook["forecast"] }) {
   );
 }
 
+/** Quem paga mais: barra por ativo, do maior para o menor, com o rendimento sobre o custo. */
+function ByInvestment({ items }: { items: Data["byInvestment"] }) {
+  const t = useTranslations("proventos.byInvestment");
+  const locale = useLocale();
+  const moneyText = useMoney();
+  const top = items.reduce(
+    (acc, item) => (money(item.net).gt(acc) ? money(item.net) : acc),
+    money(0),
+  );
+  return (
+    <ul aria-label={t("title")} className="m-0 flex list-none flex-col gap-3 p-0">
+      {items.map((item) => {
+        const width = top.isZero() ? 0 : money(item.net).dividedBy(top).times(100).toNumber();
+        return (
+          <li key={item.investmentId} className="text-sm">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate font-medium">{item.label}</span>
+              <span className="whitespace-nowrap tabular-nums">
+                {moneyText(item.net)}
+                {item.yieldOnCost !== null ? (
+                  <span className="text-muted">
+                    {" "}
+                    · {formatPercentExact(item.yieldOnCost, locale)}
+                  </span>
+                ) : null}
+              </span>
+            </div>
+            <div className="mt-1 h-1.5 rounded-full bg-brand-50" aria-hidden="true">
+              <div
+                className="h-1.5 rounded-full bg-brand-500"
+                style={{ width: `${Math.max(2, width)}%` }}
+              />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Histórico agrupado por mês, com o total do mês no cabeçalho. */
+function History({
+  rows,
+  writable,
+  onRemove,
+}: {
+  rows: Row[];
+  writable: boolean;
+  onRemove: (row: Row) => void;
+}) {
+  const t = useTranslations("proventos");
+  const locale = useLocale();
+  const moneyText = useMoney();
+  const months = new Map<string, Row[]>();
+  for (const row of rows) {
+    const month = row.paidOn.slice(0, 7);
+    months.set(month, [...(months.get(month) ?? []), row]);
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      {[...months.entries()].map(([month, items]) => {
+        const total = items.reduce((acc, row) => acc.plus(netDividend(row)), money(0));
+        return (
+          <section key={month} aria-label={formatMonthYear(month, locale)}>
+            <header className="flex items-baseline justify-between gap-3 rounded-lg bg-card-soft px-3 py-2 text-sm">
+              <h3 className="m-0 font-semibold first-letter:uppercase">
+                {formatMonthYear(month, locale)}
+              </h3>
+              <p className="m-0 tabular-nums text-muted">
+                {t("history.monthTotal", { amount: moneyText(total.toFixed(2)) })}
+              </p>
+            </header>
+            <ul
+              aria-label={t("received.list")}
+              className="m-0 list-none divide-y divide-line p-0 px-3"
+            >
+              {items.map((row) => (
+                <DividendLine key={row.id} row={row} writable={writable} onRemove={onRemove} />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 export function DividendsBoard({
   data,
   outlook,
@@ -342,6 +463,7 @@ export function DividendsBoard({
   const chartState = monthlyChartState(points);
   const canAdd = writable && data.investments.length > 0;
   const [checkState, checkAction, checking] = useActionState(checkDividends, initial);
+  const nextPayment = data.upcoming[0]?.paidOn ?? null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -352,15 +474,6 @@ export function DividendsBoard({
         actions={
           canAdd ? (
             <>
-              <form action={checkAction} className="contents">
-                <Button type="submit" variant="secondary" disabled={checking}>
-                  <RefreshCw
-                    className={cx("size-4", checking && "animate-spin")}
-                    aria-hidden="true"
-                  />
-                  {checking ? t("check.pending") : t("check.button")}
-                </Button>
-              </form>
               <Link href="/app/proventos/importar" className={buttonClass("secondary")}>
                 <Upload className="size-4" aria-hidden="true" />
                 {t("importLink")}
@@ -369,6 +482,15 @@ export function DividendsBoard({
                 <Plus className="size-4" aria-hidden="true" />
                 {t("add")}
               </Button>
+              <form action={checkAction} className="contents">
+                <Button type="submit" disabled={checking}>
+                  <RefreshCw
+                    className={cx("size-4", checking && "animate-spin")}
+                    aria-hidden="true"
+                  />
+                  {checking ? t("check.pending") : t("check.button")}
+                </Button>
+              </form>
             </>
           ) : null
         }
@@ -400,18 +522,26 @@ export function DividendsBoard({
               value={moneyText(summary.monthlyAverage)}
               hint={t("stats.last12Months")}
             />
-            <StatTile label={t("stats.thisYear")} value={moneyText(summary.thisYear)} />
             <StatTile
-              label={t("stats.withheld")}
-              value={moneyText(summary.withheld12)}
-              hint={t("stats.last12Months")}
+              label={t("stats.thisYear")}
+              value={moneyText(summary.thisYear)}
+              hint={t("stats.withheldYear", { amount: moneyText(summary.withheld12) })}
+            />
+            <StatTile
+              label={t("stats.upcoming")}
+              value={moneyText(data.upcomingNet)}
+              hint={
+                nextPayment
+                  ? t("stats.upcomingNext", { date: formatDate(nextPayment, locale) })
+                  : t("stats.upcomingNone")
+              }
             />
             <StatTile
               label={t("stats.goal")}
               value={data.goal ? moneyText(data.goal) : t("stats.noGoal")}
               hint={
                 summary.goalPercent === null
-                  ? undefined
+                  ? t("stats.goalHint")
                   : t("stats.goalCoverage", {
                       percent: formatPercent(summary.goalPercent, locale),
                     })
@@ -419,10 +549,9 @@ export function DividendsBoard({
             />
           </dl>
 
-          {outlook ? <OutlookTiles outlook={outlook} /> : null}
-
           <Card
             title={t("monthly.title")}
+            description={t("monthly.description")}
             actions={
               writable ? (
                 <Button variant="secondary" small onClick={() => open("goal")}>
@@ -461,71 +590,49 @@ export function DividendsBoard({
             )}
           </Card>
 
-          {outlook ? <ForecastCard months={outlook.forecast} /> : null}
-
-          {data.upcoming.length > 0 ? (
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
             <Card
               title={t("upcoming.title")}
-              description={t("upcoming.description", {
-                amount: moneyText(data.upcomingNet),
-              })}
+              description={
+                data.upcoming.length > 0
+                  ? t("upcoming.description", { amount: moneyText(data.upcomingNet) })
+                  : undefined
+              }
             >
-              <UpcomingByDay
-                rows={data.upcoming}
-                today={data.today}
-                writable={writable}
-                onRemove={setRemoving}
-              />
-            </Card>
-          ) : null}
-
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-            <Card title={t("received.title")}>
-              {data.rows.length === 0 ? (
-                <EmptyState title={t("received.emptyTitle")} text={t("received.emptyText")} />
+              {data.upcoming.length > 0 ? (
+                <UpcomingByDay
+                  rows={data.upcoming}
+                  today={data.today}
+                  writable={writable}
+                  onRemove={setRemoving}
+                />
               ) : (
-                <ul
-                  aria-label={t("received.list")}
-                  className="m-0 list-none divide-y divide-line p-0"
-                >
-                  {data.rows.map((row) => (
-                    <DividendLine
-                      key={row.id}
-                      row={row}
-                      writable={writable}
-                      onRemove={setRemoving}
-                    />
-                  ))}
-                </ul>
+                <p className="m-0 text-sm text-muted">{t("upcoming.empty")}</p>
               )}
             </Card>
-
             <Card title={t("byInvestment.title")} description={t("byInvestment.description")}>
               {data.byInvestment.length === 0 ? (
-                <p className="text-sm text-muted">{t("byInvestment.empty")}</p>
+                <p className="m-0 text-sm text-muted">{t("byInvestment.empty")}</p>
               ) : (
-                <ul
-                  aria-label={t("byInvestment.title")}
-                  className="m-0 list-none divide-y divide-line p-0"
-                >
-                  {data.byInvestment.map((item) => (
-                    <li
-                      key={item.investmentId}
-                      className="flex items-center justify-between gap-3 py-2 text-sm"
-                    >
-                      <span className="min-w-0 truncate font-medium">{item.label}</span>
-                      <span className="whitespace-nowrap tabular-nums">
-                        {moneyText(item.net)}
-                        {item.yieldOnCost !== null
-                          ? ` · ${formatPercentExact(item.yieldOnCost, locale)}`
-                          : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <ByInvestment items={data.byInvestment} />
               )}
             </Card>
           </div>
+
+          {outlook ? (
+            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+              <PassiveIncomeCard outlook={outlook} />
+              <ForecastCard months={outlook.forecast} />
+            </div>
+          ) : null}
+
+          <Card title={t("history.title")} description={t("history.description")}>
+            {data.rows.length === 0 ? (
+              <EmptyState title={t("received.emptyTitle")} text={t("received.emptyText")} />
+            ) : (
+              <History rows={data.rows} writable={writable} onRemove={setRemoving} />
+            )}
+          </Card>
           <p className="text-xs text-muted">{t("automaticNote")}</p>
         </>
       )}

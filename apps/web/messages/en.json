@@ -407,7 +407,11 @@
         "valueLabel": "Update value of {name}",
         "historyLabel": "Trades for {name}",
         "editLabel": "Edit {name}",
-        "deleteLabel": "Delete {name}"
+        "deleteLabel": "Delete {name}",
+        "more": "More actions for {name}",
+        "history": "Trade history",
+        "edit": "Edit investment",
+        "delete": "Delete investment"
       },
       "disclaimer": "Stocks, FIIs (Brazilian real estate funds), ETFs (exchange-traded funds) and BDRs (Brazilian receipts for foreign stocks) with a valid ticker get automatic prices, updated after the B3 (Brazilian stock exchange) closes and always delayed. Everything else is entered by you. OrganizeUp organizes and compares, and does not recommend buying or selling investments. See also <link>dividends</link>.",
       "sheets": {
@@ -446,8 +450,19 @@
         "invested": "invested {amount}",
         "share": "{percent} of the portfolio",
         "shareOf": "{percent} of {type}",
-        "list": "Portfolio by type"
-      }
+        "list": "Portfolio by type",
+        "count": "{count, plural, one {# asset} other {# assets}}"
+      },
+      "columns": {
+        "asset": "Asset",
+        "position": "Position",
+        "value": "Value",
+        "result": "Result",
+        "actions": "Actions"
+      },
+      "invested": "invested {amount}",
+      "listHint": "{count, plural, one {# asset} other {# assets}}, grouped by type.",
+      "positionShort": "{quantity} × {price}"
     },
     "trades": {
       "title": "Transactions",
@@ -771,7 +786,12 @@
       "withheld": "Tax withheld",
       "goal": "Monthly goal",
       "noGoal": "No goal",
-      "goalCoverage": "The average already covers {percent} of the goal."
+      "goalCoverage": "The average already covers {percent} of the goal.",
+      "upcoming": "Upcoming",
+      "upcomingNext": "Next payment on {date}.",
+      "upcomingNone": "Nothing announced yet.",
+      "withheldYear": "{amount} withheld in 12 months.",
+      "goalHint": "Set a monthly income goal."
     },
     "monthly": {
       "title": "Month by month",
@@ -787,7 +807,8 @@
         "ano": "No dividends this year",
         "inicio": "No dividends since your first asset"
       },
-      "emptyText": "The chart shows, month by month, what was paid and what is announced. Use Check dividends to fetch your portfolio's."
+      "emptyText": "The chart shows, month by month, what was paid and what is announced. Use Check dividends to fetch your portfolio's.",
+      "description": "Paid and announced, month by month, net of tax."
     },
     "upcoming": {
       "title": "Upcoming",
@@ -795,7 +816,8 @@
       "list": "Upcoming dividends",
       "tomorrow": "tomorrow",
       "inDays": "in {days, plural, one {# day} other {# days}}",
-      "dayTotal": "{amount} on this day"
+      "dayTotal": "{amount} on this day",
+      "empty": "No dividend announced. Use Check dividends to fetch your portfolio's."
     },
     "received": {
       "title": "Received",
@@ -984,6 +1006,16 @@
       "created": "{count, plural, one {# dividend found} other {# dividends found}}, {upcoming, plural, =0 {all already paid} one {# upcoming ({amount})} other {# upcoming ({amount})}}.",
       "nothing": "Nothing new: the dividends the market knows about are already here.",
       "queued": "The source will be checked again in a few minutes; anything new is added on its own."
+    },
+    "passive": {
+      "title": "Passive income",
+      "description": "What the portfolio yields today and how far it is from the target income.",
+      "coverage": "{percent} of the target income covered by the portfolio."
+    },
+    "history": {
+      "title": "History",
+      "description": "Everything already paid, month by month.",
+      "monthTotal": "{amount} in the month"
     }
   },
   "metas": {

@@ -1,6 +1,6 @@
 "use client";
 // Kit de componentes (ADR-0003). Toda tela usa estes blocos para manter o sistema consistente.
-import { X } from "lucide-react";
+import { Ellipsis, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFormStatus } from "react-dom";
 import {
@@ -419,5 +419,92 @@ export function ConfirmSheet({
         </div>
       </form>
     </Sheet>
+  );
+}
+
+export interface MenuItem {
+  label: string;
+  icon?: ReactNode;
+  onClick?: () => void;
+  href?: string;
+  tone?: "danger";
+}
+
+/**
+ * Menu de ações secundárias atrás de um botão "⋯": a linha fica limpa e as ações continuam a um clique.
+ * Usa popover nativo (camada de topo, fecha com Esc ou clique fora) e se posiciona sob o botão.
+ */
+export function ActionMenu({ label, items }: { label: string; items: MenuItem[] }) {
+  const id = useId();
+  const button = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const place = () => {
+    const anchor = button.current?.getBoundingClientRect();
+    const panel = menu.current;
+    if (!anchor || !panel) return;
+    const width = panel.offsetWidth;
+    const left = Math.max(8, Math.min(anchor.right - width, window.innerWidth - width - 8));
+    panel.style.top = `${anchor.bottom + 4}px`;
+    panel.style.left = `${left}px`;
+  };
+  return (
+    <>
+      <button
+        ref={button}
+        type="button"
+        popoverTarget={id}
+        aria-label={label}
+        title={label}
+        aria-haspopup="menu"
+        className="inline-flex size-9 items-center justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-ink"
+      >
+        <Ellipsis className="size-4" aria-hidden="true" />
+      </button>
+      <div
+        id={id}
+        ref={menu}
+        popover="auto"
+        role="menu"
+        aria-label={label}
+        onToggle={(event) => {
+          if (event.newState === "open") place();
+        }}
+        className="m-0 w-52 rounded-xl border border-line bg-card p-1 text-ink shadow-card"
+      >
+        {items.map((item) => {
+          const classes = cx(
+            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-brand-50",
+            item.tone === "danger" ? "text-danger" : "text-ink",
+          );
+          const close = () => menu.current?.hidePopover();
+          return item.href ? (
+            <a
+              key={item.label}
+              role="menuitem"
+              href={item.href}
+              className={classes}
+              onClick={close}
+            >
+              {item.icon}
+              {item.label}
+            </a>
+          ) : (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              className={classes}
+              onClick={() => {
+                close();
+                item.onClick?.();
+              }}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }

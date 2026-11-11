@@ -1,11 +1,12 @@
 "use client";
-import { History, Pencil, Plus, Tag, Trash2, TrendingUp } from "lucide-react";
+import { History, Pencil, Plus, Tag, Trash2, TrendingUp, Upload } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useState, type ReactNode } from "react";
 import { brazilRulesApply, isUnitPriced, money, stockEventKind } from "@organizeup/domain";
-import { buttonClass } from "@/components/styles";
+import { buttonClass, cx } from "@/components/styles";
 import {
+  ActionMenu,
   Badge,
   Button,
   Card,
@@ -13,7 +14,6 @@ import {
   EmptyState,
   Field,
   FormMessage,
-  IconButton,
   Input,
   PageHeader,
   Select,
@@ -203,6 +203,29 @@ type Sheet_ =
   | { type: "operation"; nonce: number; id: string | null }
   | { type: "edit" | "value"; nonce: number; id: string };
 
+const ROW_GRID =
+  "xl:grid xl:grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)_auto] xl:items-center xl:gap-4";
+
+/** Resultado do ativo: valor e percentual, com a cor dizendo o sinal. */
+function GainCell({ row, locale }: { row: Row; locale: ReturnType<typeof useLocale> }) {
+  const moneyText = useMoney();
+  const gain = money(row.gain);
+  if (row.estimated || row.gainPercent === null) return <span className="text-muted">—</span>;
+  const tone = gain.gt(0) ? "text-success" : gain.lt(0) ? "text-danger" : "text-muted";
+  return (
+    <span className={cx("whitespace-nowrap tabular-nums", tone)}>
+      <span className="block font-medium">
+        {gain.gt(0) ? "+" : ""}
+        {moneyText(row.gain)}
+      </span>
+      <span className="block text-xs">
+        {gain.gt(0) ? "+" : ""}
+        {percentText(row.gainPercent, locale)}
+      </span>
+    </span>
+  );
+}
+
 export function PortfolioBoard({
   data,
   suggestions,
@@ -237,37 +260,59 @@ export function PortfolioBoard({
   const { visible, zeroed } = splitZeroed(data.rows);
   const [showZeroed, setShowZeroed] = useState(false);
   const listed = showZeroed ? data.rows : visible;
-
   const groups = groupByClass(listed);
+
+  /** Uma linha de ativo: no computador vira colunas; no celular, blocos empilhados. */
   const renderRow = (row: Row, share: { percent: number; inClass: number }) => {
     const unit = isUnitPriced(row.assetClass);
-    const rowGain = money(row.gain);
     // Com cotação automática, o aviso de preço velho não vale.
     const hasQuote = row.quoteState === "automatico";
     const priceAge =
       row.valuedOn && !row.estimated && !hasQuote ? daysSince(row.valuedOn, data.today) : 0;
+    const menu = [
+      ...(writable
+        ? [
+            {
+              label: t("portfolio.actions.value"),
+              icon: <Tag className="size-4" aria-hidden="true" />,
+              onClick: () => openRow("value", row.id),
+            },
+          ]
+        : []),
+      {
+        label: t("portfolio.actions.history"),
+        icon: <History className="size-4" aria-hidden="true" />,
+        href: `/app/investimentos/lancamentos?ativo=${row.id}`,
+      },
+      ...(writable
+        ? [
+            {
+              label: t("portfolio.actions.edit"),
+              icon: <Pencil className="size-4" aria-hidden="true" />,
+              onClick: () => openRow("edit", row.id),
+            },
+            {
+              label: t("portfolio.actions.delete"),
+              icon: <Trash2 className="size-4" aria-hidden="true" />,
+              onClick: () => setRemoving(row),
+              tone: "danger" as const,
+            },
+          ]
+        : []),
+    ];
     return (
-      <li key={row.id} className="py-3 first:pt-0">
-        <div className="flex items-start gap-3">
+      <li key={row.id} className={cx("py-3 text-sm", ROW_GRID)}>
+        <div className="flex min-w-0 items-start gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
             <TrendingUp className="size-4" aria-hidden="true" />
           </span>
-          <div className="min-w-0 flex-1 text-sm">
+          <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-2 font-medium">
               {row.name}
               {row.ticker ? <Badge>{row.ticker}</Badge> : null}
               {priceAge > stalePriceDays ? (
                 <Badge tone="warning">{t("portfolio.staleBadge", { count: priceAge })}</Badge>
               ) : null}
-            </p>
-            <p className="text-xs text-muted">
-              {t(`classes.${row.assetClass}`)}
-              {unit && money(row.position.quantity).gt(0)
-                ? ` · ${t("portfolio.position", {
-                    quantity: quantityText(row.position.quantity, locale),
-                    price: moneyText(row.position.averagePrice),
-                  })}`
-                : ""}
             </p>
             {row.events.map((event) => {
               const kind = stockEventKind(event.note);
@@ -281,11 +326,6 @@ export function PortfolioBoard({
                 </p>
               );
             })}
-            {row.dividends12 && money(row.dividends12).gt(0) ? (
-              <p className="text-xs text-muted">
-                {t("portfolio.dividends12", { amount: moneyText(row.dividends12) })}
-              </p>
-            ) : null}
             {row.position.oversold ? (
               <p className="text-xs text-danger">{t("portfolio.oversold")}</p>
             ) : null}
@@ -298,79 +338,58 @@ export function PortfolioBoard({
             ) : null}
             <QuoteNote row={row} today={data.today} />
           </div>
-          <div className="text-right text-sm">
-            <p className="whitespace-nowrap font-medium tabular-nums">{moneyText(row.value)}</p>
-            <p className="whitespace-nowrap text-xs font-medium tabular-nums text-brand-700">
-              {t("portfolio.byType.share", {
-                percent: percentText(share.percent, locale),
+        </div>
+        <div className="mt-2 pl-12 xl:mt-0 xl:pl-0">
+          <span className="text-xs text-muted xl:hidden">{t("portfolio.columns.position")}: </span>
+          {unit && money(row.position.quantity).gt(0) ? (
+            <span className="tabular-nums">
+              {t("portfolio.positionShort", {
+                quantity: quantityText(row.position.quantity, locale),
+                price: moneyText(row.position.averagePrice),
               })}
-            </p>
-            {!row.estimated && row.gainPercent !== null ? (
-              <p className="whitespace-nowrap text-xs tabular-nums text-muted">
-                {rowGain.gt(0) ? "+" : ""}
-                {percentText(row.gainPercent, locale)}
-              </p>
-            ) : null}
+            </span>
+          ) : (
+            <span className="text-muted">—</span>
+          )}
+          <span className="block text-xs text-muted">
+            {t("portfolio.invested", { amount: moneyText(row.position.cost) })}
+          </span>
+        </div>
+        <div className="mt-2 pl-12 xl:mt-0 xl:pl-0">
+          <span className="block font-medium tabular-nums">{moneyText(row.value)}</span>
+          <span className="block text-xs tabular-nums text-brand-700">
+            {t("portfolio.byType.share", { percent: percentText(share.percent, locale) })}
+          </span>
+          <div
+            className="mt-1 h-1 max-w-40 rounded-full bg-brand-50"
+            role="img"
+            aria-label={t("portfolio.byType.shareOf", {
+              percent: percentText(share.inClass, locale),
+              type: t(`classes.${row.assetClass as AssetClass}`),
+            })}
+          >
+            <div
+              className="h-1 rounded-full bg-brand-500"
+              style={{ width: `${Math.min(100, share.inClass)}%` }}
+            />
           </div>
         </div>
-        <div
-          className="mt-2 ml-12 h-1.5 rounded-full bg-brand-50"
-          role="img"
-          aria-label={t("portfolio.byType.shareOf", {
-            percent: percentText(share.inClass, locale),
-            type: t(`classes.${row.assetClass as AssetClass}`),
-          })}
-        >
-          <div
-            className="h-1.5 rounded-full bg-brand-500"
-            style={{ width: `${Math.min(100, share.inClass)}%` }}
-          />
+        <div className="mt-2 pl-12 xl:mt-0 xl:pl-0">
+          <span className="text-xs text-muted xl:hidden">{t("portfolio.columns.result")}: </span>
+          <GainCell row={row} locale={locale} />
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1 pl-12">
+        <div className="mt-2 flex items-center gap-1 pl-12 xl:mt-0 xl:justify-end xl:pl-0">
           {writable ? (
-            <>
-              <Button
-                variant="secondary"
-                small
-                aria-label={t("portfolio.actions.tradeLabel", { name: row.name })}
-                onClick={() => openOperation(row.id)}
-              >
-                {t("portfolio.actions.trade")}
-              </Button>
-              <Button
-                variant="secondary"
-                small
-                aria-label={t("portfolio.actions.valueLabel", { name: row.name })}
-                onClick={() => openRow("value", row.id)}
-              >
-                <Tag className="size-4" aria-hidden="true" />
-                {t("portfolio.actions.value")}
-              </Button>
-            </>
+            <Button
+              variant="secondary"
+              small
+              aria-label={t("portfolio.actions.tradeLabel", { name: row.name })}
+              onClick={() => openOperation(row.id)}
+            >
+              {t("portfolio.actions.trade")}
+            </Button>
           ) : null}
-          <Link
-            href={`/app/investimentos/lancamentos?ativo=${row.id}`}
-            aria-label={t("portfolio.actions.historyLabel", { name: row.name })}
-            className={buttonClass("ghost", true)}
-          >
-            <History className="size-4" aria-hidden="true" />
-          </Link>
-          {writable ? (
-            <>
-              <IconButton
-                label={t("portfolio.actions.editLabel", { name: row.name })}
-                onClick={() => openRow("edit", row.id)}
-              >
-                <Pencil className="size-4" aria-hidden="true" />
-              </IconButton>
-              <IconButton
-                label={t("portfolio.actions.deleteLabel", { name: row.name })}
-                onClick={() => setRemoving(row)}
-              >
-                <Trash2 className="size-4" aria-hidden="true" />
-              </IconButton>
-            </>
-          ) : null}
+          <ActionMenu label={t("portfolio.actions.more", { name: row.name })} items={menu} />
         </div>
       </li>
     );
@@ -383,12 +402,18 @@ export function PortfolioBoard({
         title={moneyText(summary.total)}
         description={t("portfolio.description")}
         actions={
-          writable ? (
-            <Button variant="secondary" onClick={() => openOperation()}>
-              <Plus className="size-4" aria-hidden="true" />
-              {t("portfolio.newInvestment")}
-            </Button>
-          ) : null
+          <>
+            <Link href="/app/investimentos/importar" className={buttonClass("secondary")}>
+              <Upload className="size-4" aria-hidden="true" />
+              {t("tabs.import")}
+            </Link>
+            {writable ? (
+              <Button onClick={() => openOperation()}>
+                <Plus className="size-4" aria-hidden="true" />
+                {t("portfolio.newInvestment")}
+              </Button>
+            ) : null}
+          </>
         }
       />
       {insights}
@@ -449,7 +474,7 @@ export function PortfolioBoard({
           <Card title={t("portfolio.byType.title")} description={t("portfolio.byType.hint")}>
             <ul
               aria-label={t("portfolio.byType.list")}
-              className="m-0 flex list-none flex-col gap-4 p-0"
+              className="m-0 grid list-none gap-x-8 gap-y-4 p-0 lg:grid-cols-2"
             >
               {groups.map((group) => (
                 <li key={group.assetClass} className="text-sm">
@@ -475,38 +500,59 @@ export function PortfolioBoard({
             </ul>
           </Card>
 
-          <div className="flex flex-col gap-6">
+          <Card
+            title={t("portfolio.list")}
+            description={t("portfolio.listHint", { count: listed.length })}
+            actions={
+              zeroed.length > 0 ? (
+                <Button variant="ghost" small onClick={() => setShowZeroed((value) => !value)}>
+                  {t(showZeroed ? "portfolio.zeroed.hide" : "portfolio.zeroed.show")} (
+                  {zeroed.length})
+                </Button>
+              ) : null
+            }
+          >
+            <div
+              aria-hidden="true"
+              className={cx(
+                "hidden border-b border-line pb-2 text-xs font-medium uppercase tracking-wide text-muted",
+                ROW_GRID,
+              )}
+            >
+              <span>{t("portfolio.columns.asset")}</span>
+              <span>{t("portfolio.columns.position")}</span>
+              <span>{t("portfolio.columns.value")}</span>
+              <span>{t("portfolio.columns.result")}</span>
+              <span className="sr-only">{t("portfolio.columns.actions")}</span>
+            </div>
             {groups.map((group) => (
-              <Card
+              <section
                 key={group.assetClass}
-                title={t(`classes.${group.assetClass as AssetClass}`)}
-                description={`${moneyText(group.value)} · ${t("portfolio.byType.share", {
-                  percent: percentText(group.percent, locale),
-                })} · ${t("portfolio.byType.invested", { amount: moneyText(group.cost) })}`}
+                aria-label={t(`classes.${group.assetClass as AssetClass}`)}
               >
-                <ul
-                  aria-label={t(`classes.${group.assetClass as AssetClass}`)}
-                  className="m-0 list-none divide-y divide-line p-0"
-                >
+                <header className="mt-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg bg-card-soft px-3 py-2 text-sm">
+                  <h3 className="m-0 font-semibold">
+                    {t(`classes.${group.assetClass as AssetClass}`)}
+                    <span className="ml-2 font-normal text-muted">
+                      {t("portfolio.byType.count", { count: group.rows.length })}
+                    </span>
+                  </h3>
+                  <p className="m-0 flex flex-wrap gap-x-2 tabular-nums text-muted">
+                    <span className="font-medium text-ink">{moneyText(group.value)}</span>
+                    <span>
+                      {t("portfolio.byType.share", {
+                        percent: percentText(group.percent, locale),
+                      })}
+                    </span>
+                    <span>{t("portfolio.byType.invested", { amount: moneyText(group.cost) })}</span>
+                  </p>
+                </header>
+                <ul className="m-0 list-none divide-y divide-line p-0">
                   {group.rows.map(({ row, ...share }) => renderRow(row, share))}
                 </ul>
-              </Card>
+              </section>
             ))}
-            {zeroed.length > 0 ? (
-              <Card>
-                <p className="m-0 flex flex-wrap items-center gap-x-2 text-sm text-muted">
-                  <span>{t("portfolio.zeroed.hint", { count: zeroed.length })}</span>
-                  <button
-                    type="button"
-                    onClick={() => setShowZeroed((value) => !value)}
-                    className="font-medium text-brand-700 underline"
-                  >
-                    {t(showZeroed ? "portfolio.zeroed.hide" : "portfolio.zeroed.show")}
-                  </button>
-                </p>
-              </Card>
-            ) : null}
-          </div>
+          </Card>
         </>
       )}
 

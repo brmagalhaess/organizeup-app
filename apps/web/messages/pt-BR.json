@@ -407,7 +407,11 @@
         "valueLabel": "Atualizar valor de {name}",
         "historyLabel": "Operações de {name}",
         "editLabel": "Editar {name}",
-        "deleteLabel": "Excluir {name}"
+        "deleteLabel": "Excluir {name}",
+        "more": "Mais ações de {name}",
+        "history": "Histórico de operações",
+        "edit": "Editar investimento",
+        "delete": "Excluir investimento"
       },
       "disclaimer": "Ações, fundos imobiliários, ETFs e BDRs com código válido têm preço automático, atualizado depois do fechamento da bolsa e sempre com atraso. O resto é informado por você. O OrganizeUp organiza e compara, e não recomenda compra ou venda de investimentos. Veja também os <link>proventos</link>.",
       "sheets": {
@@ -446,8 +450,19 @@
         "invested": "aplicado {amount}",
         "share": "{percent} da carteira",
         "shareOf": "{percent} de {type}",
-        "list": "Carteira por tipo"
-      }
+        "list": "Carteira por tipo",
+        "count": "{count, plural, one {# ativo} other {# ativos}}"
+      },
+      "columns": {
+        "asset": "Ativo",
+        "position": "Posição",
+        "value": "Valor",
+        "result": "Resultado",
+        "actions": "Ações"
+      },
+      "invested": "aplicado {amount}",
+      "listHint": "{count, plural, one {# ativo} other {# ativos}}, agrupados por tipo.",
+      "positionShort": "{quantity} un. × {price}"
     },
     "trades": {
       "title": "Lançamentos",
@@ -771,7 +786,12 @@
       "withheld": "Imposto retido",
       "goal": "Meta por mês",
       "noGoal": "Sem meta",
-      "goalCoverage": "A média já cobre {percent} da meta."
+      "goalCoverage": "A média já cobre {percent} da meta.",
+      "upcoming": "A receber",
+      "upcomingNext": "Próximo pagamento em {date}.",
+      "upcomingNone": "Nada anunciado ainda.",
+      "withheldYear": "{amount} de imposto retido em 12 meses.",
+      "goalHint": "Defina uma meta de renda mensal."
     },
     "monthly": {
       "title": "Mês a mês",
@@ -787,7 +807,8 @@
         "ano": "Nenhum provento neste ano",
         "inicio": "Nenhum provento desde o primeiro ativo"
       },
-      "emptyText": "O gráfico mostra, mês a mês, o que já foi pago e o que está anunciado. Use Ver proventos para buscar os da sua carteira."
+      "emptyText": "O gráfico mostra, mês a mês, o que já foi pago e o que está anunciado. Use Ver proventos para buscar os da sua carteira.",
+      "description": "Pago e anunciado, mês a mês, sem o imposto."
     },
     "upcoming": {
       "title": "A receber",
@@ -795,7 +816,8 @@
       "list": "Proventos a receber",
       "tomorrow": "amanhã",
       "inDays": "em {days, plural, one {# dia} other {# dias}}",
-      "dayTotal": "{amount} neste dia"
+      "dayTotal": "{amount} neste dia",
+      "empty": "Nenhum provento anunciado. Use Ver proventos para buscar os da sua carteira."
     },
     "received": {
       "title": "Recebidos",
@@ -984,6 +1006,16 @@
       "created": "{count, plural, one {# provento encontrado} other {# proventos encontrados}}, {upcoming, plural, =0 {todos já pagos} one {# a receber ({amount})} other {# a receber ({amount})}}.",
       "nothing": "Nada novo: os proventos que o mercado conhece já estão aqui.",
       "queued": "A fonte será consultada de novo em alguns minutos; se aparecer algo, entra sozinho."
+    },
+    "passive": {
+      "title": "Renda passiva",
+      "description": "O que a carteira rende hoje e quanto falta para a renda alvo.",
+      "coverage": "{percent} da renda alvo coberta pela carteira."
+    },
+    "history": {
+      "title": "Histórico",
+      "description": "Tudo o que já foi pago, mês a mês.",
+      "monthTotal": "{amount} no mês"
     }
   },
   "metas": {
