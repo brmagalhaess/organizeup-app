@@ -7,6 +7,7 @@ import { FamilyCurrencyProvider } from "@/i18n/money";
 import { familyCurrency } from "@/i18n/money-server";
 import { ToastProvider } from "@/components/toast";
 import { IntlProvider } from "@/i18n/provider";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -15,7 +16,7 @@ const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", dis
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("meta");
   return {
-    metadataBase: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000"),
+    metadataBase: siteUrl(),
     title: { default: "OrganizeUp", template: "%s · OrganizeUp" },
     description: t("description"),
   };
