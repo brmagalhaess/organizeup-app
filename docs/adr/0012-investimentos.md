@@ -21,7 +21,9 @@ e da nota de corretagem: ver ADR-0024. Importação de proventos: ver ADR-0029. 
   Editar investimento (`book_value_per_share`, `target_price`, `target_percent`); sem eles a coluna fica em
   branco. Dividendo/mês é a média de 12 meses; aporte necessário = total × fatia ideal − valor, nunca
   negativo. Cálculo em `apps/web/src/lib/portfolio-table.ts`. Rola de lado no celular, com a coluna do
-  ativo fixa.
+  ativo fixa. Desde a migração 0048 o worker busca o VPA na rota de fundamentos do Yahoo (patrimônio
+  líquido ÷ ações emitidas do último trimestre) uma vez por dia, junto com os proventos, e guarda em
+  `market_quotes`; o P/VP sai sozinho, e o VPA informado pela família vale mais.
 - **Editar operação** em Investimentos → Lançamentos: muda lado, data, quantidade, preço, taxas e conta. O
   lançamento da conta é refeito (sai o antigo, entra o novo). Nota de corretagem no importador usa a conta
   escolhida no arquivo para o dinheiro de toda a nota.

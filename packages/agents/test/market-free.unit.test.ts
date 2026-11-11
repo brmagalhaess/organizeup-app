@@ -6,6 +6,7 @@ import {
   fetchB3CompanyEvents,
   fetchB3FiiDividends,
   fetchB3Issuers,
+  fetchYahooBookValue,
   fetchYahooQuote,
   MarketError,
 } from "../src/market";
@@ -396,6 +397,57 @@ describe("B3, emissoras listadas (ADR-0036)", () => {
     ]);
     await expect(
       fetchB3Issuers({ ...options, fetch: fetchWith({ nada: true }) }),
+    ).rejects.toMatchObject({ code: "formato" });
+  });
+});
+
+describe("Yahoo Finance: VPA", () => {
+  const point = (asOfDate: string, raw: number) => ({
+    asOfDate,
+    periodType: "3M",
+    currencyCode: "BRL",
+    reportedValue: { raw, fmt: String(raw) },
+  });
+  const seriesBody = {
+    timeseries: {
+      result: [
+        {
+          meta: { symbol: ["PETR4.SA"], type: ["quarterlyStockholdersEquity"] },
+          quarterlyStockholdersEquity: [
+            point("2026-03-31", 380_000_000_000),
+            point("2026-06-30", 390_000_000_000),
+          ],
+        },
+        {
+          meta: { symbol: ["PETR4.SA"], type: ["quarterlyShareIssued"] },
+          quarterlyShareIssued: [point("2026-06-30", 13_000_000_000)],
+        },
+      ],
+    },
+  };
+
+  it("divide o patrimônio líquido pelas ações emitidas do último balanço", async () => {
+    const seen: string[] = [];
+    const found = await fetchYahooBookValue("PETR4", {
+      ...options,
+      fetch: async (url, init) => {
+        seen.push(String(url));
+        return fetchWith(seriesBody)(url, init);
+      },
+    });
+    expect(found).toEqual({ bookValuePerShare: "30.00000000", asOfDate: "2026-06-30" });
+    expect(seen[0]).toContain("/PETR4.SA?type=quarterlyStockholdersEquity,quarterlyShareIssued");
+  });
+
+  it("sem balanço devolve null; resposta estranha é formato", async () => {
+    expect(
+      await fetchYahooBookValue("HGLG11", {
+        ...options,
+        fetch: fetchWith({ timeseries: { result: [] } }),
+      }),
+    ).toBeNull();
+    await expect(
+      fetchYahooBookValue("PETR4", { ...options, fetch: fetchWith({ nada: true }) }),
     ).rejects.toMatchObject({ code: "formato" });
   });
 });

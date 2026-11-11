@@ -930,6 +930,9 @@ export const marketQuotes = pgTable("market_quotes", {
   /** Último desdobramento, grupamento ou bonificação. A lista completa fica em market_stock_events. */
   lastStockEventOn: date("last_stock_event_on", { mode: "string" }),
   lastStockEventNote: text("last_stock_event_note"),
+  /** Valor patrimonial por ação ou cota (VPA) e a data do balanço, pela rota de fundamentos do Yahoo. */
+  bookValuePerShare: quantity("book_value_per_share"),
+  bookValueAsOf: date("book_value_as_of", { mode: "string" }),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 

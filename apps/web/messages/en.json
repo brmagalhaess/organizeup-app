@@ -401,7 +401,7 @@
       "estimated": "No current value: showing the cost.",
       "valuedOn": "Value from {date}",
       "actions": {
-        "trade": "Trade",
+        "trade": "Record trade",
         "tradeLabel": "Record trade for {name}",
         "value": "Value",
         "valueLabel": "Update value of {name}",
@@ -481,13 +481,13 @@
         "gain": "Profit",
         "priceToBook": "P/B",
         "upside": "Upside",
-        "dividendMonth": "Dividend/month",
+        "dividendMonth": "Dividend / month",
         "cost": "Cost",
         "ideal": "Target share",
         "contribution": "Contribution",
         "share": "Portfolio %",
         "total": "Total",
-        "footnote": "P/B, upside, target share and contribution use the book value, target price and target share you enter in Edit investment. Dividend/month is the 12-month average. Contribution is what to buy for the asset to reach its target share of today's portfolio."
+        "footnote": "P/B uses the book value that comes with the quote (Yahoo, latest balance sheet); the one you enter in Edit investment takes precedence. Upside, target share and contribution use the target price and share you enter. Dividend/month is the 12-month average. Contribution is what to buy for the asset to reach its target share of today's portfolio."
       }
     },
     "trades": {

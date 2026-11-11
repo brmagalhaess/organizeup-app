@@ -305,6 +305,67 @@ export async function fetchYahooQuote(
   };
 }
 
+export const YAHOO_FUNDAMENTALS_URL =
+  "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries";
+
+const yahooSeries = z.object({
+  timeseries: z.object({
+    result: z
+      .array(
+        z
+          .object({
+            meta: z.object({ type: z.array(z.string()) }),
+          })
+          .passthrough(),
+      )
+      .nullish(),
+  }),
+});
+const yahooPoint = z.object({
+  asOfDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  reportedValue: z.object({ raw: z.number() }),
+});
+
+export interface BookValue {
+  /** Patrimônio líquido ÷ ações (ou cotas) emitidas, no último balanço. */
+  bookValuePerShare: string;
+  asOfDate: string;
+}
+
+/**
+ * VPA de um ticker da B3 pela rota de fundamentos do Yahoo: patrimônio líquido e ações emitidas do último
+ * trimestre. Sem balanço (ETF, BDR sem dados, fundo novo) devolve null; a carteira fica sem P/VP automático.
+ */
+export async function fetchYahooBookValue(
+  ticker: string,
+  options: MarketClientOptions,
+): Promise<BookValue | null> {
+  const to = Math.floor(Date.parse(`${options.today}T23:59:59Z`) / 1000);
+  const from = to - 3 * 365 * 86_400;
+  const url =
+    `${YAHOO_FUNDAMENTALS_URL}/${encodeURIComponent(ticker)}.SA` +
+    `?type=quarterlyStockholdersEquity,quarterlyShareIssued&period1=${from}&period2=${to}`;
+  const parsed = yahooSeries.safeParse(await getJson(url, options, BROWSER_HEADERS));
+  if (!parsed.success) throw new MarketError("formato");
+  const latest = (type: string) => {
+    const series = parsed.data.timeseries.result?.find((item) => item.meta.type.includes(type));
+    const points = z.array(yahooPoint).safeParse(series?.[type] ?? []);
+    return points.success
+      ? points.data.sort((a, b) => a.asOfDate.localeCompare(b.asOfDate)).at(-1)
+      : null;
+  };
+  const equity = latest("quarterlyStockholdersEquity");
+  const shares = latest("quarterlyShareIssued");
+  if (!equity || !shares || shares.reportedValue.raw <= 0 || equity.reportedValue.raw <= 0)
+    return null;
+  return {
+    bookValuePerShare: money(String(equity.reportedValue.raw))
+      .dividedBy(String(shares.reportedValue.raw))
+      .toFixed(8),
+    asOfDate: equity.asOfDate,
+  };
+}
+
 const b3Date = z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/);
 const b3Supplement = z.object({
   cashDividends: z.array(z.unknown()).nullish(),

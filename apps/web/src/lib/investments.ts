@@ -122,6 +122,8 @@ export async function loadPortfolio(ctx: TenantContext) {
           }),
           quoteDate: quote ? marketDateOf(quote.quotedAt) : null,
           quoteSource: quote?.source ?? null,
+          marketBookValue: quote?.bookValuePerShare ?? null,
+          marketBookValueAsOf: quote?.bookValueAsOf ?? null,
         };
       }),
     };

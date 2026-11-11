@@ -40,6 +40,7 @@ import {
   fetchBrapiCatalog,
   fetchFxSeries,
   fetchSgsSeries,
+  fetchYahooBookValue,
   fetchYahooQuote,
   MarketError,
   YAHOO_SOURCE,
@@ -99,6 +100,8 @@ export interface MarketRunResult {
   assets: number;
   /** Emissoras da B3 gravadas (ADR-0036). */
   issuers: number;
+  /** VPA encontrados no Yahoo nesta rodada. */
+  bookValues: number;
   indices: number;
   fx: number;
   unknown: number;
@@ -172,6 +175,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     stockEvents: 0,
     assets: 0,
     issuers: 0,
+    bookValues: 0,
     indices: 0,
     fx: 0,
     unknown: 0,
@@ -271,10 +275,12 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
     const none = { dividendsRetryOn: null, lastStockEventOn: null, lastStockEventNote: null };
     if (!hasDividends(assetClass) || !due) return none;
     await sleep(pause);
+    // VPA no mesmo dia dos proventos: uma consulta a mais por ativo, só na rodada completa.
+    const book = await fetchBookValue(ticker);
     try {
       if (assetClass === "fii") {
         result.dividends += await saveMarketDividends(await fetchB3FiiDividends(ticker, client));
-        return { ...none, dividendsRetryOn: shiftDays(today, DIVIDENDS_INTERVAL_DAYS) };
+        return { ...none, ...book, dividendsRetryOn: shiftDays(today, DIVIDENDS_INTERVAL_DAYS) };
       }
       const { dividends, stockEvents } = await fetchB3CompanyEvents(ticker, client);
       result.dividends += await saveMarketDividends(dividends);
@@ -283,6 +289,7 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
       );
       const latest = stockEvents.at(-1);
       return {
+        ...book,
         dividendsRetryOn: shiftDays(today, DIVIDENDS_INTERVAL_DAYS),
         lastStockEventOn: latest?.comDate ?? null,
         lastStockEventNote: latest?.note ?? null,
@@ -294,7 +301,22 @@ export async function runMarketData(options: MarketRunOptions): Promise<MarketRu
           ? "mercado: rendimentos de FII indisponíveis"
           : "mercado: proventos da ação indisponíveis",
       );
-      return none;
+      return { ...none, ...book };
+    }
+  };
+
+  /** VPA pelo Yahoo. Sem balanço ou com a fonte indisponível, o valor anterior fica (campos ausentes). */
+  const fetchBookValue = async (
+    ticker: string,
+  ): Promise<{ bookValuePerShare?: string; bookValueAsOf?: string }> => {
+    try {
+      const found = await fetchYahooBookValue(ticker, client);
+      if (!found) return {};
+      result.bookValues += 1;
+      return { bookValuePerShare: found.bookValuePerShare, bookValueAsOf: found.asOfDate };
+    } catch (error) {
+      log.warn({ code: codeOf(error), source: YAHOO_SOURCE }, "mercado: VPA indisponível");
+      return {};
     }
   };
 

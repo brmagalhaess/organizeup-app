@@ -156,15 +156,23 @@ export interface MarketQuoteRow {
   source: string;
   lastStockEventOn: string | null;
   lastStockEventNote: string | null;
+  /** VPA e data do balanço. Ausentes (undefined): a rodada não buscou e o valor anterior fica. */
+  bookValuePerShare?: string | null;
+  bookValueAsOf?: string | null;
 }
 
 export async function saveMarketQuote(quote: MarketQuoteRow): Promise<void> {
+  const { bookValuePerShare, bookValueAsOf, ...rest } = quote;
+  const book =
+    bookValuePerShare === undefined
+      ? {}
+      : { bookValuePerShare, bookValueAsOf: bookValueAsOf ?? null };
   await appPool()
     .db.insert(marketQuotes)
-    .values(quote)
+    .values({ ...rest, ...book })
     .onConflictDoUpdate({
       target: marketQuotes.ticker,
-      set: { ...quote, updatedAt: sql`now()` },
+      set: { ...rest, ...book, updatedAt: sql`now()` },
     });
   // Histórico (ADR-0033): uma linha por coleta; a mesma cotação repetida não duplica.
   await appPool()

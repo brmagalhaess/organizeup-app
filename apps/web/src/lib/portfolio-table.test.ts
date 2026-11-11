@@ -33,6 +33,16 @@ describe("tabela da carteira", () => {
     expect(cells.idealPercent).toBeNull();
   });
 
+  it("sem VPA informado usa o da cotação; o informado vale mais", () => {
+    expect(
+      tableCells({ ...base, bookValuePerShare: null, marketBookValue: "20.00000000" }, "10000.00")
+        .priceToBook,
+    ).toBe(1.5);
+    expect(tableCells({ ...base, marketBookValue: "20.00000000" }, "10000.00").priceToBook).toBe(
+      1.2,
+    );
+  });
+
   it("sem preço atual não há P/VP nem potencial", () => {
     const cells = tableCells({ ...base, currentPrice: null }, "10000.00");
     expect(cells).toMatchObject({ priceToBook: null, upside: null });

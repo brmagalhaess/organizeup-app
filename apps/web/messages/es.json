@@ -401,7 +401,7 @@
       "estimated": "Sin valor actual: se muestra el costo.",
       "valuedOn": "Valor del {date}",
       "actions": {
-        "trade": "Operación",
+        "trade": "Registrar operación",
         "tradeLabel": "Registrar operación de {name}",
         "value": "Valor",
         "valueLabel": "Actualizar valor de {name}",
@@ -481,13 +481,13 @@
         "gain": "Ganancia",
         "priceToBook": "P/VP",
         "upside": "Potencial",
-        "dividendMonth": "Dividendo/mes",
+        "dividendMonth": "Dividendo / mes",
         "cost": "Costo",
         "ideal": "Cartera ideal",
         "contribution": "Aporte necesario",
         "share": "Cartera %",
         "total": "Total",
-        "footnote": "P/VP, potencial, cartera ideal y aporte necesario usan el VPA, el precio objetivo y la participación ideal que indicas en Editar inversión. Dividendo/mes es el promedio de los últimos 12 meses. Aporte necesario es cuánto comprar para que el activo llegue a su participación ideal sobre la cartera de hoy."
+        "footnote": "P/VP usa el VPA que llega con la cotización (Yahoo, último balance); el que indicas en Editar inversión vale más. Potencial, cartera ideal y aporte necesario usan el precio objetivo y la participación ideal indicados. Dividendo/mes es el promedio de 12 meses. Aporte necesario es cuánto comprar para que el activo llegue a su participación ideal sobre la cartera de hoy."
       }
     },
     "trades": {

@@ -6,6 +6,8 @@ export interface TableInput {
   value: string;
   currentPrice: string | null;
   bookValuePerShare: string | null;
+  /** VPA que veio com a cotação; só vale quando a família não informou o seu. */
+  marketBookValue?: string | null;
   targetPrice: string | null;
   targetPercent: string | null;
   dividends12: string | null;
@@ -32,9 +34,10 @@ const pct = (part: MoneyValue, whole: MoneyValue) =>
 
 export function tableCells(row: TableInput, total: string): TableCells {
   const price = row.currentPrice ? money(row.currentPrice) : null;
+  const bookValue = row.bookValuePerShare ?? row.marketBookValue ?? null;
   const priceToBook =
-    price && row.bookValuePerShare && money(row.bookValuePerShare).gt(0) && price.gt(0)
-      ? price.dividedBy(row.bookValuePerShare).toDecimalPlaces(2).toNumber()
+    price && bookValue && money(bookValue).gt(0) && price.gt(0)
+      ? price.dividedBy(bookValue).toDecimalPlaces(2).toNumber()
       : null;
   const upside =
     price && price.gt(0) && row.targetPrice

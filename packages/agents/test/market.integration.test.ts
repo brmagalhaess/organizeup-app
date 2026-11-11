@@ -522,13 +522,39 @@ describe("job de mercado", () => {
   const isYahoo = (url: string) => url.includes("finance/chart/");
   const isB3 = (url: string) => url.includes("GetListedSupplementFunds");
   const isCompany = (url: string) => url.includes("GetListedSupplementCompany");
-  /** Resposta no formato da fonte que a URL pede: Yahoo para cotação, B3 para proventos e eventos. */
+  const isFundamentals = (url: string) => url.includes("fundamentals-timeseries");
+  /** Balanço do Yahoo: patrimônio de 400 bi para 13 bi de ações, VPA de 30,769… */
+  const fundamentals = (ticker: string) => {
+    const point = (raw: number) => ({
+      asOfDate: "2026-06-30",
+      periodType: "3M",
+      currencyCode: "BRL",
+      reportedValue: { raw, fmt: String(raw) },
+    });
+    return {
+      timeseries: {
+        result: [
+          {
+            meta: { symbol: [`${ticker}.SA`], type: ["quarterlyStockholdersEquity"] },
+            quarterlyStockholdersEquity: [point(400_000_000_000)],
+          },
+          {
+            meta: { symbol: [`${ticker}.SA`], type: ["quarterlyShareIssued"] },
+            quarterlyShareIssued: [point(13_000_000_000)],
+          },
+        ],
+      },
+    };
+  };
+  /** Resposta no formato da fonte que a URL pede: Yahoo para cotação e VPA, B3 para proventos e eventos. */
   const answer = (ticker: string, url: string, price: number) =>
     isYahoo(url)
       ? json(yahoo(ticker, price))
-      : isCompany(url)
-        ? json(company(ticker))
-        : json({ cashDividends: [] });
+      : isFundamentals(url)
+        ? json(fundamentals(ticker))
+        : isCompany(url)
+          ? json(company(ticker))
+          : json({ cashDividends: [] });
   /** Código da carteira de teste a partir da raiz que a rota de empresas recebe. */
   const TICKER_OF_ROOT: Record<string, string> = {
     PETR: "PETR4",
@@ -665,16 +691,18 @@ describe("job de mercado", () => {
       fetch: fn,
       pauseMs: 0,
     });
-    // PETR4, VALE3, ITUB4 e ABCD3: cada um uma cotação no Yahoo e uma consulta à lista de empresas.
+    // PETR4, VALE3, ITUB4 e ABCD3: cada um uma cotação e um balanço no Yahoo e uma consulta à lista de empresas.
     expect(calls.filter(isYahoo)).toHaveLength(4);
+    expect(calls.filter(isFundamentals)).toHaveLength(4);
     expect(calls.filter(isCompany)).toHaveLength(4);
-    expect(calls).toHaveLength(8);
+    expect(calls).toHaveLength(12);
     expect(calls.some((url) => url.includes("ABCD3.SA"))).toBe(true);
     expect(withToken).toEqual([]);
     expect(result).toMatchObject({
       quotes: 4,
       dividends: 4,
       stockEvents: 4,
+      bookValues: 4,
       unknown: 0,
       failed: 0,
     });
@@ -689,6 +717,8 @@ describe("job de mercado", () => {
       quotedAt: new Date(closedAt * 1000),
       lastStockEventOn: "2026-09-01",
       lastStockEventNote: "Desdobramento de 2 para 1",
+      bookValuePerShare: "30.76923077",
+      bookValueAsOf: "2026-06-30",
     });
     const at = new Date(closedAt * 1000);
     expect(await db.listMarketQuoteHistory("PETR4", at, at)).toMatchObject([
@@ -834,11 +864,12 @@ describe("job de mercado", () => {
       fetch: fn,
       pauseMs: 0,
     });
-    expect(calls).toHaveLength(4);
+    expect(calls).toHaveLength(6);
     expect(calls.filter(isYahoo)).toEqual([
       expect.stringContaining("finance/chart/HGLG11.SA"),
       expect.stringContaining("finance/chart/KNRI11.SA"),
     ]);
+    expect(calls.filter(isFundamentals)).toHaveLength(2);
     expect(calls.filter(isB3)).toHaveLength(2);
     expect(withToken).toEqual([]);
     expect(full).toMatchObject({ quotes: 2, dividends: 2, failed: 0 });

@@ -13,6 +13,7 @@ export {
   fetchB3CompanyEvents,
   fetchB3FiiDividends,
   fetchB3Issuers,
+  fetchYahooBookValue,
   fetchFxSeries,
   fetchSgsSeries,
   MarketError,

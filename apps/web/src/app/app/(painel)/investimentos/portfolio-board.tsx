@@ -269,9 +269,9 @@ function GainCell({ row, locale }: { row: Row; locale: ReturnType<typeof useLoca
   );
 }
 
-const NUM = "whitespace-nowrap px-2 py-3 text-right tabular-nums";
+const NUM = "whitespace-nowrap px-1 py-3 text-right tabular-nums";
 const HEAD =
-  "whitespace-nowrap px-2 pb-2 text-right text-xs font-medium uppercase tracking-wide text-muted";
+  "px-1 pb-2 text-right text-[11px] font-medium uppercase leading-tight tracking-wide text-muted";
 
 function PercentCell({ value, locale }: { value: number | null; locale: Locale }) {
   if (value === null) return <span className="text-muted">—</span>;
@@ -338,14 +338,14 @@ function HoldingsTable({
   ] as const;
   const dash = <span className="text-muted">—</span>;
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[70rem] border-collapse text-sm">
+    <div className="-mx-5 overflow-x-auto sm:-mx-6">
+      <table className="w-full border-collapse text-xs">
         <caption className="sr-only">{t("portfolio.table.caption")}</caption>
         <thead>
           <tr className="border-b border-line">
             <th
               scope="col"
-              className="sticky left-0 z-10 bg-card px-2 pb-2 text-left text-xs font-medium uppercase tracking-wide text-muted"
+              className="sticky left-0 z-10 bg-card px-1 pb-2 text-left text-[11px] font-medium uppercase leading-tight tracking-wide text-muted"
             >
               {t("portfolio.table.asset")}
             </th>
@@ -354,9 +354,6 @@ function HoldingsTable({
                 {t(`portfolio.table.${column}`)}
               </th>
             ))}
-            <th scope="col" className="px-2 pb-2">
-              <span className="sr-only">{t("portfolio.columns.actions")}</span>
-            </th>
           </tr>
         </thead>
         {groups.map((group) => (
@@ -364,7 +361,7 @@ function HoldingsTable({
             <tr className="bg-card-soft">
               <th
                 scope="colgroup"
-                colSpan={columns.length + 2}
+                colSpan={columns.length + 1}
                 className="px-2 py-2 text-left text-sm font-semibold"
               >
                 <span className="sticky left-2 inline-flex flex-wrap items-baseline gap-x-2">
@@ -388,6 +385,11 @@ function HoldingsTable({
               const menu = [
                 ...(writable
                   ? [
+                      {
+                        label: t("portfolio.actions.trade"),
+                        icon: <Plus className="size-4" aria-hidden="true" />,
+                        onClick: () => onOperation(row.id),
+                      },
                       {
                         label: t("portfolio.actions.value"),
                         icon: <Tag className="size-4" aria-hidden="true" />,
@@ -420,19 +422,18 @@ function HoldingsTable({
                 <tr key={row.id}>
                   <th
                     scope="row"
-                    className="sticky left-0 z-10 min-w-48 bg-card px-2 py-3 text-left font-normal"
+                    className="sticky left-0 z-10 min-w-32 bg-card px-1 py-3 text-left font-normal"
                   >
-                    <p className="m-0 flex flex-wrap items-center gap-2 font-medium">
-                      {row.ticker ?? row.name}
-                      {row.ticker ? (
-                        <Badge>{t(`classes.${row.assetClass as AssetClass}`)}</Badge>
-                      ) : null}
-                      {priceAge > stalePriceDays ? (
-                        <Badge tone="warning">
-                          {t("portfolio.staleBadge", { count: priceAge })}
-                        </Badge>
-                      ) : null}
+                    <p className="m-0 flex items-center gap-1 font-medium">
+                      <span className="min-w-0 flex-1">{row.ticker ?? row.name}</span>
+                      <ActionMenu
+                        label={t("portfolio.actions.more", { name: row.name })}
+                        items={menu}
+                      />
                     </p>
+                    {priceAge > stalePriceDays ? (
+                      <Badge tone="warning">{t("portfolio.staleBadge", { count: priceAge })}</Badge>
+                    ) : null}
                     {row.ticker ? <p className="m-0 text-xs text-muted">{row.name}</p> : null}
                     {row.events.map((event) => {
                       const kind = stockEventKind(event.note);
@@ -495,24 +496,6 @@ function HoldingsTable({
                   <td className={cx(NUM, "font-medium text-brand-700")}>
                     {percentText(cell.sharePercent, locale)}
                   </td>
-                  <td className="px-2 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      {writable ? (
-                        <Button
-                          variant="secondary"
-                          small
-                          aria-label={t("portfolio.actions.tradeLabel", { name: row.name })}
-                          onClick={() => onOperation(row.id)}
-                        >
-                          {t("portfolio.actions.trade")}
-                        </Button>
-                      ) : null}
-                      <ActionMenu
-                        label={t("portfolio.actions.more", { name: row.name })}
-                        items={menu}
-                      />
-                    </div>
-                  </td>
                 </tr>
               );
             })}
@@ -547,7 +530,6 @@ function HoldingsTable({
             <td className={NUM}>{percentText(totals.idealPercent, locale)}</td>
             <td className={NUM}>{moneyText(totals.contribution)}</td>
             <td className={cx(NUM, "text-brand-700")}>{percentText(100, locale)}</td>
-            <td />
           </tr>
         </tfoot>
       </table>
