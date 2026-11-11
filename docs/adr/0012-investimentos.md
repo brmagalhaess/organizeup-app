@@ -31,6 +31,8 @@ e da nota de corretagem: ver ADR-0024. Importação de proventos: ver ADR-0029. 
   por rodada completa, pela B3, anotando em `market_dividend_scans` quando cada código volta (15 dias;
   falha volta no dia seguinte). É o começo de um histórico próprio de proventos, que no futuro pode virar
   uma API pública. Dados em `lib/dividend-calendar.ts` (grade e eventos) e `lib/dividend-calendar-data.ts`.
+  "Meu" é o ativo com quantidade hoje: o que foi vendido por inteiro sai, mesmo com as operações guardadas.
+  A exceção é o provento com direito na data-com que ainda não foi pago (`isMineEvent`).
 - **Editar operação** em Investimentos → Lançamentos: muda lado, data, quantidade, preço, taxas e conta. O
   lançamento da conta é refeito (sai o antigo, entra o novo). Nota de corretagem no importador usa a conta
   escolhida no arquivo para o dinheiro de toda a nota.

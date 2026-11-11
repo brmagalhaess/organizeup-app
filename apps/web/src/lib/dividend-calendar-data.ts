@@ -14,11 +14,12 @@ import {
   money,
   monthBounds,
   normalizeTicker,
+  positionOf,
   toDbAmount,
   todayIn,
   type YearMonth,
 } from "@organizeup/domain";
-import type { CalendarEvent } from "./dividend-calendar";
+import { isMineEvent, type CalendarEvent } from "./dividend-calendar";
 
 export async function loadDividendCalendar(
   ctx: TenantContext,
@@ -35,27 +36,40 @@ export async function loadDividendCalendar(
     ]);
     return { today, holdings, trades, events };
   });
-  const byTicker = new Map<string, (typeof family.holdings)[number]>();
+  const byTicker = new Map<
+    string,
+    {
+      trades: typeof family.trades;
+      events: typeof family.events;
+      /** Quantidade hoje: zerada, o ativo já não é da carteira. */
+      held: string;
+    }
+  >();
   for (const holding of family.holdings) {
     const ticker = normalizeTicker(holding.ticker);
-    if (ticker) byTicker.set(ticker, holding);
+    if (!ticker) continue;
+    const trades = family.trades.filter((trade) => trade.investmentId === holding.id);
+    const events = family.events.filter((event) => event.investmentId === holding.id);
+    byTicker.set(ticker, { trades, events, held: positionOf(trades, events).quantity });
   }
   // Tabelas globais, fora da transação da família (ADR-0017).
   const rows = await listMarketDividendsBetween(first, last);
   const events: CalendarEvent[] = rows.map((row) => {
     const holding = byTicker.get(row.ticker);
     if (!holding) return { ...row, mine: false, quantity: null, amount: null };
-    const quantity = entitledQuantity(
-      family.trades.filter((trade) => trade.investmentId === holding.id),
-      row.comDate,
-      family.events.filter((event) => event.investmentId === holding.id),
-    );
-    const held = money(quantity).gt(0);
+    const quantity = entitledQuantity(holding.trades, row.comDate, holding.events);
+    const mine = isMineEvent({
+      held: holding.held,
+      entitled: quantity,
+      payDate: row.payDate,
+      today: family.today,
+    });
+    const entitled = mine && money(quantity).gt(0);
     return {
       ...row,
-      mine: true,
-      quantity: held ? quantity : null,
-      amount: held ? toDbAmount(money(quantity).times(row.ratePerShare)) : null,
+      mine,
+      quantity: entitled ? quantity : null,
+      amount: entitled ? toDbAmount(money(quantity).times(row.ratePerShare)) : null,
     };
   });
   const listed = mineOnly ? events.filter((event) => event.mine) : events;
@@ -72,6 +86,6 @@ export async function loadDividendCalendar(
     total: events.length,
     mineCount: events.filter((event) => event.mine).length,
     mineTotal,
-    hasHoldings: byTicker.size > 0,
+    hasHoldings: [...byTicker.values()].some((holding) => money(holding.held).gt(0)),
   };
 }

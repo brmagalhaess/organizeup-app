@@ -10,11 +10,30 @@ export interface CalendarEvent {
   comDate: string;
   payDate: string;
   ratePerShare: string;
-  /** O ativo está na carteira da família. */
+  /** A família ainda tem o ativo, ou já tem direito a este provento e ainda vai receber (`isMineEvent`). */
   mine: boolean;
   /** Quantidade na data-com e quanto entra; null quando o ativo não é da família ou não havia posição. */
   quantity: string | null;
   amount: string | null;
+}
+
+const positive = (quantity: string) => Number(quantity) > 0;
+
+/**
+ * O provento é "meu" quando ainda tenho o ativo. Ativo vendido por inteiro sai, mesmo com o histórico de
+ * operações guardado. A exceção é o provento a que já tenho direito e que ainda não foi pago: vendi depois
+ * da data-com, então o dinheiro ainda entra.
+ */
+export function isMineEvent(position: {
+  /** Quantidade hoje. */
+  held: string;
+  /** Quantidade com direito na data-com. */
+  entitled: string;
+  payDate: string;
+  today: string;
+}): boolean {
+  if (positive(position.held)) return true;
+  return positive(position.entitled) && position.payDate >= position.today;
 }
 
 export type CalendarEntryType = "com" | "pagamento";

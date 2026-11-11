@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isMineEvent,
   entriesByDay,
   isYearMonth,
   monthChoices,
@@ -71,5 +72,24 @@ describe("calendário de dividendos", () => {
     expect(isYearMonth("2026-11")).toBe(true);
     expect(isYearMonth("2026-13")).toBe(false);
     expect(isYearMonth(undefined)).toBe(false);
+  });
+});
+
+describe("só meus ativos", () => {
+  const today = "2026-11-11";
+
+  it("vale o ativo que ainda está na carteira, com ou sem direito ao provento", () => {
+    expect(isMineEvent({ held: "10", entitled: "10", payDate: "2026-11-16", today })).toBe(true);
+    expect(isMineEvent({ held: "10", entitled: "0", payDate: "2026-11-16", today })).toBe(true);
+  });
+
+  it("ativo vendido por inteiro sai, mesmo com o histórico guardado", () => {
+    expect(isMineEvent({ held: "0", entitled: "0", payDate: "2026-11-16", today })).toBe(false);
+    expect(isMineEvent({ held: "0", entitled: "50", payDate: "2026-10-15", today })).toBe(false);
+  });
+
+  it("vendido depois da data-com, o provento ainda a receber continua aparecendo", () => {
+    expect(isMineEvent({ held: "0", entitled: "50", payDate: "2026-11-16", today })).toBe(true);
+    expect(isMineEvent({ held: "0", entitled: "50", payDate: today, today })).toBe(true);
   });
 });
