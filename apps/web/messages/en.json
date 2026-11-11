@@ -5161,5 +5161,13 @@
       "notFound": "We could not find that item. Refresh the screen.",
       "invalid": "Check the data and try again."
     }
+  },
+  "toast": {
+    "region": "Notifications",
+    "close": "Dismiss notification",
+    "success": "Done",
+    "error": "Something went wrong",
+    "warning": "Heads up",
+    "info": "Notice"
   }
 }

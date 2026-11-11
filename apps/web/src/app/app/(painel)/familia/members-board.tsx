@@ -3,6 +3,7 @@ import { Check, Copy, Trash2, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useState } from "react";
 import type { ActionState } from "@/app/app/actions";
+import { useToast } from "@/components/toast";
 import {
   Badge,
   Button,
@@ -64,6 +65,7 @@ function InviteForm({ onDone }: { onDone: () => void }) {
 function CopyLink({ invite }: { invite: InviteRow }) {
   const t = useTranslations("pessoas.members");
   const [copied, setCopied] = useState(false);
+  const toast = useToast();
   return (
     <div className="flex items-center gap-2">
       <Input
@@ -79,6 +81,7 @@ function CopyLink({ invite }: { invite: InviteRow }) {
         onClick={async () => {
           await navigator.clipboard.writeText(invite.link);
           setCopied(true);
+          toast?.show({ tone: "success", text: t("copied") });
         }}
       >
         {copied ? (

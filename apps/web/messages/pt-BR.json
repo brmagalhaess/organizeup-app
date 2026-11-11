@@ -5161,5 +5161,13 @@
       "notFound": "Não achamos esse item. Atualize a tela.",
       "invalid": "Confira os dados e tente de novo."
     }
+  },
+  "toast": {
+    "region": "Avisos",
+    "close": "Fechar aviso",
+    "success": "Pronto",
+    "error": "Algo deu errado",
+    "warning": "Atenção",
+    "info": "Aviso"
   }
 }

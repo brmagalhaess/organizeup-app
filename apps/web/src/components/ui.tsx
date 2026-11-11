@@ -19,6 +19,7 @@ import {
   type SelectHTMLAttributes,
 } from "react";
 import { amountClass, buttonClass, cx, type ButtonVariant } from "./styles";
+import { useToast } from "./toast";
 
 /**
  * Envia o formulário sem o reset automático do React: com erro de validação, os campos continuam
@@ -256,14 +257,35 @@ export function EmptyState({
   );
 }
 
+/**
+ * Resultado de um formulário. Erro fica no lugar, perto do botão (role=alert). Sucesso vira toast
+ * (ADR-0037) quando há provedor; `inline` segura o texto na tela quando ele precisa ficar visível.
+ */
 export function FormMessage({
   message,
   tone = "error",
+  inline = false,
 }: {
   message?: string | null | undefined;
   tone?: "error" | "ok";
+  inline?: boolean;
 }) {
-  if (!message) return null;
+  const toast = useToast();
+  const { pending } = useFormStatus();
+  const asToast = toast !== null && tone === "ok" && !inline;
+  const wasPending = useRef(false);
+  const lastShown = useRef<string | null>(null);
+  useEffect(() => {
+    // Mesmo texto duas vezes seguidas (dois "Salvo.") avisa de novo: o envio terminou outra vez.
+    const settled = wasPending.current && !pending;
+    wasPending.current = pending;
+    if (!asToast || !message) return;
+    if (settled || message !== lastShown.current) {
+      lastShown.current = message;
+      toast.show({ tone: "success", text: message });
+    }
+  }, [asToast, message, pending, toast]);
+  if (!message || asToast) return null;
   return (
     <p
       role={tone === "error" ? "alert" : "status"}

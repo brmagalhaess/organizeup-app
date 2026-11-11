@@ -5,6 +5,7 @@ import { AccountTypeProvider } from "@/i18n/account";
 import { familyAccountType } from "@/i18n/account-server";
 import { FamilyCurrencyProvider } from "@/i18n/money";
 import { familyCurrency } from "@/i18n/money-server";
+import { ToastProvider } from "@/components/toast";
 import { IntlProvider } from "@/i18n/provider";
 import "./globals.css";
 
@@ -38,7 +39,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-dvh font-sans antialiased">
         <IntlProvider locale={locale} messages={messages}>
           <AccountTypeProvider type={accountType}>
-            <FamilyCurrencyProvider currency={currency}>{children}</FamilyCurrencyProvider>
+            <FamilyCurrencyProvider currency={currency}>
+              <ToastProvider>{children}</ToastProvider>
+            </FamilyCurrencyProvider>
           </AccountTypeProvider>
         </IntlProvider>
       </body>

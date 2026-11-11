@@ -5161,5 +5161,13 @@
       "notFound": "No encontramos ese ítem. Actualiza la pantalla.",
       "invalid": "Revisa los datos e inténtalo de nuevo."
     }
+  },
+  "toast": {
+    "region": "Avisos",
+    "close": "Cerrar aviso",
+    "success": "Listo",
+    "error": "Algo salió mal",
+    "warning": "Atención",
+    "info": "Aviso"
   }
 }
