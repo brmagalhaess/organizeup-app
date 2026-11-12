@@ -2906,7 +2906,8 @@
       "afterContributions": "Left after contributing",
       "afterContributionsHint": "Result minus contributions. Redemptions are not part of this figure.",
       "redeemed": "Back in your accounts",
-      "redeemedHint": "Redemptions and goal money coming in. Not counted as income."
+      "redeemedHint": "Redemptions and goal money coming in. Not counted as income.",
+      "more": "More numbers for the month"
     },
     "status": {
       "overdue": "Overdue",
@@ -2953,7 +2954,8 @@
       "account": "Account",
       "allAccounts": "All",
       "contributions": "Contributions",
-      "redemptions": "Redemptions"
+      "redemptions": "Redemptions",
+      "clear": "Clear filters"
     },
     "table": {
       "caption": "Transactions for the month",
@@ -3043,6 +3045,25 @@
     "flow": {
       "aporte": "Contribution",
       "resgate": "Redemption"
+    },
+    "day": {
+      "today": "today",
+      "yesterday": "yesterday"
+    },
+    "sections": {
+      "upcoming": "Still to come"
+    },
+    "open": {
+      "summary": "{count, plural, =1 {1 open entry} other {# open entries}}",
+      "pay": "{amount} to pay",
+      "receive": "{amount} to receive",
+      "overdue": "{count, plural, =1 {1 overdue} other {# overdue}}",
+      "show": "See only open"
+    },
+    "results": {
+      "count": "{count, plural, =1 {1 entry} other {# entries}} of {total}",
+      "incoming": "in {amount}",
+      "outgoing": "out {amount}"
     }
   },
   "contas": {

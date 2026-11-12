@@ -9,11 +9,13 @@ import {
   Pencil,
   Repeat,
   Trash2,
+  X,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
+  addDays,
   linesTotal,
   type EntryFlow,
   type MonthEntry,
@@ -33,9 +35,11 @@ import {
   Select,
 } from "@/components/ui";
 import { formatDayMonth } from "@/i18n/format";
+import type { Locale } from "@/i18n/locales";
 import { systemTextOf } from "@/i18n/system-text";
 import { deleteEntry, stopPlan } from "./actions";
 import { cardLinesInFilter } from "./card-filter";
+import { listTotals, openSummary, orderEntries } from "./entry-order";
 import { PlanLink } from "./plan-link";
 import { useMoney } from "@/i18n/money";
 
@@ -138,6 +142,12 @@ function RowActions({
   );
 }
 
+/** Dia da semana curto, sem ponto: "qua". */
+const weekday = (date: string, locale: Locale) =>
+  new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" })
+    .format(new Date(`${date}T12:00:00Z`))
+    .replace(".", "");
+
 export function EntriesTable({
   month,
   today,
@@ -163,7 +173,7 @@ export function EntriesTable({
   cardLines: Array<Pick<StatementLine, "categoryId" | "amount">>;
 }) {
   const t = useTranslations("lancamentos");
-  const locale = useLocale();
+  const locale = useLocale() as Locale;
   const moneyText = useMoney();
   const { openNew, openEdit, writable } = useEntryDialog();
   const [query, setQuery] = useState("");
@@ -207,6 +217,25 @@ export function EntriesTable({
   );
   const usedAccounts = accounts.filter((a) => entries.some((e) => e.accountId === a.id));
   const onCard = cardLinesInFilter(cardLines, { category, kind }, savingCategoryIds);
+  // Hoje no topo: o que já aconteceu do mais recente para o mais antigo, e depois o que ainda vai vencer.
+  const { recent, upcoming } = orderEntries(visible, today);
+  const open = openSummary(entries, today);
+  const totals = listTotals(visible);
+  const filtering = Boolean(query.trim() || kind || status || category || account);
+  const clearFilters = () => {
+    setQuery("");
+    setKind("");
+    setStatus("");
+    setCategory("");
+    setAccount("");
+  };
+  const yesterday = addDays(today, -1);
+  const dayTag = (date: string) =>
+    date === today
+      ? t("day.today")
+      : date === yesterday
+        ? t("day.yesterday")
+        : weekday(date, locale);
 
   if (entries.length === 0 && cardLines.length === 0)
     return (
@@ -270,6 +299,55 @@ export function EntriesTable({
         </Field>
       </div>
 
+      {open.count > 0 && status !== "previsto" ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-line bg-card-soft px-4 py-3 text-sm">
+          <p className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="flex items-center gap-1.5 font-semibold">
+              <Clock className="size-4 text-muted" aria-hidden="true" />
+              {t("open.summary", { count: open.count })}
+            </span>
+            {open.toPay !== "0.00" ? (
+              <span className="text-muted">{t("open.pay", { amount: moneyText(open.toPay) })}</span>
+            ) : null}
+            {open.toReceive !== "0.00" ? (
+              <span className="text-muted">
+                {t("open.receive", { amount: moneyText(open.toReceive) })}
+              </span>
+            ) : null}
+            {open.overdue > 0 ? (
+              <Badge tone="danger">
+                <AlertCircle className="size-3" aria-hidden="true" />
+                {t("open.overdue", { count: open.overdue })}
+              </Badge>
+            ) : null}
+          </p>
+          <Button variant="secondary" small onClick={() => setStatus("previsto")}>
+            {t("open.show")}
+          </Button>
+        </div>
+      ) : null}
+
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-muted">
+        <p className="m-0" aria-live="polite">
+          {t("results.count", { count: visible.length, total: entries.length })}
+          {/* Com filtro, a soma do que ficou na lista; sem filtro, os números do mês já estão no topo. */}
+          {filtering && visible.length > 0 ? (
+            <>
+              {" · "}
+              {t("results.incoming", { amount: moneyText(totals.incoming) })}
+              {" · "}
+              {t("results.outgoing", { amount: moneyText(totals.outgoing) })}
+            </>
+          ) : null}
+        </p>
+        {filtering ? (
+          <Button variant="ghost" small onClick={clearFilters}>
+            <X className="size-4" aria-hidden="true" />
+            {t("filters.clear")}
+          </Button>
+        ) : null}
+      </div>
+
       {onCard.length > 0 ? (
         <p className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-xl bg-brand-50 px-4 py-3 text-sm">
           <span>
@@ -292,10 +370,10 @@ export function EntriesTable({
             <caption className="sr-only">{t("table.caption")}</caption>
             <thead>
               <tr className="border-y border-line text-left text-xs text-muted">
-                <th scope="col" className="py-2 pl-5 pr-3 font-medium sm:pl-6">
+                <th scope="col" className="hidden py-2 pl-6 pr-3 font-medium sm:table-cell">
                   {t("table.date")}
                 </th>
-                <th scope="col" className="px-3 py-2 font-medium">
+                <th scope="col" className="py-2 pl-5 pr-3 font-medium sm:px-3">
                   {t("table.description")}
                 </th>
                 <th scope="col" className="hidden px-3 py-2 font-medium md:table-cell">
@@ -320,89 +398,148 @@ export function EntriesTable({
                 ) : null}
               </tr>
             </thead>
-            <tbody>
-              {visible.map((entry) => (
-                <tr key={entry.key} className="border-b border-line last:border-0">
-                  <td className="py-3 pl-5 pr-3 align-top tabular-nums text-muted sm:pl-6">
-                    {formatDayMonth(entry.date, locale)}
-                  </td>
-                  <td className="min-w-40 px-3 py-3 align-top">
-                    <p className="flex items-center gap-1.5 font-medium">
-                      {describe(entry)}
-                      {entry.recurring ? (
-                        <Repeat
-                          className="size-3.5 shrink-0 text-muted"
-                          role="img"
-                          aria-label={t("row.repeats")}
-                        />
-                      ) : null}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted md:hidden">
-                      {categoryName.get(entry.categoryId)}
-                    </p>
-                    {flowOf(entry) === "aporte" || flowOf(entry) === "resgate" ? (
-                      <div className="mt-1">
-                        <Badge>{t(`flow.${flowOf(entry) as "aporte" | "resgate"}`)}</Badge>
-                      </div>
-                    ) : null}
-                    <div className="mt-1 sm:hidden">
-                      <StatusBadge entry={entry} today={today} />
-                    </div>
-                    {writable ? (
-                      <div className="mt-2 sm:hidden">
-                        <RowActions
-                          shown={describe(entry)}
-                          entry={entry}
-                          month={month}
-                          onEdit={openEdit}
-                          onRemove={setRemoving}
-                          onStop={setStopping}
-                        />
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="hidden px-3 py-3 align-top text-muted md:table-cell">
-                    {categoryName.get(entry.categoryId)}
-                  </td>
-                  <td className="hidden px-3 py-3 align-top text-muted lg:table-cell">
-                    {accountName.get(entry.accountId)}
-                  </td>
-                  <td className="hidden px-3 py-3 align-top sm:table-cell">
-                    <StatusBadge entry={entry} today={today} />
-                  </td>
-                  <td
-                    className={cx(
-                      "whitespace-nowrap py-3 pl-3 pr-5 text-right align-top font-semibold tabular-nums sm:pr-3",
-                      flowOf(entry) === entry.kind ? amountClass(entry.kind) : "text-ink",
-                    )}
-                  >
-                    {entry.kind === "receita" ? "+ " : "− "}
-                    {entry.originalAmount && entry.originalCurrency ? (
-                      <>
-                        {moneyText(entry.originalAmount, "full", entry.originalCurrency)}
-                        <span className="block text-xs font-normal text-muted">
-                          ≈ {moneyText(entry.amount)}
-                        </span>
-                      </>
-                    ) : (
-                      moneyText(entry.amount)
-                    )}
-                  </td>
-                  {writable ? (
-                    <td className="hidden py-2 pl-3 pr-5 align-top sm:table-cell sm:pr-6">
-                      <RowActions
-                        shown={describe(entry)}
-                        entry={entry}
-                        month={month}
-                        onEdit={openEdit}
-                        onRemove={setRemoving}
-                        onStop={setStopping}
-                      />
-                    </td>
+            {[
+              { id: "recent", rows: recent },
+              { id: "upcoming", rows: upcoming },
+            ].map((part) =>
+              part.rows.length === 0 ? null : (
+                <tbody key={part.id}>
+                  {/* Só separa quando há as duas partes: a lista continua sendo uma tabela só. */}
+                  {part.id === "upcoming" && recent.length > 0 ? (
+                    <tr className="border-t-2 border-line bg-card-soft">
+                      <th
+                        scope="colgroup"
+                        colSpan={writable ? 7 : 6}
+                        className="px-5 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted sm:px-6"
+                      >
+                        {t("sections.upcoming")}
+                      </th>
+                    </tr>
                   ) : null}
-                </tr>
-              ))}
-            </tbody>
+                  {part.rows.map((entry, index) => {
+                    const first = index === 0 || part.rows[index - 1]!.date !== entry.date;
+                    return (
+                      <tr
+                        key={entry.key}
+                        className={cx(
+                          "border-line",
+                          // Linha mais forte quando o dia muda: os lançamentos do mesmo dia ficam juntos.
+                          first && index > 0
+                            ? "border-t-2"
+                            : index > 0
+                              ? "border-t border-dashed"
+                              : "",
+                        )}
+                      >
+                        <td className="hidden py-3 pl-6 pr-3 align-top sm:table-cell">
+                          {/* A data aparece na primeira linha de cada dia; nas outras fica só para leitor de tela. */}
+                          <span
+                            className={cx("block tabular-nums", first ? "font-medium" : "sr-only")}
+                          >
+                            {formatDayMonth(entry.date, locale)}
+                          </span>
+                          {first ? (
+                            <span
+                              className={cx(
+                                "block text-xs",
+                                entry.date === today
+                                  ? "font-semibold text-brand-700"
+                                  : "text-muted",
+                              )}
+                            >
+                              {dayTag(entry.date)}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="py-3 pl-5 pr-3 align-top sm:min-w-40 sm:px-3">
+                          {/* No celular não há coluna de data: o dia vem em cima da primeira linha dele. */}
+                          <p
+                            className={cx(
+                              "mb-1 text-xs tabular-nums sm:hidden",
+                              !first && "sr-only",
+                              entry.date === today ? "font-semibold text-brand-700" : "text-muted",
+                            )}
+                          >
+                            {formatDayMonth(entry.date, locale)} · {dayTag(entry.date)}
+                          </p>
+                          <p className="flex items-center gap-1.5 font-medium">
+                            {describe(entry)}
+                            {entry.recurring ? (
+                              <Repeat
+                                className="size-3.5 shrink-0 text-muted"
+                                role="img"
+                                aria-label={t("row.repeats")}
+                              />
+                            ) : null}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted md:hidden">
+                            {categoryName.get(entry.categoryId)}
+                          </p>
+                          {flowOf(entry) === "aporte" || flowOf(entry) === "resgate" ? (
+                            <div className="mt-1">
+                              <Badge>{t(`flow.${flowOf(entry) as "aporte" | "resgate"}`)}</Badge>
+                            </div>
+                          ) : null}
+                          {/* No celular, a situação e as ações dividem uma linha só. */}
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+                            <StatusBadge entry={entry} today={today} />
+                            {writable ? (
+                              <RowActions
+                                shown={describe(entry)}
+                                entry={entry}
+                                month={month}
+                                onEdit={openEdit}
+                                onRemove={setRemoving}
+                                onStop={setStopping}
+                              />
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="hidden px-3 py-3 align-top text-muted md:table-cell">
+                          {categoryName.get(entry.categoryId)}
+                        </td>
+                        <td className="hidden px-3 py-3 align-top text-muted lg:table-cell">
+                          {accountName.get(entry.accountId)}
+                        </td>
+                        <td className="hidden px-3 py-3 align-top sm:table-cell">
+                          <StatusBadge entry={entry} today={today} />
+                        </td>
+                        <td
+                          className={cx(
+                            "whitespace-nowrap py-3 pl-3 pr-5 text-right align-top font-semibold tabular-nums sm:pr-3",
+                            flowOf(entry) === entry.kind ? amountClass(entry.kind) : "text-ink",
+                          )}
+                        >
+                          {entry.kind === "receita" ? "+ " : "− "}
+                          {entry.originalAmount && entry.originalCurrency ? (
+                            <>
+                              {moneyText(entry.originalAmount, "full", entry.originalCurrency)}
+                              <span className="block text-xs font-normal text-muted">
+                                ≈ {moneyText(entry.amount)}
+                              </span>
+                            </>
+                          ) : (
+                            moneyText(entry.amount)
+                          )}
+                        </td>
+                        {writable ? (
+                          <td className="hidden py-2 pl-3 pr-5 align-top sm:table-cell sm:pr-6">
+                            <RowActions
+                              shown={describe(entry)}
+                              entry={entry}
+                              month={month}
+                              onEdit={openEdit}
+                              onRemove={setRemoving}
+                              onStop={setStopping}
+                            />
+                          </td>
+                        ) : null}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              ),
+            )}
           </table>
         </div>
       )}

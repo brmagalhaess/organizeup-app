@@ -2906,7 +2906,8 @@
       "afterContributions": "Sobrou depois de aportar",
       "afterContributionsHint": "Resultado menos aportes. Resgates não entram nesta conta.",
       "redeemed": "Voltou para as contas",
-      "redeemedHint": "Resgates e entradas de metas. Não entram em receitas."
+      "redeemedHint": "Resgates e entradas de metas. Não entram em receitas.",
+      "more": "Mais números do mês"
     },
     "status": {
       "overdue": "Atrasado",
@@ -2953,7 +2954,8 @@
       "account": "Conta",
       "allAccounts": "Todas",
       "contributions": "Aportes",
-      "redemptions": "Resgates"
+      "redemptions": "Resgates",
+      "clear": "Limpar filtros"
     },
     "table": {
       "caption": "Lançamentos do mês",
@@ -3043,6 +3045,25 @@
     "flow": {
       "aporte": "Aporte",
       "resgate": "Resgate"
+    },
+    "day": {
+      "today": "hoje",
+      "yesterday": "ontem"
+    },
+    "sections": {
+      "upcoming": "Ainda vai vencer"
+    },
+    "open": {
+      "summary": "{count, plural, =1 {1 lançamento em aberto} other {# lançamentos em aberto}}",
+      "pay": "a pagar {amount}",
+      "receive": "a receber {amount}",
+      "overdue": "{count, plural, =1 {1 atrasado} other {# atrasados}}",
+      "show": "Ver só em aberto"
+    },
+    "results": {
+      "count": "{count, plural, =1 {1 lançamento} other {# lançamentos}} de {total}",
+      "incoming": "entradas {amount}",
+      "outgoing": "saídas {amount}"
     }
   },
   "contas": {

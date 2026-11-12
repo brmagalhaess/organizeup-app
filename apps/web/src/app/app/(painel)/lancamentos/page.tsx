@@ -58,7 +58,8 @@ export default async function EntriesPage({
         }
       />
       <Insights screen="lancamentos" />
-      <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-3">
+      {/* Os três números que respondem "como foi o mês"; os outros ficam logo abaixo, menores. */}
+      <dl className="m-0 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <StatTile
           label={t("stats.received")}
           tone="receita"
@@ -70,28 +71,47 @@ export default async function EntriesPage({
           value={moneyText(data.summary.balance)}
           hint={t("stats.balanceHint")}
         />
-        <StatTile
-          label={t("stats.contributed")}
-          value={moneyText(data.summary.contributed)}
-          hint={t("stats.contributedHint")}
-        />
-        <StatTile
-          label={t("stats.afterContributions")}
-          value={moneyText(data.summary.afterContributions)}
-          hint={t("stats.afterContributionsHint")}
-        />
-        <StatTile
-          label={t("stats.forecast")}
-          value={moneyText(data.summary.projectedBalance)}
-          hint={t("stats.forecastHint")}
-        />
-        {money(data.summary.redeemed).isZero() ? null : (
-          <StatTile
-            label={t("stats.redeemed")}
-            value={moneyText(data.summary.redeemed)}
-            hint={t("stats.redeemedHint")}
-          />
-        )}
+      </dl>
+      <dl
+        aria-label={t("stats.more")}
+        className="m-0 grid grid-cols-1 gap-x-6 gap-y-3 rounded-2xl border border-line bg-card-soft px-5 py-4 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        {[
+          {
+            label: t("stats.forecast"),
+            value: data.summary.projectedBalance,
+            hint: t("stats.forecastHint"),
+          },
+          {
+            label: t("stats.contributed"),
+            value: data.summary.contributed,
+            hint: t("stats.contributedHint"),
+          },
+          {
+            label: t("stats.afterContributions"),
+            value: data.summary.afterContributions,
+            hint: t("stats.afterContributionsHint"),
+          },
+          ...(money(data.summary.redeemed).isZero()
+            ? []
+            : [
+                {
+                  label: t("stats.redeemed"),
+                  value: data.summary.redeemed,
+                  hint: t("stats.redeemedHint"),
+                },
+              ]),
+        ].map((item) => (
+          <div key={item.label} className="min-w-0">
+            <dt className="text-xs text-muted">{item.label}</dt>
+            <dd className="m-0 mt-0.5">
+              <span className="block whitespace-nowrap text-base font-semibold tabular-nums">
+                {moneyText(item.value)}
+              </span>
+              <span className="mt-0.5 block text-xs text-muted">{item.hint}</span>
+            </dd>
+          </div>
+        ))}
       </dl>
       <EntriesTable
         key={`${data.month}:${filters.kind}:${filters.category}:${filters.account}`}

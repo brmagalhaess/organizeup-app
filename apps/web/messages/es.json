@@ -2906,7 +2906,8 @@
       "afterContributions": "Quedó después de aportar",
       "afterContributionsHint": "Resultado menos aportes. Los rescates no entran en esta cuenta.",
       "redeemed": "Volvió a las cuentas",
-      "redeemedHint": "Rescates y entradas de metas. No cuentan como ingresos."
+      "redeemedHint": "Rescates y entradas de metas. No cuentan como ingresos.",
+      "more": "Más números del mes"
     },
     "status": {
       "overdue": "Atrasado",
@@ -2953,7 +2954,8 @@
       "account": "Cuenta",
       "allAccounts": "Todas",
       "contributions": "Aportes",
-      "redemptions": "Rescates"
+      "redemptions": "Rescates",
+      "clear": "Limpiar filtros"
     },
     "table": {
       "caption": "Movimientos del mes",
@@ -3043,6 +3045,25 @@
     "flow": {
       "aporte": "Aporte",
       "resgate": "Rescate"
+    },
+    "day": {
+      "today": "hoy",
+      "yesterday": "ayer"
+    },
+    "sections": {
+      "upcoming": "Aún por vencer"
+    },
+    "open": {
+      "summary": "{count, plural, =1 {1 movimiento abierto} other {# movimientos abiertos}}",
+      "pay": "por pagar {amount}",
+      "receive": "por recibir {amount}",
+      "overdue": "{count, plural, =1 {1 atrasado} other {# atrasados}}",
+      "show": "Ver solo abiertos"
+    },
+    "results": {
+      "count": "{count, plural, =1 {1 movimiento} other {# movimientos}} de {total}",
+      "incoming": "entradas {amount}",
+      "outgoing": "salidas {amount}"
     }
   },
   "contas": {
