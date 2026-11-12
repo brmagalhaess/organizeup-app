@@ -17,8 +17,8 @@ sempre (`summarizeMonth`, `spendingByCategory`, `incomeByCategory`, `summarizePo
 
 ## Blocos, nesta ordem
 
-1. **Cabeçalho:** saudação, data de hoje, cidade e "Ver lançamentos".
-2. **Seletor de mês.**
+1. **Seletor de mês**, no cabeçalho fixo da tela, o mesmo de Lançamentos e dos calendários.
+2. **Cabeçalho:** saudação, data de hoje, cidade e "Ver lançamentos".
 3. **Aviso do mês**, quando precisa: mês atual sem movimento, com link para o anterior; mês passado sem nada; mês futuro.
 4. **Resumo.** Campos: receitas, despesas, resultado (receitas menos despesas) e saldo. Com aporte ou resgate no mês, mais uma faixa:
    Aportado, Sobrou depois de aportar (resultado menos aportes) e Voltou para as contas.
@@ -26,14 +26,20 @@ sempre (`summarizeMonth`, `spendingByCategory`, `incomeByCategory`, `summarizePo
    - Mês futuro mostra o previsto, e o rótulo diz isso.
    - Saldo: mês passado, saldo no último dia, com a cotação daquele dia. Mês atual, saldo de hoje e a previsão para o fim do mês.
      Mês futuro, saldo de hoje mais os previstos do mês atual até o escolhido.
+   - Cada número leva um ícone no canto, só de apoio.
+   - Logo abaixo, uma barra mostra quanto das receitas do mês as despesas já consumiram (cheio) e quanto chegam a consumir
+     com o que está em aberto (claro), com a frase que diz o mesmo. Sem receita no mês, a barra não aparece.
+   - A faixa de aportes é menor que o resumo: são números de apoio.
    - Abaixo, em uma linha: quanto do cartão está na fatura do mês.
-5. **Primeiros passos**, enquanto faltar algo. Na conta nova vêm antes de tudo.
+5. **Primeiros passos**, enquanto faltar algo. Na conta nova vêm antes de tudo, com os cinco passos. Depois que a pessoa
+   começou, o bloco mostra a barra do progresso e só os passos que faltam.
 6. **Dicas e sugestões**, quando houver.
 7. **Evolução e próximos vencimentos.** Doze meses até o escolhido, receitas e despesas no mesmo eixo, feito cheio e previsto
    claro, mês escolhido destacado. Cada mês é um link para ele. Tooltip e tabela para leitor de tela. Próximos vencimentos
    segue a data de hoje, com os 4 mais próximos, 3 no celular; fora do mês atual, o texto diz isso.
 8. **Lançamentos do mês.** Até 40 receitas e despesas do mês escolhido, realizadas e previstas, cada uma com data, descrição,
-   valor e status (Realizado; Previsto; ou Atrasado quando prevista e a data já passou). Link "Ver todos em Lançamentos" abre
+   valor e status (Realizado; Previsto; ou Atrasado quando prevista e a data já passou). Na ordem da tela de Lançamentos: hoje
+   no topo, e o que ainda vai vencer depois. A lista tem altura fixa e rolagem própria, para caber ao lado dos gráficos. Link "Ver todos em Lançamentos" abre
    `/app/lancamentos` do mês escolhido. Passando de 40, um aviso abaixo da lista diz quantos itens ficaram de fora, com o mesmo
    link.
 9. **Por categoria.** Despesas, receitas e, quando houver, aportes, as maiores 6 e "Outras". Valor, percentual e barra com feito e previsto. Cada linha abre
@@ -46,8 +52,10 @@ sempre (`summarizeMonth`, `spendingByCategory`, `incomeByCategory`, `summarizePo
     "hoje": não existe histórico de preço (`market_quotes` guarda só a última cotação).
 12. **Proventos.** Recebidos no mês, anunciados com pagamento no mês, anunciados depois dele e total dos 12 meses até o escolhido.
     Estimativa pelo histórico aparece à parte, com esse nome, do mês atual em diante. Só para família em real, como a tela de proventos.
-13. **Reserva e patrimônio.** Sempre a posição de hoje; fora do mês atual, o título diz "hoje". No computador ficam abaixo de
-    "Por conta".
+13. **Reserva e patrimônio.** Sempre a posição de hoje; fora do mês atual, o título diz "hoje".
+
+No computador, os blocos 7 a 9 e o 13 dividem duas colunas: à esquerda, Evolução e Por categoria; à direita, Próximos
+vencimentos, Lançamentos do mês e Reserva e patrimônio. No celular seguem a ordem da lista.
 
 ## Regras da conta
 

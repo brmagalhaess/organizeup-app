@@ -189,15 +189,26 @@ export function StatTile({
   value,
   hint,
   tone,
+  icon,
 }: {
   label: string;
   value: string;
   hint?: ReactNode;
   tone?: "receita" | "despesa";
+  /** Ícone decorativo, no canto: ajuda a achar o número de relance. */
+  icon?: ReactNode;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-line bg-card p-4 shadow-card sm:p-5">
-      <dt className="text-sm text-muted">{label}</dt>
+    <div className="relative min-w-0 rounded-2xl border border-line bg-card p-4 shadow-card sm:p-5">
+      {icon ? (
+        <span
+          aria-hidden="true"
+          className="absolute right-4 top-4 hidden size-9 items-center justify-center rounded-xl bg-brand-50 text-brand-700 sm:flex"
+        >
+          {icon}
+        </span>
+      ) : null}
+      <dt className={cx("text-sm text-muted", icon ? "sm:pr-11" : null)}>{label}</dt>
       <dd className="m-0 mt-2">
         <span
           className={cx(

@@ -2371,7 +2371,10 @@
       "afterContributionsHint": "Result minus contributions. Redemptions are not part of this figure.",
       "redeemed": "Back in your accounts",
       "redeemedHint": "Redemptions and goal money coming in. Not counted as income.",
-      "savingsTitle": "Money set aside in {month}"
+      "savingsTitle": "Money set aside in {month}",
+      "share": "Paid expenses equal {percent} of the month's income.",
+      "shareWithOpen": "Paid expenses equal {done} of the month's income; with what is still open, they reach {all}.",
+      "shareFuture": "Planned expenses equal {percent} of planned income."
     },
     "suggestions": {
       "empty": "Nothing to review for now.",

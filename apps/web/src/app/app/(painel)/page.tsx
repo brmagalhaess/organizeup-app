@@ -1,4 +1,14 @@
-import { AlertCircle, ArrowRight, Clock, Info, Upload } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowDownLeft,
+  ArrowRight,
+  ArrowUpRight,
+  Clock,
+  Info,
+  Landmark,
+  Scale,
+  Upload,
+} from "lucide-react";
 import type { Metadata } from "next";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -13,6 +23,7 @@ import {
   hasMovement,
   money,
   percentChange,
+  percentOf,
   toDbAmount,
   yearMonthOf,
   canView,
@@ -37,6 +48,7 @@ import { loadNetWorth, loadReserve } from "@/lib/wealth";
 import { systemTextOf } from "@/i18n/system-text";
 import { CashflowChart } from "./cashflow-chart";
 import { FirstSteps } from "./first-steps";
+import { orderEntries } from "./lancamentos/entry-order";
 import {
   AccountsSection,
   barRows,
@@ -169,7 +181,9 @@ function MonthEntries({
   const t = useTranslations("dashboard.entries");
   const locale = useLocale();
   const total = data.entries.length;
-  const shown = data.entries.slice(0, ENTRIES_SHOWN);
+  // A mesma ordem da tela de Lançamentos: hoje no topo, e o que ainda vai vencer depois.
+  const { recent, upcoming } = orderEntries(data.entries, data.today);
+  const shown = [...recent, ...upcoming].slice(0, ENTRIES_SHOWN);
   const href = `/app/lancamentos?m=${data.period.month}`;
   return (
     <Card
@@ -187,7 +201,13 @@ function MonthEntries({
     >
       {total === 0 ? null : (
         <>
-          <ul className="m-0 list-none divide-y divide-line p-0" aria-label={t("title")}>
+          {/* Lista com rolagem própria: cabe ao lado dos gráficos sem empurrar o resto do painel. */}
+          <ul
+            // Rolável pelo teclado: quem não usa mouse também chega ao fim da lista.
+            tabIndex={0}
+            className="m-0 max-h-[26rem] list-none divide-y divide-line overflow-y-auto p-0 pr-1 [scrollbar-width:thin]"
+            aria-label={t("title")}
+          >
             {shown.map((entry) => {
               const overdue = entry.status === "previsto" && entry.date < data.today;
               return (
@@ -279,6 +299,31 @@ export default async function OverviewPage({
   const moneyMoved = [shown.contribution, shown.redemption, summary.plannedContribution].some(
     (value) => !money(value).isZero(),
   );
+
+  // Quanto das receitas do mês as despesas já consumiram, e quanto chegam a consumir com o que está em aberto.
+  const incomeTotal = money(summary.received).plus(summary.plannedIncome);
+  const spentShare = incomeTotal.lte(0)
+    ? null
+    : (() => {
+        const base = incomeTotal.toFixed(2);
+        const done = Math.min(percentOf(summary.spent, base), 100);
+        const all = Math.min(
+          percentOf(money(summary.spent).plus(summary.plannedExpense).toFixed(2), base),
+          100,
+        );
+        return { done, open: Math.max(all - done, 0), all };
+      })();
+  const spentText =
+    spentShare === null
+      ? ""
+      : future
+        ? t("stats.shareFuture", { percent: formatPercent(spentShare.all, locale) })
+        : spentShare.open > 0
+          ? t("stats.shareWithOpen", {
+              done: formatPercent(spentShare.done, locale),
+              all: formatPercent(spentShare.all, locale),
+            })
+          : t("stats.share", { percent: formatPercent(spentShare.done, locale) });
 
   const tile = (open: string, base: string, now: string) => (
     <>
@@ -474,17 +519,20 @@ export default async function OverviewPage({
           <StatTile
             label={future ? t("stats.receivedPlanned") : t("stats.received")}
             tone="receita"
+            icon={<ArrowDownLeft className="size-4.5" />}
             value={amount(shown.income)}
             hint={tile(summary.plannedIncome, before.income, shown.income)}
           />
           <StatTile
             label={future ? t("stats.spentPlanned") : t("stats.spent")}
             tone="despesa"
+            icon={<ArrowUpRight className="size-4.5" />}
             value={amount(shown.expense)}
             hint={tile(summary.plannedExpense, before.expense, shown.expense)}
           />
           <StatTile
             label={future ? t("stats.resultPlanned") : t("stats.result")}
+            icon={<Scale className="size-4.5" />}
             value={amount(future ? summary.projectedBalance : summary.balance)}
             hint={
               <>
@@ -505,6 +553,7 @@ export default async function OverviewPage({
                   ? t("stats.balanceProjected")
                   : t("stats.balance")
             }
+            icon={<Landmark className="size-4.5" />}
             value={amount(data.balance.value)}
             hint={
               <>
@@ -535,37 +584,67 @@ export default async function OverviewPage({
             }
           />
         </dl>
+        {spentShare === null ? null : (
+          <div className="rounded-2xl border border-line bg-card px-4 py-3 shadow-card sm:px-5">
+            {/* Uma barra só: o que já saiu, cheio; o que ainda vai sair, claro; o total é o que entra no mês. */}
+            <div
+              role="img"
+              aria-label={spentText}
+              className="flex h-2.5 overflow-hidden rounded-full bg-brand-100"
+            >
+              <div className="h-full bg-expense" style={{ width: `${spentShare.done}%` }} />
+              <div className="h-full bg-expense/35" style={{ width: `${spentShare.open}%` }} />
+            </div>
+            <p className="m-0 mt-2 text-sm text-muted">{spentText}</p>
+          </div>
+        )}
         {moneyMoved ? (
           <dl
             aria-label={t("stats.savingsTitle", { month: label })}
-            className="m-0 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4"
+            className="m-0 grid grid-cols-1 gap-x-6 gap-y-3 rounded-2xl border border-line bg-card-soft px-4 py-4 sm:grid-cols-3 sm:px-5"
           >
-            <StatTile
-              label={future ? t("stats.contributedPlanned") : t("stats.contributed")}
-              value={amount(shown.contribution)}
-              hint={
-                <>
-                  <span className="block">{t("stats.contributedHint")}</span>
-                  {!future && !money(summary.plannedContribution).isZero() ? (
-                    <span className="block">
-                      {t(openText, { amount: amount(summary.plannedContribution) })}
+            {[
+              {
+                label: future ? t("stats.contributedPlanned") : t("stats.contributed"),
+                value: shown.contribution,
+                hints: [
+                  t("stats.contributedHint"),
+                  ...(!future && !money(summary.plannedContribution).isZero()
+                    ? [t(openText, { amount: amount(summary.plannedContribution) })]
+                    : []),
+                ],
+              },
+              {
+                label: future
+                  ? t("stats.afterContributionsPlanned")
+                  : t("stats.afterContributions"),
+                value: shown.afterContributions,
+                hints: [t("stats.afterContributionsHint")],
+              },
+              ...(money(shown.redemption).isZero()
+                ? []
+                : [
+                    {
+                      label: t("stats.redeemed"),
+                      value: shown.redemption,
+                      hints: [t("stats.redeemedHint")],
+                    },
+                  ]),
+            ].map((item) => (
+              <div key={item.label} className="min-w-0">
+                <dt className="text-xs text-muted">{item.label}</dt>
+                <dd className="m-0 mt-0.5">
+                  <span className="block whitespace-nowrap text-base font-semibold tabular-nums">
+                    {amount(item.value)}
+                  </span>
+                  {item.hints.map((hint) => (
+                    <span key={hint} className="mt-0.5 block text-xs text-muted">
+                      {hint}
                     </span>
-                  ) : null}
-                </>
-              }
-            />
-            <StatTile
-              label={future ? t("stats.afterContributionsPlanned") : t("stats.afterContributions")}
-              value={amount(shown.afterContributions)}
-              hint={t("stats.afterContributionsHint")}
-            />
-            {money(shown.redemption).isZero() ? null : (
-              <StatTile
-                label={t("stats.redeemed")}
-                value={amount(shown.redemption)}
-                hint={t("stats.redeemedHint")}
-              />
-            )}
+                  ))}
+                </dd>
+              </div>
+            ))}
           </dl>
         ) : null}
         {money(cardTotal).isZero() ? null : (
@@ -604,87 +683,92 @@ export default async function OverviewPage({
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div id="evolucao" className="min-w-0 scroll-mt-20">
+      {/* No computador, duas colunas: os gráficos à esquerda; o que pede ação e a lista do mês à direita. */}
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div id="evolucao" className="min-w-0 scroll-mt-20 xl:col-start-1 xl:row-start-1">
           <Card
-            className="h-full"
             title={t("cashflow.title")}
             description={t("cashflow.description", { month: label })}
           >
             <CashflowChart series={data.series} selected={month} current={current} />
           </Card>
         </div>
-        <Upcoming
-          data={data}
-          moneyText={moneyText}
-          writable={writable}
-          describe={(entry) =>
-            system.description(entry.description, {
-              category: data.categoryNames.get(entry.categoryId),
-              bill: entry.source === "fatura",
-            })
-          }
-        />
-      </div>
-
-      <MonthEntries
-        data={data}
-        label={label}
-        moneyText={moneyText}
-        describe={(entry) =>
-          system.description(entry.description, {
-            category: data.categoryNames.get(entry.categoryId),
-            bill: entry.source === "fatura",
-          })
-        }
-      />
-
-      <div id="categorias" className="scroll-mt-20">
-        <Card
-          title={t("categories.title")}
-          description={t("categories.description", { month: label })}
+        <div className="min-w-0 xl:col-start-2 xl:row-start-1">
+          <Upcoming
+            data={data}
+            moneyText={moneyText}
+            writable={writable}
+            describe={(entry) =>
+              system.description(entry.description, {
+                category: data.categoryNames.get(entry.categoryId),
+                bill: entry.source === "fatura",
+              })
+            }
+          />
+        </div>
+        <div className="min-w-0 xl:col-start-2 xl:row-start-2">
+          <MonthEntries
+            data={data}
+            label={label}
+            moneyText={moneyText}
+            describe={(entry) =>
+              system.description(entry.description, {
+                category: data.categoryNames.get(entry.categoryId),
+                bill: entry.source === "fatura",
+              })
+            }
+          />
+        </div>
+        <div
+          id="categorias"
+          className="min-w-0 scroll-mt-20 xl:col-start-1 xl:row-span-2 xl:row-start-2"
         >
-          <div className="grid grid-cols-1 gap-x-10 gap-y-6 lg:grid-cols-2">
-            <CategoryBars
-              title={future ? t("categories.expensesPlanned") : t("categories.expenses")}
-              description={t("categories.expensesHint")}
-              tone="despesa"
-              rows={expenseRows}
-              empty={t("categories.emptyExpenses")}
-              money={moneyText}
-            />
-            <CategoryBars
-              title={future ? t("categories.incomePlanned") : t("categories.income")}
-              description={t("categories.incomeHint")}
-              tone="receita"
-              rows={incomeRows}
-              empty={t("categories.emptyIncome")}
-              money={moneyText}
-            />
-            {contributionRows.length === 0 ? null : (
+          <Card
+            title={t("categories.title")}
+            description={t("categories.description", { month: label })}
+          >
+            <div className="grid grid-cols-1 gap-x-10 gap-y-6 lg:grid-cols-2">
               <CategoryBars
-                title={
-                  future ? t("categories.contributionsPlanned") : t("categories.contributions")
-                }
-                description={t("categories.contributionsHint")}
-                tone="aporte"
-                rows={contributionRows}
-                empty=""
+                title={future ? t("categories.expensesPlanned") : t("categories.expenses")}
+                description={t("categories.expensesHint")}
+                tone="despesa"
+                rows={expenseRows}
+                empty={t("categories.emptyExpenses")}
                 money={moneyText}
               />
-            )}
-          </div>
-        </Card>
+              <CategoryBars
+                title={future ? t("categories.incomePlanned") : t("categories.income")}
+                description={t("categories.incomeHint")}
+                tone="receita"
+                rows={incomeRows}
+                empty={t("categories.emptyIncome")}
+                money={moneyText}
+              />
+              {contributionRows.length === 0 ? null : (
+                <CategoryBars
+                  title={
+                    future ? t("categories.contributionsPlanned") : t("categories.contributions")
+                  }
+                  description={t("categories.contributionsHint")}
+                  tone="aporte"
+                  rows={contributionRows}
+                  empty=""
+                  money={moneyText}
+                />
+              )}
+            </div>
+          </Card>
+        </div>
+        <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 xl:col-start-2 xl:row-start-3">
+          {reserveTile}
+          {wealthTile}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-6">
           <div id="contas" className="min-w-0 scroll-mt-20">
             <AccountsSection data={data} moneyText={moneyText} nameOf={system.name} />
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            {reserveTile}
-            {wealthTile}
           </div>
         </div>
         <div className="flex min-w-0 flex-col gap-6">

@@ -73,10 +73,30 @@ export function FirstSteps({
   const done = steps.filter((step) => step.done).length;
   if (!writable || done === steps.length) return null;
 
+  // Quem já começou vê só o que falta, com a barra do progresso: os passos feitos não ocupam a tela.
+  const shown = done === 0 ? steps : steps.filter((step) => !step.done);
+
   return (
     <Card title={t("title")} description={t("progress", { done, total: steps.length })}>
-      <ol className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 2xl:grid-cols-5">
-        {steps.map((step, index) => (
+      {done === 0 ? null : (
+        <div
+          role="img"
+          aria-label={t("progress", { done, total: steps.length })}
+          className="mb-4 h-1.5 overflow-hidden rounded-full bg-brand-100"
+        >
+          <div
+            className="h-full rounded-full bg-brand-500"
+            style={{ width: `${(done / steps.length) * 100}%` }}
+          />
+        </div>
+      )}
+      <ol
+        className={cx(
+          "m-0 grid list-none gap-3 p-0 sm:grid-cols-2",
+          done === 0 ? "2xl:grid-cols-5" : "xl:grid-cols-3",
+        )}
+      >
+        {shown.map((step, index) => (
           <li
             key={index}
             className={cx(

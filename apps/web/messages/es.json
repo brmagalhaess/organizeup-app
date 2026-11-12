@@ -2371,7 +2371,10 @@
       "afterContributionsHint": "Resultado menos aportes. Los rescates no entran en esta cuenta.",
       "redeemed": "Volvió a las cuentas",
       "redeemedHint": "Rescates y entradas de metas. No cuentan como ingresos.",
-      "savingsTitle": "Dinero guardado en {month}"
+      "savingsTitle": "Dinero guardado en {month}",
+      "share": "Los gastos pagados equivalen al {percent} de los ingresos del mes.",
+      "shareWithOpen": "Los gastos pagados equivalen al {done} de los ingresos del mes; con lo que está abierto, llegan al {all}.",
+      "shareFuture": "Los gastos previstos equivalen al {percent} de los ingresos previstos."
     },
     "suggestions": {
       "empty": "Nada que revisar por ahora.",
