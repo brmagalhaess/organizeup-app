@@ -92,6 +92,7 @@ describe("cliente da Pluggy", () => {
             number: "0001/12345-6",
             currencyCode: "BRL",
             bankData: { transferNumber: "348/0001/12345-6" },
+            balance: -12931.07,
           },
           {
             id: "conta-2",
@@ -99,6 +100,8 @@ describe("cliente da Pluggy", () => {
             subtype: "SAVINGS_ACCOUNT",
             name: "Poupança",
             number: "9",
+            // Saldo que não é número não vira saldo.
+            balance: "500",
           },
           {
             id: "cartao-1",
@@ -107,6 +110,8 @@ describe("cliente da Pluggy", () => {
             name: "Cartão Gold",
             number: "4321",
             creditData: { balanceCloseDate: null, balanceDueDate: "2026-11-01" },
+            // Em cartão é o valor da fatura: fica de fora.
+            balance: 2635.27,
           },
           { type: "BANK", name: "sem identificador" },
         ],
@@ -125,6 +130,7 @@ describe("cliente da Pluggy", () => {
         currency: "BRL",
         closingDay: null,
         dueDay: null,
+        balance: "-12931.07",
       },
       {
         id: "conta-2",
@@ -135,6 +141,7 @@ describe("cliente da Pluggy", () => {
         currency: "BRL",
         closingDay: null,
         dueDay: null,
+        balance: null,
       },
       {
         id: "cartao-1",
@@ -145,6 +152,7 @@ describe("cliente da Pluggy", () => {
         currency: "BRL",
         closingDay: null,
         dueDay: 1,
+        balance: null,
       },
     ]);
   });

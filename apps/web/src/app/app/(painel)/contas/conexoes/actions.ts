@@ -17,6 +17,7 @@ import {
   setBankAuto,
   type BankFeedFailure,
 } from "@/lib/bank-feed";
+import { alignBankBalances, alignBankLink } from "@/lib/bank-auto";
 import { commitCardFeed, prepareCardFeed, type PreparedCardRow } from "@/lib/bank-feed-cards";
 import { reportActionFailure } from "@/lib/diagnostics";
 
@@ -37,6 +38,17 @@ async function unexpected(event: string, error: unknown): Promise<ConnectionForm
   console.error(JSON.stringify({ level: "error", msg: event, name, code }));
   reportActionFailure(event, error);
   return { ok: false, message: await problem("rede") };
+}
+
+/**
+ * Acerta o saldo das contas ligadas pelo do banco, sem deixar uma falha da Pluggy estragar a ação que já deu
+ * certo: o saldo fica como estava e a próxima rodada tenta de novo.
+ */
+async function settleBalances(work: () => Promise<number>): Promise<void> {
+  await work().catch((error: unknown) => {
+    const { name, code } = error as { name?: string; code?: string };
+    console.error(JSON.stringify({ level: "error", msg: "bank_balance_failed", name, code }));
+  });
 }
 
 /** Confere as chaves na Pluggy e guarda a conexão, cifrada. */
@@ -70,8 +82,10 @@ export async function refreshBankConnection(
 ): Promise<ConnectionFormState> {
   const { ctx } = await requireBankFeed();
   try {
-    const result = await refreshBank(ctx, String(form.get("connectionId") ?? ""));
-    revalidatePath(PAGE);
+    const connectionId = String(form.get("connectionId") ?? "");
+    const result = await refreshBank(ctx, connectionId);
+    if (result.ok) await settleBalances(() => alignBankBalances(ctx, connectionId));
+    revalidatePath("/app", "layout");
     if (!result.ok) return { ok: false, message: await problem(result.code) };
     const t = await getTranslations("conexoes");
     return { ok: true, message: t("refreshed", { count: result.accounts }) };
@@ -87,10 +101,11 @@ export async function linkBank(
 ): Promise<ConnectionFormState> {
   const { ctx } = await requireBankFeed();
   const accountId = String(form.get("accountId") ?? "");
-  const result = await linkBankAccount(ctx, String(form.get("linkId") ?? ""), accountId);
+  const linkId = String(form.get("linkId") ?? "");
+  const result = await linkBankAccount(ctx, linkId, accountId);
   if (!result.ok) return { ok: false, message: await problem(result.code) };
-  revalidatePath(PAGE);
-  revalidatePath("/app/importar");
+  if (accountId) await settleBalances(() => alignBankLink(ctx, linkId));
+  revalidatePath("/app", "layout");
   const t = await getTranslations("conexoes");
   return { ok: true, message: t(accountId ? "linked" : "unlinked") };
 }
@@ -137,8 +152,9 @@ export async function fetchBankStatement(input: {
 export async function confirmBankSync(linkId: string, day: string): Promise<void> {
   const { ctx } = await requireBankFeed();
   await markBankSynced(ctx, String(linkId), String(day));
-  revalidatePath(PAGE);
-  revalidatePath("/app/importar");
+  // O que acabou de entrar muda a soma da conta: o saldo volta a bater com o do banco.
+  await settleBalances(() => alignBankLink(ctx, String(linkId)));
+  revalidatePath("/app", "layout");
 }
 
 export type BankPortfolioResult =
@@ -170,8 +186,10 @@ export async function createBankAccounts(
   form: FormData,
 ): Promise<ConnectionFormState> {
   const { ctx } = await requireBankFeed();
-  const result = await createMissingAccounts(ctx, String(form.get("connectionId") ?? ""));
+  const connectionId = String(form.get("connectionId") ?? "");
+  const result = await createMissingAccounts(ctx, connectionId);
   if (!result.ok) return { ok: false, message: await problem(result.code) };
+  await settleBalances(() => alignBankBalances(ctx, connectionId));
   revalidatePath("/app", "layout");
   const t = await getTranslations("conexoes");
   return { ok: true, message: t("accountsCreated", { count: result.created }) };

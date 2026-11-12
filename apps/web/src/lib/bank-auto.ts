@@ -3,7 +3,9 @@
 // Roda na web, porque a chave do cofre só existe nela, sempre no contexto de quem guardou a chave.
 import "server-only";
 import {
+  accountBalances,
   accountCurrency,
+  accounts,
   and,
   bankConnections,
   canWrite,
@@ -40,8 +42,10 @@ import {
   entryOrigin,
   importReport,
   isForeign,
+  money,
   monthBounds,
   reconcileRows,
+  toDbAmount,
   todayIn,
   withFingerprints,
   yearMonthOf,
@@ -53,6 +57,7 @@ import {
   bankStatement,
   loadBankConnections,
   markBankSynced,
+  sessionKey,
   type BankConnectionView,
   type BankFeedFailure,
   type Failed,
@@ -60,7 +65,7 @@ import {
 import { categoryContext, commitCardFeed, prepareCardFeed } from "@/lib/bank-feed-cards";
 import { loadCommitments } from "@/lib/commitments";
 import { confirmCommitment } from "@/lib/confirm-entry";
-import type { PluggyOptions } from "@/lib/pluggy";
+import { pluggyAccounts, type PluggyOptions } from "@/lib/pluggy";
 
 /** Nome do agente nas rodadas e no interruptor do painel. */
 export const BANCOS_AGENT = "bancos";
@@ -341,6 +346,13 @@ export async function syncBankConnection(
     result.settled += saved.settled;
     await markBankSynced(ctx, link.id, statement.to);
   }
+  // Com os lançamentos já gravados, o saldo de cada conta ligada é acertado pelo do banco.
+  if (!result.failures.some((code) => STOPS.includes(code))) {
+    await alignBankBalances(ctx, connection.id, options).catch((error: unknown) => {
+      const { name, code } = error as { name?: string; code?: string };
+      console.error(JSON.stringify({ level: "error", msg: "bank_balance_failed", name, code }));
+    });
+  }
   return result;
 }
 
@@ -434,4 +446,66 @@ export async function syncAllBanks(options: PluggyOptions = {}) {
     recordAgentRun(todayIn(), BANCOS_AGENT, counts, db),
   );
   return counts;
+}
+
+/**
+ * Acerta o saldo das contas ligadas pelo saldo que o banco informa agora. A conta daqui começa do zero e só
+ * recebe os lançamentos da janela trazida: sem isto, ela mostra a soma dos gastos, e não o dinheiro que tem.
+ * O que muda é o saldo inicial, de modo que saldo inicial mais lançamentos dê o saldo do banco. Devolve
+ * quantas contas mudaram. Falha da Pluggy aqui não é erro da rodada: o saldo fica como estava.
+ */
+export async function alignBankBalances(
+  ctx: TenantContext,
+  connectionId: string,
+  options: PluggyOptions = {},
+): Promise<number> {
+  const userId = ctx.userId;
+  if (!userId || !canWrite(ctx)) return 0;
+  const connection = (await loadBankConnections(ctx)).find((row) => row.id === connectionId);
+  const linked = connection?.links.filter((link) => link.kind !== "cartao" && link.accountId) ?? [];
+  if (!connection || linked.length === 0) return 0;
+  const sealed = await withHousehold(ctx, async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(bankConnections)
+      .where(and(eq(bankConnections.id, connectionId), eq(bankConnections.userId, userId)));
+    return row ?? null;
+  });
+  if (!sealed) return 0;
+  const apiKey = await sessionKey(ctx, userId, sealed, options);
+  if (typeof apiKey !== "string") return 0;
+  const balances = new Map<string, string>();
+  for (const itemId of connection.itemIds) {
+    const remote = await pluggyAccounts(apiKey, itemId, options).catch(() => []);
+    for (const account of remote) {
+      if (account.balance !== null) balances.set(account.id, account.balance);
+    }
+  }
+  let changed = 0;
+  await withHousehold(ctx, async (tx) => {
+    const { accounts: current } = await accountBalances(tx);
+    for (const link of linked) {
+      const bank = balances.get(link.externalId);
+      const account = current.find((row) => row.id === link.accountId);
+      // A conta do banco e a daqui são da mesma moeda (a ligação exige): compara-se na moeda dela.
+      if (bank === undefined || !account || account.currency !== link.currency) continue;
+      const gap = money(bank).minus(account.nativeBalance);
+      if (gap.isZero()) continue;
+      await tx
+        .update(accounts)
+        .set({ openingBalance: toDbAmount(money(account.openingBalance).plus(gap)) })
+        .where(eq(accounts.id, account.id));
+      await audit(tx, ctx, "update", "accounts", account.id);
+      changed += 1;
+    }
+  });
+  return changed;
+}
+
+/** O mesmo acerto, a partir de uma conta ligada: depois de ligar, criar ou trazer pela conferência. */
+export async function alignBankLink(ctx: TenantContext, linkId: string): Promise<number> {
+  const connection = (await loadBankConnections(ctx)).find((row) =>
+    row.links.some((link) => link.id === linkId),
+  );
+  return connection ? alignBankBalances(ctx, connection.id) : 0;
 }

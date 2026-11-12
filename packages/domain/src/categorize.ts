@@ -181,6 +181,10 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
         " lci ",
         " lca ",
         "previdencia",
+        // Liquidação de compra na bolsa, como a corretora escreve no extrato da conta.
+        "operacoes em bolsa",
+        "operacao em bolsa",
+        "nota de corretagem",
       ],
     },
     {
@@ -198,6 +202,11 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
     },
     { category: "Aluguel recebido", words: ["aluguel"] },
     { category: "Reembolsos", words: ["estorno", "reembolso", "cashback", "devolucao"] },
+    {
+      // Venda na bolsa liquidada na conta: dinheiro que volta da carteira, não receita (ADR-0027).
+      category: CONTRIBUTION_CATEGORY,
+      words: ["operacoes em bolsa", "operacao em bolsa", "nota de corretagem"],
+    },
     {
       // O outro lado da aplicação: dinheiro que já era da família, não receita (ADR-0027).
       category: CONTRIBUTION_CATEGORY,

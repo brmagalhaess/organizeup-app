@@ -303,10 +303,13 @@ function CardRow({
   link,
   cards,
   accounts,
+  sameBank,
 }: {
   link: BankLink;
   cards: CardOption[];
   accounts: AccountOption[];
+  /** Conta daqui já ligada a uma conta da mesma instituição: é de onde a fatura costuma sair. */
+  sameBank: string | null;
 }) {
   const t = useTranslations("conexoes");
   const [state, action, pending] = useActionState(linkCard, initial);
@@ -361,7 +364,13 @@ function CardRow({
             </Field>
             <div className="col-span-2 sm:col-span-1">
               <Field label={t("cards.payingAccount")} hint={t("cards.payingHint")}>
-                <Select name="payingAccountId" required defaultValue={paying[0]?.id ?? ""}>
+                <Select
+                  name="payingAccountId"
+                  required
+                  defaultValue={
+                    paying.find((account) => account.id === sameBank)?.id ?? paying[0]?.id ?? ""
+                  }
+                >
                   {paying.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.name}
@@ -487,6 +496,12 @@ function ConnectionCard({
                 link={link}
                 cards={cards}
                 accounts={accounts}
+                sameBank={
+                  connection.links.find(
+                    (other) =>
+                      other.kind !== "cartao" && other.itemId === link.itemId && other.accountId,
+                  )?.accountId ?? null
+                }
               />
             ) : (
               <AccountRow

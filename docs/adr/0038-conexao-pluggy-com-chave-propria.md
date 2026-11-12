@@ -123,6 +123,26 @@ Pedido do fundador: depois de ligadas as contas e os cartões, o que cair no ban
 - **Desligar.** Cada conexão tem o interruptor "Atualização automática", e o painel tem o do agente `bancos`,
   que para os dois gatilhos.
 
+## Saldo das contas ligadas (2026-11-11)
+
+No primeiro uso real, todas as contas ligadas apareceram negativas. A conta criada a partir do banco nasce com
+saldo inicial zero e só recebe os lançamentos da janela trazida: a soma era a dos gastos do período, e não o
+dinheiro que a pessoa tem.
+
+- **O banco é a referência.** A Pluggy informa o saldo de cada conta (`balance`). Depois de cada rodada, de
+  "Atualizar", de ligar ou criar a conta e de uma importação pela conferência, o saldo inicial da conta daqui é
+  acertado para que saldo inicial mais lançamentos dê o saldo do banco (`alignBankBalances`). Os lançamentos
+  não mudam. Fica na auditoria, como alteração da conta.
+- Vale também para conta que já existia e foi ligada: enquanto ligada, o saldo dela é o do banco.
+- Em cartão, `balance` é o valor da fatura e nunca vira saldo. Sem saldo na resposta, nada muda.
+- **Cartão criado a partir do banco** sugere como conta que paga a fatura a conta da mesma instituição já
+  ligada, e não a primeira conta da família: a fatura confirmada estava saindo da conta errada.
+- **Operações em bolsa** liquidadas na conta ("OPERAÇÕES EM BOLSA … NOTA Nº") entram como aporte na compra e
+  como resgate na venda, e não como despesa ou receita.
+
+Não resolvido aqui: transferência entre duas contas ligadas da mesma família entra como despesa numa e receita
+na outra; e a fatura paga em mais de um pagamento no mesmo mês.
+
 ## Conexão de outra aplicação (2026-11-11)
 
 O painel da Pluggy tem um botão "Iniciar Demo" no topo que é da aplicação de exemplo, a Pluggy Demo App, e não

@@ -102,6 +102,11 @@ export type Failed = { ok: false; code: BankFeedFailure };
 
 export interface BankLink {
   id: string;
+  /** Conexão (item) da Pluggy de onde veio: contas e cartões da mesma instituição têm a mesma. */
+  itemId: string;
+  /** Identificador da conta na Pluggy. */
+  externalId: string;
+  currency: string;
   kind: "corrente" | "poupanca" | "cartao";
   name: string;
   numberTail: string | null;
@@ -216,17 +221,24 @@ export async function loadBankConnections(ctx: TenantContext): Promise<BankConne
       errorCode: connection.errorCode,
       links: links
         .filter((link) => link.connectionId === connection.id)
-        .map(({ id, kind, name, numberTail, accountId, cardId, closingDay, dueDay, syncedOn }) => ({
-          id,
-          kind,
-          name,
-          numberTail,
-          accountId,
-          cardId,
-          closingDay,
-          dueDay,
-          syncedOn,
-        }))
+        .map((link) => {
+          const { id, kind, name, numberTail, accountId, cardId, closingDay, dueDay, syncedOn } =
+            link;
+          return {
+            id,
+            itemId: link.itemId,
+            externalId: link.externalId,
+            currency: link.currency,
+            kind,
+            name,
+            numberTail,
+            accountId,
+            cardId,
+            closingDay,
+            dueDay,
+            syncedOn,
+          };
+        })
         .sort((a, b) => a.name.localeCompare(b.name)),
     }));
   });

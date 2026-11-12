@@ -1016,6 +1016,52 @@ describe("conexão pela Pluggy com a chave da pessoa", () => {
     expect((await mineOf(me)).autoRanAt).not.toBeNull();
   });
 
+  it("o saldo da conta ligada acompanha o saldo que o banco informa", async () => {
+    const balanceOf = async (id: string) =>
+      (await inH((tx) => db.accountBalances(tx))).accounts.find((row) => row.id === id)!;
+    // A conta nasceu do zero e só tem o que foi trazido: sozinha, a soma não é o dinheiro que há no banco.
+    const before = await balanceOf(real);
+    expect(before.openingBalance).toBe("0.00");
+    expect(before.nativeBalance).not.toBe("1500.25");
+    const connection = await mineOf(me);
+    // Sem o saldo na resposta do banco, nada muda.
+    expect(await auto.alignBankBalances(ctx, connection.id, options)).toBe(0);
+    const account = remote.accounts.find((row) => row.id === "acc-corrente")!;
+    account.balance = 1500.25;
+    // No cartão, `balance` é o valor da fatura: nunca vira saldo de conta.
+    remote.accounts.find((row) => row.id === "acc-cartao")!.balance = 987.65;
+    expect(await auto.alignBankBalances(ctx, connection.id, options)).toBe(1);
+    const after = await balanceOf(real);
+    expect(after.nativeBalance).toBe("1500.25");
+    // O que muda é o saldo inicial: os lançamentos continuam os mesmos.
+    expect(after.openingBalance).toBe(
+      domain.toDbAmount(
+        domain.money("1500.25").minus(before.nativeBalance).plus(before.openingBalance),
+      ),
+    );
+    expect((await inH((tx) => tx.select().from(transactions))).length).toBe(4);
+    expect(await auto.alignBankBalances(ctx, connection.id, options)).toBe(0);
+    // Outro login da família não acerta saldo pela chave que não é dele, e quem só lê também não.
+    expect(await auto.alignBankBalances(partner, connection.id, options)).toBe(0);
+    expect(await auto.alignBankBalances(db.readOnlyContext(ctx), connection.id, options)).toBe(0);
+    // A rodada automática acerta sozinha quando o saldo do banco muda.
+    account.balance = 1400;
+    await inH((tx) =>
+      tx
+        .update(bankConnections)
+        .set({ autoRanAt: null })
+        .where(eq(bankConnections.id, connection.id)),
+    );
+    await auto.syncOwnBanks(ctx, { options });
+    expect((await balanceOf(real)).nativeBalance).toBe("1400.00");
+    // Falha da Pluggy na leitura do saldo deixa tudo como estava.
+    account.balance = "muito";
+    expect(await auto.alignBankBalances(ctx, connection.id, options)).toBe(0);
+    expect((await balanceOf(real)).nativeBalance).toBe("1400.00");
+    delete account.balance;
+    delete remote.accounts.find((row) => row.id === "acc-cartao")!.balance;
+  });
+
   it("dá baixa na conta prevista em vez de lançar de novo, e respeita o que foi digitado à mão", async () => {
     // Aluguel previsto todo dia 10, e um mercado que a família já lançou à mão.
     await inH(async (tx) => {

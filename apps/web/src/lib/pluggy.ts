@@ -40,6 +40,8 @@ export interface PluggyAccount {
   /** Só em cartão, quando a instituição informa: servem de sugestão no formulário. */
   closingDay: number | null;
   dueDay: number | null;
+  /** Saldo que o banco informa agora, na moeda da conta. Null em cartão, ou quando não vem. */
+  balance: string | null;
 }
 
 type Json = Record<string, unknown>;
@@ -132,6 +134,12 @@ export async function pluggyItem(
   if (text(body.id)?.toLowerCase() !== itemId.toLowerCase()) throw new PluggyError("conexao");
 }
 
+/** Saldo em centavos exatos, ou null quando o banco não manda um número que dê para confiar. */
+function balanceOf(value: unknown): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || Math.abs(value) >= 1e11) return null;
+  return value.toFixed(2);
+}
+
 /** Contas e cartões de uma conexão. */
 export async function pluggyAccounts(
   apiKey: string,
@@ -166,6 +174,8 @@ export async function pluggyAccounts(
         : "BRL",
       closingDay: dayOf(credit.balanceCloseDate),
       dueDay: dayOf(credit.balanceDueDate),
+      // Em cartão, `balance` é o valor da fatura, e não dinheiro em conta.
+      balance: kind === "cartao" ? null : balanceOf(row.balance),
     });
   }
   return accounts;

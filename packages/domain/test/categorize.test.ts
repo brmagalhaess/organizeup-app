@@ -122,6 +122,15 @@ describe("agente de categorização", () => {
     expect(categorizeRow(despesa("ALCANCE PAPELARIA"), categories, empty).source).toBe("revisar");
   });
 
+  it("liquidação de operação na bolsa é aporte na compra e resgate na venda", () => {
+    const note = "OPERAÇÕES EM BOLSA PR 30/10/2026 NOTA Nº 123";
+    expect(categorizeRow(despesa(note), categories, empty).newCategory?.name).toBe(
+      CONTRIBUTION_CATEGORY,
+    );
+    const sold = { description: note, kind: "receita" as const };
+    expect(categorizeRow(sold, categories, empty).newCategory?.name).toBe(CONTRIBUTION_CATEGORY);
+  });
+
   // Casos sintéticos: não representam descrições observadas na API agregada.
   it.each([
     ["PIX MERCADO LIVRE", "Compras"],
