@@ -4,7 +4,8 @@ import { appendFile } from "node:fs/promises";
 const BREVO_URL = "https://api.brevo.com/v3/smtp/email";
 const TIMEOUT_MS = 5_000;
 
-export type EmailTemplate = "confirmar-email" | "convite" | "redefinir-senha" | "senha-alterada";
+export type EmailTemplate =
+  "confirmar-email" | "convite" | "redefinir-senha" | "senha-alterada" | "lembrete";
 
 export type EmailMessage = {
   to: string;

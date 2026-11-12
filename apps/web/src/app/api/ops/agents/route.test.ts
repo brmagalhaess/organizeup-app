@@ -10,7 +10,10 @@ const fila = vi.hoisted(() => ({
 // Bancos roda na própria web, depois da resposta: aqui só interessa que a rodada foi pedida.
 const banks = vi.hoisted(() => ({ syncAllBanks: vi.fn(), tasks: [] as Array<() => unknown> }));
 vi.mock("@organizeup/db", () => db);
+// Lembretes também rodam na web, depois de Bancos ou sozinhos.
+const reminders = vi.hoisted(() => ({ sendAllReminders: vi.fn() }));
 vi.mock("@/lib/bank-auto", () => ({ syncAllBanks: banks.syncAllBanks }));
+vi.mock("@/lib/reminders", () => reminders);
 vi.mock("@/lib/diagnostics", () => ({ reportActionFailure: vi.fn() }));
 vi.mock("next/server", () => ({ after: (task: () => unknown) => banks.tasks.push(task) }));
 vi.mock("@/app/admin/fila", () => fila);
@@ -34,6 +37,7 @@ beforeEach(() => {
   db.readPlatformFlags.mockResolvedValue({ maintenance: false, disabledAgents: [] });
   db.hasAgentRunToday.mockResolvedValue(false);
   fila.queueAgent.mockResolvedValue("job");
+  reminders.sendAllReminders.mockResolvedValue({ ok: 0 });
 });
 
 describe("POST /api/ops/agents", () => {
@@ -73,8 +77,41 @@ describe("POST /api/ops/agents", () => {
     expect(await response.json()).toMatchObject({ queued: true, agent: "bancos", reason: null });
     expect(fila.queueAgent).not.toHaveBeenCalled();
     expect(banks.syncAllBanks).not.toHaveBeenCalled();
+    expect(reminders.sendAllReminders).not.toHaveBeenCalled();
     await banks.tasks[0]!();
     expect(banks.syncAllBanks).toHaveBeenCalledTimes(1);
+    // O lembrete sai depois de Bancos, para o gasto que acabou de chegar entrar no aviso.
+    expect(reminders.sendAllReminders).toHaveBeenCalledTimes(1);
+  });
+
+  it("falha de bancos não impede os lembretes, e lembretes desligados não saem junto", async () => {
+    banks.tasks.length = 0;
+    banks.syncAllBanks.mockRejectedValue(new Error("fora do ar"));
+    await post({ agent: "bancos" });
+    await banks.tasks[0]!();
+    expect(reminders.sendAllReminders).toHaveBeenCalledTimes(1);
+
+    vi.clearAllMocks();
+    banks.tasks.length = 0;
+    banks.syncAllBanks.mockResolvedValue({ households: 1 });
+    db.readPlatformFlags.mockResolvedValue({ maintenance: false, disabledAgents: ["lembretes"] });
+    await post({ agent: "bancos" });
+    await banks.tasks[0]!();
+    expect(banks.syncAllBanks).toHaveBeenCalledTimes(1);
+    expect(reminders.sendAllReminders).not.toHaveBeenCalled();
+    expect(await (await post({ agent: "lembretes" })).json()).toMatchObject({
+      reason: "desligado",
+    });
+  });
+
+  it("lembretes também podem ser acordados sozinhos, sem passar pela fila do worker", async () => {
+    banks.tasks.length = 0;
+    const response = await post({ agent: "lembretes" });
+    expect(await response.json()).toMatchObject({ queued: true, agent: "lembretes", reason: null });
+    expect(fila.queueAgent).not.toHaveBeenCalled();
+    await banks.tasks[0]!();
+    expect(reminders.sendAllReminders).toHaveBeenCalledTimes(1);
+    expect(banks.syncAllBanks).not.toHaveBeenCalled();
   });
 
   it("bancos também respeita o interruptor do painel", async () => {

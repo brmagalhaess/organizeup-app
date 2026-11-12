@@ -3,11 +3,12 @@ import { todayIn } from "@organizeup/domain";
 import { after } from "next/server";
 import { z } from "zod";
 import { DAILY_AGENTS_INFO } from "@/app/admin/agentes/info";
-import { BANCOS_AGENT } from "@/app/admin/agentes/catalogo";
+import { BANCOS_AGENT, LEMBRETES_AGENT } from "@/app/admin/agentes/catalogo";
 import { DICAS_AGENT, MERCADO_AGENT, queueAgent } from "@/app/admin/fila";
 import { syncAllBanks } from "@/lib/bank-auto";
 import { reportActionFailure } from "@/lib/diagnostics";
 import { isAuthorizedOpsRequest } from "@/lib/ops-auth";
+import { sendAllReminders } from "@/lib/reminders";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ const body = z.strictObject({
       MERCADO_AGENT,
       DICAS_AGENT,
       BANCOS_AGENT,
+      LEMBRETES_AGENT,
     ]),
   ),
 });
@@ -46,9 +48,20 @@ export async function POST(request: Request) {
   if (agent === MERCADO_AGENT && (await hasAgentRunToday(day, agent))) {
     return Response.json({ queued: false, agent, day, reason: "ja_rodou" });
   }
-  // Bancos roda aqui mesmo, depois da resposta: a chave do cofre só existe na web, nunca no worker.
+  // Bancos e Lembretes rodam aqui mesmo, depois da resposta: a chave do cofre e a do e-mail só existem na
+  // web, nunca no worker. O lembrete sai depois de Bancos, para o gasto que acabou de chegar entrar no aviso.
+  const remind = () =>
+    sendAllReminders().catch((error) => reportActionFailure("reminder_failed", error));
   if (agent === BANCOS_AGENT) {
-    after(() => syncAllBanks().catch((error) => reportActionFailure("bank_auto_failed", error)));
+    const alsoRemind = !flags.disabledAgents.includes(LEMBRETES_AGENT);
+    after(async () => {
+      await syncAllBanks().catch((error) => reportActionFailure("bank_auto_failed", error));
+      if (alsoRemind) await remind();
+    });
+    return Response.json({ queued: true, agent, day, reason: null });
+  }
+  if (agent === LEMBRETES_AGENT) {
+    after(remind);
     return Response.json({ queued: true, agent, day, reason: null });
   }
   const job = await queueAgent(agent);

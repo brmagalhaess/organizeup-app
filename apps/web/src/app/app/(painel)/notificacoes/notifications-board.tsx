@@ -1,5 +1,6 @@
 "use client";
 import type { ApplyResult } from "@organizeup/agents";
+import type { ReminderSettings } from "@organizeup/domain";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -9,6 +10,7 @@ import { formatInstant } from "@/i18n/format";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import type { NotificationFilter, NotificationItem } from "@/lib/notifications";
 import { markAllRead, undoNotification } from "./actions";
+import { ReminderSettingsCard, type ReminderEmailInfo } from "./reminder-settings";
 
 const FILTERS: Array<{ value: NotificationFilter; label: "all" | "unread" | "read" }> = [
   { value: "todas", label: "all" },
@@ -85,11 +87,16 @@ export function NotificationsBoard({
   filter,
   unread,
   writable,
+  reminders,
+  email,
 }: {
   items: NotificationItem[] | null;
   filter: NotificationFilter;
   unread: number;
   writable: boolean;
+  /** Null enquanto os lembretes não estão liberados para este login. */
+  reminders: ReminderSettings | null;
+  email: ReminderEmailInfo;
 }) {
   const t = useTranslations("notificacoes");
   const [result, setResult] = useState<ApplyResult | null>(null);
@@ -126,6 +133,8 @@ export function NotificationsBoard({
         }
       />
       <FormMessage message={result?.message} tone={result?.ok ? "ok" : "error"} />
+
+      {reminders ? <ReminderSettingsCard settings={reminders} email={email} /> : null}
 
       <nav aria-label={t("filterLabel")} className="flex flex-wrap gap-2">
         {FILTERS.map(({ value, label }) => (

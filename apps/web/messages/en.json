@@ -2786,6 +2786,51 @@
         "title": "Nothing read yet",
         "text": "What you mark as read stays here."
       }
+    },
+    "reminders": {
+      "title": "Email reminders",
+      "text": "A summary arrives at {email} when there is a bill to pay, an amount to receive or a new expense. It applies only to your access.",
+      "on": "On",
+      "off": "Off",
+      "master": "Get reminders by email",
+      "bills": {
+        "title": "Bills, card bills and installments",
+        "text": "Warns before the due date, on the day and on the day after, if still open."
+      },
+      "income": {
+        "title": "Income of the day",
+        "text": "Warns on the day a registered income is expected to come in."
+      },
+      "dividends": {
+        "title": "Portfolio payouts",
+        "text": "Warns on the day the assets you hold pay dividends, interest on equity or yields."
+      },
+      "expenses": {
+        "title": "New expenses",
+        "text": "Warns when an expense you did not type comes into an account or card, like the ones that arrive from the bank."
+      },
+      "daysAhead": "Warn",
+      "days": "{count, plural, =0 {only on the day} =1 {1 day ahead} other {# days ahead}}",
+      "when": "Reminders go out in the morning and in the late afternoon, after the bank update. With nothing to tell, no email is sent.",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Reminders saved.",
+      "savedOff": "Reminders off. No reminder email will be sent to you.",
+      "sendNow": "Send a sample now",
+      "sending": "Sending…",
+      "sent": "We sent the summary to {email}. It shows what is coming up, even with nothing for today.",
+      "sendFailed": "Could not send right now. Try again in a few minutes.",
+      "emailOff": "Email sending is off in this environment.",
+      "unverified": "Confirm your email to get reminders.",
+      "invalid": "Choose between zero and seven days ahead.",
+      "failed": "Could not save right now. Refresh the page and try again.",
+      "retirement": {
+        "title": "Retirement plan, once a month",
+        "text": "At the start of the month, a summary of the plan: how much the portfolio already pays, how much is missing and the year you get there."
+      },
+      "sendRetirement": "Send retirement sample",
+      "noPlan": "There is no retirement plan with data to summarize yet. Fill in the Retirement screen first.",
+      "sentRetirement": "We sent the retirement summary to {email}."
     }
   },
   "lancamentos": {
@@ -4584,6 +4629,91 @@
       "validity": "Sign in or create your account with this same email. The invitation is valid for {days, plural, one {# day} other {# days}}.",
       "action": "View invitation",
       "note": "If you don't know who sent this, ignore this email."
+    },
+    "reminder": {
+      "subjectDaily": "Today on OrganizeUp: {items}",
+      "subjectFresh": "New expenses on OrganizeUp: {items}",
+      "subjectEmpty": "Your OrganizeUp summary",
+      "countPay": "{count, plural, =1 {1 bill to pay} other {# bills to pay}}",
+      "countReceive": "{count, plural, =1 {1 amount to receive} other {# amounts to receive}}",
+      "countDividends": "{count, plural, =1 {1 payout} other {# payouts}}",
+      "countFresh": "{count, plural, =1 {1 new expense} other {# new expenses}}",
+      "preheader": "{items}. Open to see dates and amounts.",
+      "headingDaily": "Your summary for today",
+      "headingFresh": "New expenses came in",
+      "intro": "Here is what needs attention now on the {account} account.",
+      "introFresh": "These expenses came into the {account} account since the last notice.",
+      "emptyTitle": "Nothing is due or coming in over the next days",
+      "emptyText": "When there is a bill to pay, an amount to receive or a new expense, the summary arrives in this email.",
+      "tilePay": "To pay",
+      "tileReceive": "To receive",
+      "tileFresh": "New expenses",
+      "payTitle": "To pay",
+      "receiveTitle": "To receive",
+      "dividendsTitle": "Portfolio payouts",
+      "freshTitle": "New expenses",
+      "more": "{count, plural, =1 {and 1 more} other {and # more}}",
+      "total": "Total",
+      "whenToday": "today",
+      "whenLate": "was due on {date}",
+      "whenDue": "due on {date}",
+      "whenComes": "on {date}",
+      "badgeToday": "Today",
+      "badgeLate": "Overdue",
+      "source": {
+        "fatura": "Card bill",
+        "parcela": "Debt installment",
+        "meta": "Goal",
+        "previsao": "Fixed bill",
+        "lancamento": "Planned entry",
+        "renda": "Income"
+      },
+      "kind": {
+        "dividendo": "Dividend",
+        "jcp": "Interest on equity",
+        "rendimento": "Yield"
+      },
+      "origin": {
+        "conta": "Account",
+        "cartao": "Card"
+      },
+      "dividendNote": "Payouts are estimated from your position on the record date. The credited amount may have tax withheld.",
+      "action": "Open OrganizeUp",
+      "linkEntries": "See entries",
+      "linkCalendar": "See payout calendar",
+      "linkCards": "See cards",
+      "footerWhy": "You get this email because reminders are on for your access.",
+      "footerSettings": "Choose what to receive or turn off",
+      "footerBrand": "OrganizeUp · your money, with a plan",
+      "whenDueToday": "due today"
+    },
+    "retirement": {
+      "subject": "Your retirement plan: {month} summary",
+      "heading": "Your retirement plan",
+      "intro": "See how the plan for the {account} account stands this month.",
+      "coverageTitle": "How much the portfolio already pays",
+      "coverage": "Your payouts today already cover {percent} of the income the portfolio needs to pay.",
+      "tileTarget": "Desired income",
+      "tileCurrent": "Payouts today",
+      "tileMissing": "Still missing",
+      "tileHint": "per month",
+      "perMonth": "{amount} per month",
+      "verdictDone": "The portfolio already pays the income you want. Now keep it up.",
+      "verdictNoYear": "Choose the year you want to retire to see the contribution that closes the gap.",
+      "verdictNever": "At today's pace, the portfolio does not reach the amount needed. It is worth reviewing the contribution or the desired income.",
+      "verdictOnTime": "At today's pace, you get there in {year}, within the goal.",
+      "verdictLate": "At today's pace, you get there in {year}, {years, plural, =1 {1 year} other {# years}} after the goal. Contributing {amount} per month, it closes in {target}.",
+      "verdictLateNoFix": "At today's pace, you get there in {year}, {years, plural, =1 {1 year} other {# years}} after the goal.",
+      "rowYear": "Goal year",
+      "noYear": "No year yet",
+      "rowPortfolio": "Portfolio needed",
+      "rowGap": "Still to save",
+      "rowContribution": "Contribution today",
+      "rowRequired": "Contribution that closes the gap by the goal year",
+      "rowProjected": "Projected income in {year}",
+      "note": "It is a projection, not a promise: it uses the yield of your assets over the last months and today's contribution.",
+      "action": "Open the retirement plan",
+      "footerWhy": "You get this summary once a month because reminders are on for your access."
     }
   },
   "relatorios": {

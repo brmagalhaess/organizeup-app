@@ -9,6 +9,7 @@ import {
   auditLog,
   bankConnectionAccounts,
   bankConnections,
+  emailReminders,
   calendarEvents,
   cardPurchases,
   cardStatementPayments,
@@ -128,6 +129,7 @@ const LATE_TABLES = {
   income_year_plans: incomeYearPlans,
   income_vacation_receipts: incomeVacationReceipts,
   bank_connection_accounts: bankConnectionAccounts,
+  email_reminders: emailReminders,
 };
 
 /** Arquivo inteiro deixaria a exportação gigante: vão os metadados, e a tela baixa cada um. */

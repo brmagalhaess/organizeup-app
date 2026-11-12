@@ -2786,6 +2786,51 @@
         "title": "Nada leído todavía",
         "text": "Lo que marques como leído queda aquí."
       }
+    },
+    "reminders": {
+      "title": "Recordatorios por correo",
+      "text": "Un resumen llega a {email} cuando hay una cuenta por pagar, un valor por recibir o un gasto nuevo. Vale solo para tu acceso.",
+      "on": "Activados",
+      "off": "Desactivados",
+      "master": "Recibir recordatorios por correo",
+      "bills": {
+        "title": "Cuentas, facturas y cuotas",
+        "text": "Avisa antes del vencimiento, el mismo día y al día siguiente, si sigue abierta."
+      },
+      "income": {
+        "title": "Ingreso del día",
+        "text": "Avisa el día en que un ingreso registrado está previsto."
+      },
+      "dividends": {
+        "title": "Proventos de la cartera",
+        "text": "Avisa el día en que los activos que tienes pagan dividendos, JCP o rendimientos."
+      },
+      "expenses": {
+        "title": "Gastos nuevos",
+        "text": "Avisa cuando entra en la cuenta o en la tarjeta un gasto que no escribiste tú, como los que llegan del banco."
+      },
+      "daysAhead": "Avisar con",
+      "days": "{count, plural, =0 {solo el día} =1 {1 día de antelación} other {# días de antelación}}",
+      "when": "Los recordatorios salen por la mañana y al final de la tarde, después de la actualización de los bancos. Sin nada que avisar, no se envía ningún correo.",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "saved": "Recordatorios guardados.",
+      "savedOff": "Recordatorios desactivados. No se te enviará ningún correo de recordatorio.",
+      "sendNow": "Enviar un ejemplo ahora",
+      "sending": "Enviando…",
+      "sent": "Enviamos el resumen a {email}. Muestra lo que está cerca, incluso sin nada para hoy.",
+      "sendFailed": "No fue posible enviar ahora. Intenta de nuevo en unos minutos.",
+      "emailOff": "El envío de correos está desactivado en este entorno.",
+      "unverified": "Confirma tu correo para recibir los recordatorios.",
+      "invalid": "Elige una antelación de cero a siete días.",
+      "failed": "No fue posible guardar ahora. Actualiza la página e intenta de nuevo.",
+      "retirement": {
+        "title": "Plan de jubilación, una vez al mes",
+        "text": "Al comienzo del mes, un resumen del plan: cuánto paga ya la cartera, cuánto falta y en qué año llegas."
+      },
+      "sendRetirement": "Enviar ejemplo de jubilación",
+      "noPlan": "Aún no hay plan de jubilación con datos para resumir. Completa primero la pantalla Jubilación.",
+      "sentRetirement": "Enviamos el resumen de jubilación a {email}."
     }
   },
   "lancamentos": {
@@ -4584,6 +4629,91 @@
       "validity": "Entra o crea tu cuenta con este mismo correo. La invitación vale {days, plural, one {# día} other {# días}}.",
       "action": "Ver invitación",
       "note": "Si no conoces a quien lo envió, ignora este correo."
+    },
+    "reminder": {
+      "subjectDaily": "Hoy en OrganizeUp: {items}",
+      "subjectFresh": "Gastos nuevos en OrganizeUp: {items}",
+      "subjectEmpty": "Tu resumen de OrganizeUp",
+      "countPay": "{count, plural, =1 {1 cuenta por pagar} other {# cuentas por pagar}}",
+      "countReceive": "{count, plural, =1 {1 valor por recibir} other {# valores por recibir}}",
+      "countDividends": "{count, plural, =1 {1 provento} other {# proventos}}",
+      "countFresh": "{count, plural, =1 {1 gasto nuevo} other {# gastos nuevos}}",
+      "preheader": "{items}. Abre para ver fechas y valores.",
+      "headingDaily": "Tu resumen de hoy",
+      "headingFresh": "Entró un gasto nuevo",
+      "intro": "Mira lo que pide atención ahora en la cuenta {account}.",
+      "introFresh": "Estos gastos entraron en la cuenta {account} desde el último aviso.",
+      "emptyTitle": "Nada vence ni entra en los próximos días",
+      "emptyText": "Cuando haya una cuenta por pagar, un valor por recibir o un gasto nuevo, el resumen llega a este correo.",
+      "tilePay": "Por pagar",
+      "tileReceive": "Por recibir",
+      "tileFresh": "Gastos nuevos",
+      "payTitle": "Para pagar",
+      "receiveTitle": "Para recibir",
+      "dividendsTitle": "Proventos de la cartera",
+      "freshTitle": "Gastos nuevos",
+      "more": "{count, plural, =1 {y 1 más} other {y # más}}",
+      "total": "Total",
+      "whenToday": "hoy",
+      "whenLate": "venció el {date}",
+      "whenDue": "vence el {date}",
+      "whenComes": "el {date}",
+      "badgeToday": "Hoy",
+      "badgeLate": "Atrasada",
+      "source": {
+        "fatura": "Factura de tarjeta",
+        "parcela": "Cuota de deuda",
+        "meta": "Meta",
+        "previsao": "Cuenta fija",
+        "lancamento": "Movimiento previsto",
+        "renda": "Ingreso"
+      },
+      "kind": {
+        "dividendo": "Dividendo",
+        "jcp": "JCP",
+        "rendimento": "Rendimiento"
+      },
+      "origin": {
+        "conta": "Cuenta",
+        "cartao": "Tarjeta"
+      },
+      "dividendNote": "Los proventos se estiman por tu posición en la fecha de corte. El valor acreditado puede tener impuesto retenido.",
+      "action": "Abrir OrganizeUp",
+      "linkEntries": "Ver movimientos",
+      "linkCalendar": "Ver calendario de proventos",
+      "linkCards": "Ver tarjetas",
+      "footerWhy": "Recibes este correo porque los recordatorios están activados para tu acceso.",
+      "footerSettings": "Elegir qué recibir o desactivar",
+      "footerBrand": "OrganizeUp · tu dinero, con un plan",
+      "whenDueToday": "vence hoy"
+    },
+    "retirement": {
+      "subject": "Tu plan de jubilación: resumen de {month}",
+      "heading": "Tu plan de jubilación",
+      "intro": "Mira cómo está este mes el plan de la cuenta {account}.",
+      "coverageTitle": "Cuánto paga ya la cartera",
+      "coverage": "Tus proventos de hoy ya cubren {percent} del ingreso que la cartera necesita pagar.",
+      "tileTarget": "Ingreso deseado",
+      "tileCurrent": "Proventos de hoy",
+      "tileMissing": "Aún falta",
+      "tileHint": "por mes",
+      "perMonth": "{amount} por mes",
+      "verdictDone": "La cartera ya paga el ingreso que quieres. Ahora toca mantener.",
+      "verdictNoYear": "Elige el año en que quieres jubilarte para ver el aporte que cierra la cuenta.",
+      "verdictNever": "Al ritmo de hoy, la cartera no llega al valor necesario. Conviene revisar el aporte o el ingreso deseado.",
+      "verdictOnTime": "Al ritmo de hoy, llegas en {year}, dentro de la meta.",
+      "verdictLate": "Al ritmo de hoy, llegas en {year}, {years, plural, =1 {1 año} other {# años}} después de la meta. Aportando {amount} por mes, cierra en {target}.",
+      "verdictLateNoFix": "Al ritmo de hoy, llegas en {year}, {years, plural, =1 {1 año} other {# años}} después de la meta.",
+      "rowYear": "Año de la meta",
+      "noYear": "Aún sin año",
+      "rowPortfolio": "Cartera necesaria",
+      "rowGap": "Falta juntar",
+      "rowContribution": "Aporte de hoy",
+      "rowRequired": "Aporte que cierra la cuenta en el año de la meta",
+      "rowProjected": "Ingreso proyectado en {year}",
+      "note": "Es una proyección, y no una promesa: usa el rendimiento de tus activos en los últimos meses y el aporte de hoy.",
+      "action": "Abrir el plan de jubilación",
+      "footerWhy": "Recibes este resumen una vez al mes porque los recordatorios están activados para tu acceso."
     }
   },
   "relatorios": {

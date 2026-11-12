@@ -40,6 +40,7 @@ Nunca altere código, nunca tente rodar a conta por conta própria e nunca peça
 | Metas         | 04:40               | Recalcula o plano mensal das metas                                 |
 | Relatórios    | 05:40               | Confere os relatórios da família, que o worker gera às 05:30       |
 | Bancos        | 06:00 e 18:00       | Traz o que caiu nas contas e cartões ligados pela Pluggy           |
+| Lembretes     | junto com Bancos    | Envia por e-mail o resumo de cada pessoa e os gastos novos         |
 
 A ordem importa: viagens e metas leem a divisão que a aposentadoria deixou no relatório de hoje. Às 05:30 o
 worker roda quem não foi acordado, então uma falha do Paperclip não deixa as famílias sem rodada.
@@ -52,3 +53,8 @@ Bancos é o único que não roda no worker: a chave que abre as conexões só ex
 a rodada depois de responder ao pedido. O slug é `bancos`, e `queued: true` é o normal. A linha em `agentRuns`
 traz famílias com conexão, quantas rodaram sem falha e, em `applied`, quantos lançamentos e compras entraram.
 Ele também roda sozinho quando a pessoa abre o sistema, então uma falha do Paperclip só atrasa a rodada.
+
+Lembretes também roda na web, porque a chave do serviço de e-mail só existe lá. Você não precisa acordá-lo: a
+rodada de `bancos` chama os lembretes logo depois de trazer os lançamentos, para o gasto novo entrar no aviso.
+O slug `lembretes` existe para uma rodada avulsa, e `queued: true` é o normal. A linha em `agentRuns` traz
+famílias com alguém para avisar e, em `ok` e `applied`, quantos e-mails saíram. Nunca aparece o conteúdo.

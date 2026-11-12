@@ -7,7 +7,9 @@ import {
   NOTIFICATION_FILTERS,
   type NotificationFilter,
 } from "@/lib/notifications";
-import { requireTenant } from "@/lib/session";
+import { emailCanSend } from "@/lib/email";
+import { loadReminderPrefs, remindersOpen } from "@/lib/reminders";
+import { platformFlags, requireTenant } from "@/lib/session";
 import { NotificationsBoard } from "./notifications-board";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,16 +22,40 @@ export default async function NotificationsPage({
 }: {
   searchParams: Promise<{ filtro?: string }>;
 }) {
-  const { ctx } = await requireTenant();
+  const { ctx, session } = await requireTenant();
   const { filtro } = await searchParams;
   const filter = NOTIFICATION_FILTERS.find((item) => item === filtro) ?? "todas";
-  const [items, unread] = await Promise.all([loadNotifications(ctx, filter), countUnread(ctx)]);
+  const [items, unread, reminders, flags] = await Promise.all([
+    loadNotifications(ctx, filter),
+    countUnread(ctx),
+    loadReminderPrefs(ctx),
+    platformFlags(),
+  ]);
+  const open = remindersOpen(flags, session.user);
   return (
     <NotificationsBoard
       items={items}
       filter={filter satisfies NotificationFilter}
       unread={unread}
       writable={canWrite(ctx)}
+      reminders={
+        open
+          ? {
+              enabled: reminders.enabled,
+              bills: reminders.bills,
+              income: reminders.income,
+              dividends: reminders.dividends,
+              expenses: reminders.expenses,
+              retirement: reminders.retirement,
+              daysAhead: reminders.daysAhead,
+            }
+          : null
+      }
+      email={{
+        address: session.user.email,
+        verified: session.user.emailVerified,
+        canSend: emailCanSend(),
+      }}
     />
   );
 }

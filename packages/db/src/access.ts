@@ -139,6 +139,8 @@ export const FLAG_KEYS = {
   smartImport: "smart_import_enabled",
   /** Conexão com bancos pela Pluggy. Desligada, só o admin do serviço usa (ADR-0038). */
   bankFeed: "bank_feed_enabled",
+  /** Lembretes por e-mail. Desligada, só o admin do serviço recebe (ADR-0039). */
+  emailReminders: "email_reminders_enabled",
   agentOff: (agent: string) => `agente_desligado:${agent}`,
   notice: (id: string) => `aviso:${id}`,
 } as const;
@@ -169,6 +171,7 @@ export interface PlatformFlags {
   billingEnabled: boolean;
   smartImportEnabled: boolean;
   bankFeedEnabled: boolean;
+  emailRemindersEnabled: boolean;
   disabledAgents: string[];
   notices: PlatformNotice[];
 }
@@ -181,6 +184,7 @@ export const NO_FLAGS: PlatformFlags = {
   billingEnabled: false,
   smartImportEnabled: false,
   bankFeedEnabled: false,
+  emailRemindersEnabled: false,
   disabledAgents: [],
   notices: [],
 };
@@ -209,6 +213,8 @@ export function parsePlatformFlags(rows: FlagRow[]): PlatformFlags {
       flags.smartImportEnabled = enabled;
     } else if (key === FLAG_KEYS.bankFeed) {
       flags.bankFeedEnabled = enabled;
+    } else if (key === FLAG_KEYS.emailReminders) {
+      flags.emailRemindersEnabled = enabled;
     } else if (key.startsWith(AGENT_PREFIX) && enabled) {
       const agent = key.slice(AGENT_PREFIX.length);
       const renamed = RENAMED_AGENTS[agent];

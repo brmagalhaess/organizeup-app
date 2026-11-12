@@ -7,6 +7,8 @@ export const MERCADO_AGENT = "mercado";
 export const DICAS_AGENT = "dicas";
 /** Atualização automática da conexão com bancos (ADR-0038). Roda na web, e não no worker. */
 export const BANCOS_AGENT = "bancos";
+/** Lembretes por e-mail (ADR-0039). Roda na web, logo depois de Bancos. */
+export const LEMBRETES_AGENT = "lembretes";
 export const IMPORTADOR_CARD = "importador";
 
 export interface ProductAgent {
@@ -69,6 +71,14 @@ export const PRODUCT_AGENTS: ProductAgent[] = [
     name: "Bancos",
     text: "Traz sozinho o que caiu nas contas e nos cartões ligados pela Pluggy: pula o que já entrou, dá baixa no que estava previsto e grava o resto, com Desfazer. Desligado, a família só traz pela conferência.",
     wake: "Roda quando a pessoa abre o sistema, no máximo a cada 6 horas, e quando o Paperclip acorda o agente. Não entra na rodada do worker.",
+    controls: true,
+    onDemand: true,
+  },
+  {
+    id: LEMBRETES_AGENT,
+    name: "Lembretes",
+    text: "Envia por e-mail o resumo de cada pessoa: o que vence, a renda e os proventos do dia e o gasto novo que entrou. Cada pessoa escolhe o que recebe em Notificações. Desligado, nenhum lembrete sai.",
+    wake: "Roda logo depois de Bancos, quando o Paperclip acorda (06:00 e 18:00), e quando o Paperclip acorda o próprio agente. Não entra na rodada do worker.",
     controls: true,
     onDemand: true,
   },

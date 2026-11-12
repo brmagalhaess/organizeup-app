@@ -94,3 +94,23 @@ export async function toggleBankFeed(form: FormData): Promise<AdminResult> {
     );
   });
 }
+
+/** Liberação dos lembretes por e-mail (ADR-0039). Fica na auditoria, como toda chave do painel. */
+export async function toggleEmailReminders(form: FormData): Promise<AdminResult> {
+  const session = await requireAdmin();
+  const on = form.get("enabled") === "true";
+  return runAdminAction("admin_email_reminders_failed", async () => {
+    await adminSetFlag(
+      { adminUserId: session.user.id },
+      {
+        key: FLAG_KEYS.emailReminders,
+        enabled: on,
+        action: on ? "lembretes_email:ligar" : "lembretes_email:desligar",
+      },
+    );
+    refresh();
+    return done(
+      on ? "Lembretes por e-mail ligados para todas as famílias." : "Lembretes só para o admin.",
+    );
+  });
+}

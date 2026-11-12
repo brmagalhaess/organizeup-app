@@ -86,6 +86,12 @@ export default function PrivacyPage() {
           mudou e entregar convites para a família (art. 7º, V).
         </li>
         <li>
+          Enviar lembretes por e-mail a cada pessoa com acesso à família: o que vence, o que entra
+          (renda e proventos), os gastos novos e, uma vez por mês, o resumo do plano de
+          aposentadoria. Fazem parte do serviço (art. 7º, V), e cada pessoa escolhe o que recebe, ou
+          desliga tudo, em Notificações.
+        </li>
+        <li>
           Responder às suas perguntas no assistente com inteligência artificial, se a família
           autorizar. A base é o seu consentimento (art. 7º, I), que pode ser retirado a qualquer
           momento em Configurações.
@@ -289,8 +295,10 @@ export default function PrivacyPage() {
         </li>
         <li>
           Brevo, que entrega os e-mails do serviço. Ela recebe o endereço de e-mail, o nome e o
-          texto da mensagem, que nos convites traz o nome de quem convidou e o da família. Dados
-          financeiros não vão nesses e-mails. Esses dados podem ser tratados fora do Brasil.
+          texto da mensagem, que nos convites traz o nome de quem convidou e o da família. Nos
+          lembretes, o texto traz também o nome da família, descrições de contas e gastos, datas e
+          valores; quem desliga os lembretes em Notificações deixa de ter esses dados enviados. Nos
+          demais e-mails não vai dado financeiro. Esses dados podem ser tratados fora do Brasil.
         </li>
         <li>
           Anthropic, que opera o assistente com inteligência artificial, só para as famílias que o

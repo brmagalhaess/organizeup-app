@@ -51,12 +51,12 @@ export function escapeHtml(value: string) {
 }
 
 /** Nome vem do usuário: sem quebra de linha e curto, para o e-mail não virar mural de quem cadastra. */
-function cleanName(value: string) {
+export function cleanName(value: string) {
   return value.replace(/\s+/g, " ").trim().slice(0, MAX_NAME_LENGTH).trim();
 }
 
 /** Textos do e-mail no idioma de quem recebe. */
-const textsFor = (locale: Locale, accountType: AccountType = "pf") =>
+export const textsFor = (locale: Locale, accountType: AccountType = "pf") =>
   createTranslator({
     locale,
     messages: messagesFor(locale, "BRL", accountType),
