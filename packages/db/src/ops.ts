@@ -1,7 +1,7 @@
 // Helpers do schema `ops` (sem PII; sem RLS de tenant).
 import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { tolerateSchemaLag } from "./access";
-import { appPool } from "./client";
+import { appPool, type Db } from "./client";
 import {
   adminAccess,
   agentDiscards,
@@ -196,12 +196,15 @@ export type AgentRunCounts = {
 
 /**
  * Registra a rodada de um agente diário no dia (`YYYY-MM-DD`). Repetir no mesmo dia SUBSTITUI as
- * contagens e soma 1 em `runs`. Só o worker (ou_worker) tem permissão de gravar.
+ * contagens e soma 1 em `runs`. Só o worker (ou_worker) tem permissão de gravar pela conexão da aplicação.
+ * O agente que roda na web (bancos, ADR-0038) passa a conexão administrativa em `db`: a conexão da web,
+ * que atende as famílias, continua sem poder escrever rodadas.
  */
 export async function recordAgentRun(
   day: string,
   agent: string,
   counts: AgentRunCounts,
+  db: Db = appPool().db,
 ): Promise<void> {
   const t = agentRuns;
   const values = {
@@ -212,8 +215,8 @@ export async function recordAgentRun(
     applied: counts.applied,
     durationMs: counts.durationMs ?? null,
   };
-  await appPool()
-    .db.insert(t)
+  await db
+    .insert(t)
     .values({ day, agent, runs: 1, ...values })
     .onConflictDoUpdate({
       target: [t.day, t.agent],

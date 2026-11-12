@@ -2720,6 +2720,16 @@ describe("ops dos agentes diários e do painel do serviço", () => {
     await expect(db.recordAgentDiscards("2026-10-29", "dicas", 1)).rejects.toThrow();
   });
 
+  it("o agente que roda na web registra a rodada pela conexão administrativa", async () => {
+    // Bancos roda na web (ADR-0038). A conexão da web segue sem escrever rodadas: ver o teste seguinte.
+    const counts = { households: 1, ok: 1, failed: 0, suggestions: 0, applied: 3, durationMs: 10 };
+    await db.withAdmin("teste da rodada do agente bancos", (admin) =>
+      db.recordAgentRun("2026-10-28", "bancos", counts, admin),
+    );
+    expect(await db.hasAgentRunToday("2026-10-28", "bancos")).toBe(true);
+    await expect(db.recordAgentRun("2026-10-28", "bancos", counts)).rejects.toThrow();
+  });
+
   it("a web não grava rodadas de agente", async () => {
     await expect(
       db.recordAgentRun("2026-10-29", "metas", {

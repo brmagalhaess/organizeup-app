@@ -27,6 +27,7 @@ import {
   recordAgentRun,
   transactions,
   usageMonthOf,
+  withAdmin,
   withAdminRead,
   withHousehold,
   type TenantContext,
@@ -428,6 +429,9 @@ export async function syncAllBanks(options: PluggyOptions = {}) {
     applied,
     durationMs: Date.now() - started,
   };
-  await recordAgentRun(todayIn(), BANCOS_AGENT, counts);
+  // A conexão da web não grava rodadas de agente, de propósito: a contagem vai pela administrativa.
+  await withAdmin("rodada do agente bancos", (db) =>
+    recordAgentRun(todayIn(), BANCOS_AGENT, counts, db),
+  );
   return counts;
 }
