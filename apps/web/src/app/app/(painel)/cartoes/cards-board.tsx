@@ -19,12 +19,13 @@ import { useActionState, useEffect, useState } from "react";
 import {
   addMonths,
   linesTotal,
+  money,
   percentOf,
   statementClosingDate,
   statementDueDate,
   statementStatus,
+  toDbAmount,
 } from "@organizeup/domain";
-import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { useEntryDialog } from "@/components/shell/entry-context";
 import { buttonClass, cx } from "@/components/styles";
 import {
@@ -44,8 +45,15 @@ import {
 import { formatDayMonth, formatMonthYear, toAmountInput } from "@/i18n/format";
 import type { loadCards } from "@/lib/commitments";
 import { systemTextOf } from "@/i18n/system-text";
-import { deletePurchase, saveCard, setCardArchived, type CardFormState } from "./actions";
+import {
+  deletePurchase,
+  payStatement,
+  saveCard,
+  setCardArchived,
+  type CardFormState,
+} from "./actions";
 import { useMoney } from "@/i18n/money";
+import { CardUsageChart } from "./card-usage-chart";
 
 type Data = Awaited<ReturnType<typeof loadCards>>;
 type CardView = Data["cards"][number];
@@ -184,6 +192,65 @@ function CardTile({ card, selected }: { card: CardView; selected: boolean }) {
   );
 }
 
+/** Paga a fatura inteira ou em parte: o que faltar vai para a fatura seguinte. */
+function PayStatement(props: { cardId: string; month: string; total: string; today: string }) {
+  const t = useTranslations("cartoes.pay");
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>{t("open")}</Button>
+      <Sheet open={open} onClose={() => setOpen(false)} title={t("title")}>
+        <PayStatementForm {...props} onDone={() => setOpen(false)} />
+      </Sheet>
+    </>
+  );
+}
+
+function PayStatementForm({
+  cardId,
+  month,
+  total,
+  today,
+  onDone,
+}: {
+  cardId: string;
+  month: string;
+  total: string;
+  today: string;
+  onDone: () => void;
+}) {
+  const t = useTranslations("cartoes.pay");
+  const locale = useLocale();
+  const moneyText = useMoney();
+  const [state, action, pending] = useActionState(payStatement, initial);
+  useEffect(() => {
+    if (state.ok) onDone();
+  }, [state, onDone]);
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      <input type="hidden" name="cardId" value={cardId} />
+      <input type="hidden" name="month" value={month} />
+      <input type="hidden" name="total" value={total} />
+      <p className="m-0 text-sm text-muted">{t("text", { total: moneyText(total) })}</p>
+      <Field label={t("amountLabel")} hint={t("amountHint")}>
+        <Input
+          name="amount"
+          inputMode="decimal"
+          required
+          defaultValue={toAmountInput(total, locale)}
+        />
+      </Field>
+      <Field label={t("dateLabel")}>
+        <Input name="paidOn" type="date" required defaultValue={today} />
+      </Field>
+      <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
+      <Button type="submit" disabled={pending}>
+        {pending ? t("saving") : t("confirm")}
+      </Button>
+    </form>
+  );
+}
+
 function Statement({
   card,
   month,
@@ -211,6 +278,7 @@ function Statement({
     .sort((a, b) => a.purchasedOn.localeCompare(b.purchasedOn));
   const total = linesTotal(lines);
   const paid = card.paidMonths.includes(month);
+  const carried = paid ? card.carried[month] : undefined;
   const statusKey = statementStatus(month, card, today, paid);
   const status = STATUS[statusKey];
   const StatusIcon = status.icon;
@@ -282,6 +350,15 @@ function Statement({
         </div>
       </dl>
 
+      {carried ? (
+        <p className="m-0 mt-3 text-sm text-muted">
+          {tStatement("partial", {
+            paid: moneyText(toDbAmount(money(total).minus(carried))),
+            rest: moneyText(carried),
+          })}
+        </p>
+      ) : null}
+
       {writable ? (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => openNew("despesa", card.id)}>
@@ -289,12 +366,7 @@ function Statement({
             {tStatement("newPurchase")}
           </Button>
           {!paid && lines.length > 0 ? (
-            <ConfirmEntryButton
-              entryKey={`f:${card.id}:${month}`}
-              label={tStatement("pay")}
-              variant="primary"
-              small={false}
-            />
+            <PayStatement cardId={card.id} month={month} total={linesTotal(lines)} today={today} />
           ) : null}
           {!paid && lines.length > 0 ? (
             <span className="text-xs text-muted">
@@ -462,6 +534,13 @@ export function CardsBoard({
               }
               writable={writable}
               onEdit={() => open(selected)}
+            />
+          ) : null}
+          {selected ? (
+            <CardUsageChart
+              cards={active}
+              selected={selected}
+              viewing={month ?? selected.openMonth}
             />
           ) : null}
         </>

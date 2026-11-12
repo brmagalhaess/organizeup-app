@@ -3,6 +3,7 @@ import {
   accessWithin,
   accountCurrency,
   and,
+  cardPurchaseImports,
   cardPurchases,
   cardStatementPayments,
   cashflowPlans,
@@ -10,11 +11,13 @@ import {
   currencyFrozen,
   debtInstallments,
   eq,
+  inArray,
   goalContributions,
   goals,
   householdCurrency,
   incomeReceipts,
   incomeVacationReceipts,
+  isSchemaLag,
   mainEntry,
   transactions,
   type TenantContext,
@@ -29,7 +32,10 @@ import {
   occurrenceDate,
   openIncomeEntries,
   purchaseLines,
+  statementClosingDate,
   statementDueDate,
+  statementMonthOf,
+  addMonths,
   toDbAmount,
   type Currency,
   type EntryMoney,
@@ -48,6 +54,62 @@ import { incomeOccurrence } from "./income-data";
 export interface ImportMark {
   importFingerprint: string;
   importBatchId: string;
+}
+
+/**
+ * O que aconteceu de verdade, quando difere do compromisso: a renda cadastrada é uma estimativa, e a fatura
+ * pode ser paga em parte. Sem isto, vale o valor e a conta do próprio compromisso.
+ */
+export interface ActualPayment {
+  amount?: string;
+  accountId?: string;
+}
+
+/** Impressão digital da compra que leva o restante de uma fatura paga em parte para a fatura seguinte. */
+const carryMark = (statementMonth: string) => `saldo:${statementMonth}`;
+
+const dayAfter = (date: string, days = 1) =>
+  new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * Desfazer o pagamento de uma fatura leva junto o restante que ele tinha jogado para a fatura seguinte.
+ * Chame antes de apagar os lançamentos: a ligação com a fatura some junto com eles.
+ */
+export async function removeStatementCarry(tx: TenantTx, transactionIds: string[]): Promise<void> {
+  if (transactionIds.length === 0) return;
+  const payments = await tx
+    .select({
+      cardId: cardStatementPayments.cardId,
+      statementMonth: cardStatementPayments.statementMonth,
+    })
+    .from(cardStatementPayments)
+    .where(inArray(cardStatementPayments.transactionId, transactionIds));
+  for (const payment of payments) {
+    // A marca do saldo mora numa coluna da 0051: antes de ela chegar, não há saldo para tirar.
+    const carried = await tx
+      .transaction((step) =>
+        step
+          .select({ id: cardPurchaseImports.id })
+          .from(cardPurchaseImports)
+          .where(
+            and(
+              eq(cardPurchaseImports.cardId, payment.cardId),
+              eq(cardPurchaseImports.importFingerprint, carryMark(payment.statementMonth)),
+            ),
+          ),
+      )
+      .catch((error: unknown) => {
+        if (isSchemaLag(error)) return [];
+        throw error;
+      });
+    if (carried.length === 0) continue;
+    await tx.delete(cardPurchases).where(
+      inArray(
+        cardPurchases.id,
+        carried.map((row) => row.id),
+      ),
+    );
+  }
 }
 
 /** Falta a cotação de uma conta estrangeira nesta data. Sai antes de qualquer gravação. */
@@ -107,12 +169,13 @@ export async function confirmCommitment(
   month: string,
   mark: ImportMark | Record<string, never> = {},
   receivedOn?: string,
+  actual: ActualPayment = {},
 ): Promise<ConfirmOutcome> {
   // Parcela de dívida e de meta são dados de módulo: desligado, ficam guardadas, sem baixa.
   const owner = key.startsWith("d:") ? "dividas" : key.startsWith("g:") ? "metas" : null;
   if (owner && !canUse(await accessWithin(tx), owner)) return { done: false, moduleOff: true };
   try {
-    return { done: await confirmByKey(tx, ctx, key, month, mark, receivedOn) };
+    return { done: await confirmByKey(tx, ctx, key, month, mark, receivedOn, actual) };
   } catch (error) {
     if (error instanceof FrozenCurrency) return { done: false, frozenCurrency: error.currency };
     if (!(error instanceof MissingQuote)) throw error;
@@ -127,6 +190,7 @@ async function confirmByKey(
   month: string,
   mark: ImportMark | Record<string, never>,
   receivedOn?: string,
+  actual: ActualPayment = {},
 ): Promise<boolean> {
   const id = key.slice(2);
 
@@ -226,14 +290,19 @@ async function confirmByKey(
       .flatMap((purchase) => purchaseLines(purchase, card))
       .filter((line) => line.statementMonth === statementMonth);
     if (lines.length === 0) return false;
-    const occurredOn = statementDueDate(statementMonth, card);
-    const entry = await commitmentEntry(tx, card.payingAccountId, linesTotal(lines), occurredOn);
+    const total = linesTotal(lines);
+    // Paga em parte, a fatura fecha com o que saiu da conta, e o restante vai para a seguinte.
+    const paidAmount = actual.amount ?? total;
+    if (!money(paidAmount).gt(0)) return false;
+    const occurredOn = receivedOn ?? statementDueDate(statementMonth, card);
+    const payingAccountId = actual.accountId ?? card.payingAccountId;
+    const entry = await commitmentEntry(tx, payingAccountId, paidAmount, occurredOn);
     if (!entry) return false;
     const [created] = await tx
       .insert(transactions)
       .values({
         householdId: ctx.householdId,
-        accountId: card.payingAccountId,
+        accountId: payingAccountId,
         categoryId,
         kind: "despesa",
         description: `Fatura ${card.name}`,
@@ -250,6 +319,33 @@ async function confirmByKey(
       statementMonth,
       transactionId: created!.id,
     });
+    const rest = money(total).minus(paidAmount);
+    if (rest.gt(0)) {
+      // O dia seguinte ao fechamento já é da fatura seguinte; em mês curto, anda mais um pouco.
+      const next = addMonths(statementMonth, 1);
+      let carryOn = dayAfter(statementClosingDate(statementMonth, card));
+      for (let tries = 0; tries < 5 && statementMonthOf(carryOn, card) !== next; tries += 1) {
+        carryOn = dayAfter(carryOn);
+      }
+      const [year, monthNumber] = statementMonth.split("-");
+      const [carried] = await tx
+        .insert(cardPurchases)
+        .values({
+          householdId: ctx.householdId,
+          cardId,
+          categoryId,
+          description: `Saldo da fatura de ${monthNumber}/${year}`,
+          amount: toDbAmount(rest),
+          installments: 1,
+          purchasedOn: carryOn,
+          createdBy: ctx.userId,
+        })
+        .returning({ id: cardPurchases.id });
+      await tx
+        .update(cardPurchaseImports)
+        .set({ importFingerprint: carryMark(statementMonth) })
+        .where(eq(cardPurchaseImports.id, carried!.id));
+    }
     await audit(tx, ctx, "confirm", "card_statement_payments", cardId);
     return true;
   }
@@ -317,13 +413,17 @@ async function confirmByKey(
     if (openIncomeEntries([entry], await incomeReceiptRows(tx), [source]).length === 0)
       return false;
     const date = receivedOn ?? entry.date;
-    const entryMoney = await commitmentEntry(tx, source.accountId, entry.amount, date);
+    // O banco mostra quanto caiu e em que conta: vale mais que a estimativa do cadastro.
+    const incomeAccountId = actual.accountId ?? source.accountId;
+    const received = actual.amount ?? entry.amount;
+    if (!money(received).gt(0)) return false;
+    const entryMoney = await commitmentEntry(tx, incomeAccountId, received, date);
     if (!entryMoney) return false;
     const [created] = await tx
       .insert(transactions)
       .values({
         householdId: ctx.householdId,
-        accountId: source.accountId,
+        accountId: incomeAccountId,
         categoryId: source.categoryId,
         kind: "receita",
         description: entry.description,

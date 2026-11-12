@@ -9,6 +9,7 @@ import {
   accounts,
   and,
   asc,
+  cardPurchaseImports,
   categories,
   debtInstallments,
   debts,
@@ -17,6 +18,8 @@ import {
   goals,
   householdSettings,
   isNull,
+  isSchemaLag,
+  like,
   tolerateSchemaLag,
   withHousehold,
   type TenantContext,
@@ -61,6 +64,22 @@ export async function loadCards(ctx: TenantContext) {
       .from(accounts)
       .orderBy(asc(accounts.createdAt));
 
+    // Fatura paga em parte: o restante virou uma compra marcada na fatura seguinte (ADR-0038).
+    const carries = await tx
+      .transaction((step) =>
+        step
+          .select({
+            id: cardPurchaseImports.id,
+            mark: cardPurchaseImports.importFingerprint,
+          })
+          .from(cardPurchaseImports)
+          .where(like(cardPurchaseImports.importFingerprint, "saldo:%")),
+      )
+      .catch((error: unknown) => {
+        if (isSchemaLag(error)) return [];
+        throw error;
+      });
+
     const cards = book.map(({ card, lines, paid }) => {
       const openMonth = statementMonthOf(today, card);
       const locked = new Set(
@@ -80,6 +99,13 @@ export async function loadCards(ctx: TenantContext) {
         used,
         available: card.limitAmount ? toDbAmount(money(card.limitAmount).minus(used)) : null,
         paidMonths: [...paid],
+        /** Mês da fatura paga em parte, e quanto dela foi para a seguinte. */
+        carried: Object.fromEntries(
+          carries.flatMap((row) => {
+            const line = lines.find((item) => item.purchaseId === row.id);
+            return line && row.mark ? [[row.mark.slice("saldo:".length), line.amount]] : [];
+          }),
+        ) as Record<string, string>,
         lines: lines.map((line): CardLine => ({
           ...line,
           categoryName: names.get(line.categoryId) ?? "Sem categoria",

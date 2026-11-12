@@ -151,6 +151,26 @@ da aplicação da pessoa, `/accounts` devolve lista vazia, sem erro. Foi o que t
 Item ID é conferido em `/items/{id}` antes de salvar, e a conexão de outra aplicação é recusada com a
 explicação. O guia avisa para usar o ▶ da linha da própria aplicação.
 
+## Renda em dobro e fatura paga em parte (2026-11-11)
+
+Com o banco ligado, a renda cadastrada aparecia duas vezes: a previsão da renda e o crédito que o banco trouxe.
+A conferência só casava valor idêntico, na mesma conta. Renda cadastrada é estimativa (o valor muda de mês para
+mês) e muitas vezes está numa conta diferente da que recebe. O mesmo valia para a fatura: o banco mostra o que
+foi pago, que nem sempre é o total.
+
+- **Baixa aproximada**, depois da exata, só em conta na moeda principal (`reconcileRows`, terceiro argumento):
+  crédito do banco casa com renda prevista de qualquer conta, a até 7 dias e 20% do valor; débito que fala em
+  fatura ou cartão casa com a fatura em aberto paga por aquela conta, a até 10 dias e até 1,5 vez o total.
+- **A baixa leva o que o banco mostra**: valor, dia e conta. A renda fica recebida na conta em que caiu.
+- **Renda já confirmada à mão**, em qualquer conta, faz o crédito parecido ser pulado como "parece já lançado".
+- **Fatura paga em parte**: a fatura fecha com o que saiu da conta, e o restante vira uma compra "Saldo da
+  fatura de MM/AAAA" na fatura seguinte, marcada em `card_purchases.import_fingerprint` como `saldo:<mês>`.
+  Apagar o pagamento, ou desfazer o lote que deu a baixa, apaga esse saldo. Juros e multa do banco não são
+  calculados: entram quando a pessoa lança ou quando o banco manda a linha.
+- **Na tela de Cartões**, "Pagar fatura" abre o valor e o dia, com o total preenchido.
+- O que já entrou em dobro antes desta correção não é mexido sozinho: a pessoa desfaz o lote em Importar
+  extrato ou apaga a cópia.
+
 ## Fora desta etapa
 
 - Fundos, renda fixa e previdência: aparecem como ignorados na conferência, com o motivo.

@@ -274,7 +274,7 @@ function RowBadge({ row }: { row: PreparedRow }) {
     return (
       <Badge tone="success">
         <CircleCheck className="size-3" aria-hidden="true" />
-        {t("settle", { name: row.match?.description ?? "" })}
+        {t(row.approx ? "settleApprox" : "settle", { name: row.match?.description ?? "" })}
       </Badge>
     );
   if (row.state === "lancado")
@@ -805,6 +805,7 @@ export function ImportWizard({
             (choice.newCategory ?? null) !== (row.newCategory?.name ?? null),
           matchKey: settles ? row.match!.key : null,
           matchMonth: settles ? yearMonthOf(row.match!.date) : null,
+          approx: Boolean(settles && row.approx),
         },
       ];
     });

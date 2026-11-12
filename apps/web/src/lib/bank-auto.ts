@@ -9,20 +9,17 @@ import {
   and,
   bankConnections,
   canWrite,
-  cashflowPlans,
   countEntries,
   currencyFrozen,
   ensureCategory,
   eq,
   fromSession,
-  gte,
   householdCurrency,
   householdReports,
   importBatches,
   isNull,
   lockEntryQuota,
   lt,
-  lte,
   markEntries,
   or,
   readFamilyAccess,
@@ -36,20 +33,16 @@ import {
 } from "@organizeup/db";
 import {
   addMonths,
-  buildMonthEntries,
   categorizeRow,
   entryFromTyped,
-  entryOrigin,
   importReport,
   isForeign,
   money,
-  monthBounds,
   reconcileRows,
   toDbAmount,
   todayIn,
   withFingerprints,
   yearMonthOf,
-  type KnownEntry,
   type StatementRow,
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
@@ -63,7 +56,7 @@ import {
   type Failed,
 } from "@/lib/bank-feed";
 import { categoryContext, commitCardFeed, prepareCardFeed } from "@/lib/bank-feed-cards";
-import { loadCommitments } from "@/lib/commitments";
+import { loadKnownForImport } from "@/lib/import-known";
 import { confirmCommitment } from "@/lib/confirm-entry";
 import { pluggyAccounts, type PluggyOptions } from "@/lib/pluggy";
 
@@ -100,8 +93,6 @@ export async function autoImportStatement(
   const dates = rows.map((row) => row.date).sort();
   const firstMonth = addMonths(yearMonthOf(dates[0]!), -1);
   const lastMonth = addMonths(yearMonthOf(dates.at(-1)!), 1);
-  const from = monthBounds(firstMonth).first;
-  const to = monthBounds(lastMonth).last;
   const access = await readFamilyAccess(ctx);
 
   return withHousehold(ctx, async (tx): Promise<AutoStatement | Failed> => {
@@ -112,37 +103,13 @@ export async function autoImportStatement(
       return { ok: false, code: "moeda_estrangeira" };
     }
 
-    const inRange = await tx
-      .select()
-      .from(transactions)
-      .where(and(gte(transactions.occurredOn, from), lte(transactions.occurredOn, to)));
-    const planRows = await tx.select().from(cashflowPlans);
-    const { scheduled } = await loadCommitments(tx, { from: firstMonth, to: lastMonth });
-    const forecasts: KnownEntry[] = [];
-    for (let month = firstMonth; month <= lastMonth; month = addMonths(month, 1)) {
-      const entries = buildMonthEntries(
-        month,
-        planRows,
-        inRange.filter((entry) => yearMonthOf(entry.occurredOn) === month),
-        scheduled,
-      );
-      for (const entry of entries) {
-        if (entry.status === "previsto" && entry.accountId === accountId) {
-          forecasts.push({ ...entry, amount: entry.originalAmount ?? entry.amount });
-        }
-      }
-    }
-    const realized: KnownEntry[] = inRange
-      .filter((entry) => entry.accountId === accountId && entry.status === "realizado")
-      .map((entry) => ({
-        key: `t:${entry.id}`,
-        description: entry.description,
-        amount: entryOrigin(entry)?.amount ?? entry.amount,
-        date: entry.occurredOn,
-        kind: entry.kind,
-        fingerprint: entry.importFingerprint,
-      }));
-    const reconciled = reconcileRows(rows, { realized, forecasts });
+    const known = await loadKnownForImport(
+      tx,
+      accountId,
+      { first: firstMonth, last: lastMonth },
+      true,
+    );
+    const reconciled = reconcileRows(rows, known, known.loose);
     if (!reconciled.some((row) => row.state === "novo" || row.state === "previsto")) {
       return { ok: true, imported: 0, settled: 0 };
     }
@@ -169,13 +136,13 @@ export async function autoImportStatement(
       if (row.state === "importado" || row.state === "lancado") continue;
       const mark = { importFingerprint: row.fingerprint, importBatchId: batchId };
       if (row.state === "previsto" && row.match) {
-        const outcome = await confirmCommitment(
-          tx,
-          ctx,
-          row.match.key,
-          yearMonthOf(row.match.date),
-          mark,
-        );
+        // Renda estimada e fatura: a baixa leva o valor, a conta e o dia que o banco mostra.
+        const outcome = row.approx
+          ? await confirmCommitment(tx, ctx, row.match.key, "", mark, row.date, {
+              amount: row.amount,
+              accountId,
+            })
+          : await confirmCommitment(tx, ctx, row.match.key, yearMonthOf(row.match.date), mark);
         if (outcome.done) {
           settled += 1;
           continue;

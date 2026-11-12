@@ -12,8 +12,9 @@ import {
   eq,
   withHousehold,
 } from "@organizeup/db";
-import { parseMoney, purchaseLines, toDbAmount } from "@organizeup/domain";
+import { isYearMonth, parseMoney, purchaseLines, toDbAmount } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
+import { confirmCommitment } from "@/lib/confirm-entry";
 import { requireTenant } from "@/lib/session";
 
 export interface CardFormState {
@@ -146,4 +147,39 @@ export async function deletePurchase(form: FormData): Promise<void> {
     await audit(tx, ctx, "delete", "card_purchases", id);
   });
   revalidatePath("/app", "layout");
+}
+
+/**
+ * Paga a fatura com o valor que saiu da conta. Menos que o total é pagamento parcial: a fatura fecha, e o
+ * restante vai para a fatura seguinte como "Saldo da fatura".
+ */
+export async function payStatement(_prev: CardFormState, form: FormData): Promise<CardFormState> {
+  const { ctx } = await requireTenant();
+  if (!canWrite(ctx))
+    return { ok: false, message: (await getTranslations("settings"))("noPermission") };
+  const [t, locale] = await Promise.all([getTranslations("cartoes.pay"), getLocale()]);
+  const cardId = String(form.get("cardId") ?? "");
+  const month = String(form.get("month") ?? "");
+  const paidOn = String(form.get("paidOn") ?? "");
+  const total = String(form.get("total") ?? "");
+  if (!isYearMonth(month) || !/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) {
+    return { ok: false, message: t("check") };
+  }
+  let amount: string;
+  try {
+    const value = parseMoney(String(form.get("amount") ?? ""), locale);
+    if (value.lte(0) || value.gte("1000000000")) throw new RangeError("valor");
+    amount = toDbAmount(value);
+  } catch {
+    return { ok: false, message: t("amount") };
+  }
+  const outcome = await withHousehold(ctx, (tx) =>
+    confirmCommitment(tx, ctx, `f:${cardId}:${month}`, "", {}, paidOn, { amount }),
+  );
+  if (outcome.missingQuote || outcome.frozenCurrency) return { ok: false, message: t("currency") };
+  if (!outcome.done) return { ok: false, message: t("nothing") };
+  revalidatePath("/app", "layout");
+  // O total vem da tela só para escolher a frase: quem decide o restante é o servidor.
+  const partial = /^\d+\.\d{2}$/.test(total) && Number(amount) < Number(total);
+  return { ok: true, message: t(partial ? "donePartial" : "done") };
 }

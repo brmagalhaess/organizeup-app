@@ -3096,7 +3096,6 @@
       "closes": "Cierra el",
       "due": "Vence el",
       "newPurchase": "Nueva compra",
-      "pay": "Pagar resumen",
       "paidFrom": "Sale de {account}",
       "fallbackAccount": "la cuenta",
       "emptyTitle": "Ninguna compra en este resumen",
@@ -3108,7 +3107,8 @@
       "amount": "Importe",
       "actions": "Acciones",
       "installment": "Cuota {number} de {total}",
-      "singlePayment": "Pago único"
+      "singlePayment": "Pago único",
+      "partial": "Pagada en parte: salieron {paid} de la cuenta, y {rest} fueron a la próxima factura."
     },
     "remove": {
       "title": "Eliminar compra",
@@ -3134,6 +3134,49 @@
       "title": "Conexión con bancos",
       "text": "La conexión por Pluggy ya trae las compras de la tarjeta. Vincula la tarjeta del banco a una tarjeta de aquí y busca las compras en Importar extracto.",
       "link": "Abrir conexión con bancos"
+    },
+    "pay": {
+      "open": "Pagar factura",
+      "title": "Pagar la factura",
+      "text": "El total de esta factura es {total}. Informa cuánto salió de la cuenta.",
+      "amountLabel": "Valor pagado",
+      "amountHint": "¿Pagaste menos que el total? El resto va a la próxima factura, como \"Saldo da fatura\".",
+      "dateLabel": "Día del pago",
+      "confirm": "Confirmar pago",
+      "saving": "Guardando…",
+      "done": "Factura pagada.",
+      "donePartial": "Pago parcial guardado. El resto fue a la próxima factura.",
+      "check": "Revisa el mes de la factura y el día del pago.",
+      "amount": "Informa un valor pagado mayor que cero.",
+      "currency": "No fue posible convertir el pago a la moneda de la cuenta. Revisa la cotización del día.",
+      "nothing": "Esta factura ya fue pagada, o no tiene compras."
+    },
+    "usage": {
+      "title": "Uso de la tarjeta mes a mes",
+      "text": "Total de cada factura de {name}. Haz clic en una columna para abrir la factura del mes.",
+      "textAll": "Suma de las facturas de todas las tarjetas.",
+      "scopeLabel": "Tarjetas en el gráfico",
+      "scopeCard": "Esta tarjeta",
+      "scopeAll": "Todas",
+      "open": "Compras de la factura abierta",
+      "change": "Contra la factura anterior",
+      "average": "Promedio de las facturas cerradas",
+      "noChange": "—",
+      "state": {
+        "fechada": "Factura cerrada",
+        "aberta": "Factura abierta",
+        "futura": "Cuotas ya compradas"
+      },
+      "point": "{month}: {amount}. {state}.",
+      "limitShare": "{percent} del límite",
+      "legendClosed": "Facturas cerradas",
+      "legendPending": "Abierta y cuotas ya compradas",
+      "caption": "Total de las facturas de la tarjeta, mes a mes",
+      "month": "Mes",
+      "total": "Total",
+      "status": "Situación",
+      "emptyTitle": "Aún sin compras para mostrar",
+      "emptyText": "Cuando haya compras en la tarjeta, el total de cada factura aparece aquí, mes a mes."
     }
   },
   "categorias": {
@@ -3519,7 +3562,8 @@
         "imported": "Ya importado",
         "memory": "Memoria de la familia",
         "newCategory": "Categoría nueva",
-        "review": "Revisar"
+        "review": "Revisar",
+        "settleApprox": "Baja con el valor del banco: {name}"
       },
       "room": "{room, plural, =0 {No cabe ninguna línea nueva este mes.} one {Cabe # línea nueva este mes.} other {Caben # líneas nuevas este mes.}}",
       "overRoom": "{room, plural, =0 {No cabe ninguna} one {Cabe # línea} other {Caben # líneas}} de {count} nuevas. Desmarca lo que sobra: nada se guarda a medias.",

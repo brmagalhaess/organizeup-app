@@ -7,7 +7,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   accountCurrency,
-  and,
   canWrite,
   countEntries,
   currencyFrozen,
@@ -15,20 +14,17 @@ import {
   markEntries,
   readFamilyAccess,
   usageMonthOf,
-  cashflowPlans,
   categories,
   categoryMemory,
   desc,
   ensureCategory,
   eq,
   fxSeries,
-  gte,
   householdCurrency,
   householdReports,
   IMPORT_SOURCES,
   importBatches,
   inArray,
-  lte,
   recordCategorizationStats,
   sql,
   transactions,
@@ -36,20 +32,17 @@ import {
 } from "@organizeup/db";
 import {
   addMonths,
-  buildMonthEntries,
   quotaLeft,
   CARD_CATEGORY,
   categorizeRow,
   crossQuoteOn,
   entryFromTyped,
-  entryOrigin,
   fitsAmount,
   FX_CURRENCIES,
   importReport,
   isForeign,
   memoryKey,
   merchantKey,
-  monthBounds,
   normalizeDescription,
   reconcileRows,
   todayIn,
@@ -60,14 +53,18 @@ import {
   type EntryMoney,
   type FxCurrency,
   type FxQuote,
-  type KnownEntry,
   type ReconciledRow,
 } from "@organizeup/domain";
 import type { TenantTx } from "@organizeup/db";
 import { formatDate } from "@/i18n/format";
 import { audit } from "@/lib/audit";
-import { loadCommitments } from "@/lib/commitments";
-import { confirmCommitment, goalEntryLink, reverseGoalSaved } from "@/lib/confirm-entry";
+import { loadKnownForImport } from "@/lib/import-known";
+import {
+  confirmCommitment,
+  goalEntryLink,
+  removeStatementCarry,
+  reverseGoalSaved,
+} from "@/lib/confirm-entry";
 import { reportActionFailure } from "@/lib/diagnostics";
 import { requireTenant } from "@/lib/session";
 
@@ -104,6 +101,8 @@ const commitSchema = z.object({
         corrected: z.boolean(),
         matchKey: z.string().max(200).nullable(),
         matchMonth: z.string().max(7).nullable(),
+        /** A baixa é de renda estimada ou de fatura: vale o valor, a conta e o dia do extrato. */
+        approx: z.boolean().optional(),
       }),
     )
     .min(1)
@@ -177,8 +176,6 @@ export async function prepareImport(
   const dates = rows.map((row) => row.date).sort();
   const firstMonth = addMonths(yearMonthOf(dates[0]!), -1);
   const lastMonth = addMonths(yearMonthOf(dates.at(-1)!), 1);
-  const from = monthBounds(firstMonth).first;
-  const to = monthBounds(lastMonth).last;
 
   const { entryLimit } = await readFamilyAccess(ctx);
   let room: ImportRoom = null;
@@ -193,37 +190,13 @@ export async function prepareImport(
     const converted = await rowConverter(tx, currency, rows, texts);
     if (typeof converted === "string") return converted;
 
-    const inRange = await tx
-      .select()
-      .from(transactions)
-      .where(and(gte(transactions.occurredOn, from), lte(transactions.occurredOn, to)));
-    const planRows = await tx.select().from(cashflowPlans);
-    const { scheduled } = await loadCommitments(tx, { from: firstMonth, to: lastMonth });
-
-    const forecasts: KnownEntry[] = [];
-    for (let month = firstMonth; month <= lastMonth; month = addMonths(month, 1)) {
-      const entries = buildMonthEntries(
-        month,
-        planRows,
-        inRange.filter((t) => yearMonthOf(t.occurredOn) === month),
-        scheduled,
-      );
-      for (const entry of entries) {
-        if (entry.status === "previsto" && entry.accountId === accountId)
-          forecasts.push({ ...entry, amount: entry.originalAmount ?? entry.amount });
-      }
-    }
-    const realized: KnownEntry[] = inRange
-      .filter((t) => t.accountId === accountId && t.status === "realizado")
-      .map((t) => ({
-        key: `t:${t.id}`,
-        description: t.description,
-        // O arquivo está na moeda da conta: é assim que a linha se compara com o que já existe.
-        amount: entryOrigin(t)?.amount ?? t.amount,
-        date: t.occurredOn,
-        kind: t.kind,
-        fingerprint: t.importFingerprint,
-      }));
+    const main = await householdCurrency(tx);
+    const known = await loadKnownForImport(
+      tx,
+      accountId,
+      { first: firstMonth, last: lastMonth },
+      !isForeign(currency, main),
+    );
 
     const categoryRows = await tx
       .select({
@@ -253,7 +226,7 @@ export async function prepareImport(
       remembered.map((row) => [memoryKey(row.kind, row.merchant), row.categoryId]),
     );
 
-    return reconcileRows(rows, { realized, forecasts }).map((row) => {
+    return reconcileRows(rows, known, known.loose).map((row) => {
       const proposal = categorizeRow(row, usable, { history, learned });
       // Dar baixa não usa a categoria da linha: não há por que criar uma.
       const fallback = usable.find((category) => category.kind === row.kind)?.id ?? null;
@@ -361,7 +334,14 @@ export async function commitImport(
       const mark = { importFingerprint: row.fingerprint, importBatchId: batchId };
       const done =
         row.matchKey !== null &&
-        (await confirmCommitment(tx, ctx, row.matchKey, row.matchMonth ?? "", mark)).done;
+        (
+          await (row.approx
+            ? confirmCommitment(tx, ctx, row.matchKey, "", mark, row.date, {
+                amount: row.amount,
+                accountId,
+              })
+            : confirmCommitment(tx, ctx, row.matchKey, row.matchMonth ?? "", mark))
+        ).done;
       if (done) settled += 1;
       else plain.push(row);
     }
@@ -536,8 +516,11 @@ export async function undoImport(form: FormData): Promise<void> {
       (link) => link !== null,
     );
     const removing = new Set([...created, ...links.flatMap((link) => link.transactionIds)]);
-    if (removing.size > 0)
+    if (removing.size > 0) {
+      // Fatura paga em parte pelo extrato: o restante que foi para a fatura seguinte sai junto.
+      await removeStatementCarry(tx, [...removing]);
       await tx.delete(transactions).where(inArray(transactions.id, [...removing]));
+    }
     for (const link of links) await reverseGoalSaved(tx, ctx, link);
     await tx.delete(importBatches).where(eq(importBatches.id, id));
     await tx

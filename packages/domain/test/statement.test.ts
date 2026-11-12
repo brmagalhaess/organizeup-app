@@ -280,6 +280,116 @@ describe("conciliação", () => {
     const [result] = reconcileRows(rows, { realized: [entry({ key: "t:9" })], forecasts: [] });
     expect(result).toMatchObject({ state: "lancado", match: { key: "t:9" } });
   });
+
+  describe("compromissos de valor incerto", () => {
+    const salary = (over: Partial<KnownEntry> = {}): KnownEntry =>
+      entry({
+        key: "r:renda:2026-10:salario",
+        description: "Salário",
+        amount: "5000.00",
+        kind: "receita",
+        ...over,
+      });
+    const credit = (over: Partial<Parameters<typeof row>[0]> = {}) =>
+      withFingerprints(
+        [
+          row({
+            kind: "receita",
+            description: "TED RECEBIDA EMPRESA",
+            amount: "4630.00",
+            date: "2026-10-06",
+            ...over,
+          }),
+        ],
+        "ofx",
+      );
+
+    it("a renda estimada leva baixa pelo crédito do banco, mesmo com valor e conta diferentes", () => {
+      const [result] = reconcileRows(credit(), empty, {
+        incomes: [salary({ accountId: "outra-conta" })],
+      });
+      expect(result).toMatchObject({
+        state: "previsto",
+        approx: true,
+        match: { key: "r:renda:2026-10:salario" },
+      });
+    });
+
+    it("sem a lista de rendas, o mesmo crédito seria lançado de novo", () => {
+      const [result] = reconcileRows(credit(), empty);
+      expect(result).toMatchObject({ state: "novo", match: null });
+    });
+
+    it("crédito muito diferente ou longe do dia não é a renda", () => {
+      const far = reconcileRows(credit({ date: "2026-10-20" }), empty, { incomes: [salary()] });
+      expect(far[0]!.state).toBe("novo");
+      const small = reconcileRows(credit({ amount: "3900.00" }), empty, { incomes: [salary()] });
+      expect(small[0]!.state).toBe("novo");
+      const edge = reconcileRows(credit({ amount: "4000.00" }), empty, { incomes: [salary()] });
+      expect(edge[0]!.state).toBe("previsto");
+    });
+
+    it("renda já recebida e lançada não ganha uma cópia", () => {
+      const [result] = reconcileRows(credit(), empty, {
+        received: [salary({ key: "t:recebido", date: "2026-10-05" })],
+      });
+      expect(result).toMatchObject({
+        state: "lancado",
+        approx: true,
+        match: { key: "t:recebido" },
+      });
+    });
+
+    it("cada renda serve a uma linha só, e a de valor igual continua indo pela regra exata", () => {
+      const rows = withFingerprints(
+        [
+          row({ kind: "receita", description: "SALARIO", amount: "5000.00", date: "2026-10-05" }),
+          row({
+            kind: "receita",
+            description: "PIX RECEBIDO",
+            amount: "4900.00",
+            date: "2026-10-06",
+          }),
+        ],
+        "ofx",
+      );
+      const result = reconcileRows(
+        rows,
+        { realized: [], forecasts: [salary()] },
+        { incomes: [salary()] },
+      );
+      expect(result.map((item) => [item.state, item.approx ?? false])).toEqual([
+        ["previsto", false],
+        ["novo", false],
+      ]);
+    });
+
+    it("o pagamento da fatura dá baixa mesmo sem fechar no centavo, e pode ser parcial", () => {
+      const bill = entry({
+        key: "f:cartao:2026-10",
+        description: "Fatura Cartão",
+        amount: "2000.00",
+        date: "2026-10-10",
+      });
+      const pay = (over: Partial<Parameters<typeof row>[0]>) =>
+        reconcileRows(
+          withFingerprints([row({ kind: "despesa", date: "2026-10-09", ...over })], "ofx"),
+          empty,
+          { statements: [bill] },
+        )[0]!;
+      expect(pay({ description: "PAGAMENTO FATURA CARTÃO", amount: "2013.47" })).toMatchObject({
+        state: "previsto",
+        approx: true,
+      });
+      expect(pay({ description: "PGTO FATURA", amount: "500.00" })).toMatchObject({
+        state: "previsto",
+        approx: true,
+      });
+      // Sem a palavra, ou muito acima da fatura, é outra despesa.
+      expect(pay({ description: "MERCADO", amount: "2000.01" }).state).toBe("novo");
+      expect(pay({ description: "PAGAMENTO FATURA", amount: "3500.00" }).state).toBe("novo");
+    });
+  });
 });
 
 describe("extrato em PDF", () => {

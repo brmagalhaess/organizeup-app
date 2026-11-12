@@ -353,7 +353,35 @@ export interface KnownEntry {
   settled?: boolean;
 }
 
-export type ReconciledRow = FingerprintedRow & { state: RowState; match: KnownEntry | null };
+export type ReconciledRow = FingerprintedRow & {
+  state: RowState;
+  match: KnownEntry | null;
+  /**
+   * A linha casou com um compromisso de valor diferente (renda estimada, fatura de cartão): a baixa usa o
+   * valor, a conta e o dia do extrato, e não os do compromisso.
+   */
+  approx?: boolean;
+};
+
+/** Quantos dias a renda pode cair antes ou depois do dia previsto. */
+export const LOOSE_INCOME_DAYS = 7;
+/** Quanto a renda recebida pode diferir da estimada: desconto, benefício, arredondamento da folha. */
+export const LOOSE_INCOME_TOLERANCE = "0.2";
+/** Quantos dias o pagamento da fatura pode cair antes ou depois do vencimento. */
+export const LOOSE_STATEMENT_DAYS = 10;
+/** Acima disto o débito não é o pagamento desta fatura: é outra coisa com a palavra "cartão". */
+const LOOSE_STATEMENT_CEILING = "1.5";
+const CARD_PAYMENT_WORDS = /fatura|cartao|card\b|credicard/;
+
+/** Compromissos cujo valor previsto raramente bate com o centavo do banco. */
+export interface LooseKnown {
+  /** Rendas previstas em aberto, de qualquer conta: o banco mostra onde o dinheiro caiu de verdade. */
+  incomes?: KnownEntry[];
+  /** Rendas já recebidas e lançadas, de qualquer conta: a linha do banco é a mesma renda, e não outra. */
+  received?: KnownEntry[];
+  /** Faturas de cartão em aberto pagas por esta conta. */
+  statements?: KnownEntry[];
+}
 
 const dayOf = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
 
@@ -406,14 +434,42 @@ function takeClosest(row: StatementRow, pool: Pool, window: number): KnownEntry 
   return null;
 }
 
+/** O mais perto em dias entre os que servem e ainda não foram usados; no empate, o de valor mais próximo. */
+function takeLoose(
+  row: StatementRow,
+  entries: KnownEntry[],
+  used: Set<string>,
+  window: number,
+  fits: (entry: KnownEntry) => boolean,
+): KnownEntry | null {
+  const day = dayOf(row.date);
+  let best: { entry: KnownEntry; gap: number; off: MoneyValue } | null = null;
+  for (const entry of entries) {
+    if (used.has(entry.key) || !fits(entry)) continue;
+    const gap = Math.abs(dayOf(entry.date) - day);
+    if (gap > window) continue;
+    const off = money(entry.amount).minus(row.amount).abs();
+    if (!best || gap < best.gap || (gap === best.gap && off.lt(best.off))) {
+      best = { entry, gap, off };
+    }
+  }
+  if (best) used.add(best.entry.key);
+  return best?.entry ?? null;
+}
+
 /**
  * Classifica cada linha. `importado` já está no sistema; `previsto` dá baixa numa previsão de
  * valor igual até 5 dias de distância; `lancado` parece repetir um lançamento até 3 dias.
  * Cada lançamento ou previsão é usado por uma linha só.
+ *
+ * Com `loose`, o que sobrou como novo ganha uma segunda chance contra os compromissos de valor incerto: a
+ * renda cadastrada é uma estimativa, e a fatura do cartão quase nunca fecha no centavo do banco. Sem isso, a
+ * renda prevista e o crédito do banco apareceriam os dois, e o mês contaria a mesma renda duas vezes.
  */
 export function reconcileRows(
   rows: FingerprintedRow[],
   known: { realized: KnownEntry[]; forecasts: KnownEntry[] },
+  loose: LooseKnown = {},
 ): ReconciledRow[] {
   const imported = new Set(known.realized.map((entry) => entry.fingerprint).filter(Boolean));
   const taken = new Set(rows.map((row) => row.fingerprint).filter((print) => imported.has(print)));
@@ -422,12 +478,41 @@ export function reconcileRows(
   );
   const forecasts = poolOf(known.forecasts);
 
-  return rows.map((row) => {
+  const used = new Set<string>();
+  const exact = rows.map((row): ReconciledRow => {
     if (imported.has(row.fingerprint)) return { ...row, state: "importado", match: null };
     const forecast = takeClosest(row, forecasts, 5);
-    if (forecast) return { ...row, state: "previsto", match: forecast };
+    if (forecast) {
+      used.add(forecast.key);
+      return { ...row, state: "previsto", match: forecast };
+    }
     const twin = takeClosest(row, realized, 3);
+    if (twin) used.add(twin.key);
     return { ...row, state: twin ? "lancado" : "novo", match: twin };
+  });
+
+  const near = (entry: KnownEntry, row: StatementRow) =>
+    money(entry.amount)
+      .minus(row.amount)
+      .abs()
+      .lte(money(entry.amount).times(LOOSE_INCOME_TOLERANCE));
+  return exact.map((row): ReconciledRow => {
+    if (row.state !== "novo") return row;
+    if (row.kind === "receita") {
+      const income = takeLoose(row, loose.incomes ?? [], used, LOOSE_INCOME_DAYS, (entry) =>
+        near(entry, row),
+      );
+      if (income) return { ...row, state: "previsto", match: income, approx: true };
+      const got = takeLoose(row, loose.received ?? [], used, LOOSE_INCOME_DAYS, (entry) =>
+        near(entry, row),
+      );
+      return got ? { ...row, state: "lancado", match: got, approx: true } : row;
+    }
+    if (!CARD_PAYMENT_WORDS.test(normalizeDescription(row.description))) return row;
+    const statement = takeLoose(row, loose.statements ?? [], used, LOOSE_STATEMENT_DAYS, (entry) =>
+      money(row.amount).lte(money(entry.amount).times(LOOSE_STATEMENT_CEILING)),
+    );
+    return statement ? { ...row, state: "previsto", match: statement, approx: true } : row;
   });
 }
 

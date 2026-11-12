@@ -3096,7 +3096,6 @@
       "closes": "Closes on",
       "due": "Due on",
       "newPurchase": "New purchase",
-      "pay": "Pay statement",
       "paidFrom": "Paid from {account}",
       "fallbackAccount": "the account",
       "emptyTitle": "No purchases on this statement",
@@ -3108,7 +3107,8 @@
       "amount": "Amount",
       "actions": "Actions",
       "installment": "Installment {number} of {total}",
-      "singlePayment": "Single payment"
+      "singlePayment": "Single payment",
+      "partial": "Partly paid: {paid} left the account, and {rest} went to the next bill."
     },
     "remove": {
       "title": "Delete purchase",
@@ -3134,6 +3134,49 @@
       "title": "Bank connection",
       "text": "The Pluggy connection already brings card purchases. Link the bank card to a card here and fetch the purchases in Import statement.",
       "link": "Open bank connection"
+    },
+    "pay": {
+      "open": "Pay bill",
+      "title": "Pay the bill",
+      "text": "This bill totals {total}. Enter how much left the account.",
+      "amountLabel": "Amount paid",
+      "amountHint": "Paid less than the total? The rest goes to the next bill, as \"Saldo da fatura\".",
+      "dateLabel": "Payment day",
+      "confirm": "Confirm payment",
+      "saving": "Saving…",
+      "done": "Bill paid.",
+      "donePartial": "Partial payment saved. The rest went to the next bill.",
+      "check": "Check the bill month and the payment day.",
+      "amount": "Enter an amount paid greater than zero.",
+      "currency": "Could not convert the payment to the account currency. Check the rate for the day.",
+      "nothing": "This bill is already paid, or has no purchases."
+    },
+    "usage": {
+      "title": "Card use month by month",
+      "text": "Total of each {name} bill. Click a column to open that month's bill.",
+      "textAll": "Sum of the bills of all cards.",
+      "scopeLabel": "Cards in the chart",
+      "scopeCard": "This card",
+      "scopeAll": "All",
+      "open": "Purchases on the open bill",
+      "change": "Against the previous bill",
+      "average": "Average of closed bills",
+      "noChange": "—",
+      "state": {
+        "fechada": "Closed bill",
+        "aberta": "Open bill",
+        "futura": "Installments already bought"
+      },
+      "point": "{month}: {amount}. {state}.",
+      "limitShare": "{percent} of the limit",
+      "legendClosed": "Closed bills",
+      "legendPending": "Open and installments already bought",
+      "caption": "Total of the card bills, month by month",
+      "month": "Month",
+      "total": "Total",
+      "status": "Status",
+      "emptyTitle": "No purchases to show yet",
+      "emptyText": "When there are card purchases, the total of each bill shows up here, month by month."
     }
   },
   "categorias": {
@@ -3519,7 +3562,8 @@
         "imported": "Already imported",
         "memory": "Family memory",
         "newCategory": "New category",
-        "review": "Review"
+        "review": "Review",
+        "settleApprox": "Settles with the bank amount: {name}"
       },
       "room": "{room, plural, =0 {No more new rows fit this month.} one {# new row fits this month.} other {# new rows fit this month.}}",
       "overRoom": "{room, plural, =0 {None fit} one {# row fits} other {# rows fit}} out of {count} new ones. Unselect the rest: nothing is saved halfway.",

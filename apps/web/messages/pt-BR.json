@@ -3096,7 +3096,6 @@
       "closes": "Fecha em",
       "due": "Vence em",
       "newPurchase": "Nova compra",
-      "pay": "Pagar fatura",
       "paidFrom": "Sai de {account}",
       "fallbackAccount": "a conta",
       "emptyTitle": "Nenhuma compra nesta fatura",
@@ -3108,7 +3107,8 @@
       "amount": "Valor",
       "actions": "Ações",
       "installment": "Parcela {number} de {total}",
-      "singlePayment": "À vista"
+      "singlePayment": "À vista",
+      "partial": "Paga em parte: saíram {paid} da conta, e {rest} foram para a próxima fatura."
     },
     "remove": {
       "title": "Excluir compra",
@@ -3134,6 +3134,49 @@
       "title": "Conexão com bancos",
       "text": "A conexão pela Pluggy já traz as compras do cartão. Ligue o cartão do banco a um cartão daqui e busque as compras em Importar extrato.",
       "link": "Abrir conexão com bancos"
+    },
+    "pay": {
+      "open": "Pagar fatura",
+      "title": "Pagar a fatura",
+      "text": "O total desta fatura é {total}. Informe quanto saiu da conta.",
+      "amountLabel": "Valor pago",
+      "amountHint": "Pagou menos que o total? O restante vai para a próxima fatura, como \"Saldo da fatura\".",
+      "dateLabel": "Dia do pagamento",
+      "confirm": "Confirmar pagamento",
+      "saving": "Gravando…",
+      "done": "Fatura paga.",
+      "donePartial": "Pagamento parcial gravado. O restante foi para a próxima fatura.",
+      "check": "Confira o mês da fatura e o dia do pagamento.",
+      "amount": "Informe um valor pago maior que zero.",
+      "currency": "Não foi possível converter o pagamento na moeda da conta. Confira a cotação do dia.",
+      "nothing": "Esta fatura já foi paga, ou não tem compras."
+    },
+    "usage": {
+      "title": "Uso do cartão mês a mês",
+      "text": "Total de cada fatura do {name}. Clique numa coluna para abrir a fatura do mês.",
+      "textAll": "Soma das faturas de todos os cartões.",
+      "scopeLabel": "Cartões no gráfico",
+      "scopeCard": "Este cartão",
+      "scopeAll": "Todos",
+      "open": "Compras da fatura em aberto",
+      "change": "Contra a fatura anterior",
+      "average": "Média das faturas fechadas",
+      "noChange": "—",
+      "state": {
+        "fechada": "Fatura fechada",
+        "aberta": "Fatura em aberto",
+        "futura": "Parcelas já compradas"
+      },
+      "point": "{month}: {amount}. {state}.",
+      "limitShare": "{percent} do limite",
+      "legendClosed": "Faturas fechadas",
+      "legendPending": "Em aberto e parcelas já compradas",
+      "caption": "Total das faturas do cartão, mês a mês",
+      "month": "Mês",
+      "total": "Total",
+      "status": "Situação",
+      "emptyTitle": "Ainda sem compras para mostrar",
+      "emptyText": "Quando houver compras no cartão, o total de cada fatura aparece aqui, mês a mês."
     }
   },
   "categorias": {
@@ -3519,7 +3562,8 @@
         "imported": "Já importado",
         "memory": "Memória da família",
         "newCategory": "Categoria nova",
-        "review": "Revisar"
+        "review": "Revisar",
+        "settleApprox": "Baixa com o valor do banco: {name}"
       },
       "room": "{room, plural, =0 {Não cabe mais nenhuma linha nova neste mês.} one {Cabe # linha nova neste mês.} other {Cabem # linhas novas neste mês.}}",
       "overRoom": "{room, plural, =0 {Não cabe nenhuma} one {Cabe # linha} other {Cabem # linhas}} de {count} novas. Desmarque o que sobra: nada é gravado pela metade.",

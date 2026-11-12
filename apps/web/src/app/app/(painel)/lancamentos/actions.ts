@@ -41,7 +41,12 @@ import {
 import { formatDate, formatMonthYear } from "@/i18n/format";
 import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
-import { confirmCommitment, goalEntryLink, reverseGoalSaved } from "@/lib/confirm-entry";
+import {
+  confirmCommitment,
+  goalEntryLink,
+  removeStatementCarry,
+  reverseGoalSaved,
+} from "@/lib/confirm-entry";
 import { requireTenant } from "@/lib/session";
 
 export interface EntryFormState {
@@ -319,6 +324,8 @@ export async function deleteEntry(form: FormData): Promise<void> {
   await withHousehold(ctx, async (tx) => {
     // Lê antes de apagar: a ligação com a parcela da meta some junto com o lançamento.
     const link = await goalEntryLink(tx, id);
+    // Pagamento parcial de fatura: o restante que foi para a fatura seguinte sai junto.
+    await removeStatementCarry(tx, link?.transactionIds ?? [id]);
     const removed = await tx
       .delete(transactions)
       .where(inArray(transactions.id, link?.transactionIds ?? [id]))

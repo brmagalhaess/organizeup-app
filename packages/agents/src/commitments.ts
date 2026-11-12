@@ -118,6 +118,7 @@ export async function incomeReceiptRows(tx: TenantTx) {
     incomeSourceId: incomeReceipts.incomeSourceId,
     month: incomeReceipts.month,
     part: incomeReceipts.part,
+    transactionId: incomeReceipts.transactionId,
   };
   const extra = await afterMigration(tx, (step) =>
     step
@@ -125,6 +126,7 @@ export async function incomeReceiptRows(tx: TenantTx) {
         incomeSourceId: incomeVacationReceipts.incomeSourceId,
         month: incomeVacationReceipts.month,
         part: incomeVacationReceipts.part,
+        transactionId: incomeVacationReceipts.transactionId,
       })
       .from(incomeVacationReceipts),
   );
