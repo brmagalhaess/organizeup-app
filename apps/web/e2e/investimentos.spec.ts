@@ -156,8 +156,9 @@ test("carteira, proventos e patrimônio", async ({ page, browser }) => {
 
   // O valor da carteira entra no patrimônio.
   await page.goto("/app/patrimonio");
+  // A lista traz a carteira por classe; o total fica no cabeçalho do grupo.
   await expect(
-    page.getByRole("list", { name: "Investimentos" }).getByText("R$ 3.550,00"),
+    page.getByRole("region", { name: "Investimentos" }).getByText("R$ 3.550,00").first(),
   ).toBeVisible();
 
   // Outra família não vê nada.

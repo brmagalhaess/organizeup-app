@@ -37,6 +37,7 @@ import {
   toDbAmount,
   todayIn,
   yearMonthOf,
+  summarizePortfolio,
 } from "@organizeup/domain";
 import { loadCommitments } from "./commitments";
 
@@ -148,6 +149,10 @@ export async function loadNetWorth(ctx: TenantContext, options: { record: boolea
       summary,
       fx: input.fx,
       accounts: input.accounts.filter((account) => !account.archived),
+      // A carteira por classe, para a tela não mostrar os investimentos como uma linha só.
+      investmentClasses: summarizePortfolio(input.investments)
+        .classes.filter((share) => money(share.value).gt(0))
+        .map((share) => ({ assetClass: share.assetClass, value: share.value })),
       debts: input.debts.filter((debt) => !debt.archived && money(debt.balance).gt(0)),
       debtOptions: debtNames.filter((debt) => !debt.archived),
       assets: assetRows.map((asset) => {

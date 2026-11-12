@@ -199,11 +199,7 @@
     },
     "stats": {
       "owned": "O que você tem",
-      "owed": "O que você deve",
-      "assets": "Bens",
-      "assetsHint": "Valores informados por você.",
-      "cards": "Cartões",
-      "cardsHint": "Faturas em aberto e parcelas futuras."
+      "owed": "O que você deve"
     },
     "evolution": {
       "title": "Evolução",
@@ -213,7 +209,6 @@
       "title": "O que você tem",
       "accounts": "Contas",
       "investments": "Investimentos",
-      "portfolio": "Carteira",
       "goals": "Metas",
       "savedForGoals": "Guardado para metas",
       "assets": "Bens",
@@ -249,6 +244,53 @@
       "caption": "Evolução do patrimônio líquido",
       "month": "Mês",
       "netWorth": "Patrimônio líquido"
+    },
+    "equation": {
+      "label": "A conta do patrimônio",
+      "ownedHint": "Contas, investimentos, bens e o guardado para metas.",
+      "owedHint": "Dívidas e o que ainda vai sair dos cartões.",
+      "net": "Patrimônio líquido",
+      "minus": "menos",
+      "equals": "igual a",
+      "up": "{amount} a mais que em {month}.",
+      "down": "{amount} a menos que em {month}.",
+      "same": "Igual a {month}.",
+      "noHistory": "No mês que vem dá para comparar com este.",
+      "share": "O que você deve equivale a {percent} do que você tem.",
+      "shareNone": "Você não deve nada hoje.",
+      "shareOver": "Hoje você deve mais do que tem."
+    },
+    "composition": {
+      "title": "Onde está o que você tem",
+      "text": "A fatia de cada parte no total de hoje.",
+      "emptyTitle": "Ainda não há o que mostrar",
+      "emptyText": "Informe o saldo das contas, cadastre investimentos ou adicione um bem para ver a divisão.",
+      "negative": "Saldo negativo: diminui o total e não entra na barra.",
+      "barLabel": "Divisão do que você tem",
+      "part": "{name}: {percent}",
+      "caption": "Divisão do que você tem, por parte",
+      "colPart": "Parte",
+      "colShare": "Fatia",
+      "colValue": "Valor"
+    },
+    "groups": {
+      "accountsLink": "Ver contas",
+      "investmentsLink": "Ver investimentos",
+      "goalsLink": "Ver metas",
+      "debtsLink": "Ver dívidas",
+      "cardsLink": "Ver cartões",
+      "investmentsEmpty": "Nenhum investimento cadastrado.",
+      "negativeTag": "Negativo",
+      "assetsHint": "Valores informados por você.",
+      "cardsHint": "Faturas em aberto e parcelas futuras.",
+      "debtsHint": "Saldo que ainda falta pagar, sem os juros futuros.",
+      "goalsHint": "Só o que está guardado fora das contas."
+    },
+    "how": {
+      "title": "Como a conta é feita",
+      "owned": "Entra no que você tem: o saldo das contas ativas, os investimentos pelo preço de hoje, os bens pelo valor que você informou e o que está guardado para metas fora das contas.",
+      "owed": "Entra no que você deve: o saldo das dívidas ativas e tudo o que ainda vai sair dos cartões, inclusive as parcelas futuras.",
+      "photo": "Uma foto do total é guardada a cada mês; é ela que forma o gráfico da evolução."
     }
   },
   "investimentos": {

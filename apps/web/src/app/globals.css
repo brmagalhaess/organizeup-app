@@ -26,6 +26,12 @@
   /* Séries do painel do serviço, validadas (CVD e contraste) nos dois temas. */
   --color-series-a: #1273a8;
   --color-series-b: #c2600f;
+  /* Partes de um todo (composição do patrimônio), em ordem fixa. Validadas (CVD e visão normal) nos dois
+     temas; no claro, as duas últimas ficam abaixo de 3:1 contra o cartão, e por isso sempre vêm com rótulo. */
+  --color-part-1: #2a78d6;
+  --color-part-2: #eb6834;
+  --color-part-3: #1baf7a;
+  --color-part-4: #eda100;
 
   /* Marca: não mudam no modo escuro. */
   --color-night: #15231d;
@@ -64,6 +70,10 @@
     --color-expense: #f0897e;
     --color-series-a: #2a9fd0;
     --color-series-b: #cf7a22;
+    --color-part-1: #3987e5;
+    --color-part-2: #d95926;
+    --color-part-3: #199e70;
+    --color-part-4: #c98500;
   }
 }
 

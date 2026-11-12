@@ -199,11 +199,7 @@
     },
     "stats": {
       "owned": "What you own",
-      "owed": "What you owe",
-      "assets": "Assets",
-      "assetsHint": "Amounts you entered.",
-      "cards": "Cards",
-      "cardsHint": "Open statements and future installments."
+      "owed": "What you owe"
     },
     "evolution": {
       "title": "Over time",
@@ -213,7 +209,6 @@
       "title": "What you own",
       "accounts": "Accounts",
       "investments": "Investments",
-      "portfolio": "Portfolio",
       "goals": "Goals",
       "savedForGoals": "Saved for goals",
       "assets": "Assets",
@@ -249,6 +244,53 @@
       "caption": "Net worth over time",
       "month": "Month",
       "netWorth": "Net worth"
+    },
+    "equation": {
+      "label": "The net worth sum",
+      "ownedHint": "Accounts, investments, assets and money set aside for goals.",
+      "owedHint": "Debts and what is still to leave your cards.",
+      "net": "Net worth",
+      "minus": "minus",
+      "equals": "equals",
+      "up": "{amount} more than in {month}.",
+      "down": "{amount} less than in {month}.",
+      "same": "Same as {month}.",
+      "noHistory": "Next month you can compare with this one.",
+      "share": "What you owe equals {percent} of what you own.",
+      "shareNone": "You owe nothing today.",
+      "shareOver": "Today you owe more than you own."
+    },
+    "composition": {
+      "title": "Where what you own is",
+      "text": "Each part's share of today's total.",
+      "emptyTitle": "Nothing to show yet",
+      "emptyText": "Enter account balances, register investments or add an asset to see the split.",
+      "negative": "Negative balance: it lowers the total and is not in the bar.",
+      "barLabel": "Split of what you own",
+      "part": "{name}: {percent}",
+      "caption": "Split of what you own, by part",
+      "colPart": "Part",
+      "colShare": "Share",
+      "colValue": "Amount"
+    },
+    "groups": {
+      "accountsLink": "See accounts",
+      "investmentsLink": "See investments",
+      "goalsLink": "See goals",
+      "debtsLink": "See debts",
+      "cardsLink": "See cards",
+      "investmentsEmpty": "No investments registered.",
+      "negativeTag": "Negative",
+      "assetsHint": "Amounts entered by you.",
+      "cardsHint": "Open bills and future installments.",
+      "debtsHint": "Balance still to pay, without future interest.",
+      "goalsHint": "Only what is set aside outside the accounts."
+    },
+    "how": {
+      "title": "How the sum is done",
+      "owned": "Counted in what you own: the balance of active accounts, investments at today's price, assets at the amount you entered and what is set aside for goals outside the accounts.",
+      "owed": "Counted in what you owe: the balance of active debts and everything still to leave your cards, including future installments.",
+      "photo": "A snapshot of the total is kept each month; it forms the evolution chart."
     }
   },
   "investimentos": {
