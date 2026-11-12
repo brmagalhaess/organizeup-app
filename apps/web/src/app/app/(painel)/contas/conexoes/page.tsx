@@ -10,6 +10,7 @@ import {
 } from "@organizeup/db";
 import { BANK_FEED_ERRORS, todayIn, type BankFeedError } from "@organizeup/domain";
 import { Card, PageHeader } from "@/components/ui";
+import { resolveLocale } from "@/i18n/resolve";
 import { systemTextOf } from "@/i18n/system-text";
 import {
   BANK_KEYS_PER_LOGIN,
@@ -27,7 +28,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function BankConnectionsPage() {
   const { ctx } = await requireBankFeed();
-  const [t, tSystem] = await Promise.all([getTranslations("conexoes"), getTranslations("sistema")]);
+  const [t, tSystem, locale] = await Promise.all([
+    getTranslations("conexoes"),
+    getTranslations("sistema"),
+    resolveLocale(),
+  ]);
   const system = systemTextOf(tSystem);
   const [connections, persons, family] = await Promise.all([
     loadBankConnections(ctx),
@@ -49,6 +54,12 @@ export default async function BankConnectionsPage() {
       timezone: await householdTimezone(tx, ctx.householdId),
     })),
   ]);
+  // Dia e hora da última rodada, no fuso da família.
+  const when = new Intl.DateTimeFormat(locale, {
+    dateStyle: "short",
+    timeStyle: "short",
+    ...(family.timezone ? { timeZone: family.timezone } : {}),
+  });
   const blocked = !canWrite(ctx)
     ? t("noPermission")
     : !connectionVaultReady()
@@ -67,6 +78,8 @@ export default async function BankConnectionsPage() {
         <ConnectionsBoard
           connections={connections.map((connection) => ({
             id: connection.id,
+            autoEnabled: connection.autoEnabled,
+            autoRanAt: connection.autoRanAt ? when.format(connection.autoRanAt) : null,
             personName: connection.personName,
             itemIds: connection.itemIds,
             checkedOn: connection.checkedAt ? todayIn(family.timezone, connection.checkedAt) : null,

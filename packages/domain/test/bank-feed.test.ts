@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { money } from "../src";
 import {
   feedAssetClass,
   feedCardPurchasesOf,
+  feedCostOf,
   feedDateOf,
   feedPortfolioOf,
   feedStatementOf,
@@ -377,5 +379,84 @@ describe("compras do cartão vindas da conexão", () => {
     expect(card.skipped).toBe(1);
     expect(card.rows).toHaveLength(3);
     expect(card.rows.map((row) => row.date)).toEqual(["2026-09-30", "2026-10-10", "2026-10-31"]);
+  });
+});
+
+describe("preço pago pelas compras e vendas", () => {
+  const buy = (date: string, quantity: number, value: number) => ({
+    type: "BUY",
+    date,
+    quantity,
+    value,
+    amount: quantity * value,
+  });
+  const sell = (date: string, quantity: number, value: number) => ({
+    type: "SELL",
+    date,
+    quantity,
+    value,
+    amount: quantity * value,
+  });
+
+  it("é exato quando o histórico explica a posição inteira", () => {
+    const cost = feedCostOf([buy("2026-03-10", 100, 10), buy("2026-05-10", 100, 14)], money(200));
+    expect(cost!.price.toFixed(2)).toBe("12.00");
+    expect(cost!.exact).toBe(true);
+  });
+
+  it("a venda sai pelo preço médio do momento, sem mudar o preço do que ficou", () => {
+    const cost = feedCostOf(
+      [buy("2026-05-10", 100, 14), sell("2026-06-01", 50, 30), buy("2026-03-10", 100, 10)],
+      money(150),
+    );
+    expect(cost!.price.toFixed(2)).toBe("12.00");
+    expect(cost!.exact).toBe(true);
+  });
+
+  it("com histórico pela metade, o preço médio do que se conhece vira estimativa", () => {
+    const cost = feedCostOf([buy("2026-05-10", 100, 14)], money(300));
+    expect(cost!.price.toFixed(2)).toBe("14.00");
+    expect(cost!.exact).toBe(false);
+  });
+
+  it("sem compra aproveitável não há preço", () => {
+    expect(feedCostOf([], money(10))).toBeNull();
+    expect(feedCostOf([sell("2026-06-01", 50, 30)], money(10))).toBeNull();
+    expect(
+      feedCostOf([{ type: "TAX", date: "2026-06-01", quantity: 1, value: 2 }], money(10)),
+    ).toBeNull();
+    // Vendeu tudo o que o histórico conhece: o que sobrou é de antes.
+    expect(feedCostOf([buy("2026-03-10", 10, 5), sell("2026-04-10", 30, 9)], money(80))).toBeNull();
+  });
+
+  it("usa o valor bruto dividido pela quantidade, e o preço unitário quando falta o bruto", () => {
+    const gross = feedCostOf(
+      [{ type: "BUY", date: "2026-03-10", quantity: 10, amount: -125 }],
+      money(10),
+    );
+    expect(gross!.price.toFixed(2)).toBe("12.50");
+    const unit = feedCostOf(
+      [{ type: "BUY", date: "2026-03-10", quantity: 10, value: 12.5 }],
+      money(10),
+    );
+    expect(unit!.price.toFixed(2)).toBe("12.50");
+  });
+
+  it("na posição, vale mais o aplicado, depois o histórico, depois o preço de mercado", () => {
+    const portfolio = feedPortfolioOf([
+      { id: "a", code: "ABEV3", quantity: 100, value: 15, trades: [buy("2026-03-10", 100, 12)] },
+      { id: "b", code: "BBAS3", quantity: 100, value: 30, trades: [buy("2026-03-10", 40, 20)] },
+      { id: "c", code: "CXSE3", quantity: 10, value: 21, trades: [] },
+      {
+        id: "d",
+        code: "PETR4",
+        quantity: 10,
+        value: 40,
+        amountOriginal: 300,
+        trades: [buy("2026-03-10", 10, 35)],
+      },
+    ]);
+    expect(portfolio.paid).toEqual({ "0": "12", "1": "20", "2": "21", "3": "30" });
+    expect(portfolio.estimated).toEqual(["1", "2"]);
   });
 });

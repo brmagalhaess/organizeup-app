@@ -734,7 +734,7 @@
         "empty": "A Pluggy não trouxe nenhum investimento nas suas conexões.",
         "connectText": "Guarde sua chave da Pluggy para trazer a posição em ações, fundos imobiliários, ETFs e BDRs sem baixar arquivo.",
         "connect": "Conectar banco",
-        "estimated": "A corretora não informa quanto você pagou por cada ativo. O campo de preço veio com o preço de hoje: troque pelo preço que você pagou antes de gravar, ou corrija depois em Investimentos, Lançamentos."
+        "estimated": "{count, plural, one {Em # ativo o preço é uma estimativa.} other {Em # ativos o preço é uma estimativa.}} A corretora só entrega as compras e vendas mais recentes, e o que falta foi completado com o preço médio que você já tem aqui ou, sem ele, com o preço de hoje. Confira antes de gravar, ou corrija depois em Investimentos, Lançamentos."
       }
     },
     "operation": {
@@ -5429,7 +5429,8 @@
       "cartao_em_uso": "Este cartão já recebe as compras de outro cartão do banco. Escolha outro ou crie um novo.",
       "cartao_invalido": "Ligue este cartão do banco a um cartão do OrganizeUp antes de buscar.",
       "dias_invalidos": "Informe o dia do fechamento e o do vencimento, de 1 a 31.",
-      "limite_de_lancamentos": "As compras não cabem no limite de lançamentos do seu plano neste mês."
+      "limite_de_lancamentos": "As compras não cabem no limite de lançamentos do seu plano neste mês.",
+      "moeda_estrangeira": "Conta em outra moeda não entra sozinha: traga pela conferência em Importar extrato."
     },
     "accountsCreated": "{count, plural, =0 {Nenhuma conta para criar.} one {# conta criada e ligada.} other {# contas criadas e ligadas.}}",
     "cardLinked": "Cartão ligado.",
@@ -5445,6 +5446,18 @@
     "cardImport": {
       "repeated": "{count, plural, one {# compra já estava no cartão.} other {# compras já estavam no cartão.}}",
       "blocked": "{count, plural, one {# compra ficou de fora porque cairia numa fatura já paga.} other {# compras ficaram de fora porque cairiam em fatura já paga.}}"
+    },
+    "auto": {
+      "title": "Atualização automática",
+      "on": "Ligada",
+      "off": "Desligada",
+      "textOn": "O que cair nas contas e nos cartões ligados entra sozinho quando você abre o sistema, no máximo a cada 6 horas. O que já entrou é pulado, conta prevista leva baixa, e cada lote aparece em Importar extrato, com Desfazer. Investimentos continuam pela conferência.",
+      "textOff": "Nada entra sozinho. Use \"Trazer do banco\" em Importar extrato para conferir e gravar.",
+      "last": "Última rodada: {when}.",
+      "turnOn": "Ligar",
+      "turnOff": "Desligar",
+      "turnedOn": "Atualização automática ligada.",
+      "turnedOff": "Atualização automática desligada."
     }
   }
 }

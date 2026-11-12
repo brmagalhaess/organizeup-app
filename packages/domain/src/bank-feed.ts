@@ -256,6 +256,19 @@ export interface FeedInvestment {
   /** Quanto a pessoa aplicou. */
   amountOriginal?: number | null;
   status?: string | null;
+  /** Compras e vendas do ativo, quando a instituição entrega. Costumam cobrir só os últimos 12 meses. */
+  trades?: FeedTrade[] | null;
+}
+
+export interface FeedTrade {
+  /** `BUY` ou `SELL`. O resto (imposto, transferência) não muda o preço médio. */
+  type?: string | null;
+  quantity?: number | null;
+  /** Preço unitário. */
+  value?: number | null;
+  /** Valor bruto: quantidade vezes preço. */
+  amount?: number | null;
+  date?: string | null;
 }
 
 export type FeedAssetClass = "acao" | "fii" | "etf_bdr";
@@ -264,10 +277,10 @@ export interface FeedPortfolio {
   file: ParsedInvestmentFile;
   /**
    * Preço por linha da posição para entrar na conferência já preenchido: o preço médio pago, quando a
-   * instituição informa quanto foi aplicado, ou o preço de mercado, quando não informa.
+   * instituição informa o valor aplicado ou as compras e vendas, ou o preço de mercado, quando não informa.
    */
   paid: Record<string, string>;
-  /** Linhas em que `paid` é o preço de mercado, e não o que a pessoa pagou: a tela avisa. */
+  /** Linhas em que `paid` é estimativa (histórico pela metade, ou preço de mercado): a tela avisa. */
   estimated: string[];
   /** Tipo de cada ativo, pelo que a instituição informa. */
   classes: Record<string, FeedAssetClass>;
@@ -289,6 +302,49 @@ const positive = (raw: unknown): MoneyValue | null => {
   return value && value.gt(0) ? value : null;
 };
 
+export interface FeedCost {
+  price: MoneyValue;
+  /** As compras e vendas explicam a quantidade inteira: o preço é o que a pessoa pagou. */
+  exact: boolean;
+}
+
+/** Diferença de quantidade que ainda conta como igual: arredondamento de cota fracionária. */
+const SAME_QUANTITY = "0.000001";
+
+/**
+ * Preço médio pago, pelas compras e vendas em ordem de data: a compra soma ao custo, e a venda sai pelo preço
+ * médio do momento. Só é exato quando o histórico explica a posição inteira. Com histórico pela metade (a
+ * instituição não entrega o que é antigo), sai o preço médio do que se conhece, como estimativa. Null: nenhuma
+ * compra aproveitável.
+ */
+export function feedCostOf(trades: FeedTrade[], quantity: MoneyValue): FeedCost | null {
+  const ordered = trades
+    .flatMap((trade) => {
+      const amount = positive(trade.quantity);
+      if (!amount || (trade.type !== "BUY" && trade.type !== "SELL")) return [];
+      const gross = amountOf(trade.amount)?.abs();
+      const price = gross && gross.gt(0) ? gross.div(amount) : positive(trade.value);
+      if (trade.type === "BUY" && !price) return [];
+      return [{ buy: trade.type === "BUY", amount, price, date: trade.date ?? "" }];
+    })
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : Number(b.buy) - Number(a.buy)));
+  let held = money(0);
+  let cost = money(0);
+  for (const trade of ordered) {
+    if (trade.buy) {
+      cost = cost.plus(trade.amount.times(trade.price!));
+      held = held.plus(trade.amount);
+    } else if (held.gt(0)) {
+      // Venda maior que o conhecido: a compra é anterior ao histórico, e o que sobra dela não se sabe.
+      const sold = trade.amount.gt(held) ? held : trade.amount;
+      cost = cost.minus(cost.div(held).times(sold));
+      held = held.minus(sold);
+    }
+  }
+  if (!held.gt(0)) return null;
+  return { price: cost.div(held), exact: held.minus(quantity).abs().lte(SAME_QUANTITY) };
+}
+
 /**
  * Posição em ativos de bolsa, somada por código: a mesma ação em duas corretoras vira uma linha. O que não
  * tem código de negociação (renda fixa, fundos, previdência) aparece como ignorado, com o motivo.
@@ -298,9 +354,11 @@ export function feedPortfolioOf(investments: FeedInvestment[]): FeedPortfolio {
     assetClass: FeedAssetClass | null;
     name: string | null;
     quantity: MoneyValue;
+    /** Preço de mercado, para mostrar na conferência. */
     price: MoneyValue | null;
-    applied: MoneyValue | null;
-    known: boolean;
+    /** Quanto a posição custou. Null: alguma parte dela não tem preço nenhum. */
+    paid: MoneyValue | null;
+    exact: boolean;
   }
   const lots = new Map<string, Lot>();
   const ignored: IgnoredLine[] = [];
@@ -318,6 +376,11 @@ export function feedPortfolioOf(investments: FeedInvestment[]): FeedPortfolio {
     if (!quantity) return;
     const price = positive(item.value) ?? positive(item.amount)?.div(quantity) ?? null;
     const applied = positive(item.amountOriginal);
+    // Do mais certo para o menos: o valor aplicado, o histórico de compras e vendas, o preço de mercado.
+    const cost: FeedCost | null = applied
+      ? { price: applied.div(quantity), exact: true }
+      : (feedCostOf(item.trades ?? [], quantity) ?? (price ? { price, exact: false } : null));
+    const paid = cost ? cost.price.times(quantity) : null;
     const lot = lots.get(ticker);
     if (!lot) {
       lots.set(ticker, {
@@ -325,16 +388,16 @@ export function feedPortfolioOf(investments: FeedInvestment[]): FeedPortfolio {
         name: cleanFileText(item.name) || null,
         quantity,
         price,
-        applied,
-        known: applied !== null,
+        paid,
+        exact: cost?.exact ?? false,
       });
       return;
     }
     lot.quantity = lot.quantity.plus(quantity);
     lot.assetClass ??= feedAssetClass(item.type, item.subtype);
     lot.price ??= price;
-    lot.known &&= applied !== null;
-    lot.applied = lot.known && lot.applied && applied ? lot.applied.plus(applied) : null;
+    lot.paid = lot.paid && paid ? lot.paid.plus(paid) : null;
+    lot.exact &&= cost?.exact ?? false;
   });
   const positions: ParsedPosition[] = [];
   const paid: Record<string, string> = {};
@@ -351,12 +414,9 @@ export function feedPortfolioOf(investments: FeedInvestment[]): FeedPortfolio {
         closePrice: lot.price ? decimalText(lot.price) : null,
       });
       if (lot.assetClass) classes[ticker] = lot.assetClass;
-      if (lot.known && lot.applied) {
-        paid[String(line)] = decimalText(lot.applied.div(lot.quantity));
-      } else if (lot.price) {
-        paid[String(line)] = decimalText(lot.price);
-        estimated.push(String(line));
-      }
+      if (!lot.paid) return;
+      paid[String(line)] = decimalText(lot.paid.div(lot.quantity));
+      if (!lot.exact) estimated.push(String(line));
     });
   return { file: { kind: "posicao", trades: [], positions, ignored }, paid, estimated, classes };
 }

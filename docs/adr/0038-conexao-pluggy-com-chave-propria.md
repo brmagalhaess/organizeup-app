@@ -91,6 +91,38 @@ que faltava. Migração 0051.
   pergunta. A corretora não informa quanto foi pago: o preço entra preenchido com o de mercado, com aviso para
   trocar antes de gravar ou corrigir depois em Lançamentos.
 
+## Preço pago dos investimentos (2026-11-11)
+
+A posição da corretora não traz o preço pago. A busca passa a pedir as compras e vendas de cada ativo de bolsa
+(`/investments/{id}/transactions`) e calcula o preço médio: a compra soma ao custo e a venda sai pelo preço
+médio do momento (`feedCostOf`). O preço só é dado como certo quando o histórico explica a posição inteira. O
+Open Finance entrega cerca de 12 meses, então com histórico pela metade o preço médio conhecido entra como
+estimativa. Sem compra nenhuma, vale o preço médio que a carteira já tem no OrganizeUp e, na falta dele, o de
+mercado. A tela avisa em quantos ativos o preço é estimado, e só conta as linhas que vão virar operação. Se a
+instituição não libera o histórico, a busca desiste na primeira recusa e segue como antes.
+
+## Atualização automática (2026-11-11)
+
+Pedido do fundador: depois de ligadas as contas e os cartões, o que cair no banco entra sozinho. Migração 0052.
+
+- **Roda na web, nunca no worker.** `DOCUMENT_ENCRYPTION_KEY` só existe na web (runbook de bootstrap), e sem
+  ela as chaves da Pluggy não abrem. A rodada usa o contexto de quem guardou a chave, como se a pessoa tivesse
+  clicado.
+- **Dois gatilhos.** Quando a pessoa abre o sistema, depois de a tela ser entregue (`after`), no máximo a cada
+  6 horas por conexão. E quando o Paperclip acorda o agente `bancos` em `POST /api/ops/agents`, que percorre
+  todas as conexões com a atualização ligada e deixa só contagens em `ops.agent_runs`. Marcar a hora da rodada
+  é a primeira escrita, então duas telas abertas juntas não rodam duas vezes.
+- **Exceção à regra 7, decidida pelo fundador.** Aqui lançamento entra sem aceite. O que segura: linha que já
+  entrou é pulada; o que a família digitou à mão é respeitado; conta prevista leva baixa em vez de ganhar uma
+  cópia; linha sem pista de categoria entra marcada para revisar, e o agente de categorias cuida dela. Cada
+  rodada de conta vira um lote em Importar extrato, com o relatório e o Desfazer de sempre.
+- **Cartão** entra pela mesma gravação da conferência. Compra de cartão não tem lote: desfaz-se apagando a
+  compra.
+- **O que não é automático.** Investimentos, porque a posição pede o preço pago. Conta em moeda diferente da
+  principal, porque a conversão é conferida na tela. Criar conta e cartão, que continuam num clique da pessoa.
+- **Desligar.** Cada conexão tem o interruptor "Atualização automática", e o painel tem o do agente `bancos`,
+  que para os dois gatilhos.
+
 ## Conexão de outra aplicação (2026-11-11)
 
 O painel da Pluggy tem um botão "Iniciar Demo" no topo que é da aplicação de exemplo, a Pluggy Demo App, e não
@@ -102,9 +134,9 @@ explicação. O guia avisa para usar o ▶ da linha da própria aplicação.
 ## Fora desta etapa
 
 - Fundos, renda fixa e previdência: aparecem como ignorados na conferência, com o motivo.
-- Histórico de compras e vendas pela Pluggy: só a posição atual.
+- Gravar as compras e vendas uma a uma: o histórico só serve para o preço médio da posição.
 - Estorno e crédito na fatura do cartão.
-- Busca automática diária e o conector embutido (Pluggy Connect), que dispensaria copiar o Item ID.
+- O conector embutido (Pluggy Connect), que dispensaria copiar o Item ID.
 
 ## Se o OrganizeUp contratar o plano de produto
 

@@ -1050,6 +1050,9 @@ describe("posição e venda", () => {
       ["falta", "10"],
       ["falta", "10"],
     ]);
+    // O preço médio do que já está na carteira serve de sugestão; ativo novo não tem.
+    expect(rows[2]!.heldAverage).not.toBeNull();
+    expect(rows[3]!.heldAverage).toBeNull();
   });
 });
 

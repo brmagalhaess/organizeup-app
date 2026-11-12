@@ -14,6 +14,7 @@ import {
   refreshBank,
   removeBank,
   requireBankFeed,
+  setBankAuto,
   type BankFeedFailure,
 } from "@/lib/bank-feed";
 import { commitCardFeed, prepareCardFeed, type PreparedCardRow } from "@/lib/bank-feed-cards";
@@ -270,4 +271,18 @@ export async function commitCardStatement(
   } catch (error) {
     return { ok: false, message: (await unexpected("bank_card_commit_failed", error)).message! };
   }
+}
+
+/** Liga ou desliga a atualização automática de uma chave. */
+export async function toggleBankAuto(
+  _previous: ConnectionFormState,
+  form: FormData,
+): Promise<ConnectionFormState> {
+  const { ctx } = await requireBankFeed();
+  const enabled = form.get("enabled") === "true";
+  const result = await setBankAuto(ctx, String(form.get("connectionId") ?? ""), enabled);
+  if (!result.ok) return { ok: false, message: await problem(result.code) };
+  revalidatePath(PAGE);
+  const t = await getTranslations("conexoes.auto");
+  return { ok: true, message: t(enabled ? "turnedOn" : "turnedOff") };
 }

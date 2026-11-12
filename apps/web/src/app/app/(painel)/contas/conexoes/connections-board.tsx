@@ -29,6 +29,7 @@ import {
   createBankAccounts,
   linkBank,
   linkCard,
+  toggleBankAuto,
   refreshBankConnection,
   removeBankConnection,
   saveBankConnection,
@@ -70,6 +71,9 @@ interface PersonOption {
 
 interface ConnectionView {
   id: string;
+  autoEnabled: boolean;
+  /** Última rodada automática, já no formato da tela. */
+  autoRanAt: string | null;
   personName: string;
   itemIds: string[];
   checkedOn: string | null;
@@ -392,6 +396,7 @@ function ConnectionCard({
   const locale = useLocale();
   const [state, refresh, refreshing] = useActionState(refreshBankConnection, initial);
   const [created, createAll, creating] = useActionState(createBankAccounts, initial);
+  const [auto, toggleAuto, toggling] = useActionState(toggleBankAuto, initial);
   const missing = connection.links.filter((link) => link.kind !== "cartao" && !link.accountId);
   return (
     <Card
@@ -443,6 +448,31 @@ function ConnectionCard({
         <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
         <FormMessage message={created.message} tone={created.ok ? "ok" : "error"} />
       </div>
+
+      <div className="mt-2 flex flex-col gap-3 rounded-xl border border-line bg-card-soft p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="m-0 flex flex-wrap items-center gap-2 text-sm font-semibold">
+            {t("auto.title")}
+            <Badge tone={connection.autoEnabled ? "success" : "neutral"}>
+              {t(connection.autoEnabled ? "auto.on" : "auto.off")}
+            </Badge>
+          </p>
+          <p className="m-0 mt-1 text-xs text-muted">
+            {t(connection.autoEnabled ? "auto.textOn" : "auto.textOff")}{" "}
+            {connection.autoEnabled && connection.autoRanAt
+              ? t("auto.last", { when: connection.autoRanAt })
+              : null}
+          </p>
+        </div>
+        <form action={toggleAuto} className="shrink-0">
+          <input type="hidden" name="connectionId" value={connection.id} />
+          <input type="hidden" name="enabled" value={connection.autoEnabled ? "false" : "true"} />
+          <Button type="submit" variant="secondary" small disabled={toggling}>
+            {t(connection.autoEnabled ? "auto.turnOff" : "auto.turnOn")}
+          </Button>
+        </form>
+      </div>
+      <FormMessage message={auto.message} tone={auto.ok ? "ok" : "error"} />
 
       <h3 className="m-0 mt-4 text-sm font-semibold">{t("accounts.title")}</h3>
       <p className="m-0 mt-1 text-sm text-muted">{t("accounts.text")}</p>

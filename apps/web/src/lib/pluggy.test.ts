@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import {
   pluggyAccounts,
+  pluggyInvestmentTrades,
   pluggyInvestments,
   pluggyItem,
   pluggyKey,
@@ -277,5 +278,43 @@ describe("cliente da Pluggy", () => {
     expect(rows.map((row) => row.id)).toEqual(["i1", "i2"]);
     expect(rows[0]).toMatchObject({ code: "PETR4", quantity: 100, amountOriginal: 3000 });
     expect(rows[1]).toMatchObject({ code: null, value: null });
+  });
+
+  it("lê as compras e vendas de um investimento, com a data do negócio", async () => {
+    const { fetcher, calls } = stub((url) =>
+      json({
+        totalPages: 2,
+        results: [
+          url.searchParams.get("page") === "1"
+            ? {
+                id: "m1",
+                type: "BUY",
+                quantity: 100,
+                value: 12,
+                amount: 1200,
+                date: "2026-03-12T03:00:00.000Z",
+                tradeDate: "2026-03-10T03:00:00.000Z",
+              }
+            : {
+                id: "m2",
+                type: "SELL",
+                quantity: 40,
+                value: 15,
+                amount: 600,
+                date: "2026-06-02T03:00:00.000Z",
+                tradeDate: null,
+              },
+        ],
+      }),
+    );
+    const trades = await pluggyInvestmentTrades("k", "inv-1", { fetcher });
+    expect(calls.map((call) => call.url.pathname)).toEqual([
+      "/investments/inv-1/transactions",
+      "/investments/inv-1/transactions",
+    ]);
+    expect(trades).toEqual([
+      { type: "BUY", quantity: 100, value: 12, amount: 1200, date: "2026-03-10T03:00:00.000Z" },
+      { type: "SELL", quantity: 40, value: 15, amount: 600, date: "2026-06-02T03:00:00.000Z" },
+    ]);
   });
 });

@@ -397,6 +397,8 @@ export interface PlannedPosition extends ParsedPosition {
   state: PositionState;
   /** O que a carteira tem hoje. */
   held: string;
+  /** Preço médio do que a carteira já tem. Null quando ainda não tem o ativo. */
+  heldAverage: string | null;
   /** B3 menos carteira. */
   difference: string;
 }
@@ -412,7 +414,9 @@ export function planPositions(
   const owned = holdingsByTicker(holdings);
   return positions.map((position) => {
     const holding = owned.get(position.ticker);
-    const held = holding ? positionOf(holding.trades, holding.events).quantity : "0";
+    const current = holding ? positionOf(holding.trades, holding.events) : null;
+    const held = current?.quantity ?? "0";
+    const heldAverage = current && money(held).gt(0) ? current.averagePrice : null;
     const difference = money(position.quantity).minus(held);
     const unsupported = holding !== undefined && !isUnitPriced(holding.assetClass);
     const state: PositionState = unsupported
@@ -422,6 +426,6 @@ export function planPositions(
         : difference.gt(0)
           ? "falta"
           : "sobra";
-    return { ...position, state, held, difference: difference.toFixed() };
+    return { ...position, state, held, heldAverage, difference: difference.toFixed() };
   });
 }

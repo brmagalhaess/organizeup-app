@@ -2,6 +2,7 @@
 // As chaves ficam cifradas: nada aqui é legível sem `DOCUMENT_ENCRYPTION_KEY`.
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   date,
   smallint,
   foreignKey,
@@ -44,6 +45,10 @@ export const bankConnections = pgTable(
     itemIds: text("item_ids").array().notNull(),
     checkedAt: ts("checked_at"),
     errorCode: text("error_code"),
+    /** Traz sozinho o que cair no banco. A pessoa pode desligar. */
+    autoEnabled: boolean("auto_enabled").notNull().default(true),
+    /** Última rodada automática: é também a trava entre duas rodadas ao mesmo tempo. */
+    autoRanAt: ts("auto_ran_at"),
     createdAt: ts("created_at").notNull().defaultNow(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },

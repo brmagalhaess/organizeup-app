@@ -55,7 +55,7 @@ export interface CardFeed {
 }
 
 /** O que a conferência precisa para propor a categoria de cada compra: o mesmo do extrato. */
-async function categoryContext(tx: TenantTx) {
+export async function categoryContext(tx: TenantTx) {
   const rows = await tx
     .select({
       id: categories.id,

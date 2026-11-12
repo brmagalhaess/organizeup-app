@@ -559,7 +559,7 @@ export function InvestmentImport({
   const [paid, setPaid] = useState<Record<string, string>>({});
   const [bankClasses, setBankClasses] = useState<Record<string, UnitPricedClass>>({});
   // A instituição não disse quanto foi pago: o preço que entrou preenchido é o de mercado.
-  const [estimated, setEstimated] = useState(false);
+  const [estimated, setEstimated] = useState<string[]>([]);
   const locale = useLocale();
   const [busy, startTransition] = useTransition();
   // Num celular lento, o arquivo escolhido antes da hidratação se perderia sem aviso.
@@ -575,7 +575,7 @@ export function InvestmentImport({
     setTickers({});
     setPaid({});
     setBankClasses({});
-    setEstimated(false);
+    setEstimated([]);
     setMessage(null);
     setDone(null);
     setFileKey((key) => key + 1);
@@ -602,7 +602,7 @@ export function InvestmentImport({
         ),
       );
       setBankClasses(result.classes);
-      setEstimated(result.estimated.length > 0);
+      setEstimated(result.estimated);
       prepare(result.file, {});
     });
   };
@@ -638,7 +638,7 @@ export function InvestmentImport({
     setMessage(null);
     setPaid({});
     setBankClasses({});
-    setEstimated(false);
+    setEstimated([]);
     const chosen = event.target.files?.[0];
     if (!chosen) return;
     setReading(chosen.name);
@@ -706,15 +706,24 @@ export function InvestmentImport({
   }
 
   if (file && prepared) {
+    // Só interessa o preço das linhas que vão virar operação: o que já confere com a carteira não grava nada.
+    const guessed = prepared.positions.filter(
+      (row) => row.state === "falta" && estimated.includes(String(row.line)),
+    );
+    // No ativo que a carteira já tem, o preço médio de lá é melhor palpite que o de mercado.
+    const prices = { ...paid };
+    for (const row of guessed) {
+      if (row.heldAverage) prices[String(row.line)] = toInputValue(row.heldAverage, locale);
+    }
     return (
       <>
-        {estimated ? (
+        {guessed.length > 0 ? (
           <p
             role="status"
             className="m-0 flex items-start gap-2 rounded-xl border border-warning bg-card-soft p-4 text-sm"
           >
             <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-            {t("bank.estimated")}
+            {t("bank.estimated", { count: guessed.length })}
           </p>
         ) : null}
         <Preview
@@ -725,7 +734,7 @@ export function InvestmentImport({
           busy={busy}
           message={message}
           tickers={tickers}
-          initialPrices={paid}
+          initialPrices={prices}
           initialClasses={bankClasses}
           onTicker={(title, value) => setTickers((all) => ({ ...all, [title]: value }))}
           onApplyTickers={() => prepare(file, tickers)}

@@ -19,8 +19,11 @@ import {
 import { todayIn, usageLevel, vipPartial } from "@organizeup/domain";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { AppShell, type ShellBanner, type ShellNotice } from "@/components/shell/app-shell";
+import { BANCOS_AGENT, syncOwnBanks } from "@/lib/bank-auto";
 import { canLeave } from "@/lib/billing/actor";
+import { reportActionFailure } from "@/lib/diagnostics";
 import { shouldAskDocument } from "@/lib/identity";
 import { onboardingStatus } from "@/lib/onboarding";
 import { countUnread } from "@/lib/notifications";
@@ -194,6 +197,12 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     };
   });
 
+  // Conexão com bancos: o que caiu no banco entra sozinho, depois que a tela já foi entregue (ADR-0038).
+  const bank = writable && (flags.bankFeedEnabled || isServiceAdmin(session.user));
+  if (bank && !flags.maintenance && !flags.disabledAgents.includes(BANCOS_AGENT)) {
+    after(() => syncOwnBanks(ctx).catch((error) => reportActionFailure("bank_auto_failed", error)));
+  }
+
   return (
     <AppShell
       userName={session.user.name}
@@ -207,7 +216,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       emailNotice={askEmail ? EMAIL_KEY : null}
       banners={[...banners, ...plan]}
       billing={flags.billingEnabled || isServiceAdmin(session.user) || leaving}
-      bank={writable && (flags.bankFeedEnabled || isServiceAdmin(session.user))}
+      bank={bank}
       pendingSuggestions={status.pendingSuggestions}
       unreadNotifications={unreadNotifications}
       assistant={assistant}

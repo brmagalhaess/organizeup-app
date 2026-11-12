@@ -7,7 +7,12 @@ const fila = vi.hoisted(() => ({
   MERCADO_AGENT: "mercado",
   queueAgent: vi.fn(),
 }));
+// Bancos roda na própria web, depois da resposta: aqui só interessa que a rodada foi pedida.
+const banks = vi.hoisted(() => ({ syncAllBanks: vi.fn(), tasks: [] as Array<() => unknown> }));
 vi.mock("@organizeup/db", () => db);
+vi.mock("@/lib/bank-auto", () => ({ syncAllBanks: banks.syncAllBanks }));
+vi.mock("@/lib/diagnostics", () => ({ reportActionFailure: vi.fn() }));
+vi.mock("next/server", () => ({ after: (task: () => unknown) => banks.tasks.push(task) }));
 vi.mock("@/app/admin/fila", () => fila);
 
 const { POST } = await import("./route");
@@ -59,6 +64,24 @@ describe("POST /api/ops/agents", () => {
     db.readPlatformFlags.mockResolvedValue({ maintenance: false, disabledAgents: ["metas"] });
     expect(await (await post({ agent: "metas" })).json()).toMatchObject({ reason: "desligado" });
     expect(fila.queueAgent).not.toHaveBeenCalled();
+  });
+
+  it("bancos roda na web, depois da resposta, e não vai para a fila do worker", async () => {
+    banks.tasks.length = 0;
+    banks.syncAllBanks.mockResolvedValue({ households: 1 });
+    const response = await post({ agent: "bancos" });
+    expect(await response.json()).toMatchObject({ queued: true, agent: "bancos", reason: null });
+    expect(fila.queueAgent).not.toHaveBeenCalled();
+    expect(banks.syncAllBanks).not.toHaveBeenCalled();
+    await banks.tasks[0]!();
+    expect(banks.syncAllBanks).toHaveBeenCalledTimes(1);
+  });
+
+  it("bancos também respeita o interruptor do painel", async () => {
+    banks.tasks.length = 0;
+    db.readPlatformFlags.mockResolvedValue({ maintenance: false, disabledAgents: ["bancos"] });
+    expect(await (await post({ agent: "bancos" })).json()).toMatchObject({ reason: "desligado" });
+    expect(banks.tasks).toHaveLength(0);
   });
 
   it("não gasta cota de mercado de novo no mesmo dia", async () => {

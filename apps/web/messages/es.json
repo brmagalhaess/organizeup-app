@@ -734,7 +734,7 @@
         "empty": "Pluggy no trajo ninguna inversión en tus conexiones.",
         "connectText": "Guarda tu clave de Pluggy para traer la posición en acciones, fondos inmobiliarios, ETFs y BDRs sin descargar archivo.",
         "connect": "Conectar banco",
-        "estimated": "El bróker no informa cuánto pagaste por cada activo. El campo de precio vino con el precio de hoy: cámbialo por el precio que pagaste antes de guardar, o corrígelo después en Inversiones, Movimientos."
+        "estimated": "{count, plural, one {En # activo el precio es una estimación.} other {En # activos el precio es una estimación.}} El bróker solo entrega las compras y ventas más recientes, y lo que falta se completó con el precio medio que ya tienes aquí o, sin él, con el precio de hoy. Revisa antes de guardar, o corrígelo después en Inversiones, Movimientos."
       }
     },
     "operation": {
@@ -5429,7 +5429,8 @@
       "cartao_em_uso": "Esta tarjeta ya recibe las compras de otra tarjeta del banco. Elige otra o crea una nueva.",
       "cartao_invalido": "Vincula esta tarjeta del banco a una tarjeta de OrganizeUp antes de buscar.",
       "dias_invalidos": "Informa el día de cierre y el de vencimiento, de 1 a 31.",
-      "limite_de_lancamentos": "Las compras no caben en el límite de movimientos de tu plan este mes."
+      "limite_de_lancamentos": "Las compras no caben en el límite de movimientos de tu plan este mes.",
+      "moeda_estrangeira": "La cuenta en otra moneda no entra sola: tráela por la revisión en Importar extracto."
     },
     "accountsCreated": "{count, plural, =0 {Ninguna cuenta para crear.} one {# cuenta creada y vinculada.} other {# cuentas creadas y vinculadas.}}",
     "cardLinked": "Tarjeta vinculada.",
@@ -5445,6 +5446,18 @@
     "cardImport": {
       "repeated": "{count, plural, one {# compra ya estaba en la tarjeta.} other {# compras ya estaban en la tarjeta.}}",
       "blocked": "{count, plural, one {# compra quedó fuera porque caería en una factura ya pagada.} other {# compras quedaron fuera porque caerían en una factura ya pagada.}}"
+    },
+    "auto": {
+      "title": "Actualización automática",
+      "on": "Activada",
+      "off": "Desactivada",
+      "textOn": "Lo que caiga en las cuentas y tarjetas vinculadas entra solo cuando abres el sistema, como máximo cada 6 horas. Lo que ya entró se omite, la cuenta prevista se da por pagada, y cada lote aparece en Importar extracto, con Deshacer. Las inversiones siguen por la revisión.",
+      "textOff": "Nada entra solo. Usa \"Traer del banco\" en Importar extracto para revisar y guardar.",
+      "last": "Última ejecución: {when}.",
+      "turnOn": "Activar",
+      "turnOff": "Desactivar",
+      "turnedOn": "Actualización automática activada.",
+      "turnedOff": "Actualización automática desactivada."
     }
   }
 }

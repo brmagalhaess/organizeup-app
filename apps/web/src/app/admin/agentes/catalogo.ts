@@ -5,6 +5,8 @@ import { DAILY_AGENTS_INFO } from "./info";
 
 export const MERCADO_AGENT = "mercado";
 export const DICAS_AGENT = "dicas";
+/** Atualização automática da conexão com bancos (ADR-0038). Roda na web, e não no worker. */
+export const BANCOS_AGENT = "bancos";
 export const IMPORTADOR_CARD = "importador";
 
 export interface ProductAgent {
@@ -61,6 +63,14 @@ export const PRODUCT_AGENTS: ProductAgent[] = [
     text: "Com IA, escreve as dicas de cada tela para as famílias que autorizaram e confere os números antes de mostrar.",
     wake: "O worker roda às 05:45, depois dos outros agentes.",
     controls: true,
+  },
+  {
+    id: BANCOS_AGENT,
+    name: "Bancos",
+    text: "Traz sozinho o que caiu nas contas e nos cartões ligados pela Pluggy: pula o que já entrou, dá baixa no que estava previsto e grava o resto, com Desfazer. Desligado, a família só traz pela conferência.",
+    wake: "Roda quando a pessoa abre o sistema, no máximo a cada 6 horas, e quando o Paperclip acorda o agente. Não entra na rodada do worker.",
+    controls: true,
+    onDemand: true,
   },
   {
     id: IMPORTADOR_CARD,

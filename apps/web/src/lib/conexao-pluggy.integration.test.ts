@@ -33,12 +33,14 @@ vi.mock("@/lib/session", () => ({
 }));
 
 const db = await import("@organizeup/db");
+const domain = await import("@organizeup/domain");
 const feed = await import("@/lib/bank-feed");
 const cardFeed = await import("@/lib/bank-feed-cards");
+const auto = await import("@/lib/bank-auto");
 const { commitImport, prepareImport } = await import("@/app/app/(painel)/importar/actions");
 
 const { accounts, bankConnectionAccounts, bankConnections, categories, eq, transactions } = db;
-const { cardPurchases, creditCards } = db;
+const { cardPurchases, cashflowPlans, creditCards, householdReports, importBatches } = db;
 const { household, householdMember, householdSettings, people, user } = db;
 
 const H = { household: "hh-pluggy", owner: "user-pluggy", partner: "user-pluggy-2" };
@@ -219,6 +221,9 @@ const cardRemote = {
     },
   ] as Array<Record<string, unknown>>,
 };
+// Compras e vendas de cada investimento, por identificador. Sem entrada: a Pluggy devolve lista vazia.
+const tradesRemote: Record<string, { status: number; results: Array<Record<string, unknown>> }> =
+  {};
 const calls: string[] = [];
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -260,6 +265,14 @@ const fetcher = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
     if (!mine && account === "acc-dela")
       return json({ results: spouseRemote.transactions, next: null });
     return json({}, 404);
+  }
+  const trades = /^\/investments\/([^/]+)\/transactions$/.exec(url.pathname);
+  if (trades) {
+    const known = tradesRemote[trades[1]!];
+    if (!known) return json({ results: [], totalPages: 1 });
+    return known.status === 200
+      ? json({ results: known.results, totalPages: 1 })
+      : json({ message: "sem acesso" }, known.status);
   }
   if (url.pathname === "/investments") {
     return url.searchParams.get("itemId") === item
@@ -656,6 +669,89 @@ describe("conexão pela Pluggy com a chave da pessoa", () => {
     ]);
   });
 
+  it("tira o preço pago das compras e vendas, e estima quando o histórico não chega", async () => {
+    const before = remote.investments;
+    remote.investments = [
+      {
+        id: "h1",
+        code: "ABEV3",
+        name: "AMBEV ON",
+        type: "EQUITY",
+        subtype: "STOCK",
+        quantity: 100,
+        value: 15,
+        amount: 1500,
+        status: "ACTIVE",
+      },
+      {
+        id: "h2",
+        code: "BBAS3",
+        name: "BRASIL ON",
+        type: "EQUITY",
+        subtype: "STOCK",
+        quantity: 100,
+        value: 30,
+        amount: 3000,
+        status: "ACTIVE",
+      },
+      {
+        id: "h3",
+        code: "TRXF11",
+        name: "TRX FII",
+        type: "EQUITY",
+        subtype: "REAL_ESTATE_FUND",
+        quantity: 10,
+        value: 115,
+        amount: 1150,
+        status: "ACTIVE",
+      },
+    ];
+    tradesRemote.h1 = {
+      status: 200,
+      results: [
+        { type: "BUY", quantity: 60, value: 10, amount: 600, date: "2026-03-10T03:00:00.000Z" },
+        { type: "BUY", quantity: 40, value: 15, amount: 600, date: "2026-05-10T03:00:00.000Z" },
+      ],
+    };
+    tradesRemote.h2 = {
+      status: 200,
+      results: [
+        { type: "BUY", quantity: 40, value: 20, amount: 800, date: "2026-05-10T03:00:00.000Z" },
+      ],
+    };
+    try {
+      calls.length = 0;
+      const result = await feed.bankPortfolio(ctx, options);
+      if (!result.ok) throw new Error(result.code);
+      const line = Object.fromEntries(
+        result.file.positions.map((row) => [row.ticker, String(row.line)]),
+      );
+      // ABEV3: o histórico explica as 100. BBAS3: só 40 das 100. TRXF11: nenhuma compra. PETR4 vem da outra chave.
+      expect(result.paid[line.ABEV3!]).toBe("12");
+      expect(result.paid[line.BBAS3!]).toBe("20");
+      expect(result.paid[line.TRXF11!]).toBe("115");
+      expect(result.paid[line.PETR4!]).toBe("36");
+      expect(result.estimated.sort()).toEqual([line.BBAS3!, line.TRXF11!].sort());
+      expect(result.classes).toMatchObject({ ABEV3: "acao", BBAS3: "acao", TRXF11: "fii" });
+      // Quem já informa o valor aplicado não gasta chamada.
+      expect(calls.filter((call) => call.endsWith("/transactions"))).toHaveLength(3);
+
+      // A corretora não libera o histórico: uma tentativa só, e o preço de hoje como estimativa.
+      tradesRemote.h1 = { status: 403, results: [] };
+      calls.length = 0;
+      const blocked = await feed.bankPortfolio(ctx, options);
+      if (!blocked.ok) throw new Error(blocked.code);
+      expect(calls.filter((call) => call.endsWith("/transactions"))).toHaveLength(1);
+      expect(blocked.paid[line.ABEV3!]).toBe("15");
+      expect(blocked.estimated).toHaveLength(3);
+      expect((await mineOf(me)).errorCode).toBeNull();
+    } finally {
+      remote.investments = before;
+      delete tradesRemote.h1;
+      delete tradesRemote.h2;
+    }
+  });
+
   it("cria a conta daqui a partir da conta do banco, uma a uma ou todas de uma vez", async () => {
     const global = await linkOf("acc-dolar");
     expect(await feed.linkBankAccount(ctx, global.id, "")).toEqual({ ok: true });
@@ -894,12 +990,189 @@ describe("conexão pela Pluggy com a chave da pessoa", () => {
     expect((await mineOf(spouse)).errorCode).toBeNull();
   });
 
+  it("a atualização automática grava só o que é novo, num lote com Desfazer", async () => {
+    const batchesBefore = (await inH((tx) => tx.select().from(importBatches))).length;
+    const result = await auto.syncOwnBanks(ctx, { options });
+    // PADARIA saiu de pendente e ainda não tinha entrado. O resto já estava, em conta e em cartão.
+    expect(result).toMatchObject({ entries: 1, settled: 0, purchases: 0 });
+    const rows = await inH((tx) => tx.select().from(transactions));
+    expect(rows).toHaveLength(4);
+    const bread = rows.find((row) => row.description === "PADARIA")!;
+    expect(bread).toMatchObject({
+      accountId: real,
+      kind: "despesa",
+      amount: "12.50",
+      status: "realizado",
+      createdBy: H.owner,
+    });
+    expect(bread.importBatchId).not.toBeNull();
+    expect(["revisar", "importacao"]).toContain(bread.categorySource);
+    const batches = await inH((tx) => tx.select().from(importBatches));
+    expect(batches).toHaveLength(batchesBefore + 1);
+    const reports = await inH((tx) =>
+      tx.select().from(householdReports).where(eq(householdReports.period, bread.importBatchId!)),
+    );
+    expect(reports).toHaveLength(1);
+    expect((await mineOf(me)).autoRanAt).not.toBeNull();
+  });
+
+  it("dá baixa na conta prevista em vez de lançar de novo, e respeita o que foi digitado à mão", async () => {
+    // Aluguel previsto todo dia 10, e um mercado que a família já lançou à mão.
+    await inH(async (tx) => {
+      await tx.insert(cashflowPlans).values({
+        householdId: H.household,
+        accountId: real,
+        categoryId: expense,
+        kind: "despesa",
+        description: "Aluguel",
+        amount: "1800.00",
+        dayOfMonth: 10,
+        startMonth: "2026-11",
+      });
+      await tx.insert(transactions).values({
+        householdId: H.household,
+        accountId: real,
+        categoryId: expense,
+        kind: "despesa",
+        description: "Feira",
+        amount: "55.00",
+        occurredOn: "2026-11-09",
+        status: "realizado",
+      });
+    });
+    const before = (await inH((tx) => tx.select().from(transactions))).length;
+    const saved = await auto.autoImportStatement(ctx, real, [
+      {
+        date: "2026-11-10",
+        description: "PAGTO ALUGUEL",
+        amount: "1800.00",
+        kind: "despesa",
+        externalId: "pluggy:a1",
+      },
+      {
+        date: "2026-11-09",
+        description: "FEIRA LIVRE",
+        amount: "55.00",
+        kind: "despesa",
+        externalId: "pluggy:a2",
+      },
+      {
+        date: "2026-11-09",
+        description: "UBER VIAGEM",
+        amount: "23.40",
+        kind: "despesa",
+        externalId: "pluggy:a3",
+      },
+    ]);
+    expect(saved).toEqual({ ok: true, imported: 1, settled: 1 });
+    const rows = await inH((tx) => tx.select().from(transactions));
+    // Entraram o Uber e a baixa do aluguel; a feira digitada não ganhou uma cópia.
+    expect(rows).toHaveLength(before + 2);
+    expect(rows.filter((row) => row.amount === "55.00")).toHaveLength(1);
+    const rent = rows.find((row) => row.amount === "1800.00")!;
+    expect(rent).toMatchObject({ status: "realizado", importFingerprint: "ofx:id:pluggy:a1#0" });
+    expect(rent.planId).not.toBeNull();
+    // De novo, nada muda.
+    expect(
+      await auto.autoImportStatement(ctx, real, [
+        {
+          date: "2026-11-10",
+          description: "PAGTO ALUGUEL",
+          amount: "1800.00",
+          kind: "despesa",
+          externalId: "pluggy:a1",
+        },
+        {
+          date: "2026-11-09",
+          description: "UBER VIAGEM",
+          amount: "23.40",
+          kind: "despesa",
+          externalId: "pluggy:a3",
+        },
+      ]),
+    ).toEqual({ ok: true, imported: 0, settled: 0 });
+    expect(
+      await auto.autoImportStatement(ctx, dollars, [
+        {
+          date: "2026-11-09",
+          description: "CAFE",
+          amount: "5.00",
+          kind: "despesa",
+          externalId: "pluggy:u1",
+        },
+      ]),
+    ).toEqual({ ok: false, code: "moeda_estrangeira" });
+    expect(
+      await auto.autoImportStatement(db.readOnlyContext(ctx), real, [
+        {
+          date: "2026-11-09",
+          description: "CAFE",
+          amount: "5.00",
+          kind: "despesa",
+          externalId: "pluggy:u2",
+        },
+      ]),
+    ).toEqual({ ok: false, code: "sem_permissao" });
+    // Deixa a contagem como estava para os testes seguintes.
+    await inH(async (tx) => {
+      await tx.delete(transactions).where(eq(transactions.amount, "1800.00"));
+      await tx.delete(transactions).where(eq(transactions.amount, "55.00"));
+      await tx.delete(transactions).where(eq(transactions.amount, "23.40"));
+      await tx.delete(cashflowPlans);
+    });
+  });
+
+  it("não roda de novo antes do intervalo, e rodar de novo não duplica", async () => {
+    expect(await auto.syncOwnBanks(ctx, { options })).toBeNull();
+    const again = await auto.syncOwnBanks(ctx, { minHours: 0, options });
+    expect(again).toMatchObject({ entries: 0, settled: 0, purchases: 0 });
+    expect(await inH((tx) => tx.select().from(transactions))).toHaveLength(4);
+    expect(await inH((tx) => tx.select().from(cardPurchases))).toHaveLength(2);
+  });
+
+  it("desligada, nada entra sozinho; e outro login não liga nem desliga", async () => {
+    const mine = await mineOf(me);
+    const theirs = await mineOf(spouse);
+    expect(await auto.syncOwnBanks(partner, { minHours: 0, options })).toBeNull();
+    expect(await feed.setBankAuto(partner, mine.id, false)).toEqual({
+      ok: false,
+      code: "sem_conexao",
+    });
+    expect(await feed.setBankAuto(ctx, mine.id, false)).toEqual({ ok: true });
+    expect(await feed.setBankAuto(ctx, theirs.id, false)).toEqual({ ok: true });
+    expect(await auto.syncOwnBanks(ctx, { minHours: 0, options })).toBeNull();
+    expect(await feed.setBankAuto(ctx, mine.id, true)).toEqual({ ok: true });
+    expect(await feed.setBankAuto(ctx, theirs.id, true)).toEqual({ ok: true });
+    const [view] = await feed.loadBankConnections(ctx);
+    expect(view!.autoEnabled).toBe(true);
+  });
+
+  it("a rodada do Paperclip percorre as conexões ligadas e deixa só contagens", async () => {
+    await inH((tx) => tx.update(bankConnections).set({ autoRanAt: null }));
+    // Uma compra nova no cartão desde a última rodada.
+    cardRemote.transactions.push({
+      id: "k9",
+      date: "2026-11-09T12:00:00.000Z",
+      description: "LIVRARIA",
+      type: "DEBIT",
+      amount: 60,
+      status: "POSTED",
+      creditCardMetadata: meta(1, 1),
+    });
+    const counts = await auto.syncAllBanks(options);
+    expect(counts.households).toBe(1);
+    expect(counts.ok + counts.failed).toBe(1);
+    expect(counts.applied).toBe(1);
+    expect(await inH((tx) => tx.select().from(cardPurchases))).toHaveLength(3);
+    expect(await db.hasAgentRunToday(domain.todayIn(), auto.BANCOS_AGENT)).toBe(true);
+  });
+
   it("remover uma chave apaga só ela, e o que foi importado fica", async () => {
     const mine = await mineOf(me);
     expect(await feed.removeBank(ctx, mine.id)).toEqual({ ok: true });
     expect((await connections()).map((row) => row.personId)).toEqual([spouse]);
     expect((await links()).map((row) => row.externalId)).toEqual(["acc-dela"]);
-    expect(await inH((tx) => tx.select().from(transactions))).toHaveLength(3);
+    expect(await inH((tx) => tx.select().from(transactions))).toHaveLength(4);
     expect((await feed.loadBankConnections(ctx)).map((view) => view.personName)).toEqual(["Bia"]);
   });
 

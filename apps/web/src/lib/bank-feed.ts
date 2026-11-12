@@ -29,6 +29,7 @@ import {
   feedStatementOf,
   feedWindowStart,
   isFeedId,
+  normalizeTicker,
   parseFeedItemIds,
   todayIn,
   type BankFeedError,
@@ -42,6 +43,7 @@ import { audit } from "@/lib/audit";
 import { connectionVaultReady, openSecret, sealSecret } from "@/lib/connection-vault";
 import {
   pluggyAccounts,
+  pluggyInvestmentTrades,
   pluggyInvestments,
   pluggyItem,
   pluggyKey,
@@ -86,6 +88,8 @@ export type BankFeedFailure =
   /** Dia de fechamento ou de vencimento fora de 1 a 31. */
   | "dias_invalidos"
   | "limite_de_lancamentos"
+  /** A atualização automática só grava em conta na moeda principal: a outra pede a cotação na conferência. */
+  | "moeda_estrangeira"
   /** Pessoa fora do cadastro, ou menor de idade. */
   | "pessoa_invalida"
   /** Já existe uma chave desta pessoa, guardada por este ou por outro login. */
@@ -112,6 +116,9 @@ export interface BankLink {
 
 export interface BankConnectionView {
   id: string;
+  /** Traz sozinho o que cair no banco. */
+  autoEnabled: boolean;
+  autoRanAt: Date | null;
   personId: string;
   personName: string;
   itemIds: string[];
@@ -200,6 +207,8 @@ export async function loadBankConnections(ctx: TenantContext): Promise<BankConne
     const nameOf = new Map(persons.map((person) => [person.id, person.name]));
     return connections.map((connection) => ({
       id: connection.id,
+      autoEnabled: connection.autoEnabled,
+      autoRanAt: connection.autoRanAt,
       personId: connection.personId,
       personName: nameOf.get(connection.personId) ?? "",
       itemIds: connection.itemIds,
@@ -636,6 +645,26 @@ export async function linkBankCard(
   });
 }
 
+/** Liga ou desliga a atualização automática de uma conexão. */
+export async function setBankAuto(
+  ctx: TenantContext,
+  connectionId: string,
+  enabled: boolean,
+): Promise<{ ok: true } | Failed> {
+  const userId = ownerOf(ctx);
+  if (!userId || !canWrite(ctx)) return { ok: false, code: "sem_permissao" };
+  return withHousehold(ctx, async (tx): Promise<{ ok: true } | Failed> => {
+    const connection = await ownConnection(tx, userId, connectionId);
+    if (!connection) return { ok: false, code: "sem_conexao" };
+    await tx
+      .update(bankConnections)
+      .set({ autoEnabled: enabled, updatedAt: new Date() })
+      .where(eq(bankConnections.id, connection.id));
+    await audit(tx, ctx, "update", "bank_connections", connection.id);
+    return { ok: true };
+  });
+}
+
 /** Apaga uma conexão e as chaves dela. O que já foi importado continua na família. */
 export async function removeBank(
   ctx: TenantContext,
@@ -713,6 +742,48 @@ export async function markBankSynced(ctx: TenantContext, linkId: string, day: st
   });
 }
 
+/** Teto de ativos com histórico buscado por conexão: cada um é uma chamada à Pluggy. */
+const MAX_TRADE_LOOKUPS = 80;
+
+/**
+ * Junta as compras e vendas de cada ativo de bolsa, para o preço médio sair do histórico. É um complemento:
+ * se a instituição não entrega esse dado, ou a Pluggy pede para esperar, a posição segue sem ele e o preço
+ * entra como estimativa.
+ */
+async function withTrades(
+  apiKey: string,
+  investments: FeedInvestment[],
+  options: PluggyOptions,
+): Promise<FeedInvestment[]> {
+  let lookups = 0;
+  let available = true;
+  const out: FeedInvestment[] = [];
+  for (const item of investments) {
+    const wanted =
+      available &&
+      lookups < MAX_TRADE_LOOKUPS &&
+      item.status !== "TOTAL_WITHDRAWAL" &&
+      (item.quantity ?? 0) > 0 &&
+      !(item.amountOriginal && item.amountOriginal > 0) &&
+      normalizeTicker(item.code) !== null;
+    if (!wanted) {
+      out.push(item);
+      continue;
+    }
+    lookups += 1;
+    const trades = await pluggyInvestmentTrades(apiKey, item.id, options).catch(
+      (error: unknown) => {
+        if (!(error instanceof PluggyError)) throw error;
+        // Sem acesso, limite ou rede: não adianta insistir nos outros ativos.
+        if (error.code !== "conexao" && error.code !== "resposta") available = false;
+        return null;
+      },
+    );
+    out.push(trades ? { ...item, trades } : item);
+  }
+  return out;
+}
+
 export interface BankPortfolio {
   ok: true;
   file: ParsedInvestmentFile;
@@ -747,7 +818,7 @@ export async function bankPortfolio(
         await noteResult(ctx, connection.id, rows.code);
         return rows;
       }
-      investments.push(...rows);
+      investments.push(...(await withTrades(apiKey, rows, options)));
     }
     await noteResult(ctx, connection.id, null);
   }

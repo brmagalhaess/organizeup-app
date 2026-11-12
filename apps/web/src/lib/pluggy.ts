@@ -6,6 +6,7 @@ import {
   cleanFileText,
   type BankFeedError,
   type FeedInvestment,
+  type FeedTrade,
   type FeedTransaction,
 } from "@organizeup/domain";
 
@@ -242,4 +243,31 @@ export async function pluggyInvestments(
     if (page >= (number(body.totalPages) ?? 1)) break;
   }
   return investments;
+}
+
+/** Compras e vendas de um investimento. A instituição costuma entregar só os últimos 12 meses. */
+export async function pluggyInvestmentTrades(
+  apiKey: string,
+  investmentId: string,
+  options: PluggyOptions = {},
+): Promise<FeedTrade[]> {
+  const trades: FeedTrade[] = [];
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const body = await call(
+      `investments/${encodeURIComponent(investmentId)}/transactions`,
+      { apiKey, query: { pageSize: String(PAGE_SIZE), page: String(page) } },
+      options,
+    );
+    for (const row of results(body)) {
+      trades.push({
+        type: text(row.type),
+        quantity: number(row.quantity),
+        value: number(row.value),
+        amount: number(row.amount),
+        date: text(row.tradeDate) ?? text(row.date),
+      });
+    }
+    if (page >= (number(body.totalPages) ?? 1)) break;
+  }
+  return trades;
 }

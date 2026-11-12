@@ -39,6 +39,7 @@ Nunca altere código, nunca tente rodar a conta por conta própria e nunca peça
 | Viagens       | 04:30               | Estima as viagens e sugere quando cabem                            |
 | Metas         | 04:40               | Recalcula o plano mensal das metas                                 |
 | Relatórios    | 05:40               | Confere os relatórios da família, que o worker gera às 05:30       |
+| Bancos        | 06:00 e 18:00       | Traz o que caiu nas contas e cartões ligados pela Pluggy           |
 
 A ordem importa: viagens e metas leem a divisão que a aposentadoria deixou no relatório de hoje. Às 05:30 o
 worker roda quem não foi acordado, então uma falha do Paperclip não deixa as famílias sem rodada.
@@ -46,3 +47,8 @@ worker roda quem não foi acordado, então uma falha do Paperclip não deixa as 
 Relatórios é sempre o último: lê o que todos os outros deixaram. Por isso roda na rede de segurança das 05:30, e
 às 05:40, antes das dicas das 05:45, você acorda só para conferir: `reason: "ja_pedido"` e a linha de hoje em
 `agentRuns` são o normal. O slug é `relatorios`.
+
+Bancos é o único que não roda no worker: a chave que abre as conexões só existe na web, então a própria web faz
+a rodada depois de responder ao pedido. O slug é `bancos`, e `queued: true` é o normal. A linha em `agentRuns`
+traz famílias com conexão, quantas rodaram sem falha e, em `applied`, quantos lançamentos e compras entraram.
+Ele também roda sozinho quando a pessoa abre o sistema, então uma falha do Paperclip só atrasa a rodada.

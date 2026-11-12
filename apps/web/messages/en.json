@@ -734,7 +734,7 @@
         "empty": "Pluggy returned no investments in your connections.",
         "connectText": "Store your Pluggy key to bring your position in stocks, real estate funds, ETFs and BDRs without downloading a file.",
         "connect": "Connect bank",
-        "estimated": "The broker does not say how much you paid for each asset. The price field came with today's price: replace it with the price you paid before saving, or fix it later in Investments, Entries."
+        "estimated": "{count, plural, one {For # asset the price is an estimate.} other {For # assets the price is an estimate.}} The broker only delivers the most recent buys and sells, and what is missing was filled in with the average price you already have here or, without it, with today's price. Check before saving, or fix it later in Investments, Entries."
       }
     },
     "operation": {
@@ -5429,7 +5429,8 @@
       "cartao_em_uso": "This card already receives the purchases of another bank card. Choose another one or create a new one.",
       "cartao_invalido": "Link this bank card to an OrganizeUp card before fetching.",
       "dias_invalidos": "Enter the closing day and the due day, from 1 to 31.",
-      "limite_de_lancamentos": "The purchases do not fit in your plan's entry limit this month."
+      "limite_de_lancamentos": "The purchases do not fit in your plan's entry limit this month.",
+      "moeda_estrangeira": "An account in another currency does not come in by itself: bring it through the review in Import statement."
     },
     "accountsCreated": "{count, plural, =0 {No account to create.} one {# account created and linked.} other {# accounts created and linked.}}",
     "cardLinked": "Card linked.",
@@ -5445,6 +5446,18 @@
     "cardImport": {
       "repeated": "{count, plural, one {# purchase was already on the card.} other {# purchases were already on the card.}}",
       "blocked": "{count, plural, one {# purchase was left out because it would fall on a bill already paid.} other {# purchases were left out because they would fall on a bill already paid.}}"
+    },
+    "auto": {
+      "title": "Automatic update",
+      "on": "On",
+      "off": "Off",
+      "textOn": "Whatever lands in the linked accounts and cards comes in by itself when you open the system, at most every 6 hours. What is already in is skipped, planned bills are settled, and each batch shows up in Import statement, with Undo. Investments still go through the review.",
+      "textOff": "Nothing comes in by itself. Use \"Bring from the bank\" in Import statement to review and save.",
+      "last": "Last run: {when}.",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off",
+      "turnedOn": "Automatic update turned on.",
+      "turnedOff": "Automatic update turned off."
     }
   }
 }
