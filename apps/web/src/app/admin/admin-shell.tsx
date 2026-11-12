@@ -23,6 +23,7 @@ import { useState, type ReactNode } from "react";
 import { cx } from "@/components/styles";
 import { Sheet } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
+import { Brand as BrandLogo } from "@/components/brand";
 
 interface Section {
   href: string;
@@ -140,7 +141,7 @@ function Footer({ userName }: { userName: string }) {
 function Brand() {
   return (
     <Link href="/admin" className="px-3 pt-2 text-white">
-      <span className="block font-display text-xl font-semibold">OrganizeUp</span>
+      <BrandLogo tone="dark" />
       <span className="block text-xs text-white/75">Painel do serviço</span>
     </Link>
   );
@@ -200,8 +201,8 @@ export function AdminShell({
 
         <div className="flex min-w-0 flex-col">
           <header className="flex items-center justify-between gap-3 bg-pine px-4 py-3 lg:hidden">
-            <Link href="/admin" className="font-display text-lg font-semibold text-white">
-              OrganizeUp
+            <Link href="/admin">
+              <BrandLogo tone="dark" size="sm" />
             </Link>
             <span className="truncate text-sm text-white/85">Painel do serviço</span>
           </header>

@@ -2,6 +2,7 @@
 import {
   ArrowLeftRight,
   BadgeCheck,
+  Bell,
   BadgeDollarSign,
   Cable,
   CalendarDays,
@@ -40,6 +41,7 @@ import type { AssistantState } from "@organizeup/ai";
 import { skipDocument, skipOnboarding } from "@/app/app/(inicio)/completar/actions";
 import { dismissNotice } from "@/app/app/(painel)/sugestoes/actions";
 import { AssistantPanel } from "@/components/assistant/assistant-panel";
+import { Brand, BrandMark } from "@/components/brand";
 import { ConfirmEmailButton } from "@/components/confirm-email-button";
 import { cx } from "@/components/styles";
 import { Button, IconButton, Sheet } from "@/components/ui";
@@ -497,6 +499,17 @@ export function AppShell({
   if (onScreen !== null && onScreen !== kept) setKept(onScreen);
   const month = onScreen ?? kept;
   const hrefOf = (href: string) => withMonth(href, month, months.current);
+  // Onde a pessoa está: a tela do menu que casa com o endereço, a mais específica primeiro.
+  const tNotifications = useTranslations("notificacoes");
+  const place = groups
+    .flatMap((group) => group.items)
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+  const here = place
+    ? { icon: place.icon, label: t(`nav.${place.label}`) }
+    : pathname.startsWith("/app/notificacoes")
+      ? { icon: Bell, label: tNotifications("title") }
+      : { icon: LayoutDashboard, label: familyName };
   const toggleMenu = () => {
     const next = !collapsed;
     setCollapsed(next);
@@ -530,12 +543,15 @@ export function AppShell({
               collapsed ? "flex-col gap-2" : "justify-between",
             )}
           >
-            {collapsed ? null : (
-              <Link href="/app" className="px-3 font-display text-xl font-semibold text-white">
-                OrganizeUp
-              </Link>
-            )}
-            <div className={cx("flex items-center", collapsed && "flex-col gap-2")}>
+            <Link
+              href="/app"
+              aria-label={collapsed ? "OrganizeUp" : undefined}
+              title={collapsed ? "OrganizeUp" : undefined}
+              className={cx("rounded-lg", collapsed ? "" : "px-2")}
+            >
+              {collapsed ? <BrandMark tone="dark" className="size-9" /> : <Brand tone="dark" />}
+            </Link>
+            <div className="flex items-center">
               <button
                 type="button"
                 aria-label={t(collapsed ? "expandMenu" : "collapseMenu")}
@@ -550,7 +566,6 @@ export function AppShell({
                   <PanelLeftClose className="size-4.5" aria-hidden="true" />
                 )}
               </button>
-              <NotificationBell unread={unreadNotifications} />
             </div>
           </div>
           <QuickAdd className="w-full" compact={collapsed} />
@@ -567,9 +582,9 @@ export function AppShell({
         </aside>
 
         <div className="flex min-w-0 flex-col">
-          <header className="flex items-center justify-between gap-3 bg-pine px-4 py-3 lg:hidden">
-            <Link href="/app" className="font-display text-lg font-semibold text-white">
-              OrganizeUp
+          <header className="flex items-center justify-between gap-3 bg-pine px-4 py-2.5 lg:hidden">
+            <Link href="/app">
+              <Brand tone="dark" size="sm" />
             </Link>
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate text-sm text-white/85">{familyName}</span>
@@ -581,7 +596,33 @@ export function AppShell({
           ))}
           {notice ? <NoticeBanner notice={notice} /> : null}
           {emailNotice ? <EmailBanner noticeKey={emailNotice} /> : null}
-          {onScreen ? <MonthBar range={months} month={onScreen} /> : null}
+          {/* Cabeçalho do computador: onde a pessoa está, o mês da tela e os avisos. Fica preso no topo. */}
+          <header className="sticky top-0 z-10 hidden h-16 items-center gap-4 border-b border-line bg-surface/90 px-10 backdrop-blur lg:flex 2xl:px-14">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                aria-hidden="true"
+                className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700"
+              >
+                <here.icon className="size-4.5" />
+              </span>
+              <p className="m-0 truncate font-display text-lg font-medium first-letter:uppercase">
+                {here.label}
+              </p>
+            </div>
+            {onScreen ? (
+              <>
+                <span aria-hidden="true" className="h-6 w-px shrink-0 bg-line" />
+                <MonthBar range={months} month={onScreen} />
+              </>
+            ) : null}
+            <div className="ml-auto flex shrink-0 items-center gap-3">
+              <span className="hidden max-w-56 truncate text-sm text-muted xl:block">
+                {familyName}
+              </span>
+              <NotificationBell unread={unreadNotifications} tone="light" />
+            </div>
+          </header>
+          {onScreen ? <MonthBar bar range={months} month={onScreen} /> : null}
           <main
             lang={isTranslated(pathname) ? undefined : DEFAULT_LOCALE}
             className="flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8 2xl:px-14"

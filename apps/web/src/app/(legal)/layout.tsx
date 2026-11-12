@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LocaleSelect } from "@/components/locale-select";
 import { DEFAULT_LOCALE } from "@/i18n/locales";
 import { LEGAL_UPDATED } from "@/lib/legal";
+import { Brand } from "@/components/brand";
 
 /** Os documentos ficam só em português até haver revisão jurídica (ADR-0020). */
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
@@ -10,8 +11,8 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
   const locale = useLocale();
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-4 py-10">
-      <Link href="/" className="text-lg font-bold text-brand-900 dark:text-brand-100">
-        OrganizeUp
+      <Link href="/" className="self-start">
+        <Brand />
       </Link>
       {locale === DEFAULT_LOCALE ? null : (
         <p role="note" className="rounded-xl bg-brand-100 px-4 py-3 text-sm text-ink">

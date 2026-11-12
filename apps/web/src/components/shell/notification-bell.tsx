@@ -7,7 +7,14 @@ import { usePathname } from "next/navigation";
 const HREF = "/app/notificacoes";
 
 /** Sininho do topo. O número fica no nome do link, para o leitor de tela. */
-export function NotificationBell({ unread }: { unread: number }) {
+export function NotificationBell({
+  unread,
+  tone = "dark",
+}: {
+  unread: number;
+  /** Fundo em que o sino fica: o menu verde (`dark`) ou o cabeçalho claro (`light`). */
+  tone?: "dark" | "light";
+}) {
   const t = useTranslations("notificacoes");
   const pathname = usePathname();
   const label = t("bell", { count: unread });
@@ -17,7 +24,11 @@ export function NotificationBell({ unread }: { unread: number }) {
       aria-label={label}
       title={label}
       aria-current={pathname === HREF ? "page" : undefined}
-      className="relative inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-white hover:bg-white/10"
+      className={
+        tone === "dark"
+          ? "relative inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-white hover:bg-white/10"
+          : "relative inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-line bg-card text-ink hover:bg-brand-50"
+      }
     >
       <Bell className="size-5" aria-hidden="true" />
       {unread > 0 ? (

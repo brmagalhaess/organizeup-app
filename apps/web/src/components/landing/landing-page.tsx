@@ -7,6 +7,7 @@ import familiaPraia from "@/assets/landing/familia-praia.webp";
 import { DEFAULT_LOCALE, LANDING_PATHS, type Locale } from "@/i18n/locales";
 import { LandingLocale } from "./landing-locale";
 import { ProductPreview } from "./product-preview";
+import { Brand } from "@/components/brand";
 
 const OPEN_GRAPH_LOCALE: Record<Locale, string> = {
   "pt-BR": "pt_BR",
@@ -66,11 +67,7 @@ const TERMS = "/termos";
 const PRIVACY = "/privacidade";
 
 function Logo({ light = false }: { light?: boolean }) {
-  return (
-    <span className={`font-display text-xl font-semibold ${light ? "text-white" : "text-night"}`}>
-      OrganizeUp
-    </span>
-  );
+  return <Brand tone={light ? "dark" : "light"} />;
 }
 
 const primaryButton =

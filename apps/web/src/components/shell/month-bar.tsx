@@ -52,8 +52,19 @@ export interface MonthRange {
   last: YearMonth;
 }
 
-/** Mês e ano no cabeçalho, no endereço: voltar e compartilhar funcionam. */
-export function MonthBar({ range, month }: { range: MonthRange; month: YearMonth }) {
+/**
+ * Mês e ano, no endereço: voltar e compartilhar funcionam. `bar` desenha a faixa fixa do celular; sem ele,
+ * vêm só os controles, para dentro do cabeçalho do computador.
+ */
+export function MonthBar({
+  range,
+  month,
+  bar = false,
+}: {
+  range: MonthRange;
+  month: YearMonth;
+  bar?: boolean;
+}) {
   const { current } = range;
   const t = useTranslations("shell.month");
   const locale = useLocale();
@@ -76,21 +87,29 @@ export function MonthBar({ range, month }: { range: MonthRange; month: YearMonth
   const go = (target: YearMonth) => start(() => router.push(hrefOf(target), { scroll: false }));
   const year = month.slice(0, 4);
   const names = monthNames(locale);
-  const arrow = cx(buttonClass("secondary"), "w-10 shrink-0 px-0");
+  // Classe própria: a do botão comum traz espaço lateral, que espremia a seta até virar um ponto.
+  const arrow =
+    "inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-line bg-card text-ink transition hover:bg-brand-50 disabled:opacity-40";
 
   return (
     <nav
       aria-label={t("label")}
       aria-busy={pending}
       className={cx(
-        "sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-line bg-surface/90 px-4 py-2 backdrop-blur sm:px-6 lg:px-10 2xl:px-14",
+        "flex items-center gap-2",
+        bar
+          ? "sticky top-0 z-10 flex-wrap border-b border-line bg-surface/90 px-4 py-2 backdrop-blur sm:px-6 lg:hidden"
+          : "min-w-0",
         pending && "[&>*]:opacity-60",
       )}
     >
-      <CalendarDays className="hidden size-4.5 text-muted sm:block" aria-hidden="true" />
+      <CalendarDays
+        className={cx("size-4.5 text-muted", bar ? "hidden sm:block" : "hidden xl:block")}
+        aria-hidden="true"
+      />
       {month <= first ? (
         <button type="button" disabled aria-label={t("previous")} className={arrow}>
-          <ChevronLeft className="size-4" aria-hidden="true" />
+          <ChevronLeft className="size-5" aria-hidden="true" />
         </button>
       ) : (
         <Link
@@ -99,7 +118,7 @@ export function MonthBar({ range, month }: { range: MonthRange; month: YearMonth
           aria-label={t("previous")}
           className={arrow}
         >
-          <ChevronLeft className="size-4" aria-hidden="true" />
+          <ChevronLeft className="size-5" aria-hidden="true" />
         </Link>
       )}
       <div className="min-w-28 flex-1 sm:w-40 sm:flex-none">
@@ -132,7 +151,7 @@ export function MonthBar({ range, month }: { range: MonthRange; month: YearMonth
       </div>
       {month >= last ? (
         <button type="button" disabled aria-label={t("next")} className={arrow}>
-          <ChevronRight className="size-4" aria-hidden="true" />
+          <ChevronRight className="size-5" aria-hidden="true" />
         </button>
       ) : (
         <Link
@@ -141,7 +160,7 @@ export function MonthBar({ range, month }: { range: MonthRange; month: YearMonth
           aria-label={t("next")}
           className={arrow}
         >
-          <ChevronRight className="size-4" aria-hidden="true" />
+          <ChevronRight className="size-5" aria-hidden="true" />
         </Link>
       )}
       {month === current ? null : (

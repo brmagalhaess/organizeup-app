@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { LocaleSelect } from "@/components/locale-select";
+import { Brand } from "@/components/brand";
 
 /**
  * Entrar, criar conta, esqueci e redefinir senha: a marca de um lado, o formulário em um cartão do outro.
@@ -20,8 +21,8 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
           aria-hidden="true"
           className="pointer-events-none absolute -right-32 -bottom-40 size-[28rem] rounded-full border border-white/15 shadow-[inset_0_0_0_60px_rgb(255_255_255_/_4%)]"
         />
-        <Link href="/" className="font-display text-2xl font-semibold text-white">
-          {t("eyebrow")}
+        <Link href="/" className="self-start">
+          <Brand tone="dark" size="lg" name={t("eyebrow")} />
         </Link>
         <div className="my-auto max-w-xl py-12">
           <h1 className="font-display text-5xl leading-[1.08] font-medium tracking-tight text-white">
@@ -44,11 +45,8 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
 
       <section className="flex min-h-dvh flex-col bg-surface px-4 py-8 sm:px-8 lg:min-h-0 lg:justify-center lg:py-12">
         <div className="mx-auto flex w-full max-w-md flex-col gap-6">
-          <Link
-            href="/"
-            className="self-start font-display text-xl font-semibold text-brand-900 lg:hidden"
-          >
-            {t("eyebrow")}
+          <Link href="/" className="self-start lg:hidden">
+            <Brand name={t("eyebrow")} />
           </Link>
           <div className="flex flex-col gap-6 rounded-3xl border border-line bg-card p-6 shadow-card sm:p-8">
             {children}
