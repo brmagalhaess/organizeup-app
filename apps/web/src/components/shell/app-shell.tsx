@@ -16,6 +16,8 @@ import {
   Megaphone,
   Menu,
   Palmtree,
+  PanelLeftClose,
+  PanelLeftOpen,
   PiggyBank,
   Plus,
   Settings,
@@ -32,7 +34,7 @@ import {
 } from "lucide-react";
 import { useTranslations, type Messages } from "next-intl";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { AssistantState } from "@organizeup/ai";
 import { skipDocument, skipOnboarding } from "@/app/app/(inicio)/completar/actions";
@@ -46,6 +48,8 @@ import { useBrazilRules } from "@/i18n/money";
 import { authClient } from "@/lib/auth-client";
 import { EntryDialogProvider, useEntryDialog } from "./entry-context";
 import type { EntryOptions } from "./entry-form";
+import { MENU_COOKIE } from "./menu-cookie";
+import { MonthBar, monthOnScreen, withMonth, type MonthRange } from "./month-bar";
 import { NotificationBell } from "./notification-bell";
 
 interface NavItem {
@@ -180,8 +184,14 @@ function Navigation({
   pendingSuggestions,
   billing,
   bank,
+  compact = false,
+  hrefOf,
   onNavigate,
 }: {
+  /** Menu recolhido: só os ícones, com o nome na dica. */
+  compact?: boolean;
+  /** Endereço de cada tela, já no mês escolhido no cabeçalho. */
+  hrefOf: (href: string) => string;
   pendingSuggestions: number;
   /** Com a chave da cobrança desligada, a tela de planos só aparece para o admin. */
   billing: boolean;
@@ -193,33 +203,47 @@ function Navigation({
   const pathname = usePathname();
   const brazil = useBrazilRules();
   return (
-    <nav aria-label={t("modules")} className="flex flex-col gap-6">
-      {groupsFor(brazil, billing, bank).map((group) => (
+    <nav aria-label={t("modules")} className={cx("flex flex-col", compact ? "gap-3" : "gap-6")}>
+      {groupsFor(brazil, billing, bank).map((group, index) => (
         <div key={group.title}>
-          <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/70">
-            {t(`groups.${group.title}`)}
-          </p>
+          {compact ? (
+            index > 0 ? (
+              <hr className="mx-2 mb-3 border-0 border-t border-white/15" />
+            ) : null
+          ) : (
+            <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/70">
+              {t(`groups.${group.title}`)}
+            </p>
+          )}
           <ul className="m-0 list-none space-y-0.5 p-0">
             {group.items.map(({ href, label, icon: Icon }) => {
               const active = pathname === href;
               return (
                 <li key={href}>
                   <Link
-                    href={href}
+                    href={hrefOf(href)}
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
+                    aria-label={compact ? t(`nav.${label}`) : undefined}
+                    title={compact ? t(`nav.${label}`) : undefined}
                     className={cx(
-                      "flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition",
+                      "relative flex min-h-10 items-center rounded-xl text-sm font-medium transition",
+                      compact ? "justify-center px-0" : "gap-3 px-3",
                       active ? "bg-white text-night" : "text-white hover:bg-white/10",
                     )}
                   >
                     <Icon className="size-4.5 shrink-0" aria-hidden="true" />
-                    {t(`nav.${label}`)}
+                    {compact ? null : t(`nav.${label}`)}
                     {href === SUGGESTIONS_HREF && pendingSuggestions > 0 ? (
                       <span
                         role="img"
                         aria-label={t("pendingSuggestions", { count: pendingSuggestions })}
-                        className="ml-auto min-w-5 rounded-full bg-peach px-1.5 text-center text-xs font-semibold text-night"
+                        className={cx(
+                          "rounded-full bg-peach text-center text-xs font-semibold text-night",
+                          compact
+                            ? "absolute right-1.5 top-1 min-w-4 px-1 text-[10px] leading-4"
+                            : "ml-auto min-w-5 px-1.5",
+                        )}
                       >
                         {pendingSuggestions}
                       </span>
@@ -235,21 +259,39 @@ function Navigation({
   );
 }
 
-function UserFooter({ userName, familyName }: { userName: string; familyName: string }) {
+function UserFooter({
+  userName,
+  familyName,
+  compact = false,
+}: {
+  userName: string;
+  familyName: string;
+  compact?: boolean;
+}) {
   const t = useTranslations("shell");
   const router = useRouter();
   return (
-    <div className="flex items-center gap-3 border-t border-white/15 pt-4">
+    <div
+      className={cx(
+        "flex items-center gap-3 border-t border-white/15 pt-4",
+        compact && "flex-col gap-2",
+      )}
+    >
       <span
-        aria-hidden="true"
+        aria-hidden={compact ? undefined : "true"}
+        role={compact ? "img" : undefined}
+        aria-label={compact ? `${userName}, ${familyName}` : undefined}
+        title={compact ? `${userName} · ${familyName}` : undefined}
         className="flex size-9 shrink-0 items-center justify-center rounded-full bg-peach text-sm font-semibold text-night"
       >
         {initials(userName)}
       </span>
-      <div className="min-w-0 flex-1 text-sm">
-        <p className="truncate font-medium text-white">{userName}</p>
-        <p className="truncate text-xs text-white/75">{familyName}</p>
-      </div>
+      {compact ? null : (
+        <div className="min-w-0 flex-1 text-sm">
+          <p className="truncate font-medium text-white">{userName}</p>
+          <p className="truncate text-xs text-white/75">{familyName}</p>
+        </div>
+      )}
       <button
         type="button"
         aria-label={t("signOut")}
@@ -267,10 +309,22 @@ function UserFooter({ userName, familyName }: { userName: string; familyName: st
   );
 }
 
-function QuickAdd({ className }: { className?: string }) {
+function QuickAdd({ className, compact = false }: { className?: string; compact?: boolean }) {
   const t = useTranslations("shell");
   const { openNew, writable } = useEntryDialog();
   if (!writable) return null;
+  if (compact)
+    return (
+      <button
+        type="button"
+        aria-label={t("newEntry")}
+        title={t("newEntry")}
+        onClick={() => openNew()}
+        className="mx-auto flex size-10 items-center justify-center rounded-xl bg-peach text-night transition hover:brightness-95"
+      >
+        <Plus className="size-5" aria-hidden="true" />
+      </button>
+    );
   return (
     <Button variant="accent" onClick={() => openNew()} className={className}>
       <Plus className="size-4.5" aria-hidden="true" />
@@ -279,7 +333,7 @@ function QuickAdd({ className }: { className?: string }) {
   );
 }
 
-function MobileBar({ onMore }: { onMore: () => void }) {
+function MobileBar({ onMore, hrefOf }: { onMore: () => void; hrefOf: (href: string) => string }) {
   const t = useTranslations("shell");
   const pathname = usePathname();
   const { openNew, writable } = useEntryDialog();
@@ -296,7 +350,7 @@ function MobileBar({ onMore }: { onMore: () => void }) {
       {tabs.map(({ href, label, icon: Icon }) => (
         <Link
           key={href}
-          href={href}
+          href={hrefOf(href)}
           aria-current={pathname === href ? "page" : undefined}
           className={cx(tab, pathname === href ? "text-brand-700" : "text-muted")}
         >
@@ -407,8 +461,14 @@ export function AppShell({
   pendingSuggestions,
   unreadNotifications,
   assistant,
+  months,
+  menuCollapsed = false,
 }: {
   children: ReactNode;
+  /** Mês de hoje e a faixa que o seletor do cabeçalho oferece. */
+  months: MonthRange;
+  /** Como a pessoa deixou o menu da última vez (cookie `ou_menu`). */
+  menuCollapsed?: boolean;
   userName: string;
   familyName: string;
   writable: boolean;
@@ -428,7 +488,21 @@ export function AppShell({
 }) {
   const t = useTranslations("shell");
   const pathname = usePathname();
+  const params = useSearchParams();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(menuCollapsed);
+  // O mês escolhido acompanha a pessoa de uma tela para a outra, inclusive passando por telas sem mês.
+  const onScreen = monthOnScreen(pathname, params, months.current);
+  const [kept, setKept] = useState(months.current);
+  if (onScreen !== null && onScreen !== kept) setKept(onScreen);
+  const month = onScreen ?? kept;
+  const hrefOf = (href: string) => withMonth(href, month, months.current);
+  const toggleMenu = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    // Preferência de tela, lida pelo servidor na próxima visita: o menu já chega no tamanho certo.
+    document.cookie = `${MENU_COOKIE}=${next ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
+  };
 
   return (
     <EntryDialogProvider
@@ -436,19 +510,60 @@ export function AppShell({
       today={today}
       options={{ accounts, categories, cards }}
     >
-      <div className="min-h-dvh lg:grid lg:grid-cols-[16.5rem_minmax(0,1fr)]">
-        <aside className="sticky top-0 hidden h-dvh flex-col gap-4 bg-pine p-4 lg:flex">
-          <div className="flex items-center justify-between pt-1">
-            <Link href="/app" className="px-3 font-display text-xl font-semibold text-white">
-              OrganizeUp
-            </Link>
-            <NotificationBell unread={unreadNotifications} />
+      <div
+        className={cx(
+          "min-h-dvh lg:grid lg:transition-[grid-template-columns] lg:duration-200 motion-reduce:transition-none",
+          collapsed
+            ? "lg:grid-cols-[4.5rem_minmax(0,1fr)]"
+            : "lg:grid-cols-[16.5rem_minmax(0,1fr)]",
+        )}
+      >
+        <aside
+          className={cx(
+            "sticky top-0 hidden h-dvh flex-col gap-4 overflow-hidden bg-pine lg:flex",
+            collapsed ? "px-2 py-4" : "p-4",
+          )}
+        >
+          <div
+            className={cx(
+              "flex items-center pt-1",
+              collapsed ? "flex-col gap-2" : "justify-between",
+            )}
+          >
+            {collapsed ? null : (
+              <Link href="/app" className="px-3 font-display text-xl font-semibold text-white">
+                OrganizeUp
+              </Link>
+            )}
+            <div className={cx("flex items-center", collapsed && "flex-col gap-2")}>
+              <button
+                type="button"
+                aria-label={t(collapsed ? "expandMenu" : "collapseMenu")}
+                aria-expanded={!collapsed}
+                title={t(collapsed ? "expandMenu" : "collapseMenu")}
+                onClick={toggleMenu}
+                className="flex size-9 items-center justify-center rounded-lg text-white hover:bg-white/10"
+              >
+                {collapsed ? (
+                  <PanelLeftOpen className="size-4.5" aria-hidden="true" />
+                ) : (
+                  <PanelLeftClose className="size-4.5" aria-hidden="true" />
+                )}
+              </button>
+              <NotificationBell unread={unreadNotifications} />
+            </div>
           </div>
-          <QuickAdd className="w-full" />
+          <QuickAdd className="w-full" compact={collapsed} />
           <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-color:rgb(255_255_255/0.3)_transparent] [scrollbar-width:thin]">
-            <Navigation billing={billing} bank={bank} pendingSuggestions={pendingSuggestions} />
+            <Navigation
+              billing={billing}
+              bank={bank}
+              compact={collapsed}
+              hrefOf={hrefOf}
+              pendingSuggestions={pendingSuggestions}
+            />
           </div>
-          <UserFooter userName={userName} familyName={familyName} />
+          <UserFooter userName={userName} familyName={familyName} compact={collapsed} />
         </aside>
 
         <div className="flex min-w-0 flex-col">
@@ -466,6 +581,7 @@ export function AppShell({
           ))}
           {notice ? <NoticeBanner notice={notice} /> : null}
           {emailNotice ? <EmailBanner noticeKey={emailNotice} /> : null}
+          {onScreen ? <MonthBar range={months} month={onScreen} /> : null}
           <main
             lang={isTranslated(pathname) ? undefined : DEFAULT_LOCALE}
             className="flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8 2xl:px-14"
@@ -476,12 +592,13 @@ export function AppShell({
       </div>
 
       <AssistantPanel state={assistant} />
-      <MobileBar onMore={() => setMenuOpen(true)} />
+      <MobileBar onMore={() => setMenuOpen(true)} hrefOf={hrefOf} />
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title={t("menu")}>
         <div className="-m-5 flex min-h-full flex-col gap-6 bg-pine p-5">
           <Navigation
             billing={billing}
             bank={bank}
+            hrefOf={hrefOf}
             pendingSuggestions={pendingSuggestions}
             onNavigate={() => setMenuOpen(false)}
           />

@@ -1,24 +1,12 @@
 "use client";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { addMonths } from "@organizeup/domain";
 import { cx } from "@/components/styles";
-import {
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  Field,
-  IconButton,
-  PageHeader,
-  Select,
-} from "@/components/ui";
+import { Badge, Button, Card, EmptyState, PageHeader } from "@/components/ui";
 import { formatDate, formatMonthYear, formatWeekdayName } from "@/i18n/format";
 import { useMoney } from "@/i18n/money";
 import {
   entriesByDay,
-  monthChoices,
   monthGrid,
   type CalendarEntry,
   type CalendarEvent,
@@ -111,7 +99,6 @@ export function CalendarBoard({ data }: { data: Data }) {
   const router = useRouter();
   const weeks = monthGrid(data.month);
   const days = entriesByDay(data.events, data.month);
-  const choices = monthChoices(data.today);
   const go = (month: string, mine = data.mineOnly) =>
     router.push(`/app/investimentos/calendario?mes=${month}${mine ? "&meus=1" : ""}`);
   const weekday = (date: string) =>
@@ -126,25 +113,10 @@ export function CalendarBoard({ data }: { data: Data }) {
 
       <Card>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="flex items-end gap-2">
-            <IconButton label={t("prev")} onClick={() => go(addMonths(data.month, -1))}>
-              <ChevronLeft className="size-5" aria-hidden="true" />
-            </IconButton>
-            <Field label={t("month")}>
-              <Select value={data.month} onChange={(event) => go(event.target.value)}>
-                {(choices.includes(data.month) ? choices : [data.month, ...choices]).map(
-                  (month) => (
-                    <option key={month} value={month}>
-                      {formatMonthYear(month, locale)}
-                    </option>
-                  ),
-                )}
-              </Select>
-            </Field>
-            <IconButton label={t("next")} onClick={() => go(addMonths(data.month, 1))}>
-              <ChevronRight className="size-5" aria-hidden="true" />
-            </IconButton>
-          </div>
+          {/* O mês troca no cabeçalho, igual às outras telas. */}
+          <h2 className="m-0 text-base font-semibold first-letter:uppercase">
+            {formatMonthYear(data.month, locale)}
+          </h2>
           <div role="group" aria-label={t("mine")} className="flex gap-2">
             <Button
               variant={data.mineOnly ? "secondary" : "primary"}

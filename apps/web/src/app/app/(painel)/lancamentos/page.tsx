@@ -1,8 +1,8 @@
-import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { addMonths, money } from "@organizeup/domain";
+import { money } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
 import { PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
@@ -53,20 +53,6 @@ export default async function EntriesPage({
             <Link href="/app/importar" className={buttonClass("secondary")}>
               <Upload className="size-4" aria-hidden="true" />
               {t("importStatement")}
-            </Link>
-            <Link
-              href={`/app/lancamentos?m=${addMonths(data.month, -1)}`}
-              aria-label={t("previousMonth")}
-              className={buttonClass("secondary")}
-            >
-              <ChevronLeft className="size-4" aria-hidden="true" />
-            </Link>
-            <Link
-              href={`/app/lancamentos?m=${addMonths(data.month, 1)}`}
-              aria-label={t("nextMonth")}
-              className={buttonClass("secondary")}
-            >
-              <ChevronRight className="size-4" aria-hidden="true" />
             </Link>
           </>
         }

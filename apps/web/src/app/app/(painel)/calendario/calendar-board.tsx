@@ -1,11 +1,10 @@
 "use client";
-import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
+import { AlertCircle, AlertTriangle, ListFilter } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import { addMonths, money, yearMonthOf, type CalendarItem } from "@organizeup/domain";
+import { money, yearMonthOf, type CalendarItem } from "@organizeup/domain";
 import { useFxNoteText } from "@/components/fx-note";
-import { buttonClass, cx } from "@/components/styles";
+import { cx } from "@/components/styles";
 import { Button, PageHeader, StatTile } from "@/components/ui";
 import { formatDayMonth, formatDayName, formatMonthYear, weekdayNames } from "@/i18n/format";
 import type { loadCalendar } from "@/lib/calendar-data";
@@ -202,7 +201,6 @@ export function CalendarBoard({
   const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
   const lowestNegative = lowest !== null && money(lowest.balance).lt(0);
   const selectedItems = days[selected] ?? [];
-  const monthLink = (target: string) => `/app/calendario?m=${target}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -211,31 +209,12 @@ export function CalendarBoard({
         title={formatMonthYear(month, locale)}
         description={t("description")}
         actions={
-          <>
-            <Link
-              href={monthLink(addMonths(month, -1))}
-              aria-label={t("previousMonth")}
-              className={buttonClass("secondary")}
-            >
-              <ChevronLeft className="size-4" aria-hidden="true" />
-            </Link>
-            {month === data.current ? (
-              <Button variant="secondary" onClick={() => setPicked(today)}>
-                {t("today")}
-              </Button>
-            ) : (
-              <Link href="/app/calendario" className={buttonClass("secondary")}>
-                {t("today")}
-              </Link>
-            )}
-            <Link
-              href={monthLink(addMonths(month, 1))}
-              aria-label={t("nextMonth")}
-              className={buttonClass("secondary")}
-            >
-              <ChevronRight className="size-4" aria-hidden="true" />
-            </Link>
-          </>
+          // O mês troca no cabeçalho; aqui fica só o atalho para o dia de hoje.
+          month === data.current ? (
+            <Button variant="secondary" onClick={() => setPicked(today)}>
+              {t("today")}
+            </Button>
+          ) : undefined
         }
       />
       {insights}

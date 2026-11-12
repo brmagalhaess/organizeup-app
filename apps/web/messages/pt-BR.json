@@ -2114,7 +2114,19 @@
     "documentNotice": "Falta informar seu documento. Leva um minuto.",
     "documentLink": "Informar agora",
     "emailNotice": "Confirme seu e-mail para garantir que os avisos da conta cheguem até você.",
-    "emailNoticeLabel": "Confirmação de e-mail"
+    "emailNoticeLabel": "Confirmação de e-mail",
+    "collapseMenu": "Recolher menu",
+    "expandMenu": "Expandir menu",
+    "month": {
+      "label": "Mês em exibição",
+      "monthLabel": "Mês",
+      "yearLabel": "Ano",
+      "previous": "Mês anterior",
+      "next": "Próximo mês",
+      "today": "Hoje",
+      "forecast": "Previsto",
+      "past": "Mês passado"
+    }
   },
   "auth": {
     "fields": {

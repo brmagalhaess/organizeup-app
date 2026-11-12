@@ -37,7 +37,6 @@ import { loadNetWorth, loadReserve } from "@/lib/wealth";
 import { systemTextOf } from "@/i18n/system-text";
 import { CashflowChart } from "./cashflow-chart";
 import { FirstSteps } from "./first-steps";
-import { MonthPicker } from "./month-picker";
 import {
   AccountsSection,
   barRows,
@@ -385,7 +384,6 @@ export default async function OverviewPage({
     return (
       <div className="flex flex-col gap-6">
         {header}
-        <MonthPicker period={data.period} />
         <FirstSteps checklist={data.checklist} />
         <Card>
           <EmptyState
@@ -426,7 +424,6 @@ export default async function OverviewPage({
   return (
     <div className="flex flex-col gap-6">
       {header}
-      <MonthPicker period={data.period} />
       <SectionLinks items={sectionLinks} />
 
       {phase === "atual" && !moved ? (

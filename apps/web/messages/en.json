@@ -2114,7 +2114,19 @@
     "documentNotice": "Your document is still missing. It takes a minute.",
     "documentLink": "Add it now",
     "emailNotice": "Confirm your email to make sure account notices reach you.",
-    "emailNoticeLabel": "Email confirmation"
+    "emailNoticeLabel": "Email confirmation",
+    "collapseMenu": "Collapse menu",
+    "expandMenu": "Expand menu",
+    "month": {
+      "label": "Month on screen",
+      "monthLabel": "Month",
+      "yearLabel": "Year",
+      "previous": "Previous month",
+      "next": "Next month",
+      "today": "Today",
+      "forecast": "Forecast",
+      "past": "Past month"
+    }
   },
   "auth": {
     "fields": {

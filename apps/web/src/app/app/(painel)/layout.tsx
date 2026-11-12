@@ -11,16 +11,18 @@ import {
   creditCards,
   ensureFinanceDefaults,
   eq,
+  firstMovementDate,
   household,
   householdSettings,
   withHousehold,
   type TenantContext,
 } from "@organizeup/db";
-import { todayIn, usageLevel, vipPartial } from "@organizeup/domain";
+import { resolvePeriod, todayIn, usageLevel, vipPartial } from "@organizeup/domain";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { after } from "next/server";
 import { AppShell, type ShellBanner, type ShellNotice } from "@/components/shell/app-shell";
+import { MENU_COOKIE } from "@/components/shell/menu-cookie";
 import { BANCOS_AGENT, syncOwnBanks } from "@/lib/bank-auto";
 import { canLeave } from "@/lib/billing/actor";
 import { reportActionFailure } from "@/lib/diagnostics";
@@ -191,6 +193,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     return {
       family: family?.name ?? t("fallbackFamily"),
       timezone: settings?.timezone,
+      firstMovement: await firstMovementDate(tx),
       accounts: accountRows,
       categories: categoryRows,
       cards: cardRows,
@@ -203,12 +206,18 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     after(() => syncOwnBanks(ctx).catch((error) => reportActionFailure("bank_auto_failed", error)));
   }
 
+  const today = todayIn(data.timezone);
+  // A mesma faixa do painel: do primeiro dado até 12 meses à frente.
+  const period = resolvePeriod(undefined, today, data.firstMovement);
+
   return (
     <AppShell
       userName={session.user.name}
       familyName={data.family}
       writable={writable}
-      today={todayIn(data.timezone)}
+      today={today}
+      months={{ current: period.current, first: period.first, last: period.last }}
+      menuCollapsed={store.get(MENU_COOKIE)?.value === "1"}
       accounts={data.accounts}
       categories={data.categories}
       cards={data.cards}
