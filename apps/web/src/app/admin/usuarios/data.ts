@@ -6,6 +6,8 @@ const PAGE_SIZE = 25;
 
 export interface UserRow {
   id: string;
+  name: string;
+  email: string;
   shortId: string;
   createdAt: string;
   lastAccess: string;
@@ -26,6 +28,8 @@ export interface UsersState {
 
 const toRow = (row: AdminUserRow): UserRow => ({
   id: row.id,
+  name: row.name,
+  email: row.email,
   shortId: shortId(row.id),
   createdAt: formatDate(row.createdAt),
   lastAccess: row.lastAccessAt ? formatDateTime(row.lastAccessAt) : "Sem sessão",

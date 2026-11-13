@@ -12,7 +12,7 @@ import {
   Select,
   submitKeeping,
 } from "@/components/ui";
-import { AdminTable, type Column } from "../kit";
+import { AdminTable, Monogram, type Column } from "../kit";
 import { browseUsers } from "./actions";
 import type { UsersState } from "./data";
 
@@ -20,7 +20,7 @@ const columns: Column[] = [
   { key: "account", label: "Conta", primary: true },
   { key: "status", label: "Situação" },
   { key: "families", label: "Famílias", align: "right" },
-  { key: "verified", label: "E-mail" },
+  { key: "verified", label: "Confirmação" },
   { key: "lastAccess", label: "Último acesso" },
   { key: "createdAt", label: "Criada em" },
 ];
@@ -47,7 +47,7 @@ export function UsersBoard({ initial }: { initial: UsersState }) {
         className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] sm:items-start"
       >
         <input type="hidden" name="page" value="0" />
-        <Field label="Buscar" hint="E-mail exato ou id da conta.">
+        <Field label="Buscar" hint="Parte do nome, e-mail exato ou id da conta.">
           <Input name="q" type="search" maxLength={200} autoComplete="off" defaultValue={state.q} />
         </Field>
         <Field label="Situação">
@@ -82,12 +82,19 @@ export function UsersBoard({ initial }: { initial: UsersState }) {
               id: row.id,
               cells: {
                 account: (
-                  <Link
-                    href={`/admin/usuarios/${row.id}`}
-                    className="font-mono text-brand-700 underline-offset-2 hover:underline"
-                  >
-                    {row.shortId}
-                  </Link>
+                  <Monogram name={row.name}>
+                    <Link
+                      href={`/admin/usuarios/${row.id}`}
+                      className="font-medium text-brand-700 underline-offset-2 hover:underline"
+                    >
+                      {row.name || row.shortId}
+                    </Link>
+                    <span className="block break-all text-xs font-normal text-muted">
+                      {row.email}
+                      <span aria-hidden="true"> · </span>
+                      <span className="font-mono">{row.shortId}</span>
+                    </span>
+                  </Monogram>
                 ),
                 status: row.blocked ? (
                   <Badge tone="danger">Bloqueada</Badge>

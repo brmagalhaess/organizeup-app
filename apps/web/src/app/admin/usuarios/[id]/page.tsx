@@ -16,7 +16,6 @@ import {
   sendPasswordReset,
   unblockUser,
 } from "../actions";
-import { UserContact } from "./user-contact";
 import { UserDocument } from "./user-document";
 
 export const metadata: Metadata = { title: "Usuário" };
@@ -45,7 +44,7 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
 
   return (
     <AdminPage
-      title={`Conta ${shortId(account.id)}`}
+      title={account.name || `Conta ${shortId(account.id)}`}
       description={
         <Link href="/admin/usuarios" className="underline underline-offset-2">
           Voltar para Usuários
@@ -59,12 +58,19 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
         <div className="flex min-w-0 flex-col gap-6 xl:col-span-2">
           <Card title="Resumo">
             <Facts>
+              <Fact label="Nome">{account.name}</Fact>
+              <Fact label="E-mail">
+                <span className="break-all">{account.email}</span>
+              </Fact>
+              <Fact label="Código da conta">
+                <span className="font-mono">{shortId(account.id)}</span>
+              </Fact>
               <Fact label="Criada em">{formatDate(account.createdAt)}</Fact>
               <Fact label="Último acesso">
                 {account.lastAccessAt ? formatDateTime(account.lastAccessAt) : "Sem sessão"}
               </Fact>
               <Fact label="Sessões abertas">{account.activeSessions}</Fact>
-              <Fact label="E-mail">
+              <Fact label="Confirmação do e-mail">
                 <Badge tone={account.emailVerified ? "success" : "warning"}>
                   {account.emailVerified ? "Verificado" : "Não verificado"}
                 </Badge>
@@ -78,10 +84,9 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
                 <Fact label="Bloqueada em">{formatDateTime(account.blockedAt)}</Fact>
               ) : null}
             </Facts>
-            {account.canReveal ? (
+            {account.canReveal && account.personType ? (
               <div className="mt-5 flex flex-col gap-2">
-                <UserContact id={account.id} />
-                {account.personType ? <UserDocument id={account.id} /> : null}
+                <UserDocument id={account.id} />
               </div>
             ) : null}
           </Card>

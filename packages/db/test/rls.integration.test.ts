@@ -3044,7 +3044,8 @@ describe("gerência do painel do serviço", () => {
     expect(await sessionsOf(S.member)).toEqual([]);
     const blocked = await db.adminUserList({ status: "bloqueados" });
     expect(blocked.map((row) => row.id)).toEqual([S.member]);
-    expect(JSON.stringify(blocked)).not.toContain("example.com");
+    // Membro convidado também aparece com nome e e-mail: é para o suporte (ADR-0041).
+    expect(blocked[0]).toMatchObject({ name: "Sol", email: "sol@example.com" });
 
     expect(await db.adminSetUserBlocked(admin, S.member, false)).toBe("ok");
     expect(await db.userIsBlocked(S.member)).toBe(false);
@@ -3054,7 +3055,7 @@ describe("gerência do painel do serviço", () => {
     expect(await db.userIsBlocked(admin.adminUserId)).toBe(false);
   });
 
-  it("encerrar sessões e achar por e-mail exato ou id, nunca por parte dele", async () => {
+  it("encerrar sessões e achar por parte do nome, e-mail exato ou id; parte do e-mail não", async () => {
     await openSession(S.alone);
     expect(await db.adminEndUserSessions(admin, S.alone)).toBe("ok");
     expect(await sessionsOf(S.alone)).toEqual([]);
@@ -3064,21 +3065,36 @@ describe("gerência do painel do serviço", () => {
       S.alone,
     ]);
     expect((await db.adminUserList({ q: S.alone })).map((row) => row.id)).toEqual([S.alone]);
-    expect(await db.adminUserList({ q: "sami" })).toEqual([]);
+    expect((await db.adminUserList({ q: "sam" })).map((row) => row.id)).toEqual([S.alone]);
+    expect((await db.adminUserList({ q: "SA" })).map((row) => row.id).sort()).toEqual(
+      [S.alone, S.owner].sort(),
+    );
+    // Parte do e-mail não acha, e o curinga do LIKE vale como letra.
+    expect(await db.adminUserList({ q: "sami@" })).toEqual([]);
+    expect(await db.adminUserList({ q: "example.com" })).toEqual([]);
+    expect(await db.adminUserList({ q: "%%" })).toEqual([]);
+    expect(await db.adminUserList({ q: "s" })).toEqual([]);
     const [row] = await db.adminUserList({ q: S.owner });
-    expect(row).toMatchObject({ households: 1, isOwner: true, emailVerified: false });
-  });
-
-  it("nome e e-mail só saem de responsável, com registro", async () => {
-    expect(await db.adminRevealUser(admin, S.owner)).toEqual({
+    expect(row).toMatchObject({
       name: "Sara",
       email: "sara@example.com",
+      households: 1,
+      isOwner: true,
+      emailVerified: false,
     });
-    expect(await db.adminRevealUser(admin, S.member)).toBe("not_allowed");
-    expect(await db.adminRevealUser(admin, "user-inexistente")).toBe("not_found");
-    expect(await auditActions(S.member)).toContain("usuario:revelar");
-    expect((await db.adminUserDetail(S.member))?.canReveal).toBe(false);
-    expect((await db.adminUserDetail(S.owner))?.canReveal).toBe(true);
+  });
+
+  it("detalhe traz nome e e-mail de qualquer conta; o documento só de responsável", async () => {
+    expect(await db.adminUserDetail(S.member)).toMatchObject({
+      name: "Sol",
+      email: "sol@example.com",
+      canReveal: false,
+    });
+    expect(await db.adminUserDetail(S.owner)).toMatchObject({
+      name: "Sara",
+      email: "sara@example.com",
+      canReveal: true,
+    });
     expect(await db.adminPasswordResetTarget(admin, S.owner)).toBe("sara@example.com");
     expect(await auditActions(S.owner)).toContain("usuario:redefinir_senha");
   });

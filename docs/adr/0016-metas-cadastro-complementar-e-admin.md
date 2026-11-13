@@ -80,7 +80,8 @@ cálculos estão no ADR-0015. A especificação completa está em `docs/specs/ag
   conta). Nunca guarda o texto da busca, nem nome, nem e-mail. Busca sempre por POST: e-mail não vai para URL.
 - **Dados pessoais mínimos.** Lista e detalhe de família mostram nome da família, datas, papéis e módulos
   usados (sim ou não). Conta aparece por um código curto. Nome e e-mail só de quem é responsável de família (ou
-  de conta sem família), por ação explícita e registrada. Sem valores, sem lançamentos, sem "entrar como
+  de conta sem família), por ação explícita e registrada. _Mudou em 2026-11-13 (ADR-0041): a lista e o detalhe
+  de conta mostram nome e e-mail de todas as contas._ Sem valores, sem lançamentos, sem "entrar como
   usuário". Busca de família por nome ou e-mail exato; de conta só por e-mail exato ou id.
 - **Telas**: visão geral, famílias, usuários, agentes, sistema, controles e auditoria, com menu lateral próprio
   e barra no celular.

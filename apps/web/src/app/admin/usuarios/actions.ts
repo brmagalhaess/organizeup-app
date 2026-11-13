@@ -6,7 +6,6 @@ import {
   adminEndUserSessions,
   adminPasswordResetTarget,
   adminRevealIdentity,
-  adminRevealUser,
   adminSetUserBlocked,
 } from "@organizeup/db";
 import { revalidatePath } from "next/cache";
@@ -52,34 +51,6 @@ export async function browseUsers(previous: UsersState, form: FormData): Promise
   } catch (error) {
     logAdminFailure("admin_users_failed", error);
     return { ...previous, message: "Não foi possível buscar agora. Tente de novo." };
-  }
-}
-
-export interface UserContactState {
-  name: string | null;
-  email: string | null;
-  message: string | null;
-}
-
-export async function revealUser(
-  _previous: UserContactState,
-  form: FormData,
-): Promise<UserContactState> {
-  const session = await requireAdmin();
-  const empty = { name: null, email: null };
-  const id = targetId.safeParse(form.get("id"));
-  if (!id.success) return { ...empty, message: "Conta inválida." };
-  if (!hasAdminDatabase()) return { ...empty, message: ADMIN_DB_MISSING };
-  try {
-    const result = await adminRevealUser({ adminUserId: session.user.id }, id.data);
-    if (result === "not_found") return { ...empty, message: "Conta não encontrada." };
-    if (result === "not_allowed") {
-      return { ...empty, message: "Disponível só para responsável de família." };
-    }
-    return { ...result, message: null };
-  } catch (error) {
-    logAdminFailure("admin_user_reveal_failed", error);
-    return { ...empty, message: "Não foi possível consultar agora. Tente de novo." };
   }
 }
 

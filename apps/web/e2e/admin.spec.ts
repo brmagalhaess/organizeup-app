@@ -264,12 +264,13 @@ test("bloquear impede o login; redefinir senha responde; excluir pede digitaçã
     await page.getByRole("button", { name: "Buscar", exact: true }).click();
     await expect(page.getByRole("table").getByRole("link")).toHaveCount(1);
     await expect(page.getByRole("cell").filter({ hasText: "responsável" })).toBeVisible();
+    // Nome e e-mail já na lista, para o suporte saber com quem fala (ADR-0041).
+    await expect(page.getByRole("table").getByRole("link", { name: "Pessoa Teste" })).toBeVisible();
+    await expect(page.getByRole("table").getByText(email)).toBeVisible();
     await page.getByRole("table").getByRole("link").click();
-    await expect(page.getByRole("heading", { level: 1, name: /^Conta / })).toBeVisible();
-    await expectAccessible(page);
-
-    await page.getByRole("button", { name: "Ver nome e e-mail" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Pessoa Teste" })).toBeVisible();
     await expect(page.getByText(email)).toBeVisible();
+    await expectAccessible(page);
 
     await page.getByRole("button", { name: "Enviar redefinição de senha" }).click();
     await confirmSheet(page, "Enviar");

@@ -3,8 +3,10 @@
 //
 // O painel do serviço (/admin) usa só os helpers `admin*` abaixo. Leitura vai pelo pool SOMENTE
 // LEITURA (`default_transaction_read_only = on`) e devolve o mínimo: contagens e, por família, nome,
-// datas, papéis e módulos usados (sim ou não). Nome e e-mail só saem por `adminHouseholdOwner` e
-// `adminRevealUser`, e o documento só por `adminRevealIdentity`, cifrado, todos com o acesso registrado.
+// datas, papéis e módulos usados (sim ou não). Na lista e no detalhe de conta, nome e e-mail de cada conta,
+// para o suporte saber com quem fala (ADR-0041); o acesso à tela fica registrado. Na família, o nome e o
+// e-mail do responsável só saem por `adminHouseholdOwner`, e o documento só por `adminRevealIdentity`,
+// cifrado, os dois com o acesso registrado.
 // Ação com efeito passa por `adminAct`: a mudança e o
 // registro em ops.admin_access ficam na mesma transação. Nada aqui lê valores nem lançamentos.
 import {
@@ -484,6 +486,8 @@ export async function adminDeleteHousehold(
 
 export interface AdminUserRow {
   id: string;
+  name: string;
+  email: string;
   createdAt: Date;
   emailVerified: boolean;
   blockedAt: Date | null;
@@ -495,8 +499,8 @@ export interface AdminUserRow {
 export type UserStatusFilter = "todos" | "bloqueados" | "nao_verificados" | "sem_familia";
 
 /**
- * Lista contas sem nome nem e-mail. `q` é o e-mail exato ou o id da conta, nunca parte deles: o
- * painel não serve para garimpar pessoas.
+ * Lista contas com nome e e-mail, para o suporte (ADR-0041). `q` é o e-mail exato, o id da conta ou parte
+ * do nome, com duas letras ou mais. Parte do e-mail não busca: o painel não serve para garimpar endereços.
  */
 export async function adminUserList(input: {
   limit?: number | undefined;
@@ -512,7 +516,9 @@ export async function adminUserList(input: {
       ? undefined
       : q.includes("@")
         ? eq(user.email, q.toLowerCase())
-        : eq(user.id, q);
+        : q.length < 2
+          ? eq(user.id, q)
+          : or(eq(user.id, q), ilike(user.name, `%${escapeLike(q)}%`));
     const status =
       input.status === "bloqueados"
         ? isNotNull(userAccess.blockedAt)
@@ -523,6 +529,8 @@ export async function adminUserList(input: {
     const rows = await db
       .select({
         id: user.id,
+        name: user.name,
+        email: user.email,
         createdAt: user.createdAt,
         emailVerified: user.emailVerified,
         blockedAt: userAccess.blockedAt,
@@ -534,7 +542,14 @@ export async function adminUserList(input: {
       .leftJoin(householdMember, eq(householdMember.userId, user.id))
       .leftJoin(session, eq(session.userId, user.id))
       .where(and(search, status))
-      .groupBy(user.id, user.createdAt, user.emailVerified, userAccess.blockedAt)
+      .groupBy(
+        user.id,
+        user.name,
+        user.email,
+        user.createdAt,
+        user.emailVerified,
+        userAccess.blockedAt,
+      )
       .having(input.status === "sem_familia" ? sql`${families} = 0` : undefined)
       .orderBy(desc(user.createdAt))
       .limit(limit)
@@ -549,13 +564,15 @@ export async function adminUserList(input: {
 
 export interface AdminUserDetail {
   id: string;
+  name: string;
+  email: string;
   createdAt: Date;
   emailVerified: boolean;
   blockedAt: Date | null;
   lastAccessAt: Date | null;
   activeSessions: number;
   families: Array<{ id: string; name: string; role: string; suspendedAt: Date | null }>;
-  /** Nome e e-mail só podem ser revelados de responsável ou de conta sem família. */
+  /** O documento só pode ser revelado de responsável ou de conta sem família. */
   canReveal: boolean;
   /** Só se tem documento e de que tipo. O documento nunca vem aqui. */
   personType: "pf" | "pj" | null;
@@ -577,6 +594,8 @@ export async function adminUserDetail(id: string): Promise<AdminUserDetail | nul
     const [row] = await db
       .select({
         id: user.id,
+        name: user.name,
+        email: user.email,
         createdAt: user.createdAt,
         emailVerified: user.emailVerified,
         blockedAt: userAccess.blockedAt,
@@ -619,29 +638,13 @@ export async function adminUserDetail(id: string): Promise<AdminUserDetail | nul
   });
 }
 
-/** Mesma regra da tela: responsável de família ou conta sem família. */
+/** Documento: só de responsável de família ou de conta sem família. Membro convidado não. */
 async function canRevealAccount(tx: AdminTx, userId: string): Promise<boolean> {
   const roles = await tx
     .select({ role: householdMember.role })
     .from(householdMember)
     .where(eq(householdMember.userId, userId));
   return roles.length === 0 || roles.some(({ role }) => role === "owner");
-}
-
-/** Nome e e-mail de uma conta, por ação registrada. Membro comum não é revelado (regra 5). */
-export async function adminRevealUser(
-  admin: AdminActor,
-  userId: string,
-): Promise<{ name: string; email: string } | "not_found" | "not_allowed"> {
-  const entry = { action: "usuario:revelar", targetUserId: userId };
-  return adminAct(admin, entry, async (tx) => {
-    const [row] = await tx
-      .select({ name: user.name, email: user.email })
-      .from(user)
-      .where(eq(user.id, userId));
-    if (!row) return "not_found";
-    return (await canRevealAccount(tx, userId)) ? row : "not_allowed";
-  });
 }
 
 export interface AdminSealedIdentity {

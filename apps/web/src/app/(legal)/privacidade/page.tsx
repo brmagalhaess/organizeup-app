@@ -279,12 +279,13 @@ export default function PrivacyPage() {
       <p>
         Para dar suporte, a administração do serviço vê o nome da família, as datas de criação e de
         último acesso, as pessoas com acesso pelo papel de cada uma e quais áreas do sistema a
-        família usa, sem nenhum valor. Nome e e-mail do responsável só aparecem quando pedidos, e
-        cada acesso fica registrado. Do documento, o painel mostra só se existe e se é de pessoa
-        física ou jurídica; o documento completo só aparece por pedido do responsável pelo suporte,
-        e esse pedido fica registrado. Dados financeiros não aparecem nesse painel. A administração
-        também pode suspender o acesso de uma família, bloquear uma conta ou excluí-las, por exemplo
-        em caso de abuso ou a pedido; essas ações ficam registradas.
+        família usa, sem nenhum valor. Na lista de contas, vê o nome e o e-mail de cada pessoa
+        cadastrada, para saber com quem está falando; cada acesso a essa lista fica registrado. Do
+        documento, o painel mostra só se existe e se é de pessoa física ou jurídica; o documento
+        completo só aparece por pedido do responsável pelo suporte, e esse pedido fica registrado.
+        Dados financeiros não aparecem nesse painel. A administração também pode suspender o acesso
+        de uma família, bloquear uma conta ou excluí-las, por exemplo em caso de abuso ou a pedido;
+        essas ações ficam registradas.
       </p>
       <p>Usamos fornecedores para funcionar:</p>
       <ul>

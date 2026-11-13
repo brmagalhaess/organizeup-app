@@ -15,7 +15,7 @@ export default async function AdminUsersPage() {
   return (
     <AdminPage
       title="Usuários"
-      description="As contas aparecem por um código. Nome e e-mail só por ação registrada."
+      description="Nome e e-mail de cada conta, para o suporte. Cada acesso a esta tela fica na auditoria."
     >
       {hasAdminDatabase() ? (
         <UsersBoard initial={await loadUsers("", 0, "todos")} />
