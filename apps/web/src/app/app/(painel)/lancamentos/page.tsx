@@ -4,7 +4,8 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { money } from "@organizeup/domain";
 import { buttonClass } from "@/components/styles";
-import { PageHeader, StatTile } from "@/components/ui";
+import { PersonSpendingBars, spendingTexts } from "@/components/person";
+import { Card, PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
 import { formatMonthYear } from "@/i18n/format";
 import { loadMonth } from "@/lib/finance-data";
@@ -35,9 +36,14 @@ export default async function EntriesPage({
       : "",
     category: known(text(query.categoria), data.categories),
     account: known(text(query.conta), data.accounts),
+    person:
+      text(query.pessoa) === "comum" && data.people.list.length > 0
+        ? "comum"
+        : known(text(query.pessoa), data.people.list),
   };
-  const [t, moneyText, locale] = await Promise.all([
+  const [t, tPeople, moneyText, locale] = await Promise.all([
     getTranslations("lancamentos"),
+    getTranslations("porPessoa"),
     getMoney(),
     getLocale(),
   ]);
@@ -113,8 +119,29 @@ export default async function EntriesPage({
           </div>
         ))}
       </dl>
+      {data.people.list.length === 0 ? null : (
+        <Card
+          title={tPeople("title")}
+          description={tPeople("description", { month: formatMonthYear(data.month, locale) })}
+        >
+          <PersonSpendingBars
+            rows={data.people.spending}
+            people={data.people.list}
+            moneyText={moneyText}
+            hrefOf={(id) => `/app/lancamentos?m=${data.month}&tipo=despesa&pessoa=${id ?? "comum"}`}
+            texts={spendingTexts(
+              tPeople as never,
+              moneyText,
+              locale,
+              data.people.spending,
+              data.people.list,
+            )}
+          />
+        </Card>
+      )}
       <EntriesTable
-        key={`${data.month}:${filters.kind}:${filters.category}:${filters.account}`}
+        key={`${data.month}:${filters.kind}:${filters.category}:${filters.account}:${filters.person}`}
+        people={{ list: data.people.list, of: data.people.of }}
         filters={filters}
         cardLines={data.cardLines}
         month={data.month}

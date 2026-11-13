@@ -1,4 +1,6 @@
 "use client";
+import { OwnerField, ownerOf, type OwnerChoices } from "@/components/owner-field";
+import { PersonDot } from "@/components/person";
 import {
   AlertCircle,
   Archive,
@@ -71,10 +73,12 @@ const STATUS = {
 function CardForm({
   card,
   accounts,
+  owners,
   onDone,
 }: {
   card: CardView | null;
   accounts: Data["accounts"];
+  owners: OwnerChoices;
   onDone: () => void;
 }) {
   const t = useTranslations("cartoes.form");
@@ -138,6 +142,7 @@ function CardForm({
             ))}
         </Select>
       </Field>
+      <OwnerField owners={owners} target="cards" id={card?.id} />
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
         {pending ? tCommon("saving") : t("save")}
@@ -146,7 +151,15 @@ function CardForm({
   );
 }
 
-function CardTile({ card, selected }: { card: CardView; selected: boolean }) {
+function CardTile({
+  card,
+  selected,
+  owner,
+}: {
+  card: CardView;
+  selected: boolean;
+  owner: { name: string; slot: number } | undefined;
+}) {
   const t = useTranslations("cartoes.tile");
   const moneyText = useMoney();
   return (
@@ -167,6 +180,11 @@ function CardTile({ card, selected }: { card: CardView; selected: boolean }) {
           <p className="text-xs text-muted">
             {t("days", { closing: card.closingDay, due: card.dueDay })}
           </p>
+          {owner ? (
+            <p className="mt-0.5 flex text-xs text-muted">
+              <PersonDot name={owner.name} slot={owner.slot} />
+            </p>
+          ) : null}
         </div>
       </div>
       <div>
@@ -471,7 +489,9 @@ export function CardsBoard({
   selectedId,
   month,
   writable,
+  owners,
 }: {
+  owners: OwnerChoices;
   data: Data;
   selectedId: string | null;
   month: string | null;
@@ -519,7 +539,11 @@ export function CardsBoard({
           >
             {active.map((card) => (
               <li key={card.id}>
-                <CardTile card={card} selected={card.id === selected?.id} />
+                <CardTile
+                  card={card}
+                  selected={card.id === selected?.id}
+                  owner={ownerOf(owners, "cards", card.id)}
+                />
               </li>
             ))}
           </ul>
@@ -576,6 +600,7 @@ export function CardsBoard({
           key={editing?.nonce}
           card={editing?.card ?? null}
           accounts={data.accounts}
+          owners={owners}
           onDone={close}
         />
       </Sheet>

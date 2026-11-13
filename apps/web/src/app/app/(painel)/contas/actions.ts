@@ -24,6 +24,7 @@ import {
   transferRate,
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
+import { saveOwner } from "@/lib/owners";
 import { requireTenant } from "@/lib/session";
 import { systemTextOf } from "@/i18n/system-text";
 
@@ -190,6 +191,8 @@ export async function saveAccount(
     }
   }
   const system = systemTextOf(await getTranslations("sistema"));
+  // O campo só aparece com duas pessoas ou mais; sem ele, a escolha gravada fica como está.
+  const personId = String(form.get("personId") ?? "") || null;
   const failure = await withHousehold(ctx, async (tx) => {
     if (id) {
       const [current] = await tx
@@ -208,6 +211,7 @@ export async function saveAccount(
         .update(accounts)
         .set({ name: kept, type, currency, openingBalance })
         .where(eq(accounts.id, id));
+      if (form.has("personId")) await saveOwner(tx, "account", id, personId);
       await audit(tx, ctx, "update", "accounts", id);
     } else {
       // Só a moeda assinada libera conta nova nela.
@@ -216,6 +220,7 @@ export async function saveAccount(
         .insert(accounts)
         .values({ householdId: ctx.householdId, name, type, currency, openingBalance })
         .returning({ id: accounts.id });
+      if (personId) await saveOwner(tx, "account", created!.id, personId);
       await audit(tx, ctx, "create", "accounts", created!.id);
     }
     return null;

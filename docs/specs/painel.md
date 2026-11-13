@@ -44,15 +44,19 @@ sempre (`summarizeMonth`, `spendingByCategory`, `incomeByCategory`, `summarizePo
    link.
 9. **Por categoria.** Despesas, receitas e, quando houver, aportes, as maiores 6 e "Outras". Valor, percentual e barra com feito e previsto. Cada linha abre
    `/app/lancamentos` filtrado. Despesa abre o cartão compra a compra, como no relatório de categorias, e soma feito e previsto.
-10. **Por conta.** Cada conta com receitas, despesas e saldo. Conta arquivada só aparece se teve movimento no mês. Cada cartão com
+10. **Gastos por pessoa**, quando alguma conta ou cartão tem dono (ADR-0040). Uma barra por pessoa, da que mais gastou
+    para a que menos gastou, com o pago cheio e o que está em aberto claro, o valor, a fatia das despesas e a frase de quem
+    gastou mais. "Uso comum" vem por último. Cada nome abre `/app/lancamentos` com as despesas daquela pessoa. Na lista de
+    lançamentos do mês, cada linha leva o nome da pessoa ao lado do status.
+11. **Por conta.** Cada conta com receitas, despesas e saldo. Conta arquivada só aparece se teve movimento no mês. Cada cartão com
     a fatura do mês, a situação dela e o que já está nas faturas seguintes. A fatura paga entra nas despesas da conta que paga: a
     linha do cartão é detalhe e não soma de novo.
-11. **Investimentos.** Em todo mês: aportes e resgates do mês, das operações. Em mês passado: valor aplicado até o fim do mês,
+12. **Investimentos.** Em todo mês: aportes e resgates do mês, das operações. Em mês passado: valor aplicado até o fim do mês,
     calculado das operações, com o rótulo "histórico". Carteira, ganho e divisão por classe são sempre a posição de hoje, com o rótulo
     "hoje": não existe histórico de preço (`market_quotes` guarda só a última cotação).
-12. **Proventos.** Recebidos no mês, anunciados com pagamento no mês, anunciados depois dele e total dos 12 meses até o escolhido.
+13. **Proventos.** Recebidos no mês, anunciados com pagamento no mês, anunciados depois dele e total dos 12 meses até o escolhido.
     Estimativa pelo histórico aparece à parte, com esse nome, do mês atual em diante. Só para família em real, como a tela de proventos.
-13. **Reserva e patrimônio.** Sempre a posição de hoje; fora do mês atual, o título diz "hoje".
+14. **Reserva e patrimônio.** Sempre a posição de hoje; fora do mês atual, o título diz "hoje".
 
 No computador, os blocos 7 a 9 e o 13 dividem duas colunas: à esquerda, Evolução e Por categoria; à direita, Próximos
 vencimentos, Lançamentos do mês e Reserva e patrimônio. No celular seguem a ordem da lista.

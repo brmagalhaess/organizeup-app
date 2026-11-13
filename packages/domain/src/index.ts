@@ -47,3 +47,4 @@ export * from "./trip-places";
 export * from "./trip-suggest";
 export * from "./wipe";
 export * from "./reminders";
+export * from "./person-spending";

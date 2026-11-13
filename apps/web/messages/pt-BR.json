@@ -2927,7 +2927,8 @@
       "edit": "Editar {name}",
       "delete": "Excluir {name}",
       "stop": "Parar de repetir {name}",
-      "repeats": "Repete todo mês"
+      "repeats": "Repete todo mês",
+      "person": "Lançamento de {name}"
     },
     "plan": {
       "badge": "Plano",
@@ -2958,7 +2959,10 @@
       "allAccounts": "Todas",
       "contributions": "Aportes",
       "redemptions": "Resgates",
-      "clear": "Limpar filtros"
+      "clear": "Limpar filtros",
+      "person": "Pessoa",
+      "allPeople": "Todas",
+      "sharedUse": "Uso comum"
     },
     "table": {
       "caption": "Lançamentos do mês",
@@ -5710,6 +5714,25 @@
       "turnOff": "Desligar",
       "turnedOn": "Atualização automática ligada.",
       "turnedOff": "Atualização automática desligada."
+    }
+  },
+  "porPessoa": {
+    "title": "Gastos por pessoa",
+    "description": "Quem gastou quanto em {month}, pela conta e pelo cartão de cada um.",
+    "shared": "Uso comum",
+    "sharedHint": "Contas e cartões sem dono. Diga de quem são em Contas e em Cartões.",
+    "lead": "{first} gastou {amount} a mais que {second}.",
+    "tie": "{first} e {second} gastaram o mesmo.",
+    "share": "{percent} dos gastos",
+    "open": "+ {amount} em aberto",
+    "see": "Ver os gastos de {name}",
+    "empty": "Nenhum gasto neste mês.",
+    "owner": {
+      "label": "De quem é",
+      "shared": "Uso comum",
+      "bank": "{name}, pela conexão com o banco",
+      "accountHint": "Os lançamentos desta conta levam o nome da pessoa.",
+      "cardHint": "As faturas deste cartão contam nos gastos da pessoa."
     }
   }
 }

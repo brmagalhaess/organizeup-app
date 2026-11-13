@@ -30,6 +30,7 @@ import {
 } from "@organizeup/domain";
 import { ConfirmEntryButton } from "@/components/confirm-entry-button";
 import { amountClass, buttonClass, confirmAction, cx } from "@/components/styles";
+import { PersonDot, PersonSpendingBars, spendingTexts } from "@/components/person";
 import { Badge, Button, Card, EmptyState, PageHeader, StatTile } from "@/components/ui";
 import { Insights } from "@/components/insights/insights";
 import {
@@ -185,6 +186,8 @@ function MonthEntries({
   const { recent, upcoming } = orderEntries(data.entries, data.today);
   const shown = [...recent, ...upcoming].slice(0, ENTRIES_SHOWN);
   const href = `/app/lancamentos?m=${data.period.month}`;
+  const personOf = (key: string) =>
+    data.people.list.find((person) => person.id === data.people.of[key]);
   return (
     <Card
       title={t("title")}
@@ -210,6 +213,7 @@ function MonthEntries({
           >
             {shown.map((entry) => {
               const overdue = entry.status === "previsto" && entry.date < data.today;
+              const person = personOf(entry.key);
               return (
                 <li key={entry.key} className="flex items-center gap-3 py-2.5">
                   <span className="w-12 shrink-0 text-sm tabular-nums text-muted">
@@ -217,12 +221,20 @@ function MonthEntries({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{describe(entry)}</p>
-                    <p className="text-xs text-muted">
-                      {entry.status === "realizado"
-                        ? t("done")
-                        : overdue
-                          ? t("overdue")
-                          : t("planned")}
+                    <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted">
+                      <span className="shrink-0">
+                        {entry.status === "realizado"
+                          ? t("done")
+                          : overdue
+                            ? t("overdue")
+                            : t("planned")}
+                      </span>
+                      {person ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <PersonDot name={person.name} slot={person.slot} />
+                        </>
+                      ) : null}
                     </p>
                   </div>
                   <p
@@ -268,8 +280,9 @@ export default async function OverviewPage({
     getBrazilRules(),
     readFamilyAccess(ctx),
   ]);
-  const [t, tSystem, locale, moneyText] = await Promise.all([
+  const [t, tPeople, tSystem, locale, moneyText] = await Promise.all([
     getTranslations("dashboard"),
+    getTranslations("porPessoa"),
     getTranslations("sistema"),
     getLocale(),
     getMoney(),
@@ -767,6 +780,27 @@ export default async function OverviewPage({
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-6">
+          {data.people.list.length === 0 ? null : (
+            <div id="pessoas" className="min-w-0 scroll-mt-20">
+              <Card title={tPeople("title")} description={tPeople("description", { month: label })}>
+                <PersonSpendingBars
+                  rows={data.people.spending}
+                  people={data.people.list}
+                  moneyText={moneyText}
+                  hrefOf={(id) =>
+                    `/app/lancamentos?m=${month}&tipo=despesa&pessoa=${id ?? "comum"}`
+                  }
+                  texts={spendingTexts(
+                    tPeople as never,
+                    moneyText,
+                    locale,
+                    data.people.spending,
+                    data.people.list,
+                  )}
+                />
+              </Card>
+            </div>
+          )}
           <div id="contas" className="min-w-0 scroll-mt-20">
             <AccountsSection data={data} moneyText={moneyText} nameOf={system.name} />
           </div>

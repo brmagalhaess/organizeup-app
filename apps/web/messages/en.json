@@ -2927,7 +2927,8 @@
       "edit": "Edit {name}",
       "delete": "Delete {name}",
       "stop": "Stop repeating {name}",
-      "repeats": "Repeats every month"
+      "repeats": "Repeats every month",
+      "person": "Entry of {name}"
     },
     "plan": {
       "badge": "Plan",
@@ -2958,7 +2959,10 @@
       "allAccounts": "All",
       "contributions": "Contributions",
       "redemptions": "Redemptions",
-      "clear": "Clear filters"
+      "clear": "Clear filters",
+      "person": "Person",
+      "allPeople": "Everyone",
+      "sharedUse": "Shared"
     },
     "table": {
       "caption": "Transactions for the month",
@@ -5710,6 +5714,25 @@
       "turnOff": "Turn off",
       "turnedOn": "Automatic update turned on.",
       "turnedOff": "Automatic update turned off."
+    }
+  },
+  "porPessoa": {
+    "title": "Spending by person",
+    "description": "Who spent how much in {month}, by each one's account and card.",
+    "shared": "Shared",
+    "sharedHint": "Accounts and cards with no owner. Say whose they are in Accounts and in Cards.",
+    "lead": "{first} spent {amount} more than {second}.",
+    "tie": "{first} and {second} spent the same.",
+    "share": "{percent} of spending",
+    "open": "+ {amount} still open",
+    "see": "See what {name} spent",
+    "empty": "No spending this month.",
+    "owner": {
+      "label": "Whose it is",
+      "shared": "Shared",
+      "bank": "{name}, from the bank connection",
+      "accountHint": "Entries in this account carry the person's name.",
+      "cardHint": "This card's statements count toward the person's spending."
     }
   }
 }

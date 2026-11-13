@@ -22,6 +22,7 @@ import {
   type StatementLine,
 } from "@organizeup/domain";
 import { ConfirmEntryButton } from "@/components/confirm-entry-button";
+import { PersonTag, type PersonView } from "@/components/person";
 import { useEntryDialog } from "@/components/shell/entry-context";
 import {
   Badge,
@@ -47,6 +48,9 @@ interface Named {
   id: string;
   name: string;
 }
+
+/** Valor do filtro de pessoa para o que não é de ninguém. */
+const SHARED = "comum";
 
 /** Previsões que vêm de outra tela: lá é que se edita. */
 const SCHEDULED_PAGES: Partial<Record<MonthEntry["source"], string>> = {
@@ -158,6 +162,7 @@ export function EntriesTable({
   accounts,
   filters,
   cardLines,
+  people,
 }: {
   month: string;
   today: string;
@@ -168,7 +173,9 @@ export function EntriesTable({
   categories: Named[];
   accounts: Named[];
   /** Filtros que já vêm do endereço, como nos links do painel. */
-  filters: { kind: string; category: string; account: string };
+  filters: { kind: string; category: string; account: string; person: string };
+  /** Quem tem conta ou cartão no nome, e de quem é cada entrada. Lista vazia: a tela não fala de pessoa. */
+  people: { list: PersonView[]; of: Record<string, string> };
   /** Compras na fatura do mês: a lista mostra só a fatura, e a categoria delas fica aqui. */
   cardLines: Array<Pick<StatementLine, "categoryId" | "amount">>;
 }) {
@@ -181,6 +188,7 @@ export function EntriesTable({
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState(filters.category);
   const [account, setAccount] = useState(filters.account);
+  const [person, setPerson] = useState(filters.person);
   const [removing, setRemoving] = useState<MonthEntry | null>(null);
   const [stopping, setStopping] = useState<MonthEntry | null>(null);
 
@@ -202,6 +210,9 @@ export function EntriesTable({
     });
 
   const flowOf = (entry: MonthEntry) => flows[entry.key] ?? entry.kind;
+  const personById = useMemo(() => new Map(people.list.map((p) => [p.id, p])), [people.list]);
+  const personOf = (entry: MonthEntry) => personById.get(people.of[entry.key] ?? "");
+  const byPerson = people.list.length > 0;
   const search = query.trim().toLocaleLowerCase(locale);
   const visible = entries.filter(
     (entry) =>
@@ -209,6 +220,7 @@ export function EntriesTable({
       (!status || entry.status === status) &&
       (!category || entry.categoryId === category) &&
       (!account || entry.accountId === account) &&
+      (!person || (person === SHARED ? !personOf(entry) : personOf(entry)?.id === person)) &&
       (!search || describe(entry).toLocaleLowerCase(locale).includes(search)),
   );
   const usedCategories = categories.filter(
@@ -221,13 +233,14 @@ export function EntriesTable({
   const { recent, upcoming } = orderEntries(visible, today);
   const open = openSummary(entries, today);
   const totals = listTotals(visible);
-  const filtering = Boolean(query.trim() || kind || status || category || account);
+  const filtering = Boolean(query.trim() || kind || status || category || account || person);
   const clearFilters = () => {
     setQuery("");
     setKind("");
     setStatus("");
     setCategory("");
     setAccount("");
+    setPerson("");
   };
   const yesterday = addDays(today, -1);
   const dayTag = (date: string) =>
@@ -250,7 +263,14 @@ export function EntriesTable({
 
   return (
     <Card>
-      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-[minmax(0,1fr)_repeat(4,10rem)]">
+      <div
+        className={cx(
+          "mb-4 grid grid-cols-2 gap-3",
+          byPerson
+            ? "xl:grid-cols-[minmax(0,1fr)_repeat(5,9rem)]"
+            : "xl:grid-cols-[minmax(0,1fr)_repeat(4,10rem)]",
+        )}
+      >
         <div className="col-span-2 xl:col-span-1">
           <Field label={t("filters.search")}>
             <Input
@@ -297,6 +317,19 @@ export function EntriesTable({
             ))}
           </Select>
         </Field>
+        {byPerson ? (
+          <Field label={t("filters.person")}>
+            <Select value={person} onChange={(event) => setPerson(event.target.value)}>
+              <option value="">{t("filters.allPeople")}</option>
+              {people.list.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+              <option value={SHARED}>{t("filters.sharedUse")}</option>
+            </Select>
+          </Field>
+        ) : null}
       </div>
 
       {open.count > 0 && status !== "previsto" ? (
@@ -462,16 +495,26 @@ export function EntriesTable({
                           >
                             {formatDayMonth(entry.date, locale)} · {dayTag(entry.date)}
                           </p>
-                          <p className="flex items-center gap-1.5 font-medium">
-                            {describe(entry)}
-                            {entry.recurring ? (
-                              <Repeat
-                                className="size-3.5 shrink-0 text-muted"
-                                role="img"
-                                aria-label={t("row.repeats")}
+                          {/* O nome da pessoa vem ao lado da descrição, e desce quando não cabe. */}
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <p className="flex items-center gap-1.5 font-medium">
+                              {describe(entry)}
+                              {entry.recurring ? (
+                                <Repeat
+                                  className="size-3.5 shrink-0 text-muted"
+                                  role="img"
+                                  aria-label={t("row.repeats")}
+                                />
+                              ) : null}
+                            </p>
+                            {personOf(entry) ? (
+                              <PersonTag
+                                name={personOf(entry)!.name}
+                                slot={personOf(entry)!.slot}
+                                title={t("row.person", { name: personOf(entry)!.name })}
                               />
                             ) : null}
-                          </p>
+                          </div>
                           <p className="mt-0.5 text-xs text-muted md:hidden">
                             {categoryName.get(entry.categoryId)}
                           </p>

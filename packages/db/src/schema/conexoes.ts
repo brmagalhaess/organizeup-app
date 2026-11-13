@@ -126,3 +126,20 @@ export const cardPurchaseImports = pgTable("card_purchases", {
   cardId: text("card_id").notNull(),
   importFingerprint: text("import_fingerprint"),
 });
+
+/**
+ * De quem é cada conta e cada cartão (migração 0054). São outras vistas de `accounts` e `credit_cards`, pelo
+ * mesmo motivo de `cardPurchaseImports`: quem lê contas no painel não passa a depender da coluna nova, e uma
+ * web publicada antes da migração continua abrindo.
+ */
+export const accountOwners = pgTable("accounts", {
+  id: text("id").primaryKey(),
+  householdId: text("household_id").notNull(),
+  personId: text("person_id"),
+});
+
+export const cardOwners = pgTable("credit_cards", {
+  id: text("id").primaryKey(),
+  householdId: text("household_id").notNull(),
+  personId: text("person_id"),
+});

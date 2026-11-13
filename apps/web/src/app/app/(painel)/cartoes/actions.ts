@@ -15,6 +15,7 @@ import {
 import { isYearMonth, parseMoney, purchaseLines, toDbAmount } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
 import { confirmCommitment } from "@/lib/confirm-entry";
+import { saveOwner } from "@/lib/owners";
 import { requireTenant } from "@/lib/session";
 
 export interface CardFormState {
@@ -68,6 +69,8 @@ export async function saveCard(_prev: CardFormState, form: FormData): Promise<Ca
     }
   }
 
+  // O campo só aparece com duas pessoas ou mais; sem ele, a escolha gravada fica como está.
+  const personId = String(form.get("personId") ?? "") || null;
   const failure = await withHousehold(ctx, async (tx) => {
     const [account] = await tx
       .select({ id: accounts.id })
@@ -87,6 +90,7 @@ export async function saveCard(_prev: CardFormState, form: FormData): Promise<Ca
           payingAccountId,
         })
         .returning({ id: creditCards.id });
+      if (personId) await saveOwner(tx, "card", created!.id, personId);
       await audit(tx, ctx, "create", "credit_cards", created!.id);
       return null;
     }
@@ -106,6 +110,7 @@ export async function saveCard(_prev: CardFormState, form: FormData): Promise<Ca
       .update(creditCards)
       .set({ name, limitAmount, closingDay, dueDay, payingAccountId })
       .where(eq(creditCards.id, id));
+    if (form.has("personId")) await saveOwner(tx, "card", id, personId);
     await audit(tx, ctx, "update", "credit_cards", id);
     return null;
   });

@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { canWrite } from "@organizeup/db";
 import { isYearMonth } from "@organizeup/domain";
 import { loadCards } from "@/lib/commitments";
+import { loadOwnerChoices } from "@/lib/owners";
 import Link from "next/link";
 import { buttonClass } from "@/components/styles";
 import { Card } from "@/components/ui";
@@ -22,7 +23,7 @@ export default async function CardsPage({
 }) {
   const { ctx, session } = await requireTenant();
   const { c, m } = await searchParams;
-  const data = await loadCards(ctx);
+  const [data, owners] = await Promise.all([loadCards(ctx), loadOwnerChoices(ctx)]);
   const bank = canWrite(ctx) && (await bankFeedOpen(session.user));
   const t = bank ? await getTranslations("cartoes.bank") : null;
   return (
@@ -32,6 +33,7 @@ export default async function CardsPage({
         selectedId={c ?? null}
         month={m && isYearMonth(m) ? m : null}
         writable={canWrite(ctx)}
+        owners={owners}
       />
       {t ? (
         <Card title={t("title")} description={t("text")}>

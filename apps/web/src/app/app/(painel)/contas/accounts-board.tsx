@@ -1,4 +1,6 @@
 "use client";
+import { OwnerField, ownerOf, type OwnerChoices } from "@/components/owner-field";
+import { PersonDot } from "@/components/person";
 import {
   Archive,
   ArrowLeftRight,
@@ -62,10 +64,12 @@ const TYPE_KEYS = ["corrente", "poupanca", "dinheiro", "investimento"] as const;
 function AccountForm({
   account,
   moved,
+  owners,
   onDone,
 }: {
   account: AccountRow | null;
   moved: boolean;
+  owners: OwnerChoices;
   onDone: () => void;
 }) {
   const t = useTranslations("contas");
@@ -128,6 +132,7 @@ function AccountForm({
           defaultValue={account ? toAmountInput(account.openingBalance, locale) : undefined}
         />
       </Field>
+      <OwnerField owners={owners} target="accounts" id={account?.id} />
       <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
       <Button type="submit" disabled={pending}>
         {pending ? tCommon("saving") : t("form.save")}
@@ -143,7 +148,9 @@ export function AccountsBoard({
   transfers,
   today,
   writable,
+  owners,
 }: {
+  owners: OwnerChoices;
   rows: AccountRow[];
   moved: string[];
   rates: FxRates;
@@ -194,7 +201,18 @@ export function AccountsBoard({
                   </span>
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{system.name(account.name)}</p>
-                    <p className="text-xs text-muted">{t(`types.${account.type}`)}</p>
+                    <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted">
+                      <span className="shrink-0">{t(`types.${account.type}`)}</span>
+                      {ownerOf(owners, "accounts", account.id) ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <PersonDot
+                            name={ownerOf(owners, "accounts", account.id)!.name}
+                            slot={ownerOf(owners, "accounts", account.id)!.slot}
+                          />
+                        </>
+                      ) : null}
+                    </p>
                   </div>
                 </div>
                 {writable ? (
@@ -292,6 +310,7 @@ export function AccountsBoard({
           key={editing?.nonce}
           account={editing?.account ?? null}
           moved={editing?.account ? moved.includes(editing.account.id) : false}
+          owners={owners}
           onDone={close}
         />
       </Sheet>

@@ -57,6 +57,7 @@ import {
 } from "@organizeup/domain";
 import { loadCommitments } from "./commitments";
 import { onboardingStatus } from "./onboarding";
+import { loadOwners, peopleOfMonth } from "./owners";
 
 /** Carrega o necessário para a tela de lançamentos. Transação curta, sem chamadas externas. */
 export async function loadMonth(ctx: TenantContext, requestedMonth?: string | null) {
@@ -89,17 +90,20 @@ export async function loadMonth(ctx: TenantContext, requestedMonth?: string | nu
     const entries = buildMonthEntries(month, planRows, transactionRows, scheduled);
     const lines = cardLines.filter((line) => line.statementMonth === month);
     const rule = await loadSavingsRule(tx);
+    const split = splitCardSavings(entries, lines, cardCategoryId, rule);
     return {
       month,
       today,
       accounts: accountRows,
       categories: categoryRows,
       entries,
+      /** De quem é cada entrada e quanto cada pessoa gastou no mês. */
+      people: peopleOfMonth(await loadOwners(tx), entries, split, rule),
       /** O fluxo de cada entrada: a lista mostra o aporte, com o nome dele. */
       flows: Object.fromEntries(
         entries.map((entry): [string, EntryFlow] => [entry.key, entryFlow(entry, rule)]),
       ),
-      summary: summarizeMonth(splitCardSavings(entries, lines, cardCategoryId, rule), rule),
+      summary: summarizeMonth(split, rule),
       /** Compras na fatura do mês, para a tela abrir o cartão ao filtrar por categoria. */
       cardLines: lines,
       /** Categorias de dinheiro guardado: o filtro Aportes abre as compras delas no cartão. */
@@ -275,6 +279,8 @@ export async function loadOverview(ctx: TenantContext, requestedMonth?: unknown)
       previousSummary: summaryOf(addMonths(month, -1)),
       /** Tudo do mês escolhido, lançado ou previsto, do mais recente ao mais antigo: a lista do painel. */
       entries: [...inMonth(month)].sort((a, b) => b.date.localeCompare(a.date)),
+      /** De quem é cada entrada e quanto cada pessoa gastou no mês. */
+      people: peopleOfMonth(await loadOwners(tx), inMonth(month), flows, rule),
       series: months.map((ym) => planPoint(ym, summaryOf(ym))),
       expenses: expenseLines(flows, lines, cardCategoryId, rule),
       incomes: incomeLines(flows, rule),

@@ -8,6 +8,7 @@ import { buttonClass } from "@/components/styles";
 import { PageHeader } from "@/components/ui";
 import { bankFeedOpen } from "@/lib/bank-feed";
 import { loadAccountBalances, loadTransfers } from "@/lib/finance-data";
+import { loadOwnerChoices } from "@/lib/owners";
 import { requireTenant } from "@/lib/session";
 import { getMoney } from "@/i18n/money-server";
 import { AccountsBoard } from "./accounts-board";
@@ -20,9 +21,10 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AccountsPage() {
   const { ctx, session } = await requireTenant();
   const bank = canWrite(ctx) && (await bankFeedOpen(session.user));
-  const [{ accounts: rows, fx, rates }, transfers] = await Promise.all([
+  const [{ accounts: rows, fx, rates }, transfers, owners] = await Promise.all([
     loadAccountBalances(ctx),
     loadTransfers(ctx),
+    loadOwnerChoices(ctx),
   ]);
   const [t, moneyText] = await Promise.all([getTranslations("contas"), getMoney()]);
   const total = toDbAmount(
@@ -50,6 +52,7 @@ export default async function AccountsPage() {
         transfers={transfers.rows}
         today={transfers.today}
         writable={canWrite(ctx)}
+        owners={owners}
       />
     </div>
   );
