@@ -54,6 +54,9 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
         "carrefour",
         "hortifruti",
         "pao de acucar",
+        "walmart",
+        "makro",
+        "roldao",
       ],
     },
     {
@@ -106,6 +109,10 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
         "clinica",
         "laboratorio",
         "dentista",
+        "pague menos",
+        "ultrafarma",
+        "panvel",
+        "extrafarma",
       ],
     },
     { category: "Moradia", essential: true, words: ["aluguel", "condominio", "iptu"] },
@@ -120,6 +127,12 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
         "curso",
         "cursos",
         "mensalidade escolar",
+        "udemy",
+        "alura",
+        "coursera",
+        "senai",
+        "senac",
+        "material escolar",
       ],
     },
     {
@@ -133,6 +146,14 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
         "youtube",
         "icloud",
         "google one",
+        "deezer",
+        "globoplay",
+        "paramount",
+        "apple music",
+        "apple tv",
+        "canva",
+        "adobe",
+        "amazon music",
       ],
     },
     {
@@ -147,20 +168,69 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
         "burger",
         "uber eats",
         "cafeteria",
+        "rappi",
+        "aiqfome",
+        "ze delivery",
       ],
     },
     { category: "Lazer", words: ["cinema", "ingresso", "bar ", "teatro", "show "] },
     {
       category: "Compras",
-      words: ["magazine", "mercado livre", "shopee", "amazon", "americanas", "renner"],
+      words: [
+        "magazine",
+        "mercado livre",
+        "shopee",
+        "amazon",
+        "americanas",
+        "renner",
+        "shein",
+        "submarino",
+        "casas bahia",
+        "magalu",
+        "ebay",
+      ],
     },
     {
       category: "Pets",
-      words: ["petz", "cobasi", "petshop", "pet shop", "veterinario", "veterinaria"],
+      words: [
+        "petz",
+        "cobasi",
+        "petshop",
+        "pet shop",
+        "veterinario",
+        "veterinaria",
+        "petlove",
+        "racao",
+        "banho e tosa",
+      ],
     },
     {
       category: "Tarifas bancárias",
-      words: ["tarifa", "anuidade", "iof", "cesta de servicos", "pacote de servicos"],
+      words: [
+        "tarifa",
+        "anuidade",
+        "iof",
+        "cesta de servicos",
+        "pacote de servicos",
+        "taxa de manutencao",
+        "juros de mora",
+        "multa por atraso",
+      ],
+    },
+    {
+      category: "Vestuário",
+      words: [
+        "roupas",
+        "calcados",
+        "riachuelo",
+        "hering",
+        "centauro",
+        "decathlon",
+        "arezzo",
+        "track field",
+        "dafiti",
+        "netshoes",
+      ],
     },
     {
       category: "Impostos e taxas",
@@ -195,7 +265,20 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
     { category: "Viagens", words: ["hotel", "airbnb", "booking", "latam", "decolar", "passagem"] },
   ],
   receita: [
-    { category: "Salário", words: ["salario", "folha de pagamento", "vencimentos", "remuneracao"] },
+    {
+      category: "Salário",
+      words: [
+        "salario",
+        "folha de pagamento",
+        "vencimentos",
+        "remuneracao",
+        "pro labore",
+        "honorarios",
+        "comissao",
+        "bonificacao",
+        "ferias",
+      ],
+    },
     {
       category: "Rendimentos",
       words: ["rendimento", "rendimentos", "dividendo", "dividendos", "juros"],
@@ -285,7 +368,7 @@ const NOISE = new Set(
   (
     "pix transf transferencia transferido enviado enviada recebido recebida ted doc compra compras " +
     "cartao debito credito pagamento pagto pag boleto deb aut automatico autorizada no na em de do da " +
-    "dos das para qr code"
+    "dos das para qr code fatura parcela parcelas cobranca"
   ).split(" "),
 );
 

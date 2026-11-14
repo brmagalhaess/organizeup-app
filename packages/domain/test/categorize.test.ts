@@ -143,6 +143,15 @@ describe("agente de categorização", () => {
     ["VETERINÁRIA EXEMPLO", "Pets"],
     ["MENSALIDADE ESCOLAR", "Educação"],
     ["BAR", "Lazer"],
+    ["RIACHUELO EXEMPLO", "Vestuário"],
+    ["DECATHLON EXEMPLO", "Vestuário"],
+    ["DEEZER EXEMPLO", "Assinaturas"],
+    ["RAPPI EXEMPLO", "Restaurantes"],
+    ["PAGUE MENOS EXEMPLO", "Saúde"],
+    ["WALMART EXEMPLO", "Mercado"],
+    ["SHEIN EXEMPLO", "Compras"],
+    ["PETLOVE EXEMPLO", "Pets"],
+    ["SENAC EXEMPLO", "Educação"],
   ])("reconhece pista específica em %s", (description, category) => {
     const own = [{ id: "destino", name: category, kind: "despesa" as const }, ...categories];
     expect(categorizeRow(despesa(description), own, empty)).toMatchObject({
@@ -192,6 +201,19 @@ describe("agente de categorização", () => {
       categoryId: "o",
       newCategory: null,
       source: "revisar",
+    });
+  });
+
+  it.each([
+    "PRO LABORE",
+    "HONORARIOS CONTABEIS",
+    "COMISSAO VENDAS",
+    "BONIFICACAO ANUAL",
+    "FERIAS PAGAS",
+  ])("reconhece renda específica em %s", (description) => {
+    expect(categorizeRow({ description, kind: "receita" }, categories, empty)).toMatchObject({
+      categoryId: "s",
+      source: "palavra",
     });
   });
 
