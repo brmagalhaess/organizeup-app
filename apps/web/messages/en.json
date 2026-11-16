@@ -2795,6 +2795,10 @@
           "label": "Uploaded files",
           "detail": "Files read by the importer and what was proposed from them."
         },
+        "conexao": {
+          "label": "Bank connection",
+          "detail": "Each person's encrypted Pluggy key and the bank accounts linked to it. The automatic fetch stops. OrganizeUp accounts and cards stay, without the bank link."
+        },
         "relatorios": {
           "label": "Reports and notices",
           "detail": "Monthly and yearly reports, suggestions, notifications and tips."

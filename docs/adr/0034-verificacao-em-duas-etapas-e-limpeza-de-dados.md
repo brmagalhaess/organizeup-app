@@ -31,9 +31,9 @@ entrar também passa a exigir. ADR-0011 e ADR-0016 deixavam os dois para a "Fase
 
 - **Módulos** (`WIPE_SCOPES` em `@organizeup/domain`): receitas e despesas, cartões, renda,
   investimentos, dívidas, metas, viagens, aposentadoria, patrimônio e reserva, agenda, arquivos
-  enviados, relatórios e avisos, contas e categorias. A pessoa marca o que quiser; o resto fica.
-  Pessoas, membros, ajustes, memórias do assistente e assinatura não entram: para isso há "apagar a
-  conta".
+  enviados, conexão com bancos (adendo abaixo), relatórios e avisos, contas e categorias. A pessoa
+  marca o que quiser; o resto fica. Pessoas, membros, ajustes, memórias do assistente e assinatura não
+  entram: para isso há "apagar a conta".
 - **O que puxa o quê** (`WIPE_REQUIRES`): contas e categorias são apontadas por quase tudo, então
   "contas" leva junto lançamentos, cartões, renda, dívidas, metas e patrimônio, e recria as contas e
   categorias padrão no fim (`ensureFinanceDefaults`). A tela marca e trava o que vai junto; o servidor
@@ -48,6 +48,17 @@ entrar também passa a exigir. ADR-0011 e ADR-0016 deixavam os dois para a "Fase
   Visualizador não apaga nada mesmo chamando a função: a RLS devolve zero linhas.
 - Teste `packages/db/test/wipe.integration.test.ts` cobre as referências cruzadas e a recriação do
   padrão.
+- **Adendo (16/11/2026, ORG-245)**: a conexão com bancos (ADR-0038) é um módulo próprio, `conexao`.
+  Apaga `bank_connection_accounts` e `bank_connections`, isto é, a chave da Pluggy da pessoa (cifrada)
+  e o nome e os últimos dígitos das contas do banco. A lista original foi escrita antes de a conexão
+  existir, então quem marcava tudo e confirmava APAGAR ficava com a chave no banco — e a tela não
+  avisava. Módulo à parte, e não dentro de "contas e categorias", porque apagar a chave só se refaz
+  fora do OrganizeUp (copiar o Client ID e o Client Secret na Pluggy de novo) e não tem relação com
+  refazer o plano de contas. A conta e o cartão daqui ficam, e a ordem de apagar é livre nos dois
+  sentidos, porque as FKs da conexão para eles soltam a referência em vez de barrar. Quem limpa
+  "receitas e despesas" sem marcar a conexão mantém `bank_connection_accounts.synced_on` de
+  propósito: zerá-lo faria a busca automática (ADR-0038) trazer de volta sozinha até 90 dias do que a
+  família acabou de apagar.
 
 ### A receber, na tela de Proventos
 

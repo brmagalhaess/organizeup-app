@@ -11,6 +11,8 @@ import {
   accountTransfers,
   accounts,
   assets,
+  bankConnectionAccounts,
+  bankConnections,
   calendarEvents,
   cardPurchases,
   cardStatementParts,
@@ -154,6 +156,12 @@ export async function wipeHouseholdData(
   if (has("importacoes")) {
     // Arquivos e itens caem em cascata.
     await wipeTable(tx, report, "smart_imports", smartImports);
+  }
+  if (has("conexao")) {
+    // A chave cifrada da pessoa e as contas do banco somem. As contas em cascata, mas apagadas aqui para o
+    // relatório dizer quantas eram. A conta e o cartão do OrganizeUp ficam: quem aponta é a linha que sai.
+    await wipeTable(tx, report, "bank_connection_accounts", bankConnectionAccounts);
+    await wipeTable(tx, report, "bank_connections", bankConnections);
   }
   if (has("relatorios")) {
     await wipeTable(tx, report, "household_notifications", householdNotifications);

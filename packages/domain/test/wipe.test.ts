@@ -19,6 +19,13 @@ describe("limpeza de dados por módulo", () => {
     ]);
   });
 
+  it("a conexão com bancos é um módulo e ninguém a leva junto", () => {
+    expect(WIPE_SCOPES).toContain("conexao");
+    expect(expandWipeScopes(["conexao"])).toEqual(["conexao"]);
+    // Quem limpa contas e categorias não perde a chave do banco sem pedir.
+    expect(expandWipeScopes(["contas"])).not.toContain("conexao");
+  });
+
   it("repetição não muda nada e todo requisito é um módulo conhecido", () => {
     expect(expandWipeScopes(["metas", "metas", "contas"])).toEqual(expandWipeScopes(["contas"]));
     for (const list of Object.values(WIPE_REQUIRES)) {

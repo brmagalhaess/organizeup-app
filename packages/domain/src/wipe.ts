@@ -13,6 +13,7 @@ export const WIPE_SCOPES = [
   "patrimonio",
   "agenda",
   "importacoes",
+  "conexao",
   "relatorios",
   "contas",
 ] as const;

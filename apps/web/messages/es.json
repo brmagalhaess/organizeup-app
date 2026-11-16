@@ -2795,6 +2795,10 @@
           "label": "Archivos enviados",
           "detail": "Archivos leídos por el importador y lo que se propuso a partir de ellos."
         },
+        "conexao": {
+          "label": "Conexión con bancos",
+          "detail": "La clave de Pluggy de cada persona, cifrada, y las cuentas del banco vinculadas a ella. La búsqueda automática se detiene. Las cuentas y las tarjetas de OrganizeUp se quedan, sin el vínculo con el banco."
+        },
         "relatorios": {
           "label": "Informes y avisos",
           "detail": "Informes mensuales y anuales, sugerencias, notificaciones y consejos."

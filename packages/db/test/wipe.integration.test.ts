@@ -209,6 +209,8 @@ async function counts() {
     accounts: (await tx.select().from(db.accounts)).length,
     categories: (await tx.select().from(db.categories)).length,
     settings: (await tx.select().from(db.householdSettings)).length,
+    connections: (await tx.select().from(db.bankConnections)).length,
+    bankAccounts: await tx.select().from(db.bankConnectionAccounts),
   }));
 }
 
@@ -296,6 +298,89 @@ describe("limpeza de dados por módulo", () => {
     expect(after.investments).toBe(0);
     expect(after.trades).toHaveLength(0);
     expect(after.dividends).toBe(0);
+  });
+
+  it("conexão com bancos sai só no módulo dela; outro módulo só solta o vínculo", async () => {
+    // Só o que este caso precisa: o `seed()` inteiro repetiria fixtures dos casos anteriores.
+    const ctx = await ownerCtx();
+    const personId = await db.withHousehold(ctx, async (tx) => {
+      await db.ensureFinanceDefaults(tx, H);
+      const [person] = await tx
+        .insert(db.people)
+        .values({ householdId: H, name: "Titular", relation: "titular" })
+        .returning({ id: db.people.id });
+      const [account] = await tx.select().from(db.accounts).limit(1);
+      const [card] = await tx
+        .insert(db.creditCards)
+        .values({
+          householdId: H,
+          name: "Cartão do banco",
+          closingDay: 2,
+          dueDay: 12,
+          payingAccountId: account!.id,
+        })
+        .returning({ id: db.creditCards.id });
+      const [connection] = await tx
+        .insert(db.bankConnections)
+        .values({
+          householdId: H,
+          userId: OWNER,
+          personId: person!.id,
+          clientIdSealed: "selado-id",
+          clientSecretSealed: "selado-secret",
+          itemIds: ["item-1"],
+        })
+        .returning({ id: db.bankConnections.id });
+      await tx.insert(db.bankConnectionAccounts).values([
+        {
+          householdId: H,
+          connectionId: connection!.id,
+          itemId: "item-1",
+          externalId: "conta-1",
+          kind: "corrente",
+          name: "Conta",
+          numberTail: "0000",
+          accountId: account!.id,
+          syncedOn: "2026-11-10",
+        },
+        {
+          householdId: H,
+          connectionId: connection!.id,
+          itemId: "item-1",
+          externalId: "cartao-1",
+          kind: "cartao",
+          name: "Cartão",
+          cardId: card!.id,
+        },
+      ]);
+      return person!.id;
+    });
+
+    // Limpar lançamentos e cartões não leva a chave do banco; o vínculo com o cartão só se solta.
+    await db.withHousehold(ctx, (tx) =>
+      db.wipeHouseholdData(tx, { householdId: H, scopes: ["lancamentos", "cartoes"] }),
+    );
+    const mid = await counts();
+    expect(mid.connections).toBe(1);
+    expect(mid.bankAccounts).toHaveLength(2);
+    expect(mid.bankAccounts.find((row) => row.kind === "cartao")!.cardId).toBeNull();
+
+    const report = await db.withHousehold(ctx, (tx) =>
+      db.wipeHouseholdData(tx, { householdId: H, scopes: ["conexao"] }),
+    );
+    expect(report.scopes).toEqual(["conexao"]);
+    expect(report.removed.bank_connections).toBe(1);
+    expect(report.removed.bank_connection_accounts).toBe(2);
+
+    const after = await counts();
+    expect(after.connections).toBe(0);
+    expect(after.bankAccounts).toHaveLength(0);
+    // A conta daqui fica: quem aponta para ela é a linha que saiu.
+    expect(after.accounts).toBeGreaterThan(0);
+
+    // A pessoa não entra na limpeza (é de propósito), então este caso desfaz o que semeou: o teste de
+    // RLS confere `people` de todas as casas e os arquivos dividem o mesmo banco.
+    await db.withHousehold(ctx, (tx) => tx.delete(db.people).where(eq(db.people.id, personId)));
   });
 
   it("só quem pode escrever apaga: visualizador cai na RLS", async () => {

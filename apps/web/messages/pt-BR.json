@@ -2795,6 +2795,10 @@
           "label": "Arquivos enviados",
           "detail": "Arquivos lidos pelo importador e o que foi proposto a partir deles."
         },
+        "conexao": {
+          "label": "Conexão com bancos",
+          "detail": "A chave da Pluggy de cada pessoa, cifrada, e as contas do banco ligadas a ela. A busca automática para. As contas e os cartões do OrganizeUp ficam, sem o vínculo com o banco."
+        },
         "relatorios": {
           "label": "Relatórios e avisos",
           "detail": "Relatórios mensais e anuais, sugestões, notificações e dicas."
