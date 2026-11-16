@@ -427,6 +427,7 @@ describe("isolamento de cartões e dívidas", () => {
     categories,
     creditCards,
     cardPurchases,
+    cardStatementParts,
     cardStatementPayments,
     debts,
     debtInstallments,
@@ -636,6 +637,57 @@ describe("isolamento de cartões e dívidas", () => {
       expect(installment!.transactionId).toBeNull();
       expect(installment!.householdId).toBe(A.household);
       expect(await tx.select().from(cardStatementPayments)).toHaveLength(0);
+    });
+  });
+
+  it("parte ligada à fatura: isolada por família, um lançamento por fatura, e sai com o lançamento", async () => {
+    const partId = await db.withHousehold(ctxA, async (tx) => {
+      const [debit] = await tx
+        .insert(transactions)
+        .values({
+          householdId: A.household,
+          accountId: accountA,
+          categoryId: categoryA,
+          kind: "despesa",
+          description: "Pagamento de fatura",
+          amount: "40.00",
+          occurredOn: "2026-11-08",
+        })
+        .returning({ id: transactions.id });
+      const part = {
+        householdId: A.household,
+        cardId: cardA,
+        statementMonth: "2026-11",
+        transactionId: debit!.id,
+        replacedAmount: "40.00",
+      };
+      await tx.insert(cardStatementParts).values(part);
+      // O mesmo lançamento não paga duas faturas.
+      await expect(
+        tx.transaction((step) =>
+          step.insert(cardStatementParts).values({ ...part, statementMonth: "2026-12" }),
+        ),
+      ).rejects.toThrow();
+      return debit!.id;
+    });
+    await db.withHousehold(ctxB, async (tx) => {
+      expect(await tx.select().from(cardStatementParts)).toHaveLength(0);
+      // Nem grava parte apontando para a família vizinha.
+      await expect(
+        tx.transaction((step) =>
+          step.insert(cardStatementParts).values({
+            householdId: A.household,
+            cardId: cardA,
+            statementMonth: "2026-10",
+            transactionId: partId,
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+    await db.withHousehold(ctxA, async (tx) => {
+      expect(await tx.select().from(cardStatementParts)).toHaveLength(1);
+      await tx.delete(transactions).where(eq(transactions.id, partId));
+      expect(await tx.select().from(cardStatementParts)).toHaveLength(0);
     });
   });
 

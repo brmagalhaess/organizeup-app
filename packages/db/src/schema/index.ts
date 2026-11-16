@@ -6,4 +6,5 @@ export * from "./ops";
 export * from "./billing";
 export * from "./importador";
 export * from "./conexoes";
+export * from "./faturas";
 export * from "./lembretes";

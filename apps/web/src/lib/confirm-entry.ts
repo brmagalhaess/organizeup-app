@@ -42,6 +42,7 @@ import {
 } from "@organizeup/domain";
 import { incomeReceiptRows } from "@organizeup/agents";
 import { audit } from "./audit";
+import { refreshCarry } from "./card-statements";
 import {
   goalEntryDescription,
   openGoalContribution,
@@ -66,7 +67,7 @@ export interface ActualPayment {
 }
 
 /** Impressão digital da compra que leva o restante de uma fatura paga em parte para a fatura seguinte. */
-const carryMark = (statementMonth: string) => `saldo:${statementMonth}`;
+export const carryMark = (statementMonth: string) => `saldo:${statementMonth}`;
 
 const dayAfter = (date: string, days = 1) =>
   new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
@@ -346,6 +347,8 @@ async function confirmByKey(
         .set({ importFingerprint: carryMark(statementMonth) })
         .where(eq(cardPurchaseImports.id, carried!.id));
     }
+    // A fatura seguinte ganhou uma compra (o saldo): se ela já tem pagamento, o saldo dela é refeito (ADR-0043).
+    if (rest.gt(0)) await refreshCarry(tx, ctx, card, statementMonth, "0.00");
     await audit(tx, ctx, "confirm", "card_statement_payments", cardId);
     return true;
   }

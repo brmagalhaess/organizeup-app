@@ -8,6 +8,7 @@ import {
   bankConnectionAccounts,
   bankConnections,
   cardOwners,
+  cardStatementParts,
   cardStatementPayments,
   eq,
   incomeSources,
@@ -100,9 +101,17 @@ export async function loadOwners(tx: TenantTx): Promise<Owners> {
   const incomes = pairs(
     await tx.select({ id: incomeSources.id, personId: incomeSources.personId }).from(incomeSources),
   );
-  const payments = await tx
-    .select({ id: cardStatementPayments.transactionId, cardId: cardStatementPayments.cardId })
-    .from(cardStatementPayments);
+  // O pagamento principal de cada fatura e os outros débitos ligados a ela (ADR-0043).
+  const payments = [
+    ...(await tx
+      .select({ id: cardStatementPayments.transactionId, cardId: cardStatementPayments.cardId })
+      .from(cardStatementPayments)),
+    ...(await lagging(tx, (step) =>
+      step
+        .select({ id: cardStatementParts.transactionId, cardId: cardStatementParts.cardId })
+        .from(cardStatementParts),
+    )),
+  ];
 
   const book: OwnerBook = {
     accounts: { ...bank.accounts, ...chosen.accounts },

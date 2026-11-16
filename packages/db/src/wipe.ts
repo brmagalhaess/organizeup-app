@@ -5,6 +5,7 @@
 import { expandWipeScopes, type WipeScope } from "@organizeup/domain";
 import { isNotNull, sql } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
+import { isSchemaLag } from "./access";
 import { ensureFinanceDefaults } from "./finance";
 import {
   accountTransfers,
@@ -12,6 +13,7 @@ import {
   assets,
   calendarEvents,
   cardPurchases,
+  cardStatementParts,
   cardStatementPayments,
   cashflowPlans,
   categories,
@@ -92,6 +94,14 @@ export async function wipeHouseholdData(
     await wipeTable(tx, report, "cashflow_plans", cashflowPlans);
   }
   if (has("cartoes")) {
+    // Da 0056: a web pode rodar antes da migração, e aí não há ligação para apagar.
+    await tx
+      .transaction((step) =>
+        wipeTable(step as TenantTx, report, "card_statement_parts", cardStatementParts),
+      )
+      .catch((error: unknown) => {
+        if (!isSchemaLag(error)) throw error;
+      });
     await wipeTable(tx, report, "card_statement_payments", cardStatementPayments);
     await wipeTable(tx, report, "card_purchases", cardPurchases);
     await wipeTable(tx, report, "credit_cards", creditCards);

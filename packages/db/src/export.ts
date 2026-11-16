@@ -12,6 +12,7 @@ import {
   emailReminders,
   calendarEvents,
   cardPurchases,
+  cardStatementParts,
   cardStatementPayments,
   cashflowPlans,
   categories,
@@ -130,6 +131,7 @@ const LATE_TABLES = {
   income_vacation_receipts: incomeVacationReceipts,
   bank_connection_accounts: bankConnectionAccounts,
   email_reminders: emailReminders,
+  card_statement_parts: cardStatementParts,
 };
 
 /** Arquivo inteiro deixaria a exportação gigante: vão os metadados, e a tela baixa cada um. */

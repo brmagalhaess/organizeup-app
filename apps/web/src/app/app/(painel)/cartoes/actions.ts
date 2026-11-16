@@ -14,6 +14,7 @@ import {
 } from "@organizeup/db";
 import { isYearMonth, parseMoney, purchaseLines, toDbAmount } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
+import { attachStatementDebit, detachStatementDebit } from "@/lib/card-statements";
 import { confirmCommitment } from "@/lib/confirm-entry";
 import { saveOwner } from "@/lib/owners";
 import { requireTenant } from "@/lib/session";
@@ -187,4 +188,37 @@ export async function payStatement(_prev: CardFormState, form: FormData): Promis
   // O total vem da tela só para escolher a frase: quem decide o restante é o servidor.
   const partial = /^\d+\.\d{2}$/.test(total) && Number(amount) < Number(total);
   return { ok: true, message: t(partial ? "donePartial" : "done") };
+}
+
+/**
+ * Junta um débito do banco à fatura (ADR-0043). Só vale para o que a tela sugere; a conferência é refeita no
+ * servidor. `mode` diz se o débito é o pagamento marcado à mão aparecendo no banco ou um pagamento a mais.
+ */
+export async function joinStatementDebit(
+  _prev: CardFormState,
+  form: FormData,
+): Promise<CardFormState> {
+  const { ctx } = await requireTenant();
+  const t = await getTranslations("cartoes.parts");
+  const month = String(form.get("month") ?? "");
+  const mode = String(form.get("mode") ?? "auto");
+  if (!isYearMonth(month) || !["auto", "marcado", "extra"].includes(mode)) {
+    return { ok: false, message: t("errors.fatura_invalida") };
+  }
+  const result = await attachStatementDebit(ctx, {
+    cardId: String(form.get("cardId") ?? ""),
+    month,
+    transactionId: String(form.get("id") ?? ""),
+    mode: mode as "auto" | "marcado" | "extra",
+  });
+  if (!result.ok) return { ok: false, message: t(`errors.${result.code}`) };
+  revalidatePath("/app", "layout");
+  return { ok: true, message: t("done") };
+}
+
+/** Desliga um débito da fatura: ele volta a ser uma despesa comum (ADR-0043). */
+export async function splitStatementDebit(form: FormData): Promise<void> {
+  const { ctx } = await requireTenant();
+  await detachStatementDebit(ctx, String(form.get("id") ?? ""));
+  revalidatePath("/app", "layout");
 }

@@ -65,6 +65,7 @@ import {
   removeStatementCarry,
   reverseGoalSaved,
 } from "@/lib/confirm-entry";
+import { releaseStatementLinks } from "@/lib/card-statements";
 import { reportActionFailure } from "@/lib/diagnostics";
 import { requireTenant } from "@/lib/session";
 
@@ -501,6 +502,8 @@ export async function undoImport(form: FormData): Promise<void> {
     const existed = rows.filter((row) => row.createdAt < batch.createdAt).map((row) => row.id);
     const created = rows.filter((row) => row.createdAt >= batch.createdAt).map((row) => row.id);
     if (existed.length > 0) {
+      // Volta a ser previsão: se tinha sido juntado a uma fatura (ADR-0043), deixa de pagá-la.
+      await releaseStatementLinks(tx, ctx, [], existed);
       await tx
         .update(transactions)
         .set({
@@ -517,9 +520,12 @@ export async function undoImport(form: FormData): Promise<void> {
     );
     const removing = new Set([...created, ...links.flatMap((link) => link.transactionIds)]);
     if (removing.size > 0) {
+      // Débito ligado a uma fatura (ADR-0043): o que ele tinha tomado do pagamento marcado à mão volta antes.
+      const settle = await releaseStatementLinks(tx, ctx, [...removing]);
       // Fatura paga em parte pelo extrato: o restante que foi para a fatura seguinte sai junto.
       await removeStatementCarry(tx, [...removing]);
       await tx.delete(transactions).where(inArray(transactions.id, [...removing]));
+      await settle();
     }
     for (const link of links) await reverseGoalSaved(tx, ctx, link);
     await tx.delete(importBatches).where(eq(importBatches.id, id));

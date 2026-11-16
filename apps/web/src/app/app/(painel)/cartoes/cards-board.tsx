@@ -45,6 +45,7 @@ import {
   Sheet,
 } from "@/components/ui";
 import { formatDayMonth, formatMonthYear, toAmountInput } from "@/i18n/format";
+import type { StatementPayments } from "@/lib/card-statements";
 import type { loadCards } from "@/lib/commitments";
 import { systemTextOf } from "@/i18n/system-text";
 import {
@@ -56,6 +57,7 @@ import {
 } from "./actions";
 import { useMoney } from "@/i18n/money";
 import { CardUsageChart } from "./card-usage-chart";
+import { StatementPaymentsPanel } from "./statement-payments";
 
 type Data = Awaited<ReturnType<typeof loadCards>>;
 type CardView = Data["cards"][number];
@@ -274,6 +276,8 @@ function Statement({
   month,
   today,
   accountName,
+  accountNames,
+  payments,
   writable,
   onEdit,
 }: {
@@ -281,6 +285,10 @@ function Statement({
   month: string;
   today: string;
   accountName: string;
+  /** Nome de cada conta, para dizer de onde saiu cada pagamento. */
+  accountNames: Record<string, string>;
+  /** Pagamentos desta fatura e débitos do banco que parecem ser dela (ADR-0043). */
+  payments: StatementPayments | undefined;
   writable: boolean;
   onEdit: () => void;
 }) {
@@ -376,6 +384,16 @@ function Statement({
           })}
         </p>
       ) : null}
+
+      <StatementPaymentsPanel
+        cardId={card.id}
+        month={month}
+        total={total}
+        carried={carried}
+        payments={payments}
+        accountNames={accountNames}
+        writable={writable}
+      />
 
       {writable ? (
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -490,14 +508,18 @@ export function CardsBoard({
   month,
   writable,
   owners,
+  statements,
 }: {
   owners: OwnerChoices;
+  /** Por `<cartão>:<mês>`: pagamentos da fatura e sugestões. */
+  statements: Record<string, StatementPayments>;
   data: Data;
   selectedId: string | null;
   month: string | null;
   writable: boolean;
 }) {
   const t = useTranslations("cartoes");
+  const system = systemTextOf(useTranslations("sistema"));
   const [editing, setEditing] = useState<{ nonce: number; card: CardView | null } | null>(null);
   const active = data.cards.filter((card) => !card.archived);
   const archived = data.cards.filter((card) => card.archived);
@@ -556,6 +578,10 @@ export function CardsBoard({
                 data.accounts.find((a) => a.id === selected.payingAccountId)?.name ??
                 t("statement.fallbackAccount")
               }
+              accountNames={Object.fromEntries(
+                data.accounts.map((account) => [account.id, system.name(account.name)]),
+              )}
+              payments={statements[`${selected.id}:${month ?? selected.openMonth}`]}
               writable={writable}
               onEdit={() => open(selected)}
             />

@@ -47,6 +47,11 @@ import {
   removeStatementCarry,
   reverseGoalSaved,
 } from "@/lib/confirm-entry";
+import {
+  lockStatementEntry,
+  refreshStatementsOf,
+  releaseStatementLinks,
+} from "@/lib/card-statements";
 import { requireTenant } from "@/lib/session";
 
 export interface EntryFormState {
@@ -215,6 +220,8 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
       if (changed && (await goalEntryLink(tx, id))) return t("errors.goalEntry");
       const entry = sameMoney ? {} : await inAccount();
       if (typeof entry === "string") return entry;
+      // Pagamento ou parte de uma fatura (ADR-0043): a trava da família vem antes de mexer na linha.
+      const paysStatement = await lockStatementEntry(tx, ctx, id);
       await tx
         .update(transactions)
         .set({
@@ -227,6 +234,12 @@ export async function saveEntry(_prev: EntryFormState, form: FormData): Promise<
         })
         .where(eq(transactions.id, id));
       await audit(tx, ctx, "update", "transactions", id);
+      // O valor pode ter mudado, e o saldo levado acompanha; virou previsão, deixa de pagar a fatura.
+      if (paysStatement) {
+        // Só o valor gravado conta: trocar a data não muda o que foi pago.
+        const amountChanged = "amount" in entry && entry.amount !== current.amount;
+        await refreshStatementsOf(tx, ctx, id, amountChanged);
+      }
       return null;
     }
 
@@ -324,6 +337,8 @@ export async function deleteEntry(form: FormData): Promise<void> {
   await withHousehold(ctx, async (tx) => {
     // Lê antes de apagar: a ligação com a parcela da meta some junto com o lançamento.
     const link = await goalEntryLink(tx, id);
+    // Débito ligado a uma fatura (ADR-0043): o que ele tinha tomado do pagamento marcado à mão volta antes.
+    const settle = await releaseStatementLinks(tx, ctx, link?.transactionIds ?? [id]);
     // Pagamento parcial de fatura: o restante que foi para a fatura seguinte sai junto.
     await removeStatementCarry(tx, link?.transactionIds ?? [id]);
     const removed = await tx
@@ -331,6 +346,7 @@ export async function deleteEntry(form: FormData): Promise<void> {
       .where(inArray(transactions.id, link?.transactionIds ?? [id]))
       .returning({ id: transactions.id });
     if (removed.length === 0) return;
+    await settle();
     await audit(tx, ctx, "delete", "transactions", id);
     if (link) await reverseGoalSaved(tx, ctx, link);
   });
