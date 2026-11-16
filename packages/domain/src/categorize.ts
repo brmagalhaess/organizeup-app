@@ -325,21 +325,48 @@ export const KEYWORDS: Readonly<Record<StatementKind, readonly KeywordGroup[]>> 
   ],
 };
 
+/** A palavra como ela é procurada na descrição: normalizada e cercada de espaço. */
+const phraseOf = (word: string) => ` ${normalizeDescription(word)} `;
+
+interface NormalizedGroup {
+  group: KeywordGroup;
+  phrases: readonly string[];
+  requires: readonly string[] | null;
+  excludes: readonly string[] | null;
+}
+
+function normalizeGroups(groups: readonly KeywordGroup[]): readonly NormalizedGroup[] {
+  return groups.map((group) => ({
+    group,
+    phrases: group.words.map(phraseOf),
+    requires: group.requires ? group.requires.map(phraseOf) : null,
+    excludes: group.excludes ? group.excludes.map(phraseOf) : null,
+  }));
+}
+
+/**
+ * As palavras de `KEYWORDS` já normalizadas, uma vez só. Normalizar as 171 palavras de `despesa` em
+ * cada linha custava ~1 s a cada 5.000 linhas importadas e travava o worker (ORG-258). `KEYWORDS` é
+ * somente leitura, então dá para pagar esse custo no carregamento do módulo.
+ */
+const NORMALIZED: Readonly<Record<StatementKind, readonly NormalizedGroup[]>> = {
+  despesa: normalizeGroups(KEYWORDS.despesa),
+  receita: normalizeGroups(KEYWORDS.receita),
+};
+
 /** Uma expressão específica prevalece sobre palavras contidas nela; conflitos pedem revisão. */
 function keywordGroup(description: string, kind: StatementKind): KeywordGroup | undefined {
   const name = ` ${normalizeDescription(description)} `;
-  const has = (words: readonly string[]) =>
-    words.some((word) => name.includes(` ${normalizeDescription(word)} `));
-  const allowed = KEYWORDS[kind].filter(
-    (group) => (!group.requires || has(group.requires)) && !(group.excludes && has(group.excludes)),
+  const has = (phrases: readonly string[]) => phrases.some((phrase) => name.includes(phrase));
+  const allowed = NORMALIZED[kind].filter(
+    (entry) => (!entry.requires || has(entry.requires)) && !(entry.excludes && has(entry.excludes)),
   );
-  const matches = allowed.flatMap((group) =>
-    group.words.flatMap((word) => {
-      const phrase = ` ${normalizeDescription(word)} `;
+  const matches = allowed.flatMap((entry) =>
+    entry.phrases.flatMap((phrase) => {
       const found: { group: KeywordGroup; start: number; end: number }[] = [];
       let start = name.indexOf(phrase);
       while (start !== -1) {
-        found.push({ group, start, end: start + phrase.length });
+        found.push({ group: entry.group, start, end: start + phrase.length });
         start = name.indexOf(phrase, start + 1);
       }
       return found;
@@ -402,15 +429,40 @@ export interface CategoryMemory {
 export const memoryKey = (kind: StatementKind, merchant: string) => `${kind}:${merchant}`;
 
 /**
+ * As categorias separadas por tipo. Quem categoriza um lote prepara isto uma vez e passa adiante:
+ * refiltrar a lista em cada linha custava ~0,5 s a cada 5.000 linhas (ORG-258). Quem chama por uma
+ * linha só continua passando a lista. Lista que muda durante o laço (categoria criada no meio da
+ * importação) pede índice novo — por isso ele é explícito, e não um cache pela identidade da lista.
+ */
+export interface CategoryIndex {
+  readonly byKind: Readonly<Record<StatementKind, readonly CategoryOption[]>>;
+}
+
+export function categoryIndex(categories: readonly CategoryOption[]): CategoryIndex {
+  const despesa: CategoryOption[] = [];
+  const receita: CategoryOption[] = [];
+  // A ordem dentro do tipo é preservada: o desempate por `usable[0]` depende dela.
+  for (const category of categories) {
+    if (category.kind === "despesa") despesa.push(category);
+    else if (category.kind === "receita") receita.push(category);
+  }
+  return { byKind: { despesa, receita } };
+}
+
+const isIndex = (value: readonly CategoryOption[] | CategoryIndex): value is CategoryIndex =>
+  !Array.isArray(value);
+
+/**
  * Propõe a categoria: primeiro o que a família já fez, depois palavras conhecidas (criando a
  * categoria se ela não existir), por fim "Outras", marcada para revisar.
  */
 export function categorizeRow(
   row: Pick<StatementRow, "description" | "kind">,
-  categories: CategoryOption[],
+  categories: readonly CategoryOption[] | CategoryIndex,
   memory: CategoryMemory,
 ): CategoryProposal {
-  const usable = categories.filter((category) => category.kind === row.kind);
+  const index = isIndex(categories) ? categories : categoryIndex(categories);
+  const usable = index.byKind[row.kind];
   const has = (id: string | undefined) => usable.some((category) => category.id === id);
   const merchant = merchantKey(row.description);
   if (merchant) {
@@ -601,6 +653,8 @@ const mostCommon = (values: string[]): string => {
 export function reviewCategories(input: ReviewInput): CategoryReview {
   const automatic: ReviewGroup[] = [];
   const byId = new Map(input.categories.map((category) => [category.id, category]));
+  // A lista não muda durante o laço, então o índice vale para todos os grupos.
+  const index = categoryIndex(input.categories);
   const blocked = merchantsOfDedupeKeys(input.blocked);
   const allowed = ({ categoryId, newCategory }: GroupTarget) => {
     const name = categoryId ? byId.get(categoryId)?.name : newCategory?.name;
@@ -619,7 +673,7 @@ export function reviewCategories(input: ReviewInput): CategoryReview {
     if (blocked.has(key)) continue;
     const first = rows[0]!;
     const sample = { description: first.description, kind: first.kind };
-    const proposal = categorizeRow(sample, input.categories, input.memory);
+    const proposal = categorizeRow(sample, index, input.memory);
     const learned = input.agentLearned?.get(key);
     const learnedName = learned ? byId.get(learned) : undefined;
 

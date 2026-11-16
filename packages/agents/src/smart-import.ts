@@ -51,6 +51,7 @@ import {
   canUse,
   CARD_CATEGORY,
   categorizeRow,
+  categoryIndex,
   entryOrigin,
   memoryKey,
   merchantKey,
@@ -72,7 +73,7 @@ import {
   toDbAmount,
   yearMonthOf,
   type CategoryChoice,
-  type CategoryOption,
+  type CategoryIndex,
   type KnownEntry,
   type SmartItemRef,
   type SmartKnown,
@@ -448,19 +449,22 @@ export async function saveSmartReading(
   const start = (last?.top ?? -1) + 1;
   if ((await countOpenSmartItems(tx)) + reading.proposals.length > maxOpen) return false;
   const hints = await categoryHints(tx);
-  const rows = reading.proposals.map((proposal, index) => ({
-    householdId,
-    importId,
-    fileId,
-    position: start + index,
-    destination: proposal.payload.destination,
-    confidence: proposal.confidence,
-    excerpt: proposal.excerpt,
-    payload: withCategory(proposal.payload, hints),
-  }));
-  // Lotes grandes: o limite de parâmetros do Postgres fica longe assim.
-  for (let at = 0; at < rows.length; at += 200) {
-    await tx.insert(smartImportItems).values(rows.slice(at, at + 200));
+  // Lotes grandes: o limite de parâmetros do Postgres fica longe assim. A categorização vai dentro
+  // deste laço porque 5.000 de uma vez prendiam o processo por ~1 s, e tudo o que o worker faria
+  // naquele instante esperava, inclusive jobs de outras famílias (ORG-258, ADR-0030). O `await` do
+  // `insert` devolve a vez ao laço de eventos entre os pedaços.
+  for (let at = 0; at < reading.proposals.length; at += 200) {
+    const batch = reading.proposals.slice(at, at + 200).map((proposal, index) => ({
+      householdId,
+      importId,
+      fileId,
+      position: start + at + index,
+      destination: proposal.payload.destination,
+      confidence: proposal.confidence,
+      excerpt: proposal.excerpt,
+      payload: withCategory(proposal.payload, hints),
+    }));
+    await tx.insert(smartImportItems).values(batch);
   }
   await tx
     .update(smartImportFiles)
@@ -489,7 +493,8 @@ export async function failSmartFile(tx: TenantTx, fileId: string, failure: strin
 }
 
 interface CategoryHints {
-  usable: CategoryOption[];
+  /** Separado por tipo uma vez: refiltrar a lista por linha custava ~0,5 s a cada 5.000 (ORG-258). */
+  usable: CategoryIndex;
   memory: Parameters<typeof categorizeRow>[2];
 }
 
@@ -521,7 +526,7 @@ async function categoryHints(tx: TenantTx): Promise<CategoryHints> {
   const learned = new Map(
     remembered.map((row) => [memoryKey(row.kind, row.merchant), row.categoryId]),
   );
-  return { usable, memory: { history, learned } };
+  return { usable: categoryIndex(usable), memory: { history, learned } };
 }
 
 function withCategory(payload: SmartPayload, hints: CategoryHints): SmartPayload {

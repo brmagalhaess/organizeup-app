@@ -4,6 +4,7 @@ import {
   GOAL_CATEGORY,
   KEYWORDS,
   categorizeRow,
+  categoryIndex,
   categoryCandidates,
   dailyCategoryReport,
   effectiveCategorySource,
@@ -163,6 +164,44 @@ describe("agente de categorização", () => {
       source: "nova",
       newCategory: { name: category },
     });
+  });
+
+  // O índice por tipo existe só para não refiltrar a lista em cada linha de um lote (ORG-258): a
+  // proposta tem de ser igual à da lista, inclusive no desempate pela primeira categoria do tipo.
+  it("propõe o mesmo com a lista e com o índice por tipo", () => {
+    const descriptions = [
+      "SUPERMERCADO BOM PREÇO",
+      "IFOOD *RESTAURANTE",
+      "Seguro do carro",
+      "ALCANCE PAPELARIA",
+      "XPTO 123",
+      "APLICACAO CDB BANCO",
+      "BAR",
+    ];
+    const lists: CategoryOption[][] = [
+      categories,
+      [{ id: "primeira", name: "Viagens", kind: "despesa" }, ...categories],
+      categories.filter((category) => category.kind === "receita"),
+      [],
+    ];
+    const memories: CategoryMemory[] = [
+      empty,
+      {
+        history: new Map([[memoryKey("despesa", "supermercado bom preco"), "l"]]),
+        learned: new Map(),
+      },
+    ];
+    for (const list of lists) {
+      const index = categoryIndex(list);
+      for (const memory of memories) {
+        for (const description of descriptions) {
+          for (const kind of ["despesa", "receita"] as const) {
+            const row = { description, kind };
+            expect(categorizeRow(row, index, memory)).toEqual(categorizeRow(row, list, memory));
+          }
+        }
+      }
+    }
   });
 
   it.each(["REMUNERAÇÃO", "FOLHA DE PAGAMENTO", "DIVIDENDOS", "RENDIMENTOS"])(
