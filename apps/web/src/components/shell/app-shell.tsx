@@ -503,7 +503,11 @@ export function AppShell({
   const tNotifications = useTranslations("notificacoes");
   const place = groups
     .flatMap((group) => group.items)
-    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    // O Painel é a raiz de todas as telas: só vale para o endereço exato dele.
+    .filter(
+      (item) =>
+        pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`)),
+    )
     .sort((a, b) => b.href.length - a.href.length)[0];
   const here = place
     ? { icon: place.icon, label: t(`nav.${place.label}`) }
@@ -531,10 +535,12 @@ export function AppShell({
             : "lg:grid-cols-[16.5rem_minmax(0,1fr)]",
         )}
       >
+        {/* O menu fica preso na janela, e não na página: o lugar dele na grade é guardado por este vazio. */}
+        <div aria-hidden="true" className="hidden lg:block" />
         <aside
           className={cx(
-            "sticky top-0 hidden h-dvh flex-col gap-4 overflow-hidden bg-pine lg:flex",
-            collapsed ? "px-2 py-4" : "p-4",
+            "fixed inset-y-0 left-0 z-10 hidden flex-col gap-4 overflow-hidden bg-pine lg:flex lg:transition-[width] lg:duration-200 motion-reduce:transition-none",
+            collapsed ? "w-[4.5rem] px-2 py-4" : "w-[16.5rem] p-4",
           )}
         >
           <div

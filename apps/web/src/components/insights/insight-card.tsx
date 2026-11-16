@@ -9,6 +9,19 @@ import { Button } from "@/components/ui";
 import type { InsightItem } from "@/lib/insights";
 import { decideInsight } from "./actions";
 
+/** O texto da dica vem com `**destaque**`: vira negrito, e os asteriscos não aparecem. */
+function emphasized(text: string) {
+  return text.split(/\*\*(.+?)\*\*/g).map((part, index) =>
+    index % 2 === 1 ? (
+      <strong key={index} className="font-semibold text-ink">
+        {part}
+      </strong>
+    ) : (
+      part
+    ),
+  );
+}
+
 /** Uma dica. Quem só pode ver lê e abre o "Por quê?", sem os botões. */
 export function InsightCard({ insight, canAct }: { insight: InsightItem; canAct: boolean }) {
   const t = useTranslations("insights");
@@ -22,11 +35,11 @@ export function InsightCard({ insight, canAct }: { insight: InsightItem; canAct:
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="min-w-0">
           <p className="m-0 text-sm font-semibold">{insight.title}</p>
-          <p className="m-0 mt-1 break-words text-sm text-muted">{insight.body}</p>
+          <p className="m-0 mt-1 break-words text-sm text-muted">{emphasized(insight.body)}</p>
         </div>
         <details className="text-sm">
           <summary className="w-fit cursor-pointer font-medium text-brand-700">{t("why")}</summary>
-          <p className="m-0 mt-1 break-words text-muted">{insight.why}</p>
+          <p className="m-0 mt-1 break-words text-muted">{emphasized(insight.why)}</p>
         </details>
         {canAct ? (
           <div className="flex flex-wrap items-center gap-2">
