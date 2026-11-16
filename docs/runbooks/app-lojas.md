@@ -71,6 +71,8 @@ A cada nova versão, suba `version` e os números de build em `app.json` (`ios.b
 
 ### Ficha das lojas
 
+Textos, respostas dos formulários e imagens prontos em `docs/lojas/ficha-organizeup.md`.
+
 7. Nome, subtítulo, descrição, palavras-chave e categoria (Finanças), em português.
 8. **Capturas de tela** do iPhone (6,9") e do Android, com dados fictícios.
 9. **Política de privacidade:** o endereço público já existe (`/privacidade`). Conferir se o texto cobre o app.
