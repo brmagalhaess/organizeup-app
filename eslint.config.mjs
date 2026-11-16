@@ -15,6 +15,11 @@ export default tseslint.config(
       "**/playwright-report/**",
       "**/test-results/**",
       "**/next-env.d.ts",
+      // App de celular: pastas nativas geradas e cache do Expo (ADR-0045).
+      "apps/mobile/ios/**",
+      "apps/mobile/android/**",
+      "apps/mobile/.expo/**",
+      "apps/mobile/expo-env.d.ts",
     ],
   },
   js.configs.recommended,

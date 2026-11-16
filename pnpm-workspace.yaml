@@ -1,6 +1,8 @@
 packages:
   - apps/*
   - packages/*
+  # Projeto à parte, com lockfile próprio (ADR-0045).
+  - "!apps/mobile"
 
 onlyBuiltDependencies:
   - esbuild

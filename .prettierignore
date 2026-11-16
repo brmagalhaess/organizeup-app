@@ -5,3 +5,8 @@ pnpm-lock.yaml
 .pg
 playwright-report
 test-results
+apps/mobile/ios
+apps/mobile/android
+apps/mobile/.expo
+apps/mobile/pnpm-lock.yaml
+apps/mobile/expo-env.d.ts

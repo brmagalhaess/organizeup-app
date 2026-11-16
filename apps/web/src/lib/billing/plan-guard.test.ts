@@ -60,6 +60,11 @@ const ROUTES: Record<string, BillingModule | null> = {
   "importador/arquivos/[id]/route.ts": null,
   "importador/route.ts": null,
   "mcp/ops/route.ts": null,
+  // App de celular (ADR-0045): só telas da Base.
+  "mobile/v1/entries/route.ts": null,
+  "mobile/v1/me/route.ts": null,
+  "mobile/v1/notifications/route.ts": null,
+  "mobile/v1/overview/route.ts": null,
   "ops/agents/route.ts": null,
   "ops/context/route.ts": null,
   "ops/deployments/route.ts": null,

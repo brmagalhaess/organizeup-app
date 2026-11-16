@@ -10,6 +10,7 @@ import {
 import { verifyJWT } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { organization, twoFactor } from "better-auth/plugins";
+import { expo } from "@better-auth/expo";
 import {
   and,
   eq,
@@ -243,9 +244,14 @@ async function verifyEmailLanding(ctx: GenericEndpointContext) {
   return { context: { query: { ...ctx.query, callbackURL } } };
 }
 
+/** Esquema do app de celular, igual a `scheme` em apps/mobile/app.json. */
+const MOBILE_APP_ORIGIN = "organizeup://";
+
 function createAuth() {
   const auth = betterAuth({
     appName: "OrganizeUp",
+    // O app de celular (ADR-0045): o esquema dele é a única origem além do próprio site.
+    trustedOrigins: [MOBILE_APP_ORIGIN],
     database: drizzleAdapter(authDb(), { provider: "pg", schema: betterAuthSchema }),
     emailAndPassword: {
       enabled: true,
@@ -415,6 +421,8 @@ function createAuth() {
         totpOptions: { digits: 6, period: 30 },
         backupCodeOptions: { amount: 8, length: 10 },
       }),
+      // App de celular (ADR-0045): guarda a sessão no cofre do aparelho e a manda no cabeçalho.
+      expo(),
       nextCookies(),
     ],
   });

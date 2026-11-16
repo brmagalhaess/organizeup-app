@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "OrganizeUp",
+    "slug": "organizeup",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "organizeup",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#17181b",
+    "ios": {
+      "bundleIdentifier": "br.com.crowntech.organizeup",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "br.com.crowntech.organizeup",
+      "adaptiveIcon": {
+        "backgroundColor": "#17181b",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#17181b",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

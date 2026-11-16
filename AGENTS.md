@@ -13,6 +13,7 @@ Plano completo e fases: `docs/plano-mestre.md`. Decisões: `docs/adr/`.
 | Caminho           | O quê                                                                                            |
 | ----------------- | ------------------------------------------------------------------------------------------------ |
 | `apps/web`        | Next.js 16 (App Router). UI pt-BR, Route Handlers (`/api/*`), Server Actions                     |
+| `apps/mobile`     | App de celular (Expo/React Native). Projeto à parte, fora do workspace: ver ADR-0045             |
 | `apps/worker`     | Worker pg-boss. No boot roda as migrações (credencial do dono) e processa filas                  |
 | `packages/db`     | Schema Drizzle, migrações SQL, RLS, `withHousehold`, Ops helpers, migrador                       |
 | `packages/domain` | Regras financeiras puras (decimal.js). Sem I/O                                                   |

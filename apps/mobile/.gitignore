@@ -1,0 +1,17 @@
+node_modules/
+.expo/
+dist/
+expo-env.d.ts
+*.tsbuildinfo
+.env*.local
+.dev-account.json
+.metro-health-check*
+.kotlin/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+# Pastas nativas geradas por `expo prebuild` (app.json é a fonte).
+/ios
+/android

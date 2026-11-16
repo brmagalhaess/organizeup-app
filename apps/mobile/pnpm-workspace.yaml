@@ -1,0 +1,6 @@
+# O app de celular é um projeto à parte (ADR-0045): tem instalação e lockfile próprios, para o build
+# do site no Dokploy não baixar React Native. `hoisted` é o que o Metro e o autolinking esperam.
+packages:
+  - "."
+nodeLinker: hoisted
+onlyBuiltDependencies: []
