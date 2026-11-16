@@ -43,15 +43,19 @@ export default async function PlanPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={description} />
-      <ol className="m-0 flex list-none flex-col gap-4 p-0">
+      <ol className="m-0 grid list-none gap-4 p-0 lg:grid-cols-2">
         {actions.map((action, index) => {
           const title = t(`actions.${action.kind}.title`, {
             amount: action.amount === null ? "" : moneyText(action.amount),
             category: system.name(action.category ?? ""),
           });
           return (
-            <li key={action.kind}>
-              <Card title={`${index + 1}. ${title}`} description={t(`actions.${action.kind}.text`)}>
+            <li key={action.kind} className="flex">
+              <Card
+                className="flex-1"
+                title={`${index + 1}. ${title}`}
+                description={t(`actions.${action.kind}.text`)}
+              >
                 <div className="flex flex-wrap items-center gap-3">
                   {action.yearsEarlier !== null && action.yearsEarlier > 0 ? (
                     <Badge tone="success">

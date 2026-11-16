@@ -244,10 +244,25 @@ export function AccountsSection({
     : phase === "passado"
       ? t("balanceEnd")
       : t("balanceNow");
+  // Conta sem saldo e sem nada no mês só alonga o painel: fica de fora da lista, com a contagem embaixo.
+  const idle = (account: Overview["accounts"][number]) =>
+    [
+      account.received,
+      account.spent,
+      account.plannedIncome,
+      account.plannedExpense,
+      account.contributed,
+      account.plannedContribution,
+      account.balance,
+      account.projected,
+    ].every((value) => money(value).isZero());
+  const busy = data.accounts.filter((account) => !idle(account));
+  const shown = busy.length > 0 ? busy : data.accounts;
+  const hidden = data.accounts.length - shown.length;
   return (
     <Card title={t("title")} description={t("description", { month: label })}>
       <ul aria-label={t("title")} className="m-0 list-none divide-y divide-line p-0">
-        {data.accounts.map((account) => (
+        {shown.map((account) => (
           <li key={account.id} className="py-3 first:pt-0 last:pb-0">
             <Link
               href={`/app/lancamentos?m=${month}&conta=${account.id}`}
@@ -290,6 +305,13 @@ export function AccountsSection({
           </li>
         ))}
       </ul>
+      {hidden > 0 ? (
+        <p className="m-0 mt-3 text-xs text-muted">
+          <Link href="/app/contas" className="underline underline-offset-2">
+            {t("idle", { count: hidden })}
+          </Link>
+        </p>
+      ) : null}
       {data.cards.length === 0 ? null : (
         <>
           <h3 className="mb-2 mt-5 text-sm font-semibold">{t("cards")}</h3>

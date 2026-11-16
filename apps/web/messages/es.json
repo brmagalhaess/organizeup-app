@@ -2501,7 +2501,8 @@
         "paga": "Pagada"
       },
       "note": "La factura pagada entra en los gastos de la cuenta que la paga: la tarjeta aquí es detalle y no suma de nuevo. La transferencia entre cuentas no cuenta como ingreso ni gasto.",
-      "contributed": "Aportado: {amount}"
+      "contributed": "Aportado: {amount}",
+      "idle": "{count, plural, one {# cuenta más sin saldo ni movimiento este mes} other {# cuentas más sin saldo ni movimiento este mes}}"
     },
     "investments": {
       "title": "Inversiones",

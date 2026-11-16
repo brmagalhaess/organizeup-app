@@ -2,7 +2,7 @@
 import { AlertCircle, AlertTriangle, ListFilter } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo, useState, type ReactNode } from "react";
-import { money, yearMonthOf, type CalendarItem } from "@organizeup/domain";
+import { money, toDbAmount, yearMonthOf, type CalendarItem } from "@organizeup/domain";
 import { useFxNoteText } from "@/components/fx-note";
 import { cx } from "@/components/styles";
 import { Button, PageHeader, StatTile } from "@/components/ui";
@@ -82,6 +82,15 @@ function DayCell({
   const isToday = date === data.today;
   const overdue = items.filter((item) => isOverdue(item, data.today)).length;
   const marks = dayMarks(items, data.types);
+  // Quanto entra e quanto sai no dia: no computador o número vai escrito, e o ícone só diz de que tipo é.
+  const sumOf = (kind: "receita" | "despesa") =>
+    items.reduce(
+      (acc, item) =>
+        item.type === "lancamento" && item.kind === kind ? acc.plus(item.amount) : acc,
+      money(0),
+    );
+  const incoming = sumOf("receita");
+  const outgoing = sumOf("despesa");
   const spoken = [
     formatDayName(date, locale),
     isToday ? t("today") : null,
@@ -133,6 +142,18 @@ function DayCell({
         })}
         {marks.length > MAX_MARKS ? (
           <span className="text-xs text-muted">+{marks.length - MAX_MARKS}</span>
+        ) : null}
+      </span>
+
+      <span
+        aria-hidden="true"
+        className="hidden flex-col whitespace-nowrap text-xs font-medium tabular-nums md:flex"
+      >
+        {incoming.gt(0) ? (
+          <span className="text-income">+ {moneyText(toDbAmount(incoming), "short")}</span>
+        ) : null}
+        {outgoing.gt(0) ? (
+          <span className="text-expense">− {moneyText(toDbAmount(outgoing), "short")}</span>
         ) : null}
       </span>
 
@@ -239,7 +260,13 @@ export function CalendarBoard({
         </div>
       ) : null}
 
-      <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
+      {/* Com aportes são cinco números: todos na mesma linha, sem deixar um sozinho embaixo. */}
+      <dl
+        className={cx(
+          "m-0 grid grid-cols-2 gap-4",
+          contribution.isZero() ? "xl:grid-cols-4" : "xl:grid-cols-5",
+        )}
+      >
         <StatTile
           label={t("stats.in")}
           tone="receita"

@@ -107,29 +107,31 @@ export default async function ImportPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
-      {canWrite(ctx) && smartImport ? (
-        <Card title={t("smart.title")} description={t("smart.text")}>
-          <Link href="/app/importar/arquivos" className={buttonClass()}>
-            {t("smart.link")}
-          </Link>
-        </Card>
-      ) : null}
-      {brazilRulesApply(data.currency) ? (
-        <>
-          <Card title={t("investments.title")} description={t("investments.text")}>
-            <Link href="/app/investimentos/importar" className={buttonClass("secondary")}>
-              {t("investments.link")}
+      <div className="grid gap-4 empty:hidden md:grid-cols-2 xl:grid-cols-3">
+        {canWrite(ctx) && smartImport ? (
+          <Card title={t("smart.title")} description={t("smart.text")}>
+            <Link href="/app/importar/arquivos" className={buttonClass()}>
+              {t("smart.link")}
             </Link>
           </Card>
-          {canWrite(ctx) ? (
-            <Card title={t("dividends.title")} description={t("dividends.text")}>
-              <Link href="/app/proventos/importar" className={buttonClass("secondary")}>
-                {t("dividends.link")}
+        ) : null}
+        {brazilRulesApply(data.currency) ? (
+          <>
+            <Card title={t("investments.title")} description={t("investments.text")}>
+              <Link href="/app/investimentos/importar" className={buttonClass("secondary")}>
+                {t("investments.link")}
               </Link>
             </Card>
-          ) : null}
-        </>
-      ) : null}
+            {canWrite(ctx) ? (
+              <Card title={t("dividends.title")} description={t("dividends.text")}>
+                <Link href="/app/proventos/importar" className={buttonClass("secondary")}>
+                  {t("dividends.link")}
+                </Link>
+              </Card>
+            ) : null}
+          </>
+        ) : null}
+      </div>
       {canWrite(ctx) ? (
         <ImportWizard
           accounts={data.accountRows

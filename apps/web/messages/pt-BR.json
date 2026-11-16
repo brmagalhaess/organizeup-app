@@ -2501,7 +2501,8 @@
         "paga": "Paga"
       },
       "note": "A fatura paga entra nas despesas da conta que paga: o cartão aqui é detalhe e não soma de novo. Transferência entre contas não conta como receita nem despesa.",
-      "contributed": "Aportado: {amount}"
+      "contributed": "Aportado: {amount}",
+      "idle": "{count, plural, one {Mais # conta sem saldo nem movimento neste mês} other {Mais # contas sem saldo nem movimento neste mês}}"
     },
     "investments": {
       "title": "Investimentos",

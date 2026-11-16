@@ -2501,7 +2501,8 @@
         "paga": "Paid"
       },
       "note": "A paid statement counts as an expense of the account that pays it: the card here is detail and isn't added again. Transfers between accounts are neither income nor expenses.",
-      "contributed": "Contributed: {amount}"
+      "contributed": "Contributed: {amount}",
+      "idle": "{count, plural, one {# more account with no balance or activity this month} other {# more accounts with no balance or activity this month}}"
     },
     "investments": {
       "title": "Investments",

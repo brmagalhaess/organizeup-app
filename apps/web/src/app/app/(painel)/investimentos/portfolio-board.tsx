@@ -269,7 +269,7 @@ function GainCell({ row, locale }: { row: Row; locale: ReturnType<typeof useLoca
   );
 }
 
-const NUM = "whitespace-nowrap px-1 py-3 text-right tabular-nums";
+const NUM = "whitespace-nowrap px-2 py-3 text-right tabular-nums";
 const HEAD =
   "px-1 pb-2 text-right text-[11px] font-medium uppercase leading-tight tracking-wide text-muted";
 
@@ -322,24 +322,64 @@ function HoldingsTable({
     rows,
     rows.map((row) => cells.get(row.id)!),
   );
-  const columns = [
-    "price",
-    "quantity",
-    "equity",
-    "average",
-    "gain",
-    "priceToBook",
-    "upside",
-    "dividendMonth",
-    "cost",
-    "ideal",
-    "contribution",
-    "share",
-  ] as const;
+  const unitHeld = (row: Row) => isUnitPriced(row.assetClass) && money(row.position.quantity).gt(0);
+  // Coluna que não tem valor em nenhum ativo não aparece: a tabela fica só com o que há para ler.
+  const filled: Record<string, boolean> = {
+    price: rows.some((row) => isUnitPriced(row.assetClass) && row.currentPrice),
+    quantity: rows.some(unitHeld),
+    equity: true,
+    average: rows.some(unitHeld),
+    gain: true,
+    priceToBook: rows.some((row) => cells.get(row.id)!.priceToBook !== null),
+    upside: rows.some((row) => cells.get(row.id)!.upside !== null),
+    dividendMonth: rows.some((row) => money(cells.get(row.id)!.dividendMonthly).gt(0)),
+    cost: true,
+    ideal: rows.some((row) => cells.get(row.id)!.idealPercent !== null),
+    contribution: rows.some((row) => cells.get(row.id)!.contribution !== null),
+    share: true,
+  };
+  const columns = (
+    [
+      "price",
+      "quantity",
+      "equity",
+      "average",
+      "gain",
+      "priceToBook",
+      "upside",
+      "dividendMonth",
+      "cost",
+      "ideal",
+      "contribution",
+      "share",
+    ] as const
+  ).filter((column) => filled[column]);
+  type ColumnKey = (typeof columns)[number];
   const dash = <span className="text-muted">—</span>;
+  const foot: Partial<Record<ColumnKey, ReactNode>> = {
+    equity: moneyText(totals.value),
+    gain: (
+      <span
+        className={
+          money(totals.gain).gt(0)
+            ? "text-success"
+            : money(totals.gain).lt(0)
+              ? "text-danger"
+              : undefined
+        }
+      >
+        {moneyText(totals.gain)}
+      </span>
+    ),
+    dividendMonth: moneyText(totals.dividendMonthly),
+    cost: moneyText(totals.cost),
+    ideal: percentText(totals.idealPercent, locale),
+    contribution: moneyText(totals.contribution),
+    share: percentText(100, locale),
+  };
   return (
     <div className="-mx-5 overflow-x-auto sm:-mx-6">
-      <table className="w-full border-collapse text-xs">
+      <table className={cx("w-full border-collapse", columns.length > 9 ? "text-xs" : "text-sm")}>
         <caption className="sr-only">{t("portfolio.table.caption")}</caption>
         <thead>
           <tr className="border-b border-line">
@@ -418,6 +458,32 @@ function HoldingsTable({
                     ]
                   : []),
               ];
+              const body: Record<ColumnKey, ReactNode> = {
+                price:
+                  unit && row.currentPrice ? (
+                    <>
+                      <span className="block">{moneyText(row.currentPrice)}</span>
+                      {row.quoteDate || row.valuedOn ? (
+                        <span className="block text-xs text-muted">
+                          {formatDate(row.quoteDate ?? row.valuedOn!, locale)}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    dash
+                  ),
+                quantity: unit && held ? quantityText(row.position.quantity, locale) : dash,
+                equity: moneyText(row.value),
+                average: unit && held ? moneyText(row.position.averagePrice) : dash,
+                gain: <GainCell row={row} locale={locale} />,
+                priceToBook: cell.priceToBook === null ? dash : ratio.format(cell.priceToBook),
+                upside: <PercentCell value={cell.upside} locale={locale} />,
+                dividendMonth: moneyText(cell.dividendMonthly),
+                cost: moneyText(row.position.cost),
+                ideal: cell.idealPercent === null ? dash : percentText(cell.idealPercent, locale),
+                contribution: cell.contribution === null ? dash : moneyText(cell.contribution),
+                share: percentText(cell.sharePercent, locale),
+              };
               return (
                 <tr key={row.id}>
                   <th
@@ -455,47 +521,18 @@ function HoldingsTable({
                     ) : null}
                     {hasQuote ? null : <QuoteNote row={row} today={today} />}
                   </th>
-                  <td className={NUM}>
-                    {unit && row.currentPrice ? (
-                      <>
-                        <span className="block">{moneyText(row.currentPrice)}</span>
-                        {row.quoteDate || row.valuedOn ? (
-                          <span className="block text-xs text-muted">
-                            {formatDate(row.quoteDate ?? row.valuedOn!, locale)}
-                          </span>
-                        ) : null}
-                      </>
-                    ) : (
-                      dash
-                    )}
-                  </td>
-                  <td className={NUM}>
-                    {unit && held ? quantityText(row.position.quantity, locale) : dash}
-                  </td>
-                  <td className={cx(NUM, "font-medium")}>{moneyText(row.value)}</td>
-                  <td className={NUM}>
-                    {unit && held ? moneyText(row.position.averagePrice) : dash}
-                  </td>
-                  <td className={NUM}>
-                    <GainCell row={row} locale={locale} />
-                  </td>
-                  <td className={NUM}>
-                    {cell.priceToBook === null ? dash : ratio.format(cell.priceToBook)}
-                  </td>
-                  <td className={NUM}>
-                    <PercentCell value={cell.upside} locale={locale} />
-                  </td>
-                  <td className={NUM}>{moneyText(cell.dividendMonthly)}</td>
-                  <td className={NUM}>{moneyText(row.position.cost)}</td>
-                  <td className={NUM}>
-                    {cell.idealPercent === null ? dash : percentText(cell.idealPercent, locale)}
-                  </td>
-                  <td className={NUM}>
-                    {cell.contribution === null ? dash : moneyText(cell.contribution)}
-                  </td>
-                  <td className={cx(NUM, "font-medium text-brand-700")}>
-                    {percentText(cell.sharePercent, locale)}
-                  </td>
+                  {columns.map((column) => (
+                    <td
+                      key={column}
+                      className={cx(
+                        NUM,
+                        column === "equity" && "font-medium",
+                        column === "share" && "font-medium text-brand-700",
+                      )}
+                    >
+                      {body[column]}
+                    </td>
+                  ))}
                 </tr>
               );
             })}
@@ -506,30 +543,11 @@ function HoldingsTable({
             <th scope="row" className="sticky left-0 z-10 bg-card px-2 py-3 text-left">
               {t("portfolio.table.total")}
             </th>
-            <td className={NUM} />
-            <td className={NUM} />
-            <td className={NUM}>{moneyText(totals.value)}</td>
-            <td className={NUM} />
-            <td className={NUM}>
-              <span
-                className={
-                  money(totals.gain).gt(0)
-                    ? "text-success"
-                    : money(totals.gain).lt(0)
-                      ? "text-danger"
-                      : undefined
-                }
-              >
-                {moneyText(totals.gain)}
-              </span>
-            </td>
-            <td className={NUM} />
-            <td className={NUM} />
-            <td className={NUM}>{moneyText(totals.dividendMonthly)}</td>
-            <td className={NUM}>{moneyText(totals.cost)}</td>
-            <td className={NUM}>{percentText(totals.idealPercent, locale)}</td>
-            <td className={NUM}>{moneyText(totals.contribution)}</td>
-            <td className={cx(NUM, "text-brand-700")}>{percentText(100, locale)}</td>
+            {columns.map((column) => (
+              <td key={column} className={cx(NUM, column === "share" && "text-brand-700")}>
+                {foot[column] ?? null}
+              </td>
+            ))}
           </tr>
         </tfoot>
       </table>

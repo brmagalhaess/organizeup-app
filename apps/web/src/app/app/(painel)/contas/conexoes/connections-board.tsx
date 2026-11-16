@@ -1,5 +1,6 @@
 "use client";
 import {
+  ChevronDown,
   CreditCard,
   ExternalLink,
   Landmark,
@@ -81,10 +82,37 @@ interface ConnectionView {
   links: BankLink[];
 }
 
-function Guide() {
+/** Passo a passo de como conectar. Com uma conexão já feita, fica fechado: abre quem precisa. */
+function Guide({ folded }: { folded: boolean }) {
   const t = useTranslations("conexoes");
+  if (folded) {
+    return (
+      <details className="group rounded-2xl border border-line bg-card shadow-card">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 text-base font-semibold sm:px-6 [&::-webkit-details-marker]:hidden">
+          {t("how.title")}
+          <ChevronDown
+            className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180"
+            aria-hidden="true"
+          />
+        </summary>
+        <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+          <p className="m-0 mb-4 text-sm text-muted">{t("how.text")}</p>
+          <GuideSteps />
+        </div>
+      </details>
+    );
+  }
   return (
     <Card title={t("how.title")} description={t("how.text")}>
+      <GuideSteps />
+    </Card>
+  );
+}
+
+function GuideSteps() {
+  const t = useTranslations("conexoes");
+  return (
+    <>
       <ol className="m-0 flex list-decimal flex-col gap-2 pl-5 text-sm">
         {STEPS.map((step) => (
           <li key={step}>{t(`how.steps.${step}`)}</li>
@@ -121,7 +149,7 @@ function Guide() {
           ))}
         </ul>
       </div>
-    </Card>
+    </>
   );
 }
 
@@ -561,7 +589,7 @@ export function ConnectionsBoard({
           onRemove={() => setRemoving(connection)}
         />
       ))}
-      <Guide />
+      <Guide folded={connections.length > 0} />
       <NewKeyForm key={`${room}:${people.length}`} people={people} room={room} />
       <ConfirmSheet
         open={removing !== null}

@@ -27,11 +27,11 @@ function PendingCard({
   const t = useTranslations("sugestoes.pending");
   const lang = item.translated ? undefined : DEFAULT_LOCALE;
   return (
-    <li className="py-3 first:pt-0 last:pb-0">
+    <li className="py-4 first:pt-0 last:pb-0">
       <p lang={lang} className="text-sm font-medium">
         {item.title}
       </p>
-      <p lang={lang} className="mt-1 text-sm text-muted">
+      <p lang={lang} className="mt-1 max-w-[75ch] text-sm leading-relaxed text-muted">
         {item.body}
       </p>
       {item.href ? (
@@ -74,9 +74,18 @@ export function SuggestionsBoard({ data, writable }: { data: Data; writable: boo
             {data.groups.map((group) => {
               const title = t(`groups.${group.key}`);
               return (
-                <section key={group.key} aria-label={title}>
+                <section
+                  key={group.key}
+                  aria-label={title}
+                  className="rounded-xl border border-line p-4"
+                >
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold">{title}</h3>
+                    <h3 className="flex items-center gap-2 text-sm font-semibold">
+                      {title}
+                      <span className="rounded-full bg-card-soft px-2 py-0.5 text-xs font-medium text-muted">
+                        {group.items.length}
+                      </span>
+                    </h3>
                     {writable && group.bulk ? (
                       <Button
                         variant="secondary"
@@ -120,7 +129,7 @@ export function SuggestionsBoard({ data, writable }: { data: Data; writable: boo
                 </p>
                 <p
                   lang={item.translated ? undefined : DEFAULT_LOCALE}
-                  className="mt-1 text-sm text-muted"
+                  className="mt-1 max-w-[75ch] text-sm leading-relaxed text-muted"
                 >
                   {item.body}
                 </p>
