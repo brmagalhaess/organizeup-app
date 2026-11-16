@@ -58,8 +58,12 @@ sempre (`summarizeMonth`, `spendingByCategory`, `incomeByCategory`, `summarizePo
     Estimativa pelo histórico aparece à parte, com esse nome, do mês atual em diante. Só para família em real, como a tela de proventos.
 14. **Reserva e patrimônio.** Sempre a posição de hoje; fora do mês atual, o título diz "hoje".
 
-No computador, os blocos 7 a 9 e o 13 dividem duas colunas: à esquerda, Evolução e Por categoria; à direita, Próximos
-vencimentos, Lançamentos do mês e Reserva e patrimônio. No celular seguem a ordem da lista.
+No computador (tela larga) os blocos não formam duas colunas longas: são faixas de duas colunas, nesta ordem. Primeira faixa,
+Evolução (3 partes) e Próximos vencimentos (2 partes). Depois, numa linha só, Reserva e patrimônio: dois quadros pequenos, um ao
+lado do outro. Segunda faixa, Por categoria (3 partes) e Lançamentos do mês (2 partes). Terceira faixa, de duas colunas iguais:
+à esquerda Gastos por pessoa e Por conta, à direita Investimentos e Proventos. Nas duas primeiras faixas cada cartão estica até a
+altura da faixa, para não sobrar buraco ao lado do cartão menor; na terceira cada coluna acaba na altura do próprio conteúdo. No
+celular é um bloco por linha, na mesma ordem das faixas (Reserva e patrimônio continua com os dois quadros lado a lado).
 
 ## Regras da conta
 
