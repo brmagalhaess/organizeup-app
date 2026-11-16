@@ -225,6 +225,7 @@ function ValueForm({ row, today, onDone }: { row: Row; today: string; onDone: ()
 /** Avisos do assistente. Fica montado depois da última decisão para mostrar a mensagem. */
 function PortfolioSuggestions({ items, writable }: { items: PendingItem[]; writable: boolean }) {
   const t = useTranslations("investimentos.portfolio");
+  const tSuggestions = useTranslations("sugestoes.pending");
   const actions = useSuggestionActions();
   if (items.length === 0) return <SuggestionFeedback result={actions.result} />;
   return (
@@ -236,7 +237,12 @@ function PortfolioSuggestions({ items, writable }: { items: PendingItem[]; writa
             <p className="text-sm font-medium">{item.title}</p>
             <p className="mt-1 text-sm text-muted">{item.body}</p>
             {writable ? (
-              <DecisionButtons id={item.id} title={item.title} actions={actions} />
+              <DecisionButtons
+                id={item.id}
+                title={item.title}
+                actions={actions}
+                {...(item.acts ? {} : { acceptLabel: tSuggestions("seen") })}
+              />
             ) : null}
           </li>
         ))}

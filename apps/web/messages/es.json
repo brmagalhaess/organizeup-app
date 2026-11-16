@@ -4162,7 +4162,8 @@
       "openItem": "Abrir: {name}",
       "addTrip": "Añadir a mis viajes",
       "applyAll": "Aplicar todo",
-      "applyAllIn": "Aplicar todo en {name}"
+      "applyAllIn": "Aplicar todo en {name}",
+      "seen": "Marcar como visto"
     },
     "bulk": {
       "categoria": "¿Mover {count} movimientos a las categorías sugeridas?",
@@ -4234,6 +4235,12 @@
       "tripCreated": "Viaje a {name} creado. Ajusta fechas y costos en Viajes.",
       "goalCreated": "Meta {name} creada. Ajusta los detalles en Metas.",
       "dismissedIntention": "De acuerdo. El lugar sigue en tu lista, y no lo sugerimos de nuevo este año."
+    },
+    "accepted": {
+      "title": "Lo que aceptaste",
+      "period": "En los últimos 7 días. Abre para ver dónde quedó, o deshaz.",
+      "open": "Ver dónde quedó",
+      "openItem": "Ver dónde quedó: {name}"
     }
   },
   "familiaOnboarding": {

@@ -4162,7 +4162,8 @@
       "openItem": "Open: {name}",
       "addTrip": "Add to my trips",
       "applyAll": "Apply all",
-      "applyAllIn": "Apply all in {name}"
+      "applyAllIn": "Apply all in {name}",
+      "seen": "Mark as seen"
     },
     "bulk": {
       "categoria": "Move {count} transactions to the suggested categories?",
@@ -4234,6 +4235,12 @@
       "tripCreated": "Trip to {name} created. Adjust dates and costs in Trips.",
       "goalCreated": "Goal {name} created. Adjust the details in Goals.",
       "dismissedIntention": "All right. The place stays on your list, and we won't suggest it again this year."
+    },
+    "accepted": {
+      "title": "What you accepted",
+      "period": "In the last 7 days. Open to see where it went, or undo.",
+      "open": "See where it went",
+      "openItem": "See where it went: {name}"
     }
   },
   "familiaOnboarding": {

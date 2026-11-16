@@ -69,6 +69,14 @@ export interface PendingItem {
   href: string | null;
   /** Veio de uma intenção de viagem: recusar vale o ano, não 30 dias. */
   fromIntention: boolean;
+  /** Aceitar muda algum dado (cria meta ou viagem, grava valor). Falso: é só um aviso para marcar como visto. */
+  acts: boolean;
+}
+
+/** Sugestão que a família aceitou e que mudou algo: aparece na tela com o caminho de onde ficou. */
+export interface AcceptedItem extends AutomaticItem {
+  /** Tela onde o resultado ficou. */
+  href: string;
 }
 
 export interface AutomaticItem {
@@ -143,7 +151,26 @@ export async function countPending(tx: TenantTx): Promise<number> {
   return row?.total ?? 0;
 }
 
+/** Onde fica o que a sugestão cria ou muda quando é aceita. */
+const RESULT_HREF: Partial<Record<SuggestionKind, string>> = {
+  aporte_reserva: "/app/reserva",
+  aporte_investimento: "/app/aposentadoria",
+  viagem: "/app/viagens",
+  meta: "/app/metas",
+};
+
+/** Aceitar muda dado? Aviso, lembrete, pagamento extra de dívida e meta sem data proposta só anotam. */
+function changesData(row: Pick<PendingRow, "kind" | "payload">): boolean {
+  if (row.kind === "meta") {
+    const { draft, proposedMonth } = row.payload as { draft?: unknown; proposedMonth?: unknown };
+    return Boolean(draft) || typeof proposedMonth === "string";
+  }
+  return row.kind in RESULT_HREF;
+}
+
 function hrefOf(row: PendingRow): string | null {
+  if (row.kind === "aporte_divida") return "/app/dividas";
+  if (row.kind === "meta") return changesData(row) ? null : "/app/metas";
   if (row.kind !== "investimento" && row.kind !== "lembrete") return null;
   const parsed = linkPayloadSchema.safeParse(row.payload);
   return parsed.success && parsed.data.href.startsWith("/app/") ? parsed.data.href : null;
@@ -155,6 +182,7 @@ const toItem = (row: PendingRow, locale: Locale): PendingItem => ({
   ...agentText(row, locale),
   href: hrefOf(row),
   fromIntention: row.kind === "viagem" && "intentionId" in row.payload,
+  acts: changesData(row),
 });
 
 function bulkOf(rows: PendingRow[]): SuggestionBulk | null {
@@ -169,6 +197,7 @@ function bulkOf(rows: PendingRow[]): SuggestionBulk | null {
 /** Tudo da tela /app/sugestoes: o que espera decisão e o que o assistente fez sozinho na semana. */
 export async function loadSuggestions(ctx: TenantContext): Promise<{
   groups: SuggestionGroup[];
+  accepted: AcceptedItem[];
   automatic: AutomaticItem[];
 }> {
   const locale = await resolveLocale();
@@ -198,6 +227,18 @@ export async function loadSuggestions(ctx: TenantContext): Promise<{
             ),
           )
           .orderBy(desc(householdSuggestions.decidedAt));
+        const acceptedRows = await tx
+          .select(pendingColumns)
+          .from(householdSuggestions)
+          .where(
+            and(
+              eq(householdSuggestions.status, "aplicada"),
+              eq(householdSuggestions.appliedBy, "familia"),
+              inArray(householdSuggestions.kind, Object.keys(RESULT_HREF) as SuggestionKind[]),
+              gte(householdSuggestions.decidedAt, since),
+            ),
+          )
+          .orderBy(desc(householdSuggestions.decidedAt));
         const groups = GROUPS.flatMap(({ key, kinds }) => {
           const rows = pending.filter((row) => kinds.includes(row.kind));
           if (rows.length === 0) return [];
@@ -206,10 +247,15 @@ export async function loadSuggestions(ctx: TenantContext): Promise<{
         });
         return {
           groups,
+          accepted: acceptedRows.filter(changesData).map((row) => ({
+            id: row.id,
+            ...agentText(row, locale),
+            href: RESULT_HREF[row.kind]!,
+          })),
           automatic: automatic.map((row) => ({ id: row.id, ...agentText(row, locale) })),
         };
       }),
-    { groups: [], automatic: [] },
+    { groups: [], accepted: [], automatic: [] },
   );
 }
 

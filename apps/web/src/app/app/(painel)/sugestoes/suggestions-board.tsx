@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState } from "react";
 import { Button, Card, ConfirmSheet, EmptyState, PageHeader } from "@/components/ui";
+import { buttonClass } from "@/components/styles";
 import { DEFAULT_LOCALE } from "@/i18n/locales";
 import type { loadSuggestions, PendingItem, SuggestionBulk } from "@/lib/suggestions";
 import { applyAll, undoSuggestion } from "./actions";
@@ -49,7 +50,11 @@ function PendingCard({
           title={item.title}
           fromIntention={item.fromIntention}
           actions={actions}
-          {...(item.kind === "viagem" ? { acceptLabel: t("addTrip") } : {})}
+          {...(item.kind === "viagem"
+            ? { acceptLabel: t("addTrip") }
+            : item.acts
+              ? {}
+              : { acceptLabel: t("seen") })}
         />
       ) : null}
     </li>
@@ -113,6 +118,43 @@ export function SuggestionsBoard({ data, writable }: { data: Data; writable: boo
           </div>
         )}
       </Card>
+
+      {data.accepted.length === 0 ? null : (
+        <Card title={t("accepted.title")} description={t("accepted.period")}>
+          <ul aria-label={t("accepted.title")} className="m-0 list-none divide-y divide-line p-0">
+            {data.accepted.map((item) => (
+              <li key={item.id} className="py-3 first:pt-0 last:pb-0">
+                <p
+                  lang={item.translated ? undefined : DEFAULT_LOCALE}
+                  className="text-sm font-medium"
+                >
+                  {item.title}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Link
+                    href={item.href}
+                    aria-label={t("accepted.openItem", { name: item.title })}
+                    className={buttonClass("secondary", true)}
+                  >
+                    {t("accepted.open")}
+                  </Link>
+                  {writable ? (
+                    <Button
+                      variant="ghost"
+                      small
+                      disabled={actions.busy !== null}
+                      aria-label={t("automatic.undoItem", { name: item.title })}
+                      onClick={() => actions.run(undoSuggestion, item.id)}
+                    >
+                      {t("automatic.undo")}
+                    </Button>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card title={t("automatic.title")} description={t("automatic.period")}>
         {data.automatic.length === 0 ? (
