@@ -1,7 +1,7 @@
 // O filho que abre arquivo, como vai para produção: montado pelo esbuild e com o modelo de permissão do Node. Na fonte
 // ele roda sem permissões (o tsx precisa gravar cache e abrir o esbuild), então é aqui que elas valem (ADR-0030).
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { deflateSync } from "node:zlib";
@@ -9,7 +9,9 @@ import { build } from "esbuild";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { childEnv, permissionFlags } from "../../../packages/ai/src/importador/read-sandbox";
 
-const dir = mkdtempSync(path.join(tmpdir(), "filho-"));
+// Caminho real: no macOS a pasta temporária fica atrás de um link (/var → /private/var), e o modelo de permissão
+// libera só o caminho que recebeu. Sem isto o filho não consegue ler nem o próprio código.
+const dir = mkdtempSync(path.join(realpathSync(tmpdir()), "filho-"));
 const script = path.join(dir, "smart-read-child.js");
 const secret = path.join(dir, "..", `segredo-${process.pid}.txt`);
 

@@ -154,9 +154,11 @@ describe("proventos pelo importador", () => {
     expect(rows).toHaveLength(1);
     expect(domain.isImportedDividend(rows[0]!.id)).toBe(true);
     expect(await inFamily((tx) => tx.select().from(transactions))).toEqual([]);
-    const [item] = await db.withHousehold(owner, (tx) =>
+    // O lote tem dois itens (provento e documento) e a consulta não tem ordem: escolhe pelo destino.
+    const saved = await db.withHousehold(owner, (tx) =>
       tx.select().from(smartImportItems).where(eq(smartImportItems.importId, importId)),
     );
+    const item = saved.find((row) => row.destination === "provento");
     expect(item).toMatchObject({ status: "gravado", resultId: rows[0]!.id });
   });
 
