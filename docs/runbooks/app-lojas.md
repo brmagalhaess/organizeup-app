@@ -8,7 +8,7 @@ sempre uma ação do fundador.
 ```bash
 cd apps/mobile
 pnpm install                 # instalação própria, fora do workspace
-cp .env.example .env.local   # aponta o app para o site local; sem isso, fala com a produção
+cp .env.example .env.local   # só em desenvolvimento: aponta o app para o site local; sem isso, produção
 pnpm ios                     # simulador do iPhone (precisa do Xcode)
 pnpm android                 # emulador Android (precisa do Android Studio ou do SDK com um AVD)
 ```
@@ -21,10 +21,34 @@ pnpm android                 # emulador Android (precisa do Android Studio ou do
 - **Espaço em disco:** o primeiro build de cada sistema baixa e gera bastante coisa. Reserve uns 5 GB livres
   para o iOS e uns 8 GB para o Android (emulador, imagem do sistema e cache do Gradle).
 - **NDK do Android:** o build pede o NDK 27.1. Se a pasta dele em `~/Library/Android/sdk/ndk` estiver vazia
-  (instalação interrompida), reinstale pelo Android Studio, ou, para testar, ponha
-  `ext { ndkVersion = "<versão instalada>" }` antes de `apply plugin: "expo-root-project"` no
-  `android/build.gradle` gerado.
+  (instalação interrompida), reinstale pelo Android Studio ou passe outra versão instalada:
+  `ORGANIZEUP_NDK=28.1.13356709 pnpm loja:android` (o ajuste fica em `plugins/android-loja.js`).
+- **Servidor:** em desenvolvimento o app usa `EXPO_PUBLIC_API_URL` do `.env.local`. O build de loja ignora
+  essa variável e fala sempre com a produção (`src/lib/config.ts`).
 - **Ícones:** os SVG ficam em `assets/source`. Depois de mudar, gere os PNG de 1024 px em `assets/images`.
+
+## Gerar os pacotes de loja
+
+Os dois comandos rodam dentro de `apps/mobile` e recriam as pastas `ios/` e `android/` do zero.
+
+**iPhone (App Store):**
+
+1. `pnpm loja:ios` abre o Xcode.
+2. Em **Signing & Capabilities**, escolha o seu time (a conta do Apple Developer Program).
+3. No topo, destino **Any iOS Device (arm64)**.
+4. **Product > Archive**. Ao terminar, **Distribute App > App Store Connect > Upload**.
+5. O build aparece no App Store Connect em uns 15 minutos. Dá para testar no seu iPhone pelo TestFlight antes
+   de mandar para a revisão.
+
+**Android (Google Play):**
+
+1. Uma vez só: `bash scripts/chave-android.sh` cria a chave de envio em `~/.organizeup` e diz as quatro linhas
+   para pôr em `~/.gradle/gradle.properties` (com a senha que você escolheu). Faça cópia de segurança da pasta.
+2. `pnpm loja:android` gera `android/app/build/outputs/bundle/release/app-release.aab`.
+3. Na Play Console: crie o app, ative o **Play App Signing** e envie o `.aab` em **Teste interno** primeiro.
+
+A cada nova versão, suba `version` e os números de build em `app.json` (`ios.buildNumber` e
+`android.versionCode`, sempre maiores que o anterior).
 
 ## O que só o fundador pode fazer
 
@@ -42,8 +66,8 @@ pnpm android                 # emulador Android (precisa do Android Studio ou do
 
 5. **iOS:** certificado de distribuição e perfil de provisionamento. O Xcode cria sozinho com "Automatically
    manage signing" depois de entrar com a conta de desenvolvedor.
-6. **Android:** chave de envio (keystore). Guardar fora do repositório, com cópia de segurança: perder a chave
-   complica toda atualização futura. Ativar o Play App Signing.
+6. **Android:** chave de envio, criada com `scripts/chave-android.sh`. Fica fora do repositório; guarde cópia.
+   Ativar o Play App Signing.
 
 ### Ficha das lojas
 
@@ -59,8 +83,9 @@ pnpm android                 # emulador Android (precisa do Android Studio ou do
 
 ### Revisão
 
-14. **Conta de demonstração para os revisores**, com dados fictícios e sem verificação em duas etapas. Sem ela a
-    Apple reprova na hora (regra 2.1).
+14. **Conta de demonstração para os revisores**, criada por você na produção, com família e dados fictícios e
+    **sem** verificação em duas etapas (os revisores não têm o seu autenticador). Sem ela a Apple reprova na
+    hora (regra 2.1). E-mail e senha vão só no campo "Sign-in required" do App Store Connect e da Play Console.
 15. **Nota para a revisão** explicando que o cadastro é feito pelo site e que o app não vende nada.
 16. **Enviar para revisão** e responder aos revisores.
 
@@ -77,19 +102,20 @@ pnpm android                 # emulador Android (precisa do Android Studio ou do
 ## Situação dos testes (16/11/2026)
 
 - **iPhone (simulador, iOS 27):** entrar, senha errada, início, lançamentos, novo lançamento, avisos e perfil
-  conferidos com a conta fictícia local. Depois de entrar o `expo-symbols`, o app foi recompilado e abre na tela
-  de entrar; o fluxo completo não foi repetido nesse build.
+  conferidos com a conta fictícia local.
+- **Verificação em duas etapas:** conferida no simulador com uma conta fictícia local que tem o recurso ligado:
+  senha, tela do código, troca para código de reserva e volta, código do autenticador aceito e painel aberto.
+  Quem não ligou o recurso entra só com e-mail e senha, como no site.
+- **Produção:** o servidor aceita o login vindo do app (teste com e-mail inexistente devolve "senha inválida", não
+  "origem recusada"). O simulador foi apontado para a produção e abre o site certo; o login com uma conta real
+  é feito pelo fundador, que digita a própria senha.
 - **Android (emulador, API 35):** entrar, início, lançamentos, avisos, perfil, novo lançamento com o seletor de
-  data nativo, gravação pela API e sair, conferidos pelos elementos da tela e pelos registros do servidor. A
-  imagem de emulador usada (ATD, sem janela) não devolve captura de tela, então o visual no Android ainda não
-  foi olhado.
+  data nativo, gravação pela API e sair, conferidos pelos elementos da tela e pelos registros do servidor. O
+  visual no Android ainda não foi olhado (imagem de emulador sem janela).
 
-## O que falta no código antes de enviar
+## O que falta antes de enviar
 
+- Login com a conta real na produção, pelo fundador (simulador ou TestFlight).
 - Olhar o visual do app num Android com tela (emulador comum ou aparelho).
-
-- Publicar a API (`/api/mobile/v1`) em produção: entra com o merge do PR do app.
-- Testar num iPhone e num Android de verdade, com a conta real, contra a produção.
 - Decidir se a primeira versão já leva notificação push de vencimento e desbloqueio por biometria.
 - Inglês e espanhol, se a ficha da loja for publicada fora do Brasil.
-- Número da versão e do build a cada envio (`version` em `app.json`).

@@ -34,6 +34,12 @@ export const t = {
     label: "Código",
     submit: "Confirmar",
     invalid: "Código incorreto. Confira e tente de novo.",
+    expired: "O tempo para digitar o código acabou. Volte e entre de novo.",
+    backupTitle: "Código de reserva",
+    backupText: "Digite um dos códigos de reserva que você guardou ao ativar a verificação.",
+    backupLabel: "Código de reserva",
+    useBackup: "Usar um código de reserva",
+    useApp: "Usar o código do autenticador",
     back: "Voltar para o login",
   },
   family: {

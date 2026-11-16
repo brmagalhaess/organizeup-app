@@ -1,5 +1,5 @@
 // As cores da marca, as mesmas de apps/web/src/app/globals.css (paleta grafite com verde, ADR-0044),
-// no claro e no escuro.
+// no claro e no escuro. Exceção: no app a receita é verde (pedido do fundador em 16/11/2026), não azul.
 import { useColorScheme } from "react-native";
 
 const light = {
@@ -15,7 +15,7 @@ const light = {
   graphite: "#17181b",
   onGraphite: "#f5f5f6",
   accent: "#45c88a",
-  income: "#1273a8",
+  income: "#167a50",
   expense: "#b42318",
   danger: "#b42318",
   dangerSoft: "#fdecea",
@@ -35,7 +35,7 @@ const dark: typeof light = {
   graphite: "#1d1f23",
   onGraphite: "#f5f5f6",
   accent: "#45c88a",
-  income: "#2a9fd0",
+  income: "#3fb37f",
   expense: "#f0897e",
   danger: "#f0897e",
   dangerSoft: "#3a1f1c",

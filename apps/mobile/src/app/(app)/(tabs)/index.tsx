@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { Icon, type IconName } from "@/components/icon";
 import { AddButton, Card, Empty, EntryRow, Loadable, MonthSwitcher, Screen } from "@/components/ui";
 import type { Overview } from "@/lib/api";
 import { useFamily } from "@/lib/me";
@@ -8,7 +9,17 @@ import { t } from "@/lib/strings";
 import { useTheme } from "@/lib/theme";
 import { useApi } from "@/lib/use-api";
 
-function Stat({ label, value, color }: { label: string; value: string; color: string }) {
+function Stat({
+  label,
+  value,
+  color,
+  icon,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  icon: IconName;
+}) {
   const theme = useTheme();
   return (
     <View
@@ -22,7 +33,10 @@ function Stat({ label, value, color }: { label: string; value: string; color: st
         gap: 4,
       }}
     >
-      <Text style={{ color: theme.muted, fontSize: 13 }}>{label}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Icon name={icon} size={28} />
+        <Text style={{ color: theme.muted, fontSize: 13 }}>{label}</Text>
+      </View>
       <Text
         adjustsFontSizeToFit
         numberOfLines={1}
@@ -39,7 +53,9 @@ function Line({
   detail,
   value,
   negative,
+  icon,
 }: {
+  icon?: IconName;
   name: string;
   detail?: string;
   value: string;
@@ -48,6 +64,7 @@ function Line({
   const theme = useTheme();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, gap: 12 }}>
+      {icon ? <Icon name={icon} /> : null}
       <View style={{ flex: 1 }}>
         <Text numberOfLines={1} style={{ color: theme.ink, fontSize: 16 }}>
           {name}
@@ -123,8 +140,14 @@ export default function HomeScreen() {
                 label={t.home.received}
                 value={data.summary.receivedText}
                 color={theme.income}
+                icon="income"
               />
-              <Stat label={t.home.spent} value={data.summary.spentText} color={theme.expense} />
+              <Stat
+                label={t.home.spent}
+                value={data.summary.spentText}
+                color={theme.expense}
+                icon="expense"
+              />
             </View>
             <Card>
               <Line
@@ -154,6 +177,7 @@ export default function HomeScreen() {
                 {data.accounts.map((account) => (
                   <Line
                     key={account.id}
+                    icon="account"
                     name={account.name}
                     value={account.balanceText}
                     negative={account.negative}
@@ -166,6 +190,7 @@ export default function HomeScreen() {
                 {data.cards.map((card) => (
                   <Line
                     key={card.id}
+                    icon="card"
                     name={card.name}
                     detail={
                       card.status

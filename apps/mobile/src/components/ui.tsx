@@ -12,6 +12,7 @@ import {
   type TextInputProps,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Icon, entryIcon } from "@/components/icon";
 import type { ApiError, Entry } from "@/lib/api";
 import { errorText, t } from "@/lib/strings";
 import { useTheme } from "@/lib/theme";
@@ -33,34 +34,49 @@ export function Screen({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <ScrollView
-      style={{ backgroundColor: theme.background }}
-      contentContainerStyle={{
-        paddingTop: insets.top + 12,
-        paddingBottom: insets.bottom + 72,
-        paddingHorizontal: 16,
-        gap: 16,
-      }}
-      contentInsetAdjustmentBehavior="never"
-      keyboardShouldPersistTaps="handled"
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.brand} />
-        ) : undefined
-      }
-    >
-      <View style={styles.titleRow}>
-        <Text
-          accessibilityRole="header"
-          numberOfLines={1}
-          style={[styles.title, { color: theme.ink, flex: 1 }]}
-        >
-          {title}
-        </Text>
-        {action}
-      </View>
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScrollView
+        style={{ backgroundColor: theme.background }}
+        contentContainerStyle={{
+          paddingTop: insets.top + 12,
+          paddingBottom: insets.bottom + 72,
+          paddingHorizontal: 16,
+          gap: 16,
+        }}
+        contentInsetAdjustmentBehavior="never"
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.brand} />
+          ) : undefined
+        }
+      >
+        <View style={styles.titleRow}>
+          <Text
+            accessibilityRole="header"
+            numberOfLines={1}
+            style={[styles.title, { color: theme.ink, flex: 1 }]}
+          >
+            {title}
+          </Text>
+          {action}
+        </View>
+        {children}
+      </ScrollView>
+      {/* Faixa da barra de status: ao rolar, o conteúdo some por baixo dela em vez de cruzar o relógio. */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: insets.top,
+          backgroundColor: theme.background,
+          opacity: 0.96,
+        }}
+      />
+    </View>
   );
 }
 
@@ -249,6 +265,7 @@ export function EntryRow({ entry, last = false }: { entry: Entry; last?: boolean
       accessible
       accessibilityLabel={`${entry.description}, ${income ? "+" : "-"}${entry.amountText}, ${details}`}
     >
+      <Icon name={entryIcon(entry)} />
       <View style={{ flex: 1, gap: 2 }}>
         <Text numberOfLines={1} style={{ color: theme.ink, fontSize: 16, fontWeight: "500" }}>
           {entry.description}

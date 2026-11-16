@@ -57,7 +57,9 @@ export async function GET(request: Request) {
       .slice(0, RECENT)
       .map((entry) => mobileEntry(entry, money, locale, names)),
     accounts: data.accounts
-      .filter((account) => !account.archived)
+      // No celular só aparecem contas com saldo (positivo ou negativo): conta zerada é ruído no Início.
+      // A lista completa continua no site e no formulário de lançamento (/entries).
+      .filter((account) => !account.archived && !toMoney(account.nativeBalance).isZero())
       .map((account) => ({
         id: account.id,
         name: account.name,

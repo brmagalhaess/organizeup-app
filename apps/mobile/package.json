@@ -9,7 +9,9 @@
     "android": "expo run:android",
     "prebuild": "expo prebuild",
     "typecheck": "tsc --noEmit",
-    "seed": "node scripts/seed-dev.mjs"
+    "seed": "node scripts/seed-dev.mjs",
+    "loja:ios": "bash scripts/loja-ios.sh",
+    "loja:android": "bash scripts/loja-android.sh"
   },
   "dependencies": {
     "@better-auth/expo": "1.7.14",
