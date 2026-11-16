@@ -2,14 +2,14 @@
 // `app/icon.svg` (favicon); aqui muda só a cor, conforme o fundo.
 import { cx } from "@/components/styles";
 
-/** Fundo em que a marca aparece: claro (cartões, telas) ou escuro (menu, faixa verde). */
+/** Fundo em que a marca aparece: claro (cartões, telas) ou escuro (menu, faixa grafite). */
 export type BrandTone = "light" | "dark";
 
 const PALETTE: Record<BrandTone, { square: string; ring: string; arrow: string }> = {
-  // Em fundo claro, o quadro é o verde da marca.
-  light: { square: "#1d4235", ring: "#fbf8f1", arrow: "#f6c9a8" },
-  // Em fundo verde, o quadro vira claro para não sumir.
-  dark: { square: "#faf6ee", ring: "#1d4235", arrow: "#a84c2a" },
+  // Em fundo claro, o quadro é o grafite da marca.
+  light: { square: "#17181b", ring: "#f5f5f6", arrow: "#45c88a" },
+  // Em fundo grafite, o quadro vira claro para não sumir.
+  dark: { square: "#f5f5f6", ring: "#17181b", arrow: "#167a50" },
 };
 
 /** Só o símbolo. Decorativo: o nome ao lado, ou o rótulo do link, é que diz o que é. */
@@ -61,7 +61,7 @@ export function Brand({
         className={cx(
           "font-display font-semibold tracking-tight",
           SIZE[size].text,
-          tone === "dark" ? "text-white" : "text-brand-900 dark:text-brand-100",
+          tone === "dark" ? "text-white" : "text-ink",
         )}
       >
         {split ? (

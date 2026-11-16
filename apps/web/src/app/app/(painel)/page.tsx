@@ -696,9 +696,10 @@ export default async function OverviewPage({
         </Card>
       )}
 
-      {/* No computador, duas colunas: os gráficos à esquerda; o que pede ação e a lista do mês à direita. */}
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div id="evolucao" className="min-w-0 scroll-mt-20 xl:col-start-1 xl:row-start-1">
+      {/* No computador, faixas de duas colunas com a mesma altura: gráfico e o que pede ação; depois categorias
+          e a lista do mês. Entre elas, reserva e patrimônio. Assim não sobra buraco ao lado do cartão menor. */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] [&>div>section]:h-full">
+        <div id="evolucao" className="min-w-0 scroll-mt-20">
           <Card
             title={t("cashflow.title")}
             description={t("cashflow.description", { month: label })}
@@ -706,7 +707,7 @@ export default async function OverviewPage({
             <CashflowChart series={data.series} selected={month} current={current} />
           </Card>
         </div>
-        <div className="min-w-0 xl:col-start-2 xl:row-start-1">
+        <div className="min-w-0">
           <Upcoming
             data={data}
             moneyText={moneyText}
@@ -719,23 +720,15 @@ export default async function OverviewPage({
             }
           />
         </div>
-        <div className="min-w-0 xl:col-start-2 xl:row-start-2">
-          <MonthEntries
-            data={data}
-            label={label}
-            moneyText={moneyText}
-            describe={(entry) =>
-              system.description(entry.description, {
-                category: data.categoryNames.get(entry.categoryId),
-                bill: entry.source === "fatura",
-              })
-            }
-          />
-        </div>
-        <div
-          id="categorias"
-          className="min-w-0 scroll-mt-20 xl:col-start-1 xl:row-span-2 xl:row-start-2"
-        >
+      </div>
+
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4">
+        {reserveTile}
+        {wealthTile}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] [&>div>section]:h-full">
+        <div id="categorias" className="min-w-0 scroll-mt-20">
           <Card
             title={t("categories.title")}
             description={t("categories.description", { month: label })}
@@ -772,13 +765,22 @@ export default async function OverviewPage({
             </div>
           </Card>
         </div>
-        <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 xl:col-start-2 xl:row-start-3">
-          {reserveTile}
-          {wealthTile}
+        <div className="min-w-0">
+          <MonthEntries
+            data={data}
+            label={label}
+            moneyText={moneyText}
+            describe={(entry) =>
+              system.description(entry.description, {
+                category: data.categoryNames.get(entry.categoryId),
+                bill: entry.source === "fatura",
+              })
+            }
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-6">
           {data.people.list.length === 0 ? null : (
             <div id="pessoas" className="min-w-0 scroll-mt-20">

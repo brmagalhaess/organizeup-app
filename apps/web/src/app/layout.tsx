@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
-import { Fraunces, Inter } from "next/font/google";
+import { Inter } from "next/font/google";
 import { AccountTypeProvider } from "@/i18n/account";
 import { familyAccountType } from "@/i18n/account-server";
 import { FamilyCurrencyProvider } from "@/i18n/money";
@@ -11,7 +11,6 @@ import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("meta");
@@ -25,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#183c32",
+  themeColor: "#17181b",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -36,7 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     familyAccountType(),
   ]);
   return (
-    <html lang={locale} className={`${inter.variable} ${fraunces.variable}`}>
+    <html lang={locale} className={inter.variable}>
       <body className="min-h-dvh font-sans antialiased">
         <IntlProvider locale={locale} messages={messages}>
           <AccountTypeProvider type={accountType}>

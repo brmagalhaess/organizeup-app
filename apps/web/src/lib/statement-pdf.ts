@@ -21,7 +21,7 @@ const BOTTOM = PAGE_HEIGHT - MARGIN - 14;
 const INK = "#1f2933";
 const MUTED = "#52606d";
 const LINE = "#d9dee3";
-const BRAND = "#2f7a5b";
+const BRAND = "#1a8a5a";
 const INCOME = "#1273a8";
 const EXPENSE = "#b42318";
 

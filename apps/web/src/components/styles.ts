@@ -21,7 +21,7 @@ export const isGoalEntry = (description: string) => description.startsWith("Meta
 export type ButtonVariant = "primary" | "accent" | "secondary" | "ghost" | "danger";
 
 const buttonVariants: Record<ButtonVariant, string> = {
-  primary: "bg-brand-900 text-white hover:bg-brand-700",
+  primary: "bg-brand-500 text-white hover:bg-brand-700 dark:text-night",
   accent: "bg-peach text-night hover:bg-white",
   secondary: "border border-line bg-card text-ink hover:bg-brand-50",
   ghost: "text-ink hover:bg-brand-50",

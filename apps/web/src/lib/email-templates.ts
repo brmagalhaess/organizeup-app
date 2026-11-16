@@ -14,10 +14,10 @@ const MAX_NAME_LENGTH = 80;
 
 // Mesmas cores de globals.css (tema claro): e-mail não lê variável de CSS.
 const COLOR = {
-  brand: "#1f5641",
-  brandDark: "#183c32",
+  brand: "#136343",
+  brandDark: "#17181b",
   surface: "#ffffff",
-  page: "#eaf3ee",
+  page: "#e8f5ee",
   text: "#1f2933",
   muted: "#52606d",
 };
