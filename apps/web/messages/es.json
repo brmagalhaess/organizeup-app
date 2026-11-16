@@ -3142,7 +3142,9 @@
       "received": "entró {value}",
       "undo": "Deshacer transferencia",
       "undoText": "El importe vuelve a la cuenta de origen.",
-      "undoConfirm": "Deshacer"
+      "undoConfirm": "Deshacer",
+      "fromBank": "reconocida en el extracto del banco",
+      "undoBankText": "¿No era una transferencia? La salida y la entrada vuelven a Movimientos, como gasto e ingreso, y no se juntan de nuevo."
     },
     "saved": "Cuenta guardada.",
     "created": "Cuenta creada.",

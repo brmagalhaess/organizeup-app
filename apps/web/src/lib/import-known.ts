@@ -23,6 +23,7 @@ import {
   type LooseKnown,
   type YearMonth,
 } from "@organizeup/domain";
+import { transferKnown } from "@/lib/bank-transfers";
 import { loadCommitments } from "@/lib/commitments";
 
 export interface KnownForImport {
@@ -107,9 +108,15 @@ export async function loadKnownForImport(
     kind: entry.kind,
     fingerprint: entry.importFingerprint,
   });
-  const realized = inRange
-    .filter((entry) => entry.accountId === accountId && entry.status === "realizado")
-    .map(toKnown);
+  const realized = [
+    ...inRange
+      .filter((entry) => entry.accountId === accountId && entry.status === "realizado")
+      .map(toKnown),
+    // A linha que virou transferência já entrou, e a transferência lançada à mão não se repete.
+    ...(await transferKnown(tx, accountId)).filter(
+      (entry) => entry.date >= from && entry.date <= to,
+    ),
+  ];
   if (!withLoose) return { realized, forecasts, loose: {} };
 
   // Renda que a família já confirmou à mão, em qualquer conta: o crédito do banco é ela, e não outra.

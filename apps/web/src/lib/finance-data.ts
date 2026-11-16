@@ -55,6 +55,7 @@ import {
   type EntryFlow,
   type MonthEntry,
 } from "@organizeup/domain";
+import { transferKnown } from "./bank-transfers";
 import { loadCommitments } from "./commitments";
 import { onboardingStatus } from "./onboarding";
 import { loadOwners, peopleOfMonth } from "./owners";
@@ -127,6 +128,10 @@ export async function loadTransfers(ctx: TenantContext) {
       .from(accountTransfers)
       .orderBy(desc(accountTransfers.occurredOn), desc(accountTransfers.createdAt))
       .limit(20);
+    // As que vieram do banco: desfazer devolve os dois lançamentos (ADR-0042).
+    const fromBank = new Set(
+      (await transferKnown(tx)).filter((entry) => entry.fingerprint).map((entry) => entry.key),
+    );
     return {
       today: todayIn(await householdTimezone(tx, ctx.householdId)),
       /** Conta com movimento não muda de moeda. */
@@ -144,6 +149,7 @@ export async function loadTransfers(ctx: TenantContext) {
           toAmount: row.toAmount,
           occurredOn: row.occurredOn,
           note: row.note,
+          fromBank: fromBank.has(`x:${row.id}`),
         };
       }),
     };

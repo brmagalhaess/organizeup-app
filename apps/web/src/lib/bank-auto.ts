@@ -56,6 +56,7 @@ import {
   type Failed,
 } from "@/lib/bank-feed";
 import { categoryContext, commitCardFeed, prepareCardFeed } from "@/lib/bank-feed-cards";
+import { pairBankTransfers } from "@/lib/bank-transfers";
 import { loadKnownForImport } from "@/lib/import-known";
 import { confirmCommitment } from "@/lib/confirm-entry";
 import { pluggyAccounts, type PluggyOptions } from "@/lib/pluggy";
@@ -250,6 +251,8 @@ export interface BankSyncResult {
   settled: number;
   /** Compras novas em cartões. */
   purchases: number;
+  /** Saída e entrada entre contas da casa que viraram uma transferência só. */
+  transfers: number;
   /** Contas ou cartões que não deu para trazer, pelo código. */
   failures: BankFeedFailure[];
 }
@@ -263,7 +266,13 @@ export async function syncBankConnection(
   connection: BankConnectionView,
   options: PluggyOptions = {},
 ): Promise<BankSyncResult> {
-  const result: BankSyncResult = { entries: 0, settled: 0, purchases: 0, failures: [] };
+  const result: BankSyncResult = {
+    entries: 0,
+    settled: 0,
+    purchases: 0,
+    transfers: 0,
+    failures: [],
+  };
   for (const link of connection.links) {
     if (link.kind === "cartao") {
       if (!link.cardId) continue;
@@ -313,6 +322,13 @@ export async function syncBankConnection(
     result.settled += saved.settled;
     await markBankSynced(ctx, link.id, statement.to);
   }
+  // Dinheiro que só mudou de conta dentro da casa não é despesa nem receita (ADR-0042). Olha tudo o que veio
+  // do banco, e não só esta rodada: a outra ponta pode ter chegado antes, pela conexão de outra pessoa.
+  result.transfers = await pairBankTransfers(ctx).catch((error: unknown) => {
+    const { name, code } = error as { name?: string; code?: string };
+    console.error(JSON.stringify({ level: "error", msg: "bank_transfers_failed", name, code }));
+    return 0;
+  });
   // Com os lançamentos já gravados, o saldo de cada conta ligada é acertado pelo do banco.
   if (!result.failures.some((code) => STOPS.includes(code))) {
     await alignBankBalances(ctx, connection.id, options).catch((error: unknown) => {
@@ -350,13 +366,20 @@ export async function syncOwnBanks(
   );
   if (claimed.length === 0) return null;
   const ids = new Set(claimed.map((row) => row.id));
-  const total: BankSyncResult = { entries: 0, settled: 0, purchases: 0, failures: [] };
+  const total: BankSyncResult = {
+    entries: 0,
+    settled: 0,
+    purchases: 0,
+    transfers: 0,
+    failures: [],
+  };
   for (const connection of await loadBankConnections(ctx)) {
     if (!ids.has(connection.id)) continue;
     const result = await syncBankConnection(ctx, connection, options);
     total.entries += result.entries;
     total.settled += result.settled;
     total.purchases += result.purchases;
+    total.transfers += result.transfers;
     total.failures.push(...result.failures);
   }
   return total;

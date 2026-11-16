@@ -7,6 +7,7 @@ import {
   smallint,
   foreignKey,
   index,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -142,4 +143,25 @@ export const cardOwners = pgTable("credit_cards", {
   id: text("id").primaryKey(),
   householdId: text("household_id").notNull(),
   personId: text("person_id"),
+});
+
+/**
+ * A transferência com o que veio do banco (migração 0055), na mesma tabela de `accountTransfers`. Fica à
+ * parte porque a web nova pode rodar antes da migração: quem lê ou grava estas colunas tolera a falta delas.
+ */
+export const transferImports = pgTable("account_transfers", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  householdId: text("household_id").notNull(),
+  fromAccountId: text("from_account_id").notNull(),
+  toAccountId: text("to_account_id").notNull(),
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+  toAmount: numeric("to_amount", { precision: 14, scale: 2 }),
+  occurredOn: date("occurred_on", { mode: "string" }).notNull(),
+  note: text("note"),
+  toNote: text("to_note"),
+  fromFingerprint: text("from_fingerprint"),
+  toFingerprint: text("to_fingerprint"),
+  createdBy: text("created_by"),
 });

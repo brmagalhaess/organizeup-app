@@ -3142,7 +3142,9 @@
       "received": "entrou {value}",
       "undo": "Desfazer transferência",
       "undoText": "O valor volta para a conta de origem.",
-      "undoConfirm": "Desfazer"
+      "undoConfirm": "Desfazer",
+      "fromBank": "reconhecida no extrato do banco",
+      "undoBankText": "Não era transferência? A saída e a entrada voltam para Lançamentos, como despesa e receita, e não são juntadas de novo."
     },
     "saved": "Conta salva.",
     "created": "Conta criada.",

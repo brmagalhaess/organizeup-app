@@ -362,6 +362,8 @@ const FALLBACK: Record<StatementKind, string> = {
   despesa: "Outras despesas",
   receita: "Outras receitas",
 };
+/** Onde cai o que ninguém classificou, por tipo. */
+export const FALLBACK_CATEGORY = FALLBACK;
 
 /** Palavras que dizem como o dinheiro passou, não para quem. */
 const NOISE = new Set(

@@ -3142,7 +3142,9 @@
       "received": "received {value}",
       "undo": "Undo transfer",
       "undoText": "The amount goes back to the source account.",
-      "undoConfirm": "Undo"
+      "undoConfirm": "Undo",
+      "fromBank": "recognized in the bank statement",
+      "undoBankText": "Not a transfer? The money out and the money in go back to Entries as an expense and an income, and are not joined again."
     },
     "saved": "Account saved.",
     "created": "Account created.",

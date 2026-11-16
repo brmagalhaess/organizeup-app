@@ -48,3 +48,4 @@ export * from "./trip-suggest";
 export * from "./wipe";
 export * from "./reminders";
 export * from "./person-spending";
+export * from "./own-transfers";

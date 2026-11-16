@@ -24,6 +24,7 @@ import {
   transferRate,
 } from "@organizeup/domain";
 import { audit } from "@/lib/audit";
+import { undoTransfer } from "@/lib/bank-transfers";
 import { saveOwner } from "@/lib/owners";
 import { requireTenant } from "@/lib/session";
 import { systemTextOf } from "@/i18n/system-text";
@@ -149,13 +150,8 @@ export async function deleteTransfer(form: FormData): Promise<void> {
   const { ctx } = await requireTenant();
   if (!canWrite(ctx)) return;
   const id = String(form.get("id") ?? "");
-  await withHousehold(ctx, async (tx) => {
-    const removed = await tx
-      .delete(accountTransfers)
-      .where(eq(accountTransfers.id, id))
-      .returning({ id: accountTransfers.id });
-    if (removed.length > 0) await audit(tx, ctx, "delete", "account_transfers", id);
-  });
+  // A que veio do banco volta a ser dois lançamentos (ADR-0042).
+  await withHousehold(ctx, (tx) => undoTransfer(tx, ctx, id));
   revalidatePath("/app", "layout");
 }
 

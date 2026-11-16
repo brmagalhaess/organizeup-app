@@ -36,6 +36,8 @@ export interface TransferRow {
   toAmount: string | null;
   occurredOn: string;
   note: string | null;
+  /** Veio do extrato do banco: desfazer devolve a saída e a entrada como lançamentos. */
+  fromBank: boolean;
 }
 
 const initial: SimpleFormState = { ok: false, message: null };
@@ -163,6 +165,7 @@ export function TransferList({ rows, writable }: { rows: TransferRow[]; writable
               <p className="m-0 break-words text-xs text-muted">
                 {formatDate(row.occurredOn, locale)}
                 {row.note ? ` · ${row.note}` : ""}
+                {row.fromBank ? ` · ${t("fromBank")}` : ""}
               </p>
             </div>
             <p className="m-0 whitespace-nowrap text-right font-medium tabular-nums">
@@ -187,7 +190,7 @@ export function TransferList({ rows, writable }: { rows: TransferRow[]; writable
         open={removing !== null}
         onClose={() => setRemoving(null)}
         title={t("undo")}
-        text={t("undoText")}
+        text={t(removing?.fromBank ? "undoBankText" : "undoText")}
         confirmLabel={t("undoConfirm")}
         action={deleteTransfer}
         hidden={{ id: removing?.id ?? "" }}

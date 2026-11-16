@@ -18,6 +18,7 @@ import {
   type BankFeedFailure,
 } from "@/lib/bank-feed";
 import { alignBankBalances, alignBankLink } from "@/lib/bank-auto";
+import { pairBankTransfers } from "@/lib/bank-transfers";
 import { commitCardFeed, prepareCardFeed, type PreparedCardRow } from "@/lib/bank-feed-cards";
 import { reportActionFailure } from "@/lib/diagnostics";
 
@@ -84,7 +85,11 @@ export async function refreshBankConnection(
   try {
     const connectionId = String(form.get("connectionId") ?? "");
     const result = await refreshBank(ctx, connectionId);
-    if (result.ok) await settleBalances(() => alignBankBalances(ctx, connectionId));
+    if (result.ok) {
+      // Aproveita para juntar saída e entrada entre contas da casa que já estavam lançadas (ADR-0042).
+      await settleBalances(() => pairBankTransfers(ctx));
+      await settleBalances(() => alignBankBalances(ctx, connectionId));
+    }
     revalidatePath("/app", "layout");
     if (!result.ok) return { ok: false, message: await problem(result.code) };
     const t = await getTranslations("conexoes");
@@ -152,6 +157,8 @@ export async function fetchBankStatement(input: {
 export async function confirmBankSync(linkId: string, day: string): Promise<void> {
   const { ctx } = await requireBankFeed();
   await markBankSynced(ctx, String(linkId), String(day));
+  // O que acabou de entrar pode ser a outra ponta de uma transferência entre contas da casa (ADR-0042).
+  await settleBalances(() => pairBankTransfers(ctx));
   // O que acabou de entrar muda a soma da conta: o saldo volta a bater com o do banco.
   await settleBalances(() => alignBankLink(ctx, String(linkId)));
   revalidatePath("/app", "layout");
