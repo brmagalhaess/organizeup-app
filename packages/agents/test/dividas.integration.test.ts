@@ -21,6 +21,7 @@ const agents = await import("../src/index");
 const {
   accounts,
   and,
+  asc,
   debtDocuments,
   debtInstallments,
   debtPlanReports,
@@ -205,15 +206,23 @@ describe("agente de dívidas", () => {
 
   it("é idempotente: rodar duas vezes dá o mesmo resultado", async () => {
     await seedDebts();
+    // A segunda rodada regrava as sugestões pelo upsert, e o UPDATE do Postgres põe a linha nova em
+    // outro lugar da tabela: sem ORDER BY a leitura pode vir em outra ordem (falhava às vezes na suíte
+    // inteira, com a tabela já cheia de linhas de outros testes). Lê sempre na ordem da chave.
+    const pendingRows = () =>
+      inA((tx) =>
+        tx.select().from(householdSuggestions).orderBy(asc(householdSuggestions.dedupeKey)),
+      );
     const first = await inA((tx) => agents.runDividasAgent(tx, input));
     const reportsBefore = await inA((tx) => tx.select().from(debtPlanReports));
-    const suggestionsBefore = await inA((tx) => tx.select().from(householdSuggestions));
+    const suggestionsBefore = await pendingRows();
+    expect(suggestionsBefore.length).toBeGreaterThan(1);
     const second = await inA((tx) => agents.runDividasAgent(tx, input));
     expect(second.report).toEqual(first.report);
     const reports = await inA((tx) => tx.select().from(debtPlanReports));
     expect(reports).toHaveLength(1);
     expect(reports[0]!.data).toEqual(reportsBefore[0]!.data);
-    const suggestions = await inA((tx) => tx.select().from(householdSuggestions));
+    const suggestions = await pendingRows();
     expect(suggestions.map((row) => [row.dedupeKey, row.title, row.payload])).toEqual(
       suggestionsBefore.map((row) => [row.dedupeKey, row.title, row.payload]),
     );
@@ -221,15 +230,18 @@ describe("agente de dívidas", () => {
 
   it("nunca muda dívida informada", async () => {
     await seedDebts();
-    const before = await inA(async (tx) => ({
-      debts: await tx.select().from(debts),
-      installments: await tx.select().from(debtInstallments),
-    }));
+    // Leitura ordenada: sem ORDER BY o Postgres não garante a mesma ordem entre duas leituras.
+    const snapshot = () =>
+      inA(async (tx) => ({
+        debts: await tx.select().from(debts).orderBy(asc(debts.id)),
+        installments: await tx
+          .select()
+          .from(debtInstallments)
+          .orderBy(asc(debtInstallments.debtId), asc(debtInstallments.number)),
+      }));
+    const before = await snapshot();
     await inA((tx) => agents.runDividasAgent(tx, input));
-    const after = await inA(async (tx) => ({
-      debts: await tx.select().from(debts),
-      installments: await tx.select().from(debtInstallments),
-    }));
+    const after = await snapshot();
     expect(after).toEqual(before);
   });
 
