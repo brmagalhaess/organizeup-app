@@ -40,6 +40,7 @@ import {
   buildMonthEntries,
   buildReminder,
   canView,
+  money,
   monthBounds,
   REMINDER_DEFAULTS,
   REMINDER_MAX_DAYS_AHEAD,
@@ -58,6 +59,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import { currentDividendPlan } from "@organizeup/agents";
 import { loadCommitments } from "./commitments";
 import { loadDividendCalendar } from "./dividend-calendar-data";
+import { loadPortfolio } from "./investments";
 import { emailCanSend, sendEmail } from "./email";
 import { reminderEmail } from "./reminder-email";
 import { retirementEmail } from "./retirement-email";
@@ -318,6 +320,18 @@ export const remindersOpen = (
 
 export type ReminderOutcome = "enviado" | "nada" | "desligado" | "sem_email" | "falhou";
 
+/** Carteira de hoje para o resumo do dia. Null sem o módulo, sem posição ou se a carteira não carregar. */
+async function loadInvested(
+  ctx: TenantContext,
+  now: Date,
+): Promise<{ total: string; cost: string } | null> {
+  if (!canView(await readFamilyAccess(ctx, undefined, now), "investimentos")) return null;
+  const portfolio = await loadPortfolio(ctx).catch(() => null);
+  if (!portfolio || portfolio.summary.rows.length === 0) return null;
+  if (money(portfolio.summary.total).isZero()) return null;
+  return { total: portfolio.summary.total, cost: portfolio.summary.cost };
+}
+
 /**
  * Monta e envia o resumo de quem está em `ctx`. `force` é o botão da tela: envia a janela inteira, mesmo sem
  * nada para hoje, e não mexe nas marcas, para o aviso de verdade sair igual.
@@ -349,6 +363,7 @@ export async function sendReminder(
     name: recipient.name,
     account: data.account,
     digest,
+    invested: digest.daily ? await loadInvested(ctx, now) : null,
     locale: recipient.locale,
     currency: data.currency,
     accountType: await householdAccountType(ctx.householdId),

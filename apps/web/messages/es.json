@@ -4837,7 +4837,9 @@
       "footerWhy": "Recibes este correo porque los recordatorios están activados para tu acceso.",
       "footerSettings": "Elegir qué recibir o desactivar",
       "footerBrand": "OrganizeUp · tu dinero, con un plan",
-      "whenDueToday": "vence hoy"
+      "whenDueToday": "vence hoy",
+      "tileInvested": "Invertido",
+      "investedCost": "aportado {amount}"
     },
     "retirement": {
       "subject": "Tu plan de jubilación: resumen de {month}",

@@ -4837,7 +4837,9 @@
       "footerWhy": "Você recebe este e-mail porque os lembretes estão ligados para o seu acesso.",
       "footerSettings": "Escolher o que receber ou desligar",
       "footerBrand": "OrganizeUp · seu dinheiro, com um plano",
-      "whenDueToday": "vence hoje"
+      "whenDueToday": "vence hoje",
+      "tileInvested": "Investido",
+      "investedCost": "aplicado {amount}"
     },
     "retirement": {
       "subject": "Seu plano de aposentadoria: resumo de {month}",

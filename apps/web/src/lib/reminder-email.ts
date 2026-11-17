@@ -48,11 +48,12 @@ export const EMAIL_FONT =
   "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const SERIF = "Georgia,'Times New Roman',serif";
 
-export type EmailTone = "pay" | "receive" | "fresh";
+export type EmailTone = "pay" | "receive" | "fresh" | "invest";
 export const EMAIL_TONE: Record<EmailTone, { accent: string; soft: string; amount: string }> = {
   pay: { accent: EMAIL_COLOR.clay, soft: EMAIL_COLOR.claySoft, amount: EMAIL_COLOR.ink },
   receive: { accent: EMAIL_COLOR.income, soft: EMAIL_COLOR.incomeSoft, amount: EMAIL_COLOR.income },
   fresh: { accent: EMAIL_COLOR.brand, soft: EMAIL_COLOR.brandSoft, amount: EMAIL_COLOR.ink },
+  invest: { accent: EMAIL_COLOR.ink, soft: EMAIL_COLOR.soft, amount: EMAIL_COLOR.ink },
 };
 
 interface Row {
@@ -239,8 +240,11 @@ export function reminderEmail(input: {
   locale?: Locale;
   currency?: Currency;
   accountType?: AccountType;
+  /** Carteira de hoje: valor a mercado e quanto foi aplicado. Só entra no resumo do dia. */
+  invested?: { total: string; cost: string } | null;
 }): ReminderEmail {
   const { digest, locale = DEFAULT_LOCALE, currency = "BRL", accountType } = input;
+  const invested = digest.daily ? (input.invested ?? null) : null;
   const t = textsFor(locale, accountType);
   const cash = (value: string) => formatMoney(value, currency, locale);
   const short = (date: string) => dateParts(date, locale).short;
@@ -391,6 +395,15 @@ export function reminderEmail(input: {
         }
       : null,
   ].filter((tile) => tile !== null);
+  // A carteira fica numa faixa própria, embaixo: quatro blocos lado a lado apertam os valores.
+  const investedTile = invested
+    ? {
+        tone: "invest" as const,
+        label: t("reminder.tileInvested"),
+        value: cash(invested.total),
+        hint: t("reminder.investedCost", { amount: cash(invested.cost) }),
+      }
+    : null;
 
   const tilesHtml =
     tiles.length === 0
@@ -400,6 +413,13 @@ export function reminderEmail(input: {
 ${tiles.map((tile) => tileHtml(tile, Math.floor(100 / tiles.length))).join("\n")}
 </tr></table>
 </td></tr>`;
+  const investedHtml = investedTile
+    ? `<tr><td class="ou-pad" style="background:${EMAIL_COLOR.card};padding:${tiles.length === 0 ? 24 : 0}px 28px 0">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+${tileHtml(investedTile, 100)}
+</tr></table>
+</td></tr>`
+    : "";
   const emptyHtml = empty
     ? `<tr><td class="ou-pad" align="center" style="background:${EMAIL_COLOR.card};padding:36px 32px 8px;font-family:${EMAIL_FONT}">
 <div style="font-size:17px;line-height:24px;font-weight:bold;color:${EMAIL_COLOR.ink}">${escapeHtml(t("reminder.emptyTitle"))}</div>
@@ -417,7 +437,12 @@ ${tiles.map((tile) => tileHtml(tile, Math.floor(100 / tiles.length))).join("\n")
     hello,
     heading,
     intro,
-    body: [tilesHtml, emptyHtml, ...sections.map((section) => sectionHtml(section, locale, t))]
+    body: [
+      tilesHtml,
+      investedHtml,
+      emptyHtml,
+      ...sections.map((section) => sectionHtml(section, locale, t)),
+    ]
       .filter(Boolean)
       .join("\n"),
     action: { label: t("reminder.action"), url: openUrl },
@@ -433,6 +458,9 @@ ${tiles.map((tile) => tileHtml(tile, Math.floor(100 / tiles.length))).join("\n")
     `${hello} ${heading}`,
     intro,
     empty ? `${t("reminder.emptyTitle")}\n${t("reminder.emptyText")}` : "",
+    invested
+      ? `${t("reminder.tileInvested")}: ${cash(invested.total)} (${t("reminder.investedCost", { amount: cash(invested.cost) })})`
+      : "",
     ...sections.map((section) =>
       [
         `${section.title.toLocaleUpperCase(locale)} (${t("reminder.total")} ${section.total})`,

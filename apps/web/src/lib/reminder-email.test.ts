@@ -95,6 +95,24 @@ describe("e-mail de lembretes", () => {
     if (process.env.EMAIL_PREVIEW_FILE) writeFileSync(process.env.EMAIL_PREVIEW_FILE, email.html);
   });
 
+  it("no resumo do dia, mostra o valor investido e quanto foi aplicado", () => {
+    const invested = { total: "52340.10", cost: "48000.00" };
+    const email = reminderEmail({ name: "Ana", account: "Casa Teste", digest: sample(), invested });
+    expect(email.html).toContain("Investido");
+    expect(email.html).toContain("52.340,10");
+    expect(email.html).toContain("aplicado R$");
+    expect(email.text).toContain("Investido: R$");
+    expect(email.text).toContain("48.000,00");
+    // Só o e-mail de gasto novo não leva a carteira.
+    const fresh = reminderEmail({
+      name: "Ana",
+      account: "Casa Teste",
+      digest: sample({ dailyDone: true }),
+      invested,
+    });
+    expect(fresh.html).not.toContain("52.340,10");
+  });
+
   it("só com gasto novo, muda o assunto e o título", () => {
     const email = reminderEmail({
       name: "Ana",

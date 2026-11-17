@@ -4837,7 +4837,9 @@
       "footerWhy": "You get this email because reminders are on for your access.",
       "footerSettings": "Choose what to receive or turn off",
       "footerBrand": "OrganizeUp · your money, with a plan",
-      "whenDueToday": "due today"
+      "whenDueToday": "due today",
+      "tileInvested": "Invested",
+      "investedCost": "{amount} put in"
     },
     "retirement": {
       "subject": "Your retirement plan: {month} summary",
