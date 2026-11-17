@@ -25,6 +25,7 @@ import {
   ageFromBirth,
   brazilRulesApply,
   money,
+  normalizePlace,
   planTrips,
   yearMonthOf,
   type DestinationTemplate,
@@ -37,6 +38,7 @@ import type { ReportViagens } from "./reports";
 import { DEDUPE, INTENTION_DEDUPE_PREFIX, type ViagemPayload } from "./suggestions";
 import {
   loadDecisions,
+  shiftDays,
   resolveAllocation,
   saveDailyReport,
   upsertPending,
@@ -125,6 +127,63 @@ export async function loadIntentionDecisions(tx: TenantTx): Promise<IntentionDec
   return { refused, decidedIn };
 }
 
+/** Por quanto tempo um destino do catálogo recusado fica de fora. */
+export const TRIP_REFUSAL_DAYS = 365;
+
+/**
+ * Destinos do catálogo que a família recusou no último ano, desfez em qualquer data, ou aceitou e depois
+ * apagou a viagem na tela (no último ano). Vale o destino, não a chave: a chave leva o ano do mês
+ * sugerido, e o mês muda de ano quando outra viagem ocupa o lugar.
+ */
+export async function loadRefusedDestinations(tx: TenantTx, today: string): Promise<string[]> {
+  const since = new Date(`${shiftDays(today, -TRIP_REFUSAL_DAYS)}T00:00:00Z`);
+  const rows = await tx
+    .select({
+      status: householdSuggestions.status,
+      decidedAt: householdSuggestions.decidedAt,
+      payload: householdSuggestions.payload,
+    })
+    .from(householdSuggestions)
+    .where(
+      and(
+        eq(householdSuggestions.agent, VIAGENS_AGENT),
+        eq(householdSuggestions.kind, "viagem"),
+        inArray(householdSuggestions.status, ["ignorada", "desfeita", "aplicada"]),
+        sql`not (${like(householdSuggestions.dedupeKey, `${INTENTION_DEDUPE_PREFIX}%`)})`,
+      ),
+    );
+  const accepted = rows.filter((row) => row.status === "aplicada");
+  const tripIds = accepted.flatMap((row) =>
+    typeof row.payload.tripId === "string" ? [row.payload.tripId] : [],
+  );
+  const kept =
+    tripIds.length > 0
+      ? new Set(
+          (await tx.select({ id: trips.id }).from(trips).where(inArray(trips.id, tripIds))).map(
+            (row) => row.id,
+          ),
+        )
+      : new Set<string>();
+  const refused = new Set<string>();
+  for (const row of rows) {
+    const id = row.payload.destinationId;
+    if (typeof id !== "string") continue;
+    const recent = row.decidedAt !== null && row.decidedAt >= since;
+    if (row.status === "desfeita") refused.add(id);
+    else if (row.status === "ignorada" && recent) refused.add(id);
+    // Aceita e apagada na tela: a família não quis a viagem, mesmo sem usar Desfazer.
+    else if (
+      row.status === "aplicada" &&
+      recent &&
+      typeof row.payload.tripId === "string" &&
+      !kept.has(row.payload.tripId)
+    ) {
+      refused.add(id);
+    }
+  }
+  return [...refused];
+}
+
 const toIntention = (row: TripIntentionRow, decisions: IntentionDecisions): TripIntention => ({
   id: row.id,
   destinationId: row.destinationId,
@@ -148,7 +207,7 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
   const tripsPerYear = settings?.tripsPerYear ?? 0;
 
   const future = await tx
-    .select({ id: trips.id, startOn: trips.startOn })
+    .select({ id: trips.id, startOn: trips.startOn, destination: trips.destination })
     .from(trips)
     .where(gte(trips.startOn, today));
   const horizon = `${addMonths(month, 12)}-01`;
@@ -225,18 +284,25 @@ export async function runViagensAgent(tx: TenantTx, input: AgentInput): Promise<
     return finish(allocation.tripsBudget, [], { day: today, kind: "sem_pessoas" }, 0);
   }
 
+  const destinations = await loadDestinations(tx);
+  const savedPlaces = new Set(future.map((trip) => normalizePlace(trip.destination)));
+  const savedDestinationIds = destinations
+    .filter((destination) => savedPlaces.has(normalizePlace(destination.name)))
+    .map((destination) => destination.id);
   const plan = planTrips({
     today,
     tripsPerYear,
     tripDays: settings?.tripDays ?? null,
     travelers,
     tripsBudgetMonthly: allocation.tripsBudget,
-    destinations: await loadDestinations(tx),
+    destinations,
     existingTripMonths: future.map((trip) => yearMonthOf(trip.startOn)),
     weddingMonth: settings?.weddingMonth ?? null,
     currency,
     intentions,
     intentionUsedThisYear: intentionDecisions.decidedIn.has(currentYear),
+    savedDestinationIds,
+    refusedDestinationIds: await loadRefusedDestinations(tx, today),
   });
   const items = plan.suggestions;
 

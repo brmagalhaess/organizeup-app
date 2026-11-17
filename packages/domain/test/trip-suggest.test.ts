@@ -170,6 +170,15 @@ describe("sugestão de viagens", () => {
     expect(result[0]!.month).not.toBe("2027-02");
   });
 
+  it("destino com viagem salva ou recusado não volta pelo catálogo", () => {
+    const first = suggestTrips({ ...base, tripsPerYear: 1 })[0]!.destinationId;
+    for (const key of ["savedDestinationIds", "refusedDestinationIds"] as const) {
+      const next = suggestTrips({ ...base, tripsPerYear: 1, [key]: [first] });
+      expect(next.map((item) => item.destinationId)).not.toContain(first);
+      expect(next).toHaveLength(1);
+    }
+  });
+
   it("sem viagens por ano ou sem destinos não sugere nada", () => {
     expect(suggestTrips({ ...base, tripsPerYear: 0 })).toEqual([]);
     expect(suggestTrips({ ...base, destinations: [] })).toEqual([]);

@@ -91,6 +91,7 @@ function SuggestionCard({
           title={t("itemTitle", { name: item.name, when })}
           acceptLabel={t("accept")}
           fromIntention={Boolean(item.intentionId)}
+          trip
           actions={actions}
         />
       ) : null}

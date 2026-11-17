@@ -191,6 +191,51 @@ describe("família sem intenção", () => {
   });
 });
 
+describe("destino do catálogo já decidido", () => {
+  const firstPending = async () => {
+    await run();
+    const [row] = await pendingOf(inA);
+    if (!row) throw new Error("sem sugestão do catálogo");
+    return row;
+  };
+
+  it("recusar tira o destino, mesmo que o mês mude de ano", async () => {
+    const row = await firstPending();
+    const ctx = await ownerCtx();
+    const result = await db.withHousehold(ctx, (tx) => agents.dismissSuggestion(tx, ctx, row.id));
+    expect(result.code).toBe("dismissedTrip");
+    await run();
+    const again = await pendingOf(inA);
+    expect(again.map((item) => payloadOf(item).destinationId)).not.toContain(
+      payloadOf(row).destinationId,
+    );
+  });
+
+  it("aceitar e depois apagar a viagem na tela não traz o destino de volta", async () => {
+    const row = await firstPending();
+    const ctx = await ownerCtx();
+    const accepted = await db.withHousehold(ctx, (tx) => agents.applySuggestion(tx, ctx, row.id));
+    expect(accepted.ok).toBe(true);
+    await inA((tx) => tx.delete(trips));
+    await run();
+    const again = await pendingOf(inA);
+    expect(again.map((item) => payloadOf(item).destinationId)).not.toContain(
+      payloadOf(row).destinationId,
+    );
+  });
+
+  it("destino com viagem salva não volta como sugestão", async () => {
+    const row = await firstPending();
+    const ctx = await ownerCtx();
+    await db.withHousehold(ctx, (tx) => agents.applySuggestion(tx, ctx, row.id));
+    await run();
+    const again = await pendingOf(inA);
+    expect(again.map((item) => payloadOf(item).destinationId)).not.toContain(
+      payloadOf(row).destinationId,
+    );
+  });
+});
+
 describe("intenção do catálogo", () => {
   it("vira a sugestão, e rodar duas vezes dá o mesmo resultado", async () => {
     const row = await addIntention({ destinationId: "lisboa" });

@@ -4187,7 +4187,8 @@
       "labeled": "{action}: {name}",
       "laterHint": "Volveremos a sugerirlo dentro de 30 días",
       "failed": "No se pudo completar ahora. Actualiza la página e inténtalo de nuevo.",
-      "laterHintIntention": "El lugar sigue en tu lista, y no lo sugerimos de nuevo este año"
+      "laterHintIntention": "El lugar sigue en tu lista, y no lo sugerimos de nuevo este año",
+      "laterHintTrip": "No volvemos a sugerir este destino durante un año"
     },
     "errors": {
       "notFound": "Sugerencia no encontrada.",
@@ -4238,7 +4239,8 @@
       "tripFailed": "No pudimos crear el viaje.",
       "tripCreated": "Viaje a {name} creado. Ajusta fechas y costos en Viajes.",
       "goalCreated": "Meta {name} creada. Ajusta los detalles en Metas.",
-      "dismissedIntention": "De acuerdo. El lugar sigue en tu lista, y no lo sugerimos de nuevo este año."
+      "dismissedIntention": "De acuerdo. El lugar sigue en tu lista, y no lo sugerimos de nuevo este año.",
+      "dismissedTrip": "De acuerdo. No volvemos a sugerir este destino durante un año."
     },
     "accepted": {
       "title": "Lo que aceptaste",

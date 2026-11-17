@@ -49,6 +49,7 @@ function PendingCard({
           id={item.id}
           title={item.title}
           fromIntention={item.fromIntention}
+          trip={item.kind === "viagem"}
           actions={actions}
           {...(item.kind === "viagem"
             ? { acceptLabel: t("addTrip") }

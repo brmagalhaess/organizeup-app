@@ -49,6 +49,7 @@ export const APPLY_REPLIES = {
   noted: "Anotado.",
   dismissed: "Tudo bem. Voltamos a sugerir daqui a 30 dias, se ainda fizer sentido.",
   dismissedIntention: "Tudo bem. O lugar continua na sua lista, e não sugerimos de novo neste ano.",
+  dismissedTrip: "Tudo bem. Não sugerimos este destino de novo por um ano.",
   onlyApplied: "Só dá para desfazer o que foi aplicado.",
   incomplete: "Não foi possível desfazer: os dados desta sugestão estão incompletos.",
   undone: "Desfeito.",
@@ -217,7 +218,11 @@ export async function dismissSuggestion(
   return {
     ok: true,
     ...reply(
-      row.dedupeKey.startsWith(INTENTION_DEDUPE_PREFIX) ? "dismissedIntention" : "dismissed",
+      row.dedupeKey.startsWith(INTENTION_DEDUPE_PREFIX)
+        ? "dismissedIntention"
+        : row.kind === "viagem"
+          ? "dismissedTrip"
+          : "dismissed",
     ),
   };
 }

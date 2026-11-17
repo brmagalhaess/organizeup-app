@@ -47,6 +47,7 @@ export function DecisionButtons({
   title,
   acceptLabel,
   fromIntention = false,
+  trip = false,
   actions,
 }: {
   id: string;
@@ -54,6 +55,8 @@ export function DecisionButtons({
   acceptLabel?: string;
   /** Recusar uma intenção vale o ano, não 30 dias. */
   fromIntention?: boolean;
+  /** Viagem do catálogo: recusar tira o destino por um ano. */
+  trip?: boolean;
   actions: SuggestionActions;
 }) {
   const t = useTranslations("sugestoes.decision");
@@ -81,7 +84,7 @@ export function DecisionButtons({
         {t("later")}
       </Button>
       <span id={hintId} className="text-xs text-muted">
-        {t(fromIntention ? "laterHintIntention" : "laterHint")}
+        {t(fromIntention ? "laterHintIntention" : trip ? "laterHintTrip" : "laterHint")}
       </span>
     </div>
   );

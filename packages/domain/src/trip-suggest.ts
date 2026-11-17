@@ -70,6 +70,13 @@ export interface TripSuggestInput {
   intentions?: TripIntention[];
   /** Só com `tripsPerYear = 0`: a sugestão de intenção deste ano civil já saiu. */
   intentionUsedThisYear?: boolean;
+  /**
+   * Destinos da tabela que já têm viagem salva pela frente: não voltam pelo catálogo. Intenção segue a
+   * própria marca de atendida, que a família pode refazer para ir de novo.
+   */
+  savedDestinationIds?: string[];
+  /** Destinos do catálogo que a família recusou ou desfez: não voltam pelo catálogo. */
+  refusedDestinationIds?: string[];
 }
 
 /** Destino do catálogo, ou nome livre com região. */
@@ -486,9 +493,12 @@ export function planTrips(input: TripSuggestInput): TripSuggestionPlan {
   }
 
   // Destino que já é intenção não volta pelo catálogo, nem recusado, nem atendido.
-  const claimed = new Set(
-    intentions.map((intention) => catalogOf(intention, input.destinations)?.id),
-  );
+  // Nem o que já está salvo, nem o que a família recusou.
+  const claimed = new Set([
+    ...intentions.map((intention) => catalogOf(intention, input.destinations)?.id),
+    ...(input.savedDestinationIds ?? []),
+    ...(input.refusedDestinationIds ?? []),
+  ]);
   const options = solo
     ? []
     : input.destinations

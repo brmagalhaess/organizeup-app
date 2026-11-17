@@ -4187,7 +4187,8 @@
       "labeled": "{action}: {name}",
       "laterHint": "We'll suggest it again in 30 days",
       "failed": "We couldn't finish this right now. Refresh the page and try again.",
-      "laterHintIntention": "The place stays on your list, and we won't suggest it again this year"
+      "laterHintIntention": "The place stays on your list, and we won't suggest it again this year",
+      "laterHintTrip": "We won't suggest this destination again for a year"
     },
     "errors": {
       "notFound": "Suggestion not found.",
@@ -4238,7 +4239,8 @@
       "tripFailed": "We couldn't create the trip.",
       "tripCreated": "Trip to {name} created. Adjust dates and costs in Trips.",
       "goalCreated": "Goal {name} created. Adjust the details in Goals.",
-      "dismissedIntention": "All right. The place stays on your list, and we won't suggest it again this year."
+      "dismissedIntention": "All right. The place stays on your list, and we won't suggest it again this year.",
+      "dismissedTrip": "All right. We won't suggest this destination again for a year."
     },
     "accepted": {
       "title": "What you accepted",
