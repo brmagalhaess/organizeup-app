@@ -346,3 +346,24 @@ export const ASSET_CLASS_LABELS: Record<string, string> = {
   exterior: "Exterior",
   outro: "Outros",
 };
+
+/**
+ * Compra do cartão na revisão de categorias: vai no mesmo grupo por estabelecimento que os lançamentos, com o
+ * id marcado por este prefixo. Assim a memória, a IA, as notificações e o Desfazer são os mesmos.
+ */
+export const PURCHASE_ID_PREFIX = "compra:";
+
+export const purchaseRef = (id: string) => `${PURCHASE_ID_PREFIX}${id}`;
+
+/** Separa os ids de lançamento dos ids de compra do cartão (sem o prefixo). */
+export function splitReviewIds(ids: string[]): { transactions: string[]; purchases: string[] } {
+  const out = { transactions: [] as string[], purchases: [] as string[] };
+  for (const id of ids) {
+    if (id.startsWith(PURCHASE_ID_PREFIX)) out.purchases.push(id.slice(PURCHASE_ID_PREFIX.length));
+    else out.transactions.push(id);
+  }
+  return out;
+}
+
+/** "Saldo da fatura" é do sistema, não uma compra a classificar. */
+export const isStatementCarry = (description: string) => description.startsWith("Saldo da fatura");

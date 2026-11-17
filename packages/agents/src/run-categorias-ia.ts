@@ -3,6 +3,7 @@
 // Regra 7: o que está em categoria genérica muda sem aceite, e o que foi desfeito não volta.
 import {
   and,
+  cardPurchases,
   categories,
   eq,
   householdReports,
@@ -35,6 +36,9 @@ import { applyGroup, CATEGORIAS_AGENT } from "./run-categorias";
 import { AI_CATEGORY_REASON, DEDUPE, type CategoriaPayload } from "./suggestions";
 import {
   clamp,
+  isStatementCarry,
+  purchaseRef,
+  splitReviewIds,
   loadDecisions,
   MAX_REPORT_SUMMARY,
   messageColumns,
@@ -82,6 +86,30 @@ export async function loadCategoryCandidates(
         eq(transactions.categorySource, "revisar"),
       ),
     );
+  // Compras do cartão em categoria genérica vão junto, pelo estabelecimento (id com `compra:`).
+  const bought =
+    generic.length === 0
+      ? []
+      : await tx
+          .select({
+            id: cardPurchases.id,
+            description: cardPurchases.description,
+            amount: cardPurchases.amount,
+            categoryId: cardPurchases.categoryId,
+          })
+          .from(cardPurchases)
+          .where(inArray(cardPurchases.categoryId, generic));
+  rows.push(
+    ...bought
+      .filter((row) => !isStatementCarry(row.description))
+      .map((row) => ({
+        ...row,
+        id: purchaseRef(row.id),
+        kind: "despesa" as const,
+        categorySource: null,
+        importBatchId: null,
+      })),
+  );
 
   const decisions = await loadDecisions(tx, today);
   const closed = merchantsOfDedupeKeys([...decisions.blocked, ...decisions.recentlyIgnored]);
@@ -158,8 +186,9 @@ export async function applyCategoryPlan(
   const ids = [...plan.moves, ...unanswered.map((group) => ({ group }))].flatMap(
     (move) => move.group.ids,
   );
-  const rows =
-    ids.length === 0
+  const split = splitReviewIds(ids);
+  const rows = [
+    ...(split.transactions.length === 0
       ? []
       : await tx
           .select({
@@ -170,7 +199,25 @@ export async function applyCategoryPlan(
             importBatchId: transactions.importBatchId,
           })
           .from(transactions)
-          .where(inArray(transactions.id, ids));
+          .where(inArray(transactions.id, split.transactions))),
+    ...(split.purchases.length === 0
+      ? []
+      : (
+          await tx
+            .select({
+              id: cardPurchases.id,
+              categoryId: cardPurchases.categoryId,
+              amount: cardPurchases.amount,
+            })
+            .from(cardPurchases)
+            .where(inArray(cardPurchases.id, split.purchases))
+        ).map((row) => ({
+          ...row,
+          id: purchaseRef(row.id),
+          categorySource: null,
+          importBatchId: null,
+        }))),
+  ];
   const current = new Map(
     rows.map((row) => [row.id, { ...row, categoryName: nameOf.get(row.categoryId) ?? "" }]),
   );

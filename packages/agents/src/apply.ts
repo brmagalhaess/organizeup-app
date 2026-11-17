@@ -35,7 +35,13 @@ import {
   type SuggestionPayload,
 } from "./suggestions";
 import { loadTripIntentions } from "./run-viagens";
-import { INVESTIMENTOS_AGENT, messageColumns, recordAudit } from "./shared";
+import {
+  INVESTIMENTOS_AGENT,
+  messageColumns,
+  PURCHASE_ID_PREFIX,
+  recordAudit,
+  splitReviewIds,
+} from "./shared";
 import { proventoExcluidoText } from "./texts";
 import { createTrip } from "./trips";
 
@@ -396,13 +402,31 @@ async function undoCategoria(
 ): Promise<Said | Refused> {
   const applied = payload.appliedCategoryId ?? payload.toCategoryId;
   if (!applied || !payload.previous || payload.previous.length === 0) return refused("noPrevious");
-  const ids = payload.previous.map((item) => item.transactionId);
-  const rows = await tx
-    .select({ id: transactions.id, categoryId: transactions.categoryId })
-    .from(transactions)
-    .where(inArray(transactions.id, ids));
+  // Compra do cartão vem com o id marcado (`compra:`): volta na tabela de compras.
+  const ids = splitReviewIds(payload.previous.map((item) => item.transactionId));
+  const rows = [
+    ...(ids.transactions.length > 0
+      ? await tx
+          .select({ id: transactions.id, categoryId: transactions.categoryId })
+          .from(transactions)
+          .where(inArray(transactions.id, ids.transactions))
+      : []),
+    ...(ids.purchases.length > 0
+      ? await tx
+          .select({ id: cardPurchases.id, categoryId: cardPurchases.categoryId })
+          .from(cardPurchases)
+          .where(inArray(cardPurchases.id, ids.purchases))
+      : []),
+  ];
   if (rows.some((row) => row.categoryId !== applied)) return refused("changedByOther");
   for (const item of payload.previous) {
+    if (item.transactionId.startsWith(PURCHASE_ID_PREFIX)) {
+      await tx
+        .update(cardPurchases)
+        .set({ categoryId: item.categoryId })
+        .where(eq(cardPurchases.id, item.transactionId.slice(PURCHASE_ID_PREFIX.length)));
+      continue;
+    }
     await tx
       .update(transactions)
       .set({

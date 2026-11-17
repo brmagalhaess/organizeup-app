@@ -3,6 +3,7 @@
 // pergunta: cada mudança fica registrada, com Desfazer, e aparece em Notificações.
 import {
   and,
+  cardPurchases,
   categories,
   categoryMemory,
   categoryTemplates,
@@ -55,6 +56,9 @@ import {
 } from "./suggestions";
 import {
   closePending,
+  isStatementCarry,
+  purchaseRef,
+  splitReviewIds,
   loadDecisions,
   markApplied,
   recordApplied,
@@ -105,7 +109,30 @@ export async function runCategoriasAgent(tx: TenantTx, input: AgentInput): Promi
     .from(transactions)
     .where(gte(transactions.occurredOn, since))
     .orderBy(desc(transactions.occurredOn), desc(transactions.createdAt));
-  const reviewRows = recent.map((row) => ({
+  // Compras do cartão no mesmo período entram junto, pelo estabelecimento. Não têm origem gravada: só as que
+  // estão em categoria genérica são candidatas, e o que a família desfaz fica bloqueado pelo estabelecimento.
+  const bought = await tx
+    .select({
+      id: cardPurchases.id,
+      description: cardPurchases.description,
+      amount: cardPurchases.amount,
+      categoryId: cardPurchases.categoryId,
+    })
+    .from(cardPurchases)
+    .where(gte(cardPurchases.purchasedOn, since))
+    .orderBy(desc(cardPurchases.purchasedOn), desc(cardPurchases.createdAt));
+  const reviewRows = [
+    ...recent,
+    ...bought
+      .filter((row) => !isStatementCarry(row.description))
+      .map((row) => ({
+        ...row,
+        id: purchaseRef(row.id),
+        kind: "despesa" as const,
+        categorySource: null,
+        importBatchId: null,
+      })),
+  ].map((row) => ({
     ...row,
     categoryName: nameOf.get(row.categoryId) ?? "",
   }));
@@ -127,6 +154,18 @@ export async function runCategoriasAgent(tx: TenantTx, input: AgentInput): Promi
     // "Pix para pessoas" é onde o assistente deixa o que não sabe: não serve de memória para ninguém.
     if (!isCategoryTarget(name) || isPersonTransferCategory(name)) continue;
     const key = memoryKey(row.kind, merchantKey(row.description));
+    if (!history.has(key)) history.set(key, row.categoryId);
+  }
+  // Compras do cartão também ensinam: o que a família (ou a importação) já pôs numa categoria específica.
+  const olderPurchases = await tx
+    .select({ description: cardPurchases.description, categoryId: cardPurchases.categoryId })
+    .from(cardPurchases)
+    .orderBy(desc(cardPurchases.purchasedOn), desc(cardPurchases.createdAt))
+    .limit(1000);
+  for (const row of olderPurchases) {
+    const name = nameOf.get(row.categoryId) ?? "";
+    if (!isCategoryTarget(name) || isPersonTransferCategory(name)) continue;
+    const key = memoryKey("despesa", merchantKey(row.description));
     if (!history.has(key)) history.set(key, row.categoryId);
   }
   const remembered = await tx.select().from(categoryMemory);
@@ -311,15 +350,19 @@ export async function applyGroup(
     categoryId: row.categoryId,
     categorySource: row.categorySource,
   }));
-  await tx
-    .update(transactions)
-    .set({ categoryId: target, categorySource: "agente", updatedAt: new Date() })
-    .where(
-      inArray(
-        transactions.id,
-        rows.map((row) => row.id),
-      ),
-    );
+  const split = splitReviewIds(rows.map((row) => row.id));
+  if (split.transactions.length > 0) {
+    await tx
+      .update(transactions)
+      .set({ categoryId: target, categorySource: "agente", updatedAt: new Date() })
+      .where(inArray(transactions.id, split.transactions));
+  }
+  if (split.purchases.length > 0) {
+    await tx
+      .update(cardPurchases)
+      .set({ categoryId: target })
+      .where(inArray(cardPurchases.id, split.purchases));
+  }
   await rememberAsAgent(tx, householdId, group.kind, group.merchant, target);
 
   const toName = nameOf.get(target) ?? group.newCategory?.name ?? "";

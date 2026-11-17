@@ -24,7 +24,9 @@ const {
   accounts,
   aiUsage,
   and,
+  cardPurchases,
   categories,
+  creditCards,
   categoryMemory,
   eq,
   household,
@@ -477,6 +479,83 @@ describe("categoria genérica muda sem aceite", () => {
     ]);
     expect(await review(family, client)).toMatchObject({ moved: 0 });
     expect(await suggestions(family)).toEqual([]);
+  });
+});
+
+describe("compras do cartão", () => {
+  async function buy(description: string, amount = "80.00") {
+    return inFamily(family, async (tx) => {
+      const [account] = await tx.select({ id: accounts.id }).from(accounts).limit(1);
+      const [card] = await tx
+        .insert(creditCards)
+        .values({
+          householdId: family.id,
+          name: "Cartão Teste",
+          closingDay: 25,
+          dueDay: 5,
+          payingAccountId: account!.id,
+        })
+        .returning({ id: creditCards.id });
+      const [purchase] = await tx
+        .insert(cardPurchases)
+        .values({
+          householdId: family.id,
+          cardId: card!.id,
+          categoryId: await categoryId(tx, "Outras despesas"),
+          description,
+          amount,
+          installments: 1,
+          purchasedOn: today,
+        })
+        .returning({ id: cardPurchases.id });
+      return purchase!.id;
+    });
+  }
+  const purchaseOf = (id: string) =>
+    inFamily(family, async (tx) => {
+      const [row] = await tx.select().from(cardPurchases).where(eq(cardPurchases.id, id));
+      return row!;
+    });
+
+  it("compra em Outras despesas que a regra conhece muda sozinha", async () => {
+    const id = await buy("SUPERMERCADO BOM PRECO");
+    await inFamily(family, (tx) =>
+      agents.runCategoriasAgent(tx, { today, householdId: family.id }),
+    );
+    const market = await inFamily(family, (tx) => categoryId(tx, "Mercado"));
+    expect((await purchaseOf(id)).categoryId).toBe(market);
+  });
+
+  it("a IA classifica a compra do cartão, e Desfazer devolve", async () => {
+    const id = await buy("LOJA ZETA ROUPAS", "250.00");
+    const { client, calls } = fakeClient([reply({ categoria: "Compras" })]);
+    expect(await review(family, client)).toMatchObject({ groups: 1, moved: 1 });
+    expect(sentGroups(calls[0]!)).toEqual(["loja zeta roupas"]);
+    const shopping = await inFamily(family, (tx) => categoryId(tx, "Compras"));
+    expect((await purchaseOf(id)).categoryId).toBe(shopping);
+
+    const applied = (await suggestions(family)).filter((row) => row.status === "aplicada");
+    expect(applied).toHaveLength(1);
+    const ctx = await ownerContext(family);
+    const undone = await db.withHousehold(ctx, (tx) =>
+      agents.undoSuggestion(tx, ctx, applied[0]!.id),
+    );
+    expect(undone.ok).toBe(true);
+    const other = await inFamily(family, (tx) => categoryId(tx, "Outras despesas"));
+    expect((await purchaseOf(id)).categoryId).toBe(other);
+    // Desfeito, o estabelecimento não volta na noite seguinte.
+    const next = fakeClient([reply({ categoria: "Compras" })]);
+    await review(family, next.client);
+    expect((await purchaseOf(id)).categoryId).toBe(other);
+  });
+
+  it("compra em categoria específica e o saldo da fatura não mudam", async () => {
+    const carry = await buy("Saldo da fatura de 10/2026");
+    const { client, calls } = fakeClient([]);
+    await review(family, client);
+    expect(calls).toHaveLength(0);
+    const other = await inFamily(family, (tx) => categoryId(tx, "Outras despesas"));
+    expect((await purchaseOf(carry)).categoryId).toBe(other);
   });
 });
 
