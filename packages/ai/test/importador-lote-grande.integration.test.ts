@@ -1,6 +1,7 @@
 // O lote que travou o worker por 406 s: 10 CSVs de 5.000 linhas com o mesmo valor. Mede o maior bloqueio do processo
 // enquanto lê e compara, com banco real, e imprime os números. O limite protege a promessa da ADR-0030 (nada
-// de bloqueio longo no worker) e o bloqueio é medido em tempo de CPU, não em tempo de parede: ver ORG-256.
+// de bloqueio longo no worker) e o bloqueio é medido em tempo de CPU, não em tempo de parede (ORG-256), e por
+// volta do laço, não por janela de temporizador (ORG-278).
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { TenantContext } from "@organizeup/db";
@@ -38,27 +39,46 @@ const csvOf = (seed: number) => {
 // Bloqueio em tempo de CPU da própria thread, e não em tempo de parede. Em máquina de CPU disputada a volta
 // do laço atrasa sem o nosso código rodar nada, e o número de parede inflava sozinho: o mesmo commit de
 // `main` mediu 920 ms numa hora e 2.262 ms em outra, sem regressão nenhuma (ORG-256). O que a ADR-0030 protege é a
-// comparação do lote não voltar a ser quadrática dentro do worker, e isso gasta CPU segurando o laço: a cada
-// volta compara quanto o laço demorou com quanta CPU esta thread queimou e guarda o menor dos dois, porque
-// CPU gasta não pode contar como bloqueio além do tempo que a volta levou.
+// comparação do lote não voltar a ser quadrática dentro do worker, e isso gasta CPU segurando o laço.
+//
+// A janela da medida é **uma volta do laço**, não uma batida de temporizador (ORG-278). Com `setInterval` de
+// 10 ms o número era "quanta CPU esta thread queimou entre duas batidas": quando a máquina enche, a batida
+// atrasa, a janela deixa de ser de 10 ms e **fases síncronas diferentes entram somadas no mesmo número** —
+// foi o falso vermelho de 1.156 ms no `pnpm check` com ~540 ms de bloqueio real. Um callback de `setImmediate`
+// agendado de dentro de outro só roda na volta seguinte do laço: entre duas batidas desta corrente o laço deu
+// uma volta, e nenhuma carga da máquina junta duas fases na mesma medida. CPU queimada dentro de uma volta é
+// bloqueio de verdade: o laço não voltou para ninguém nesse tempo. Segue valendo o teto da ORG-256 (guarda o
+// menor entre a parede da volta e a CPU da volta: CPU gasta não conta como bloqueio além do que a volta levou).
+//
+// A corrente custa: ela não deixa o laço dormir, ~5,7 µs por volta, ~40 s de CPU numa execução de ~3 min deste
+// arquivo. É de propósito. As alternativas baratas medidas na ORG-278 ou perdem o bloqueio real junto com o
+// ruído (descartar janela maior que a resolução; exigir uma volta só por janela via `uvMetricsInfo.loopCount`),
+// ou deixam de contar o que roda em microtarefa (atribuir por callback com `async_hooks`: num controle de três
+// fases de 100 ms na mesma volta, contou 168 ms dos 300 ms). Ficar verde sem enxergar regressão é o pior
+// defeito que este teste pode ter (ORG-258/ORG-266), então o gasto fica.
+//
 // O que esta medida deixa de pegar: trabalho pesado dentro do processo filho (`planInChild`), que tem tempo-limite
 // próprio (`SMART_PLAN_TIMEOUT_MS`). A volta por regra quando o filho não responde (`planSmartReview`) roda aqui
 // no pai e continua contando. O tempo de parede segue impresso, só não reprova o teste.
-const watchBlockingCpu = (resolutionMs = 10) => {
+const watchBlockingCpu = () => {
   let wall = performance.now();
   let cpu = process.threadCpuUsage();
   let worstMs = 0;
-  const timer = setInterval(() => {
+  let watching = true;
+  const tick = () => {
+    if (!watching) return;
     const nextWall = performance.now();
     const nextCpu = process.threadCpuUsage();
     const cpuGapMs = (nextCpu.user - cpu.user + nextCpu.system - cpu.system) / 1_000;
     worstMs = Math.max(worstMs, Math.min(nextWall - wall, cpuGapMs));
     wall = nextWall;
     cpu = nextCpu;
-  }, resolutionMs);
+    setImmediate(tick);
+  };
+  setImmediate(tick);
   return {
     stop: () => {
-      clearInterval(timer);
+      watching = false;
       return worstMs;
     },
   };
@@ -115,8 +135,8 @@ describe("lote grande de valores iguais", () => {
     const blockedMs = blocking.stop();
     const waitedMs = delay.max / 1e6;
     console.log(
-      `lote grande: ${Date.now() - started} ms, maior bloqueio ${Math.round(blockedMs)} ms de CPU ` +
-        `(maior volta do laço ${Math.round(waitedMs)} ms, inclui espera pela máquina)`,
+      `lote grande: ${Date.now() - started} ms, maior bloqueio ${Math.round(blockedMs)} ms de CPU numa volta ` +
+        `do laço (maior espera do laço em parede ${Math.round(waitedMs)} ms, inclui espera pela máquina)`,
     );
 
     const summary = await db.withHousehold(owner, (tx) =>
@@ -126,7 +146,8 @@ describe("lote grande de valores iguais", () => {
     // Segue o 1 s da ADR-0030, sem folga: o limite não precisou subir. Antes da ORG-258 a CPU por arquivo
     // chegava a 1.146 ms e empurrava o teste contra o teto; normalizar as palavras-chave uma vez tirou
     // ~0,5 s do pico, e o que sobra é bem menos que o limite. Se um dia voltar a reprovar, o número não é
-    // o lugar de mexer: ou a fase ficou mais cara de verdade, e o reparo é no importador (ORG-257).
+    // o lugar de mexer: ou a fase ficou mais cara de verdade, e o reparo é no importador (ORG-257), ou a
+    // medida voltou a somar voltas diferentes — e aí o reparo é no vigia, nunca no teto (ORG-278).
     expect(blockedMs).toBeLessThan(1_000);
   }, 300_000);
 });
