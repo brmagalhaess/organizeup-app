@@ -10,21 +10,19 @@ capturar as telas de novo (`xcrun simctl io <aparelho> screenshot raw-01-inicio.
 
 ## Dados que valem para as duas lojas
 
-| Campo                     | Valor                                                    |
-| ------------------------- | -------------------------------------------------------- |
-| Nome do app               | OrganizeUp                                               |
-| Identificador             | `br.com.crowntech.organizeup`                            |
-| Categoria                 | Finanças                                                 |
-| Preço                     | Gratuito, sem compras dentro do app e sem anúncios       |
-| Política de privacidade   | https://organizeup.crowntech.com.br/privacidade          |
-| Termos de uso             | https://organizeup.crowntech.com.br/termos               |
-| Site                      | https://organizeup.crowntech.com.br                      |
-| Suporte                   | **Falta decidir:** e-mail de suporte e página de suporte |
-| Direitos autorais (Apple) | 2026 CrownTech LTDA                                      |
+| Campo                     | Valor                                                                  |
+| ------------------------- | ---------------------------------------------------------------------- |
+| Nome do app               | OrganizeUp                                                             |
+| Identificador             | `br.com.crowntech.organizeup`                                          |
+| Categoria                 | Finanças                                                               |
+| Preço                     | Gratuito, sem compras dentro do app e sem anúncios                     |
+| Política de privacidade   | https://organizeup.crowntech.com.br/privacidade                        |
+| Termos de uso             | https://organizeup.crowntech.com.br/termos                             |
+| Site                      | https://organizeup.crowntech.com.br                                    |
+| Suporte                   | suporte@crowntech.com.br · https://organizeup.crowntech.com.br/suporte |
+| Direitos autorais (Apple) | 2026 CrownTech LTDA                                                    |
 
-**Suporte:** a Apple exige um endereço de suporte com forma de contato. Hoje `/suporte` não existe no site e a
-política de privacidade não traz e-mail. Antes de enviar, o fundador escolhe o e-mail de suporte e o endereço
-(pode ser o próprio site, se a página mostrar o e-mail).
+**Suporte:** a página `/suporte` do site mostra o e-mail e serve de endereço de suporte nas duas lojas.
 
 ## App Store (App Store Connect)
 
@@ -193,12 +191,14 @@ localização, contatos, fotos, arquivos, histórico de navegação, informaçõ
 aparelho.
 
 **Endereço para pedir exclusão da conta** (o Google exige um link):
-https://organizeup.crowntech.com.br/app/configuracoes (o mesmo que o botão "Apagar conta" do perfil abre).
+https://organizeup.crowntech.com.br/suporte#apagar-conta (passos, o que é apagado e o que fica, como o Google pede).
 
 ## Antes de enviar para revisão
 
 1. Fundador aceita o contrato novo da Apple e cria o app no App Store Connect.
-2. Fundador escolhe o e-mail e o endereço de suporte.
-3. Fundador cria a conta de demonstração na produção, sem verificação em duas etapas.
+2. Página `/suporte` publicada no site (este PR).
+3. Fundador roda `node scripts/conta-revisao.mjs` em `apps/mobile`: cria a conta de demonstração na produção,
+   sem verificação em duas etapas, e guarda e-mail e senha em `~/.organizeup/conta-revisao.json`. Depois libera
+   a conta em `/admin/vip`, para ela não ficar só para leitura quando o teste grátis acabar.
 4. Pacotes do app gerados (iOS pelo Xcode, Android `.aab`) com internet que alcance a Cloudflare.
 5. Fichas preenchidas com este arquivo e as imagens. O envio para revisão só com o ok do fundador.

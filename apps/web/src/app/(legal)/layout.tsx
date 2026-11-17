@@ -31,6 +31,9 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
           <Link href="/privacidade" className="font-semibold text-brand-700 underline">
             Política de Privacidade
           </Link>
+          <Link href="/suporte" className="font-semibold text-brand-700 underline">
+            Suporte
+          </Link>
         </nav>
       </div>
       <div className="max-w-56">

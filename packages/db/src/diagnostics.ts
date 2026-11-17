@@ -135,6 +135,7 @@ const KNOWN_ROUTES = [
   "/es",
   "/esqueci-senha",
   "/privacidade",
+  "/suporte",
   "/redefinir-senha",
   "/termos",
 ];

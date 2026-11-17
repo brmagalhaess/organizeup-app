@@ -7,5 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 export NODE_ENV=production
+# O CocoaPods falha com texto acentuado sem UTF-8.
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 npx expo prebuild --platform ios --clean
 open ios/OrganizeUp.xcworkspace
