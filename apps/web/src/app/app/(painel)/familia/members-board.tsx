@@ -1,7 +1,7 @@
 "use client";
-import { Check, Copy, Trash2, UserPlus } from "lucide-react";
+import { Check, Copy, Mail, Trash2, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import type { ActionState } from "@/app/app/actions";
 import { useToast } from "@/components/toast";
 import {
@@ -17,7 +17,14 @@ import {
   Sheet,
   submitKeeping,
 } from "@/components/ui";
-import { cancelInvite, inviteMember, leaveFamily, removeMember } from "./actions";
+import {
+  cancelInvite,
+  inviteMember,
+  leaveFamily,
+  removeMember,
+  sendMemberConfirmation,
+  setMemberEmails,
+} from "./actions";
 
 export interface MemberRow {
   id: string;
@@ -25,6 +32,10 @@ export interface MemberRow {
   email: string;
   role: string;
   self: boolean;
+  /** Avisos por e-mail ligados para esta pessoa. */
+  emails: boolean;
+  /** E-mail da conta confirmado: sem isso, nenhum aviso sai. */
+  verified: boolean;
 }
 
 export interface InviteRow {
@@ -59,6 +70,65 @@ function InviteForm({ onDone }: { onDone: () => void }) {
         {pending ? t("creating") : t("create")}
       </Button>
     </form>
+  );
+}
+
+/** Liga ou desliga os avisos por e-mail de um convidado. E-mail sem confirmar: oferece mandar a confirmação. */
+function MemberEmails({ member }: { member: MemberRow }) {
+  const t = useTranslations("pessoas.members.emails");
+  const [on, setOn] = useState(member.emails);
+  const [state, setState] = useState<ActionState>(initial);
+  const [pending, start] = useTransition();
+  const run = (
+    action: (form: FormData) => Promise<ActionState>,
+    values: Record<string, string>,
+  ) => {
+    const form = new FormData();
+    form.set("id", member.id);
+    for (const [key, value] of Object.entries(values)) form.set(key, value);
+    start(async () => {
+      try {
+        setState(await action(form));
+      } catch {
+        setState({ ok: false, message: t("failed") });
+      }
+    });
+  };
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <label className="flex cursor-pointer items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={on}
+          disabled={pending}
+          aria-label={t("toggleAria", { name: member.name })}
+          onChange={(event) => {
+            const next = event.target.checked;
+            setOn(next);
+            run(setMemberEmails, { enabled: next ? "1" : "0" });
+          }}
+          className="size-4 shrink-0 accent-brand-500"
+        />
+        <Mail className="size-4 text-muted" aria-hidden="true" />
+        {t("toggle")}
+      </label>
+      {on && !member.verified ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-warning-soft px-3 py-2">
+          <p className="m-0 min-w-0 flex-1 basis-56 text-xs text-warning">
+            {t("unverified", { name: member.name })}
+          </p>
+          <Button
+            variant="secondary"
+            small
+            disabled={pending}
+            onClick={() => run(sendMemberConfirmation, {})}
+          >
+            {t("sendConfirmation")}
+          </Button>
+        </div>
+      ) : null}
+      <FormMessage message={state.message} tone={state.ok ? "ok" : "error"} />
+    </div>
   );
 }
 
@@ -126,10 +196,11 @@ export function MembersBoard({
     >
       <ul aria-label={t("title")} className="m-0 list-none divide-y divide-line p-0">
         {members.map((member) => (
-          <li key={member.id} className="flex items-center gap-3 py-3">
+          <li key={member.id} className="flex items-start gap-3 py-3">
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{member.name}</p>
               <p className="truncate text-xs text-muted">{member.email}</p>
+              {isOwner && !member.self ? <MemberEmails member={member} /> : null}
             </div>
             <Badge>{tSettings(`roles.${member.role as "owner"}`)}</Badge>
             {isOwner && !member.self ? (

@@ -1736,7 +1736,20 @@
       "creating": "Criando…",
       "linkAria": "Link do convite de {email}",
       "copy": "Copiar",
-      "copied": "Copiado"
+      "copied": "Copiado",
+      "emails": {
+        "toggle": "Avisos por e-mail",
+        "toggleAria": "Avisos por e-mail para {name}",
+        "on": "Avisos por e-mail ligados.",
+        "off": "Avisos por e-mail desligados.",
+        "unverified": "O e-mail de {name} ainda não foi confirmado. Os avisos só saem depois da confirmação.",
+        "sendConfirmation": "Enviar confirmação",
+        "sent": "Confirmação enviada para o e-mail da conta. O link vale {hours, plural, =1 {1 hora} other {# horas}}.",
+        "alreadyConfirmed": "Este e-mail já está confirmado.",
+        "wait": "Já pedimos há pouco. Aguarde {minutes, plural, one {# minuto} other {# minutos}} para pedir de novo.",
+        "emailOff": "O envio de e-mail está desligado no momento. Nada foi enviado.",
+        "failed": "Não foi possível concluir agora. Atualize a página e tente de novo."
+      }
     },
     "saved": {
       "added": "Pessoa adicionada.",

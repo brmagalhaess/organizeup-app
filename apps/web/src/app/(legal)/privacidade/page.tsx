@@ -89,7 +89,8 @@ export default function PrivacyPage() {
           Enviar lembretes por e-mail a cada pessoa com acesso à família: o que vence, o que entra
           (renda e proventos), os gastos novos e, uma vez por mês, o resumo do plano de
           aposentadoria. Fazem parte do serviço (art. 7º, V), e cada pessoa escolhe o que recebe, ou
-          desliga tudo, em Notificações.
+          desliga tudo, em Notificações. O responsável pela família também pode ligar ou desligar os
+          lembretes de cada pessoa em Pessoas. Lembrete só vai para e-mail confirmado pelo dono.
         </li>
         <li>
           Responder às suas perguntas no assistente com inteligência artificial, se a família

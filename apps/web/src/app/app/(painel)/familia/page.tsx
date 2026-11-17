@@ -7,7 +7,9 @@ import {
   eq,
   household,
   householdSettings,
+  inArray,
   people,
+  user,
   withHousehold,
 } from "@organizeup/db";
 import { ageFromBirth, todayIn } from "@organizeup/domain";
@@ -15,6 +17,7 @@ import { PageHeader } from "@/components/ui";
 import { getAccountFeatures } from "@/i18n/account-server";
 import { toFieldValue } from "@/i18n/format";
 import { getAuth } from "@/lib/auth";
+import { loadMembersReminders } from "@/lib/reminders";
 import { requireTenant } from "@/lib/session";
 import { MembersBoard } from "./members-board";
 import { PeopleBoard } from "./people-board";
@@ -59,8 +62,19 @@ export default async function FamilyPage() {
       .from(householdSettings)
       .where(eq(householdSettings.householdId, ctx.householdId));
     const rows = await tx.select().from(people).orderBy(asc(people.createdAt));
-    return { family, settings, rows };
+    const ids = memberRows.map((member) => member.userId);
+    const verified = isOwner
+      ? await tx
+          .select({ id: user.id, emailVerified: user.emailVerified })
+          .from(user)
+          .where(inArray(user.id, ids.length > 0 ? ids : [""]))
+      : [];
+    return { family, settings, rows, verified };
   });
+  const emailOn = isOwner ? await loadMembersReminders(ctx) : new Map<string, boolean>();
+  const verifiedIds = new Set(
+    data.verified.filter((row) => row.emailVerified).map((row) => row.id),
+  );
   const [year, month] = todayIn(data.settings?.timezone).split("-").map(Number) as [number, number];
   const dateFormat = new Intl.DateTimeFormat(locale, { timeZone: data.settings?.timezone });
   // Com os centavos, como em "2500,00": `toFieldValue` os tira.
@@ -70,6 +84,9 @@ export default async function FamilyPage() {
     email: member.user.email,
     role: member.role,
     self: member.userId === session.user.id,
+    // Sem escolha guardada, vale o padrão: ligado.
+    emails: emailOn.get(member.userId) ?? true,
+    verified: verifiedIds.has(member.userId),
   }));
   const invites = pending.map((invite) => ({
     id: invite.id,

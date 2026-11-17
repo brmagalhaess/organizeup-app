@@ -1736,7 +1736,20 @@
       "creating": "Creating…",
       "linkAria": "Invitation link for {email}",
       "copy": "Copy",
-      "copied": "Copied"
+      "copied": "Copied",
+      "emails": {
+        "toggle": "Email alerts",
+        "toggleAria": "Email alerts for {name}",
+        "on": "Email alerts on.",
+        "off": "Email alerts off.",
+        "unverified": "{name}'s email hasn't been confirmed yet. Alerts are only sent after confirmation.",
+        "sendConfirmation": "Send confirmation",
+        "sent": "Confirmation sent to the account's email. The link is valid for {hours, plural, =1 {1 hour} other {# hours}}.",
+        "alreadyConfirmed": "This email is already confirmed.",
+        "wait": "We just sent one. Wait {minutes, plural, one {# minute} other {# minutes}} to ask again.",
+        "emailOff": "Email sending is off right now. Nothing was sent.",
+        "failed": "Couldn't finish now. Refresh the page and try again."
+      }
     },
     "saved": {
       "added": "Person added.",

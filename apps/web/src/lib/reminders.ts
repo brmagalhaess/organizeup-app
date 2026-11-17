@@ -88,7 +88,11 @@ export async function loadReminderPrefs(ctx: TenantContext): Promise<ReminderPre
   return tolerateSchemaLag(
     () =>
       withHousehold(ctx, async (tx) => {
-        const [row] = await tx.select().from(emailReminders);
+        // O responsável também lê as linhas dos outros membros (0057): aqui vale só a de quem está logado.
+        const [row] = await tx
+          .select()
+          .from(emailReminders)
+          .where(eq(emailReminders.userId, ctx.userId ?? ""));
         if (!row) return DEFAULT_PREFS;
         const { enabled, bills, income, dividends, expenses, retirement, daysAhead } = row;
         return {
@@ -123,6 +127,45 @@ async function upsertReminder(ctx: TenantContext, values: Partial<ReminderSettin
         set: { ...values, updatedAt: new Date() },
       }),
   );
+}
+
+/**
+ * Avisos por e-mail ligados de cada login da família, para a tela Pessoas do responsável. Sem linha, vale o
+ * padrão (ligado). Antes da migração 0057, o responsável só lê a própria linha: os outros ficam no padrão.
+ */
+export async function loadMembersReminders(ctx: TenantContext): Promise<Map<string, boolean>> {
+  return tolerateSchemaLag(
+    () =>
+      withHousehold(ctx, async (tx) => {
+        const rows = await tx
+          .select({ userId: emailReminders.userId, enabled: emailReminders.enabled })
+          .from(emailReminders);
+        return new Map(rows.map((row) => [row.userId, row.enabled]));
+      }),
+    new Map<string, boolean>(),
+  );
+}
+
+/** O responsável liga ou desliga os avisos de outro login da família. Devolve falso se o banco recusou. */
+export async function saveMemberReminders(
+  ctx: TenantContext,
+  userId: string,
+  enabled: boolean,
+): Promise<boolean> {
+  if (ctx.role !== "owner") return false;
+  return withHousehold(ctx, (tx) =>
+    tx.transaction((step) =>
+      step
+        .insert(emailReminders)
+        .values({ householdId: ctx.householdId, userId, enabled })
+        .onConflictDoUpdate({
+          target: [emailReminders.householdId, emailReminders.userId],
+          set: { enabled, updatedAt: new Date() },
+        })
+        .returning({ id: emailReminders.id })
+        .then((rows) => rows.length > 0),
+    ),
+  ).catch(() => false);
 }
 
 export async function saveReminderPrefs(ctx: TenantContext, settings: ReminderSettings) {

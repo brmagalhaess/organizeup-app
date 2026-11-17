@@ -195,13 +195,23 @@ describe("lembretes por e-mail", () => {
       daysAhead: 7,
     });
     expect(await reminders.loadReminderPrefs(owner)).toMatchObject({ income: true, daysAhead: 3 });
-    const mine = await db.withHousehold(owner, (tx) => tx.select().from(emailReminders));
-    expect(mine).toEqual([]);
-    // A linha de outra pessoa não se altera nem com o filtro aberto.
-    const changed = await db.withHousehold(owner, (tx) =>
-      tx.update(emailReminders).set({ enabled: false }).returning({ id: emailReminders.id }),
+    // Quem não é responsável vê e muda só a própria linha, nem com o filtro aberto.
+    const seen = await db.withHousehold(viewer, (tx) => tx.select().from(emailReminders));
+    expect(seen.map((row) => row.userId)).toEqual([VIEWER]);
+    await reminders.saveReminderPrefs(owner, {
+      enabled: true,
+      bills: true,
+      income: true,
+      dividends: true,
+      expenses: true,
+      retirement: true,
+      daysAhead: 3,
+    });
+    const changed = await db.withHousehold(viewer, (tx) =>
+      tx.update(emailReminders).set({ daysAhead: 1 }).returning({ userId: emailReminders.userId }),
     );
-    expect(changed).toEqual([]);
+    expect(changed).toEqual([{ userId: VIEWER }]);
+    expect(await reminders.loadReminderPrefs(owner)).toMatchObject({ daysAhead: 3 });
     await reminders.saveReminderPrefs(viewer, {
       enabled: true,
       bills: true,
@@ -211,6 +221,21 @@ describe("lembretes por e-mail", () => {
       retirement: true,
       daysAhead: 3,
     });
+  });
+
+  it("o responsável liga e desliga os avisos de quem acessa a família, e só da própria família", async () => {
+    expect(await reminders.saveMemberReminders(owner, VIEWER, false)).toBe(true);
+    expect(await reminders.loadReminderPrefs(viewer)).toMatchObject({ enabled: false });
+    expect((await reminders.loadMembersReminders(owner)).get(VIEWER)).toBe(false);
+    // O resto da escolha do convidado fica como estava.
+    expect(await reminders.loadReminderPrefs(viewer)).toMatchObject({ income: true });
+    // Login de outra família, e convidado tentando mudar o responsável: o banco recusa.
+    expect(await reminders.saveMemberReminders(owner, OTHER, true)).toBe(false);
+    expect(await reminders.saveMemberReminders(viewer, OWNER, false)).toBe(false);
+    expect(await reminders.loadReminderPrefs(owner)).toMatchObject({ enabled: true });
+    // É a mesma chave que a pessoa usa em Notificações: desligada, a rodada pula (caso "quem desligou").
+    expect(await reminders.saveMemberReminders(owner, VIEWER, true)).toBe(true);
+    expect(await reminders.loadReminderPrefs(viewer)).toMatchObject({ enabled: true });
   });
 
   it("com a chave desligada, só quem administra o serviço recebe", async () => {

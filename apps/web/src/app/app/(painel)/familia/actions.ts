@@ -1,14 +1,18 @@
 "use server";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
-import { withHousehold } from "@organizeup/db";
+import { and, eq, householdMember, user, withHousehold } from "@organizeup/db";
 import type { ActionState } from "@/app/app/actions";
+import type { Locale } from "@/i18n/locales";
 import { audit } from "@/lib/audit";
 import { getAuth } from "@/lib/auth";
+import { sendConfirmation } from "@/lib/email-confirmation";
+import { VERIFY_LINK_HOURS } from "@/lib/email-templates";
+import { saveMemberReminders } from "@/lib/reminders";
 import { requireTenant } from "@/lib/session";
 
 type ErrorTexts = Awaited<ReturnType<typeof getTranslations<"pessoas.errors">>>;
@@ -88,4 +92,67 @@ export async function leaveFamily(): Promise<void> {
     body: { organizationId: ctx.householdId },
   });
   redirect("/app/escolher");
+}
+
+/** Outro login desta família, pelo id do vínculo. Nunca o próprio responsável: os avisos dele ficam em Notificações. */
+async function otherMember(memberId: string) {
+  const { ctx } = await requireTenant();
+  if (ctx.role !== "owner" || !memberId) return null;
+  const [row] = await withHousehold(ctx, (tx) =>
+    tx
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        emailVerified: user.emailVerified,
+      })
+      .from(householdMember)
+      .innerJoin(user, eq(user.id, householdMember.userId))
+      .where(
+        and(eq(householdMember.organizationId, ctx.householdId), eq(householdMember.id, memberId)),
+      ),
+  );
+  if (!row || row.id === ctx.userId) return null;
+  return { ctx, account: row };
+}
+
+/** O responsável liga ou desliga os avisos por e-mail de quem acessa a família. */
+export async function setMemberEmails(formData: FormData): Promise<ActionState> {
+  const t = await getTranslations("pessoas.members.emails");
+  const found = await otherMember(String(formData.get("id") ?? ""));
+  if (!found) return { ok: false, message: t("failed") };
+  const enabled = formData.get("enabled") === "1";
+  if (!(await saveMemberReminders(found.ctx, found.account.id, enabled))) {
+    return { ok: false, message: t("failed") };
+  }
+  await withHousehold(found.ctx, (tx) =>
+    audit(tx, found.ctx, enabled ? "enable" : "disable", "email_reminders", found.account.id),
+  );
+  revalidatePath("/app/familia");
+  return { ok: true, message: enabled ? t("on") : t("off") };
+}
+
+/** Manda a confirmação para o e-mail da conta do convidado. O endereço vem da conta, nunca da tela. */
+export async function sendMemberConfirmation(formData: FormData): Promise<ActionState> {
+  const t = await getTranslations("pessoas.members.emails");
+  const found = await otherMember(String(formData.get("id") ?? ""));
+  if (!found) return { ok: false, message: t("failed") };
+  const outcome = await sendConfirmation(found.account, (await getLocale()) as Locale).catch(
+    () => ({ status: "falhou" as const }),
+  );
+  if (outcome.status === "enviado") {
+    await withHousehold(found.ctx, (tx) =>
+      audit(tx, found.ctx, "send_confirmation", "user", found.account.id),
+    );
+    return { ok: true, message: t("sent", { hours: VERIFY_LINK_HOURS }) };
+  }
+  if (outcome.status === "confirmado") {
+    revalidatePath("/app/familia");
+    return { ok: true, message: t("alreadyConfirmed") };
+  }
+  if (outcome.status === "aguarde") {
+    return { ok: false, message: t("wait", { minutes: Math.ceil(outcome.seconds / 60) }) };
+  }
+  if (outcome.status === "desligado") return { ok: false, message: t("emailOff") };
+  return { ok: false, message: t("failed") };
 }

@@ -1736,7 +1736,20 @@
       "creating": "Creando…",
       "linkAria": "Enlace de invitación de {email}",
       "copy": "Copiar",
-      "copied": "Copiado"
+      "copied": "Copiado",
+      "emails": {
+        "toggle": "Avisos por correo",
+        "toggleAria": "Avisos por correo para {name}",
+        "on": "Avisos por correo activados.",
+        "off": "Avisos por correo desactivados.",
+        "unverified": "El correo de {name} aún no fue confirmado. Los avisos solo salen después de la confirmación.",
+        "sendConfirmation": "Enviar confirmación",
+        "sent": "Confirmación enviada al correo de la cuenta. El enlace vale {hours, plural, =1 {1 hora} other {# horas}}.",
+        "alreadyConfirmed": "Este correo ya está confirmado.",
+        "wait": "Acabamos de enviar uno. Espera {minutes, plural, one {# minuto} other {# minutos}} para pedir de nuevo.",
+        "emailOff": "El envío de correos está desactivado ahora. No se envió nada.",
+        "failed": "No fue posible terminar ahora. Actualiza la página e inténtalo de nuevo."
+      }
     },
     "saved": {
       "added": "Persona agregada.",
