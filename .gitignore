@@ -30,3 +30,10 @@ playwright/.cache/
 # postgres embutido para dev/testes locais
 .pg/
 .claude/
+
+# despejos de memória (core dumps). O filho isolado do importador roda com teto de heap
+# (--max-old-space-size); ao estourar, o V8 aborta e o Linux grava `core.<pid>` de ~1,6 GB no
+# diretório do processo, dentro do repositório. `!core/` protege pasta futura chamada "core".
+core
+core.[0-9]*
+!core/
