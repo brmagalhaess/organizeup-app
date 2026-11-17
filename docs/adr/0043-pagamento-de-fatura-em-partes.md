@@ -1,4 +1,4 @@
-# ADR-0043 — Pagamento de fatura em mais de uma vez (etapa 1: juntar e desligar)
+# ADR-0043 — Pagamento de fatura em mais de uma vez (etapa 1: juntar e desligar; etapa 2: automático)
 
 Status: aceito (2026-11-16)
 
@@ -84,4 +84,24 @@ qual cartão é o débito quando dois saem da mesma conta. O fundador escolheu f
   sugestão, se passar de uma vez e meia o que restou para acertar.
 - Pagar uma fatura em parte (à mão ou pelo banco) passa a refazer o saldo das faturas seguintes que já têm
   pagamento: a dívida que entra nelas não se perde.
-- Etapa 2, a decidir depois de a etapa 1 rodar nos dados reais: ligar sozinho os casos sem ambiguidade.
+- Etapa 2: ver abaixo.
+
+## Etapa 2 — junta sozinho o que não deixa dúvida (2026-11-17)
+
+O fundador pediu que o sistema faça sozinho, sem aprovação: em novembro, dois "Pagamento de fatura" somavam
+metade de "Outras despesas", contados além da fatura. Depois de cada sincronização do banco (rodada do
+Paperclip e "Atualizar contas"), `autoJoinStatementDebits` junta pelo mesmo caminho do botão "Juntar" o débito
+sugerido que passa em tudo isto:
+
+- o texto diz que é fatura de cartão (`saysCardBill`: "pagamento" e "fatura", ou "fatura" e "cartão"; "DEB
+  AUT FATURA CLARO" não passa) e não cita outro cartão da casa;
+- cabe numa fatura só (entre todos os cartões e meses), e a conta paga um cartão só, arquivado inclusive;
+- caiu depois do fechamento da fatura (adiantamento e pagamento atrasado da anterior ficam para a família);
+- a família não mexeu nele (`categorySource` "familia": desligou ou escolheu a categoria);
+- e, pela situação da fatura: sem pagamento, só o débito que paga a fatura inteira; marcada à mão na mesma
+  conta, só o débito que cabe no valor marcado e não é igual ao saldo levado (modo "marcado": o total pago não
+  muda); paga pelo banco, só o débito igual ao saldo levado.
+
+O resto continua como sugestão na tela. Desligar desfaz e não volta a ser juntado sozinho. Uma revisão
+adversária achou os casos de conta de serviço com "fatura" no texto, fatura de outro banco paga pela mesma
+conta, Desligar que não durava e marcado em outra conta; todos viraram regra acima e teste.

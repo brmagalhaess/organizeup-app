@@ -37,7 +37,8 @@ vi.mock("@/lib/session", () => ({
 const db = await import("@organizeup/db");
 const domain = await import("@organizeup/domain");
 const auto = await import("@/lib/bank-auto");
-const { loadCardStatements, refreshStatementsOf } = await import("@/lib/card-statements");
+const { autoJoinStatementDebits, loadCardStatements, refreshStatementsOf } =
+  await import("@/lib/card-statements");
 const { loadMonth } = await import("@/lib/finance-data");
 const { joinStatementDebit, payStatement, splitStatementDebit } =
   await import("@/app/app/(painel)/cartoes/actions");
@@ -577,5 +578,125 @@ describe("o que a revisão achou nas bordas", () => {
     expect(await marked()).toBe("400.00");
     expect((await partsOf(cardId))[0]!.replacedAmount).toBe("200.00");
     expect(await carryOf(cardId)).toBe("400.00");
+  });
+});
+
+describe("o que entra sozinho, sem perguntar (etapa 2)", () => {
+  it("fatura marcada à mão: os débitos de pagamento de fatura tomam o lugar do marcado", async () => {
+    const { accountId, cardId } = await bankWithCard("auto-mao", "500.00");
+    await payByHand(cardId, "500,00", "500.00");
+    await auto.autoImportStatement(ctx, accountId, [
+      bill("100.00", before(8)),
+      bill("150.00", before(2)),
+      bill("60.00", before(3), "SUPERMERCADO BOM PRECO"),
+    ]);
+    expect(await autoJoinStatementDebits(ctx)).toBeGreaterThanOrEqual(2);
+    const all = await entriesOf(accountId);
+    // A fatura continua paga uma vez só: 500 no cartão e o mercado à parte.
+    expect(summed(all)).toBe("560.00");
+    expect(summed(all.filter((entry) => entry.categoryId === cardCategory))).toBe("500.00");
+    const shown = await statementOf(cardId);
+    expect(shown!.parts.map((part) => part.amount)).toEqual(["100.00", "150.00"]);
+    expect(shown!.paid).toBe("500.00");
+    // Rodar de novo não liga mais nada.
+    const again = await autoJoinStatementDebits(ctx);
+    expect((await statementOf(cardId))!.parts).toHaveLength(2);
+    expect(again).toBeGreaterThanOrEqual(0);
+  });
+
+  it("desligado pela família não volta a ser juntado sozinho", async () => {
+    const { accountId, cardId } = await bankWithCard("auto-desliga", "500.00");
+    await payByHand(cardId, "500,00", "500.00");
+    await auto.autoImportStatement(ctx, accountId, [bill("100.00", before(8))]);
+    await autoJoinStatementDebits(ctx);
+    const [part] = await partsOf(cardId);
+    expect(part).toBeDefined();
+    await splitStatementDebit(form({ id: part!.transactionId }));
+    await autoJoinStatementDebits(ctx);
+    expect(await partsOf(cardId)).toHaveLength(0);
+    // Continua sugerido, para a família juntar quando quiser.
+    expect((await statementOf(cardId))!.suggestions.map((debit) => debit.id)).toEqual([
+      part!.transactionId,
+    ]);
+  });
+
+  it("conta de serviço com fatura no texto, outro cartão no texto, adiantamento e marcado em outra conta ficam para a família", async () => {
+    const claro = await bankWithCard("auto-claro", "500.00");
+    await payByHand(claro.cardId, "500,00", "500.00");
+    await auto.autoImportStatement(ctx, claro.accountId, [
+      bill("120.00", before(8), "DEB AUT FATURA CLARO"),
+    ]);
+    const named = await bankWithCard("auto-nome", "500.00");
+    await payByHand(named.cardId, "500,00", "500.00");
+    await auto.autoImportStatement(ctx, named.accountId, [
+      bill("100.00", before(8), "Pagamento de fatura auto-claro"),
+    ]);
+    const early = await bankWithCard("auto-cedo", "500.00");
+    await payByHand(early.cardId, "500,00", "500.00");
+    await auto.autoImportStatement(ctx, early.accountId, [bill("100.00", before(16))]);
+    const elsewhere = await bankWithCard("auto-outra", "500.00");
+    await payByHand(elsewhere.cardId, "500,00", "500.00");
+    const [spare] = await inH((tx) =>
+      tx
+        .insert(accounts)
+        .values({ householdId: H.household, name: "Outra conta", openingBalance: "100.00" })
+        .returning({ id: accounts.id }),
+    );
+    await inH((tx) =>
+      tx
+        .update(transactions)
+        .set({ accountId: spare!.id })
+        .where(
+          and(eq(transactions.accountId, elsewhere.accountId), eq(transactions.amount, "500.00")),
+        ),
+    );
+    await auto.autoImportStatement(ctx, elsewhere.accountId, [bill("100.00", before(8))]);
+
+    await autoJoinStatementDebits(ctx);
+    for (const { cardId } of [claro, named, early, elsewhere]) {
+      expect(await partsOf(cardId)).toHaveLength(0);
+    }
+  });
+
+  it("na dúvida, fica para a família: valor maior que o marcado, texto que não é fatura, dois cartões na conta", async () => {
+    // Maior que o marcado à mão: pode ser pagamento a mais.
+    const big = await bankWithCard("auto-maior", "500.00");
+    await payByHand(big.cardId, "500,00", "500.00");
+    await auto.autoImportStatement(ctx, big.accountId, [bill("520.00", before(1))]);
+    // Só o valor igual, sem texto de fatura.
+    const exact = await bankWithCard("auto-texto", "500.00");
+    await auto.autoImportStatement(ctx, exact.accountId, [
+      bill("500.00", before(16), "PIX ENVIADO PARA JOANA"),
+    ]);
+    // Dois cartões pagos pela mesma conta.
+    const shared = await bankWithCard("auto-dois", "500.00");
+    await inH((tx) =>
+      tx.insert(creditCards).values({
+        householdId: H.household,
+        name: "Outro cartão",
+        ...TERMS,
+        payingAccountId: shared.accountId,
+      }),
+    );
+    await auto.autoImportStatement(ctx, shared.accountId, [bill("200.00", before(16))]);
+
+    await autoJoinStatementDebits(ctx);
+    expect(await partsOf(big.cardId)).toHaveLength(0);
+    expect((await statementOf(big.cardId))!.main).toMatchObject({ byHand: true });
+    expect(await paymentOf(exact.cardId)).toBeUndefined();
+    expect(await paymentOf(shared.cardId)).toBeUndefined();
+    // Continuam como sugestão na tela.
+    expect((await statementOf(big.cardId))!.suggestions).toHaveLength(1);
+    expect((await statementOf(shared.cardId))!.suggestions).toHaveLength(1);
+  });
+
+  it("débito que pode ser de duas faturas não é ligado sozinho", async () => {
+    const { accountId, cardId } = await bankWithCard("auto-duas", "1000.00");
+    await payByHand(cardId, "600,00", "1000.00");
+    // Três dias depois do vencimento, aparece nesta fatura e na seguinte.
+    await buyIn(cardId, NEXT, "300.00");
+    await auto.autoImportStatement(ctx, accountId, [bill("150.00", domain.addDays(DUE, 3))]);
+    await autoJoinStatementDebits(ctx);
+    expect(await partsOf(cardId)).toHaveLength(0);
   });
 });

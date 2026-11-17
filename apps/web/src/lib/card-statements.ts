@@ -1,6 +1,7 @@
 // Pagamento de fatura em mais de uma vez (ADR-0043). A fatura tem um pagamento principal
 // (`card_statement_payments`) e, ligados a ela, os outros débitos que também a pagaram (`card_statement_parts`).
-// Quem liga e desliga é a família, na tela de cartões; nada aqui roda sozinho. O "Saldo da fatura" que vai
+// Quem liga e desliga é a família, na tela de cartões; só o que não deixa dúvida é ligado sozinho, depois da
+// sincronização do banco (`autoJoinStatementDebits`). O "Saldo da fatura" que vai
 // para a seguinte nunca é somado nem diminuído: é sempre refeito do total menos o que está ligado.
 import "server-only";
 import { incomeReceiptRows, systemCategories } from "@organizeup/agents";
@@ -38,6 +39,7 @@ import {
   looksLikeCardBill,
   LOOSE_STATEMENT_DAYS,
   money,
+  normalizeDescription,
   purchaseLines,
   statementCarry,
   statementClosingDate,
@@ -638,6 +640,123 @@ export async function attachStatementDebit(
     if (carried) await refreshCarry(tx, ctx, card, input.month);
     return { ok: true } as const;
   });
+}
+
+/** Teto de débitos juntados sozinhos numa rodada: cada um é conferido de novo antes do próximo. */
+const AUTO_JOIN_LIMIT = 24;
+
+/**
+ * Texto que diz com todas as letras que é pagamento de fatura de cartão: "pagamento" e "fatura", ou "fatura"
+ * e "cartão". `looksLikeCardBill` é mais largo de propósito (a tela sugere e a família decide); sozinho, o
+ * sistema não junta "DEB AUT FATURA CLARO".
+ */
+export function saysCardBill(description: string): boolean {
+  const text = normalizeDescription(description);
+  if (!/\bfat(ura)?\b/.test(text)) return false;
+  return /\b(pagamento|pagto|pgto|pag|pg)\b/.test(text) || /\bcartao\b/.test(text);
+}
+
+/** Palavras do nome do cartão que servem para reconhecê-lo num texto do banco. */
+const nameWords = (name: string) =>
+  new Set(
+    normalizeDescription(name)
+      .split(" ")
+      .filter(
+        (word) =>
+          word.length >= 4 && !["cartao", "visa", "master", "mastercard", "elo"].includes(word),
+      ),
+  );
+
+/** O próximo débito que dá para juntar sem perguntar nada, ou null. Só leitura. */
+async function nextAutoJoin(
+  tx: TenantTx,
+  today: string,
+  tried: Set<string>,
+): Promise<{ cardId: string; month: string; transactionId: string; mode: JoinMode } | null> {
+  const statements = await loadStatementPayments(tx, today);
+  const places = new Map<string, string[]>();
+  for (const [key, statement] of Object.entries(statements)) {
+    for (const debit of statement.suggestions) {
+      places.set(debit.id, [...(places.get(debit.id) ?? []), key]);
+    }
+  }
+  if (places.size === 0) return null;
+  // Cartão arquivado também conta: a última fatura dele pode estar sendo paga pela mesma conta.
+  const cards = await tx.select().from(creditCards);
+  const links = await bankLinks(tx);
+  const payersOf = (accountId: string) =>
+    cards.filter((card) => payingAccounts(card, links).has(accountId)).length;
+  const entries = await tx
+    .select({ id: transactions.id, categorySource: transactions.categorySource })
+    .from(transactions)
+    .where(inArray(transactions.id, [...places.keys()]));
+  const sourceOf = new Map(entries.map((entry) => [entry.id, entry.categorySource]));
+  const keys = Object.keys(statements).sort((a, b) => a.localeCompare(b));
+  for (const key of keys) {
+    const statement = statements[key]!;
+    const [cardId, month] = key.split(":") as [string, string];
+    const card = cards.find((row) => row.id === cardId);
+    if (!card) continue;
+    const mine = nameWords(card.name);
+    const others = new Set(
+      cards.filter((row) => row.id !== cardId).flatMap((row) => [...nameWords(row.name)]),
+    );
+    const closing = statementClosingDate(month as YearMonth, card);
+    for (const debit of statement.suggestions) {
+      if (tried.has(debit.id)) continue;
+      // Só o que não deixa dúvida. O resto continua na tela, para a família decidir.
+      // A família já mexeu nele (desligou, ou escolheu a categoria): a decisão é dela.
+      if (sourceOf.get(debit.id) === "familia") continue;
+      // Cabe numa fatura só, a conta paga um cartão só, e o texto diz que é fatura de cartão.
+      if (places.get(debit.id)?.length !== 1) continue;
+      if (payersOf(debit.accountId) !== 1) continue;
+      if (!saysCardBill(debit.description)) continue;
+      // O texto cita outro cartão da casa (e não este): pode ser a fatura dele, paga por esta conta.
+      const words = normalizeDescription(debit.description).split(" ");
+      if (words.some((word) => others.has(word) && !mine.has(word))) continue;
+      // Adiantamento, antes de a fatura fechar, e pagamento atrasado da anterior ficam para a família.
+      if (debit.date < closing) continue;
+      if (!statement.main) {
+        // Sem pagamento: só o débito que paga a fatura inteira. Um pedaço pode ser de outra coisa.
+        const total = await statementTotal(tx, card, month);
+        if (money(debit.amount).lt(total)) continue;
+        return { cardId, month, transactionId: debit.id, mode: "auto" };
+      }
+      const carry = (await carryOf(tx, cardId, month))?.amount ?? "0.00";
+      const isCarry = money(carry).gt(0) && money(debit.amount).eq(carry);
+      if (statement.main.byHand) {
+        // Marcada à mão na mesma conta: o débito do banco é o próprio pagamento marcado aparecendo, desde
+        // que caiba no que foi marcado. Assim o total pago não muda. Igual ao saldo levado, pode ser o
+        // complemento: pergunta. Marcado em outra conta, pode ser pagamento a mais: pergunta.
+        if (statement.main.accountId !== debit.accountId) continue;
+        if (isCarry || money(debit.amount).gt(statement.main.amount)) continue;
+        return { cardId, month, transactionId: debit.id, mode: "marcado" };
+      }
+      // Pagamento do banco e saldo levado: só o débito igual ao saldo, que é o complemento.
+      if (isCarry) return { cardId, month, transactionId: debit.id, mode: "auto" };
+    }
+  }
+  return null;
+}
+
+/**
+ * Etapa 2 do ADR-0043: junta sozinho o débito do banco à fatura quando não há dúvida (ver `nextAutoJoin`),
+ * pelo mesmo caminho do botão "Juntar". Fica ligado e aparece na fatura, com "Desligar". Devolve quantos.
+ */
+export async function autoJoinStatementDebits(ctx: TenantContext): Promise<number> {
+  if (!canWrite(ctx)) return 0;
+  const tried = new Set<string>();
+  let joined = 0;
+  for (let round = 0; round < AUTO_JOIN_LIMIT; round += 1) {
+    const pick = await withHousehold(ctx, async (tx) =>
+      nextAutoJoin(tx, todayIn(await householdTimezone(tx, ctx.householdId)), tried),
+    );
+    if (!pick) break;
+    tried.add(pick.transactionId);
+    const result = await attachStatementDebit(ctx, pick);
+    if (result.ok) joined += 1;
+  }
+  return joined;
 }
 
 export type SplitFailure = "sem_permissao" | "nao_ligado" | "marcado_a_mao" | "antigo";

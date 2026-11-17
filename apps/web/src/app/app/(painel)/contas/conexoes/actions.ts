@@ -19,6 +19,7 @@ import {
 } from "@/lib/bank-feed";
 import { alignBankBalances, alignBankLink } from "@/lib/bank-auto";
 import { pairBankTransfers } from "@/lib/bank-transfers";
+import { autoJoinStatementDebits } from "@/lib/card-statements";
 import { commitCardFeed, prepareCardFeed, type PreparedCardRow } from "@/lib/bank-feed-cards";
 import { reportActionFailure } from "@/lib/diagnostics";
 
@@ -88,6 +89,7 @@ export async function refreshBankConnection(
     if (result.ok) {
       // Aproveita para juntar saída e entrada entre contas da casa que já estavam lançadas (ADR-0042).
       await settleBalances(() => pairBankTransfers(ctx));
+      await settleBalances(() => autoJoinStatementDebits(ctx));
       await settleBalances(() => alignBankBalances(ctx, connectionId));
     }
     revalidatePath("/app", "layout");

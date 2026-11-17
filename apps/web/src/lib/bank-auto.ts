@@ -57,6 +57,7 @@ import {
 } from "@/lib/bank-feed";
 import { categoryContext, commitCardFeed, prepareCardFeed } from "@/lib/bank-feed-cards";
 import { pairBankTransfers } from "@/lib/bank-transfers";
+import { autoJoinStatementDebits } from "@/lib/card-statements";
 import { loadKnownForImport } from "@/lib/import-known";
 import { confirmCommitment } from "@/lib/confirm-entry";
 import { pluggyAccounts, type PluggyOptions } from "@/lib/pluggy";
@@ -253,6 +254,8 @@ export interface BankSyncResult {
   purchases: number;
   /** Saída e entrada entre contas da casa que viraram uma transferência só. */
   transfers: number;
+  /** Débitos do banco juntados sozinhos à fatura do cartão. */
+  statements?: number;
   /** Contas ou cartões que não deu para trazer, pelo código. */
   failures: BankFeedFailure[];
 }
@@ -327,6 +330,12 @@ export async function syncBankConnection(
   result.transfers = await pairBankTransfers(ctx).catch((error: unknown) => {
     const { name, code } = error as { name?: string; code?: string };
     console.error(JSON.stringify({ level: "error", msg: "bank_transfers_failed", name, code }));
+    return 0;
+  });
+  // Débito do banco que paga a fatura do cartão sem deixar dúvida é juntado a ela (ADR-0043, etapa 2).
+  result.statements = await autoJoinStatementDebits(ctx).catch((error: unknown) => {
+    const { name, code } = error as { name?: string; code?: string };
+    console.error(JSON.stringify({ level: "error", msg: "bank_statements_failed", name, code }));
     return 0;
   });
   // Com os lançamentos já gravados, o saldo de cada conta ligada é acertado pelo do banco.
