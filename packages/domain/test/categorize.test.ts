@@ -28,6 +28,9 @@ import {
   type CategoryMemory,
   type CategoryOption,
   type ReviewTransaction,
+  isPersonTransfer,
+  isCategoryTarget,
+  PERSON_TRANSFER_CATEGORY,
 } from "../src";
 
 const categories: CategoryOption[] = [
@@ -39,6 +42,38 @@ const categories: CategoryOption[] = [
 ];
 const empty: CategoryMemory = { history: new Map(), learned: new Map() };
 const despesa = (description: string) => ({ description, kind: "despesa" as const });
+
+describe("Pix para pessoas", () => {
+  it("reconhece Pix e transferência enviados, e não os recebidos", () => {
+    for (const text of [
+      "PIX ENVIADO PARA JOANA ALVES",
+      "Transferência enviada|Maria Souza",
+      "TED ENVIADA JOSE",
+      "Pix enviado Padaria Sao Jose",
+    ]) {
+      expect(isPersonTransfer(text), text).toBe(true);
+    }
+    for (const text of [
+      "PIX RECEBIDO DE JOANA",
+      "Transferência recebida Maria",
+      "SUPERMERCADO BOM",
+      "Estorno Pix enviado",
+    ]) {
+      expect(isPersonTransfer(text), text).toBe(false);
+    }
+  });
+
+  it("é candidata a sair quando a família escolhe outra categoria para a mesma pessoa", () => {
+    expect(
+      isCategoryCandidate({
+        categoryName: PERSON_TRANSFER_CATEGORY,
+        categorySource: "agente",
+        importBatchId: null,
+      }),
+    ).toBe(true);
+    expect(isCategoryTarget(PERSON_TRANSFER_CATEGORY)).toBe(true);
+  });
+});
 
 describe("estabelecimento", () => {
   it("ignora meio de pagamento, datas e números", () => {

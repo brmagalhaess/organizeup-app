@@ -25,6 +25,7 @@ import {
   importedRedemptionGroups,
   isCategoryCandidate,
   isCategoryTarget,
+  isPersonTransferCategory,
   memoryKey,
   merchantKey,
   merchantsOfDedupeKeys,
@@ -122,7 +123,9 @@ export async function runCategoriasAgent(tx: TenantTx, input: AgentInput): Promi
     .limit(1000);
   const history = new Map<string, string>();
   for (const row of older) {
-    if (!isCategoryTarget(nameOf.get(row.categoryId) ?? "")) continue;
+    const name = nameOf.get(row.categoryId) ?? "";
+    // "Pix para pessoas" é onde o assistente deixa o que não sabe: não serve de memória para ninguém.
+    if (!isCategoryTarget(name) || isPersonTransferCategory(name)) continue;
     const key = memoryKey(row.kind, merchantKey(row.description));
     if (!history.has(key)) history.set(key, row.categoryId);
   }

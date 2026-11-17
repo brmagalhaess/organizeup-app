@@ -4734,7 +4734,8 @@
       "academia": "Academia",
       "viagens": "Viagens",
       "contaPrincipal": "Conta principal",
-      "semCategoria": "Sem categoria"
+      "semCategoria": "Sem categoria",
+      "pixParaPessoas": "Pix para pessoas"
     },
     "descricoes": {
       "fatura": "Fatura {name}",

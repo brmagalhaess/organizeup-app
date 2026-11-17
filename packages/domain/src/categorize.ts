@@ -392,6 +392,24 @@ const FALLBACK: Record<StatementKind, string> = {
 /** Onde cai o que ninguém classificou, por tipo. */
 export const FALLBACK_CATEGORY = FALLBACK;
 
+/**
+ * Pix ou transferência enviada para alguém que o assistente não sabe dizer para quê. Sai de "Outras
+ * despesas" sozinho; se a família mudar um para outra categoria, os seguintes da mesma pessoa vão junto.
+ */
+export const PERSON_TRANSFER_CATEGORY = "Pix para pessoas";
+
+export const isPersonTransferCategory = (name: string) =>
+  normalizeDescription(name) === normalizeDescription(PERSON_TRANSFER_CATEGORY);
+
+/** Descrição de Pix, TED ou transferência que saiu da conta. Recebido não entra. */
+export function isPersonTransfer(description: string): boolean {
+  const text = normalizeDescription(description);
+  if (/\brecebid[oa]\b|\bestorno\b|\bdevolu/.test(text)) return false;
+  return (
+    /\b(pix|transferencia|transf|ted|doc)\b/.test(text) && /\b(enviad[oa]|para|envio)\b/.test(text)
+  );
+}
+
 /** Palavras que dizem como o dinheiro passou, não para quem. */
 const NOISE = new Set(
   (
@@ -869,7 +887,12 @@ export function isCategoryCandidate(
   row: Pick<ReviewTransaction, "categoryName" | "categorySource" | "importBatchId">,
 ): boolean {
   if (isProtectedCategory(row.categoryName)) return false;
-  return isGenericCategory(row.categoryName) || effectiveCategorySource(row) === "revisar";
+  // "Pix para pessoas" é uma espera: a escolha da família para a mesma pessoa ainda tira o lançamento dali.
+  return (
+    isGenericCategory(row.categoryName) ||
+    isPersonTransferCategory(row.categoryName) ||
+    effectiveCategorySource(row) === "revisar"
+  );
 }
 
 export interface CategoryCandidate {

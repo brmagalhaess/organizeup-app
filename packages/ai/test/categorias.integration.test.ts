@@ -512,6 +512,52 @@ describe("o que não passa", () => {
     expect(sentGroups(next.calls[0]!)).toEqual(["loja pequena"]);
   });
 
+  it("Pix para alguém que o modelo não reconhece vai para Pix para pessoas, com Desfazer", async () => {
+    const [pix, shop, received] = await seed(family, [
+      { description: "PIX ENVIADO PARA JOANA ALVES SOUZA", amount: "250.00" },
+      { description: "LOJA DESCONHECIDA ZETA", amount: "40.00" },
+      { description: "PIX RECEBIDO DE JOANA ALVES SOUZA", kind: "receita" },
+    ]);
+    await review(family, fakeClient([reply({}, {}, {})]).client);
+    const moved = await rowOf(family, pix!);
+    const target = await inFamily(family, (tx) => categoryId(tx, domain.PERSON_TRANSFER_CATEGORY));
+    expect(moved.categoryId).toBe(target);
+    expect(moved.categorySource).toBe("agente");
+    // Loja que ninguém reconhece e Pix recebido ficam onde estavam.
+    const other = await inFamily(family, (tx) => categoryId(tx, "Outras despesas"));
+    expect((await rowOf(family, shop!)).categoryId).toBe(other);
+    expect((await rowOf(family, received!)).kind).toBe("receita");
+    const applied = (await suggestions(family)).filter((row) => row.status === "aplicada");
+    expect(applied).toHaveLength(1);
+    const ctx = await ownerContext(family);
+    const undone = await db.withHousehold(ctx, (tx) =>
+      agents.undoSuggestion(tx, ctx, applied[0]!.id),
+    );
+    expect(undone.ok).toBe(true);
+    expect((await rowOf(family, pix!)).categoryId).toBe(other);
+  });
+
+  it("a família muda um Pix de Pix para pessoas e os outros da mesma pessoa vão junto", async () => {
+    const [first, second] = await seed(family, [
+      { description: "PIX ENVIADO PARA CARLA MENDES LIMA", amount: "180.00" },
+      { description: "PIX ENVIADO PARA CARLA MENDES LIMA", amount: "180.00" },
+    ]);
+    await review(family, fakeClient([reply({})]).client);
+    const waiting = await inFamily(family, (tx) => categoryId(tx, domain.PERSON_TRANSFER_CATEGORY));
+    expect((await rowOf(family, second!)).categoryId).toBe(waiting);
+    const health = await inFamily(family, (tx) => categoryId(tx, "Saúde"));
+    await inFamily(family, (tx) =>
+      tx
+        .update(transactions)
+        .set({ categoryId: health, categorySource: "familia" })
+        .where(eq(transactions.id, first!)),
+    );
+    await inFamily(family, (tx) =>
+      agents.runCategoriasAgent(tx, { today, householdId: family.id }),
+    );
+    expect((await rowOf(family, second!)).categoryId).toBe(health);
+  });
+
   it("quase-duplicata é fundida em vez de criar categoria", async () => {
     const before = await inFamily(family, (tx) => tx.select().from(categories));
     const [id] = await seed(family, [{ description: "LOJA ATOMO" }]);

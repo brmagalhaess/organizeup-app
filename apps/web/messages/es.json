@@ -4734,7 +4734,8 @@
       "academia": "Gimnasio",
       "viagens": "Viajes",
       "contaPrincipal": "Cuenta principal",
-      "semCategoria": "Sin categoría"
+      "semCategoria": "Sin categoría",
+      "pixParaPessoas": "Pix a personas"
     },
     "descricoes": {
       "fatura": "Factura {name}",

@@ -22,6 +22,7 @@ const NAME_KEYS: Readonly<Record<string, string>> = {
   Assinaturas: "assinaturas",
   Compras: "compras",
   "Outras despesas": "outrasDespesas",
+  "Pix para pessoas": "pixParaPessoas",
   "Cartão de crédito": "cartao",
   "Dívidas e empréstimos": "dividas",
   "Metas e objetivos": "metas",

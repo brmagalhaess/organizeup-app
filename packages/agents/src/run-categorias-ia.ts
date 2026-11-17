@@ -18,7 +18,9 @@ import {
   dailyCategoryReport,
   isCategoryCandidate,
   isGenericCategory,
+  isPersonTransfer,
   memoryKey,
+  PERSON_TRANSFER_CATEGORY,
   merchantsOfDedupeKeys,
   withAiSummary,
   type CategoryCandidate,
@@ -152,7 +154,10 @@ export async function applyCategoryPlan(
   const blocked = merchantsOfDedupeKeys(decisions.blocked);
   const categoryRows = await tx.select().from(categories);
   const nameOf = new Map(categoryRows.map((c) => [c.id, c.name]));
-  const ids = plan.moves.flatMap((move) => move.group.ids);
+  const unanswered = [...plan.unknown, ...plan.rejected];
+  const ids = [...plan.moves, ...unanswered.map((group) => ({ group }))].flatMap(
+    (move) => move.group.ids,
+  );
   const rows =
     ids.length === 0
       ? []
@@ -199,7 +204,42 @@ export async function applyCategoryPlan(
     if (target) moved += still.length;
   }
 
-  const skipped = [...plan.unknown, ...plan.rejected, ...doubtful];
+  // Pix ou transferência para alguém que o modelo não reconheceu: sai de "Outras despesas" para "Pix para
+  // pessoas", com Desfazer como qualquer mudança do agente. O resto fica para depois, como sempre.
+  const skipped: CategoryCandidate[] = [];
+  for (const group of [...unanswered, ...doubtful]) {
+    const still =
+      group.kind === "despesa" && isPersonTransfer(group.sample)
+        ? group.ids.flatMap((id) => {
+            const row = current.get(id);
+            return row && isGenericCategory(row.categoryName) ? [row] : [];
+          })
+        : [];
+    if (still.length === 0 || blocked.has(memoryKey(group.kind, group.merchant))) {
+      skipped.push(group);
+      continue;
+    }
+    const target = await applyGroup(
+      tx,
+      { householdId, today },
+      moveGroup(
+        {
+          group,
+          target: {
+            categoryId: null,
+            newCategory: { name: PERSON_TRANSFER_CATEGORY, essential: false },
+          },
+          confidence: "alta",
+        },
+        still,
+      ),
+      current,
+      nameOf,
+      created,
+    );
+    if (target) moved += still.length;
+    else skipped.push(group);
+  }
   for (const group of skipped) {
     await recordSkipped(tx, householdId, CATEGORIAS_AGENT, skippedItem(group));
   }
