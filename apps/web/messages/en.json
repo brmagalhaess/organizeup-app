@@ -2097,9 +2097,12 @@
     "label": "Language"
   },
   "errors": {
+    "reload": "Reload the page",
     "retry": "Try again",
     "screenText": "We couldn't load this screen. Your data is safe. Please try again in a moment.",
-    "screenTitle": "Something went wrong"
+    "screenTitle": "Something went wrong",
+    "staleText": "OrganizeUp was updated while this page was open. Your data is safe: reload to carry on.",
+    "staleTitle": "This page is out of date"
   },
   "legal": {
     "notice": "These documents are available in Portuguese only, and the Portuguese version is the one that applies."

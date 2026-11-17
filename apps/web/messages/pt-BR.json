@@ -2097,9 +2097,12 @@
     "label": "Idioma"
   },
   "errors": {
+    "reload": "Recarregar a página",
     "retry": "Tentar de novo",
     "screenText": "Não conseguimos carregar esta tela. Seus dados continuam guardados. Tente de novo em instantes.",
-    "screenTitle": "Algo não saiu como esperado"
+    "screenTitle": "Algo não saiu como esperado",
+    "staleText": "O OrganizeUp foi atualizado enquanto esta página estava aberta. Seus dados continuam guardados: recarregue para continuar.",
+    "staleTitle": "Esta página está desatualizada"
   },
   "legal": {
     "notice": "Estes documentos existem só em português, e é essa versão que vale."

@@ -2097,9 +2097,12 @@
     "label": "Idioma"
   },
   "errors": {
+    "reload": "Recargar la página",
     "retry": "Intentar de nuevo",
     "screenText": "No pudimos cargar esta pantalla. Tus datos siguen guardados. Inténtalo de nuevo en unos instantes.",
-    "screenTitle": "Algo salió mal"
+    "screenTitle": "Algo salió mal",
+    "staleText": "OrganizeUp se actualizó mientras esta página estaba abierta. Tus datos siguen guardados: recarga para continuar.",
+    "staleTitle": "Esta página está desactualizada"
   },
   "legal": {
     "notice": "Estos documentos solo están disponibles en portugués, y esa es la versión que vale."
