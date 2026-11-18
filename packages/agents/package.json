@@ -18,6 +18,6 @@
   },
   "devDependencies": {
     "embedded-postgres": "18.4.0-beta.17",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   }
 }

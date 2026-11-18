@@ -16,7 +16,7 @@
     "@organizeup/ai": "workspace:*",
     "@organizeup/db": "workspace:*",
     "@organizeup/domain": "workspace:*",
-    "pg-boss": "12.38.0",
+    "pg-boss": "12.38.2",
     "pino": "10.4.0"
   },
   "devDependencies": {
