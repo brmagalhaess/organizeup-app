@@ -13,16 +13,16 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "1.3.0",
+    "@anthropic-ai/sdk": "1.8.0",
     "@organizeup/agents": "workspace:*",
     "@organizeup/db": "workspace:*",
     "@organizeup/domain": "workspace:*",
-    "pdfjs-dist": "6.4.299",
-    "read-excel-file": "9.3.14",
+    "pdfjs-dist": "6.5.438",
+    "read-excel-file": "9.3.17",
     "zod": "4.6.7"
   },
   "devDependencies": {
     "embedded-postgres": "18.4.0-beta.17",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   }
 }

@@ -14,9 +14,9 @@
     "loja:android": "bash scripts/loja-android.sh"
   },
   "dependencies": {
-    "@better-auth/expo": "1.7.14",
-    "@react-native-community/datetimepicker": "9.2.1",
-    "better-auth": "1.7.14",
+    "@better-auth/expo": "1.7.25",
+    "@react-native-community/datetimepicker": "9.3.0",
+    "better-auth": "1.7.25",
     "expo": "~58.0.25",
     "expo-constants": "~58.0.16",
     "expo-linking": "~58.0.17",

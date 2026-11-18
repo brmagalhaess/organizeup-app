@@ -18,7 +18,7 @@
   "dependencies": {
     "@organizeup/domain": "workspace:*",
     "drizzle-orm": "0.45.4",
-    "pg-boss": "12.38.0",
+    "pg-boss": "12.38.2",
     "postgres": "3.4.9"
   },
   "devDependencies": {
